@@ -113,7 +113,7 @@ fun App() {
     val cur = if (Remote.active) Remote.status.track else Music.current()
     var tint by remember { mutableStateOf<Pair<Color, Color>?>(null) }
     LaunchedEffect(cur?.id, Music.artColors, Music.savedVersion, Music.look) {
-        tint = if (Music.artColors && cur != null && !C.isLight && !C.glow && C.gradient == null)
+        tint = if (Music.artColors && cur != null && !C.isLight && !C.glow && C.gradient == null && !C.apple)
             Tint.of(ctx, ctx.imageLoader, if (Remote.active) Remote.artModel(cur) else artModel(cur)) else null
     }
     // A link shared from another app: search it on the service it's from.
@@ -157,7 +157,7 @@ fun App() {
         Box(Modifier.fillMaxSize().background(bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)) {
             if (C.stars) Stars()
             if (ui.tab == "player" && page == null) {
-                Player(ui)
+                ApplePlayer(ui)
                 if (ui.selecting) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { SelectBar(ui) }
             } else Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 ScreenHeader(ui, page, title)
@@ -244,11 +244,13 @@ private fun entries(): List<Entry> = buildList {
     add(Entry("Skips", Ico.SKIP, "music", "skips"))
     add(Entry("Duplicates", Ico.COPY, "music", "dupes"))
     add(Entry("DJ", Ico.DISC, "music", "dj"))
+    add(Entry("Lyrics", Ico.LYRICS, "lyrics"))
+    add(Entry("Visualizer", Ico.VIS, "visualizer"))
 }
 
 @Composable
 private fun DrawerSheet(ui: Ui) {
-    ModalDrawerSheet(drawerContainerColor = C.light, drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+    ModalDrawerSheet(drawerContainerColor = if (C.apple) C.bg else C.light, drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
         modifier = Modifier.width(300.dp)) {
         Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -279,12 +281,12 @@ private fun DrawerSheet(ui: Ui) {
 
 @Composable
 private fun DrawerItem(label: String, ico: Ico, on: Boolean, quiet: Boolean = false, onClick: () -> Unit) {
-    val onCol = if (C.isLight) Color.White else C.darker
+    val onCol = if (C.apple) C.fg else if (C.isLight) Color.White else C.darker
     Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)
-        .then(if (on) Modifier.shadow(8.dp, R.card, ambientColor = C.accent, spotColor = C.accent) else Modifier)
-        .clip(R.card).background(if (on) C.accent else Color.Transparent).clickable(onClick = onClick)
+        .then(if (on && !C.apple) Modifier.shadow(8.dp, R.card, ambientColor = C.accent, spotColor = C.accent) else Modifier)
+        .clip(R.card).background(if (on) (if (C.apple) C.fg.copy(alpha = 0.08f) else C.accent) else Color.Transparent).clickable(onClick = onClick)
         .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(ico, if (on) onCol else if (quiet) C.muted else C.accent, 22.dp)
+        Icon(ico, if (on && !C.apple) onCol else if (quiet) C.muted else C.accent, 22.dp)
         Text(label, style = T.title.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = if (on) onCol else if (quiet) C.muted else C.fg),
             modifier = Modifier.padding(start = 18.dp))
     }
@@ -400,10 +402,10 @@ private fun SearchField(ui: Ui) {
 
 // ───────────────────────────── What's playing ─────────────────────────────
 
-private class Now(val t: Track?, val paused: Boolean, val pos: Double, val dur: Double, val remote: Boolean)
+class Now(val t: Track?, val paused: Boolean, val pos: Double, val dur: Double, val remote: Boolean)
 
 @Composable
-private fun now(): Now {
+fun now(): Now {
     val remote = Remote.active
     return Now(if (remote) Remote.status.track else Music.current(), if (remote) Remote.status.paused else Music.paused,
         if (remote) Remote.status.position else Music.position, if (remote) Remote.status.duration else Music.duration, remote)
@@ -431,7 +433,8 @@ private fun MiniPlayer(ui: Ui) {
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(Ico.PREV, C.fg, 20.dp, 8.dp) { Music.previous() }
-                Box(Modifier.padding(horizontal = 2.dp).size(46.dp).shadow(8.dp, R.pill, ambientColor = C.accent, spotColor = C.accent)
+                if (C.apple) IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, C.fg, 24.dp, 10.dp) { Music.togglePause() }
+                else Box(Modifier.padding(horizontal = 2.dp).size(46.dp).shadow(8.dp, R.pill, ambientColor = C.accent, spotColor = C.accent)
                     .clip(R.pill).background(C.accent).clickable { Music.togglePause() }, contentAlignment = Alignment.Center) {
                     Icon(if (n.paused) Ico.PLAY else Ico.PAUSE, Color.White, 20.dp)
                 }

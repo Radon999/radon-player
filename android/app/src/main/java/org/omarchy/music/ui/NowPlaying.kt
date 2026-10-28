@@ -1,0 +1,532 @@
+package org.omarchy.music.ui
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.audiofx.Visualizer
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
+import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import org.omarchy.music.Music
+import org.omarchy.music.Remote
+import org.omarchy.music.Spectrum
+import org.omarchy.music.Track
+import org.omarchy.music.fmtTime
+import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.roundToInt
+
+// Now playing, Apple Music's way: the window in the cover's main colour (lighter at the top, deeper at
+// the bottom) with the cover itself faintly in it, slightly blurred, and bars rising and falling with the
+// music along the bottom in a light shade of the same colour. The cover big, the song under it with ☆ and ⋯,
+// a thin bar to seek on, the controls, the volume, and a pill of Lyrics, the output (its EQ) and the queue.
+// The queue takes the cover's place: Shuffle, Repeat and Autoplay, the songs you queued, then the songs it
+// plays on with (drag ≡ to move one), then your other queues.
+
+private val WHITE = Color.White
+private val SOFT = Color.White.copy(alpha = 0.62f)
+private val GLASS = Color.White.copy(alpha = 0.14f)
+
+/** The backdrop's colours from a cover: the gradient's top and bottom, and the bars' light shade. */
+class NowColors(val top: Color, val bottom: Color, val bars: Color)
+
+private val GREY = NowColors(Color(0xFF4D4D55), Color(0xFF1A1A1E), Color(0xFFDADAE0))
+
+private fun nowColors(rgb: Int): NowColors {
+    val hsl = FloatArray(3)
+    ColorUtils.colorToHSL(rgb, hsl)
+    val s = if (hsl[1] > 0.08f) hsl[1].coerceIn(0.25f, 0.75f) else hsl[1]   // a grey cover stays grey
+    fun shade(l: Float, sat: Float = s) = Color(ColorUtils.HSLToColor(floatArrayOf(hsl[0], sat, l)))
+    return NowColors(shade(0.46f), shade(0.20f), shade(0.80f, min(1f, s + 0.1f)))
+}
+
+private suspend fun loadNowColors(ctx: Context, model: Any?): NowColors? {
+    model ?: return null
+    val res = ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(model).allowHardware(false).size(64).build())
+    val bmp = ((res as? SuccessResult)?.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap ?: return null
+    return nowColors(Tint.artColor(bmp))
+}
+
+@Composable
+fun ApplePlayer(ui: Ui) {
+    val n = now()
+    val t = n.t
+    val ctx = LocalContext.current
+    val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 1200) }
+    var cols by remember { mutableStateOf(GREY) }
+    LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(ctx, art) ?: GREY }
+    val levels = rememberLevels(on = true)
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))) {
+        // The cover in the colour, faintly, slightly blurred (a small copy drawn big is soft on every phone).
+        if (art != null) AsyncImage(model = ImageRequest.Builder(ctx).data(art).size(20).build(), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer(alpha = 0.28f))
+        if (levels != null) NowBars(levels.first, levels.second, cols.bars, Modifier.align(Alignment.BottomCenter))
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            NowTop(ui, n)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (ui.pane) {
+                    "queue" -> QueuePane(ui, n)
+                    "lyrics" -> Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).clip(R.big)
+                        .background(Color.Black.copy(alpha = 0.25f))) { LyricsTab(ui) }
+                    else -> Column(Modifier.fillMaxSize()) {
+                        BigCover(ui, art, t != null, Modifier.weight(1f))
+                        SongLine(ui, n)
+                    }
+                }
+            }
+            Seek(n)
+            Transport(n)
+            VolumeLine()
+            ToolPill(ui)
+            Text("●  " + Music.outputNow.label, style = T.sub.copy(color = SOFT, fontWeight = FontWeight.Medium),
+                textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().clickable { ui.sheet = "eq" }.padding(top = 8.dp, bottom = 10.dp))
+        }
+    }
+}
+
+/** ☰ (always there), where it plays from, and the gear. */
+@Composable
+private fun NowTop(ui: Ui, n: Now) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(Ico.MENU, WHITE) { ui.drawer = true }
+        val t = n.t
+        val from = when {
+            n.remote -> "Playing on the desktop"
+            t == null -> ""
+            Music.shownRadio() -> "Playing a radio"
+            t.album.isNotEmpty() -> "From the album ${t.album}"
+            Music.queueName.isNotEmpty() -> "Playing from ${Music.queueName}"
+            else -> ""
+        }
+        Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
+            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
+        IconButton(Ico.SETTINGS, WHITE) { ui.sheet = "accounts" }
+    }
+}
+
+/** The cover, big: swipe it for the next or the last song, up for the queue; tap for the lyrics, double-tap to pause. */
+@Composable
+private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier) {
+    var dx by remember { mutableFloatStateOf(0f) }
+    BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
+        val side = if (maxWidth < maxHeight) maxWidth else maxHeight
+        Box(Modifier.size(side)
+            .graphicsLayer(translationX = dx * 0.6f, rotationZ = dx / 90f, alpha = 1f - (abs(dx) / 900f).coerceIn(0f, 0.5f))
+            .shadow(26.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black, spotColor = Color.Black)
+            .clip(RoundedCornerShape(14.dp)).background(GLASS)
+            .pointerInput(playing) {
+                detectHorizontalDragGestures(onDragEnd = {
+                    if (playing) { if (dx < -160f) Music.next() else if (dx > 160f) Music.previous() }
+                    dx = 0f
+                }, onDragCancel = { dx = 0f }) { _, d -> dx += d }
+            }
+            .pointerInput(Unit) {
+                var dy = 0f
+                detectVerticalDragGestures(onDragStart = { dy = 0f }, onDragEnd = { if (dy < -80f) ui.pane = "queue" }) { _, d -> dy += d }
+            }
+            .pointerInput(Unit) { detectTapGestures(onTap = { ui.pane = "lyrics" }, onDoubleTap = { Music.togglePause() }) },
+            contentAlignment = Alignment.Center) {
+            Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
+            if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
+    }
+}
+
+/** The song, the artist (— the album), and ☆ and ⋯ in glass circles. */
+@Composable
+private fun SongLine(ui: Ui, n: Now) {
+    val t = n.t
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(t?.title ?: "Nothing playing", style = T.big.copy(color = WHITE, fontSize = 24.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (t != null) ArtistLinks(t.artist, ui, t.source, style = T.body.copy(color = SOFT, fontSize = 17.sp),
+                suffix = if (t.album.isNotEmpty()) "  —  ${t.album}" else "")
+            else Text("Open ☰ and pick a song to start", style = T.body.copy(color = SOFT))
+        }
+        if (t != null && !n.remote) {
+            Music.musicVersion
+            val fav = Music.favorites.has(t)
+            Glass(if (fav) Ico.STAR else Ico.STAR_LINE, "Favorite") { Music.setFavorite(listOf(t)) }
+            Spacer(Modifier.width(10.dp))
+            Box {
+                Glass(Ico.MORE, "More") { menu = true }
+                TrackMenu(t, RowPlace(listOf(t), 0), ui, menu) { menu = false }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Glass(ico: Ico, desc: String, on: Boolean = false, onClick: () -> Unit) {
+    Box(Modifier.size(42.dp).clip(R.pill).background(if (on) WHITE.copy(alpha = 0.85f) else GLASS).clickable(onClick = onClick)
+        .semantics { contentDescription = desc }
+        .padding(10.dp), contentAlignment = Alignment.Center) { Icon(ico, if (on) Color(0xFF222222) else WHITE, 20.dp) }
+}
+
+/** A thin bar to seek on; the time gone, the quality, the time left. */
+@Composable
+private fun Seek(n: Now) {
+    var drag by remember { mutableStateOf<Float?>(null) }
+    val frac = drag ?: if (n.dur > 0) (n.pos / n.dur).toFloat().coerceIn(0f, 1f) else 0f
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        SlimBar(frac, onMove = { drag = it }, onDone = { f -> if (n.dur > 0) Music.seek(f * n.dur); drag = null })
+        Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            val pos = drag?.let { it * n.dur } ?: n.pos
+            Text(fmtTime(pos), style = T.time.copy(color = SOFT))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { if (!n.remote) QualityMark() }
+            Text("-" + fmtTime(maxOf(0.0, n.dur - pos)), style = T.time.copy(color = SOFT))
+        }
+    }
+}
+
+/** A slim bar (the seek bar, the volume): tap or drag along it. */
+@Composable
+private fun SlimBar(frac: Float, onMove: (Float) -> Unit, onDone: (Float) -> Unit, modifier: Modifier = Modifier) {
+    var dragging by remember { mutableStateOf(false) }
+    Canvas(modifier.fillMaxWidth().height(24.dp)
+        .pointerInput(Unit) { detectTapGestures { o -> onDone((o.x / size.width).coerceIn(0f, 1f)) } }
+        .pointerInput(Unit) {
+            var last = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { o -> dragging = true; last = (o.x / size.width).coerceIn(0f, 1f); onMove(last) },
+                onDragEnd = { dragging = false; onDone(last) },
+                onDragCancel = { dragging = false; onDone(last) },
+            ) { change, _ -> last = (change.position.x / size.width).coerceIn(0f, 1f); onMove(last) }
+        }) {
+        val h = (if (dragging) 9f else 6f) * density / 2.6f * 2.6f
+        val y = (size.height - h) / 2
+        drawRoundRect(WHITE.copy(alpha = 0.22f), Offset(0f, y), Size(size.width, h), CornerRadius(h / 2))
+        drawRoundRect(WHITE.copy(alpha = 0.9f), Offset(0f, y), Size(size.width * frac, h), CornerRadius(h / 2))
+    }
+}
+
+/** FLAC, the stream's quality, or ⤓ FLAC to save it. */
+@Composable
+private fun QualityMark() {
+    Music.savedVersion
+    val t = Music.current() ?: return
+    val saved = Music.lib.items[t.id]
+    val saving = Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }
+    val stream = saved == null && !t.isFile
+    val lossy = if (stream) Music.dl.streamLossy(t.id) else null
+    val label = when {
+        saved?.format == "flac" -> "FLAC" + (saved.quality.takeIf { it.isNotEmpty() }?.let { " $it" } ?: "")
+        saved != null -> "Offline"
+        saving -> "Saving…"
+        lossy != null -> Music.dl.streamQuality(t.id).ifEmpty { "Streaming" }
+        stream -> "⤓ FLAC"
+        t.isFile -> t.file?.substringAfterLast('.', "")?.uppercase().orEmpty()
+        else -> ""
+    }
+    if (label.isEmpty()) return
+    Text(label, style = T.time.copy(color = SOFT, fontWeight = FontWeight.SemiBold), maxLines = 1,
+        modifier = Modifier.clip(R.small).clickable(enabled = stream && !saving && lossy == null) { Music.saveCurrent() }
+            .padding(horizontal = 6.dp, vertical = 2.dp))
+}
+
+/** Previous, play/pause, next: plain and white, Apple's way. */
+@Composable
+private fun Transport(n: Now) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween) {
+        IconButton(Ico.PREV, WHITE, 34.dp, 12.dp) { Music.previous() }
+        IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 48.dp, 12.dp) { Music.togglePause() }
+        IconButton(Ico.NEXT, WHITE, 34.dp, 12.dp) { Music.next() }
+    }
+}
+
+/** The phone's media volume, as a slim bar between a quiet and a loud speaker. */
+@Composable
+private fun VolumeLine() {
+    val ctx = LocalContext.current
+    val am = remember { ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    val max = remember { am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
+    var v by remember { mutableFloatStateOf(am.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat()) }
+    var held by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {   // the volume keys change it too
+        while (true) {
+            kotlinx.coroutines.delay(600)
+            if (!held) v = am.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat()
+        }
+    }
+    fun set(f: Float) { v = f; am.setStreamVolume(AudioManager.STREAM_MUSIC, (f * max).roundToInt().coerceIn(0, max), 0) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Ico.SPEAKER, SOFT, 16.dp)
+        SlimBar(v, onMove = { held = true; set(it) }, onDone = { held = false; set(it) }, modifier = Modifier.weight(1f).padding(horizontal = 10.dp))
+        Icon(Ico.SPEAKER, SOFT, 22.dp)
+    }
+}
+
+/** Lyrics, where the sound goes (its equalizer) and the queue, in a glass pill. */
+@Composable
+private fun ToolPill(ui: Ui) {
+    Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+        Row(Modifier.clip(R.pill).background(GLASS).border(1.dp, WHITE.copy(alpha = 0.14f), R.pill).padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            PillTool(Ico.LYRICS, ui.pane == "lyrics", "Lyrics") { ui.pane = if (ui.pane == "lyrics") "art" else "lyrics" }
+            PillTool(Ico.SPEAKER, false, "Output and equalizer") { ui.sheet = "eq" }
+            PillTool(Ico.QUEUE, ui.pane == "queue", "Queue") { ui.pane = if (ui.pane == "queue") "art" else "queue" }
+        }
+    }
+}
+
+@Composable
+private fun PillTool(ico: Ico, on: Boolean, desc: String, onClick: () -> Unit) {
+    Box(Modifier.size(width = 52.dp, height = 40.dp).clip(R.pill).background(if (on) WHITE.copy(alpha = 0.88f) else Color.Transparent)
+        .clickable(onClick = onClick).semantics { contentDescription = desc }, contentAlignment = Alignment.Center) {
+        Icon(ico, if (on) Color(0xFF222222) else WHITE, 22.dp)
+    }
+}
+
+// ───────────────────────────── The queue, in the cover's place ─────────────────────────────
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun QueuePane(ui: Ui, n: Now) {
+    val t = n.t
+    val q = Music.shownQueue()
+    val idx = Music.shownIndex()
+    var menu by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.clickable { ui.pane = "art" }) { ArtImage(t?.let { if (n.remote) Remote.artModel(it) else artModel(it) }, 60.dp) }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(t?.title ?: "Nothing playing", style = T.title.copy(color = WHITE, fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(t?.artist ?: "", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (t != null && !n.remote) {
+                Music.musicVersion
+                val fav = Music.favorites.has(t)
+                Glass(if (fav) Ico.STAR else Ico.STAR_LINE, "Favorite") { Music.setFavorite(listOf(t)) }
+                Spacer(Modifier.width(10.dp))
+                Box {
+                    Glass(Ico.MORE, "More") { menu = true }
+                    TrackMenu(t, RowPlace(listOf(t), 0), ui, menu) { menu = false }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val rep = if (n.remote) Remote.status.repeat else Music.repeat
+            Mode(Ico.SHUFFLE, Music.shuffled, "Shuffle", Modifier.weight(1f)) { Music.shuffle() }
+            Mode(if (rep == "one") Ico.REPEAT_ONE else Ico.REPEAT, rep != "off", "Repeat", Modifier.weight(1f)) { Music.cycleRepeat() }
+            Mode(Ico.INFINITY, Music.autoplay, "Autoplay", Modifier.weight(1f)) { Music.setAutoplay(!Music.autoplay) }
+        }
+        val start = (idx + 1).coerceAtLeast(0)
+        val queued = (start until q.size).filter { q[it].queued }
+        val rest = (start until q.size).filter { !q[it].queued }
+        val list = rememberLazyListState()
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
+            if (queued.isNotEmpty()) {
+                item("qh") { QHead("Queue", null, "Clear") { Music.clearQueued() } }
+                itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
+            }
+            item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music", null) {} }
+            if (rest.isEmpty()) item("none") {
+                Text(if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
+                    style = T.sub.copy(color = SOFT), modifier = Modifier.padding(vertical = 10.dp))
+            }
+            itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
+            if (!n.remote && Music.queues.isNotEmpty()) {
+                item("yh") { QHead("Your queues", null, "Remove all others") { Music.removeOtherQueues() } }
+                itemsIndexed(Music.queues, key = { _, s -> "s" + s.id }) { _, s ->
+                    Row(Modifier.fillMaxWidth().clip(R.card).clickable { Music.switchQueue(s.id) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Ico.QUEUE, SOFT, 20.dp)
+                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(s.name, style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val cur = s.tracks.getOrNull(s.index)?.title ?: ""
+                            Text("${s.index + 1} of ${s.tracks.size} · $cur", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        IconButton(Ico.EDIT, SOFT, 18.dp, 8.dp) {
+                            ui.askName = Triple("Rename the queue", s.name) { nm -> Music.renameQueue(s.id, nm) }
+                        }
+                        IconButton(Ico.TRASH, SOFT, 18.dp, 8.dp) { Music.deleteQueue(s.id) }
+                    }
+                }
+            }
+            item("end") { Spacer(Modifier.height(12.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun QHead(title: String, sub: String?, action: String?, onAction: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = T.title.copy(color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
+            if (sub != null) Text(sub, style = T.sub.copy(color = SOFT))
+        }
+        if (action != null) Text(action, style = T.body.copy(color = SOFT, fontWeight = FontWeight.Medium),
+            modifier = Modifier.clip(R.small).clickable(onClick = onAction).padding(horizontal = 6.dp, vertical = 4.dp))
+    }
+}
+
+@Composable
+private fun Mode(ico: Ico, on: Boolean, desc: String, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.height(40.dp).clip(RoundedCornerShape(10.dp)).background(if (on) WHITE.copy(alpha = 0.62f) else GLASS)
+        .clickable(onClick = onClick).semantics { contentDescription = desc }, contentAlignment = Alignment.Center) {
+        Icon(ico, if (on) Color.Black.copy(alpha = 0.62f) else WHITE, 20.dp)
+    }
+}
+
+/** A song in the queue: tap to play it, long-press for its menu, drag ≡ up or down to move it. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
+    var menu by remember { mutableStateOf(false) }
+    var dy by remember { mutableFloatStateOf(0f) }
+    val rowPx = with(LocalDensity.current) { 60.dp.toPx() }
+    Box(Modifier.graphicsLayer(translationY = dy).background(if (dy != 0f) Color.Black.copy(alpha = 0.2f) else Color.Transparent, R.card)) {
+        Row(Modifier.fillMaxWidth().height(60.dp).clip(R.card)
+            .combinedClickable(onClick = { Music.playIndex(j) }, onLongClick = { menu = true }),
+            verticalAlignment = Alignment.CenterVertically) {
+            ArtImage(if (remote) Remote.artModel(t) else artModel(t), 46.dp)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(t.title, style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(t.artist, style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (!remote) Box(Modifier.size(44.dp).pointerInput(j) {
+                detectVerticalDragGestures(onDragStart = { dy = 0f },
+                    onDragEnd = {
+                        val steps = (dy / rowPx).roundToInt()
+                        dy = 0f
+                        if (steps != 0) Music.moveInQueue(j, (j + steps).coerceIn(Music.index + 1, Music.queue.size - 1))
+                    },
+                    onDragCancel = { dy = 0f }) { _, d -> dy += d }
+            }, contentAlignment = Alignment.Center) { Icon(Ico.GRIP, WHITE.copy(alpha = 0.4f), 20.dp) }
+        }
+        TrackMenu(t, RowPlace(Music.shownQueue(), j, kind = "queue", queueIndex = j), ui, menu) { menu = false }
+    }
+}
+
+// ───────────────────────────── The bars ─────────────────────────────
+
+/** The bands' levels from Android's Visualizer on the player's own sound, and a frame count that ticks
+ *  while they move (null: the visualizer isn't allowed, or isn't there). */
+@Composable
+fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
+    val ctx = LocalContext.current
+    val allowed = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    if (!on || !allowed || Remote.active) return null
+    val session = (Music.player as? ExoPlayer)?.audioSessionId ?: 0
+    val target = remember { FloatArray(Spectrum.BANDS) }
+    val levels = remember { FloatArray(Spectrum.BANDS) }
+    var frame by remember { mutableIntStateOf(0) }
+    DisposableEffect(session) {
+        val vis = runCatching {
+            Visualizer(session).apply {
+                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
+                setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                    override fun onWaveFormDataCapture(v: Visualizer, wave: ByteArray, rate: Int) {}
+                    override fun onFftDataCapture(v: Visualizer, fft: ByteArray, rate: Int) {
+                        Spectrum.bands(fft, rate / 1000).copyInto(target)
+                    }
+                }, Visualizer.getMaxCaptureRate(), false, true)
+                enabled = true
+            }
+        }.getOrNull()
+        onDispose { vis?.runCatching { enabled = false; release() } }
+    }
+    LaunchedEffect(Unit) {
+        var last = 0L
+        while (true) withFrameNanos { now ->
+            var moving = false
+            for (b in levels.indices) {
+                val want = if (Music.paused) 0f else target[b]
+                val have = levels[b]
+                val new = if (want > have) want else have - (have - want) * 0.18f
+                if (abs(new - have) > 0.002f) moving = true
+                levels[b] = new
+            }
+            if (moving && now - last > 33_000_000L) { last = now; frame++ }   // 30 frames a second is plenty here
+        }
+    }
+    return levels to frame
+}
+
+/** Twice as many slim bars as bands (each between two is their mix), spread out along the bottom. */
+@Composable
+private fun NowBars(levels: FloatArray, frame: Int, col: Color, modifier: Modifier) {
+    Canvas(modifier.fillMaxWidth().fillMaxHeight(0.28f)) {
+        @Suppress("UNUSED_EXPRESSION") frame
+        val n = levels.size
+        val m = n * 2 - 1
+        val slot = size.width / m
+        val bw = maxOf(1.5f, slot * 0.38f)
+        for (i in 0 until m) {
+            val lv = if (i % 2 == 0) levels[i / 2] else (levels[i / 2] + levels[i / 2 + 1]) / 2
+            val h = maxOf(2f, lv * size.height)
+            drawRect(col.copy(alpha = 0.12f + 0.22f * lv), Offset(i * slot + (slot - bw) / 2, size.height - h), Size(bw, h))
+        }
+    }
+}

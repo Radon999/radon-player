@@ -22,6 +22,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -158,11 +162,17 @@ fun ArtImage(model: Any?, size: Dp, modifier: Modifier = Modifier) {
 fun ArtistLinks(text: String, ui: Ui, prefer: String?, style: androidx.compose.ui.text.TextStyle = T.sub, suffix: String = "") {
     val names = splitArtists(text)
     var menu by remember { mutableStateOf(false) }
+    // Only the name itself opens the artist: Android would otherwise grow its touch area to 48dp,
+    // over the song's title above it, and a tap on the title would open the artist instead of playing.
+    val vc = LocalViewConfiguration.current
+    val exact = remember(vc) { object : ViewConfiguration by vc { override val minimumTouchTargetSize: DpSize get() = DpSize.Zero } }
     Box {
-        Text(text + suffix, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = if (names.isEmpty() || ui.selecting) Modifier else Modifier.clickable {
-                if (names.size == 1) ui.pages += Ui.Page.Artist(names[0], prefer) else menu = true
-            })
+        CompositionLocalProvider(LocalViewConfiguration provides exact) {
+            Text(text + suffix, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = if (names.isEmpty() || ui.selecting) Modifier else Modifier.clickable {
+                    if (names.size == 1) ui.pages += Ui.Page.Artist(names[0], prefer) else menu = true
+                })
+        }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             names.forEach { n ->
                 DropdownMenuItem(text = { Text(n) }, onClick = { menu = false; ui.pages += Ui.Page.Artist(n, prefer) })
@@ -185,7 +195,8 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             Modifier.fillMaxWidth()
                 .padding(horizontal = 6.dp, vertical = 1.dp)
                 .clip(R.card)
-                .background(if (playing || checked) C.accent.copy(alpha = 0.14f) else if (C.isLight) C.light else Color.Transparent)
+                .background(if (playing || checked) C.accent.copy(alpha = if (C.apple) 0.08f else 0.14f)
+                    else if (C.isLight && !C.apple) C.light else Color.Transparent)
                 .combinedClickable(
                     onClick = { if (ui.selecting) ui.toggle(t) else onPlay() },
                     onLongClick = { if (ui.selecting) ui.toggle(t) else menu = true },
@@ -203,15 +214,18 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(t.title, style = T.title.copy(color = if (playing) C.accent else C.fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val bits = buildList {
-                    if (t.duration > 0) add(fmtTime(t.duration))
+                    if (t.duration > 0 && !C.apple) add(fmtTime(t.duration))   // Apple Music's: the length at the end of the row
                     if (extra.isNotEmpty()) add(extra)
                 }.joinToString(" · ")
                 ArtistLinks(t.artist, ui, t.source, suffix = if (bits.isNotEmpty()) "  · $bits" else "")
             }
+            if (C.apple && t.duration > 0) Text(fmtTime(t.duration), style = T.time, modifier = Modifier.padding(end = 6.dp))
             if (saved != null) Badge(if (saved.format == "flac") "FLAC" else "✓")
             else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)
             if (!ui.selecting) Box(Modifier.clip(R.pill).clickable { menu = true }.padding(6.dp)) { Icon(Ico.MORE, C.muted, 18.dp) }
         }
+        if (C.apple && !playing && !checked) androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = C.line,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 78.dp, end = 12.dp))   // Apple's thin line between rows
         TrackMenu(t, place, ui, menu) { menu = false }
     }
 }

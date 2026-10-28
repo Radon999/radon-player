@@ -90,6 +90,7 @@ object Music {
     var browseLocal by mutableStateOf(false)   // Local picked in the source bar: your own songs, no Library tab
     var look by mutableStateOf("stellio")      // the app's colours: Stellio (the default), a colourful one, dark, light, or a neon one
     var visPreset by mutableStateOf("bars")    // the Visualizer tab's look
+    var autoplay by mutableStateOf(true)       // ∞: when the queue runs out, songs like the last one play on
     var wrappedStyle by mutableStateOf("classic")   // Wrapped's look
     var skipOrder by mutableStateOf("most")    // how Skips is sorted: most, least, heard
     var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": the app's own
@@ -203,6 +204,7 @@ object Music {
         val skip_order: String = "most", val download_dir: String = "", val dupe_action: String = "ask",
         val queues: List<SavedQueue> = emptyList(), val queue_name: String = "", val queue_id: String = "",
         val multi_queue: Boolean = true, val styled: Boolean = false, val lyrics_to_files: Boolean = true,
+        val apple_ui: Boolean = false, val autoplay: Boolean = true,
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -228,7 +230,11 @@ object Music {
         playlistSort = st.playlist_sort.takeIf { it in PLAYLIST_SORTS } ?: "order"
         browseLocal = st.browse_local
         searchBeforeLocal = st.search_before_local.takeIf { it in SEARCH_IN && it != "local" } ?: "tidal"
-        look = if (st.styled) st.look else "stellio"   // the Stellio look comes in once; you can pick any other after
+        // The Apple Music look came with 1.3: everyone starts on it (dark if the phone is), and can pick any other after.
+        val night = (ctx.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        look = if (st.apple_ui) st.look else if (night) "apple-dark" else "apple"
+        autoplay = st.autoplay
         org.omarchy.music.ui.Looks.apply(look)
         visPreset = st.vis_preset
         wrappedStyle = st.wrapped_style
@@ -250,7 +256,7 @@ object Music {
     fun saveState() {
         val st = State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
-            queues, queueName, queueId, multiQueue, true, lyricsToFiles)
+            queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay)
         bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
     }
 
@@ -1375,7 +1381,34 @@ object Music {
             q = q + res.filter { ids.add(it.id) && songs.add(songKey(it)) }
             queue = q
             afterQueueChange()
+            if (ended && index + 1 < queue.size) next()   // it had stopped at the end: on it goes
         }
+    }
+
+    /** ∞: a couple of songs before the end, songs like the last one, so there's no gap. */
+    private fun autoplaySoon() {
+        if (autoplay && repeat == "off" && queue.isNotEmpty() && queue.size - index <= 2 && radioFrom != queue.last().id)
+            extendRadio(queue.last())
+    }
+
+    @JvmName("chooseAutoplay")
+    fun setAutoplay(on: Boolean) { autoplay = on; saveState(); if (on) autoplaySoon() }
+
+    /** The queue's Clear: the songs you queued by hand go (what plays on from the list stays). */
+    fun clearQueued() {
+        if (Remote.active) { toast("Clear the queue on the desktop"); return }
+        queue = queue.take(index + 1) + queue.drop(index + 1).filter { !it.queued }
+        afterQueueChange()
+    }
+
+    /** The song at i, dragged to j (both after the one playing). */
+    fun moveInQueue(i: Int, j: Int) {
+        if (Remote.active || i == j || i !in queue.indices || j !in queue.indices || i <= index || j <= index) return
+        val q = queue.toMutableList()
+        val t = q.removeAt(i)
+        q.add(j, t)
+        queue = q
+        afterQueueChange()
     }
 
     fun playIndex(i: Int) {
@@ -1386,12 +1419,15 @@ object Music {
     fun next() {
         if (Remote.active) { Remote.cmd("next"); return }
         when {
-            index + 1 < queue.size -> { index++; loadCurrent() }
+            index + 1 < queue.size -> { index++; loadCurrent(); autoplaySoon() }
             repeat == "all" && queue.isNotEmpty() -> {
                 if (shuffled) { queue = shuffleSongs(queue, after = current()); afterQueueChange() }   // round again in a new order
                 index = 0; loadCurrent()
             }
-            else -> { ended = true; player?.pause() }
+            else -> {
+                ended = true; player?.pause()
+                if (autoplay && repeat == "off") current()?.let { extendRadio(it) }   // ∞: songs like it, and on it goes
+            }
         }
     }
 

@@ -1,17 +1,17 @@
-# VarMusic
+# Radon Player
 
-(Formerly Omarchy Music.)
+(Formerly VarMusic, and before that Omarchy Music, made by Xavier Reid: the history of both is
+kept here.)
 
-A small music popup for [Omarchy](https://omarchy.org/) (Hyprland), themed live from the
-Omarchy theme. You browse YouTube Music, Tidal, Apple Music or Spotify, plus the music
-in your own folders. Everything plays in lossless FLAC from Tidal where Tidal has it.
+A music player for **Windows** and **Android** with an Apple Music-style look. You browse YouTube
+Music, Tidal, Apple Music or Spotify, plus the music in your own folders. Everything plays in
+lossless FLAC from Tidal where Tidal has it.
 
-It is a single Python/GTK 4 file: `omarchy-music`. It also runs on **Windows**, and there is
-an **Android** app.
+The desktop app is a single Python/GTK 4 file, `omarchy-music`; the Android app is in `android/`.
 
 **Downloads** (Windows installer, Android APK) are on the
-[download page](https://varixxl.github.io/omarchy-music/) and the
-[releases page](https://github.com/Varixxl/omarchy-music/releases).
+[releases page](https://github.com/Radon999/radon-player/releases). What each version added is in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Features
 

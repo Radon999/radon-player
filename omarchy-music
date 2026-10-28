@@ -97,10 +97,11 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Graphene", "1.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gtk, Pango  # noqa: E402
+gi.require_version("Gsk", "4.0")
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "1.2.0"            # the release this is; GitHub's latest release is compared with it
-REPO = "Radon999/omarchy-music"   # updates come from here: its releases, and its code (Linux)
+VERSION = "1.3.0"            # the release this is; GitHub's latest release is compared with it
+REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
 # window, state, mpv and media-key name; OMARCHY_MUSIC_DIR points it at a test
@@ -290,6 +291,11 @@ def copy_rank(f):
 @functools.lru_cache(maxsize=1 << 16)   # sorting thousands of songs asks for the same names again and again
 def norm(s):
     """Lowercase letters and digits only, accents dropped: for comparing names across services."""
+    return _norm(s) if isinstance(s, str) else _norm(s or "")
+
+
+@functools.lru_cache(maxsize=100000)   # sorting and matching thousands of songs asks it of the same names again and again
+def _norm(s):
     s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode() or (s or "")
     return " ".join(re.sub(r"[^\w\s]", " ", s.lower()).split())
 
@@ -395,6 +401,8 @@ for _k, (_label, _col) in NEON.items():
 # gradient (and the galaxy ones have a few stars over it). key: (name, accent, background, cards,
 # text, quiet text, selection, light?, gradient, stars?)
 STYLED = {
+    "apple": ("Apple Music", "#fa2d48", "#ffffff", "#f5f5f7", "#1d1d1f", "#86868b", "#ffd5dc", True, None, False),
+    "apple-dark": ("Apple Music dark", "#fa2d48", "#1c1c1e", "#2c2c2e", "#f5f5f7", "#98989d", "#4a1f28", False, None, False),
     "stellio": ("Stellio", "#4a86f7", "#eef0f6", "#ffffff", "#2b3141", "#8a90a6", "#c9d3ea", True, None, False),
     "stellio-dark": ("Stellio dark", "#5b8def", "#1c2030", "#262b3d", "#e6e9f5", "#8a90a8", "#343b54", False, None, False),
     "galaxy": ("Galaxy", "#b57bff", "#0b0820", "#1c1544", "#ede7ff", "#9a8fc4", "#3a2c70", False,
@@ -424,6 +432,8 @@ def styled_palette(key):
          "foreground": fg, "red": "#e5484d", "yellow": mix_hex(acc, "#ffcc00", 0.6), "green": "#3fb97a",
          "blue": mix_hex(acc, "#3b82f6", 0.5), "magenta": mix_hex(acc, "#d946ef", 0.5), "cyan": mix_hex(acc, "#06b6d4", 0.5),
          "orange": mix_hex(acc, "#f97316", 0.5), "styled": "yes"}
+    if key.startswith("apple"):
+        c["apple"] = "yes"
     if grad:
         c["gradient"] = ",".join(grad)
     if stars:
@@ -437,6 +447,150 @@ for _k in STYLED:
 # The Look menu: Stellio's and the colourful ones first, then the plain and neon ones.
 LOOK_NAMES = [(k, v[0]) for k, v in STYLED.items()] + [("default", "Default"), ("dark", "Dark"), ("light", "Light")] + [
     (k, f"Neon {label.lower()}") for k, (label, _c) in NEON.items()]
+
+
+def apple_css(c):
+    """The Apple Music looks: plain white (or near-black) pages, big bold titles, quiet rows with thin
+    lines between them, a red-pink accent; the menu a soft grey column."""
+    acc, fg, bg, light, muted = c["accent"], c["foreground"], c["background"], c["lighter_background"], c["muted"]
+    lm = c["mode"] == "light"
+    line = rgba(fg, 0.09)
+    side = mix_hex(bg, "#000000", 0.035) if lm else mix_hex(bg, "#ffffff", 0.04)
+    return f"""
+window.main {{ background-color: {bg}; }}
+.top {{ padding: 10px 18px 6px 12px; }}
+.nav-title {{ font-weight: 800; font-size: 1.55em; letter-spacing: -0.3px; color: {fg}; }}
+.nav-sub {{ color: {muted}; }}
+button.ctl {{ border-radius: 8px; color: {fg}; }}
+button.ctl:hover {{ background-color: {rgba(fg, 0.06)}; color: {fg}; }}
+button.ctl:checked, button.ctl.on, button.ctl.liked {{ color: {acc}; }}
+.drawer {{ background-color: {side}; border-right: 1px solid {line}; }}
+.drawer-list {{ padding: 8px 10px 14px 10px; }}
+.source-card {{ background: transparent; padding: 2px 6px 8px 6px; border-radius: 0; }}
+.drawer-src {{ color: {muted}; font-weight: 700; font-size: 0.78em; letter-spacing: 0.4px; }}
+list.drawer-items > row.drawer-item {{ border-radius: 8px; padding: 7px 10px; margin: 0; color: {fg}; box-shadow: none; }}
+list.drawer-items > row.drawer-item drawingarea {{ color: {acc}; }}
+list.drawer-items > row.drawer-item:hover {{ background-color: {rgba(fg, 0.05)}; }}
+list.drawer-items > row.drawer-item.on {{ background-color: {rgba(fg, 0.09 if lm else 0.12)}; color: {fg}; box-shadow: none; }}
+list.drawer-items > row.drawer-item.on drawingarea {{ color: {acc}; }}
+list.drawer-items label {{ font-weight: 500; font-size: 0.98em; }}
+listview.tracks {{ padding: 0 18px 12px 18px; }}
+listview.tracks > row > .song {{ border-radius: 0; padding: 7px 8px; margin: 0; border-left: none; border-bottom: 1px solid {line}; }}
+listview.tracks > row:hover > .song, listview.tracks > row:hover > row {{ background-color: {rgba(fg, 0.045)}; }}
+listview.tracks > row > .song.playing {{ background-color: {rgba(acc, 0.08)}; border-left: none; }}
+listview.tracks > row > .song.playing .title {{ color: {acc}; }}
+.song .title {{ font-weight: 500; }}
+.song .dur {{ color: {muted}; font-size: 0.86em; font-feature-settings: "tnum"; margin: 0 6px; }}
+.art {{ border-radius: 6px; }}
+.section {{ color: {fg}; font-size: 1.15em; font-weight: 800; letter-spacing: 0; padding: 18px 8px 6px 8px; }}
+.page-head {{ padding: 10px 8px 12px 8px; }}
+.page-title {{ font-size: 1.9em; font-weight: 800; letter-spacing: -0.4px; }}
+button.pill {{ background-color: {rgba(acc, 0.10)}; color: {acc}; border: none; border-radius: 8px; padding: 6px 16px; font-weight: 700; }}
+button.pill:hover {{ background-color: {rgba(acc, 0.16)}; }}
+button.pill.quiet {{ background-color: {rgba(fg, 0.06)}; color: {fg}; border: none; }}
+.player {{ background-color: {rgba(light if lm else mix_hex(bg, '#ffffff', 0.06), 0.97)}; border-top: 1px solid {line};
+  border-radius: 0; margin: 0; box-shadow: none; padding: 8px 18px; }}
+.player button.play {{ background: transparent; color: {fg}; box-shadow: none; }}
+.player button.play:hover {{ background-color: {rgba(fg, 0.06)}; color: {fg}; }}
+scale.progress > trough > highlight {{ background-color: {fg}; }}
+toggle-group.sources > toggle:checked {{ color: {fg}; background-color: {rgba(fg, 0.10)}; border-color: transparent; }}
+.settings-page {{ background-color: {mix_hex(bg, '#000000', 0.03) if lm else bg}; }}
+.settings-page .accounts {{ padding: 4px 22px 40px 22px; }}
+.set-head {{ color: {muted}; font-size: 0.78em; font-weight: 600; letter-spacing: 0.6px; margin: 18px 14px 6px 14px; }}
+list.set-group {{ background-color: {light if lm else mix_hex(bg, '#ffffff', 0.07)}; border-radius: 12px; padding: 0;
+  border: 1px solid {line}; }}
+list.set-group > row {{ padding: 0; border-bottom: 1px solid {line}; background: transparent; }}
+list.set-group > row:last-child {{ border-bottom: none; }}
+.set-row {{ padding: 11px 16px; }}
+.set-across {{ margin: 8px 16px; }}
+.settings-page .accounts .service {{ font-weight: 500; font-size: 1.0em; }}
+.settings-page .accounts .state {{ color: {muted}; font-size: 0.86em; }}
+.settings-page .accounts .state.ok {{ color: {muted}; }}
+"""
+
+
+def np_css(c):
+    """Now playing over its backdrop (the cover's colours, dark enough): white text and glassy buttons,
+    whatever the look."""
+    acc = c["accent"]
+    return f"""
+.top.on-np, headerbar.winbar.on-np {{ background: transparent; box-shadow: none; }}
+.top.on-np .nav-title, .top.on-np .nav-sub, .top.on-np button.ctl, headerbar.winbar.on-np {{ color: rgba(255,255,255,0.92); }}
+.top.on-np button.ctl:hover {{ background-color: rgba(255,255,255,0.12); }}
+.drawer.on-np {{ background-color: rgba(0,0,0,0.22); border-right-color: rgba(255,255,255,0.08); }}
+.drawer.on-np label, .drawer.on-np drawingarea {{ color: rgba(255,255,255,0.88); }}
+.drawer.on-np list.drawer-items > row.drawer-item:hover {{ background-color: rgba(255,255,255,0.08); }}
+.drawer.on-np list.drawer-items > row.drawer-item.on {{ background-color: rgba(255,255,255,0.16); }}
+.drawer.on-np toggle-group.sources > toggle {{ color: rgba(255,255,255,0.7); }}
+.drawer.on-np toggle-group.sources > toggle:checked {{ color: #fff; background-color: rgba(255,255,255,0.16); }}
+overlay-split-view.split > .sidebar-pane, overlay-split-view.split > .content-pane {{ background: transparent; box-shadow: none; }}
+.np-scroll {{ background: transparent; }}
+.nowplaying {{ padding: 4px 28px 8px 28px; color: #fff; }}
+.np-from {{ color: rgba(255,255,255,0.85); font-weight: 600; font-size: 0.9em; margin-top: 2px; }}
+.bigart {{ border-radius: 14px; background-color: rgba(255,255,255,0.08); box-shadow: 0 18px 50px rgba(0,0,0,0.45); }}
+.np-info {{ margin-bottom: 14px; }}
+.np-title {{ color: #fff; font-weight: 600; font-size: 1.75em; letter-spacing: -0.3px; }}
+.np-artist, .np-artist label {{ color: rgba(255,255,255,0.62); font-size: 1.25em; }}
+.np-album {{ color: rgba(255,255,255,0.45); font-size: 1.25em; }}
+button.np-tool, menubutton.np-tool > button {{ background-color: rgba(255,255,255,0.14); color: #fff; border: none; box-shadow: none;
+  border-radius: 999px; min-width: 40px; min-height: 40px; padding: 0; }}
+button.np-tool:hover, menubutton.np-tool > button:hover {{ background-color: rgba(255,255,255,0.24); }}
+button.np-tool.on, menubutton.np-tool.on > button {{ background-color: rgba(255,255,255,0.88); color: #111; }}
+button.np-tool.liked {{ color: {acc}; }}
+scale.np-progress, scale.np-volume {{ min-height: 0; padding: 8px 0; margin: 0; }}
+scale.np-progress > trough, scale.np-volume > trough {{ padding: 0; margin: 0; outline: none; }}
+scale.np-progress > trough > highlight, scale.np-volume > trough > highlight {{ margin: 0; padding: 0; min-width: 0; }}
+scale.np-progress > trough {{ min-height: 5px; border-radius: 999px; background-color: rgba(255,255,255,0.22); border: none; box-shadow: none; }}
+scale.np-progress > trough > highlight {{ min-height: 5px; border-radius: 999px; background-color: rgba(255,255,255,0.92); border: none; }}
+scale.np-progress > trough > slider {{ min-width: 14px; min-height: 14px; margin: -5px; background-color: #fff; border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3); opacity: 0; transition: opacity 120ms; }}
+scale.np-progress:hover > trough > slider {{ opacity: 1; }}
+.np-times {{ color: rgba(255,255,255,0.6); font-size: 0.85em; font-feature-settings: "tnum"; }}
+.np-times-row .badge {{ color: rgba(255,255,255,0.6); border: none; font-weight: 600; font-size: 0.82em; padding: 0; }}
+.np-controls {{ margin: 14px 0 10px 0; }}
+.np-controls button.ctl {{ color: #fff; background: transparent; min-width: 52px; min-height: 52px; border-radius: 999px; }}
+.np-controls button.ctl:hover {{ background-color: rgba(255,255,255,0.10); color: #fff; }}
+.np-controls button.ctl.on, .np-controls button.ctl:checked {{ color: #fff; background-color: rgba(255,255,255,0.18); }}
+.np-controls button.play {{ background: transparent; color: #fff; min-width: 76px; min-height: 76px; border-radius: 999px;
+  box-shadow: none; }}
+.np-controls button.play:hover {{ background-color: rgba(255,255,255,0.10); color: #fff; }}
+.np-controls label {{ color: rgba(255,255,255,0.7); }}
+.np-volume-row {{ color: rgba(255,255,255,0.7); margin: 4px 0 18px 0; }}
+scale.np-volume > trough {{ min-height: 5px; border-radius: 999px; background-color: rgba(255,255,255,0.22); border: none; box-shadow: none; }}
+scale.np-volume > trough > highlight {{ min-height: 5px; border-radius: 999px; background-color: rgba(255,255,255,0.85); border: none; }}
+scale.np-volume > trough > slider {{ min-width: 14px; min-height: 14px; margin: -5px; background-color: #fff; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }}
+.np-pill {{ background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 4px 10px; }}
+.np-pill button.np-tool, .np-pill menubutton.np-tool > button {{ background: transparent; min-width: 52px; }}
+.np-pill button.np-tool:hover, .np-pill menubutton.np-tool > button:hover {{ background-color: rgba(255,255,255,0.12); }}
+.np-pill button.np-tool.on, .np-pill menubutton.np-tool.on > button {{ background-color: rgba(255,255,255,0.88); color: #111; }}
+button.np-output {{ background: transparent; border: none; box-shadow: none; color: rgba(255,255,255,0.75); font-weight: 600;
+  font-size: 0.9em; margin: 8px 0 6px 0; padding: 2px 10px; }}
+button.np-output:hover {{ color: #fff; }}
+.np-queue {{ padding: 14px 0 6px 0; color: #fff; }}
+.np-q-art {{ border-radius: 8px; box-shadow: 0 6px 16px rgba(0,0,0,0.3); }}
+button.np-mode {{ background-color: rgba(255,255,255,0.16); color: #fff; border: none; box-shadow: none; border-radius: 10px;
+  min-height: 40px; padding: 0; }}
+button.np-mode:hover {{ background-color: rgba(255,255,255,0.24); }}
+button.np-mode.on {{ background-color: rgba(255,255,255,0.62); color: rgba(0,0,0,0.62); }}
+button.np-link {{ background: transparent; border: none; box-shadow: none; color: rgba(255,255,255,0.75); font-weight: 600;
+  padding: 2px 6px; min-height: 0; }}
+button.np-link:hover {{ color: #fff; }}
+list.np-list .art, .np-q-art {{ background-color: rgba(255,255,255,0.12); }}
+.np-grip {{ color: rgba(255,255,255,0.35); font-size: 1.3em; padding: 0 4px; }}
+.np-q-scroll {{ background: transparent; }}
+.np-q-title {{ color: #fff; font-weight: 800; font-size: 1.25em; }}
+.np-q-sub {{ color: rgba(255,255,255,0.6); font-size: 0.9em; }}
+list.np-list {{ background: transparent; }}
+list.np-list > row {{ border-radius: 10px; padding: 5px 4px; background: transparent; outline: none; }}
+list.np-list > row:hover {{ background-color: rgba(255,255,255,0.08); }}
+list.np-list > row.playing {{ background-color: rgba(255,255,255,0.12); }}
+.np-row-title {{ color: #fff; font-weight: 500; }}
+.np-row-sub {{ color: rgba(255,255,255,0.6); font-size: 0.88em; }}
+.np-more {{ color: rgba(255,255,255,0.85); font-weight: 700; padding: 6px 2px; }}
+.np-q-icon {{ color: rgba(255,255,255,0.8); }}
+.np-queue button.pill.quiet {{ background-color: rgba(255,255,255,0.12); color: #fff; border: none; }}
+.np-vis-menu {{ padding: 8px 10px; }}
+"""
 
 
 def styled_css(c):
@@ -465,6 +619,23 @@ def styled_css(c):
         out += f"window.main {{ background-image: {', '.join(layers)}; }}\n"
         out += f".drawer {{ background-image: linear-gradient(180deg, {rgba(cols[0], 0.97)}, {rgba(cols[-1], 0.97)}); }}\n"
     return out
+
+
+def system_dark():
+    """Whether Windows is set to dark apps (on Linux: whether the desktop asks for dark)."""
+    if WINDOWS:
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+                return winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0
+        except OSError:
+            return False
+    try:
+        return Adw.StyleManager.get_default().get_system_supports_color_schemes() and \
+            Adw.StyleManager.get_default().get_dark()
+    except Exception:  # noqa: BLE001 -- before a display: light
+        return False
 
 
 def load_theme(look="default"):
@@ -793,7 +964,7 @@ window.wrapped.big .w-sub {{ font-size: 1.35em; }}
 window.wrapped.big .w-small {{ font-size: 1.05em; }}
 window.wrapped.big .w-name {{ font-size: 1.35em; }}
 window.wrapped.big .w-rank {{ font-size: 1.6em; min-width: 40px; }}
-""" + (neon_css(acc) if c.get("glow") else "") + (styled_css(c) if c.get("styled") else "") + f"""
+""" + (neon_css(acc) if c.get("glow") else "") + (apple_css(c) if c.get("apple") else styled_css(c) if c.get("styled") else "") + np_css(c) + f"""
 window.wrapped.ws-neon, window.wrapped.ws-neon .slide {{ background-color: #05050a; }}
 """ + "".join(f"window.wrapped.ws-neon .slide.s{i} {{ background-image: radial-gradient(circle at 85% 15%, "
               f"{rgba(c[k], 0.45)}, rgba(0,0,0,0) 40%), radial-gradient(circle at 10% 90%, {rgba(c[k2], 0.35)}, "
@@ -1006,8 +1177,19 @@ class Library:
         return sorted(self.items.values(), key=lambda t: (t.get("last", 0), t.get("added", 0)), reverse=True)
 
     def size_mb(self):
-        return sum(Path(t["file"]).stat().st_size for t in self.items.values()
-                   if Path(t["file"]).exists()) / 1e6
+        """How much the downloads take up (worked out again at most once a minute: it asks the disk
+        about every file, and My music shows it each time it opens)."""
+        got = getattr(self, "_size", None)
+        if got and got[0] == len(self.items) and time.time() - got[1] < 60:
+            return got[2]
+        total = 0
+        for t in self.items.values():
+            try:
+                total += os.stat(t["file"]).st_size
+            except OSError:
+                pass
+        self._size = (len(self.items), time.time(), total / 1e6)
+        return self._size[2]
 
     def size_text(self):
         mb = self.size_mb()
@@ -1337,29 +1519,43 @@ class LocalFiles:
         whether anything changed. A file that turns up after the first scan was
         added now; on the first scan, when it was last written. (Songs downloaded into a
         folder of yours are read too; the Music tab lists each file once.)"""
-        first, skip = not self.files, MUSIC.resolve()
+        # os.scandir, not pathlib: on Windows a folder's listing brings each file's size and time with it,
+        # and a rescan of thousands of unchanged songs is then a few milliseconds of work, not a long
+        # stretch of Python (which the window had to wait through: it stuttered every couple of minutes).
+        first, skip = not self.files, str(MUSIC.resolve())
         seen, changed = {}, False
         for folder in folders:
             root = Path(folder).expanduser()
-            if not root.is_dir() or root.resolve() == skip:
+            if not root.is_dir() or str(root.resolve()) == skip:
                 continue
-            for dirpath, dirnames, filenames in os.walk(root):
-                d = Path(dirpath)
-                dirnames[:] = [n for n in dirnames if not n.startswith(".") and (d / n).resolve() != skip]
-                for name in filenames:
-                    path = d / name
-                    if path.suffix.lower() not in AUDIO_EXT:
-                        continue
+            todo = [str(root.resolve())]
+            while todo:
+                d = todo.pop()
+                try:
+                    entries = list(os.scandir(d))
+                except OSError:
+                    continue
+                for e in entries:
+                    name = e.name
                     try:
-                        st = path.stat()
+                        if e.is_dir():
+                            if not name.startswith(".") and e.path != skip:
+                                todo.append(e.path)
+                            continue
                     except OSError:
                         continue
-                    key = str(path.resolve())
+                    if os.path.splitext(name)[1].lower() not in AUDIO_EXT:
+                        continue
+                    try:
+                        st = e.stat()
+                    except OSError:
+                        continue
+                    key = e.path
                     old = self.files.get(key)
                     if old and old["mtime"] == st.st_mtime and old["size"] == st.st_size and "genre" in old["track"]:
                         seen[key] = old
                         continue
-                    t = track_from_file(path)
+                    t = track_from_file(Path(key))
                     t["added"] = old["track"].get("added") if old else st.st_mtime if first else time.time()
                     seen[key] = {"mtime": st.st_mtime, "size": st.st_size, "track": t}
                     changed = True
@@ -1394,14 +1590,31 @@ def file_cover(path):
                 return Picture(base64.b64decode(tags["metadata_block_picture"][0])).data
     except Exception:  # noqa: BLE001 -- no cover in the file: look beside it
         pass
-    try:
-        names = {p.name.lower(): p for p in Path(path).parent.iterdir()}
-    except OSError:
-        return None
-    for n in COVER_NAMES:
-        if n in names:
-            return names[n].read_bytes()
+    # A cover.jpg (folder.jpg…) beside it: looked for by name, not by listing the folder (a folder of
+    # thousands of songs was listed again for each of them, a long stall for the whole app).
+    folder = os.path.dirname(str(path))
+    found = _COVER_BESIDE.get(folder, False)
+    if found is False:
+        found = None
+        for n in COVER_NAMES:
+            for cand in (n, n.capitalize(), n.upper()):
+                c = os.path.join(folder, cand)
+                if os.path.isfile(c):
+                    found = c
+                    break
+            if found:
+                break
+        _COVER_BESIDE[folder] = found
+    if found:
+        try:
+            with open(found, "rb") as f:
+                return f.read()
+        except OSError:
+            return None
     return None
+
+
+_COVER_BESIDE = {}   # folder: its cover picture's path (or None)
 
 
 # =============================================================================
@@ -1477,6 +1690,7 @@ def youtube_audio(track, ytm=None):
     return url, f"{codec} {round(info.get('abr') or 0)} kbps".strip()
 
 
+@functools.lru_cache(maxsize=50000)   # asked of the same few thousand titles over and over (copies, stats)
 def clean_title(s):
     """A title without what YouTube adds: (Official Video), feat. credits,
     remaster notes, punctuation."""
@@ -4077,13 +4291,30 @@ class DiscordPresence:
 # tagger's) beat a YouTube title like "Song (Official Video)"
 # =============================================================================
 
+_TAGS_SEEN = collections.OrderedDict()   # path: (mtime, tags): reading a FLAC's tags took up to 0.2 s
+
+
 def file_tags(path):
     """The Vorbis comments of a FLAC file as {name: [values]}, {} if unreadable."""
     try:
-        from mutagen.flac import FLAC
-        return {k.lower(): v for k, v in (FLAC(path).tags or {}).as_dict().items()}
-    except Exception:  # noqa: BLE001 -- not there, or not a FLAC
+        mtime = os.stat(path).st_mtime
+    except OSError:
         return {}
+    seen = _TAGS_SEEN.get(path)
+    if seen and seen[0] == mtime:
+        return seen[1]
+    try:
+        from mutagen.flac import FLAC
+        tags = {k.lower(): v for k, v in (FLAC(path).tags or {}).as_dict().items()}
+    except Exception:  # noqa: BLE001 -- not there, or not a FLAC
+        tags = {}
+    _TAGS_SEEN[path] = (mtime, tags)
+    try:
+        while len(_TAGS_SEEN) > 300:
+            _TAGS_SEEN.popitem(last=False)
+    except KeyError:   # another thread got there first
+        pass
+    return tags
 
 
 def tidy_title(s):
@@ -6403,6 +6634,14 @@ def draw_icon(cr, name, size):
         line(15, 4.5, 7.5, 12, 15, 19.5)
     elif n == "chev":
         line(9, 4.5, 16.5, 12, 9, 19.5)
+    elif n == "infinity":   # ∞: two loops crossing in the middle
+        cr.new_sub_path()
+        cr.move_to(12 * u, 12 * u)
+        cr.curve_to(9 * u, 7 * u, 3 * u, 7.5 * u, 3 * u, 12 * u)
+        cr.curve_to(3 * u, 16.5 * u, 9 * u, 17 * u, 12 * u, 12 * u)
+        cr.curve_to(15 * u, 7 * u, 21 * u, 7.5 * u, 21 * u, 12 * u)
+        cr.curve_to(21 * u, 16.5 * u, 15 * u, 17 * u, 12 * u, 12 * u)
+        cr.stroke()
     elif n == "down":
         line(5, 9, 12, 16, 19, 9)
     elif n == "search":
@@ -6627,6 +6866,7 @@ def artist_link(win, text, css="sub"):
     """A label of artists' names; a click opens the artist's page (a choice of them for a few)."""
     lab = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
     lab.add_css_class(css)
+    lab.set_cursor(pointer_cursor())
     click = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
 
     def pressed(gesture, _n, _x, _y):
@@ -6644,10 +6884,11 @@ def set_link_text(lab, text):
     link = names_artists(text)
     if getattr(lab, "is_link", None) is link:   # a recycled row's label: only the words change
         return
+    if getattr(lab, "is_link", None) is None and not link:
+        lab.is_link = link   # a new label, no names in it: nothing to undo (each GTK call here cost a row time)
+        return
     lab.is_link = link
     (lab.add_css_class if link else lab.remove_css_class)("link")
-    lab.set_cursor(pointer_cursor() if link else None)
-    lab.set_tooltip_text("Go to the artist" if link else None)
 
 
 @functools.lru_cache(maxsize=1)
@@ -6776,6 +7017,9 @@ class TrackCell(Gtk.Box):
         text.append(self.title)
         text.append(sub)
         box.append(text)
+        self.dur = Gtk.Label(valign=Gtk.Align.CENTER)   # its length, at the end of the row
+        self.dur.add_css_class("dur")
+        box.append(self.dur)
         self.box = box
         self.append(box)
 
@@ -6786,7 +7030,8 @@ class TrackCell(Gtk.Box):
         t = row.track
         self.title.set_label(t["title"])
         set_link_text(self.artist, t["artist"])
-        rest = "".join(f" · {x}" for x in (fmt_time(t["duration"]) if t.get("duration") else "", row.extra) if x)
+        rest = f" · {row.extra}" if row.extra else ""
+        self.dur.set_label(fmt_time(t["duration"]) if t.get("duration") else "")
         self.more.set_label(rest)
         self.more.set_visible(bool(rest))
         self.pic.clear()
@@ -6887,8 +7132,10 @@ class SongList(Gtk.ListView):
         factory = Gtk.SignalListItemFactory()
         factory.connect("bind", self._bind)
         factory.connect("unbind", self._unbind)
+        factory.connect("teardown", self._teardown)
         super().__init__(model=Gtk.NoSelection(model=self.store), factory=factory, single_click_activate=True)
         self.win, self.entries, self.waiting, self.flushing = win, [], [], 0
+        self.replacing = None   # emptied, and not yet filled again: how many places to take out then
         self.connect("activate", lambda _v, pos: self._activate(pos, on_activate))
 
     # ---- what's in it ----
@@ -6914,10 +7161,17 @@ class SongList(Gtk.ListView):
         return False
 
     def flush(self):
-        """What was appended, into the list now."""
+        """What was appended, into the list now. After remove_all, the old places go in the same step
+        as the new ones come: the list then shows the new songs in the row widgets it has, instead of
+        throwing them away and making a couple of hundred new ones (most of a list switch's time)."""
         if self.flushing:
             GLib.source_remove(self.flushing)
             self.flushing = 0
+        if self.replacing is not None:
+            old, self.replacing = self.replacing, None
+            self.waiting = []
+            self.store.splice(0, old, [str(i) for i in range(len(self.entries))])
+            return
         if self.waiting:
             n = self.store.get_n_items()
             count, self.waiting = len(self.waiting), []
@@ -6928,10 +7182,10 @@ class SongList(Gtk.ListView):
             if isinstance(e.thing, TrackRow):
                 e.thing.list = None
         self.entries, self.waiting = [], []
-        if self.flushing:
-            GLib.source_remove(self.flushing)
-            self.flushing = 0
-        self.store.splice(0, self.store.get_n_items(), [])
+        if self.replacing is None:
+            self.replacing = self.store.get_n_items()
+        if not self.flushing:   # emptied for good, unless something is appended before then
+            self.flushing = GLib.idle_add(self._flush_soon, priority=GLib.PRIORITY_HIGH_IDLE)
 
     def is_empty(self):
         return not self.entries
@@ -6941,11 +7195,15 @@ class SongList(Gtk.ListView):
 
     # ---- showing it ----
     def _bind(self, _f, item):
-        entry = self.entries[int(item.get_item().get_string())]
+        i = int(item.get_item().get_string())
+        if i >= len(self.entries):   # an old place, about to be replaced (flush)
+            return
+        entry = self.entries[i]
         if isinstance(entry.thing, TrackRow):
             cell = item.get_child()
-            if not isinstance(cell, TrackCell):   # this place showed a heading before: a row widget for it
-                cell = TrackCell(self.win)
+            if not isinstance(cell, TrackCell):   # this place showed a heading before (or nothing): a row widget
+                pool = SongList.cells
+                cell = pool.pop() if pool else TrackCell(self.win)
                 item.set_child(cell)
             cell.bind(entry.thing)
             item.set_activatable(True)
@@ -6961,6 +7219,16 @@ class SongList(Gtk.ListView):
             widget.set_focusable(False)   # the list's place takes the focus, not a ListBoxRow outside a ListBox
         item.set_child(widget)
         item.set_activatable(widget.get_activatable() if isinstance(widget, Gtk.ListBoxRow) else False)
+
+    cells = []   # row widgets of places GTK let go of, for the next ones (making one took about a millisecond)
+
+    def _teardown(self, _f, item):
+        child = item.get_child()
+        if isinstance(child, TrackCell):
+            child.unbind()
+            item.set_child(None)
+            if len(SongList.cells) < 400:
+                SongList.cells.append(child)
 
     def _unbind(self, _f, item):
         child = item.get_child()
@@ -7049,27 +7317,100 @@ VIS_PRESETS = (("bars", "Bars", "Bars rising and falling, with their reflection"
     (k, label, f"Neon {label.lower()} bars glowing on black") for k, (label, _c) in NEON.items())
 
 
+def vis_presets():
+    return VIS_PRESETS
+
+
 def hex_rgb(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)) if len(h) >= 6 else (1.0, 1.0, 1.0)
 
 
+class Fg:
+    """A colour as a widget's get_color() gives it (red, green, blue, alpha)."""
+    __slots__ = ("red", "green", "blue", "alpha")
+
+    def __init__(self, r, g, b, a=1.0):
+        self.red, self.green, self.blue, self.alpha = r, g, b, a
+
+
+def gdk_rgba(r, g, b, a=1.0):
+    c = Gdk.RGBA()
+    c.red, c.green, c.blue, c.alpha = r, g, b, a
+    return c
+
+
+def rect(x, y, w, h):
+    return Graphene.Rect().init(x, y, w, h)
+
+
+def blurred_cover(path):
+    """Now playing's background from the cover at path, Apple Music's way: a gradient in the cover's main
+    colour (lighter at the top, deeper at the bottom), with the cover itself, slightly blurred, faintly in
+    it. (cover rgb bytes, w, h, top colour, bottom colour, bars colour), colours (r, g, b) 0..1."""
+    from gi.repository import GdkPixbuf
+    try:
+        pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(path), 64, 64, False)
+    except GLib.Error:
+        return None
+    if pb.get_has_alpha():
+        pb = pb.composite_color_simple(64, 64, GdkPixbuf.InterpType.BILINEAR, 255, 64, 0, 0)
+    small = pb.scale_simple(16, 16, GdkPixbuf.InterpType.HYPER)      # slightly blurred: its shapes, softly
+    soft = small.scale_simple(64, 64, GdkPixbuf.InterpType.BILINEAR)
+    px, n, stride = soft.get_pixels(), soft.get_n_channels(), soft.get_rowstride()
+    data = bytearray(64 * 64 * 3)
+    for y in range(64):
+        row = px[y * stride:y * stride + 64 * n]
+        for c in range(3):
+            data[y * 192 + c:y * 192 + 192:3] = row[c::n]
+    data = bytes(data)
+    rgb = art_color(path) or (60, 60, 70)
+    h, l, sat = colorsys.rgb_to_hls(*(c / 255 for c in rgb))
+    sat = min(0.75, max(sat, 0.25)) if sat > 0.08 else sat   # a grey cover stays grey
+
+    def shade(light, s_=sat):
+        return colorsys.hls_to_rgb(h, light, s_)
+    return data, 64, 64, shade(0.46), shade(0.20), shade(0.80, min(1.0, sat + 0.1))
+
+
+def texture_rgb(data, w, h):
+    return Gdk.MemoryTexture.new(w, h, Gdk.MemoryFormat.R8G8B8, GLib.Bytes.new(data), w * 3)
+
+
+class VisArea(Gtk.Widget):
+    """Where the Visualizer tab draws (with cairo, in a snapshot of its own)."""
+    __gtype_name__ = "VarMusicVisArea"
+
+    def __init__(self, vis):
+        super().__init__(hexpand=True, vexpand=True)
+        self.vis = vis
+        self.add_css_class("visualizer")
+
+    def do_snapshot(self, snap):
+        w, h = self.get_width(), self.get_height()
+        if w <= 0 or h <= 0:
+            return
+        preset = self.vis.app.vis_preset
+        cr = snap.append_cairo(rect(0, 0, w, h))
+        c = self.get_color()
+        self.vis.paint(cr, w, h, preset, Fg(c.red, c.green, c.blue))
+
+
 class Visualizer(Gtk.Box):
     """The Visualizer tab: what's playing as bars rising and falling with its sound. The
     spectrum is worked out ahead of the music (spectrum_cmd) and drawn in step with where mpv
-    is in the song, so it's the song itself, not the speakers, and works the same on Windows."""
+    is in the song, so it's the song itself, not the speakers, and works the same on Windows.
+    Now playing's background (Backdrop) uses the same sound, and the same looks."""
 
     def __init__(self, win):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.win, self.app = win, win.app
-        self.area = Gtk.DrawingArea(vexpand=True, hexpand=True)
-        self.area.add_css_class("visualizer")
-        self.area.set_draw_func(self.draw)
+        self.area = VisArea(self)
         self.note = Gtk.Label(xalign=0.5, wrap=True, margin_bottom=10)
         self.note.add_css_class("sub")
         looks = Adw.ToggleGroup(halign=Gtk.Align.CENTER)
         looks.add_css_class("sources")
-        for name, label, tip in VIS_PRESETS:
+        for name, label, tip in vis_presets():
             looks.add(Adw.Toggle(label=label, name=name, tooltip=tip))
         looks.set_active_name(self.app.vis_preset)
         looks.connect("notify::active-name", lambda g, _p: g.get_active_name() and self.app.set_vis_preset(g.get_active_name())
@@ -7083,22 +7424,30 @@ class Visualizer(Gtk.Box):
         self.for_src = None
         self.proc = None
         self.levels = [0.0] * VIS_BANDS
+        self.levels_at = 0.0
         self.tick = None
+        self.last_draw = 0.0
 
     # ---- the spectrum ----
     def song_loaded(self):
         if self.win.shown("visualizer"):
             self.start()
 
-    def start(self):
-        """Work out the playing song's spectrum (if not done yet) and draw it while the tab shows."""
-        vid, src = self.app.loaded
+    def ensure(self):
+        """The playing song's spectrum, worked out if it isn't yet. False: nothing playing."""
+        _vid, src = self.app.loaded
         t = self.app.current_track()
         if not src or not t:
             self.note.set_label("Nothing playing")
-        elif src != self.for_src:
+            return False
+        if src != self.for_src:
             self.analyse(src)
             self.note.set_label(t["title"])
+        return True
+
+    def start(self):
+        """Work out the playing song's spectrum (if not done yet) and draw it while the tab shows."""
+        self.ensure()
         if self.tick is None:
             self.tick = self.area.add_tick_callback(self.on_tick)
 
@@ -7112,14 +7461,17 @@ class Visualizer(Gtk.Box):
             self.proc.kill()
         self.for_src, self.frames = src, []
         frames, size = self.frames, (VIS_BANDS + 1) * VIS_STEPS
-        try:
-            self.proc = proc = child(spectrum_cmd(src), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                     stdin=subprocess.DEVNULL)
-        except OSError:
-            self.note.set_label("The visualizer needs ffmpeg")
-            return
 
-        def read():
+        def read():   # ffmpeg started here, off the main loop (starting a program took a while on each song)
+            try:
+                self.proc = proc = child(spectrum_cmd(src), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                         stdin=subprocess.DEVNULL)
+            except OSError:
+                GLib.idle_add(lambda: (self.note.set_label("The visualizer needs ffmpeg"), False)[1])
+                return
+            if frames is not self.frames:   # another song came first
+                proc.kill()
+                return
             while True:
                 chunk = proc.stdout.read(size)
                 if len(chunk) < size:
@@ -7130,7 +7482,6 @@ class Visualizer(Gtk.Box):
                 GLib.idle_add(lambda: (self.note.set_label("Couldn't read this song's sound"), False)[1])
         threading.Thread(target=read, daemon=True).start()
 
-    # ---- drawing ----
     def position(self):
         a = self.app
         pos = a.position
@@ -7140,7 +7491,12 @@ class Visualizer(Gtk.Box):
             pos += min(0.6, time.monotonic() - a.position_at) * speed
         return pos
 
-    def on_tick(self, _area, _clock):
+    def update_levels(self):
+        """The bands' levels for this moment (once a frame, whoever asks). True: they moved."""
+        now = time.monotonic()
+        if now - self.levels_at < 0.008:
+            return False
+        self.levels_at = now
         i = int(self.position() * VIS_FPS)
         frame = self.frames[i] if 0 <= i < len(self.frames) and not self.app.paused else None
         moving = False
@@ -7150,19 +7506,25 @@ class Visualizer(Gtk.Box):
             new = want if want > have else have - (have - want) * 0.18   # up at once, down gently
             moving = moving or abs(new - have) > 0.002
             self.levels[b] = new
-        if moving:
+        return moving
+
+    def on_tick(self, _area, _clock):
+        if self.update_levels():
             self.area.queue_draw()
         return GLib.SOURCE_CONTINUE
 
-    def draw(self, area, cr, w, h):
-        if self.app.vis_preset in NEON:
-            self.draw_neon(area, cr, w, h, NEON[self.app.vis_preset][1])
+    # ---- drawing ----
+    def paint(self, cr, w, h, preset, fg, cols=None):
+        """preset's look in fg on cr; cols: its other colours (accent, magenta, cyan)."""
+        self.fg, self.cols = fg, cols
+        if preset in NEON:
+            self.draw_neon(cr, w, h, NEON[preset][1])
             return
-        look = getattr(self, f"draw_{self.app.vis_preset}", None)
-        if look and self.app.vis_preset != "bars":
-            look(area, cr, w, h)
+        look = getattr(self, f"draw_{preset}", None)
+        if look and preset != "bars":
+            look(cr, w, h)
             return
-        c = area.get_color()
+        c = fg
         n, pad = VIS_BANDS, 16
         gap = max(1.0, (w - 2 * pad) / n * 0.25)
         bw = max(1.0, (w - 2 * pad) / n - gap)
@@ -7178,12 +7540,14 @@ class Visualizer(Gtk.Box):
             cr.fill()
 
     def colors(self):
-        """The theme's accent and two more of its colours, for the looks that use colour."""
+        """The theme's accent and two more of its colours (or Now playing's, from the cover)."""
+        if self.cols:
+            return self.cols
         c = (self.app.theme or {}).get("c") or DEFAULT_COLORS
         return hex_rgb(c["accent"]), hex_rgb(c.get("magenta", c["accent"])), hex_rgb(c.get("cyan", c["accent"]))
 
-    def draw_mirror(self, area, cr, w, h):
-        c = area.get_color()
+    def draw_mirror(self, cr, w, h):
+        c = self.fg
         n, pad = VIS_BANDS, 16
         gap = max(1.0, (w - 2 * pad) / n * 0.25)
         bw = max(1.0, (w - 2 * pad) / n - gap)
@@ -7195,7 +7559,7 @@ class Visualizer(Gtk.Box):
             cr.rectangle(x, mid - bh, bw, bh * 2)
             cr.fill()
 
-    def draw_wave(self, area, cr, w, h):
+    def draw_wave(self, cr, w, h):
         acc, mag, _cy = self.colors()
         n, pad = VIS_BANDS, 16
         base = h * 0.82
@@ -7217,7 +7581,7 @@ class Visualizer(Gtk.Box):
         cr.set_line_width(2.5)
         cr.stroke()
 
-    def draw_circle(self, area, cr, w, h):
+    def draw_circle(self, cr, w, h):
         import math as m
         acc, mag, _cy = self.colors()
         n = VIS_BANDS
@@ -7239,9 +7603,9 @@ class Visualizer(Gtk.Box):
         cr.arc(cx, cy, r0 * 0.85, 0, 2 * m.pi)
         cr.fill()
 
-    def draw_led(self, area, cr, w, h):
+    def draw_led(self, cr, w, h):
         acc, _mag, _cy = self.colors()
-        c = area.get_color()
+        c = self.fg
         n, pad, rows = VIS_BANDS, 16, 18
         gap = max(1.0, (w - 2 * pad) / n * 0.25)
         bw = max(1.0, (w - 2 * pad) / n - gap)
@@ -7260,7 +7624,7 @@ class Visualizer(Gtk.Box):
                 cr.rectangle(x, y + 1, bw, cell - 2)
                 cr.fill()
 
-    def draw_neon(self, area, cr, w, h, col):
+    def draw_neon(self, cr, w, h, col):
         """Black, with neon bars: a soft glow around each, a white-hot top on the loud ones."""
         import cairo
         red = hex_rgb(col)
@@ -7292,7 +7656,7 @@ class Visualizer(Gtk.Box):
             cr.rectangle(x, base + 4, bw, bh * 0.22)
             cr.fill()
 
-    def draw_glow(self, area, cr, w, h):
+    def draw_glow(self, cr, w, h):
         import cairo
         acc, mag, cy = self.colors()
         n, pad = VIS_BANDS, 16
@@ -7313,6 +7677,106 @@ class Visualizer(Gtk.Box):
             cr.set_source_rgba(*col, 0.10 + 0.25 * lv)   # the glow around a loud one
             cr.rectangle(x - gap, base - bh - 6, bw + 2 * gap, bh + 6)
             cr.fill()
+
+
+class Backdrop(Gtk.Widget):
+    """Now playing's background, under the whole window, Apple Music's way: a gradient in the cover's main
+    colour with the cover faintly in it, slightly blurred; and bars rising and falling with the music along
+    the bottom, in a light shade of the same colour. On the other pages it draws nothing."""
+    __gtype_name__ = "VarMusicBackdrop"
+
+    def __init__(self, win):
+        super().__init__(hexpand=True, vexpand=True, can_target=False)
+        self.win, self.app = win, win.app
+        self.cover = None
+        self.top, self.bottom, self.bars = (0.30, 0.30, 0.34), (0.10, 0.10, 0.12), (0.85, 0.85, 0.9)
+        self.path = None
+        self.active = False   # Now playing in view
+        self.tick = None
+        self.last = 0.0
+
+    def set_cover(self, path):
+        if path == self.path:
+            return
+        self.path = path
+        if not path:
+            self.cover = None
+            self.top, self.bottom, self.bars = (0.30, 0.30, 0.34), (0.10, 0.10, 0.12), (0.85, 0.85, 0.9)
+            self.queue_draw()
+            return
+
+        def got(res, _err):
+            if path != self.path or not res:
+                return
+            data, w, h, self.top, self.bottom, self.bars = res
+            self.cover = texture_rgb(data, w, h)
+            self.queue_draw()
+        in_thread(blurred_cover, path, done=got)
+
+    def set_active(self, on):
+        if on != self.active:
+            self.active = on
+            self.queue_draw()
+        self.update()
+
+    def update(self):
+        """Ticking (the bars move) only while Now playing shows and something plays."""
+        want = self.active and not self.app.paused
+        if want:
+            self.win.visualizer.ensure()
+            if self.tick is None:
+                self.tick = self.add_tick_callback(self.on_tick)
+        elif self.tick is not None:
+            self.remove_tick_callback(self.tick)
+            self.tick = None
+        self.queue_draw()
+
+    def on_tick(self, _w, _clock):
+        moving = self.win.visualizer.update_levels()
+        now = time.monotonic()
+        if moving and now - self.last >= 1 / 30:   # 30 frames a second is plenty for a background
+            self.last = now
+            self.queue_draw()
+        return GLib.SOURCE_CONTINUE
+
+    def do_snapshot(self, snap):
+        if not self.active:
+            return
+        w, h = self.get_width(), self.get_height()
+        if w <= 0 or h <= 0:
+            return
+        full = rect(0, 0, w, h)
+        stops = []
+        for off, col in ((0.0, self.top), (1.0, self.bottom)):
+            st = Gsk.ColorStop()
+            st.offset, st.color = off, gdk_rgba(*col, 1.0)
+            stops.append(st)
+        snap.append_linear_gradient(full, Graphene.Point().init(0, 0), Graphene.Point().init(0, h), stops)
+        if self.cover:   # the cover, slightly blurred, faintly in the colour
+            side = max(w, h) * 1.2
+            snap.push_opacity(0.28)
+            snap.append_scaled_texture(self.cover, Gsk.ScalingFilter.LINEAR, rect((w - side) / 2, (h - side) / 2, side, side))
+            snap.pop()
+        # The bars: along the bottom, behind the controls, in a light shade of the colour.
+        levels = self.win.visualizer.levels
+        n = len(levels)
+        if n and not self.app.paused:
+            pad, span = 0.0, w   # under Now playing only (not under the menu beside it)
+            ok, area = self.win.np_scroll.compute_bounds(self)
+            if ok and area.get_width() > 50:
+                pad, span = area.get_x(), area.get_width()
+            # Twice as many bars as bands (each between two bands is their mix): slim, with room between them.
+            m = n * 2 - 1
+            vals = [levels[i // 2] if i % 2 == 0 else (levels[i // 2] + levels[i // 2 + 1]) / 2 for i in range(m)]
+            slot = span / m
+            bw = max(1.5, slot * 0.38)
+            base, reach = h, h * 0.28
+            r, g, b = self.bars
+            for i, lv in enumerate(vals):
+                bh = max(2.0, lv * reach)
+                snap.append_color(gdk_rgba(r, g, b, 0.12 + 0.22 * lv),
+                                  rect(pad + i * slot + (slot - bw) / 2, base - bh, bw, bh))
+        snap.append_color(gdk_rgba(0, 0, 0, 0.12), full)   # a touch darker, for the white text
 
 
 class LyricsView(Gtk.Box):
@@ -7610,7 +8074,7 @@ class PagePop:
 
 class MusicWindow(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Music", default_width=420, default_height=680)
+        super().__init__(application=app, title="Music", default_width=1100, default_height=740)
         self.app = app
         self.lib, self.dl, self.art = app.lib, app.dl, app.art
         self.stale = {}   # tab: its rebuild, waiting until you go to it
@@ -7625,17 +8089,30 @@ class MusicWindow(Adw.ApplicationWindow):
         self.artist_pages, self.artist_from = [], "music"   # artist and album pages open, and the tab they opened over
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        # Stellio-like: the player fills the window; ☰ slides out the menu with every list in it.
-        self.split = Adw.OverlaySplitView(collapsed=True, show_sidebar=False, content=root,
-                                          max_sidebar_width=300, sidebar_width_fraction=0.8)
+        # The menu (☰) with every list is a column beside the page: it stays open while you go from
+        # list to list, and only ☰ (above it, always there) opens and closes it.
+        self.split = Adw.OverlaySplitView(collapsed=False, pin_sidebar=True, show_sidebar=app.drawer_open, content=root,
+                                          min_sidebar_width=200, max_sidebar_width=250, sidebar_width_fraction=0.24,
+                                          vexpand=True)
+        self.split.add_css_class("split")
         self.split.connect("notify::show-sidebar", lambda *_: self.split.get_show_sidebar() and self.refresh_drawer())
-        self.toasts = Adw.ToastOverlay(child=self.split)
+        shell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        shell.add_css_class("shell")
+        # Under it all, Now playing's backdrop: the cover blurred, and the visualizer if it's on.
+        self.backdrop = Backdrop(self)
+        stage = Gtk.Overlay(child=self.backdrop)
+        stage.add_overlay(shell)
+        stage.set_measure_overlay(shell, True)
+        self.toasts = Adw.ToastOverlay(child=stage)
         if WINDOWS:
             # Windows: a title bar to move and close it by, and closing it quits (there is no
             # bar icon or keybind there to bring a hidden window back).
-            frame = Adw.ToolbarView(content=self.toasts)
-            frame.add_top_bar(Adw.HeaderBar(title_widget=Adw.WindowTitle(title="VarMusic")))
-            self.set_content(frame)
+            # The title bar is in the page (Now playing's colours go up under it too).
+            head = Adw.HeaderBar(title_widget=Adw.WindowTitle(title="VarMusic"), decoration_layout=":minimize,maximize,close")
+            head.add_css_class("winbar")
+            shell.prepend(head)
+            self.win_bar = head
+            self.set_content(self.toasts)
             self.set_hide_on_close(False)
             self.connect("close-request", lambda *_: (app.quit_app(), True)[1])
         else:
@@ -7644,6 +8121,7 @@ class MusicWindow(Adw.ApplicationWindow):
         # ---- top: ☰, where you are, search and settings ----
         top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         top.add_css_class("top")
+        self.top_bar = top
         brand = Gtk.Box(spacing=2)
         brand.add_css_class("nav")
         # ☰ opens the menu (every list); ‹ goes back when you're past a list's front; the gear opens Settings.
@@ -7703,7 +8181,8 @@ class MusicWindow(Adw.ApplicationWindow):
         bar.append(self.search_in)
         self.search_bar = bar
         top.append(bar)
-        root.append(top)
+        shell.append(top)
+        shell.append(self.split)
 
         # ---- tabs ----
         tabs = Gtk.Box(spacing=4)
@@ -7755,7 +8234,6 @@ class MusicWindow(Adw.ApplicationWindow):
         # The library's front page and Now playing: the tabs above are reached from there (the
         # row of them stays for Alt+1…7 and is hidden).
         self.stack.add_named(self.home_page(), "home")
-        self.stack.add_named(self.now_page(), "nowplaying")
         self.stack.add_named(self.settings_page(), "settings")   # the gear: the whole window
         self.stack.connect("notify::visible-child-name", lambda *_: self.page_changed())
         self.tabs_strip = scroll_sideways(tabs)
@@ -7845,7 +8323,9 @@ class MusicWindow(Adw.ApplicationWindow):
         end.append(self.volume_button())
         controls.set_end_widget(end)
         player.append(controls)
+        self.player_controls = controls   # on Now playing they move into the page, under the song
         root.append(player)
+        self.stack.add_named(self.now_page(), "nowplaying")
 
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self.on_key)
@@ -7856,6 +8336,7 @@ class MusicWindow(Adw.ApplicationWindow):
         self.refresh_queue()
         self.refresh_account()
         self.split.set_sidebar(self.drawer())
+        self.page_changed()
         self.show_tab("nowplaying")
         self.art.on_loaded = lambda vid, _path: vid == (app.current_track() or {}).get("id") and self.update_tint()
         self.set_empty(self.search_list, "Find something to play",
@@ -8115,6 +8596,7 @@ class MusicWindow(Adw.ApplicationWindow):
         return box
 
     def update_eq(self):
+        self.update_np_output()
         eq = self.app.eq
         self.syncing_eq = True  # show the settings without the widgets setting them again
         self.eq_switch.set_active(eq["on"])
@@ -8273,21 +8755,15 @@ class MusicWindow(Adw.ApplicationWindow):
         now = key == "nowplaying"
         inside = key in ("artist", "settings", "eq") or (key == "music" and bool(self.open_mine or self.open_group)) \
             or (key in ("lyrics", "visualizer", "queue") and self.nav[-1:] == ["nowplaying"])
-        self.back_btn.set_visible(inside)
-        self.menu_btn.set_visible(not inside)
+        self.back_btn.set_visible(inside)   # ☰ stays, always: it opens and closes the menu
         self.search_btn.set_visible(key != "search")
         self.search_bar.set_visible(key == "search")
         self.nav_title.set_label(self.page_title(key))
         self.update_nav_sub()
         if self.split.get_show_sidebar():
             self.refresh_drawer()
-        self.np_row.set_visible(not now)
-        self.np_prog.set_visible(not now)
-        (self.player_bar.add_css_class if now else self.player_bar.remove_css_class)("expanded")
-        self.play_btn.icon.set_size(28 if now else 18)
-        self.prev_btn.icon.set_size(26 if now else 18)
-        self.next_btn.icon.set_size(26 if now else 18)
-        for k, b in (("lyrics", self.tool_lyrics), ("visualizer", self.tool_vis), ("queue", self.tool_queue)):
+        self.set_now_mode(now)
+        for k, b in (("lyrics", self.tool_lyrics), ("queue", self.tool_queue)):
             (b.add_css_class if key == k else b.remove_css_class)("on")
         if now:
             self.nav.clear()
@@ -8295,7 +8771,35 @@ class MusicWindow(Adw.ApplicationWindow):
             self.update_now_page(self.app.current_track())
             self.wave.set_position(self.scale.get_value(), self.scale.get_adjustment().get_upper())
             self.np_times[0].set_label(self.t_pos.get_label())
-            self.np_times[1].set_label(self.t_len.get_label())
+            self.np_times[1].set_label("-" + fmt_time(max(0, self.scale.get_adjustment().get_upper() - self.scale.get_value())))
+
+    def set_now_mode(self, now):
+        """Now playing: the backdrop shows under everything, the bar at the bottom goes and its controls
+        move into the page; anywhere else they're back in the bar."""
+        if getattr(self, "now_mode", None) == now or not hasattr(self, "drawer_box"):
+            return   # (the menu is made last: page_changed runs again then)
+        self.now_mode = now
+        self.backdrop.set_active(now)
+        for w in (self.top_bar, self.drawer_box, self.np_scroll, getattr(self, "win_bar", None) or self.top_bar):
+            (w.add_css_class if now else w.remove_css_class)("on-np")
+        ctl = self.player_controls
+        parent = ctl.get_parent()
+        want = self.np_ctl_slot if now else self.player_bar
+        if parent is not want:
+            if parent is not None:
+                parent.remove(ctl)
+            want.append(ctl)
+        ctl.set_hexpand(True)
+        self.player_bar.set_visible(not now)
+        for w in (ctl.get_start_widget(), ctl.get_end_widget()):   # here: just ⏮ ⏯ ⏭ (the rest is on the page)
+            if w is not None:
+                w.set_visible(not now)
+        (self.player_bar.add_css_class if now else self.player_bar.remove_css_class)("expanded")
+        self.play_btn.icon.set_size(30 if now else 18)
+        self.prev_btn.icon.set_size(28 if now else 18)
+        self.next_btn.icon.set_size(28 if now else 18)
+        if now and self.np_views.get_visible_child_name() == "queue":
+            self.run_stale("np-queue")
 
     def nav_back(self):
         key = self.stack.get_visible_child_name()
@@ -8337,59 +8841,351 @@ class MusicWindow(Adw.ApplicationWindow):
         self.nav_sub.set_label(text)
         self.nav_sub.set_visible(bool(text))
 
-    # ---- Now playing: the cover big, a waveform to seek on, and the controls under it ----
+    # ---- Now playing, Apple Music-like: the cover big over its own colours, the song, a thin bar to
+    # seek on, the controls and the volume; scroll (or swipe) down for what plays next and your queues ----
     def now_page(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.add_css_class("nowplaying")
-        self.np_kicker = Gtk.Label(label="NOW PLAYING")
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        page.add_css_class("np-page")
+        self.np_scroll = page
+        hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, vexpand=True)
+        hero.add_css_class("nowplaying")
+        self.np_hero = hero
+        page.append(Adw.Clamp(maximum_size=560, tightening_threshold=420, child=hero, vexpand=True))
+
+        # The top: the cover big, or (the queue button, or scroll down on the cover) what plays next.
+        self.np_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=180, vexpand=True)
+        hero.append(self.np_views)
+        art_view = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.np_kicker = Gtk.Label(label="NOW PLAYING", visible=False)
         self.np_kicker.add_css_class("np-kicker")
         self.np_from = Gtk.Label(ellipsize=Pango.EllipsizeMode.END)
         self.np_from.add_css_class("np-from")
-        self.np_kicker.set_visible(False)   # the header says Now playing
-        box.append(self.np_kicker)
-        box.append(self.np_from)
+        art_view.append(self.np_kicker)
+        art_view.append(self.np_from)
         self.big_pic = Gtk.Picture(content_fit=Gtk.ContentFit.COVER, can_shrink=True, hexpand=True, vexpand=True)
         holder = Gtk.Box(overflow=Gtk.Overflow.HIDDEN)
         holder.add_css_class("bigart")
         holder.append(self.big_pic)
         self.big_frame = Gtk.AspectFrame(ratio=1.0, obey_child=False, child=holder, vexpand=True,
-                                         margin_top=6, margin_bottom=8)
+                                         margin_top=12, margin_bottom=20)
         self.big_frame.set_size_request(120, 120)
         click = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
         click.connect("released", lambda _g, n, _x, _y: n == 2 and self.app.toggle_pause())
         self.big_frame.add_controller(click)
         swipe = Gtk.GestureDrag(button=Gdk.BUTTON_PRIMARY)
-        swipe.connect("drag-end", lambda _g, dx, _dy: dx < -80 and self.app.next() or dx > 80 and self.app.previous())
+        swipe.connect("drag-end", lambda _g, dx, dy: (dx < -80 and self.app.next()) or (dx > 80 and self.app.previous())
+                      or (dy < -80 and abs(dx) < 60 and self.show_np_queue(True)))
         self.big_frame.add_controller(swipe)
-        self.big_frame.set_tooltip_text("Drag sideways for the next or last song · double-click to pause")
-        box.append(self.big_frame)
-        self.np2_title = Gtk.Label(ellipsize=Pango.EllipsizeMode.END, justify=Gtk.Justification.CENTER)
+        wheel = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
+        wheel.connect("scroll", lambda _c, _dx, dy: (dy > 0.5 and self.show_np_queue(True), True)[1])
+        art_view.add_controller(wheel)
+        self.big_frame.set_tooltip_text("Drag sideways for the next or last song, up (or scroll) for the queue · "
+                                        "double-click to pause")
+        art_view.append(self.big_frame)
+        info = Gtk.Box(spacing=10)
+        info.add_css_class("np-info")
+        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER, spacing=1)
+        self.np2_title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.np2_title.add_css_class("np-title")
+        line = Gtk.Box()
         self.np2_artist = artist_link(self, "", css="np-artist")
-        self.np2_artist.set_xalign(0.5)
-        self.np2_album = Gtk.Label(ellipsize=Pango.EllipsizeMode.END)
+        self.np2_album = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.np2_album.add_css_class("np-album")
-        self.np_badges = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
-        for w in (self.np2_title, self.np2_artist, self.np2_album, self.np_badges):
-            box.append(w)
-        self.wave = Wave(self)
-        box.append(self.wave)
-        times = Gtk.Box()
-        self.np_times = (Gtk.Label(label="0:00", xalign=0, hexpand=True), Gtk.Label(label="0:00", xalign=1))
+        line.append(self.np2_artist)
+        line.append(self.np2_album)
+        texts.append(self.np2_title)
+        texts.append(line)
+        info.append(texts)
+        self.tool_fav = self.round_tool("star_line", "Favorite (f)", lambda: self.app.toggle_favorite_playing())
+        self.tool_like = self.round_tool("heart_line", "Like", lambda: self.app.toggle_like())
+        more = self.round_tool("more", "More: play next, add to a playlist, go to the artist…", lambda: None)
+        more.connect("clicked", lambda b: self.now_menu(b))
+        for b in (self.tool_like, self.tool_fav, more):
+            info.append(b)
+        art_view.append(info)
+        self.np_views.add_named(art_view, "art")
+        self.np_views.add_named(self.np_queue_view(), "queue")
+
+        # The bottom, the same on both: the bar to seek on, the times, the controls, the volume, the tools.
+        self.np_scale = Gtk.Scale.new(Gtk.Orientation.HORIZONTAL, self.scale.get_adjustment())
+        self.np_scale.set_draw_value(False)
+        self.np_scale.add_css_class("np-progress")
+        self.np_scale.connect("change-value", self.on_seek)
+        hero.append(self.np_scale)
+        times = Gtk.CenterBox()
+        times.add_css_class("np-times-row")
+        self.np_times = (Gtk.Label(label="0:00", xalign=0), Gtk.Label(label="0:00", xalign=1))
         for w in self.np_times:
             w.add_css_class("np-times")
-            times.append(w)
-        box.append(times)
-        tools = Gtk.Box(homogeneous=True, margin_top=4)
-        self.tool_fav = self.tool("star_line", "Favorite", lambda: self.app.toggle_favorite_playing())
-        self.tool_like = self.tool("heart_line", "Like", lambda: self.app.toggle_like())
-        self.tool_lyrics = self.tool("lyrics", "Lyrics", lambda: self.toggle_page("lyrics"))
-        self.tool_vis = self.tool("vis", "Visualizer", lambda: self.toggle_page("visualizer"))
-        self.tool_queue = self.tool("queue", "Up next", lambda: self.toggle_page("queue"))
-        for b in (self.tool_fav, self.tool_like, self.tool_lyrics, self.tool_vis, self.tool_queue):
-            tools.append(b)
-        box.append(tools)
+        self.np_badges = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
+        times.set_start_widget(self.np_times[0])
+        times.set_center_widget(self.np_badges)
+        times.set_end_widget(self.np_times[1])
+        hero.append(times)
+        self.wave = Wave(self)   # the old seek bar, kept for what still asks it (not shown)
+        self.np_ctl_slot = Gtk.Box(halign=Gtk.Align.FILL)   # the player's controls move here on this page
+        self.np_ctl_slot.add_css_class("np-controls")
+        hero.append(self.np_ctl_slot)
+        vol = Gtk.Box(spacing=10)
+        vol.add_css_class("np-volume-row")
+        low = Gtk.Image(icon_name="audio-volume-low-symbolic")
+        high = Gtk.Image(icon_name="audio-volume-high-symbolic")
+        self.np_vol = Gtk.Scale.new(Gtk.Orientation.HORIZONTAL, self.vol_scale.get_adjustment())
+        self.np_vol.set_draw_value(False)
+        self.np_vol.set_hexpand(True)
+        self.np_vol.add_css_class("np-volume")
+        for w in (low, self.np_vol, high):
+            vol.append(w)
+        hero.append(vol)
+        # Lyrics, where the sound goes (its equalizer) and the queue, in a pill; the output's name under it.
+        pill = Gtk.Box(spacing=4, halign=Gtk.Align.CENTER)
+        pill.add_css_class("np-pill")
+        self.tool_lyrics = self.round_tool("lyrics", "Lyrics", lambda: self.toggle_page("lyrics"))
+        self.tool_queue = self.round_tool("queue", "Up next and your queues", lambda: self.show_np_queue())
+        self.tool_vis = self.round_tool("speaker", "Where the sound goes, and its equalizer", lambda: self.show_tab("eq"))
+        for w in (self.tool_lyrics, self.tool_vis, self.tool_queue):
+            pill.append(w)
+        hero.append(pill)
+        self.np_output = Gtk.Button(halign=Gtk.Align.CENTER, tooltip_text="Where the sound goes: its equalizer")
+        self.np_output.add_css_class("np-output")
+        self.np_output.connect("clicked", lambda *_: self.show_tab("eq"))
+        hero.append(self.np_output)
+        self.update_np_output()
+        return page
+
+    def np_queue_view(self):
+        """Apple Music's queue: the song small at the top, Shuffle / Repeat / Autoplay, then the songs you
+        queued (Clear), the songs it plays on with (drag one to move it), and your other queues."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.add_css_class("np-queue")
+        head = Gtk.Box(spacing=12)
+        frame, self.np_q_pic = art_widget(64)
+        frame.add_css_class("np-q-art")
+        head.append(frame)
+        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
+        self.np_q_title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.np_q_title.add_css_class("np-row-title")
+        self.np_q_artist = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.np_q_artist.add_css_class("np-row-sub")
+        texts.append(self.np_q_title)
+        texts.append(self.np_q_artist)
+        head.append(texts)
+        self.np_q_fav = self.round_tool("star_line", "Favorite (f)", lambda: self.app.toggle_favorite_playing())
+        head.append(self.np_q_fav)
+        more = self.round_tool("more", "More: play next, add to a playlist, go to the artist…", lambda: None)
+        more.connect("clicked", lambda b: self.now_menu(b))
+        head.append(more)
+        click = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)   # the song at the top: back to its cover
+        click.connect("released", lambda *_: self.show_np_queue(False))
+        frame.add_controller(click)
+        box.append(head)
+        modes = Gtk.Box(spacing=8, homogeneous=True)
+        modes.add_css_class("np-modes")
+        self.np_shuffle = self.mode_button("shuffle", "Shuffle what's coming up", self.app.shuffle)
+        self.np_repeat = self.mode_button("repeat", "Repeat: off, all, this song", self.app.cycle_repeat)
+        self.np_autoplay = self.mode_button("infinity", "Autoplay: when the queue runs out, songs like the last one",
+                                            lambda: self.app.set_autoplay(not self.app.autoplay))
+        for b in (self.np_shuffle, self.np_repeat, self.np_autoplay):
+            modes.append(b)
+        box.append(modes)
+        lists = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.np_queued_head = Gtk.Box(spacing=10, margin_top=6)
+        t = Gtk.Label(label="Queue", xalign=0, hexpand=True)
+        t.add_css_class("np-q-title")
+        clear = Gtk.Button(label="Clear", valign=Gtk.Align.CENTER)
+        clear.add_css_class("np-link")
+        clear.connect("clicked", lambda *_: self.app.clear_queued())
+        self.np_queued_head.append(t)
+        self.np_queued_head.append(clear)
+        lists.append(self.np_queued_head)
+        self.np_queued = self.np_list()
+        lists.append(self.np_queued)
+        titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, margin_top=10)
+        t = Gtk.Label(label="Continue Playing", xalign=0)
+        t.add_css_class("np-q-title")
+        self.np_q_from = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.np_q_from.add_css_class("np-q-sub")
+        titles.append(t)
+        titles.append(self.np_q_from)
+        lists.append(titles)
+        self.np_next = self.np_list()
+        lists.append(self.np_next)
+        head2 = Gtk.Box(spacing=10, margin_top=14)
+        t2 = Gtk.Label(label="Your queues", xalign=0, hexpand=True)
+        t2.add_css_class("np-q-title")
+        head2.append(t2)
+        self.np_clear_queues = Gtk.Button(label="Remove all others", valign=Gtk.Align.CENTER)
+        self.np_clear_queues.add_css_class("np-link")
+        self.np_clear_queues.connect("clicked", lambda *_: self.app.remove_other_queues())
+        head2.append(self.np_clear_queues)
+        lists.append(head2)
+        self.np_queues = self.np_list()
+        lists.append(self.np_queues)
+        sw = Gtk.ScrolledWindow(child=lists, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        sw.add_css_class("np-q-scroll")
+        self.np_q_scroll = sw
+        box.append(sw)
         return box
+
+    def np_list(self):
+        lst = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lst.add_css_class("np-list")
+        lst.connect("row-activated", lambda _l, r: getattr(r, "go", None) and r.go())
+        return lst
+
+    def mode_button(self, icon, tip, cb):
+        b = draw_button(icon, "np-mode", tip, cb, 18)
+        b.set_hexpand(True)
+        return b
+
+    def show_np_queue(self, on=None):
+        """The queue in place of the cover (or the cover back)."""
+        now = self.np_views.get_visible_child_name() == "queue"
+        on = not now if on is None else on
+        if on == now:
+            return True
+        if on:
+            self.run_stale("np-queue")
+            self.np_q_scroll.get_vadjustment().set_value(0)
+        self.np_views.set_visible_child_name("queue" if on else "art")
+        (self.tool_queue.add_css_class if on else self.tool_queue.remove_css_class)("on")
+        return True
+
+    def round_tool(self, icon, tip, cb, size=20):
+        b = draw_button(icon, "np-tool", tip, cb, size)
+        b.set_valign(Gtk.Align.CENTER)
+        return b
+
+    def update_np_output(self):
+        a = self.app
+        if hasattr(self, "np_output"):
+            self.np_output.set_label("●  " + (getattr(a, "output_label", None) or "This computer"))
+
+    def now_menu(self, button):
+        """⋯ on Now playing: what a song's right-click offers, for this one."""
+        t = self.app.current_track()
+        if not t:
+            return
+        row = TrackRow(self, t, self.app.index, in_queue=True)
+        row.cell = button
+        self.track_menu(row, button.get_width() / 2, button.get_height())
+
+    def refresh_np_queue(self):
+        """The queue view, made again when it's what you see (else when you next open it)."""
+        if self.shown("nowplaying") and self.np_views.get_visible_child_name() == "queue":
+            self.stale.pop("np-queue", None)
+            self._refresh_np_queue()
+        else:
+            self.stale["np-queue"] = self._refresh_np_queue
+
+    def _refresh_np_queue(self):
+        """The queue view: the songs you queued, then the next 60 it plays on with (and how many more),
+        then your queues."""
+        a = self.app
+        q, i = a.queue, a.index
+        t = a.current_track()
+        if t:
+            self.np_q_title.set_label(t["title"])
+            self.np_q_artist.set_label(t["artist"])
+            self.np_q_pic.clear()
+            self.art.apply(self.np_q_pic, t)
+        start = max(i, 0) + 1
+        queued = [j for j in range(start, len(q)) if q[j].get("queued")]
+        rest = [j for j in range(start, len(q)) if not q[j].get("queued")]
+        self.np_queued.remove_all()
+        for j in queued[:30]:
+            self.np_queued.append(self.np_song_row(q[j], j))
+        self.np_queued_head.set_visible(bool(queued))
+        self.np_queued.set_visible(bool(queued))
+        self.np_next.remove_all()
+        name = a.queue_name_s or ""
+        self.np_q_from.set_label(f"From {name}" if name else "From your music")
+        for j in rest[:30]:
+            self.np_next.append(self.np_song_row(q[j], j))
+        if len(rest) > 30:
+            more = Gtk.ListBoxRow()
+            lab = Gtk.Label(label=f"See all {len(rest)} songs", xalign=0)
+            lab.add_css_class("np-more")
+            more.set_child(lab)
+            more.go = lambda: self.show_tab("queue")
+            self.np_next.append(more)
+        elif not rest:
+            lab = Gtk.Label(label="Autoplay plays songs like this one next" if a.autoplay else "Nothing after this song",
+                            xalign=0)
+            lab.add_css_class("np-row-sub")
+            self.np_next.append(Gtk.ListBoxRow(child=lab, activatable=False))
+        self.np_queues.remove_all()
+        for qq in a.saved_queues():
+            self.np_queues.append(self.np_queue_row(qq))
+        self.np_clear_queues.set_visible(any(x["id"] != a.queue_id for x in a.queues))
+        self.np_repeat.icon.set_name("repeat_one" if a.repeat == "one" else "repeat")
+        for b, on in ((self.np_repeat, a.repeat != "off"), (self.np_shuffle, a.shuffled), (self.np_autoplay, a.autoplay)):
+            (b.add_css_class if on else b.remove_css_class)("on")
+
+    def np_song_row(self, t, j):
+        box = Gtk.Box(spacing=12)
+        box.add_css_class("np-row")
+        frame, pic = art_widget(40)
+        self.art.apply(pic, t)
+        box.append(frame)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
+        title = Gtk.Label(label=t["title"], xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        title.add_css_class("np-row-title")
+        sub = Gtk.Label(label=t["artist"], xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        sub.add_css_class("np-row-sub")
+        text.append(title)
+        text.append(sub)
+        box.append(text)
+        grip = Gtk.Label(label="≡", tooltip_text="Drag to move it")
+        grip.add_css_class("np-grip")
+        box.append(grip)
+        row = Gtk.ListBoxRow(child=box)
+        row.go = lambda: self.app.play_index(j)
+        # Drag a song up or down the queue (dropped on another song, it takes that song's place).
+        drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+        drag.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(str(j)))
+        row.add_controller(drag)
+        drop = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
+        drop.connect("drop", lambda _t, v, _x, _y: (v.isdigit() and self.app.move_in_queue(int(v), j), True)[1])
+        row.add_controller(drop)
+        menu = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+
+        def pressed(_g, _n, x, y):
+            tr = TrackRow(self, t, j, in_queue=True)
+            tr.cell = row
+            self.track_menu(tr, x, y)
+        menu.connect("pressed", pressed)
+        row.add_controller(menu)
+        return row
+
+    def np_queue_row(self, q):
+        a = self.app
+        playing = q["id"] == a.queue_id
+        box = Gtk.Box(spacing=12)
+        box.add_css_class("np-row")
+        ic = Icon("queue" if not playing else "play", 18)
+        ic.add_css_class("np-q-icon")
+        box.append(ic)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
+        name = Gtk.Label(label=q["name"], xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        name.add_css_class("np-row-title")
+        n, i = len(q["tracks"]), q.get("index", 0)
+        cur = q["tracks"][i]["title"] if 0 <= i < n else ""
+        sub = Gtk.Label(label=("Playing now · " if playing else f"{i + 1} of {n} · ") + cur
+                        + ("" if playing or not q.get("position") else f" · {fmt_time(q['position'])}"),
+                        xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        sub.add_css_class("np-row-sub")
+        text.append(name)
+        text.append(sub)
+        box.append(text)
+        box.append(draw_button("edit", "np-tool", "Rename", lambda: self.ask_name(
+            "Rename the queue", q["name"], lambda nm: a.rename_queue(q["id"], nm)), 16))
+        box.append(draw_button("trash", "np-tool", "Delete this queue", lambda: a.delete_queue(q["id"]), 16))
+        row = Gtk.ListBoxRow(child=box)
+        if playing:
+            row.add_css_class("playing")
+        row.go = lambda: None if playing else a.switch_queue(q["id"])
+        return row
 
     def tool(self, icon, label, cb):
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -8421,11 +9217,12 @@ class MusicWindow(Adw.ApplicationWindow):
         a = self.app
         self.np2_title.set_label(t["title"])
         set_link_text(self.np2_artist, t["artist"])
-        self.np2_album.set_label(t.get("album") or "")
+        self.np2_album.set_label(f"  —  {t['album']}" if t.get("album") else "")
         self.np2_album.set_visible(bool(t.get("album")))
-        self.wave.set_song(t["id"])
         src = source_of(t)
-        frm = ("Radio" if getattr(a, "radio", False) else "") or \
+        frm = ("Playing a radio" if getattr(a, "radio", False) else "") or \
+              (f"From the album {t['album']}" if t.get("album") else "") or \
+              (f"Playing from {a.queue_name_s}" if a.queue_name_s else "") or \
               ("My music" if src == "file" or self.lib.has(t["id"]) else SOURCES.get(src, ""))
         self.np_from.set_label(frm)
         self.np_from.set_visible(bool(frm))
@@ -8510,16 +9307,12 @@ class MusicWindow(Adw.ApplicationWindow):
     def drawer(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         box.add_css_class("drawer-list")
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        # Where Search and the Library look (YouTube, Tidal, Apple, Spotify, or your own music).
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         card.add_css_class("source-card")
-        head = Gtk.Box(spacing=12)
-        self.drawer_src_icon = Icon("cloud", 20)
-        self.drawer_src_icon.add_css_class("accent")
-        self.drawer_src = Gtk.Label(xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END)
+        self.drawer_src = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.drawer_src.add_css_class("drawer-src")
-        head.append(self.drawer_src_icon)
-        head.append(self.drawer_src)
-        card.append(head)
+        card.append(self.drawer_src)
         card.append(scroll_sideways(self.source_group))
         box.append(card)
         self.drawer_items = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
@@ -8530,37 +9323,51 @@ class MusicWindow(Adw.ApplicationWindow):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         outer.add_css_class("drawer")
         outer.append(sw)
+        self.drawer_box = outer
+        self.drawer_sig, self.drawer_rows = None, []
         self.refresh_drawer()
         return outer
 
     def refresh_drawer(self):
+        """The menu's rows: made again only when what's in it changes (the service, Wrapped); going
+        from page to page just moves which one is lit."""
         lst = getattr(self, "drawer_items", None)
         if lst is None:
             return
         a = self.app
-        lst.remove_all()
+        wrapped = bool(a.lastfm.connected or a.spotify_history.plays)
+        sig = (a.browse_local, a.source, wrapped)
+        if sig != self.drawer_sig:
+            self.drawer_sig = sig
+            lst.remove_all()
+            self.drawer_rows = []
+            self.drawer_src.set_label("Your music" if a.browse_local else SOURCES.get(a.source, ""))
+            for label, icon, tab, view in self.DRAWER:
+                if tab == "account":
+                    if a.browse_local:
+                        continue
+                    label = f"{SOURCES.get(a.source, 'Service')} library"
+                row = self.drawer_row(label, icon, False, lambda t=tab, v=view: self.drawer_go(t, v))
+                self.drawer_rows.append((row, tab, view))
+                lst.append(row)
+            if wrapped:
+                lst.append(self.drawer_row(f"Your {wrapped_year()} Wrapped", "sparkle", False, a.open_wrapped))
+            sep = Gtk.ListBoxRow(activatable=False, selectable=False, child=Gtk.Separator())
+            sep.add_css_class("drawer-sep")
+            lst.append(sep)
+            for label, icon, tab in (("Settings", "settings", "settings"), ("Equalizer", "eq", "eq")):
+                row = self.drawer_row(label, icon, False, lambda t=tab: self.drawer_go(t, None), quiet=True)
+                self.drawer_rows.append((row, tab, None))
+                lst.append(row)
         key = self.stack.get_visible_child_name()
-        self.drawer_src.set_label("Your music" if a.browse_local else SOURCES.get(a.source, ""))
-        self.drawer_src_icon.set_name("note" if a.browse_local else "cloud")
-        for label, icon, tab, view in self.DRAWER:
-            if tab == "account":
-                if a.browse_local:
-                    continue
-                label = f"{SOURCES.get(a.source, 'Service')} library"
+        for row, tab, view in self.drawer_rows:
             on = key == tab and (view is None or view == self.music_view)
-            lst.append(self.drawer_row(label, icon, on, lambda t=tab, v=view: self.drawer_go(t, v)))
-        if a.lastfm.connected or a.spotify_history.plays:
-            lst.append(self.drawer_row(f"Your {wrapped_year()} Wrapped", "sparkle", False,
-                                       lambda: (self.split.set_show_sidebar(False), a.open_wrapped())))
-        sep = Gtk.ListBoxRow(activatable=False, selectable=False, child=Gtk.Separator())
-        sep.add_css_class("drawer-sep")
-        lst.append(sep)
-        lst.append(self.drawer_row("Settings", "settings", key == "settings", lambda: self.drawer_go("settings", None), quiet=True))
-        lst.append(self.drawer_row("Equalizer", "eq", key == "eq", lambda: self.drawer_go("eq", None), quiet=True))
+            if on != row.has_css_class("on"):
+                (row.add_css_class if on else row.remove_css_class)("on")
 
     def drawer_row(self, label, icon, on, go, quiet=False):
-        box = Gtk.Box(spacing=16)
-        box.append(Icon(icon, 20))
+        box = Gtk.Box(spacing=14)
+        box.append(Icon(icon, 18))
         box.append(Gtk.Label(label=label, xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END))
         row = Gtk.ListBoxRow(child=box)
         row.add_css_class("drawer-item")
@@ -8572,14 +9379,17 @@ class MusicWindow(Adw.ApplicationWindow):
         return row
 
     def drawer_go(self, tab, view):
-        self.split.set_show_sidebar(False)
+        """A row of the menu: its page (the menu stays open: ☰ closes it)."""
         if tab == "music":
             self.open_view(view)
         else:
             self.show_tab(tab)
 
     def toggle_drawer(self):
-        self.split.set_show_sidebar(not self.split.get_show_sidebar())
+        on = not self.split.get_show_sidebar()
+        self.split.set_show_sidebar(on)
+        self.app.drawer_open = on
+        self.app.save_soon()
 
     def refresh_accounts(self):
         """Rebuild Settings (while it is open) from how things stand."""
@@ -8588,10 +9398,20 @@ class MusicWindow(Adw.ApplicationWindow):
         a, box = self.app, self.accounts_box
         while (child := box.get_first_child()):
             box.remove(child)
-        grid = Gtk.Grid(column_spacing=10, row_spacing=8)
-        box.append(grid)
-        row = 0
+        # Apple-like: sections with a heading, each a rounded group of rows (the name and what it is on
+        # the left, its switch or buttons on the right).
+        cur = None
+
+        def group(title):
+            nonlocal cur
+            head = Gtk.Label(label=title.upper(), xalign=0)
+            head.add_css_class("set-head")
+            box.append(head)
+            cur = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+            cur.add_css_class("set-group")
+            box.append(cur)
         up = a.updater
+        group("General")
 
         def pill(label, cb, quiet=False):
             b = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
@@ -8602,27 +9422,30 @@ class MusicWindow(Adw.ApplicationWindow):
             return b
 
         def line(name, state, ok=False, *actions):
-            nonlocal row
-            n = Gtk.Label(label=name, xalign=0, valign=Gtk.Align.START)
+            r = Gtk.Box(spacing=14)
+            r.add_css_class("set-row")
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER, spacing=2)
+            n = Gtk.Label(label=name, xalign=0)
             n.add_css_class("service")
-            s = Gtk.Label(label=state, xalign=0, wrap=True, hexpand=True, max_width_chars=24)
+            s = Gtk.Label(label=state, xalign=0, wrap=True, max_width_chars=48)
             s.add_css_class("state")
             if ok:
                 s.add_css_class("ok")
-            grid.attach(n, 0, row, 1, 1)
-            grid.attach(s, 1, row, 1, 1)
+            s.set_visible(bool(state))
+            texts.append(n)
+            texts.append(s)
+            r.append(texts)
             if actions:
-                act = Gtk.Box(spacing=4, halign=Gtk.Align.END, valign=Gtk.Align.CENTER)
+                act = Gtk.Box(spacing=6, halign=Gtk.Align.END, valign=Gtk.Align.CENTER)
                 for w in actions:
                     act.append(w)
-                grid.attach(act, 2, row, 1, 1)
-            row += 1
+                r.append(act)
+            cur.append(Gtk.ListBoxRow(child=r, activatable=False))
             return s
 
         def across(widget):
-            nonlocal row
-            grid.attach(widget, 0, row, 3, 1)
-            row += 1
+            widget.add_css_class("set-across")
+            cur.append(Gtk.ListBoxRow(child=widget, activatable=False))
 
         def sync_switch(key):
             tip = (f"Download every song in your {SOURCES[key]} {'favourites and ' if key == 'tidal' else ''}"
@@ -8648,8 +9471,7 @@ class MusicWindow(Adw.ApplicationWindow):
         else:
             line("Version", f"{VERSION} · checking…" if up.checking else f"{VERSION} · {up.check_error or 'up to date'}", False,
                  *([] if up.checking else [pill("Check", lambda: up.check(quiet=False), quiet=True)]))
-        grid.attach(Gtk.Separator(), 0, row, 3, 1)
-        row += 1
+        group("Accounts")
         for key in ("ytm", "apple"):
             src = a.sources.get(key)
             if src and src.signed_in:
@@ -8699,10 +9521,7 @@ class MusicWindow(Adw.ApplicationWindow):
             err = a.source_errors.get("spotify")
             line("Spotify", f"Not available: {str(err)[:60]}" if err else "Connecting…")
 
-        box.append(Gtk.Separator())
-        grid = Gtk.Grid(column_spacing=10, row_spacing=8)
-        box.append(grid)
-        row = 0
+        group("Library & playback")
         n = len(a.local.files)
         line("Folders", "Reading your folders…" if a.local.scanning else
              f"{n} song{'s' if n != 1 else ''} in your folders, in the Music tab" if a.folders else
@@ -8766,10 +9585,7 @@ class MusicWindow(Adw.ApplicationWindow):
         else:
             line("Phone", "Control this app from the VarMusic Android app, on your network", False, remote)
 
-        box.append(Gtk.Separator())
-        grid = Gtk.Grid(column_spacing=10, row_spacing=8)
-        box.append(grid)
-        row = 0
+        group("Last.fm & your stats")
         fm = a.lastfm
         if fm.connected:
             waiting = len(fm.pending)
@@ -8802,10 +9618,7 @@ class MusicWindow(Adw.ApplicationWindow):
         if plays:
             across(pill("Forget the Spotify history", a.spotify_history_clear, quiet=True))
 
-        box.append(Gtk.Separator())
-        grid = Gtk.Grid(column_spacing=10, row_spacing=8)
-        box.append(grid)
-        row = 0
+        group("Tags, lyrics & more")
         t = a.tagger
         untagged = len(t.untagged())
         saved = len({e["file"] for e in a.lib.items.values() if e.get("format") == "flac"})
@@ -9381,7 +10194,22 @@ class MusicWindow(Adw.ApplicationWindow):
     GROUP_VIEWS = {"albums": "Albums", "genres": "Genres", "folders": "Folders"}
 
     def song_groups(self, view):
-        """{key: [title, sub, songs]} of your songs by album (and its artist), genre or folder."""
+        """{key: [title, sub, songs]} of your songs by album (and its artist), genre or folder. Kept until
+        your songs change (thousands of songs took a few tenths of a second to sort out each time)."""
+        try:
+            lib_t = os.stat(LIBRARY).st_mtime
+        except OSError:
+            lib_t = 0
+        loc = self.app.local
+        sig = (len(self.lib.items), lib_t, len(loc.files), loc.scanned, len(self.app.lib.items))
+        cache = self.__dict__.setdefault("_groups", {})
+        if view in cache and cache[view][0] == sig:
+            return {k: [v[0], v[1], list(v[2])] for k, v in cache[view][1].items()}
+        out = self._song_groups(view)
+        cache[view] = (sig, out)
+        return {k: [v[0], v[1], list(v[2])] for k, v in out.items()}
+
+    def _song_groups(self, view):
         out = {}
         for t in self.app.my_songs():
             if view == "albums":
@@ -9392,8 +10220,11 @@ class MusicWindow(Adw.ApplicationWindow):
                 g = self.app.genre_of(t) or "Unknown genre"
                 key, title, sub = norm(g), g, ""
             else:
-                folder = str(Path(t["file"]).parent) if t.get("file") else ""
-                key, title, sub = folder, Path(folder).name or folder or "Unknown folder", short_path(folder)
+                folder = os.path.dirname(t["file"]) if t.get("file") else ""
+                if folder in out:
+                    out[folder][2].append(t)
+                    continue
+                key, title, sub = folder, os.path.basename(folder) or folder or "Unknown folder", short_path(folder)
             out.setdefault(key, [title, sub, []])[2].append(t)
         return out
 
@@ -9434,10 +10265,13 @@ class MusicWindow(Adw.ApplicationWindow):
             key, (title, sub, tracks) = order[i]
             n = len(tracks)
             line = " · ".join(x for x in (sub if view != "folders" else "", f"{n} song{'s' if n != 1 else ''}") if x)
-            cover = next((t for t in tracks if t.get("thumb") or source_of(t) == "file"), None)
-            lst.append(PlaylistRow(self, {"kind": "group", "id": key, "title": title, "thumb": "", "sub": line},
-                                   cover=cover, icon="folder-symbolic" if view == "folders" else "media-optical-symbolic"))
-        self.lazy(lst, len(order), add)
+            # Made when it comes into view: two thousand albums' rows at once took half a second.
+            lst.append_lazy(lambda: PlaylistRow(
+                self, {"kind": "group", "id": key, "title": title, "thumb": "", "sub": line},
+                cover=next((t for t in tracks if t.get("thumb") or source_of(t) == "file"), None),
+                icon="folder-symbolic" if view == "folders" else "media-optical-symbolic"))
+        for i in range(len(order)):
+            add(i)
 
     count_label = None
     open_group = None   # Albums, Genres or Folders: the one open (its key), or None for all of them
@@ -11238,6 +12072,8 @@ class MusicWindow(Adw.ApplicationWindow):
         """What's playing and what comes after it, in order: the songs you queued first.
         (Songs already played aren't listed; Previous goes back through them.)"""
         self.when_shown("queue", self._refresh_queue)
+        if hasattr(self, "np_next"):
+            self.refresh_np_queue()
 
     def current_list_name(self):
         """The list you're playing from, as its queue is called: an album, an artist, a playlist, My music…"""
@@ -11705,6 +12541,7 @@ class MusicWindow(Adw.ApplicationWindow):
         self.update_now_page(t)
         self.update_nav_sub()
         self.play_btn.icon.set_name("play" if a.paused else "pause")
+        self.backdrop.update()
         self.update_saved()
         self.update_like()
         self.update_favorite()
@@ -11742,7 +12579,12 @@ class MusicWindow(Adw.ApplicationWindow):
     def update_tint(self, t=None):
         """The window in the colour of what's playing's cover (once its picture is on disk)."""
         t = t or self.app.current_track()
-        self.app.set_tint(self.art.paths.get(t["id"]) if t else None)
+        path = self.art.paths.get(t["id"]) if t else None
+        if t and not path:
+            lib = self.lib.items.get(t["id"])
+            path = Path(lib["art"]) if lib and lib.get("art") else None
+        self.app.set_tint(path)
+        self.backdrop.set_cover(path)
         if t:
             self.load_big_art(t)
 
@@ -11753,6 +12595,8 @@ class MusicWindow(Adw.ApplicationWindow):
         (self.fav_btn.add_css_class if on else self.fav_btn.remove_css_class)("liked")
         self.fav_btn.set_tooltip_text("In your favorites (f)" if on else "Favorite (f)")
         self.set_tool(self.tool_fav, "star" if on else "star_line", on)
+        if hasattr(self, "np_q_fav"):
+            self.set_tool(self.np_q_fav, "star" if on else "star_line", on)
 
     def update_like(self):
         t = self.app.current_track()
@@ -11790,9 +12634,8 @@ class MusicWindow(Adw.ApplicationWindow):
         self.t_len.set_label(fmt_time(dur))
         if self.stack.get_visible_child_name() == "nowplaying":
             self.wave.set_position(pos, dur)
-            if self.wave.drag is None:
-                self.np_times[0].set_label(fmt_time(pos))
-            self.np_times[1].set_label(fmt_time(dur))
+            self.np_times[0].set_label(fmt_time(pos))
+            self.np_times[1].set_label("-" + fmt_time(max(0, (dur or 0) - (pos or 0))))
 
     def on_seek(self, _scale, _scroll, value):
         self.dragging_until = time.monotonic() + 0.4
@@ -11802,10 +12645,8 @@ class MusicWindow(Adw.ApplicationWindow):
 
     def on_key(self, _ctl, keyval, _code, state):
         ctrl = state & Gdk.ModifierType.CONTROL_MASK
-        if keyval == Gdk.KEY_Escape:
-            if self.split.get_show_sidebar():
-                self.split.set_show_sidebar(False)
-            elif self.selecting:
+        if keyval == Gdk.KEY_Escape:   # the menu stays: only ☰ (F9, Ctrl+M) closes it
+            if self.selecting:
                 self.stop_selecting()
             elif self.stack.get_visible_child_name() != "nowplaying":
                 self.nav_back()
@@ -13508,6 +14349,8 @@ class MusicApp(Adw.Application):
         self.discord_on = True     # what's playing on your Discord profile
         self.skip_order = "most"   # how the Music tab's Skips is sorted
         self.vis_preset = "bars"   # the Visualizer tab's look
+        self.drawer_open = True    # the menu (☰) beside the page
+        self.autoplay = True       # ∞: when the queue runs out, songs like the last one play on
         self.wrapped_style = "classic"   # Wrapped's look
         self.download_dir = None   # your download folder; None: the app's own
         self.dupe_action = "ask"   # a download you have a copy of already: "ask", "keep" (both) or "replace"
@@ -13583,7 +14426,10 @@ class MusicApp(Adw.Application):
         self.keep_played = bool(state.get("keep_played", False))
         self.discord_on = bool(state.get("discord", True))
         self.skip_order = state.get("skip_order") if state.get("skip_order") in ("most", "least", "heard") else "most"
-        self.vis_preset = state.get("vis_preset") if state.get("vis_preset") in [k for k, _l, _t in VIS_PRESETS] else "bars"
+        looks = [k for k, _l, _t in vis_presets()]
+        self.vis_preset = state.get("vis_preset") if state.get("vis_preset") in looks else looks[0]
+        self.drawer_open = state.get("drawer_open", True) is not False
+        self.autoplay = state.get("autoplay", True) is not False
         self.wrapped_style = state.get("wrapped_style") if state.get("wrapped_style") in WRAPPED_STYLES else "classic"
         self.download_dir = state.get("download_dir") if isinstance(state.get("download_dir"), str) else None
         self.dupe_action = state.get("dupe_action") if state.get("dupe_action") in ("ask", "keep", "replace") else "ask"
@@ -13679,6 +14525,7 @@ class MusicApp(Adw.Application):
                                        "art_colors": self.art_colors, "keep_played": self.keep_played,
                                        "discord": self.discord_on, "look": self.look, "styled": True,
                                        "skip_order": self.skip_order, "vis_preset": self.vis_preset,
+                                       "drawer_open": self.drawer_open, "apple_ui": True, "autoplay": self.autoplay,
                                        "wrapped_style": self.wrapped_style, "download_dir": self.download_dir,
                                        "dupe_action": self.dupe_action,
                                        "music_sort": self.music_sort, "search_in": self.search_in,
@@ -13932,7 +14779,9 @@ class MusicApp(Adw.Application):
             st = read_json(STATE, {})
             saved = st.get("look")
             # The Stellio look is the new default: a look picked before it came is kept only once picked again.
-            self.look = saved if st.get("styled") and saved in ("default", *LOOKS) else "stellio"
+            # The Apple Music look came with 1.3: everyone starts on it (dark if Windows is), and picks again from there.
+            self.look = saved if st.get("apple_ui") and saved in ("default", *LOOKS) else \
+                "apple-dark" if system_dark() else "apple"
         theme = load_theme(self.look)
         provider = Gtk.CssProvider()
         provider.load_from_string(theme_css(theme))
@@ -13949,8 +14798,9 @@ class MusicApp(Adw.Application):
             self.win.update_tint()
 
     def set_tint(self, path):
-        """Colour the window like the cover at path (None: the theme's own colours)."""
-        path = path if self.art_colors else None
+        """Colour the window like the cover at path (None: the theme's own colours). The Apple Music
+        looks keep their lists plain: the cover's colours are Now playing's, behind it."""
+        path = path if self.art_colors and not self.theme["c"].get("apple") else None
         if path == self.tint_path:
             return
         self.tint_path = path
@@ -15427,12 +16277,19 @@ class MusicApp(Adw.Application):
         """A song started. It counts as played (Recent, Most played) after PLAY_AFTER
         seconds of listening; Last.fm shows it as playing, and gets it once you've
         listened to half of it (or four minutes)."""
-        m = {k: v for k, v in song_meta(self.lib, t).items() if k != "tags"}
-        scrobble = self.lastfm.connected and bool(m["artist"] and m["title"])
-        self.listen = {"id": t["id"], "track": t, "meta": m, "start": time.time(), "played": 0.0,
-                       "counted": False, "sent": not scrobble}
-        if scrobble:
-            in_thread(self.lastfm.now_playing, m, done=self.lastfm_result)
+        # Its names come from the file's tags: read off the main loop (a FLAC's took up to 0.2 s).
+        self.listen = ls = {"id": t["id"], "track": t, "meta": {"duration": t.get("duration") or 0}, "start": time.time(),
+                            "played": 0.0, "counted": False, "sent": True}
+
+        def got(m, _err):
+            if m is None or self.listen is not ls:
+                return
+            m = {k: v for k, v in m.items() if k != "tags"}
+            ls["meta"] = m
+            if self.lastfm.connected and m["artist"] and m["title"]:
+                ls["sent"] = False
+                in_thread(self.lastfm.now_playing, m, done=self.lastfm_result)
+        in_thread(song_meta, self.lib, t, done=got)
 
     def listened(self, seconds):
         ls = self.listen
@@ -15718,6 +16575,8 @@ class MusicApp(Adw.Application):
                     songs.add(song_key(t))
                     self.queue.append(t)
             self.after_queue_change()
+            if self.ended and self.index + 1 < len(self.queue):   # it had stopped at the end: on it goes
+                self.next()
         in_thread(self.radio_tracks, track, done=done)
 
     def play_index(self, i):
@@ -15729,6 +16588,7 @@ class MusicApp(Adw.Application):
         if self.index + 1 < len(self.queue):
             self.index += 1
             self.load_current()
+            self.autoplay_soon()
         elif self.repeat == "all" and self.queue:
             if self.shuffled:   # round again in a new order, not the last one again
                 self.queue = shuffle_songs(self.queue, after=self.current_track())
@@ -15738,6 +16598,37 @@ class MusicApp(Adw.Application):
         else:
             self.ended = True
             self.set_paused(True)
+            t = self.current_track()
+            if self.autoplay and t and self.repeat == "off":
+                self.extend_radio(t)   # ∞: songs like it, and it plays on (extend_radio)
+
+    def autoplay_soon(self):
+        """∞: a couple of songs before the end, fetch songs like the last one so there's no gap."""
+        if self.autoplay and self.repeat == "off" and self.queue and len(self.queue) - self.index <= 2 \
+                and self.radio_from != self.queue[-1]["id"]:
+            self.extend_radio(self.queue[-1])
+
+    def set_autoplay(self, on):
+        self.autoplay = bool(on)
+        self.save_soon()
+        if on:
+            self.autoplay_soon()
+        if self.win:
+            self.win.refresh_queue()
+
+    def clear_queued(self):
+        """Queue › Clear: the songs you queued by hand go (what plays on from the list stays)."""
+        self.queue = self.queue[:self.index + 1] + [t for t in self.queue[self.index + 1:] if not t.get("queued")]
+        self.after_queue_change()
+
+    def move_in_queue(self, i, j):
+        """The song at i, dragged to j (both after the one playing)."""
+        q = self.queue
+        if i == j or not (self.index < i < len(q)) or not (self.index < j < len(q)):
+            return
+        t = q.pop(i)
+        q.insert(j, t)
+        self.after_queue_change()
 
     def track_ended(self):
         t = self.current_track()

@@ -132,6 +132,7 @@ private fun AccountsSheet(ui: Ui) {
                 while (c !is android.app.Activity && c is android.content.ContextWrapper) c = c.baseContext
                 c as? android.app.Activity
             }
+            Group("General") {
             val v = Updater.latest
             if (v != null) Line("Update", when (Updater.state) {
                 "" -> "VarMusic $v is out (this is ${Updater.version})"
@@ -148,7 +149,8 @@ private fun AccountsSheet(ui: Ui) {
                 else Updater.checkError.ifEmpty { "${Updater.version} · up to date" }.let { if (it.startsWith("couldn't")) "${Updater.version} · $it" else it }, false) {
                 if (!Updater.checking) Pill("Check", quiet = true) { Updater.check(quiet = false) }
             }
-            Divider()
+            }
+            Group("Play on") {
             // ---- play on ----
             Line("Play on", if (Remote.active) "The desktop (${Remote.name})" + if (!Remote.reachable) " · not reachable" else ""
                 else "This phone", Remote.active) {
@@ -159,7 +161,8 @@ private fun AccountsSheet(ui: Ui) {
                 Text("Paired with ${Remote.host}", style = T.sub, modifier = Modifier.weight(1f))
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
-            Divider()
+            }
+            Group("Accounts") {
             // ---- services ----
             for (key in listOf("ytm", "apple")) {
                 val src = Music.sources[key]
@@ -179,7 +182,8 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Connect") { ui.sheet = "tidal-login" }
             }
             SpotifyLine(ui)
-            Divider()
+            }
+            Group("Your music") {
             // ---- your music ----
             val n = Music.local.files.size
             Line("Folders", if (Music.local.scanning) "Reading your music…" else "$n song${if (n != 1) "s" else ""} in your folders, in the Music tab", n > 0) {
@@ -241,7 +245,7 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             Line("Copies", "Downloading a song you have already", false) {}
-            Row(Modifier.padding(start = 92.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("ask" to "Ask", "keep" to "Keep both", "replace" to "Replace").forEach { (k, l) ->
                     Chip(l, Music.dupeAction == k) { Music.chooseDupeAction(k) }
                 }
@@ -252,11 +256,14 @@ private fun AccountsSheet(ui: Ui) {
                 if (Music.upgrading != null) Pill("Stop", quiet = true) { Music.upgradeStop = true }
                 else Pill("Upgrade…") { ui.upgradeFor = emptyList() }
             }
-            Divider()
+            }
+            Group("Last.fm & your stats") {
             LastFmLine(ui)
             SpotifyHistoryLine(ui)
-            Divider()
+            }
+            Group("More") {
             SettingsLine()
+            }
         }
     }
 }
@@ -399,11 +406,22 @@ private fun SyncSwitch(key: String) {
 private fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, checkedTrackColor = C.accent,
     uncheckedThumbColor = C.muted, uncheckedTrackColor = C.dark, uncheckedBorderColor = C.line)
 
+/** A section of Settings, Apple's way: its name above a rounded group of rows. */
+@Composable
+private fun Group(title: String, content: @Composable () -> Unit) {
+    Text(title.uppercase(), style = T.section, modifier = Modifier.padding(start = 14.dp, top = 18.dp, bottom = 6.dp))
+    Column(Modifier.fillMaxWidth().clip(R.card).background(if (C.apple && C.isLight) androidx.compose.ui.graphics.Color(0xFFF2F2F7) else C.light)
+        .padding(horizontal = 14.dp, vertical = 4.dp)) { content() }
+}
+
+/** A row of Settings: its name and what it is (or what it's doing) on the left, its switch or buttons on the right. */
 @Composable
 private fun Line(name: String, state: String, ok: Boolean, actions: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(name, style = T.title, modifier = Modifier.width(92.dp))
-        Text(state, style = T.sub.copy(color = if (ok) C.accent else C.muted), modifier = Modifier.weight(1f).padding(end = 8.dp))
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 10.dp)) {
+            Text(name, style = T.body.copy(fontSize = 16.sp))
+            if (state.isNotEmpty()) Text(state, style = T.sub.copy(color = if (ok) C.accent else C.muted), modifier = Modifier.padding(top = 2.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) { actions() }
     }
 }

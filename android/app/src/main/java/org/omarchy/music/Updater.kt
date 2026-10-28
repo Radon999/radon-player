@@ -22,7 +22,7 @@ import java.io.File
  *  so one that came while you were away is kept, and asked when you come back (or Install). */
 @SuppressLint("StaticFieldLeak")
 object Updater {
-    private const val REPO = "Radon999/omarchy-music"   // updates come from this one's releases
+    private const val REPO = "Radon999/radon-player"   // updates come from this one's releases
     private lateinit var ctx: Context
     var latest by mutableStateOf<String?>(null)   // the newer release ("1.2.0"), once there is one
         private set

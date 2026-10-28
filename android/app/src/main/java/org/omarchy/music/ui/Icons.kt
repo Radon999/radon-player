@@ -22,7 +22,8 @@ import kotlin.math.sin
 /** The app's icons, drawn on a 24×24 grid (no icon font: they come out the same on every phone). */
 enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HEART_LINE, STAR, STAR_LINE, EQ, LYRICS, VIS,
     QUEUE, MORE, BACK, DOWN, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
-    FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH }
+    FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
+    SPEAKER, INFINITY, GRIP }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -158,6 +159,22 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
             line(4.5f, 10f, 19.5f, 10f); dot(7.5f, 14.5f, 1.4f); dot(16.5f, 14.5f, 1.4f)
         }
         Ico.BLUETOOTH -> line(7f, 7.5f, 17f, 16.5f, 12f, 21f, 12f, 3f, 17f, 7.5f, 7f, 16.5f)
+        Ico.SPEAKER -> {   // a speaker cone and two sound waves
+            fill(3f, 9.5f, 7f, 9.5f, 12f, 5f, 12f, 19f, 7f, 14.5f, 3f, 14.5f)
+            drawArc(color, -50f, 100f, false, p(9f, 7f), Size(10f * u, 10f * u), style = stroke)
+            drawArc(color, -55f, 110f, false, p(7f, 3.5f), Size(17f * u, 17f * u), style = stroke)
+        }
+        Ico.INFINITY -> {   // ∞: two loops crossing in the middle
+            val path = Path().apply {
+                moveTo(12f * u, 12f * u)
+                cubicTo(9f * u, 7f * u, 3f * u, 7.5f * u, 3f * u, 12f * u)
+                cubicTo(3f * u, 16.5f * u, 9f * u, 17f * u, 12f * u, 12f * u)
+                cubicTo(15f * u, 7f * u, 21f * u, 7.5f * u, 21f * u, 12f * u)
+                cubicTo(21f * u, 16.5f * u, 15f * u, 17f * u, 12f * u, 12f * u)
+            }
+            drawPath(path, color, style = stroke)
+        }
+        Ico.GRIP -> { line(5f, 9f, 19f, 9f); line(5f, 12f, 19f, 12f); line(5f, 15f, 19f, 15f) }
         Ico.ART -> { drawRoundRect(color, p(3.5f, 3.5f), Size(17f * u, 17f * u), CornerRadius(3f * u), style = stroke); ring(12f, 12f, 4f); dot(12f, 12f, 1.2f) }
     }
 }

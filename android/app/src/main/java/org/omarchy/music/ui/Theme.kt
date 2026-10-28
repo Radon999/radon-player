@@ -35,6 +35,7 @@ object C {
     var glow by mutableStateOf(false)   // a neon look: what's on glows
     var gradient by mutableStateOf<List<Color>?>(null)   // a colourful look: the window is this gradient
     var stars by mutableStateOf(false)                   // the galaxy looks: a few stars over it
+    var apple by mutableStateOf(false)                   // the Apple Music looks: plain pages, thin lines between rows
     val line get() = selection.copy(alpha = 0.45f)
     /** A soft glow under accent text, in a neon look. */
     val shadow get() = if (glow) Shadow(accent.copy(alpha = 0.8f), blurRadius = 14f) else null
@@ -52,6 +53,8 @@ object Looks {
 
     /** Stellio's own (light and dark), and colourful ones that still keep it simple. */
     private val STYLED = linkedMapOf(
+        "apple" to ("Apple Music" to P(0xFFFA2D48, 0xFFFFFFFF, 0xFFF2F2F7, 0xFF1D1D1F, 0xFF86868B, 0xFFE5E5EA, true)),
+        "apple-dark" to ("Apple Music dark" to P(0xFFFA2D48, 0xFF000000, 0xFF1C1C1E, 0xFFF5F5F7, 0xFF98989D, 0xFF38383A, false)),
         "stellio" to ("Stellio" to P(0xFF4A86F7, 0xFFEEF0F6, 0xFFFFFFFF, 0xFF2B3141, 0xFF8A90A6, 0xFFC9D3EA, true)),
         "stellio-dark" to ("Stellio dark" to P(0xFF5B8DEF, 0xFF1C2030, 0xFF262B3D, 0xFFE6E9F5, 0xFF8A90A8, 0xFF343B54, false)),
         "galaxy" to ("Galaxy" to P(0xFFB57BFF, 0xFF0B0820, 0xFF1C1544, 0xFFEDE7FF, 0xFF9A8FC4, 0xFF3A2C70, false,
@@ -83,6 +86,7 @@ object Looks {
         C.glow = neon != null
         C.gradient = styled?.grad?.map { Color(it) }
         C.stars = styled?.stars == true
+        C.apple = look.startsWith("apple")
         when {
             styled != null -> {
                 val p = styled
