@@ -1,0 +1,12 @@
+radon-player
+Radon Player 1.3.0: an Apple Music-style look for Windows and Android
+
+- Now Playing over the album art's colours, with a slim bar visualizer behind the controls
+- The queue in the cover's place, with Shuffle, Repeat and Autoplay
+- Settings grouped Apple-style; Apple Music and Apple Music dark looks
+- PC: much less lag; the ☰ menu stays open until it's tapped
+- Android: a tap on a song's title plays it
+- Updates come from Radon999/radon-player; README and CHANGELOG
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SQ8YdK4tDCZg6vWujRuyEW
