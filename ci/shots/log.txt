@@ -11,37 +11,37 @@ Success
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 1.mp3' ']'
 + adb push '/tmp/Test Song 1.mp3' /sdcard/Music/
-/tmp/Test Song 1.mp3: 1 file pushed, 0 skipped. 3.2 MB/s (1097303 bytes in 0.325s)
+/tmp/Test Song 1.mp3: 1 file pushed, 0 skipped. 13.7 MB/s (1097303 bytes in 0.076s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 2.mp3' ']'
 + adb push '/tmp/Test Song 2.mp3' /sdcard/Music/
-/tmp/Test Song 2.mp3: 1 file pushed, 0 skipped. 150.2 MB/s (1097303 bytes in 0.007s)
+/tmp/Test Song 2.mp3: 1 file pushed, 0 skipped. 327.7 MB/s (1097303 bytes in 0.003s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 3.mp3' ']'
 + adb push '/tmp/Test Song 3.mp3' /sdcard/Music/
-/tmp/Test Song 3.mp3: 1 file pushed, 0 skipped. 154.0 MB/s (1097303 bytes in 0.007s)
+/tmp/Test Song 3.mp3: 1 file pushed, 0 skipped. 266.8 MB/s (1097303 bytes in 0.004s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 4.mp3' ']'
 + adb push '/tmp/Test Song 4.mp3' /sdcard/Music/
-/tmp/Test Song 4.mp3: 1 file pushed, 0 skipped. 150.1 MB/s (1097866 bytes in 0.007s)
+/tmp/Test Song 4.mp3: 1 file pushed, 0 skipped. 355.5 MB/s (1097866 bytes in 0.003s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 5.mp3' ']'
 + adb push '/tmp/Test Song 5.mp3' /sdcard/Music/
-/tmp/Test Song 5.mp3: 1 file pushed, 0 skipped. 148.0 MB/s (1097866 bytes in 0.007s)
+/tmp/Test Song 5.mp3: 1 file pushed, 0 skipped. 417.7 MB/s (1097866 bytes in 0.003s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 6.mp3' ']'
 + adb push '/tmp/Test Song 6.mp3' /sdcard/Music/
-/tmp/Test Song 6.mp3: 1 file pushed, 0 skipped. 253.6 MB/s (1097866 bytes in 0.004s)
+/tmp/Test Song 6.mp3: 1 file pushed, 0 skipped. 395.3 MB/s (1097866 bytes in 0.003s)
 + break
 + adb shell content call --method scan_volume --uri content://media --arg external_primary
 Result: Bundle[{}]
@@ -67,7 +67,7 @@ args: [-p, org.omarchy.music.test, -c, android.intent.category.LAUNCHER, 1]
 data="org.omarchy.music.test"
 data="android.intent.category.LAUNCHER"
 Events injected: 1
-## Network stats: elapsed time=278ms (0ms mobile, 0ms wifi, 278ms not connected)
+## Network stats: elapsed time=131ms (0ms mobile, 0ms wifi, 131ms not connected)
 + sleep 12
 + python3 work/ci/tap.py Wait
 not found: wait
@@ -190,8 +190,8 @@ not found: visualizer
 + has 'content-desc="Menu"'
 + calm
 + python3 work/ci/tap.py Wait
-+ adb exec-out uiautomator dump /dev/tty
 + grep -q 'content-desc="Menu"'
++ adb exec-out uiautomator dump /dev/tty
 + back
 + adb shell input keyevent KEYCODE_BACK
 + sleep 2
@@ -202,8 +202,8 @@ not found: visualizer
 + has 'content-desc="Menu"'
 + calm
 + python3 work/ci/tap.py Wait
-+ adb exec-out uiautomator dump /dev/tty
 + grep -q 'content-desc="Menu"'
++ adb exec-out uiautomator dump /dev/tty
 + break
 + tap --desc Menu
 + python3 work/ci/tap.py --desc Menu
@@ -336,8 +336,8 @@ tap now playing 281 582
 + has 'content-desc="Menu"'
 + calm
 + python3 work/ci/tap.py Wait
-+ grep -q 'content-desc="Menu"'
 + adb exec-out uiautomator dump /dev/tty
++ grep -q 'content-desc="Menu"'
 + break
 + tap --desc Menu
 + python3 work/ci/tap.py --desc Menu
@@ -353,7 +353,7 @@ tap settings 1012 199
 + sleep 3
 + tap --scroll --contains ▾
 + python3 work/ci/tap.py --scroll --contains ▾
-tap ▾ 916 1933 
+tap ▾ 916 1874 
 + sleep 3
 + tap 'Apple Music dark'
 + python3 work/ci/tap.py 'Apple Music dark'
@@ -453,7 +453,7 @@ tap settings 1012 199
 + sleep 3
 + tap --scroll --contains ▾
 + python3 work/ci/tap.py --scroll --contains ▾
-tap ▾ 916 1896 
+tap ▾ 916 2075 
 + sleep 3
 + tap 'Apple Music'
 + python3 work/ci/tap.py 'Apple Music'
@@ -528,28 +528,28 @@ tap now playing 281 582
 + python3 work/ci/tap.py Wait
 + adb exec-out screencap -p
 + ls -la /home/runner/work/radon-player/radon-player/shots
-total 7176
-drwxr-xr-x 2 runner runner    4096 Oct 28 08:17 .
-drwxr-xr-x 5 runner runner    4096 Oct 28 08:06 ..
--rw-r--r-- 1 runner runner  145535 Oct 28 08:08 01-home.png
--rw-r--r-- 1 runner runner  145535 Oct 28 08:08 01-player-empty.png
--rw-r--r-- 1 runner runner  169249 Oct 28 08:08 02-drawer.png
--rw-r--r-- 1 runner runner  160746 Oct 28 08:08 03-songs.png
--rw-r--r-- 1 runner runner  173090 Oct 28 08:08 04-songs-playing.png
--rw-r--r-- 1 runner runner  388374 Oct 28 08:09 05-player.png
--rw-r--r-- 1 runner runner  384493 Oct 28 08:09 05b-player-bars.png
--rw-r--r-- 1 runner runner  374603 Oct 28 08:13 05c-player-ocean.png
--rw-r--r-- 1 runner runner  447530 Oct 28 08:09 06-queue.png
--rw-r--r-- 1 runner runner  364713 Oct 28 08:09 07-lyrics.png
--rw-r--r-- 1 runner runner  206182 Oct 28 08:11 08-vis-tab.png
--rw-r--r-- 1 runner runner   97537 Oct 28 08:12 09-albums.png
--rw-r--r-- 1 runner runner  141564 Oct 28 08:12 09b-album.png
--rw-r--r-- 1 runner runner  199419 Oct 28 08:13 10-settings.png
--rw-r--r-- 1 runner runner  251450 Oct 28 08:13 11-settings-2.png
--rw-r--r-- 1 runner runner  254835 Oct 28 08:14 12-settings-3.png
--rw-r--r-- 1 runner runner  259291 Oct 28 08:15 30-look-Apple-Music-dark.png
--rw-r--r-- 1 runner runner  248025 Oct 28 08:17 30-look-Apple-Music.png
--rw-r--r-- 1 runner runner  172767 Oct 28 08:15 31-songs-Apple-Music-dark.png
--rw-r--r-- 1 runner runner  224580 Oct 28 08:17 31-songs-Apple-Music.png
--rw-r--r-- 1 runner runner  345110 Oct 28 08:16 32-player-Apple-Music-dark.png
--rw-r--r-- 1 runner runner 2138059 Oct 28 08:17 32-player-Apple-Music.png
+total 5280
+drwxr-xr-x 2 runner runner   4096 Oct 28 08:51 .
+drwxr-xr-x 5 runner runner   4096 Oct 28 08:42 ..
+-rw-r--r-- 1 runner runner 145802 Oct 28 08:43 01-home.png
+-rw-r--r-- 1 runner runner 145802 Oct 28 08:43 01-player-empty.png
+-rw-r--r-- 1 runner runner 169820 Oct 28 08:43 02-drawer.png
+-rw-r--r-- 1 runner runner 161228 Oct 28 08:43 03-songs.png
+-rw-r--r-- 1 runner runner 173659 Oct 28 08:43 04-songs-playing.png
+-rw-r--r-- 1 runner runner 386500 Oct 28 08:43 05-player.png
+-rw-r--r-- 1 runner runner 388127 Oct 28 08:44 05b-player-bars.png
+-rw-r--r-- 1 runner runner 373318 Oct 28 08:47 05c-player-ocean.png
+-rw-r--r-- 1 runner runner 448176 Oct 28 08:44 06-queue.png
+-rw-r--r-- 1 runner runner 368555 Oct 28 08:44 07-lyrics.png
+-rw-r--r-- 1 runner runner 208523 Oct 28 08:46 08-vis-tab.png
+-rw-r--r-- 1 runner runner  97583 Oct 28 08:47 09-albums.png
+-rw-r--r-- 1 runner runner 141614 Oct 28 08:47 09b-album.png
+-rw-r--r-- 1 runner runner 199096 Oct 28 08:48 10-settings.png
+-rw-r--r-- 1 runner runner 244205 Oct 28 08:48 11-settings-2.png
+-rw-r--r-- 1 runner runner 258933 Oct 28 08:48 12-settings-3.png
+-rw-r--r-- 1 runner runner 246028 Oct 28 08:49 30-look-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner 249454 Oct 28 08:51 30-look-Apple-Music.png
+-rw-r--r-- 1 runner runner 173296 Oct 28 08:49 31-songs-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner 172816 Oct 28 08:51 31-songs-Apple-Music.png
+-rw-r--r-- 1 runner runner 352796 Oct 28 08:50 32-player-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner 249489 Oct 28 08:51 32-player-Apple-Music.png
