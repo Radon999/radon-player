@@ -115,5 +115,14 @@ jobs:
         run: |
           git checkout -q -- android/app/build.gradle.kts android/app/src/main/AndroidManifest.xml
           B="$(head -1 ../work/ci/PUSH | tr -d '[:space:]' | grep . || echo desktop-features)"
-          # ci/PUSH's first line names the branch (desktop-features if empty); never forced
-          git push origin HEAD:"refs/heads/$B"
+          # ci/PUSH's first line names the branch (desktop-features if empty); never forced.
+          # Any lines after it are the commit's message: then the patched code goes on top of
+          # that branch as it is now, as one new commit.
+          if sed 1d ../work/ci/PUSH | grep -q .; then
+            git fetch -q origin "$B"
+            sed 1d ../work/ci/PUSH > "$RUNNER_TEMP/message"
+            C=$(git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
+            git push origin "$C:refs/heads/$B"
+          else
+            git push origin HEAD:"refs/heads/$B"
+          fi
