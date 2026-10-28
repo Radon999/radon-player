@@ -62,7 +62,8 @@ object Stats {
             busy = false
             if (s != null) { songs = s.songs; artists = s.artists; built = s.built; sig = s.sig }
             else {
-                built = now() - FOR + 120   // try again in two minutes
+                built = now() - FOR + 120   // try again in two minutes (not straight away)
+                sig = inputs()
                 android.util.Log.w("omarchy-music", "stats", err)
             }
             Music.musicVersion++

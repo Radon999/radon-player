@@ -5876,6 +5876,7 @@ class Stats:
             if err is not None:
                 self.error = str(err)[:120]
                 self.built = time.time() - STATS_FOR + 120   # try again in two minutes
+                self.sig = self.inputs()   # (not straight away: the inputs didn't change)
                 print(f"stats: {err!r}", file=sys.stderr)
             else:
                 self.error = ""
