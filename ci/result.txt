@@ -1,29 +1,34 @@
-run 40658161940 · Wed Oct 28 08:40:55 UTC 2026
-BUILD OK
+run 40692549009 · Wed Oct 28 13:03:03 UTC 2026
+BUILD FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Stores.kt:282:5 This annotation is not repeatable.
 
-> Task :app:compileReleaseJavaWithJavac
-  int max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.LongSummaryStatistics {
-  long count;
-  long sum;
-  long min;
-  long max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
-  long count;
-  double sum;
-  double min;
-  double max;
-}`
+FAILURE: Build failed with an exception.
+--
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+> Task :app:processReleaseResources
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:compileReleaseKotlin
+> Task :app:mergeExtDexRelease
 
-> Task :app:compileReleaseArtProfile
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalAnalyzeRelease
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+> Task :app:compileReleaseKotlin FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Stores.kt:282:5 This annotation is not repeatable.
 
-BUILD SUCCESSFUL in 2m 50s
-52 actionable tasks: 52 executed
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 15s
+28 actionable tasks: 28 executed
