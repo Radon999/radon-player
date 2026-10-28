@@ -89,6 +89,14 @@ object Tint {
         return shade(0.15f) to shade(0.09f)
     }
 
+    /** A cover's main colour (null: no picture). */
+    suspend fun rgbOf(ctx: Context, loader: ImageLoader, model: Any?): Int? {
+        model ?: return null
+        val res = loader.execute(ImageRequest.Builder(ctx).data(model).allowHardware(false).size(64).build())
+        val bmp = ((res as? SuccessResult)?.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap ?: return null
+        return artColor(bmp)
+    }
+
     suspend fun of(ctx: Context, loader: ImageLoader, model: Any?): Pair<Color, Color>? {
         model ?: return null
         val res = loader.execute(ImageRequest.Builder(ctx).data(model).allowHardware(false).size(64).build())

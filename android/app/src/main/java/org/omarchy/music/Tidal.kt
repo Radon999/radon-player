@@ -140,10 +140,31 @@ class Tidal(ctx: Context) : Source {
                 // service listed, and hi-res where there is a choice.
                 val album = norm(t.album)
                 return found.sortedWith(compareBy<JsonElement> { norm(it.path("album", "title").str) != album }
-                    .thenBy { "HIRES_LOSSLESS" !in it.path("mediaMetadata", "tags").list.map { x -> x.str } }).first()
+                    .thenBy { "HIRES_LOSSLESS" !in it.path("mediaMetadata", "tags").list.map { x -> x.str } }
+                    .thenBy { onSingle(it) }).first()
             }
         }
-        return match(t, lossy)
+        val found = match(t, lossy)
+        // The album's version over the single's, unless yours is the single.
+        return if (found != null && !lossy && norm(found.path("album", "title").str) != norm(t.album)) albumVersion(found) else found
+    }
+
+    /** Whether Tidal track c comes from a single: its release is named after it ("Song", "Song - Single"). */
+    fun onSingle(c: JsonElement): Boolean {
+        val album = norm((c.path("album", "title").str ?: "").replace(Regex("\\s*[-–]\\s*(single|ep)\\s*$", RegexOption.IGNORE_CASE), ""))
+        return album.isNotEmpty() && album == norm(c["title"].str ?: "")
+    }
+
+    /** The same recording on an album, if c is from a single and Tidal has it on one (as good), else c. */
+    private fun albumVersion(c: JsonElement): JsonElement {
+        if (!onSingle(c)) return c
+        val isrc = c["isrc"].str ?: return c
+        val hires = "HIRES_LOSSLESS" in c.path("mediaMetadata", "tags").list.map { it.str }
+        return runCatching {
+            api("tracks", mapOf("filter[isrc]" to isrc), base = OPENAPI).get("data").list
+                .mapNotNull { d -> d["id"].long?.let { runCatching { trackJson(it) }.getOrNull() } }
+                .firstOrNull { ok(it, false) && !onSingle(it) && (!hires || "HIRES_LOSSLESS" in it.path("mediaMetadata", "tags").list.map { x -> x.str }) }
+        }.getOrNull() ?: c
     }
 
     /** The Tidal track that is this song, available in lossless (any quality: lossy), or null. */
@@ -192,7 +213,8 @@ class Tidal(ctx: Context) : Source {
         val closeness = if (dur > 0) 1 - abs(cdur - dur) / 6 else 0.5
         val sameAlbum = if (t.album.isNotEmpty() && similar(t.album.lowercase(), album.lowercase()) > 0.8) 0.05 else 0.0
         val hires = if ("HIRES_LOSSLESS" in c.path("mediaMetadata", "tags").list.map { it.str }) 0.04 else 0.0   // of two equal ones, the hi-res
-        return 0.55 * ts + 0.2 * lead + 0.1 * credits + 0.15 * closeness + sameAlbum + hires
+        val onAlbum = if (onSingle(c)) 0.0 else 0.03   // …and the album's over the single's
+        return 0.55 * ts + 0.2 * lead + 0.1 * credits + 0.15 * closeness + sameAlbum + hires + onAlbum
     }
 
     data class Stream(val uri: String, val isDash: Boolean, val quality: String, val manifest: String = "")

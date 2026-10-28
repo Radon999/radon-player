@@ -62,6 +62,7 @@ class Ui {
     var drawer by mutableStateOf(false)                // the ☰ menu is out
     var showQueues by mutableStateOf(false)            // the queues switcher is open
     var lyricsSearch by mutableStateOf(false)          // the lyrics' search box is open
+    var lyricsCard by mutableStateOf<Pair<org.omarchy.music.Track, org.omarchy.music.Lyrics.Got>?>(null)   // Card: making one of this song's
     var pane by mutableStateOf("art")                  // what the player shows: art, lyrics, visualizer, queue
     var musicView by mutableStateOf("all")
     var openMine by mutableStateOf<String?>(null)
@@ -95,6 +96,13 @@ class Ui {
     var exportFor by mutableStateOf<Pair<String, List<Track>>?>(null)   // Export…: a playlist as .m3u8
     var coverFor by mutableStateOf<List<List<Track>>?>(null)   // the albums still to pick a cover for
     var artistPictureFor by mutableStateOf<String?>(null)
+    var filter by mutableStateOf<String?>(null)        // the page's own search (null: closed)
+    var smartNew by mutableStateOf(false)               // New smart playlist is open
+    var reviewFor by mutableStateOf<org.omarchy.music.Playlist?>(null)   // a discovered list, being reviewed
+    var tagPreview by mutableStateOf<Pair<List<String>, Boolean>?>(null)   // Tag now…: these songs, from scratch or not
+    var smartEdit by mutableStateOf<org.omarchy.music.Playlist?>(null)   // …or Edit… of this one
+    var width by mutableStateOf(392f)                  // the lists' width, in dp: how many covers fit across
+    var choices by mutableStateOf<Pair<String, List<Pair<String, () -> Unit>>>?>(null)   // a long-press's options
 
     /** Cover… for tracks: one album at a time. */
     fun pickCovers(tracks: List<Track>) {
@@ -108,7 +116,7 @@ class Ui {
         data class Artist(val name: String, val prefer: String? = null) : Page()
         data class AlbumPage(val album: Album, val source: String, val tracks: List<Track>? = null) : Page()
         /** A list of songs with a name: a genre, a folder. */
-        data class Songs(val title: String, val tracks: List<Track>, val kind: String = "") : Page()
+        data class Songs(val title: String, val tracks: List<Track>, val kind: String = "", val id: String = "") : Page()
     }
 
     fun startSelecting(pool: List<Track>, place: RowPlace?, first: Track?) {
@@ -258,6 +266,10 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         Music.gains.get(t).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
         item("Cover…") { ui.pickCovers(listOf(t)) }()
         Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }
+        splitArtists(t.artist).firstOrNull()?.let { lead -> item("Discovery playlist for $lead") { Music.makeDiscovery(lead) }() }
+        if (t.isFile || Music.lib.has(t.id)) item("File location") { showLocation(ui, t) }()
+        if (Music.lib.items[t.id]?.let { it.format == "flac" && it.file.startsWith("content://") } == true)
+            item("Tag now…") { ui.tagPreview = listOf(t.id) to true }()
         item("Select…") { ui.startSelecting(place.group, place, t) }()
     }
 }
@@ -336,9 +348,13 @@ fun Pill(text: String, quiet: Boolean = false, onClick: () -> Unit) {
 
 fun LazyListScope.tracks(list: List<Track>, ui: Ui, kind: String = "", playlistId: String? = null, radio: Boolean = false,
                          extra: (Track) -> String = { "" }) {
-    items(list.size, key = { "${list[it].id}#$it" }) { i ->
-        val t = list[i]
-        TrackRow(t, RowPlace(list, i, kind, playlistId, radio = radio), ui, extra(t)) { Music.playFrom(list, i, radio) }
+    val shown = if (ui.filter.isNullOrBlank() || !laidOut(ui)) list else list.filter { trackFits(ui, it) }
+    laidOutItems(shown, ui, key = { "${shown[it].id}#$it" }, row = { i ->
+        val t = shown[i]
+        TrackRow(t, RowPlace(shown, i, kind, playlistId, radio = radio), ui, extra(t)) { Music.playFrom(shown, i, radio) }
+    }) { i, mod, compact ->
+        val t = shown[i]
+        TrackTile(t, RowPlace(shown, i, kind, playlistId, radio = radio), ui, extra(t), mod, compact) { Music.playFrom(shown, i, radio) }
     }
 }
 

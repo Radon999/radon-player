@@ -127,7 +127,7 @@ class Library(private val ctx: Context) {
 const val PLAY_AFTER = 30
 
 @Serializable
-data class PlayEntry(val plays: Int = 0, val last: Double = 0.0, val track: Track)
+data class PlayEntry(val plays: Int = 0, val last: Double = 0.0, val track: Track, val at: List<Long> = emptyList())
 
 /** What you've played here, when last and how often: Recently played and Most played. */
 class Plays(ctx: Context) {
@@ -139,7 +139,7 @@ class Plays(ctx: Context) {
     @Synchronized
     fun add(t: Track) {
         val e = items[t.id]
-        items[t.id] = PlayEntry((e?.plays ?: 0) + 1, now(), t.slim())
+        items[t.id] = PlayEntry((e?.plays ?: 0) + 1, now(), t.slim(), ((e?.at ?: emptyList()) + now().toLong()).takeLast(500))
         writeAtomic(file, JSON.encodeToString(ser, items))
     }
 
@@ -159,7 +159,21 @@ class Plays(ctx: Context) {
 }
 
 @Serializable
-data class Playlist(val id: String, val name: String, val created: Double, val updated: Double, val tracks: List<Track> = emptyList())
+data class Playlist(val id: String, val name: String, val created: Double, val updated: Double, val tracks: List<Track> = emptyList(),
+                    val smart: Smart? = null, val discovery: Discovery? = null)
+
+/** A discovery playlist (role "discover": an artist's songs you haven't got) or its "discovered" one
+ *  (the ones you heard to the end, to review). */
+@Serializable
+data class Discovery(val artist: String, val role: String)
+
+/** A smart playlist's rule: your songs in any of moods, of any of genres (either empty: any). */
+@Serializable
+data class Smart(val moods: List<String> = emptyList(), val genres: List<String> = emptyList()) {
+    /** In words: "Happy, Chill · Pop". */
+    fun words() = listOf(moods.joinToString { it.replaceFirstChar { c -> c.uppercase() } }, genres.joinToString())
+        .filter { it.isNotEmpty() }.joinToString(" · ").ifEmpty { "any song" }
+}
 
 /** A playlist in a folder: one of yours (kind "mine") or a service's (kind "service", with the service's key). */
 @Serializable
@@ -252,8 +266,8 @@ class Playlists(ctx: Context) {
     fun get(id: String) = items.firstOrNull { it.id == id }
 
     @Synchronized
-    fun create(name: String): Playlist {
-        val pl = Playlist(randomHex(6), name, now(), now())
+    fun create(name: String, smart: Smart? = null, discovery: Discovery? = null): Playlist {
+        val pl = Playlist(randomHex(6), name, now(), now(), smart = smart, discovery = discovery)
         items += pl
         save()
         return pl
@@ -261,6 +275,9 @@ class Playlists(ctx: Context) {
 
     @Synchronized
     fun rename(id: String, name: String) = edit(id) { it.copy(name = name, updated = now()) }
+
+    @Synchronized
+    fun setSmart(id: String, smart: Smart) = edit(id) { it.copy(smart = smart, updated = now()) }
 
     @Synchronized
     fun delete(id: String) {

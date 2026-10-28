@@ -22,7 +22,7 @@ class SpectrumTest(unittest.TestCase):
         subprocess.run(["ffmpeg", "-v", "quiet", "-y", "-f", "lavfi", "-i", "sine=frequency=100:duration=2", str(path)], check=True)
         out = subprocess.run(om.spectrum_cmd(str(path)), capture_output=True, check=True).stdout
         size = (om.VIS_BANDS + 1) * om.VIS_STEPS
-        self.assertAlmostEqual(len(out) // size, 2 * om.VIS_FPS, delta=2)   # 30 a second
+        self.assertAlmostEqual(len(out) // size, 2 * om.VIS_FPS, delta=2)   # VIS_FPS a second
         lv = om.spectrum_levels(out[size * 30:size * 31])
         low, high = max(lv[:om.VIS_BANDS // 3]), max(lv[-om.VIS_BANDS // 3:])
         self.assertGreater(low, high)

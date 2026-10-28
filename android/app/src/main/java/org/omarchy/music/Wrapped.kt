@@ -259,13 +259,16 @@ object Wrapped {
 
     /** Your scrobbles in year, as (time, title), from the cache Wrapped keeps (blocking: what's
      *  new is asked of Last.fm). For [Stats], to tell which Spotify plays Last.fm has too. */
+    fun scrobblePlays(ctx: Context, period: Period): List<SpotifyHistory.Play> =
+        scrobbles(File(ctx.filesDir, "wrapped").apply { mkdirs() }, period) {}.map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album) }
+
     fun scrobbleTimes(ctx: Context, year: Int): List<Pair<Long, String>> =
         scrobbles(File(ctx.filesDir, "wrapped").apply { mkdirs() }, Period.Year(year)) {}.map { it.t to it.title }
 
     /** rows with your Spotify plays from start to end that Last.fm hasn't got. A play Last.fm
      *  has is the same song scrobbled from five minutes before it began until five after it stopped. */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
-        val plays = SpotifyHistory.plays.filter { it.t in start until end }
+        val plays = (SpotifyHistory.plays + AppleHistory.timed()).filter { it.t in start until end }
         if (plays.isEmpty()) return rows
         val scrobbled = HashMap<String, MutableList<Long>>()
         for (r in rows) scrobbled.getOrPut(cleanTitle(r.title)) { ArrayList() } += r.t
@@ -282,8 +285,8 @@ object Wrapped {
     fun load(ctx: Context, period: Period, progress: (String) -> Unit): Data {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
-        val spotify = SpotifyHistory.plays
-        if (!fm && spotify.isEmpty()) error("Connect Last.fm, or import your Spotify history, in Settings (⚙).")
+        val spotify = (SpotifyHistory.plays + AppleHistory.timed()).sortedBy { it.t }   // Spotify's and Apple Music's plays
+        if (!fm && spotify.isEmpty()) error("Connect Last.fm, or import your Spotify or Apple Music history, in Settings (⚙).")
         val me = if (fm) { progress("Opening your Last.fm…"); LastFm.info() } else null
         val thisYear = LocalDate.now().year
         var firstYear = me?.registered?.takeIf { it > 0 }?.let { local(it).year } ?: thisYear
@@ -338,17 +341,47 @@ object Wrapped {
         progress("Finding your genres…")
         data = data.copy(genres = genres(dir, data.artists))
         progress("Getting the pictures…")
+        val mine = myCovers(dir)
         data = data.copy(
             artistImage = data.artists.firstOrNull()?.let { runCatching { deezerArtistImage(it.first) }.getOrNull() } ?: "",
+            // Your own copy's cover first (Last.fm often has none), then Last.fm's, then Deezer's.
             songs = data.songs.mapIndexed { i, s ->
-                val img = picture(s.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it }
+                val img = mine(s.artist, s.title, false).ifEmpty { picture(s.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it } }
                 s.copy(art = img.ifEmpty { runCatching { deezerCover(s.artist, s.title) }.getOrNull() ?: "" })
             },
             albums = data.albums.mapIndexed { i, a ->
-                val img = picture(a.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it }
-                a.copy(art = img.ifEmpty { runCatching { deezerCover(a.artist, a.name) }.getOrNull() ?: "" })
+                val img = mine(a.artist, a.name, true).ifEmpty { picture(a.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it } }
+                a.copy(art = img.ifEmpty { runCatching { deezerAlbumCover(a.artist, a.name) }.getOrNull() ?: "" })
             },
         )
         return data
+    }
+
+    private fun deezerAlbumCover(artist: String, album: String): String? =
+        httpJson("https://api.deezer.com/search/album?q=${enc("artist:\"$artist\" album:\"$album\"")}&limit=1")["data"][0]["cover_xl"].str
+
+    /** A finder of covers from your own songs: (artist, title or album, album?) -> a picture's address, or "". */
+    private fun myCovers(dir: java.io.File): (String, String, Boolean) -> String {
+        val songs = HashMap<Pair<String, String>, Track>(); val albums = HashMap<Pair<String, String>, Track>()
+        for (t in Music.mySongs()) {
+            val lead = norm(splitArtists(t.artist).firstOrNull() ?: "")
+            songs.putIfAbsent(lead to norm(cleanTitle(t.title)), t)
+            if (t.album.isNotEmpty()) albums.putIfAbsent(lead to norm(t.album), t)
+        }
+        return { artist, name, album ->
+            val lead = norm(splitArtists(artist).firstOrNull() ?: "")
+            val t = if (album) albums[lead to norm(name)] else songs[lead to norm(cleanTitle(name))]
+            if (t == null) "" else {
+                val art = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() }
+                if (art != null) "file://$art" else {
+                    val uri = Music.lib.items[t.id]?.file ?: t.file
+                    val out = java.io.File(dir, "mine-${safeName(uri ?: t.id).takeLast(60)}.jpg")
+                    if (out.exists()) "file://${out.path}" else runCatching {
+                        val r = android.media.MediaMetadataRetriever()
+                        try { r.setDataSource(Music.ctx, android.net.Uri.parse(uri)); r.embeddedPicture } finally { r.release() }
+                    }.getOrNull()?.let { out.writeBytes(it); "file://${out.path}" } ?: ""
+                }
+            }
+        }
     }
 }

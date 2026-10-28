@@ -1,4 +1,4 @@
-; VarMusic for Windows: installs dist\OmarchyMusic (made by build.sh) for the
+; Radon Player for Windows: installs dist\OmarchyMusic (made by build.sh) for the
 ; current user, with no administrator rights needed, and adds it to the Start menu.
 ; Build: ISCC /DAppVersion=1.0.0 packaging\windows\installer.iss
 
@@ -8,14 +8,14 @@
 
 [Setup]
 AppId={{8C1F3B52-6D0E-4C4B-9E27-0F6A7B3D9C11}
-AppName=VarMusic
+AppName=Radon Player
 AppVersion={#AppVersion}
-AppVerName=VarMusic {#AppVersion}
-AppPublisher=Xavier Reid
+AppVerName=Radon Player {#AppVersion}
+AppPublisher=Radon999
 AppPublisherURL=https://github.com/Radon999/radon-player
 ; Still where 1.1.x put it, so updates go to the same place.
 DefaultDirName={localappdata}\Programs\Omarchy Music
-DefaultGroupName=VarMusic
+DefaultGroupName=Radon Player
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -24,7 +24,7 @@ OutputDir=..\..\dist
 OutputBaseFilename=OmarchyMusic-Setup
 SetupIconFile=omarchy-music.ico
 UninstallDisplayIcon={app}\omarchy-music.ico
-UninstallDisplayName=VarMusic
+UninstallDisplayName=Radon Player
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -48,16 +48,18 @@ Source: "..\..\dist\OmarchyMusic\*"; DestDir: "{app}"; Flags: recursesubdirs cre
 Type: filesandordirs; Name: "{app}\bin"
 Type: filesandordirs; Name: "{app}\lib"
 Type: filesandordirs; Name: "{app}\share"
-; The shortcuts 1.1.x made, before the app was VarMusic.
+; The shortcuts earlier versions made, under the app's old names.
 Type: files; Name: "{autoprograms}\Omarchy Music.lnk"
 Type: files; Name: "{autodesktop}\Omarchy Music.lnk"
+Type: files; Name: "{autoprograms}\VarMusic.lnk"
+Type: files; Name: "{autodesktop}\VarMusic.lnk"
 
 [Icons]
-Name: "{autoprograms}\VarMusic"; Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; IconFilename: "{app}\omarchy-music.ico"; AppUserModelID: "Omarchy.Music"; Comment: "Music from YouTube Music, Tidal, Apple Music and Spotify, in FLAC"
-Name: "{autodesktop}\VarMusic"; Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; IconFilename: "{app}\omarchy-music.ico"; AppUserModelID: "Omarchy.Music"; Tasks: desktopicon
+Name: "{autoprograms}\Radon Player"; Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; IconFilename: "{app}\omarchy-music.ico"; AppUserModelID: "Omarchy.Music"; Comment: "Music from YouTube Music, Tidal, Apple Music and Spotify, in FLAC"
+Name: "{autodesktop}\Radon Player"; Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; IconFilename: "{app}\omarchy-music.ico"; AppUserModelID: "Omarchy.Music"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; Description: "Start VarMusic"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; Description: "Start Radon Player"; Flags: nowait postinstall skipifsilent
 ; An update started from the app (Setup.exe /SILENT /UPDATE=1) opens the new copy when it's done.
 Filename: "{app}\bin\pythonw.exe"; Parameters: """{app}\omarchy-music"""; WorkingDir: "{app}"; Flags: nowait; Check: IsUpdate
 

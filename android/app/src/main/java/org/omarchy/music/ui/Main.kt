@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -77,6 +78,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import org.omarchy.music.LastFm
+import org.omarchy.music.LAYOUTS
 import org.omarchy.music.Music
 import org.omarchy.music.Remote
 import org.omarchy.music.SEARCH_IN
@@ -109,12 +111,17 @@ fun App() {
         }
     }
 
-    // The window in the colour of what's playing's cover (dark plain looks only).
+    // The Now playing look: every screen in the colours of what's playing's cover.
     val cur = if (Remote.active) Remote.status.track else Music.current()
-    var tint by remember { mutableStateOf<Pair<Color, Color>?>(null) }
-    LaunchedEffect(cur?.id, Music.artColors, Music.savedVersion, Music.look) {
-        tint = if (Music.artColors && cur != null && !C.isLight && !C.glow && C.gradient == null && !C.apple)
-            Tint.of(ctx, ctx.imageLoader, if (Remote.active) Remote.artModel(cur) else artModel(cur)) else null
+    val tint: Pair<Color, Color>? = null
+    LaunchedEffect(cur?.id, Music.savedVersion, Music.look, Music.npFallback) {
+        if (Music.look != "nowplaying") return@LaunchedEffect
+        val rgb = if (cur == null) null else Tint.rgbOf(ctx, ctx.imageLoader, if (Remote.active) Remote.artModel(cur) else artModel(cur))
+        val old = Music.coverRgb
+        val same = rgb != null && old != null && kotlin.math.abs(android.graphics.Color.red(rgb) - android.graphics.Color.red(old)) +
+            kotlin.math.abs(android.graphics.Color.green(rgb) - android.graphics.Color.green(old)) +
+            kotlin.math.abs(android.graphics.Color.blue(rgb) - android.graphics.Color.blue(old)) < 18
+        if (!same || rgb == null) { Music.coverRgb = rgb; Music.applyLook() }
     }
     // A link shared from another app: search it on the service it's from.
     LaunchedEffect(Music.shared) {
@@ -136,6 +143,8 @@ fun App() {
     // A new queue takes the name of the list its songs came from.
     val page = ui.pages.lastOrNull()
     val title = titleOf(ui, page)
+    // The page's own search closes as you go to another page.
+    LaunchedEffect(ui.tab, ui.musicView, page, ui.openMine, ui.openList?.first, ui.openFolder) { ui.filter = null }
     LaunchedEffect(title, ui.query) { Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else title }
 
     BackHandler(enabled = ui.drawer || ui.selecting || ui.pane != "art" || page != null || ui.openMine != null ||
@@ -161,7 +170,8 @@ fun App() {
                 if (ui.selecting) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { SelectBar(ui) }
             } else Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 ScreenHeader(ui, page, title)
-                Box(Modifier.weight(1f).fillMaxWidth()) {
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                Box(Modifier.weight(1f).fillMaxWidth().onSizeChanged { ui.width = it.width / density.density }) {
                     if (page != null) PageScreen(ui, page)
                     else when (ui.tab) {
                         "search" -> SearchTab(ui)
@@ -183,6 +193,11 @@ fun App() {
             Sheets(ui)
             if (ui.showOptions) OptionsSheet(ui)
             if (ui.showQueues) QueuesDialog(ui)
+            ChoicesDialog(ui)
+            if (ui.smartNew || ui.smartEdit != null) SmartDialog(ui)
+            ui.reviewFor?.let { ReviewDialog(ui, it) }
+            ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
+            ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
         }
     }
 }
@@ -225,32 +240,35 @@ private val DESC = mapOf(Ico.MENU to "Menu", Ico.SEARCH to "Search", Ico.BACK to
 
 private class Entry(val label: String, val ico: Ico, val tab: String, val view: String? = null)
 
-private fun entries(): List<Entry> = buildList {
-    add(Entry("Now playing", Ico.PLAY, "player"))
-    add(Entry("Search", Ico.SEARCH, "search"))
-    add(Entry("My music", Ico.NOTE, "music", "all"))
-    add(Entry("Albums", Ico.DISC, "albums"))
-    add(Entry("Artists", Ico.PERSON, "artists"))
-    add(Entry("Genres", Ico.GENRE, "genres"))
-    add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
-    add(Entry("Folders", Ico.FOLDER, "folders"))
-    if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
-    add(Entry("Up next & queues", Ico.QUEUE, "queue"))
-    add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
-    add(Entry("Most played", Ico.CHART, "music", "top"))
-    add(Entry("Favorites", Ico.STAR, "music", "favorites"))
-    add(Entry("Not favorited", Ico.STAR_LINE, "music", "unfavorited"))
-    add(Entry("Moods", Ico.MOOD, "music", "moods"))
-    add(Entry("Skips", Ico.SKIP, "music", "skips"))
-    add(Entry("Duplicates", Ico.COPY, "music", "dupes"))
-    add(Entry("DJ", Ico.DISC, "music", "dj"))
-    add(Entry("Lyrics", Ico.LYRICS, "lyrics"))
-    add(Entry("Visualizer", Ico.VIS, "visualizer"))
-}
+/** The menu: a few on their own at the top, then three sections that fold open, then Settings and the
+ *  Equalizer (the same as the desktop's; it has a mini player there too). */
+private fun topEntries(): List<Entry> = listOf(Entry("Pinned", Ico.PIN, "music", "pinned"), Entry("Now playing", Ico.PLAY, "player"),
+    Entry("Search", Ico.SEARCH, "search"), Entry("Up next & queues", Ico.QUEUE, "queue"))
+
+private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
+    Triple("music", "Music", buildList {
+        add(Entry("My music", Ico.NOTE, "music", "all"))
+        add(Entry("Albums", Ico.DISC, "albums"))
+        add(Entry("Artists", Ico.PERSON, "artists"))
+        add(Entry("Genres", Ico.GENRE, "genres"))
+        add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
+        add(Entry("Folders", Ico.FOLDER, "folders"))
+        add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
+        if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
+        add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
+        add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
+    }),
+    Triple("stats", "Statistics and favorites", listOf(Entry("Most played", Ico.CHART, "music", "top"),
+        Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
+        Entry("Not favorited", Ico.STAR_LINE, "music", "unfavorited"), Entry("Repeat", Ico.REPEAT, "music", "repeat"))),
+    Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
+        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Moods", Ico.MOOD, "music", "moods"))),
+)
 
 @Composable
 private fun DrawerSheet(ui: Ui) {
-    ModalDrawerSheet(drawerContainerColor = if (C.apple) C.bg else C.light, drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+    ModalDrawerSheet(drawerContainerColor = if (C.apple) (if (C.gradient != null) C.darker else C.bg) else C.light,
+        drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
         modifier = Modifier.width(300.dp)) {
         Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -265,16 +283,28 @@ private fun DrawerSheet(ui: Ui) {
             }
             Spacer(Modifier.height(8.dp))
             val here = ui.pages.isEmpty()
-            entries().forEach { e ->
+            @Composable fun item(e: Entry) {
                 val on = here && ui.tab == e.tab && (e.view == null || e.view == ui.musicView)
-                DrawerItem(e.label, e.ico, on) { goTo(ui, e.tab, e.view); if (e.tab == "player") ui.pane = "art" }
+                DrawerItem(e.label, e.ico, on) {
+                    if (e.tab == "wrapped") { ui.drawer = false; ui.sheet = "wrapped" }
+                    else { goTo(ui, e.tab, e.view); if (e.tab == "player") ui.pane = "art" }
+                }
             }
-            if (LastFm.connected) DrawerItem("Your ${org.omarchy.music.Wrapped.year()} Wrapped", Ico.SPARKLE, false) {
-                ui.drawer = false; ui.sheet = "wrapped"
+            topEntries().forEach { item(it) }
+            sections().forEach { (key, name, list) ->
+                val open = Music.drawerFolds[key] == true
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp).clip(R.card).clickable { Music.foldSection(key) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(name.uppercase(), style = T.section, modifier = Modifier.weight(1f))
+                    Text(if (open) "▾" else "▸", style = T.section)
+                }
+                if (open) list.forEach { item(it) }
             }
             androidx.compose.material3.HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 8.dp))
             DrawerItem("Settings", Ico.SETTINGS, false, quiet = true) { ui.drawer = false; ui.sheet = "accounts" }
             DrawerItem("Equalizer", Ico.EQ, false, quiet = true) { ui.drawer = false; ui.sheet = "eq" }
+            val act = LocalContext.current as? org.omarchy.music.MainActivity
+            DrawerItem("Mini player", Ico.VIS, false, quiet = true) { ui.drawer = false; act?.enterMini() }
         }
     }
 }
@@ -329,10 +359,22 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
             } else IconButton(Ico.MENU) { ui.drawer = true }
             Text(title, style = T.head.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 4.dp))
-            if (ui.tab != "search" || page != null) IconButton(Ico.SEARCH) { goTo(ui, "search") }
+            if (laidOut(ui)) {
+                // On a list, search looks through that list; Search in the menu searches the services.
+                IconButton(Ico.SEARCH, if (ui.filter != null) C.accent else C.fg, desc = "Search $title") {
+                    ui.filter = if (ui.filter == null) "" else null
+                }
+                val key = layoutKey(ui)
+                val now = Music.layoutOf(key)
+                IconButton(when (now) { "grid" -> Ico.GRID; "compact" -> Ico.GRID_SMALL; else -> Ico.LIST },
+                    desc = "Layout: " + when (now) { "grid" -> "grid"; "compact" -> "compact grid"; else -> "list" }) {
+                    Music.setLayout(key, LAYOUTS[(LAYOUTS.indexOf(now) + 1) % LAYOUTS.size])
+                }
+            } else if (ui.tab != "search" || page != null) IconButton(Ico.SEARCH) { goTo(ui, "search") }
             IconButton(Ico.SETTINGS) { ui.sheet = "accounts" }
         }
         if (ui.tab == "search" && page == null) SearchField(ui)
+        else if (ui.filter != null && laidOut(ui)) FilterField(ui, title)
         if (ui.tab == "library" && page == null && !Music.browseLocal) SourceChips(ui, Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
     }
 }
@@ -352,7 +394,7 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "queue" -> "Up next"
         "lyrics" -> "Lyrics"
         "visualizer" -> "Visualizer"
-        "music" -> entries().firstOrNull { it.tab == "music" && it.view == ui.musicView }?.label ?: "My music"
+        "music" -> (topEntries() + sections().flatMap { it.third }).firstOrNull { it.tab == "music" && it.view == ui.musicView }?.label ?: "My music"
         else -> "Library"
     }
 }

@@ -21,9 +21,9 @@ import kotlin.math.sin
 
 /** The app's icons, drawn on a 24×24 grid (no icon font: they come out the same on every phone). */
 enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HEART_LINE, STAR, STAR_LINE, EQ, LYRICS, VIS,
-    QUEUE, MORE, BACK, DOWN, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
+    QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
-    SPEAKER, INFINITY, GRIP }
+    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, LIST, FOLDER_OPEN }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -95,6 +95,7 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
         Ico.MORE -> { dot(12f, 5f, 2f); dot(12f, 12f, 2f); dot(12f, 19f, 2f) }
         Ico.BACK -> line(15f, 4.5f, 7.5f, 12f, 15f, 19.5f)
         Ico.DOWN -> line(5f, 9f, 12f, 16f, 19f, 9f)
+        Ico.UP -> line(5f, 15f, 12f, 8f, 19f, 15f)
         Ico.SEARCH -> { ring(10.5f, 10.5f, 6.5f); line(15.5f, 15.5f, 20.5f, 20.5f) }
         Ico.MENU -> { line(4f, 6.5f, 20f, 6.5f); line(4f, 12f, 20f, 12f); line(4f, 17.5f, 20f, 17.5f) }
         Ico.NOTE -> { dot(7.5f, 17.5f, 3f); dot(17.5f, 15.5f, 3f); line(10.2f, 17.5f, 10.2f, 5.5f, 20.2f, 3.5f, 20.2f, 15.5f) }
@@ -118,6 +119,12 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
         Ico.LIBRARY -> { line(5f, 4f, 5f, 20f); line(10f, 4f, 10f, 20f); line(14.5f, 5f, 19.5f, 19.5f) }
         Ico.FOLDER -> line(3f, 18.5f, 3f, 5.5f, 9f, 5.5f, 11f, 8f, 21f, 8f, 21f, 18.5f, 3f, 18.5f)
         Ico.CHECK -> line(4.5f, 12.5f, 9.5f, 17.5f, 19.5f, 6.5f)
+        Ico.PIN -> { line(9f, 3.5f, 15f, 3.5f); line(10f, 3.5f, 10f, 9f, 6.5f, 13.5f, 17.5f, 13.5f, 14f, 9f, 14f, 3.5f); line(12f, 13.5f, 12f, 20.5f) }
+        Ico.COMPASS -> { ring(12f, 12f, 9f); fill(15.5f, 8.5f, 13.2f, 13.2f, 8.5f, 15.5f, 10.8f, 10.8f) }
+        Ico.GRID -> { rect(4f, 4f, 6.5f, 6.5f); rect(13.5f, 4f, 6.5f, 6.5f); rect(4f, 13.5f, 6.5f, 6.5f); rect(13.5f, 13.5f, 6.5f, 6.5f) }
+        Ico.GRID_SMALL -> for (gx in listOf(3.5f, 10f, 16.5f)) for (gy in listOf(3.5f, 10f, 16.5f)) rect(gx, gy, 4.5f, 4.5f, 0.8f)
+        Ico.LIST -> { line(8.5f, 6.5f, 20f, 6.5f); line(8.5f, 12f, 20f, 12f); line(8.5f, 17.5f, 20f, 17.5f); dot(4.5f, 6.5f, 1.3f); dot(4.5f, 12f, 1.3f); dot(4.5f, 17.5f, 1.3f) }
+        Ico.FOLDER_OPEN -> { line(3f, 18.5f, 3f, 5.5f, 9f, 5.5f, 11f, 8f, 19f, 8f, 19f, 10.5f); line(3f, 18.5f, 6f, 10.5f, 21.5f, 10.5f, 18.5f, 18.5f, 3f, 18.5f) }
         Ico.CLOSE -> { line(5.5f, 5.5f, 18.5f, 18.5f); line(18.5f, 5.5f, 5.5f, 18.5f) }
         Ico.PLUS -> { line(12f, 4.5f, 12f, 19.5f); line(4.5f, 12f, 19.5f, 12f) }
         Ico.DOWNLOAD -> { line(12f, 3.5f, 12f, 15f); line(7f, 10.5f, 12f, 15.5f, 17f, 10.5f); line(4.5f, 20f, 19.5f, 20f) }

@@ -74,7 +74,7 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
     }
 
     /** Save t as FLAC (blocking); returns its content:// address. */
-    fun download(t: Track): String {
+    fun download(t: Track, root: String? = null): String {
         lib.items[t.id]?.let { return it.file }
         synchronized(active) { if (!active.add(t.id)) error("already downloading") }
         try {
@@ -99,8 +99,8 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
                     }
                 }
                 val (bits, rate) = raw.inputStream().use { Flac.format(Flac.readHeader(it)) }
-                val (where, name) = folder().takeIf { it.isNotEmpty() }?.let { root ->
-                    downloadPlace(root, album.path("artist", "name").str ?: t.artist.split(",")[0], match.path("album", "title").str ?: t.album,
+                val (where, name) = (root ?: folder()).takeIf { it.isNotEmpty() }?.let { r ->
+                    downloadPlace(r, album.path("artist", "name").str ?: t.artist.split(",")[0], match.path("album", "title").str ?: t.album,
                         album["type"].str, match["trackNumber"].long, Tidal.tidalTitle(match))
                 } ?: (LocalFiles.DOWNLOADS to "${safeName(t.id)}.flac")
                 val uri = saveToMusic(name, where) { out -> Flac.retag(raw, out, tags(t, match, album), cover) }
@@ -128,7 +128,8 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
 
     /** Your own files that Tidal has better (blocking): a lossy file (MP3, AAC…) for its FLAC, a
      *  16-bit one for its hi-res. force: every song Tidal has. The old files stay (the app puts them away). */
-    fun upgrade(tracks: List<Track>, force: Boolean, stop: () -> Boolean, progress: (Int) -> Unit): Upgraded {
+    fun upgrade(tracks: List<Track>, force: Boolean, stop: () -> Boolean, rootOf: (Track) -> String? = { null },
+                progress: (Int) -> Unit): Upgraded {
         val out = Upgraded()
         val next = AtomicInteger()
         val done = AtomicInteger()
@@ -136,7 +137,12 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
             while (!stop()) {
                 val t = tracks.getOrNull(next.getAndIncrement()) ?: return
                 try {
-                    val (lossless, bits) = fileQuality(t.file!!)
+                    var (lossless, bits) = fileQuality(t.file!!)
+                    // A FLAC made from an MP3 isn't lossless; hi-res made from CD quality is CD quality.
+                    if (lossless) when (AudioQuality.check(t.file, AudioQuality.stampOf(t.file)).verdict) {
+                        "lossy" -> { lossless = false; bits = 0 }
+                        "upsampled" -> bits = 16
+                    }
                     if (!force && lossless && bits >= 24) synchronized(out) { out.kept += t to "yours is $bits-bit lossless: as good as Tidal gets" }
                     else {
                         val c = tidal.resolve(t)
@@ -145,8 +151,12 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
                             synchronized(out) { out.kept += t to "yours is ${if (bits > 0) "$bits-bit " else ""}lossless; Tidal's is 16-bit too" }
                         else {
                             val new = Tidal.trackFromTidal(c)
-                            if (!lib.isFlac(new.id)) download(new)
-                            synchronized(out) { out.done += t to new.id }
+                            if (lib.isFlac(new.id) && lib.file(new.id) == t.file)   // that download itself: nothing to swap
+                                synchronized(out) { out.kept += t to "it's Tidal's FLAC already" }
+                            else {
+                                if (!lib.isFlac(new.id)) download(new, rootOf(t))   // beside your songs, in the folder it came from
+                                synchronized(out) { out.done += t to new.id }
+                            }
                         }
                     }
                 } catch (_: NoLosslessMatch) {
@@ -162,7 +172,7 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
     }
 
     /** (lossless, bits per sample) of a file on the phone: FLAC's header says, else its type. */
-    private fun fileQuality(uri: String): Pair<Boolean, Int> {
+    fun fileQuality(uri: String): Pair<Boolean, Int> {
         val cr = ctx.contentResolver
         val mime = runCatching { cr.getType(android.net.Uri.parse(uri)) }.getOrNull() ?: ""
         if ("flac" in mime) {

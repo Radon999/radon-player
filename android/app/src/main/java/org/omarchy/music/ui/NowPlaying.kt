@@ -120,7 +120,13 @@ fun ApplePlayer(ui: Ui) {
     val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 1200) }
     var cols by remember { mutableStateOf(GREY) }
     LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(ctx, art) ?: GREY }
-    val levels = rememberLevels(on = true)
+    // The bars behind Now playing hear the music through Android's visualizer, which needs the
+    // microphone permission (nothing is recorded): asked once, the first time Now playing shows.
+    var micOk by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) }
+    val askMic = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { micOk = it }
+    LaunchedEffect(Unit) { if (!micOk && !Music.micAsked) { Music.micAsked = true; Music.saveState(); askMic.launch(Manifest.permission.RECORD_AUDIO) } }
+    val levels = if (micOk) rememberLevels(on = true) else null
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))) {
         // The cover in the colour, faintly, slightly blurred (a small copy drawn big is soft on every phone).
         if (art != null) AsyncImage(model = ImageRequest.Builder(ctx).data(art).size(20).build(), contentDescription = null,
@@ -144,9 +150,7 @@ fun ApplePlayer(ui: Ui) {
             Transport(n)
             VolumeLine()
             ToolPill(ui)
-            Text("●  " + Music.outputNow.label, style = T.sub.copy(color = SOFT, fontWeight = FontWeight.Medium),
-                textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().clickable { ui.sheet = "eq" }.padding(top = 8.dp, bottom = 10.dp))
+            Spacer(Modifier.height(14.dp))   // where the sound goes shows in the Equalizer only (1.4)
         }
     }
 }
@@ -243,7 +247,10 @@ private fun Seek(n: Now) {
         Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             val pos = drag?.let { it * n.dur } ?: n.pos
             Text(fmtTime(pos), style = T.time.copy(color = SOFT))
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { if (!n.remote) QualityMark() }
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (!n.remote) QualityMark()
+                else if (Remote.status.quality.isNotEmpty()) Text(Remote.status.quality, style = T.time.copy(color = SOFT, fontWeight = FontWeight.SemiBold), maxLines = 1)
+            }
             Text("-" + fmtTime(maxOf(0.0, n.dur - pos)), style = T.time.copy(color = SOFT))
         }
     }
@@ -279,7 +286,10 @@ private fun QualityMark() {
     val saving = Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }
     val stream = saved == null && !t.isFile
     val lossy = if (stream) Music.dl.streamLossy(t.id) else null
+    val heard = Music.nowFormat.takeIf { Music.nowFormatOf == t.id && it.isNotEmpty() }
     val label = when {
+        saving -> "Saving…"
+        heard != null -> if (stream && lossy == null) "⤓ $heard" else heard   // the bit depth and kHz the player has
         saved?.format == "flac" -> "FLAC" + (saved.quality.takeIf { it.isNotEmpty() }?.let { " $it" } ?: "")
         saved != null -> "Offline"
         saving -> "Saving…"
@@ -407,6 +417,8 @@ private fun QueuePane(ui: Ui, n: Now) {
                             val cur = s.tracks.getOrNull(s.index)?.title ?: ""
                             Text("${s.index + 1} of ${s.tracks.size} · $cur", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                        IconButton(Ico.UP, SOFT, 18.dp, 8.dp, desc = "Move up") { Music.moveQueue(s.id, -1) }
+                        IconButton(Ico.DOWN, SOFT, 18.dp, 8.dp, desc = "Move down") { Music.moveQueue(s.id, 1) }
                         IconButton(Ico.EDIT, SOFT, 18.dp, 8.dp) {
                             ui.askName = Triple("Rename the queue", s.name) { nm -> Music.renameQueue(s.id, nm) }
                         }
@@ -447,9 +459,19 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
     var dy by remember { mutableFloatStateOf(0f) }
     val rowPx = with(LocalDensity.current) { 60.dp.toPx() }
     Box(Modifier.graphicsLayer(translationY = dy).background(if (dy != 0f) Color.Black.copy(alpha = 0.2f) else Color.Transparent, R.card)) {
+        val checked = t.id in ui.selected
+        if (ui.selecting) androidx.compose.runtime.SideEffect {
+            val q = Music.shownQueue()
+            if (ui.selectPool !== q) { ui.selectPool = q; ui.selectPlace = RowPlace(q, j, kind = "queue", queueIndex = j) }
+        }
         Row(Modifier.fillMaxWidth().height(60.dp).clip(R.card)
-            .combinedClickable(onClick = { Music.playIndex(j) }, onLongClick = { menu = true }),
+            .background(if (checked) WHITE.copy(alpha = 0.14f) else Color.Transparent)
+            .combinedClickable(onClick = { if (ui.selecting) ui.toggle(t) else Music.playIndex(j) },
+                onLongClick = { if (ui.selecting) ui.toggle(t) else menu = true }),
             verticalAlignment = Alignment.CenterVertically) {
+            if (ui.selecting) androidx.compose.material3.Checkbox(checked, { ui.toggle(t) },   // picked: a checkmark, as in the lists
+                colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = WHITE, checkmarkColor = Color.Black,
+                    uncheckedColor = SOFT))
             ArtImage(if (remote) Remote.artModel(t) else artModel(t), 46.dp)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(t.title, style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -504,11 +526,12 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
             for (b in levels.indices) {
                 val want = if (Music.paused) 0f else target[b]
                 val have = levels[b]
-                val new = if (want > have) want else have - (have - want) * 0.18f
+                // Android hands over ~20 spectra a second: rise most of the way at once, fall quickly, eased between.
+                val new = if (want > have) have + (want - have) * 0.7f else have - (have - want) * 0.3f
                 if (abs(new - have) > 0.002f) moving = true
                 levels[b] = new
             }
-            if (moving && now - last > 33_000_000L) { last = now; frame++ }   // 30 frames a second is plenty here
+            if (moving && now - last > 16_000_000L) { last = now; frame++ }   // every screen frame: it keeps up with the beat
         }
     }
     return levels to frame
@@ -527,6 +550,32 @@ private fun NowBars(levels: FloatArray, frame: Int, col: Color, modifier: Modifi
             val lv = if (i % 2 == 0) levels[i / 2] else (levels[i / 2] + levels[i / 2 + 1]) / 2
             val h = maxOf(2f, lv * size.height)
             drawRect(col.copy(alpha = 0.12f + 0.22f * lv), Offset(i * slot + (slot - bw) / 2, size.height - h), Size(bw, h))
+        }
+    }
+}
+
+/** The mini player (Android's picture in picture): the cover, the song, its bars in the cover's colour. Its
+ *  buttons are Android's own, under your finger: previous, play or pause, next. */
+@Composable
+fun MiniPlayer() {
+    val n = now()
+    val t = n.t
+    val ctx = LocalContext.current
+    val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 600) }
+    var cols by remember { mutableStateOf(GREY) }
+    LaunchedEffect(t?.id) { cols = loadNowColors(ctx, art) ?: GREY }
+    LaunchedEffect(Music.paused) { (ctx as? org.omarchy.music.MainActivity)?.updateMini() }
+    val levels = rememberLevels(on = true)
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))) {
+        if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().graphicsLayer(alpha = 0.85f))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))))
+        if (levels != null) NowBars(levels.first, levels.second, cols.bars, Modifier.align(Alignment.BottomCenter).fillMaxHeight(0.3f))
+        Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
+            Text(t?.title ?: "Nothing playing", style = T.title.copy(color = Color.White, fontSize = 13.sp), maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+            Text(t?.artist ?: "", style = T.sub.copy(color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp), maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

@@ -86,7 +86,7 @@ fun VisualizerTab() {
         while (true) withFrameNanos {
             for (b in levels.indices) {
                 val want = if (Music.paused) 0f else target[b]
-                levels[b] = if (want > levels[b]) want else levels[b] - (levels[b] - want) * 0.18f   // up at once, down gently
+                levels[b] = if (want > levels[b]) levels[b] + (want - levels[b]) * 0.7f else levels[b] - (levels[b] - want) * 0.3f   // up fast, down quickly
             }
             frame++
         }

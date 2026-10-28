@@ -2,6 +2,7 @@ package org.omarchy.music.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,39 +37,41 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import org.omarchy.music.Dj
+import org.omarchy.music.Album
 import org.omarchy.music.Music
+import org.omarchy.music.Pin
 import org.omarchy.music.Track
 
 // Albums, Genres and Folders (from the ☰ menu), a named list of songs, and your queues.
 
-/** Albums: your songs by album, as covers in a grid. */
+/** Albums: your songs by album: covers in a grid (or a list, or a compact grid). */
 @Composable
 fun AlbumsTab(ui: Ui) {
-    val albums = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.albums() }.getOrDefault(emptyList()) }
-    if (albums.isEmpty()) { Empty("No albums yet", "Your songs, by album, show up here."); return }
-    LazyVerticalGrid(GridCells.Adaptive(150.dp), Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        items(albums.size) { i ->
+    val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.albums() }.getOrDefault(emptyList()) }
+    if (all.isEmpty()) { Empty("No albums yet", "Your songs, by album, show up here."); return }
+    val albums = all.filter { fits(ui, it.first.title, it.first.sub) }
+    fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
+    LazyColumn(Modifier.fillMaxSize()) {
+        item { Section("${albums.size} ALBUMS") }
+        laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, row = { i ->
             val (al, songs) = albums[i]
-            Column(Modifier.padding(6.dp).clip(R.card).clickable { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }.padding(4.dp)) {
-                Box(Modifier.fillMaxWidth().aspectRatio(1f).shadow(6.dp, R.card).clip(R.card).background(C.light),
-                    contentAlignment = Alignment.Center) {
-                    Icon(Ico.DISC, C.muted.copy(alpha = 0.5f), 40.dp)
-                    AsyncImage(model = artModel(songs.first(), 400), contentDescription = null, contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize())
-                }
-                Text(al.title, style = T.title.copy(fontSize = 14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 6.dp))
-                Text("${al.sub} · ${songs.size}", style = T.sub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+            PlaylistRow(Album(al.id, al.title, al.sub, "", songs.size.toString()), artModel(songs.first()),
+                onLongClick = { ui.choices = al.title to listOf(pinChoice(pin(al))) }) { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }
+        }) { i, mod, compact ->
+            val (al, songs) = albums[i]
+            Tile(artModel(songs.first(), if (compact) 226 else 400), al.title, al.sub, mod, compact, ico = Ico.DISC,
+                onLongClick = { ui.choices = al.title to listOf(pinChoice(pin(al))) }) { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }
         }
     }
 }
 
 /** A row in Genres and Folders: an icon, a name, how many songs. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onClick: () -> Unit) {
+private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onLongClick: () -> Unit, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card).background(C.light.copy(alpha = 0.6f))
-        .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(42.dp).clip(R.card).background(C.accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
             Icon(ico, C.accent, 22.dp)
         }
@@ -80,34 +83,41 @@ private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onClick: (
     }
 }
 
+/** Genres or Folders: a group of your songs each, as rows or covers. */
+private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: String, list: List<Pair<String, List<Track>>>,
+                                                                  name: (String) -> String, sub: (String, List<Track>) -> String) {
+    val ico = if (kind == "genre") Ico.GENRE else Ico.FOLDER
+    fun open(id: String, songs: List<Track>) { ui.pages += Ui.Page.Songs(name(id), songs, kind, id) }
+    fun menu(id: String) { ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id)))) }
+    laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
+        val (id, songs) = list[i]
+        GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id) }) { open(id, songs) }
+    }) { i, mod, compact ->
+        val (id, songs) = list[i]
+        Tile(artModel(songs.first(), if (compact) 226 else 400), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico,
+            onLongClick = { menu(id) }) { open(id, songs) }
+    }
+}
+
 @Composable
 fun GenresTab(ui: Ui) {
-    val genres = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.genres() }.getOrDefault(emptyList()) }
-    if (genres.isEmpty()) { Empty("No genres yet", "Your songs, by the genre their files give, show up here."); return }
+    val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.genres() }.getOrDefault(emptyList()) }
+    if (all.isEmpty()) { Empty("No genres yet", "Your songs, by the genre their files give, show up here."); return }
+    val genres = all.filter { fits(ui, it.first) }
     LazyColumn(Modifier.fillMaxSize()) {
         item { Section("${genres.size} GENRES") }
-        items(genres.size) { i ->
-            val (g, songs) = genres[i]
-            GroupRow(Ico.GENRE, g, songs.take(3).joinToString { it.artist.split(",")[0] }, songs.size) {
-                ui.pages += Ui.Page.Songs(g, songs, "genre")
-            }
-        }
+        groups(ui, "genre", genres, { it }) { _, songs -> songs.take(3).joinToString { it.artist.split(",")[0] } }
     }
 }
 
 @Composable
 fun FoldersTab(ui: Ui) {
-    val folders = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.folderSongs() }.getOrDefault(emptyList()) }
-    if (folders.isEmpty()) { Empty("No folders yet", "The folders your songs are in show up here."); return }
+    val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.folderSongs() }.getOrDefault(emptyList()) }
+    if (all.isEmpty()) { Empty("No folders yet", "The folders your songs are in show up here."); return }
+    val folders = all.filter { fits(ui, it.first) }
     LazyColumn(Modifier.fillMaxSize()) {
         item { Section("${folders.size} FOLDERS") }
-        items(folders.size) { i ->
-            val (f, songs) = folders[i]
-            val name = f.trimEnd('/').substringAfterLast('/').ifEmpty { f }
-            GroupRow(Ico.FOLDER, name, "/storage/emulated/0/" + f.trimEnd('/'), songs.size) {
-                ui.pages += Ui.Page.Songs(name, songs, "folder")
-            }
-        }
+        groups(ui, "folder", folders, { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }) { f, _ -> "/storage/emulated/0/" + f.trimEnd('/') }
     }
 }
 
@@ -115,7 +125,10 @@ fun FoldersTab(ui: Ui) {
 @Composable
 fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
     LazyColumn(Modifier.fillMaxSize()) {
-        item { ListActions(page.tracks, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = page.tracks)) }) }
+        item {
+            ListActions(page.tracks, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = page.tracks)) },
+                pin = if (page.id.isNotEmpty() && page.kind in setOf("genre", "folder")) Pin(page.kind, page.id, page.title) else null)
+        }
         tracks(page.tracks, ui, page.kind)
     }
 }
@@ -173,6 +186,10 @@ private fun QueueLine(ui: Ui, id: String, name: String, tracks: List<Track>, ind
             Text(name, style = T.title.copy(color = if (current) C.accent else C.fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
             val t = tracks.getOrNull(index)
             Text("${index + 1}/${tracks.size}" + (t?.let { " · ${it.title}" } ?: ""), style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (!current) {
+            IconButton(Ico.UP, C.muted, 18.dp, 6.dp, desc = "Move up") { Music.moveQueue(id, -1) }
+            IconButton(Ico.DOWN, C.muted, 18.dp, 6.dp, desc = "Move down") { Music.moveQueue(id, 1) }
         }
         IconButton(Ico.EDIT, C.muted, 18.dp, 6.dp, desc = "Rename") {
             ui.askName = Triple("Rename the queue", name) { n -> Music.renameQueue(id, n) }
@@ -243,6 +260,14 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
                 if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })
                     add(Triple(Ico.SPARKLE, "Upgrade to FLAC…") { ui.upgradeFor = picked.filter { org.omarchy.music.upgradable(it) } })
+                if (picked.size == 1) {   // one song: the options about a single song
+                    val one = picked[0]
+                    org.omarchy.music.splitArtists(one.artist).firstOrNull()?.let { lead ->
+                        add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
+                    if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
+                }
+                picked.filter { Music.lib.items[it.id]?.let { e -> e.format == "flac" && e.file.startsWith("content://") } == true }
+                    .takeIf { it.isNotEmpty() }?.let { flacs -> add(Triple(Ico.EDIT, "Tag now…") { ui.tagPreview = flacs.map { it.id } to true }) }
                 if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
                     Music.removeFromPlaylist(place.playlistId, picked.map { it.id }.toSet()) })
                 if (place?.kind == "queue") add(Triple(Ico.CLOSE, "Remove from the queue") {

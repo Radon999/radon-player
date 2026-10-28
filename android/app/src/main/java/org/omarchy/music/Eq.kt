@@ -25,20 +25,10 @@ import kotlin.math.sqrt
 data class Filter(val kind: String, val hz: Double, val gain: Double, val q: Double)
 
 object Eq {
-    // Corrections from AutoEq (github.com/jaakkopasanen/AutoEq, measured by Super Review)
-    // bring the headphone to the Harman target, the sound most listeners prefer.
+    // Corrections for your headphones come from AutoEq (github.com/jaakkopasanen/AutoEq): Add
+    // headphones… finds yours and brings it to the Harman target, the sound most listeners prefer.
     val HEADPHONES: LinkedHashMap<String, Pair<String, List<Filter>>> = linkedMapOf(
         "off" to ("None" to emptyList()),
-        "xm6-cable" to ("Sony WH-1000XM6 · cable" to listOf(
-            Filter("ls", 105.0, -1.5, 0.70), Filter("pk", 161.0, -7.5, 0.69), Filter("pk", 2143.0, 4.3, 3.66),
-            Filter("pk", 1019.0, -5.3, 1.74), Filter("pk", 8308.0, 5.3, 0.21), Filter("hs", 10000.0, -1.5, 0.70),
-            Filter("pk", 57.0, -2.0, 2.27), Filter("pk", 463.0, 1.5, 2.87), Filter("pk", 103.0, 1.7, 2.95),
-            Filter("pk", 4339.0, 0.9, 3.49))),
-        "xm6-bluetooth" to ("Sony WH-1000XM6 · Bluetooth" to listOf(
-            Filter("ls", 105.0, -8.3, 0.70), Filter("pk", 171.0, -4.9, 0.99), Filter("pk", 648.0, 2.5, 0.63),
-            Filter("pk", 2499.0, -5.2, 1.50), Filter("pk", 5689.0, 4.1, 0.40), Filter("hs", 10000.0, 3.3, 0.70),
-            Filter("pk", 4137.0, 1.3, 3.44), Filter("pk", 6747.0, -2.2, 3.84), Filter("pk", 1496.0, -1.5, 3.88),
-            Filter("pk", 1151.0, 1.4, 4.07))),
     )
     val BANDS = listOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
     const val Q = 1.41        // an octave wide, so neighbouring bands blend smoothly
@@ -206,6 +196,8 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile private var stages: List<Stage> = emptyList()
     @Volatile private var gain = 1.0
     @Volatile var songGain = 1.0   // the playing song's own volume (Volume…), on top
+    @Volatile var rgGain = 1.0     // ReplayGain, on top of that
+    @Volatile var bypass = false   // bit-perfect: every sample passes exactly as it came
     private var rate = 48000.0
     private var channels = 2
 
@@ -243,10 +235,10 @@ class EqProcessor : BaseAudioProcessor() {
         val st = stages
         val float = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
         input.order(ByteOrder.nativeOrder())
-        if (st.isEmpty() && songGain == 1.0) {
+        if (bypass || (st.isEmpty() && songGain == 1.0 && rgGain == 1.0)) {
             out.put(input)
         } else {
-            val g = (if (st.isEmpty()) 1.0 else gain) * songGain
+            val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain
             var ch = 0
             while (input.hasRemaining()) {
                 var x = (if (float) input.float.toDouble() else input.short / 32768.0) * g

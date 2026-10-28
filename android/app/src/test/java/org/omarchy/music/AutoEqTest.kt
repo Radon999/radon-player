@@ -20,7 +20,7 @@ class AutoEqTest {
 
     @Test fun readsAProfileLikeTheBuiltInOne() {
         val f = AutoEq.parseParametric("Preamp: -6.7 dB\nFilter 1: ON LSC Fc 105 Hz Gain -1.5 dB Q 0.70\nFilter 2: ON PK Fc 161 Hz Gain -7.5 dB Q 0.69\n")
-        assertEquals(Eq.HEADPHONES["xm6-cable"]!!.second.take(2), f)
+        assertEquals(listOf(Filter("ls", 105.0, -1.5, 0.70), Filter("pk", 161.0, -7.5, 0.69)), f)
         val g = AutoEq.graphicToFilters("GraphicEQ: 20 -2.0; 1000 4.0; 20000 -8.0")
         assertEquals(Filter("pk", 1000.0, 4.0, Eq.Q), g[5])
     }
@@ -32,7 +32,7 @@ class AutoEqTest {
     }
 
     @Test fun keepsAProfile() {
-        val f = Eq.HEADPHONES["xm6-cable"]!!.second
+        val f = listOf(Filter("ls", 105.0, -1.5, 0.70), Filter("pk", 161.0, -7.5, 0.69))
         val s = EqSettings(profiles = mapOf("ae:x" to AutoEq.profileOf("X", f)))
         assertEquals(f, Eq.headphones(s)["ae:x"]!!.second)
     }

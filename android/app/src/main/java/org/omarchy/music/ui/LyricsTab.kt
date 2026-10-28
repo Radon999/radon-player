@@ -103,6 +103,7 @@ fun LyricsTab(ui: Ui) {
             Text(if (mode == "synced") "TIMED · ${(g.synced_from ?: "").uppercase()}" else "LYRICS · ${(g.plain_from ?: "").uppercase()}" +
                 if (notes.isNotEmpty()) " · ${notes.size} NOTE${if (notes.size != 1) "S" else ""}: TAP A MARKED LINE" else "",
                 style = T.section, maxLines = 1, modifier = Modifier.weight(1f))
+            Pill("Card", quiet = true) { ui.lyricsCard = t to g }
             IconButton(Ico.SEARCH, C.muted, 16.dp, 6.dp, desc = "Search the lyrics") { ui.lyricsSearch = !ui.lyricsSearch }
             if (synced && plain) {
                 Chip("Genius", mode == "genius") { Music.setLyricsMode("genius") }

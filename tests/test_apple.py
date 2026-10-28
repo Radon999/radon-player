@@ -19,7 +19,10 @@ def app_with(queue, index):
     a.set_paused = lambda p: setattr(a, "paused", p)
     a.save_soon = lambda: None
     a.current_track = lambda: a.queue[a.index] if 0 <= a.index < len(a.queue) else None
-    for name in ("clear_queued", "move_in_queue", "autoplay_soon", "next", "set_autoplay"):
+    a.multi_queue, a.queue_id, a.queues, a.switched = True, "q-now", [], []
+    a.saved_queues = lambda: list(a.queues)
+    a.switch_queue = lambda qid: a.switched.append(qid)
+    for name in ("clear_queued", "move_in_queue", "autoplay_soon", "next", "set_autoplay", "next_queue"):
         setattr(a, name, getattr(om.MusicApp, name).__get__(a))
     return a
 
@@ -52,6 +55,31 @@ class QueueViewTest(unittest.TestCase):
         a.autoplay = False
         a.next()
         self.assertEqual(a.radios, [])
+
+
+class NextQueueTest(unittest.TestCase):
+    def test_the_next_queue_goes_on(self):
+        a = app_with([{"id": "a"}], 0)
+        a.queues = [{"id": "q-now", "tracks": [{"id": "a"}], "index": 0},
+                    {"id": "done", "tracks": [{"id": "x"}, {"id": "y"}], "index": 1},   # heard to its end
+                    {"id": "half", "tracks": [{"id": "m"}, {"id": "n"}], "index": 0}]
+        a.next()
+        self.assertEqual(a.switched, ["half"])
+        self.assertFalse(a.ended)
+
+    def test_repeat_all_starts_this_queue_again(self):
+        a = app_with([{"id": "a"}, {"id": "b"}], 1)
+        a.repeat = "all"
+        a.shuffled = False
+        a.queues = [{"id": "half", "tracks": [{"id": "m"}, {"id": "n"}], "index": 0}]
+        a.next()
+        self.assertEqual((a.index, a.switched), (0, []))
+
+    def test_no_other_queue_autoplay_as_before(self):
+        a = app_with([{"id": "a"}], 0)
+        a.next()
+        self.assertTrue(a.ended)
+        self.assertEqual(a.switched, [])
 
 
 class BackdropColoursTest(unittest.TestCase):

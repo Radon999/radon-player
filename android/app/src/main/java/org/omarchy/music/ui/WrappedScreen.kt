@@ -670,9 +670,9 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
 }
 
 /** A bitmap Bitmap.compress can write (a GraphicsLayer's may be in the GPU's memory). */
-private fun Bitmap.plain(): Bitmap = if (config == Bitmap.Config.HARDWARE) copy(Bitmap.Config.ARGB_8888, false) else this
+internal fun Bitmap.plain(): Bitmap = if (config == Bitmap.Config.HARDWARE) copy(Bitmap.Config.ARGB_8888, false) else this
 
-private fun savePicture(bmp: Bitmap, name: String): Boolean = runCatching {
+internal fun savePicture(bmp: Bitmap, name: String): Boolean = runCatching {
     val cr = Music.ctx.contentResolver
     val uri = cr.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
@@ -684,7 +684,7 @@ private fun savePicture(bmp: Bitmap, name: String): Boolean = runCatching {
 }.getOrDefault(false)
 
 /** Send the picture to pkg (Instagram, Facebook), or to the app you pick in Android's share sheet. */
-private fun sharePicture(ctx: Context, bmp: Bitmap, name: String, pkg: String?): Boolean = runCatching {
+internal fun sharePicture(ctx: Context, bmp: Bitmap, name: String, pkg: String?): Boolean = runCatching {
     val dir = File(ctx.cacheDir, "shared").apply { mkdirs(); listFiles()?.forEach { it.delete() } }   // only the latest one is kept
     val file = File(dir, name.replace(Regex("[\\\\/:*?\"<>|]"), "") + ".png")
     file.outputStream().use { bmp.plain().compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -692,7 +692,7 @@ private fun sharePicture(ctx: Context, bmp: Bitmap, name: String, pkg: String?):
     val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     send.clipData = android.content.ClipData.newRawUri(name, uri)
-    ctx.startActivity(if (pkg != null) send.setPackage(pkg) else Intent.createChooser(send, "Share your Wrapped"))
+    ctx.startActivity(if (pkg != null) send.setPackage(pkg) else Intent.createChooser(send, "Share"))
     true
 }.getOrDefault(false)
 

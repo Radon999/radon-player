@@ -27,6 +27,7 @@ object Remote {
         val repeat: String = "off", val liked: Boolean = false, val message: String = "", val index: Int = -1,
         val queue: List<Track> = emptyList(), val radio: Boolean = false, val dj: Dj.Shown = Dj.Shown(),
         val volume: Int = -1, val muted: Boolean = false,   // -1: a desktop app too old to say
+        val quality: String = "",   // the desktop's mark under its seek bar: "FLAC 24-bit/96 kHz"
     )
 
     @Serializable
@@ -129,7 +130,8 @@ object Remote {
             val fresh = System.nanoTime() - volumeAt > 2_000_000_000L
             status = Status(q.getOrNull(i), s["paused"].bool ?: true, s["position"].dbl ?: 0.0, s["duration"].dbl ?: 0.0,
                 s["repeat"].str ?: "off", s["liked"].bool ?: false, s["message"].str ?: "", i, q, s["radio"].bool ?: false, dj,
-                if (fresh) s["volume"].long?.toInt() ?: -1 else status.volume, if (fresh) s["muted"].bool ?: false else status.muted)
+                if (fresh) s["volume"].long?.toInt() ?: -1 else status.volume, if (fresh) s["muted"].bool ?: false else status.muted,
+                s["quality"].str ?: "")
         }
     }
 

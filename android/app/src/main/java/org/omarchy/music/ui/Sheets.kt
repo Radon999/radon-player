@@ -135,7 +135,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("General") {
             val v = Updater.latest
             if (v != null) Line("Update", when (Updater.state) {
-                "" -> "VarMusic $v is out (this is ${Updater.version})"
+                "" -> "Radon Player $v is out (this is ${Updater.version})"
                 "working" -> "Downloading $v…"
                 "confirm" -> "Downloaded $v: install it"
                 else -> Updater.state
@@ -208,15 +208,26 @@ private fun AccountsSheet(ui: Ui) {
                 }
                 Switch(Music.lyricsToFiles, { Music.setLyricsToFiles(it) }, colors = swColors())
             }
+            run {
+                val tg = org.omarchy.music.Tagger
+                val untagged = remember(Music.savedVersion, tg.busy) { tg.untagged() }
+                val saved = remember(Music.savedVersion) { Music.lib.items.values.count { it.format == "flac" } }
+                Line("Tagger", tg.busy ?: if (untagged.isNotEmpty()) "${untagged.size} downloads to tag: genre, composer, label, " +
+                    "lyrics and Genius's notes" else "All $saved downloads tagged: genre, composer, label, lyrics, Genius's notes",
+                    tg.busy == null && untagged.isEmpty()) {
+                    if (tg.busy == null) {
+                        if (untagged.isNotEmpty()) Pill("Tag now…") { ui.tagPreview = untagged to false }
+                        else if (saved > 0) Pill("Retag", quiet = true) {
+                            ui.tagPreview = Music.lib.items.values.filter { it.format == "flac" && it.file.startsWith("content://") }.map { it.id } to true }
+                    }
+                }
+            }
             Line("Queues", "A separate queue for each folder, album, artist and playlist you play from, each kept where you left it",
                 Music.multiQueue) { Switch(Music.multiQueue, { Music.setMultiQueue(it) }, colors = swColors()) }
-            Line("Colours", "The window takes the colour of the album art (dark looks)", Music.artColors) {
-                Switch(Music.artColors, { Music.setArtColors(it) }, colors = swColors())
-            }
-            Line("Look", "The app's colours: Stellio, colourful ones (Galaxy, Aurora, Sunset…), neon ones", false) {
+            Line("Look", "Light, Dark, or Now playing: every screen in the colours of the song that's playing, the way Now playing is", false) {
                 Box {
                     var open by remember { mutableStateOf(false) }
-                    Pill("${Looks.ALL.firstOrNull { it.first == Music.look }?.second ?: "Default"} ▾", quiet = true) { open = true }
+                    Pill("${Looks.ALL.firstOrNull { it.first == Music.look }?.second ?: "Light"} ▾", quiet = true) { open = true }
                     androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
                         Looks.ALL.forEach { (k, name) ->
                             androidx.compose.material3.DropdownMenuItem({ Text(name, style = T.body) }, { open = false; Music.chooseLook(k) })
@@ -224,14 +235,22 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            Line("Downloads", if (Music.downloadDir.isEmpty()) "To Music/Omarchy Music/. Change: to a folder of yours, by artist and album"
-                else "To ${Music.downloadDir}, as Artist/Albums, EPs or Singles/Album", Music.downloadDir.isNotEmpty()) {
+            Line("Fallback for Now playing look", "The look the Now playing look uses while nothing is playing", false) {
+                Box {
+                    var open by remember { mutableStateOf(false) }
+                    Pill("${Looks.FALLBACK.firstOrNull { it.first == Music.npFallback }?.second ?: "Dark"} ▾", quiet = true) { open = true }
+                    androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                        Looks.FALLBACK.forEach { (k, name) ->
+                            androidx.compose.material3.DropdownMenuItem({ Text(name, style = T.body) }, { open = false; Music.chooseNpFallback(k) })
+                        }
+                    }
+                }
+            }
+            Line("Downloads", "To ${Music.downloadFolder()}, as Artist/Albums, EPs or Singles/Album", true) {
                 Box {
                     var open by remember { mutableStateOf(false) }
                     Pill("Change", quiet = true) { open = true }
                     androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
-                        androidx.compose.material3.DropdownMenuItem({ Text("Music/Omarchy Music/ (the app's own)", style = T.body) },
-                            { open = false; Music.chooseDownloadDir("") })
                         Music.folders.forEach { f ->
                             androidx.compose.material3.DropdownMenuItem({ Text(f, style = T.body) }, { open = false; Music.chooseDownloadDir(f) })
                         }
@@ -257,9 +276,13 @@ private fun AccountsSheet(ui: Ui) {
                 else Pill("Upgrade…") { ui.upgradeFor = emptyList() }
             }
             }
+            Group("Sound quality") {
+            SoundQuality(ui)
+            }
             Group("Last.fm & your stats") {
             LastFmLine(ui)
             SpotifyHistoryLine(ui)
+            AppleHistoryLine()
             }
             Group("More") {
             SettingsLine()
@@ -366,6 +389,78 @@ private fun SpotifyHistoryLine(ui: Ui) {
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
 }
 
+/** Your Apple Music plays for Most played, Artists and Wrapped: the zip from Apple's privacy page,
+ *  or a library exported from the Music app on a computer. */
+@Composable
+private fun AppleHistoryLine() {
+    val h = org.omarchy.music.AppleHistory
+    var asking by remember { mutableStateOf(false) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
+            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
+                else "Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "")
+            if (err == null) org.omarchy.music.Stats.refresh(force = true)
+        }
+    }
+    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Apple Music plays in Most played, Artists and Wrapped, each counted once with your scrobbles"
+        else "Add your Apple Music listening: import the zip from Apple's privacy page (Get a copy of your data › Apple Media Services), " +
+            "or a library exported from the Music app (File › Library › Export Library…)"
+    Line("Apple Music history", state, h.count > 0) {}
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+        Pill("Get the zip", quiet = true) { Services.open("https://privacy.apple.com/") }
+        if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
+        Pill("Import") { if (h.busy == null) pick.launch(arrayOf("application/zip", "text/csv", "text/comma-separated-values",
+            "text/xml", "application/xml", "application/octet-stream")) }
+    }
+    if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
+        title = { Text("Clear your Apple Music history?", style = T.title) },
+        text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
+        confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
+        dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** Bit-perfect to a USB DAC, ReplayGain, and "Is it really lossless?". */
+@Composable
+private fun SoundQuality(ui: Ui) {
+    Line("Bit-perfect", Music.dacNote.ifEmpty {
+        "Each song goes to your USB DAC exactly as it is, at its own rate: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC" },
+        Music.bitPerfect) {
+        Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
+    }
+    Line("ReplayGain", if (Music.bitPerfect) "Off in bit-perfect: it would change the sound"
+        else "Evens out loudness with the gain in your files' tags (never louder, so nothing clips)", Music.replayGain != "off") {}
+    Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("off" to "Off", "track" to "By song", "album" to "By album").forEach { (k, l) ->
+            Chip(l, Music.replayGain == k) { if (!Music.bitPerfect) Music.chooseReplayGain(k) }
+        }
+    }
+    var show by remember { mutableStateOf(false) }
+    Line("Is it really lossless?", Music.qualityBusy ?: if (Music.fakes.isNotEmpty()) "${Music.fakes.size} of your lossless files aren't what they say"
+        else "Find FLACs made from an MP3 or AAC, and hi-res made from CD quality, by their spectrum. Upgrade swaps them for the real thing",
+        Music.qualityBusy != null) {
+        if (Music.qualityBusy != null) Pill("Stop", quiet = true) { Music.qualityStop = true }
+        else Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (Music.fakes.isNotEmpty()) Pill("Show", quiet = true) { show = true }
+            Pill("Check my files") { Music.checkMyFiles() }
+        }
+    }
+    if (show) AlertDialog(onDismissRequest = { show = false }, containerColor = C.light,
+        title = { Text("Not what they say", style = T.title) },
+        text = {
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                items(Music.fakes.size) { i ->
+                    val (t, v) = Music.fakes[i]
+                    Column(Modifier.padding(vertical = 4.dp)) {
+                        Text(t.title, style = T.title, maxLines = 1)
+                        Text("${t.artist} · ${org.omarchy.music.AudioQuality.said(v)}", style = T.sub, maxLines = 2)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton({ show = false; ui.upgradeFor = Music.fakes.map { it.first } }) { Text("Upgrade…", color = C.accent) } },
+        dismissButton = { TextButton({ show = false }) { Text("Close", color = C.muted) } })
+}
+
 /** The keys in API_KEYS: each one you fill in is kept with the rest of the app's state. */
 @Composable
 private fun SettingsLine() {
@@ -463,8 +558,65 @@ private fun EqSheet(ui: Ui) {
     val eq = Music.eq
     var tones by remember { mutableStateOf(false) }
     var outs by remember { mutableStateOf(false) }
-    FullScreen("Equalizer", { ui.sheet = null }, actions = { Switch(eq.on, { Music.setEqOn(it) }, colors = swColors()) }) {
+    // Compact: the bands fill the screen, every one in view at once; the rest is one row.
+    var compact by remember { mutableStateOf(false) }
+    val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    FullScreen("Equalizer", { ui.sheet = null }, actions = {
+        Chip("Compact", compact) { compact = !compact }
+        Spacer(Modifier.width(6.dp))
+        Switch(eq.on, { Music.setEqOn(it) }, colors = swColors())
+    }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
+          if (compact) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    var counts by remember { mutableStateOf(false) }
+                    Chip("${eq.count} bands ▾", true) { counts = true }
+                    androidx.compose.material3.DropdownMenu(counts, { counts = false }, containerColor = C.light) {
+                        org.omarchy.music.Eq.COUNTS.forEach { n ->
+                            androidx.compose.material3.DropdownMenuItem({ Text("$n bands", style = T.body) }, { counts = false; Music.setEqCount(n) })
+                        }
+                    }
+                }
+                Box {
+                    var presets by remember { mutableStateOf(false) }
+                    Chip("${Eq.PRESETS[eq.preset]?.first ?: "Custom"} ▾", false) { presets = true }
+                    androidx.compose.material3.DropdownMenu(presets, { presets = false }, containerColor = C.light) {
+                        Eq.PRESETS.forEach { (k, v) ->
+                            androidx.compose.material3.DropdownMenuItem({ Text(v.first, style = T.body) }, { presets = false; Music.setEqPreset(k) })
+                        }
+                    }
+                }
+                Box {
+                    var phones by remember { mutableStateOf(false) }
+                    Chip("${Eq.headphones(eq)[eq.headphones]?.first ?: "None"} ▾", false) { phones = true }
+                    androidx.compose.material3.DropdownMenu(phones, { phones = false }, containerColor = C.light) {
+                        Eq.headphones(eq).forEach { (k, v) ->
+                            androidx.compose.material3.DropdownMenuItem({ Text(v.first, style = T.body) }, { phones = false; Music.setEqHeadphones(k) })
+                        }
+                    }
+                }
+            }
+            val freqs = Eq.bandsFor(eq.count)
+            val rowH = ((screenH - 150) / freqs.size).coerceIn(18, 48).dp
+            freqs.forEachIndexed { i, hz ->
+                val g = eq.bands.getOrElse(i) { 0.0 }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(rowH)) {
+                    Text(Eq.label(hz), style = T.time, modifier = Modifier.width(40.dp))
+                    Slider(g.toFloat(), { Music.setEqBand(i, it.toDouble()) }, valueRange = -12f..12f,
+                        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+                        modifier = Modifier.weight(1f))
+                    Text(Eq.fmtDb(g), style = T.time, modifier = Modifier.width(40.dp).clickable { Music.setEqBand(i, 0.0) })
+                }
+            }
+          } else {
+            if (Music.bitPerfect) Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R.card).background(C.light)
+                .border(1.dp, C.red, R.card).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Bit-perfect is on, so the equalizer and each song's volume are bypassed: the DAC gets the music untouched. " +
+                    "Switch bit-perfect off to hear these.", style = T.sub, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                Pill("Turn off", quiet = true) { Music.chooseBitPerfect(false) }
+            }
             // The output these settings are for.
             val key = eq.output.ifEmpty { Music.outputNow.key }
             val label = eq.outputs[key]?.label?.ifEmpty { null } ?: if (key == Music.outputNow.key) Music.outputNow.label else key.substringAfter(':')
@@ -547,6 +699,7 @@ private fun EqSheet(ui: Ui) {
             AutoEqFinder()
             Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB keeps the boosts from clipping." else "Off: the music plays untouched.",
                 style = T.sub, modifier = Modifier.padding(top = 8.dp))
+          }
         }
     }
 }
@@ -591,7 +744,7 @@ private fun PlaylistPicker(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                         ui.askName = Triple("New playlist", "") { n -> Music.addToPlaylist(Music.newPlaylist(n), tracks) }
                     }.padding(vertical = 10.dp))
                 }
-                val lists = Music.lists.all()
+                val lists = Music.lists.all().filter { it.smart == null }   // a smart one fills itself
                 items(lists.size) { i ->
                     val pl = lists[i]
                     Text("${pl.name}  ·  ${pl.tracks.size}", style = T.body, modifier = Modifier.fillMaxWidth().clickable {
@@ -883,7 +1036,7 @@ private fun UpgradeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                     "• 16-bit FLAC/WAV: replaced only when Tidal has it in 24-bit\n" +
                     "• 24-bit files, and songs Tidal doesn't have: left as they are (you're asked about the ones kept as good already, at the end)\n\n" +
                     "The old files go to Android's trash (it asks you first), so you can get them back. The new ones go to " +
-                    Music.downloadDir.ifEmpty { "Music/Omarchy Music/" } + ". It takes a while: you can keep listening, and Stop it in Settings.",
+                    Music.downloadFolder() + ". It takes a while: you can keep listening, and Stop it in Settings.",
                     style = T.body)
                 Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Replace every song Tidal has, even ones yours is as good as or better than", style = T.sub, modifier = Modifier.weight(1f))

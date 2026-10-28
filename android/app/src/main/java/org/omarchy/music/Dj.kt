@@ -16,6 +16,9 @@ object Dj {
     val ORDER = listOf("repeat", "fresh", "mood", "throwback", "deep", "fresh", "genre", "like")
     /** Playing from songs you picked (a playlist, a folder, an album): sets of only those. */
     val FROM_ORDER = listOf("loved", "unplayed", "mood", "artist", "throwback", "mix")
+    // …and with new songs too: sets of new ones like them in between.
+    val FROM_NEW_ORDER = listOf("loved", "fresh", "unplayed", "mood", "like", "artist", "fresh", "throwback", "mix")
+    @Volatile var withNew = true   // with a scope: new songs like those too
     val KINDS = mapOf("repeat" to "On repeat", "fresh" to "New for you", "throwback" to "Throwback", "deep" to "Deep cuts",
         "genre" to "Your genre", "like" to "More like this", "ask" to "You asked", "loved" to "Your favourites",
         "unplayed" to "Not played yet", "artist" to "One artist", "mix" to "Mix", "mood" to "Your mood")
@@ -370,12 +373,16 @@ object Dj {
      *  come in the queue. Null if there are none. */
     fun build(kind: String? = null, avoid: String? = null, first: Boolean = false, coming: Set<Pair<String, String>> = emptySet()): Built? {
         val taste = loadTaste()
-        val order = if (scope != null) FROM_ORDER else ORDER
+        val order = if (scope != null) (if (withNew) FROM_NEW_ORDER else FROM_ORDER) else ORDER
         var spots = if (kind != null) listOf(-1) else order.indices.map { (step + it) % order.size }
         if (avoid != null && kind == null) spots = spots.filter { order[it] != avoid } + spots.filter { order[it] == avoid }.take(1)
         for (spot in spots) {
             val k = kind ?: order[spot]
-            val got = (if (scope != null) fromSet(k, taste, first, coming) else when (k) {
+            val sc = scope
+            val got = (if (sc != null && k in setOf("fresh", "like")) {   // new songs, from the ones it plays from
+                val t2 = Taste(taste.mine, sc.second.shuffled().take(20), sc.second, taste.artists, taste.last)
+                if (k == "fresh") setFresh(t2) else setLike(t2)
+            } else if (sc != null) fromSet(k, taste, first, coming) else when (k) {
                 "repeat" -> setRepeat(taste, first)
                 "throwback" -> setThrowback(taste)
                 "fresh" -> setFresh(taste)

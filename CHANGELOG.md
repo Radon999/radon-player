@@ -4,6 +4,26 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 1.4.0: Sound quality, stats and discovery (Windows and Android)
+- Looks: Light, Dark and Now playing (the cover's colours), with a look for when nothing plays
+- The menu: Pinned, Now playing, Search, Up next & queues; Music, Statistics and favorites, Utilities; Settings, Equalizer and the mini player
+- Pin anything to Pinned; search a list page for just its songs; list, grid or compact layouts
+- Lyrics on Now playing, in the cover's place; lyrics cards of up to a dozen lines to save, copy or post (Instagram, Facebook)
+- The quality of what's playing (FLAC 24-bit/96 kHz…) under the seek bar; Previous restarts the song after 10 seconds
+- Bit-perfect: each song straight to your DAC at its own rate (Windows: exclusive mode; Android 14+: USB DACs), with a check that it got there untouched; ReplayGain by song or album
+- "Is it really lossless?" finds FLACs made from MP3s, upsampled hi-res and padded 24-bit; Upgrade swaps them
+- Stats: import your Apple Music history; plays counted once across Last.fm, Spotify, Apple Music and here; a play counts from halfway; Most played shows every song; Skips by week, month, year or all time
+- Repeat: your top 50 of the week, top 100 of the month and top 200 of the year; smart playlists by mood and genre
+- Discovery playlists: an artist's songs you don't have, by album; heard ones move to "discovered" to keep or let go
+- New releases from your artists (albums, singles, EPs), when you scan: nothing checks on its own
+- Tag now shows what changes first; the tagger adds Genius's notes; downloads and upgrades are tagged together at the end
+- Upgrade: new files go beside yours, the album's version over the single's, and the song playing is swapped where you are
+- The DJ plays only your songs or brings new ones too
+- Equalizer: Full screen (Compact on Android); headphone corrections only from AutoEq
+- Wrapped: a Back button, your own covers first, no laggy swipes; Android has it too
+- A quicker visualizer; Windows: closing goes to the tray, and a mini player (Android: picture in picture)
+- Android in the car: Android Auto browses Up next, Favorites, Playlists, Recently played and your music
+
 ## 1.3.0: Apple Music-style redesign (Windows and Android)
 - Now Playing takes the album art's colours over a lightly blurred background
 - A slim bar visualizer behind the controls, always on, in the same colours

@@ -17,9 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// The look: Omarchy's (Tokyo Night) colours in a Poweramp-like layout, a sans-serif font,
-// rounded corners, the accent for what's playing and what's on. Settings › Look swaps the
-// colours: Dark, Light, or a neon one (black, one colour glowing).
+// The look: Apple Music's (Light or Dark), or Now playing's: the cover's colours on every screen.
+// A sans-serif font, rounded corners, the accent for what's playing and what's on.
 object C {
     var accent by mutableStateOf(Color(0xFF7AA2F7))
     var selection by mutableStateOf(Color(0xFF414868))
@@ -75,9 +74,27 @@ object Looks {
             listOf(0xFFFDE2F3, 0xFFE9E4FF, 0xFFDDF5FF))),
     )
 
-    val ALL: List<Pair<String, String>> = STYLED.map { (k, v) -> k to v.first } +
-        listOf("default" to "Default", "dark" to "Dark", "light" to "Light") +
-        NEON.map { (k, v) -> k to "Neon ${v.first.lowercase()}" }
+    /** The Look menu: Light, Dark, and Now playing (every screen in the colours of the song playing, the
+     *  way Now playing is; Light or Dark while nothing is). The other looks stay for the Visualizer and Wrapped. */
+    val ALL: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark", "nowplaying" to "Now playing")
+    val FALLBACK: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark")
+    fun known(look: String) = ALL.any { it.first == look }
+
+    /** The Now playing look: from a cover's main colour (null: none), else the fallback look. */
+    fun applyCover(rgb: Int?, fallback: String) {
+        if (rgb == null) { apply(fallback); return }
+        apply("apple-dark")
+        val hsl = FloatArray(3)
+        androidx.core.graphics.ColorUtils.colorToHSL(rgb, hsl)
+        val grey = hsl[1] <= 0.08f
+        val s = if (grey) hsl[1] else hsl[1].coerceIn(0.25f, 0.75f)
+        fun shade(l: Float, sat: Float = s) = Color(androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf(hsl[0], sat, l)))
+        C.isLight = false; C.apple = true
+        C.accent = if (grey) Color(0xFFFA2D48) else shade(0.74f, kotlin.math.min(1f, s + 0.15f))
+        C.selection = shade(0.30f); C.bg = shade(0.20f); C.dark = shade(0.14f); C.darker = shade(0.10f)
+        C.light = shade(0.26f); C.fg = Color(0xFFF5F5F7); C.muted = lerp(Color(0xFFF5F5F7), shade(0.12f), 0.42f)
+        C.gradient = listOf(shade(0.34f), shade(0.12f))
+    }
 
     fun apply(look: String) {
         val neon = NEON[look]?.second

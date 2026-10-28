@@ -101,7 +101,13 @@ class SongStats(private val file: File) {
     fun get(t: Track) = items[songId(t)]?.let { it.skips to it.full } ?: (0 to 0)
 
     /** (track, skips, heard out) of every song you've skipped or heard out. */
-    fun rows(): List<Triple<Track, Int, Int>> = items.values.mapNotNull { e -> e.track?.let { Triple(it, e.skips, e.full) } }
+    fun rows(since: Long = 0): List<Triple<Track, Int, Int>> = items.values.mapNotNull { e ->
+        val t = e.track ?: return@mapNotNull null
+        if (since <= 0) return@mapNotNull Triple(t, e.skips, e.full)
+        val sk = e.skips_at.count { it >= since }
+        val fu = e.full_at.count { it >= since }
+        if (sk + fu > 0) Triple(t, sk, fu) else null   // only what you did since then (this week, month, year)
+    }
 
     data class Habits(val skips: Int, val full: Int, val never: List<Pair<Track, Int>>, val neverCount: Int,
                       val mostSkipped: List<Pair<Track, Int>>, val favsAdded: List<Track>, val favsTotal: Int)

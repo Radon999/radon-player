@@ -1,3 +1,5 @@
+from pathlib import Path
+import tempfile
 """Your Spotify history and the counts that add it to Last.fm's (Stats)."""
 import io
 import json
@@ -97,6 +99,7 @@ class FakePlays:
 class FakeApp:
     def __init__(self, fm, history, plays=None):
         self.lastfm, self.spotify_history, self.plays = fm, history, plays or FakePlays()
+        self.apple_history = om.AppleHistory(Path(tempfile.mkdtemp()) / "apple.json")
 
 
 class StatsTest(unittest.TestCase):

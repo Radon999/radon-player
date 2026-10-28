@@ -22,7 +22,7 @@ class ActivityTest(unittest.TestCase):
         self.assertEqual(a["timestamps"], {"start": 970_000, "end": 1_234_000})
         self.assertEqual(a["assets"]["large_image"], t["thumb"])
         self.assertEqual(a["buttons"], [{"label": "Play on YouTube Music", "url": "https://music.youtube.com/watch?v=abc123"},
-                                        {"label": "Get VarMusic", "url": om.DOWNLOAD_PAGE}])
+                                        {"label": "Get Radon Player", "url": om.DOWNLOAD_PAGE}])
 
     def test_your_own_file_and_a_faster_song(self):
         t = {"id": "f1", "source": "file", "file": "/m/a.flac", "title": "X", "artist": "", "thumb": ""}
@@ -30,7 +30,7 @@ class ActivityTest(unittest.TestCase):
         self.assertEqual(len(a["details"]), 2)   # Discord wants two characters at least
         self.assertEqual(a["timestamps"], {"start": 995_000, "end": 1_045_000})
         self.assertTrue(a["assets"]["large_image"].endswith("icon.png"))
-        self.assertEqual([b["label"] for b in a["buttons"]], ["Get VarMusic"])
+        self.assertEqual([b["label"] for b in a["buttons"]], ["Get Radon Player"])
         self.assertNotIn("large_text", a["assets"])
 
     def test_a_little_drift_is_the_same(self):
