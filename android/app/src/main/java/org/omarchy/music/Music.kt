@@ -110,6 +110,8 @@ object Music {
     var autoplay by mutableStateOf(true)       // ∞: when the queue runs out, songs like the last one play on
     var wrappedStyle by mutableStateOf("classic")   // Wrapped's look
     var skipOrder by mutableStateOf("most")    // how Skips is sorted: most, least, heard
+    var topMineOnly by mutableStateOf(true)   // Most played: only the songs on the phone (plays from everywhere)
+    fun chooseTopMineOnly(on: Boolean) { topMineOnly = on; mostPlayedFor = null; musicVersion++; saveState() }
     var skipPeriod by mutableStateOf("all")    // …and over which time: week, month, year, all
     var bitPerfect by mutableStateOf(false)    // the DAC gets each song as it is: no EQ, no song volume, no speed
     var replayGain by mutableStateOf("off")    // off, track or album: the files' ReplayGain tags (not in bit-perfect)
@@ -134,10 +136,6 @@ object Music {
         else -> 0
     }
 
-    /** "Is it really lossless?": the lossless files you have, checked one by one (blocking); the fakes. */
-    var qualityBusy by mutableStateOf<String?>(null)
-    var qualityStop = false
-    val fakes = androidx.compose.runtime.mutableStateListOf<Pair<Track, AudioQuality.Verdict>>()
     var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": your first music folder
     /** Where downloads go: the folder you picked, else the first folder the Music tab reads. */
     fun downloadFolder(): String = downloadDir.ifEmpty { folders.firstOrNull() ?: "Music/" }
@@ -264,7 +262,7 @@ object Music {
         val drawer_folds: Map<String, Boolean> = mapOf("music" to true),
         val pins: List<Pin> = emptyList(), val layouts: Map<String, String> = emptyMap(), val mic_asked: Boolean = false,
         val skip_period: String = "all", val bit_perfect: Boolean = false, val replay_gain: String = "off",
-        val dj_new: Boolean = true,
+        val dj_new: Boolean = true, val top_mine_only: Boolean = true,
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -302,6 +300,7 @@ object Music {
         skipPeriod = st.skip_period.takeIf { it in setOf("week", "month", "year", "all") } ?: "all"
         bitPerfect = st.bit_perfect
         djNew = st.dj_new
+        topMineOnly = st.top_mine_only
         Dj.withNew = djNew
         replayGain = st.replay_gain.takeIf { it in setOf("off", "track", "album") } ?: "off"
         eqProcessor.bypass = bitPerfect
@@ -329,7 +328,7 @@ object Music {
         val st = State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew)
+            bitPerfect, replayGain, djNew, topMineOnly)
         bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
     }
 
@@ -393,7 +392,7 @@ object Music {
         val seen = HashSet<Pair<String, String>>()
         val out = ArrayList<Track>()
         for (s in Stats.artistSongs(name)) {
-            val t = fmSong(s.title, s.artist, s.thumb, mine).copy(plays = s.plays)
+            val t = fmSong(s.title, s.artist, s.thumb, mine, s.album).copy(plays = s.plays)
             if (seen.add(songKey(t))) out += t
         }
         val here = plays.items.values.associate { songKey(it.track) to it.plays }
@@ -465,7 +464,13 @@ object Music {
         if (counts.isEmpty()) return plays.top(Int.MAX_VALUE)   // Most played: every song
         if (counts !== mostPlayedFor) {
             val mine = songIndex()
-            mostPlayedMade = counts.map { fmSong(it.title, it.artist, it.thumb, mine, it.album).copy(plays = it.plays) }
+            // Two names for one song of yours (a remaster's, a feat.'s): one row, its plays added up.
+            val at = LinkedHashMap<String, Track>()
+            for (c in counts) {
+                val t = fmSong(c.title, c.artist, c.thumb, mine, c.album)
+                at[t.id] = at[t.id]?.let { it.copy(plays = it.plays + c.plays) } ?: t.copy(plays = c.plays)
+            }
+            mostPlayedMade = at.values.filter { !topMineOnly || it.isFile || lib.has(it.id) }.sortedByDescending { it.plays }
             mostPlayedFor = counts
         }
         return mostPlayedMade
@@ -475,21 +480,54 @@ object Music {
     /** Song key to your copy of it: saved, in your folders, or played here. */
     fun songIndex(): Map<Pair<String, String>, Track> {
         val mine = HashMap<Pair<String, String>, Track>()
-        for (t in plays.items.values.map { it.track } + mySongs()) {   // yours on disk win over ones only played
+        val copies = HashMap<Pair<String, String>, MutableList<Track>>()
+        val byTitle = HashMap<String, MutableList<Track>>()
+        for (t in plays.items.values.map { it.track }) { mine[songKey(t)] = t; mine[Stats.statsKey(t.title, t.artist)] = t }
+        for (t in mySongs()) {   // yours on the phone win over ones only played (streamed)
+            val k = Stats.statsKey(t.title, t.artist)
             mine[songKey(t)] = t
-            mine[Stats.statsKey(t.title, t.artist)] = t
+            mine[k] = t
+            copies.getOrPut(k) { ArrayList() } += t
+            byTitle.getOrPut(k.first) { ArrayList() } += t
         }
+        localCopies = copies
+        localByTitle = byTitle
         return mine
     }
+    @Volatile private var localCopies: Map<Pair<String, String>, List<Track>> = emptyMap()
+    @Volatile private var localByTitle: Map<String, List<Track>> = emptyMap()
 
-    /** A song Last.fm named: yours (mine: song key to song) when you have it, else one to be
-     *  found on Tidal or YouTube Music when it plays. */
-    fun fmSong(name: String, artist: String, image: String, mine: Map<Pair<String, String>, Track>, album: String = ""): Track =
-        mine[songKey(Track("", title = name, artist = artist))] ?: mine[Stats.statsKey(name, artist)] ?: run {
+    private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")
+
+    /** Of your copies of a song, the one on the album asked for, then the best file (FLAC first). */
+    private fun bestCopy(copies: List<Track>, album: String): Track {
+        val want = norm(cleanTitle(album))
+        val rank = mapOf("flac" to 0, "wav" to 1, "alac" to 1, "m4a" to 2, "ogg" to 3, "opus" to 3, "mp3" to 4)
+        return copies.minWith(compareBy<Track>({ !(want.isNotEmpty() && norm(cleanTitle(it.album)) == want) },
+            { rank[lib.items[it.id]?.format ?: it.file?.substringAfterLast('.')?.lowercase()] ?: 5 }))
+    }
+
+    /** A song Last.fm (or Spotify, or Apple Music) named: your file of it when you have one (the same song name
+     *  and artist; the one on the same album first), else one played here, else one to be found on Tidal or
+     *  YouTube Music when it plays. Call [songIndex] first: it reads your files. */
+    fun fmSong(name: String, artist: String, image: String, mine: Map<Pair<String, String>, Track>, album: String = ""): Track {
+        val k = Stats.statsKey(name, artist)
+        var copies = localCopies[k].orEmpty()
+        if (copies.isEmpty()) {   // the artist written differently: one of the song's artists is one of your file's
+            val theirs = splitArtists(artist).map { bare(it) }.filter { it.isNotEmpty() }.toSet()
+            copies = localByTitle[k.first].orEmpty().filter { t -> splitArtists(t.artist).any { bare(it) in theirs } }
+        }
+        if (copies.isEmpty() && album.isNotBlank()) {   // the artist tagged another way still: the same song name on the same album
+            val want = norm(cleanTitle(album))
+            copies = localByTitle[k.first].orEmpty().filter { norm(cleanTitle(it.album)) == want }
+        }
+        if (copies.isNotEmpty()) return bestCopy(copies, album)
+        return mine[songKey(Track("", title = name, artist = artist))] ?: mine[k] ?: run {
             val sha = java.security.MessageDigest.getInstance("SHA-1").digest("${norm(artist)}|${norm(name)}".toByteArray())
             Track("lfm-" + sha.joinToString("") { "%02x".format(it) }.take(16), "lastfm", name, artist,
                 album = album, thumb = image.takeIf { LASTFM_BLANK !in it } ?: "")
         }
+    }
 
     // ---- the DJ ----
     /** What the DJ screen shows: the phone's DJ, or the desktop's while it's the remote. */
@@ -609,7 +647,7 @@ object Music {
         bg({ if (ask != null) Dj.ask(ask) else Dj.build(avoid = avoid, coming = coming) }) { res, err ->
             djBusy = null
             if (res == null) {
-                toast(if (ask != null) "The DJ found nothing for “${ask.trim()}”. Try a mood, a decade, a genre or an artist."
+                toast(if (ask != null) "The DJ found nothing for “${ask.trim()}”. Try an artist, a genre, a decade or a vibe."
                       else "The DJ has nothing else right now" + (err?.let { ": ${it.message?.take(80)}" } ?: "."))
                 return@bg
             }
@@ -760,36 +798,9 @@ object Music {
     fun removeFolder(path: String) = setFolders(folders - path)
 
     // ---- your playlists ----
-    /** A smart playlist's songs: yours with any of its moods and any of its genres, the ones with more of its moods first. */
-    fun smartTracks(pl: Playlist): List<Track> {
-        val rule = pl.smart ?: return pl.tracks
-        val moods = rule.moods.toSet()
-        val genres = rule.genres.map { it.lowercase() }
-        return mySongs().withIndex().mapNotNull { (i, t) ->
-            val have = Moods.of(t).toSet()
-            if (moods.isNotEmpty() && (have intersect moods).isEmpty()) return@mapNotNull null
-            val g = genreOf(t).lowercase()
-            if (genres.isNotEmpty() && genres.none { it == g || it in g }) return@mapNotNull null
-            Triple(-(have intersect moods).size, i, t)
-        }.sortedWith(compareBy({ it.first }, { it.second })).map { it.third }
-    }
-
     /** Your songs' genres, the most common first. */
     fun genresHere(n: Int = 30): List<String> = mySongs().map { genreOf(it) }.filter { it.isNotEmpty() && it != "Unknown genre" }
         .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(n).map { it.key }
-
-    fun newSmartPlaylist(name: String, smart: Smart): String {
-        val id = lists.create(name, smart).id
-        toast("Made “$name”")
-        musicVersion++
-        return id
-    }
-
-    fun editSmartPlaylist(id: String, name: String, smart: Smart) {
-        lists.setSmart(id, smart)
-        if (lists.get(id)?.name != name) lists.rename(id, name)
-        musicVersion++
-    }
 
     var repeatPeriod by mutableStateOf("week")   // Repeat's chart: week, month, year (not kept)
 
@@ -1096,30 +1107,6 @@ object Music {
         } else queueTrash(TrashJob(listOf(t), mapOf(t.id to keep), "a copy of “${t.title}”"))
     }
 
-    /** Every lossless file of yours, checked for a FLAC made from an MP3 and hi-res made from CD quality. */
-    fun checkMyFiles() {
-        if (qualityBusy != null) { qualityStop = true; return }
-        val todo = local.files.filter { it.isFile && it.file != null }
-        qualityStop = false; fakes.clear()
-        qualityBusy = "Checking…"
-        bg({
-            var n = 0
-            for (t in todo) {
-                if (qualityStop) break
-                n++
-                if (n % 5 == 0) scope.launch { qualityBusy = "Checking · $n of ${todo.size}" }
-                if (!dl.fileQuality(t.file!!).first) continue
-                val v = AudioQuality.check(t.file, AudioQuality.stampOf(t.file))
-                if (v.verdict == "lossy" || v.verdict == "upsampled") scope.launch { fakes += t to v }
-            }
-            n
-        }) { n, _ ->
-            qualityBusy = null
-            toast(if (qualityStop) "Stopped" else "Checked ${n ?: 0} songs: " +
-                if (fakes.isEmpty()) "every lossless file is the real thing" else "${fakes.size} aren't what they say")
-        }
-    }
-
     // ---- Upgrade: your files for Tidal's FLAC where it's better ----
     fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) {
         if (upgrading != null) return
@@ -1182,12 +1169,7 @@ object Music {
 
     private fun gainOf(t: Track) = Math.pow(10.0, gains.get(t) / 20)
 
-    fun setMoods(tracks: List<Track>, moods: List<String>?) {
-        Moods.setManual(tracks, moods)
-        toast(if (moods == null) "Moods found again by the scan" else "Moods set for ${if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"}")
-        if (moods == null) Moods.scanSoon()
-        musicVersion++
-    }
+
 
     fun chooseLook(l: String) { look = l; coverRgb = null; applyLook(); saveState() }
     fun chooseNpFallback(l: String) { npFallback = l; if (look == "nowplaying") applyLook(); saveState() }

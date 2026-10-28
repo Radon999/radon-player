@@ -43,7 +43,6 @@ import org.omarchy.music.ArtistInfo
 import org.omarchy.music.Dj
 import org.omarchy.music.FolderItem
 import org.omarchy.music.LastFm
-import org.omarchy.music.Moods
 import org.omarchy.music.PLAYLIST_SORTS
 import org.omarchy.music.SpotifyHistory
 import org.omarchy.music.Stats
@@ -263,7 +262,6 @@ fun MusicTab(ui: Ui) {
             when (ui.musicView) {
                 "playlists" -> myPlaylists(ui) { importer.launch(arrayOf("*/*")) }
                 "dj" -> djView(ui, ask) { ask = it }
-                "moods" -> moodsView(ui)
                 "dupes" -> dupesView(ui)
                 "pinned" -> pinnedView(ui)
                 "newreleases" -> newReleasesView(ui)
@@ -329,6 +327,15 @@ fun MusicTab(ui: Ui) {
                                 "unfavorited" -> "${tracks.size} SONGS NOT FAVORITED"
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
+                            if (ui.musicView == "top" && (org.omarchy.music.LastFm.connected || Music.mostPlayedFromStats)) {
+                                val st = org.omarchy.music.Stats
+                                ActionRow(if (st.busy) "Refreshing…" else "Refresh  ↻  ${tracks.size} songs · ${st.sources.joinToString(" + ")}") {
+                                    if (!st.busy) st.refresh(force = true)
+                                }
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                                    Chip("Only songs on this phone", Music.topMineOnly) { Music.chooseTopMineOnly(!Music.topMineOnly) }
+                                }
+                            }
                         }
                         if (ui.musicView == "all" && Music.musicSort in setOf("artist", "album") && layoutNow(ui) == "list" && ui.filter.isNullOrBlank()) grouped(tracks, ui, Music.musicSort == "artist")
                         else tracks(tracks, ui, ui.musicView) { t ->
@@ -393,38 +400,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
     }
 }
 
-/** Moods: a playlist of each mood your songs are in, made by itself from the mood scan. */
-private fun androidx.compose.foundation.lazy.LazyListScope.moodsView(ui: Ui) {
-    Moods.version
-    val pool = Moods.pool()
-    val todo = Moods.todo(pool).size
-    val counts = Moods.counts(pool)
-    item(key = "moods-head") {
-        if (Moods.scanning) {
-            Section(Moods.status.uppercase())
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { Pill("Stop", quiet = true) { Moods.stop = true } }
-        } else {
-            val where = if (Music.apiKeys["chartmetric"] != null) "Chartmetric, then Last.fm"
-                else if (LastFm.key.isNotEmpty()) "Last.fm's tags" else "the songs' genres (connect Last.fm for better ones)"
-            Section((if (todo > 0) "$todo SONG${if (todo != 1) "S" else ""} NOT SCANNED YET" else "ALL ${pool.size} SONGS SCANNED") +
-                " · MOODS FROM ${where.uppercase()}")
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (todo > 0) Pill("Scan") { Moods.scanSoon() }
-                Pill("Look again", quiet = true) { Moods.scanSoon(again = true) }
-            }
-        }
-        if (counts.isNotEmpty()) Section("YOUR MOODS")
-    }
-    items(counts.size, key = { "mood-${counts[it].first}" }) { i ->
-        val (mood, n) = counts[i]
-        val songs = Moods.songsIn(mood, pool)
-        val al = Album("mood-$mood", mood.replaceFirstChar { it.uppercase() }, "Mood · $n song${if (n != 1) "s" else ""}", "", "")
-        PlaylistRow(al, songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }?.let { artModel(it) }) {
-            ui.pages += Ui.Page.AlbumPage(al, "", songs)
-        }
-    }
-}
-
 /** The DJ: what it said last, Start or Switch it up, a box to ask it for something, and its songs to come. */
 private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: String, setAsk: (String) -> Unit) {
     val d = Music.shownDj()
@@ -434,8 +409,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
             Text("DJ" + (Dj.KINDS[d.kind]?.let { " · ${it.uppercase()}" } ?: ""), style = T.section)
             Text(d.line.ifEmpty {
                 "Your own DJ: a mix of the songs you love, ones you haven't heard in a while and new ones from " +
-                    "Tidal and YouTube Music, a few at a time. Switch it up for something else, or ask for a mood, " +
-                    "a decade, a genre or an artist."
+                    "Tidal and YouTube Music, a few at a time. Switch it up for something else, or ask for an artist, " +
+                    "a genre, a decade or a vibe."
             }, style = if (d.line.isNotEmpty()) T.title else T.body)
             if (d.busy.isNotEmpty()) Text(d.busy, style = T.sub)
             Box {
@@ -591,7 +566,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
     if (open == null && folder != null) { folderView(ui, folder); return }
     if (open == null) {
         item { ActionRow("＋  New playlist") { ui.askName = Triple("New playlist", "") { n -> Music.newPlaylist(n) } } }
-        item { ActionRow("✦  New smart playlist") { ui.smartNew = true } }
         item { ActionRow("＋  New folder") { ui.askName = Triple("New folder", "") { n -> Music.newFolder(n) } } }
         item {
             val busy = Music.importing
@@ -612,15 +586,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
         }
         laidOutItems(shown, ui, key = { "pl-" + shown[it].id }, row = { i ->
             val pl = shown[i]
-            val songs = if (pl.smart != null) Music.smartTracks(pl) else pl.tracks
+            val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            PlaylistRow(Album(pl.id, pl.name, pl.smart?.let { "Smart · " + it.words() } ?: "", "", songs.size.toString()), cover?.let { artModel(it) },
+            PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
                 onLongClick = { menu(pl) }) { ui.openMine = pl.id }
         }) { i, mod, compact ->
             val pl = shown[i]
-            val songs = if (pl.smart != null) Music.smartTracks(pl) else pl.tracks
+            val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            Tile(cover?.let { artModel(it, if (compact) 226 else 400) }, pl.name, if (pl.smart != null) "Smart · ${songs.size}" else "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST,
+            Tile(cover?.let { artModel(it, if (compact) 226 else 400) }, pl.name, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST,
                 onLongClick = { menu(pl) }) { ui.openMine = pl.id }
         }
         return
@@ -630,22 +604,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
 /** One of your playlists, open (from Playlists, Pinned or Discovery). */
 private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, open: org.omarchy.music.Playlist) {
     item { BackRow(open.name) { ui.openMine = null } }
-    val smart = open.smart
-    val sorted = Music.sortedPlaylist(if (smart != null) Music.smartTracks(open) else open.tracks)
+    val sorted = Music.sortedPlaylist(open.tracks)
     item {
-        ListActions(sorted, onDj = { ui.djFrom(if (smart != null) Dj.From("songs", name = open.name, songs = sorted) else Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
-            if (smart != null) "Edit…" to { ui.smartEdit = open } else null,
+        ListActions(sorted, onDj = { ui.djFrom(Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             "Delete" to { ui.confirm = "Delete the playlist “${open.name}”? The songs stay where they are." to { Music.deletePlaylist(open.id); ui.openMine = null } },
             "Export" to { ui.exportFor = open.name to sorted },
         ), pin = org.omarchy.music.Pin("mine", open.id, open.name))
     }
-    if (smart != null) item { Section("SMART · " + smart.words().uppercase()) }
-    if (sorted.isEmpty()) item {
-        if (smart != null) Empty("No songs fit it yet", "Moods (in Utilities) reads your songs' moods; the tagger fills in genres.")
-        else Empty("No songs in it yet", "Long-press a song anywhere and pick Add to playlist.")
-    }
-    else { item { PlaylistSortChips() }; tracks(sorted, ui, "mine", playlistId = if (smart != null) null else open.id) }
+    if (sorted.isEmpty()) item { Empty("No songs in it yet", "Long-press a song anywhere and pick Add to playlist.") }
+    else { item { PlaylistSortChips() }; tracks(sorted, ui, "mine", playlistId = open.id) }
 }
 
 @Composable
@@ -857,25 +825,20 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
 
 // The pages that come with 1.4 (filled in as they're built).
 /** New releases: albums, singles and EPs of the artists in your songs, newest first, from the last
- *  Scan (it looks only when you tap it). */
+ *  Refresh (it looks only when you tap it). */
 fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     val nr = org.omarchy.music.NewReleases
     item {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (nr.status == null) Pill("Scan…") {
-                ui.choices = "Scan for new releases: what ${nr.artists.size.takeIf { it > 0 } ?: "your"} artists put out in…" to listOf(
+            if (nr.status == null) Pill("Refresh…") {
+                ui.choices = "New releases: what the artists with songs on your phone put out in…" to listOf(
                     "The last week" to { nr.scan("week") }, "The last month" to { nr.scan("month") }, "The last year" to { nr.scan("year") })
             } else Pill("Stop", quiet = true) { nr.stop = true }
-            Pill("Settings…", quiet = true) {
-                ui.choices = ((if (nr.artists.isEmpty()) "It looks at the artists in your songs." else "It looks at ${nr.artists.size} artists from your songs.") +
-                    " Read them again after you add music. Releases come from Deezer's catalogue; nothing is checked on its own.") to
-                    listOf("Read my artists" to { val n = nr.readArtists(Music.mySongs()); Music.toast("$n artists to look at: Scan… when you like") })
-            }
         }
         nr.status?.let { Section(it.uppercase()) }
     }
-    if (nr.artists.isEmpty() || nr.scanned <= 0) {
-        item { Empty("New releases", "Tap Settings… to read the artists in your songs, then Scan… for what they've put out in the last " +
+    if (nr.scanned <= 0) {
+        item { Empty("New releases", "Tap Refresh… to look at every artist with songs on your phone for what they've put out in the last " +
             "week, month or year. Nothing is checked on its own.") }
         return
     }
@@ -901,7 +864,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     val rows = nr.found.filter { it.type == nr.kind && fits(ui, it.artist, it.title) }
     val name = mapOf("album" to "ALBUMS", "single" to "SINGLES", "ep" to "EPS")[nr.kind] ?: ""
     item { Section("${rows.size} ${if (rows.size == 1) name.dropLast(1) else name} · $whenText · NEWEST FIRST") }
-    if (rows.isEmpty()) item { Empty("None in this time", "Scan… a longer time, or look at the other tabs.") }
+    if (rows.isEmpty()) item { Empty("None in this time", "Refresh… a longer time, or look at the other tabs.") }
     laidOutItems(rows, ui, key = { "nr-${rows[it].link}-${rows[it].title}-$it" }, row = { i ->
         val r = rows[i]
         PlaylistRow(Album(r.link, r.title, "${r.artist} · ${r.date}", r.cover)) { find(r) }

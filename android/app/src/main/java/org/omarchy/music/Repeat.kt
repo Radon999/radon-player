@@ -9,7 +9,7 @@ import java.time.ZoneId
 
 /** Repeat: what you've had on repeat, as charts: your 50 most played songs of the last week, 100 of
  *  the last month and 200 of the last year. Your scrobbles (or the plays here, without Last.fm), and
- *  Spotify's and Apple Music's plays Last.fm hasn't got, as the desktop adds them up. */
+ *  Spotify's and Apple Music's plays, added up, as the desktop does. */
 object Repeat {
     val PERIODS = linkedMapOf("week" to (7 to 50), "month" to (30 to 100), "year" to (365 to 200))   // days back, songs
     private val made = HashMap<String, Pair<Double, List<Track>>>()
@@ -50,7 +50,7 @@ object Repeat {
             for (p in periods) rows += Wrapped.scrobblePlays(Music.ctx, p).filter { it.t >= since }
         } else for (e in Music.plays.items.values.toList()) for (x in e.at) if (x >= since) rows += SpotifyHistory.Play(x, e.track.artist, e.track.title, e.track.album)
         val extra = (SpotifyHistory.plays + AppleHistory.timed()).filter { it.t >= since }
-        rows += Stats.notScrobbled(extra, rows.map { it.t to it.title })
+        rows += extra   // Spotify's and Apple Music's plays, added up
         val counts = LinkedHashMap<Pair<String, String>, Pair<SpotifyHistory.Play, Int>>()
         for (r in rows) {
             val k = Stats.statsKey(r.title, r.artist)

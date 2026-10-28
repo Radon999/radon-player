@@ -91,16 +91,13 @@ class Ui {
     var deleteFor by mutableStateOf<List<Track>?>(null)
     var speedFor by mutableStateOf<List<Track>?>(null)
     var volumeFor by mutableStateOf<List<Track>?>(null)     // Volume…: a song's own boost
-    var moodsFor by mutableStateOf<List<Track>?>(null)      // Moods…: set by hand
     var upgradeFor by mutableStateOf<List<Track>?>(null)    // Upgrade…: these songs (empty: all of yours)
     var exportFor by mutableStateOf<Pair<String, List<Track>>?>(null)   // Export…: a playlist as .m3u8
     var coverFor by mutableStateOf<List<List<Track>>?>(null)   // the albums still to pick a cover for
     var artistPictureFor by mutableStateOf<String?>(null)
     var filter by mutableStateOf<String?>(null)        // the page's own search (null: closed)
-    var smartNew by mutableStateOf(false)               // New smart playlist is open
     var reviewFor by mutableStateOf<org.omarchy.music.Playlist?>(null)   // a discovered list, being reviewed
     var tagPreview by mutableStateOf<Pair<List<String>, Boolean>?>(null)   // Tag now…: these songs, from scratch or not
-    var smartEdit by mutableStateOf<org.omarchy.music.Playlist?>(null)   // …or Edit… of this one
     var width by mutableStateOf(392f)                  // the lists' width, in dp: how many covers fit across
     var choices by mutableStateOf<Pair<String, List<Pair<String, () -> Unit>>>?>(null)   // a long-press's options
 
@@ -262,7 +259,6 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         if (org.omarchy.music.Tags.editable(t) != null) item("Edit tags…") { ui.editTagsFor = listOf(t) }()
         if (org.omarchy.music.upgradable(t) && Music.upgrading == null) item("Upgrade to FLAC…") { ui.upgradeFor = listOf(t) }()
         item(if (Music.favorites.has(t)) "Unfavorite" else "Favorite") { Music.setFavorite(listOf(t)) }()
-        item("Moods…") { ui.moodsFor = listOf(t) }()
         Music.gains.get(t).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
         item("Cover…") { ui.pickCovers(listOf(t)) }()
         Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }

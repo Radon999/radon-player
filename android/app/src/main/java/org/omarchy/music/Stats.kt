@@ -6,13 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.serialization.Serializable
 import java.io.File
-import java.time.Instant
-import java.time.ZoneId
 
-/** Every play added up, from wherever you played it: Last.fm's (all time: your 1,000 most
- *  played songs and 400 most played artists), your Spotify history's that Last.fm doesn't
- *  have (a Spotify play Last.fm scrobbled too counts once), and without Last.fm, the plays
- *  here. Most played, the Artists tab and the artist pages show these; the desktop adds
+/** Every play added up, from wherever you played it: every scrobble on Last.fm (all time), plus
+ *  every play in your Spotify and Apple Music imports, and without Last.fm, the plays here. Most played, the Artists tab and the artist pages show these; the desktop adds
  *  them up the same way. Added up again in the background when they're older than [FOR]
  *  seconds or what goes into them changed, and kept between starts. */
 object Stats {
@@ -29,8 +25,6 @@ object Stats {
                              val built: Double = 0.0, val sig: String = "")
 
     const val FOR = 600          // seconds the counts are good for
-    private const val TOP_PAGES = 50     // Last.fm's top songs, 200 a page: every song you've played (up to 10,000)
-    private const val ARTIST_PAGES = 2   // and top artists
 
     var songs by mutableStateOf(listOf<Song>())            // most played first
         private set
@@ -50,7 +44,7 @@ object Stats {
         }
     }
 
-    private fun inputs() = listOf(if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, AppleHistory.count,
+    private fun inputs() = listOf("v2", if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")
 
     /** Where the counts come from, for the label over Most played. */
@@ -78,48 +72,14 @@ object Stats {
     private fun build(): Saved {
         val sig = inputs()
         val fm = LastFm.connected
-        val tracks = ArrayList<LastFm.Top>()
-        val fmArtists = ArrayList<LastFm.Top>()
-        if (fm) {
-            for (p in 1..TOP_PAGES) { val got = LastFm.top("track", 200, page = p); tracks += got; if (got.size < 200) break }
-            for (p in 1..ARTIST_PAGES) { val got = LastFm.top("artist", 200, page = p); fmArtists += got; if (got.size < 200) break }
-        }
-        // Spotify's plays count from half the song: Spotify doesn't say how long a song is, so the
-        // longest you ever played it stands for that (plays under 30 seconds were left out already).
-        val all = SpotifyHistory.plays
-        val longest = HashMap<Pair<String, String>, Long>()
-        for (p in all) { val k = statsKey(p.title, p.artist); longest[k] = maxOf(longest[k] ?: 0, p.ms) }
-        var extra = all.filter { it.ms >= (longest[statsKey(it.title, it.artist)] ?: 0) / 2 }
-        var apple = AppleHistory.timed()
-        val totals = AppleHistory.rows.filter { it.t <= 0 }   // a library's all-time counts
-        if ((extra.isNotEmpty() || apple.isNotEmpty()) && fm) {
-            val first = LastFm.info().registered.takeIf { it > 0 }?.let { year(it) } ?: Int.MAX_VALUE
-            val years = (extra + apple).map { year(it.t) }.distinct().sorted().filter { it >= first }
-            val scrobbles = years.flatMap { Wrapped.scrobbleTimes(ctx, it) }
-            extra = notScrobbled(extra, scrobbles)   // a play Last.fm scrobbled too counts once
-            apple = notScrobbled(apple, scrobbles)
-        }
+        val scrobbles = if (fm) Wrapped.allScrobbles(ctx).map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album) } else emptyList()
         val here = if (fm) emptyList() else Music.plays.items.values.map { it.track to it.plays }
-        val (s, a) = combine(tracks, fmArtists, extra, here, fm, apple, totals)
+        // Spotify's and Apple Music's imports: every play in them (from 30 seconds, as Spotify counts a
+        // stream), added to Last.fm's, even where Spotify scrobbled to Last.fm too.
+        val (s, a) = combine(scrobbles, SpotifyHistory.plays, here, AppleHistory.timed(), AppleHistory.rows.filter { it.t <= 0 })
         val out = Saved(s, a, now(), sig)
         writeAtomic(file, JSON.encodeToString(Saved.serializer(), out))
         return out
-    }
-
-    private fun year(t: Long) = Instant.ofEpochSecond(t).atZone(ZoneId.systemDefault()).year
-
-    /** The Spotify plays Last.fm doesn't have among its scrobbles (time, title): a scrobble of the
-     *  same song from five minutes before a play began until five after it stopped is that play,
-     *  and each scrobble stands for one play. */
-    internal fun notScrobbled(plays: List<SpotifyHistory.Play>, scrobbles: List<Pair<Long, String>>): List<SpotifyHistory.Play> {
-        val at = HashMap<String, MutableList<Long>>()
-        for ((t, title) in scrobbles) at.getOrPut(norm(cleanTitle(title))) { ArrayList() } += t
-        return plays.filter { p ->
-            val times = at[norm(cleanTitle(p.title))] ?: return@filter true
-            val i = times.indexOfFirst { it >= p.t - 300 && it <= p.t + p.ms / 1000 + 300 }
-            if (i >= 0) times.removeAt(i)
-            i < 0
-        }
     }
 
     private class Counts(val title: String, val artist: String, var album: String, var thumb: String) {
@@ -131,6 +91,7 @@ object Stats {
      *  (feat., & and x credits, remaster notes left out). The desktop's stats_key. */
     fun statsKey(title: String, artist: String): Pair<String, String> =
         norm(cleanTitle(title)) to norm(artist.lowercase().split(Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with "))[0])
+            .let { n -> n.replace(Regex("[\\W_]+"), "").ifEmpty { n } }   // K.Flay = kflay
 
     private fun MutableMap<Pair<String, String>, Counts>.count(title: String, artist: String, album: String, thumb: String,
                                                                  n: Int, source: String) {
@@ -142,20 +103,20 @@ object Stats {
     }
 
     /** The counts from each source, put together: (songs, artists), most played first. */
-    internal fun combine(tracks: List<LastFm.Top>, fmArtists: List<LastFm.Top>, spotify: List<SpotifyHistory.Play>,
-                         here: List<Pair<Track, Int>>, fm: Boolean, apple: List<SpotifyHistory.Play> = emptyList(),
+    internal fun combine(scrobbles: List<SpotifyHistory.Play>, spotify: List<SpotifyHistory.Play>, here: List<Pair<Track, Int>>,
+                         apple: List<SpotifyHistory.Play> = emptyList(),
                          appleTotals: List<AppleHistory.Row> = emptyList()): Pair<List<Song>, List<ArtistPlays>> {
         val songs = LinkedHashMap<Pair<String, String>, Counts>()
-        for (x in tracks) songs.count(x.name, x.artist, "", x.image.takeIf { LASTFM_BLANK !in it } ?: "", x.plays, "lastfm")
+        for (p in scrobbles) songs.count(p.title, p.artist, p.album, "", 1, "lastfm")
         for ((t, n) in here) songs.count(t.title, t.artist, t.album, t.thumb, n, "here")
         for (p in spotify) songs.count(p.title, p.artist, p.album, "", 1, "spotify")
         for (p in apple) songs.count(p.title, p.artist, p.album, "", 1, "apple")
-        for (r in appleTotals) songs.count(r.title, r.artist, r.album, "", r.count - (songs[statsKey(r.title, r.artist)]?.plays ?: 0), "apple")
+        // A library's counts: Apple's all-time total for a song, past the Apple plays counted already.
+        for (r in appleTotals) songs.count(r.title, r.artist, r.album, "", r.count - (songs[statsKey(r.title, r.artist)]?.apple ?: 0), "apple")
         val artists = LinkedHashMap<Pair<String, String>, Counts>()
-        for (x in fmArtists) artists.count(x.name, x.name, "", "", x.plays, "lastfm")   // Last.fm's own totals
         for (s in songs.values) {
-            val lead = s.artist.split(",")[0].trim()
-            if (!fm) artists.count(lead, lead, "", s.thumb, s.lastfm, "lastfm")
+            val lead = leadArtist(s.artist).ifEmpty { s.artist }
+            artists.count(lead, lead, "", s.thumb, s.lastfm, "lastfm")
             artists.count(lead, lead, "", s.thumb, s.spotify, "spotify")
             artists.count(lead, lead, "", s.thumb, s.here, "here")
             artists.count(lead, lead, "", s.thumb, s.apple, "apple")
@@ -164,6 +125,9 @@ object Stats {
         return songs.values.sortedByDescending { it.plays }.map { Song(it.title, it.artist, it.album, it.thumb, it.plays, it.lastfm, it.spotify, it.here, it.apple) } to
             artists.values.sortedByDescending { it.plays }.map { ArtistPlays(it.title, it.plays, it.lastfm, it.spotify, it.here, it.thumb, it.apple) }
     }
+
+    private fun leadArtist(a: String) = a.split(Regex(",|;| feat\\.? | ft\\.? | featuring | with ")).map { it.trim() }
+        .firstOrNull { it.isNotEmpty() && !it.equals("unknown artist", true) } ?: ""
 
     /** Artist name's songs (theirs or with them), most played first. */
     fun artistSongs(name: String): List<Song> {

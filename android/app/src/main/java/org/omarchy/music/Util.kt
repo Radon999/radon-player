@@ -15,7 +15,6 @@ val SOURCES = linkedMapOf("ytm" to "YouTube Music", "tidal" to "Tidal", "apple" 
 val API_KEYS = linkedMapOf(
     "google_key" to ("Google API key" to "Custom Search JSON API key from console.cloud.google.com: pictures and covers from Google"),
     "google_cx" to ("Google search engine ID" to "A Programmable Search Engine set to search the whole web"),
-    "chartmetric" to ("Chartmetric refresh token" to "From your Chartmetric API account: songs' moods from Chartmetric"),
     "autoeq_api" to ("AutoEq server" to "The address of an AutoEqApi server of your own"),
 )
 

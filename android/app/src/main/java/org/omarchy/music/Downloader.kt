@@ -137,12 +137,7 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
             while (!stop()) {
                 val t = tracks.getOrNull(next.getAndIncrement()) ?: return
                 try {
-                    var (lossless, bits) = fileQuality(t.file!!)
-                    // A FLAC made from an MP3 isn't lossless; hi-res made from CD quality is CD quality.
-                    if (lossless) when (AudioQuality.check(t.file, AudioQuality.stampOf(t.file)).verdict) {
-                        "lossy" -> { lossless = false; bits = 0 }
-                        "upsampled" -> bits = 16
-                    }
+                    val (lossless, bits) = fileQuality(t.file!!)
                     if (!force && lossless && bits >= 24) synchronized(out) { out.kept += t to "yours is $bits-bit lossless: as good as Tidal gets" }
                     else {
                         val c = tidal.resolve(t)

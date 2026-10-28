@@ -194,7 +194,6 @@ fun App() {
             if (ui.showOptions) OptionsSheet(ui)
             if (ui.showQueues) QueuesDialog(ui)
             ChoicesDialog(ui)
-            if (ui.smartNew || ui.smartEdit != null) SmartDialog(ui)
             ui.reviewFor?.let { ReviewDialog(ui, it) }
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
@@ -262,7 +261,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
         Entry("Not favorited", Ico.STAR_LINE, "music", "unfavorited"), Entry("Repeat", Ico.REPEAT, "music", "repeat"))),
     Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
-        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Moods", Ico.MOOD, "music", "moods"))),
+        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"))),
 )
 
 @Composable

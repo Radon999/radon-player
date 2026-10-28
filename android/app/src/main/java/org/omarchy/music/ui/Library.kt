@@ -255,7 +255,6 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
                 if (picked.any { org.omarchy.music.Tags.editable(it) != null }) add(Triple(Ico.EDIT, "Edit tags…") { ui.editTagsFor = picked })
                 add(Triple(Ico.ART, "Cover…") { ui.pickCovers(picked) })
-                add(Triple(Ico.MOOD, "Moods…") { ui.moodsFor = picked })
                 add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
                 add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
                 if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })

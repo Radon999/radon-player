@@ -4,6 +4,16 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 1.4.1: Most played, fixed (Windows and Android)
+- Most played: every play counted and added up: all your Last.fm scrobbles, plus every play in your Spotify and Apple Music imports. Songs that went missing (one long play made the rest look too short) are back
+- Refresh on Most played reads your newest Last.fm scrobbles; plays now come from Last.fm (the imports stay as they were)
+- Most played plays your own file: the same song and artist however they're written (K.Flay or KFlay), the copy on the same album first, then the FLAC
+- The DJ, like Spotify's: what you've had on repeat, what you play at this time of day, throwbacks to a year, songs you haven't heard in months, your favourites and new songs, leaving out the ones you keep skipping
+- New releases: Refresh looks at every artist with songs on your device
+- Mini player (Windows): Up next, with Shuffle, Repeat and Autoplay
+- Windows: grids no longer widen the window off the screen; the EQ fills a maximized window; Wrapped no longer stops with "list index out of range"
+- Removed: Moods, smart playlists and "Is it really lossless?"
+
 ## 1.4.0: Sound quality, stats and discovery (Windows and Android)
 - Looks: Light, Dark and Now playing (the cover's colours), with a look for when nothing plays
 - The menu: Pinned, Now playing, Search, Up next & queues; Music, Statistics and favorites, Utilities; Settings, Equalizer and the mini player

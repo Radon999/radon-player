@@ -66,14 +66,6 @@ class SpotifyHistoryTest(unittest.TestCase):
             self.h.import_file(path)
 
 
-class NotScrobbledTest(unittest.TestCase):
-    def test_a_play_last_fm_has_counts_once(self):
-        rows = [(1100, "A", "Song", "", ""), (1150, "A", "Song", "", "")]   # two scrobbles while one play
-        plays = [play(1000, "A", "Song"), play(1000 + 200, "A", "Song"), play(50_000, "A", "Song"), play(1000, "B", "Other")]
-        left = om.not_scrobbled(plays, rows)
-        self.assertEqual([(p[0], p[2]) for p in left], [(50_000, "Song"), (1000, "Other")])
-
-
 class FakeLastFM:
     connected, user = True, "me"
 
@@ -109,26 +101,40 @@ class StatsTest(unittest.TestCase):
         for f in om.WRAPPED.glob("*.json") if om.WRAPPED.exists() else []:
             f.unlink()
 
-    def test_adds_spotify_to_last_fm_without_counting_a_play_twice(self):
+    def test_adds_every_scrobble_and_every_imported_play(self):
         t0 = int(time.time()) - 86400 * 3
-        fm = FakeLastFM(tracks=[("Song", "Artist", 10, ""), ("Other", "Artist", 2, "")],
-                        artists=[("Artist", "", 12, "")],
-                        rows=[(t0 + 100, "Artist", "Song", "", "")])   # Spotify scrobbled this one to Last.fm
+        song = [(t0 + 100 * i, "Artist", "Song", "", "") for i in range(10)]
+        other = [(t0 + 5000 + i, "Artist", "Other", "", "") for i in range(2)]
+        fm = FakeLastFM(tracks=[], artists=[], rows=song + other)
         h = om.SpotifyHistory()
-        h.add([play(t0, "Artist", "Song"), play(t0 + 5000, "Artist", "Song"), play(t0 + 9000, "Band", "Hit")])
+        # One very long play (the song looped) used to make the rest look too short to count.
+        h.add([play(t0 - 90000, "Artist", "Song", ms=682000), play(t0 - 50000, "Artist", "Song", ms=234000),
+               play(t0 - 9000, "Band", "Hit")])
         stats = om.Stats(FakeApp(fm, h))
         stats.build()
         by = {(s["title"], s["artist"]): s for s in stats.songs}
-        self.assertEqual(by[("Song", "Artist")]["plays"], 11)   # 10 scrobbles + 1 Spotify play Last.fm missed
+        self.assertEqual(by[("Song", "Artist")]["plays"], 12)   # 10 scrobbles + both Spotify plays, added up
         self.assertEqual(by[("Song", "Artist")]["lastfm"], 10)
-        self.assertEqual(by[("Song", "Artist")]["spotify"], 1)
+        self.assertEqual(by[("Song", "Artist")]["spotify"], 2)
         self.assertEqual(by[("Hit", "Band")]["plays"], 1)
         self.assertEqual(stats.songs[0]["title"], "Song")   # most played first
         artists = {a["name"]: a["plays"] for a in stats.artists}
-        self.assertEqual(artists, {"Artist": 13, "Band": 1})
+        self.assertEqual(artists, {"Artist": 14, "Band": 1})
         self.assertEqual(stats.sources, ["Last.fm", "Spotify"])
         again = om.Stats(FakeApp(fm, h))   # kept between starts
         self.assertEqual(len(again.songs), 3)
+
+    def test_a_new_scrobble_counts_on_refresh(self):
+        t0 = int(time.time()) - 86400
+        fm = FakeLastFM([], [], [(t0, "Artist", "Song", "", "")])
+        h = om.SpotifyHistory()
+        h.add([play(t0 - 99999, "Artist", "Song")])
+        stats = om.Stats(FakeApp(fm, h))
+        stats.build()
+        self.assertEqual(stats.songs[0]["plays"], 2)
+        fm.rows.append((int(time.time()) - 60, "Artist", "Song", "", ""))
+        stats.build()
+        self.assertEqual(stats.songs[0]["plays"], 3)
 
     def test_without_last_fm_counts_the_plays_here(self):
         fm = FakeLastFM([], [], [])

@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "1.4.0"            # the release this is; GitHub's latest release is compared with it
+VERSION = "1.4.1"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -276,98 +276,6 @@ def file_facts(path):
     except Exception:  # noqa: BLE001 -- the size alone, then
         pass
     return out
-
-
-QUALITY_CHECKS = STATE_DIR / f"omarchy-music{SUFFIX}-quality-checks.json"
-_quality_lock = threading.Lock()
-
-
-def spectrum_profile(path, start=0.0, seconds=20, width=256, height=120):
-    """The average spectrum of a stretch of path, as width levels (0..height, log scale) from 0 Hz
-    to the file's Nyquist frequency (ffmpeg's showfreqs, read here)."""
-    cmd = ["ffmpeg", "-v", "error", "-nostdin", "-ss", f"{start:.1f}", "-t", str(seconds), "-i", str(path), "-filter_complex",
-           f"[0:a]aformat=channel_layouts=mono,showfreqs=s={width}x{height}:mode=bar:ascale=log:fscale=lin:win_size=8192"
-           ":rate=5,format=gray[v]", "-map", "[v]", "-f", "rawvideo", "-"]
-    data = subprocess.run(cmd, capture_output=True, timeout=120, **NO_WINDOW).stdout
-    n = len(data) // (width * height)
-    if not n:
-        return []
-    acc = [0] * width
-    for k in range(n):
-        frame = data[k * width * height:(k + 1) * width * height]
-        for x in range(width):
-            acc[x] += height - frame[x::width].count(0)
-    return [a / n for a in acc]
-
-
-def spectrum_cliff(prof):
-    """Where the music stops like a wall (a lossy encoder's or a resampler's low-pass), as a fraction of
-    the Nyquist frequency, or None when it fades out on its own."""
-    if len(prof) < 32:
-        return None
-    w = len(prof)
-    ref = sorted(prof[w // 10:w * 4 // 10])[(w * 3 // 10) // 2]   # the middle of the mids
-    if ref < 8:
-        return None   # too quiet to tell
-    top = max((x for x in range(w) if prof[x] >= ref * 0.5), default=None)
-    if top is None or top >= w - 2:
-        return None
-    span = max(2, round(w * 0.06))   # a wall: down to almost nothing within ~6% of the range (~1.3 kHz on a CD)
-    if all(v < ref * 0.12 for v in prof[top + span:top + 3 * span]) and prof[min(w - 1, top + span)] < ref * 0.12:
-        return (top + 1) / w
-    return None
-
-
-def bits_used(path, start=0.0):
-    """The bits a file's samples really use (ffmpeg's astats): a 24-bit file of 16-bit music says 16."""
-    out = subprocess.run(["ffmpeg", "-v", "info", "-nostdin", "-ss", f"{start:.1f}", "-t", "20", "-i", str(path), "-af",
-                          "astats", "-f", "null", "-"], capture_output=True, text=True, timeout=120, **NO_WINDOW).stderr
-    overall = out.split("Overall", 1)[-1]
-    m = re.search(r"Bit depth:\s*(\d+)", overall)
-    return int(m.group(1)) if m else 0
-
-
-def true_quality(path):
-    """(blocking) Whether a lossless file is what it says: {"verdict", "why"}. verdict "lossy" (made from an
-    MP3 or AAC: it stops like a wall below 21 kHz), "upsampled" (hi-res made from CD quality: nothing above
-    22 kHz), "padded" (24-bit holding 16-bit music), "ok", or "unknown". Kept by file and its time."""
-    p = Path(path)
-    try:
-        mtime = p.stat().st_mtime
-    except OSError:
-        return {"verdict": "unknown", "why": "the file isn't there"}
-    with _quality_lock:
-        cache = read_json(QUALITY_CHECKS, {})
-    hit = cache.get(str(p))
-    if hit and hit.get("mtime") == mtime:
-        return hit
-    facts = file_facts(p)
-    res = {"verdict": "ok", "why": ""}
-    if not facts["lossless"]:
-        res = {"verdict": "lossy", "why": f"it's {facts['format']}"}
-    else:
-        start = max(0.0, (facts["duration"] or 60) / 3)
-        try:
-            cliff = spectrum_cliff(spectrum_profile(p, start))
-            nyq = (facts["rate"] or 44100) / 2
-            if cliff is not None:
-                hz = cliff * nyq
-                if facts["rate"] >= 88200 and 20000 <= hz <= 24500:
-                    res = {"verdict": "upsampled", "why": f"nothing above {hz / 1000:.1f} kHz: made from CD quality"}
-                elif hz < 21000:
-                    res = {"verdict": "lossy", "why": f"it stops like a wall at {hz / 1000:.1f} kHz: made from an MP3 or AAC"}
-            if res["verdict"] == "ok" and facts["bits"] >= 24:
-                used = bits_used(p, start)
-                if used and used <= 16:
-                    res = {"verdict": "padded", "why": "24-bit, but the music in it is 16-bit"}
-        except (OSError, subprocess.SubprocessError) as e:
-            res = {"verdict": "unknown", "why": str(e)[:80]}
-    res["mtime"] = mtime
-    with _quality_lock:
-        cache = read_json(QUALITY_CHECKS, {})
-        cache[str(p)] = res
-        write_atomic(QUALITY_CHECKS, json.dumps(cache))
-    return res
 
 
 def facts_text(f):
@@ -747,6 +655,9 @@ list.np-list > row.playing {{ background-color: rgba(255,255,255,0.12); }}
 .np-q-icon {{ color: rgba(255,255,255,0.8); }}
 .np-queue button.pill.quiet {{ background-color: rgba(255,255,255,0.12); color: #fff; border: none; }}
 .np-vis-menu {{ padding: 8px 10px; }}
+.mini-q {{ background-color: #1d1d21; border-radius: 12px; padding: 10px 8px 4px 8px; }}
+button.mini-tool {{ background: transparent; border: none; box-shadow: none; border-radius: 8px; min-height: 30px; min-width: 30px; }}
+button.mini-tool.on {{ background-color: alpha(currentColor, 0.15); }}
 """
 
 
@@ -1627,25 +1538,17 @@ class Playlists:
         write_atomic(PLAYLISTS, json.dumps(self.items, indent=1))
 
     def all(self):
-        return sorted(self.items, key=lambda p: -p.get("updated", 0))
+        """Your playlists, the last changed first (the smart ones 1.4 made, by mood, are gone)."""
+        return sorted((p for p in self.items if not p.get("smart")), key=lambda p: -p.get("updated", 0))
 
     def get(self, pid):
         return next((p for p in self.items if p["id"] == pid), None)
 
-    def create(self, name, smart=None):
-        """A playlist; smart: {"moods": [...], "genres": [...]} makes one that fills itself (see MusicApp.smart_tracks)."""
+    def create(self, name):
         pl = {"id": secrets.token_hex(6), "name": name, "created": time.time(), "updated": time.time(), "tracks": []}
-        if smart:
-            pl["smart"] = smart
         self.items.append(pl)
         self.save()
         return pl
-
-    def set_smart(self, pid, smart):
-        pl = self.get(pid)
-        if pl:
-            pl["smart"], pl["updated"] = smart, time.time()
-            self.save()
 
     def rename(self, pid, name):
         pl = self.get(pid)
@@ -2705,12 +2608,6 @@ class Downloader:
                     return
                 try:
                     facts = file_facts(t["file"])
-                    if facts["lossless"]:   # is it what it says? A fake is upgraded as what it really is
-                        q = true_quality(t["file"])
-                        if q["verdict"] == "lossy":
-                            facts["lossless"] = False
-                        elif q["verdict"] in ("upsampled", "padded"):
-                            facts["bits"] = 16
                     if not force and facts["lossless"] and facts["bits"] >= 24:
                         res = ("kept", (t, f"yours is {facts_text(facts)}: as good as Tidal gets"))
                     else:
@@ -5540,8 +5437,6 @@ class LastFM:
 SPOTIFY_HISTORY = STATE_DIR / f"omarchy-music{SUFFIX}-spotify-history.json"
 STATS = CACHE / f"stats{SUFFIX}.json"   # the counts added up, kept between starts
 STATS_FOR = 600       # seconds the counts are good for, before they're added up again
-FM_TOP_PAGES = 50     # Last.fm's top songs, 200 a page: every song you've played (up to 10,000)
-FM_ARTIST_PAGES = 2   # and your 400 most played artists
 
 
 class SpotifyHistory:
@@ -5783,7 +5678,7 @@ def stats_key(title, artist):
     """A song across Last.fm, Spotify, Apple Music and here: its name and lead artist, tidied
     (feat., & and x credits, remaster notes left out)."""
     lead = re.split(r",|;| & | x | feat\.? | ft\.? | featuring | with ", (artist or "").lower())[0]
-    return norm(clean_title(title or "")), norm(lead)
+    return norm(clean_title(title or "")), re.sub(r"[\W_]+", "", norm(lead)) or norm(lead)   # K.Flay = kflay
 
 
 NEW_RELEASES = STATE_DIR / f"omarchy-music{SUFFIX}-new-releases.json"
@@ -5792,9 +5687,9 @@ NR_RANGES = {"week": 7, "month": 30, "year": 365}
 
 
 class NewReleases:
-    """New releases of the artists in your songs, from Deezer's catalogue (free, no account; it says
-    when each came out and whether it's an album, a single or an EP). Nothing is checked on its own:
-    Scan looks, for the last week, month or year, when you press it."""
+    """New releases of every artist with songs on your device, from Deezer's catalogue (free, no account;
+    it says when each came out and whether it's an album, a single or an EP). Nothing is checked on its
+    own: Refresh reads your artists again and looks, for the last week, month or year, when you press it."""
 
     def __init__(self, path=None):
         self.path = path or NEW_RELEASES
@@ -5811,7 +5706,7 @@ class NewReleases:
 
     def read_artists(self, songs):
         """The artists to look for: the lead artist of every song of yours, the ones you have most songs of first."""
-        c = Counter(split_artists(t.get("artist") or "")[0].strip() for t in songs if t.get("artist"))
+        c = Counter(lead_artist(t.get("artist")) for t in songs if t.get("artist"))
         self.artists = [a for a, _n in c.most_common() if a and norm(a) not in ("unknown artist", "various artists")]
         self.save()
         return len(self.artists)
@@ -5821,12 +5716,27 @@ class NewReleases:
         t = (album.get("record_type") or "album").lower()
         return "ep" if t == "ep" else "single" if t == "single" else "album"
 
+    @staticmethod
+    def same_name(a, b):
+        """The same artist, written either way: "half•alive" and "half alive", "K.Flay" and "KFlay"."""
+        bare = lambda x: re.sub(r"[\W_]+", "", norm(re.sub(r"^the ", "", x or "", flags=re.I)))   # noqa: E731
+        return bool(bare(a)) and bare(a) == bare(b)
+
+    def deezer(self, url):
+        """Deezer's answer; when it says too many asks at once, wait and ask again."""
+        for wait in (0, 5, 10):
+            time.sleep(wait)
+            got = http_json(url)
+            if (got.get("error") or {}).get("code") != 4:   # 4: quota (50 asks every 5 seconds)
+                return got
+        return got
+
     def artist_id(self, name):
         k = norm(name)
-        if k in self.ids:
+        if self.ids.get(k):
             return self.ids[k]
-        got = http_json("https://api.deezer.com/search/artist?q=" + urllib.parse.quote(name) + "&limit=5")
-        hit = next((a for a in got.get("data") or [] if norm(a.get("name")) == k), None)
+        got = self.deezer("https://api.deezer.com/search/artist?q=" + urllib.parse.quote(name) + "&limit=10")
+        hit = next((a for a in got.get("data") or [] if self.same_name(a.get("name"), name)), None)
         self.ids[k] = int(hit["id"]) if hit else 0
         return self.ids[k]
 
@@ -5843,7 +5753,7 @@ class NewReleases:
                 aid = self.artist_id(name)
                 if not aid:
                     continue
-                got = http_json(f"https://api.deezer.com/artist/{aid}/albums?limit=50")
+                got = self.deezer(f"https://api.deezer.com/artist/{aid}/albums?limit=100")
             except Exception:  # noqa: BLE001 -- the next artist
                 continue
             for al in got.get("data") or []:
@@ -5867,31 +5777,6 @@ def fmt_date(iso):
     return f"{d.day} {d:%b %Y}"
 
 
-def smart_words(rule):
-    """A smart playlist's rule in words: "Happy, Chill · Pop"."""
-    return " · ".join(x for x in (", ".join(MOOD_NAMES.get(m, m) for m in rule.get("moods") or []),
-                                  ", ".join(rule.get("genres") or [])) if x) or "any song"
-
-
-def not_scrobbled(plays, rows):
-    """The Spotify plays (start, artist, title, album, ms) that Last.fm doesn't have among
-    rows (its scrobbles, (time, artist, title, album, image)): a scrobble of the same song
-    from five minutes before a play began until five after it stopped is that play, and
-    each scrobble stands for one play."""
-    scrobbled = {}
-    for r in rows:
-        scrobbled.setdefault(norm(clean_title(r[2])), []).append(r[0])
-    out = []
-    for p in plays:
-        times = scrobbled.get(norm(clean_title(p[2])))
-        hit = next((i for i, t in enumerate(times or []) if p[0] - 300 <= t <= p[0] + p[4] // 1000 + 300), None)
-        if hit is None:
-            out.append(p)
-        else:
-            del times[hit]
-    return out
-
-
 def scrobble_rows(fm, period, progress=None):
     """Your scrobbles in period (a year, "m2026-10" or "w2026-10-19"): [(time, artist, title,
     album, image)], read from Last.fm once and kept in WRAPPED; later only what's new is asked for."""
@@ -5901,8 +5786,8 @@ def scrobble_rows(fm, period, progress=None):
     path = WRAPPED / f"{safe_name(fm.user.lower())}-{period}.json"
     saved = read_json(path, {})
     rows = [tuple(r) for r in saved.get("rows", [])]
-    since = saved.get("until", start)
-    if since < end - 60:
+    since = max(start, saved["until"] - 14 * 86400) if "until" in saved else start   # Last.fm takes scrobbles two weeks late
+    if saved.get("until", start) < end:
         new = fm.recent(since, end, lambda p, n: progress and progress(f"Reading your scrobbles · {period_name(period)} · "
                                                                       f"page {p} of {n}"))
         have = {(r[0], r[2]) for r in rows}
@@ -5912,6 +5797,24 @@ def scrobble_rows(fm, period, progress=None):
 
 
 STAT_SOURCES = ("lastfm", "spotify", "apple", "here")
+STATS_VERSION = 2   # 2: every scrobble and every imported play, added up
+
+
+def all_scrobbles(fm, progress=None):
+    """(blocking) Every scrobble you have on Last.fm: [(time, artist, title, album, image)], a year at a
+    time (kept, as Wrapped keeps them: after the first time only the new ones are read). From the year you
+    joined; and further back while there are fewer than Last.fm's count (scrobbles imported from before)."""
+    me = fm.info()
+    now = datetime.now().year
+    first = datetime.fromtimestamp(me.get("registered") or time.time()).year
+    rows = []
+    for y in range(first, now + 1):
+        rows += scrobble_rows(fm, y, progress)
+    y = first - 1
+    while len(rows) < (me.get("playcount") or 0) - 10 and y >= 2002:
+        rows += scrobble_rows(fm, y, progress)
+        y -= 1
+    return rows
 
 
 def add_plays(songs, title, artist, album, thumb, n, source):
@@ -5932,11 +5835,11 @@ def add_plays(songs, title, artist, album, thumb, n, source):
 
 
 class Stats:
-    """Every play added up, from wherever you played it: Last.fm's (all time: your 1,000 most
-    played songs and 400 most played artists), your Spotify history's that Last.fm doesn't
-    have (a Spotify play Last.fm scrobbled too counts once), and without Last.fm, the plays
-    here. Most played, the Artists tab and the artist pages show these. Added up again in
-    the background when they're older than STATS_FOR or what goes into them changed."""
+    """Every play added up, from wherever you played it: every scrobble on Last.fm (all time), plus
+    every play in your Spotify and Apple Music imports (those don't change once they're in), and
+    without Last.fm, the plays here. Most played, the Artists tab and the artist pages show these.
+    Added up again when you press Refresh, when an import or Last.fm changes, and in the
+    background when they're older than STATS_FOR (only new scrobbles are read from Last.fm)."""
 
     def __init__(self, app):
         self.app = app
@@ -5949,7 +5852,7 @@ class Stats:
 
     def inputs(self):
         a = self.app
-        return [a.lastfm.user if a.lastfm.connected else "", len(a.spotify_history.plays), a.apple_history.plays,
+        return [STATS_VERSION, a.lastfm.user if a.lastfm.connected else "", len(a.spotify_history.plays), a.apple_history.plays,
                 0 if a.lastfm.connected else sum(e.get("plays", 0) for e in a.plays.items.values())]
 
     @property
@@ -5984,70 +5887,34 @@ class Stats:
         """(blocking) Add everything up and keep it."""
         a, fm = self.app, self.app.lastfm
         sig = self.inputs()
-        songs, artists = {}, {}
+        songs = {}
         if fm.connected:
-            for page in range(1, FM_TOP_PAGES + 1):
-                progress(f"Your Last.fm plays · page {page} of {FM_TOP_PAGES}")
-                got = fm.top("track", 200, page=page)
-                for name, artist, plays, img in got:
-                    add_plays(songs, name, artist, "", "" if LASTFM_BLANK in img else img, plays, "lastfm")
-                if len(got) < 200:
-                    break
-            for page in range(1, FM_ARTIST_PAGES + 1):
-                got = fm.top("artist", 200, page=page)
-                for name, _a, plays, _img in got:   # Last.fm's artist pictures are all its grey star now
-                    add_plays(artists, name, name, "", "", plays, "lastfm")
-                if len(got) < 200:
-                    break
+            for r in all_scrobbles(fm, progress):
+                add_plays(songs, r[2], r[1], r[3], "" if LASTFM_BLANK in (r[4] or "") else r[4], 1, "lastfm")
         else:
             for e in a.plays.items.values():
                 t = e.get("track") or {}
                 add_plays(songs, t.get("title"), t.get("artist"), t.get("album"), t.get("thumb"), e.get("plays", 0), "here")
-        # Spotify's plays: a play counts from half the song. Spotify doesn't say how long a song is,
-        # so the longest you ever played it stands for that (plays under 30 seconds were left out already).
-        longest = {}
+        # Spotify's and Apple Music's imports, every play in them (from 30 seconds, as Spotify counts a stream),
+        # added to Last.fm's: the totals add up, even where Spotify scrobbled to Last.fm too.
         for p in a.spotify_history.plays:
-            k = stats_key(p[2], p[1])
-            longest[k] = max(longest.get(k, 0), p[4])
-        extra = [p for p in a.spotify_history.plays if p[4] >= longest[stats_key(p[2], p[1])] / 2]
-        # Apple Music's: its plays and each day's (a day's count, many plays in one row).
-        apple = [r for r in a.apple_history.rows if r[0] > 0]
-        totals = [r for r in a.apple_history.rows if r[0] <= 0]   # a library's all-time counts
-        apple_plays = [(r[0], r[1], r[2], r[3], r[4]) for r in apple for _ in range(int(r[5]))]
-        rows = []
-        if (extra or apple_plays) and fm.connected:
-            years = sorted({datetime.fromtimestamp(p[0]).year for p in extra + apple_plays})
-            first = datetime.fromtimestamp(fm.info().get("registered") or time.time()).year
-            for y in years:
-                if y >= first:   # nothing was scrobbled before you joined Last.fm
-                    rows += scrobble_rows(fm, y, progress)
-            # A play Last.fm scrobbled too counts once (each scrobble stands for one play).
-            extra = not_scrobbled(extra, rows)
-            apple_plays = not_scrobbled(apple_plays, rows)
-        for p in extra:
             add_plays(songs, p[2], p[1], p[3], "", 1, "spotify")
-        for p in apple_plays:
-            add_plays(songs, p[2], p[1], p[3], "", 1, "apple")
-        # A library's counts: Apple's all-time total for a song, past what the others add up to.
-        for r in totals:
-            have = songs.get(stats_key(r[2], r[1]))
-            add_plays(songs, r[2], r[1], r[3], "", int(r[5]) - (have["plays"] if have else 0), "apple")
-        # Artists: Last.fm's own totals (more than its top songs add up to), else the songs'.
-        by_lead = {}
-        for s in songs.values():
-            lead = s["artist"].split(",")[0].strip()
-            for source in ("spotify", "apple", "here") if fm.connected else STAT_SOURCES:
-                add_plays(by_lead, lead, lead, "", "", s.get(source, 0), source)
-            pic = by_lead.get(stats_key(lead, lead))
+        for r in a.apple_history.rows:
+            if r[0] > 0:
+                add_plays(songs, r[2], r[1], r[3], "", int(r[5]), "apple")
+        # A library's counts: Apple's all-time total for a song, past the Apple plays counted already.
+        for r in a.apple_history.rows:
+            if r[0] <= 0:
+                have = songs.get(stats_key(r[2], r[1]))
+                add_plays(songs, r[2], r[1], r[3], "", int(r[5]) - (have.get("apple", 0) if have else 0), "apple")
+        artists = {}
+        for st in songs.values():
+            lead = lead_artist(st["artist"]) or st["artist"]
+            for source in STAT_SOURCES:
+                add_plays(artists, lead, lead, "", "", st.get(source, 0), source)
+            pic = artists.get(stats_key(lead, lead))
             if pic is not None and not pic["thumb"]:
-                pic["thumb"] = s["thumb"]
-        for k, s in by_lead.items():
-            if k in artists:
-                for source in ("spotify", "apple", "here"):
-                    artists[k][source] = artists[k].get(source, 0) + s.get(source, 0)
-                    artists[k]["plays"] += s.get(source, 0)
-            else:
-                artists[k] = s
+                pic["thumb"] = st["thumb"]
         self.songs = sorted(songs.values(), key=lambda s: -s["plays"])
         self.artists = [{"name": s["title"], **{k: s.get(k, 0) for k in ("plays", *STAT_SOURCES)}, "thumb": s["thumb"]}
                         for s in sorted(artists.values(), key=lambda s: -s["plays"])]
@@ -6065,310 +5932,28 @@ class Stats:
 
 
 # =============================================================================
-# Moods: each of your songs' moods, from Chartmetric (with a token of yours, in
-# Settings), else Last.fm's tags of the song (or of its artist), else guessed from
-# its genre, its artist's genres on MusicBrainz, or its title. A scan reads only the songs it hasn't yet, a few a
-# second, and keeps what it found: the DJ and the mood playlists use it.
-# =============================================================================
-MOODS_FILE = CACHE / f"moods{SUFFIX}.json"
-# Each mood and the tags (Last.fm's, Chartmetric's moods and activities) that mean it.
-MOODS = {
-    "happy": ("happy", "feel good", "feelgood", "upbeat", "fun", "cheerful", "joyful", "uplifting", "summer", "sunny",
-              "positive", "optimistic", "carefree", "playful", "bright"),
-    "sad": ("sad", "melancholic", "melancholy", "depressing", "depressed", "heartbreak", "heartbroken", "lonely",
-            "sorrow", "breakup", "crying", "grief", "longing", "bittersweet", "emotional", "tearjerker"),
-    "chill": ("chill", "chillout", "chill out", "relaxing", "relax", "calm", "mellow", "lo-fi", "lofi", "easy listening",
-              "laid back", "laid-back", "smooth", "downtempo", "peaceful", "soothing", "sleep", "rainy day"),
-    "energetic": ("energetic", "energy", "hype", "workout", "gym", "running", "powerful", "intense", "fast", "exciting",
-                  "driving", "adrenaline", "pump up", "motivation", "motivational"),
-    "romantic": ("romantic", "love", "love songs", "love song", "sensual", "sexy", "slow jams", "tender", "passionate",
-                 "intimate", "seductive"),
-    "dark": ("dark", "haunting", "gothic", "ominous", "eerie", "creepy", "brooding", "sinister", "menacing", "noir",
-             "mysterious"),
-    "angry": ("aggressive", "angry", "rage", "furious", "hate", "brutal", "violent", "anger"),
-    "dreamy": ("dreamy", "ethereal", "dream pop", "dreampop", "shoegaze", "atmospheric", "hypnotic", "spacey", "trippy",
-               "psychedelic", "floating"),
-    "party": ("party", "dance", "club", "banger", "dancefloor", "dance floor", "clubbing", "groovy", "celebration"),
-    "focus": ("focus", "study", "studying", "concentration", "instrumental", "work", "reading", "coding"),
-}
-MOOD_NAMES = {m: m.title() for m in MOODS}
-# A genre (in a song's tags or Last.fm's) and the moods it usually means.
-GENRE_MOODS = {
-    "metal": ("angry", "energetic"), "metalcore": ("angry", "energetic"), "punk": ("energetic", "angry"),
-    "hardcore": ("angry", "energetic"), "grunge": ("dark", "angry"), "drum and bass": ("energetic", "party"),
-    "dnb": ("energetic", "party"), "dubstep": ("energetic", "dark"), "edm": ("party", "energetic"),
-    "house": ("party",), "techno": ("party", "energetic"), "trance": ("energetic", "dreamy"), "disco": ("party", "happy"),
-    "funk": ("party", "happy"), "dance": ("party",), "electropop": ("party", "happy"), "k-pop": ("happy", "party"),
-    "pop": ("happy",), "hip hop": ("energetic",), "hip-hop": ("energetic",), "rap": ("energetic",),
-    "trap": ("energetic", "dark"), "drill": ("dark", "energetic"), "r&b": ("romantic", "chill"), "rnb": ("romantic", "chill"),
-    "soul": ("romantic", "chill"), "neo-soul": ("chill", "romantic"), "jazz": ("chill",), "blues": ("sad",),
-    "ambient": ("focus", "dreamy"), "classical": ("focus",), "piano": ("focus", "chill"), "lo-fi": ("chill", "focus"),
-    "folk": ("chill",), "acoustic": ("chill",), "singer-songwriter": ("chill", "sad"), "shoegaze": ("dreamy",),
-    "dream pop": ("dreamy",), "post-rock": ("focus", "dreamy"), "emo": ("sad",), "darkwave": ("dark",),
-    "gothic": ("dark",), "industrial": ("dark", "angry"), "reggae": ("chill", "happy"), "reggaeton": ("party",),
-    "latin": ("party", "happy"), "gospel": ("happy",), "soundtrack": ("focus",), "synthwave": ("dreamy", "energetic"),
-    "vaporwave": ("dreamy",), "chillwave": ("chill", "dreamy"), "psychedelic": ("dreamy",), "ballad": ("sad", "romantic"),
-    "rock": ("energetic",), "art rock": ("dreamy",), "experimental": ("dark",), "experimental rock": ("dark", "dreamy"),
-    "idm": ("focus", "dreamy"), "trip hop": ("chill", "dark"), "trip-hop": ("chill", "dark"), "art pop": ("dreamy",),
-    "electronic": ("focus",), "electronica": ("focus", "dreamy"), "hauntology": ("dark", "dreamy"), "indie": ("dreamy",),
-    "indie pop": ("happy", "dreamy"), "folktronica": ("chill",), "new wave": ("happy", "party"), "synth-pop": ("happy", "party"),
-    "synthpop": ("happy", "party"), "bossa nova": ("chill", "romantic"), "country": ("happy",), "doom metal": ("dark", "sad"),
-    "black metal": ("dark", "angry"), "death metal": ("angry",), "noise": ("angry", "dark"),
-}
-# Words in a title that hint at a mood (the weakest guess there is).
-TITLE_MOODS = {
-    "love": "romantic", "lover": "romantic", "kiss": "romantic", "heart": "romantic", "baby": "romantic",
-    "cry": "sad", "crying": "sad", "tears": "sad", "alone": "sad", "lonely": "sad", "goodbye": "sad", "sorry": "sad",
-    "miss": "sad", "broken": "sad", "party": "party", "dance": "party", "dancing": "party", "club": "party",
-    "happy": "happy", "sunshine": "happy", "sun": "happy", "summer": "happy", "dream": "dreamy", "dreams": "dreamy",
-    "night": "dark", "dark": "dark", "devil": "dark", "ghost": "dark", "fire": "energetic", "run": "energetic",
-    "rage": "angry", "hate": "angry", "sleep": "chill", "rain": "chill", "slow": "chill",
-}
-MOOD_SCAN_PACE = 0.25   # seconds between Last.fm requests (it allows five a second)
-MB_PACE = 1.1           # and between MusicBrainz's (one a second)
-
-
-def mood_name(tag):
-    return str(tag.get("name") if isinstance(tag, dict) else tag or "").lower().strip()
-
-
-def moods_of(tags, n=3):
-    """The moods weighted tags [(tag, weight)] mean, the strongest first, at most n
-    (none weaker than a third of the strongest)."""
-    score = Counter()
-    for tag, w in tags:
-        t = mood_name(tag)
-        for mood, words in MOODS.items():
-            if t in words:
-                score[mood] += w
-        genre = t if t in GENRE_MOODS else " ".join(t.split()[-2:]) if " ".join(t.split()[-2:]) in GENRE_MOODS \
-            else t.split()[-1] if t.split() else ""   # "british alternative rock": alternative rock, else rock
-        for mood in GENRE_MOODS.get(genre, ()):
-            score[mood] += w * (0.5 if genre == t else 0.3)   # a genre says less than a mood tag
-    best = score.most_common()
-    return [m for m, s in best[:n] if s >= best[0][1] / 3] if best else []
-
-
-def genre_moods(track):
-    """Moods from the genre in the song's tags."""
-    genres = track.get("genre") or []
-    genres = [genres] if isinstance(genres, str) else genres
-    return moods_of([(g.strip(), 100) for genre in genres for g in re.split(r"[;/,]", str(genre)) if g.strip()], 2)
-
-
-def title_moods(track):
-    """Moods from words in the song's title (the weakest guess there is)."""
-    words = re.findall(r"[a-z']+", clean_title(track.get("title") or "").lower())
-    return list(dict.fromkeys(TITLE_MOODS[w] for w in words if w in TITLE_MOODS))[:2]
-
-
-def guess_moods(track):
-    """Moods from what the song's tags say: its genre, else words in its title."""
-    return genre_moods(track) or title_moods(track)
-
-
-def musicbrainz_tags(artist):
-    """The tags MusicBrainz's listeners gave the artist (mostly genres): [(tag, votes)]."""
-    url = "https://musicbrainz.org/ws/2/artist/?" + urllib.parse.urlencode({"query": f'artist:"{artist}"', "limit": 3, "fmt": "json"})
-    for wait in (2, 5, 0):
-        try:
-            res = http_json(url, {"User-Agent": APP_UA}, timeout=10)
-            break
-        except urllib.error.HTTPError as e:
-            if e.code != 503 or not wait:   # 503: asked too often, so wait and ask again
-                raise
-            time.sleep(wait)
-    found = sorted(res.get("artists") or [], key=lambda a: -len(a.get("tags") or []))   # namesakes have no tags
-    best = best_named(found, artist, lambda a: a.get("name") or "")
-    return [(t["name"], int(t.get("count") or 0)) for t in (best or {}).get("tags") or [] if int(t.get("count") or 0) > 0]
-
-
-class Chartmetric:
-    """Chartmetric's API with your refresh token (Settings): a track's moods and activities."""
-    BASE = "https://api.chartmetric.com/api"
-
-    def __init__(self, refresh_token):
-        self.refresh_token, self.token, self.until = refresh_token, "", 0
-
-    def get(self, path, **params):
-        if not self.token or time.time() > self.until:
-            res = http_json(self.BASE + "/token", {"Content-Type": "application/json"},
-                            json.dumps({"refreshtoken": self.refresh_token}).encode(), "POST", timeout=15)
-            self.token, self.until = res.get("token") or "", time.time() + int(res.get("expires_in") or 3600) - 60
-            if not self.token:
-                raise RuntimeError("Chartmetric didn't take the token")
-        for _ in range(3):
-            try:
-                return http_json(self.BASE + path + "?" + urllib.parse.urlencode(params),
-                                 {"Authorization": f"Bearer {self.token}"}, timeout=15)
-            except urllib.error.HTTPError as e:
-                if e.code != 429:
-                    raise
-                time.sleep(min(30, int(e.headers.get("Retry-After") or 2)))   # it allows a request or two a second
-        raise RuntimeError("Chartmetric is busy")
-
-    def moods(self, artist, title):
-        """The track's mood and activity tags [(tag, weight)], [] if Chartmetric hasn't got it."""
-        lead = artist.split(",")[0].strip()
-        found = ((self.get("/search", q=f"{lead} {clean_title(title)}", type="tracks", limit=5).get("obj") or {})
-                 .get("tracks") or [])
-        best = best_named([t for t in found if similar(norm(" ".join(t.get("artist_names") or [])), norm(lead)) > 0.6
-                           or norm(lead) in norm(" ".join(t.get("artist_names") or []))],
-                          clean_title(title), lambda t: clean_title(t.get("name") or ""))
-        if not best:
-            return []
-        obj = self.get(f"/track/{best['id']}").get("obj") or {}
-        tags = []
-        for k in ("moods", "mood", "activities", "activity", "tags", "genres"):
-            v = obj.get(k) or []
-            for x in v if isinstance(v, list) else [v]:
-                if mood_name(x):
-                    tags.append((mood_name(x), 50 if k in ("tags", "genres") else 100))
-        return tags
-
-
-class Moods:
-    """Your songs' moods: {song key: {"moods": [...], "from": "chartmetric" | "lastfm" | "guess", "t"}}.
-    scan() (blocking) reads the songs it hasn't; of() and songs_in() answer from what it kept."""
-
-    def __init__(self, app):
-        self.app = app
-        self.lock = threading.Lock()
-        self.songs = read_json(MOODS_FILE, {}).get("songs") or {}
-        self.scanning, self.status, self.stop = False, "", False
-        self.artist_tags, self.mb_tags = {}, {}   # an artist's Last.fm and MusicBrainz tags, asked once a scan
-
-    @staticmethod
-    def key(t):
-        return "|".join(song_key(t))
-
-    def of(self, t):
-        return (self.songs.get(self.key(t)) or {}).get("moods") or []
-
-    def is_manual(self, t):
-        return (self.songs.get(self.key(t)) or {}).get("from") == "manual"
-
-    def set_manual(self, tracks, moods):
-        """Moods you picked for tracks (in the tag editor): they stay, whatever a scan finds.
-        None: back to finding them (the next scan reads the songs again)."""
-        with self.lock:
-            for t in tracks:
-                if moods is None:
-                    self.songs.pop(self.key(t), None)
-                else:
-                    self.songs[self.key(t)] = {"moods": [m for m in moods if m in MOODS], "from": "manual", "t": time.time()}
-        self.save()
-
-    def pool(self):
-        """The songs that have moods: yours, in your playlists, and the ones you play most."""
-        a, seen, out = self.app, set(), []
-        for t in a.my_songs() + [t for pl in a.lists.all() for t in pl["tracks"]] + a.most_played()[:300]:
-            k = self.key(t)
-            if k not in seen and t.get("title") and t.get("artist"):
-                seen.add(k)
-                out.append(t)
-        return out
-
-    def todo(self, pool, again=False):
-        """The songs of pool a scan reads: the new ones (again: and the guessed ones)."""
-        return [t for t in pool if self.key(t) not in self.songs or (again and self.songs[self.key(t)].get("from") == "guess")]
-
-    def find(self, t, fm, cm):
-        """(moods, where from) for one song: Chartmetric, Last.fm's song tags, its artist's, then a guess."""
-        if cm:
-            try:
-                got = moods_of(cm.moods(t["artist"], t["title"]))
-                if got:
-                    return got, "chartmetric"
-            except Exception as e:  # noqa: BLE001 -- Last.fm, then
-                print(f"omarchy-music: moods: chartmetric: {e}", file=sys.stderr)
-        if fm and fm.key:
-            lead = t["artist"].split(",")[0].strip()
-            try:
-                title = re.sub(r"\s*(?:[(\[]| - ).*$", "", t["title"]) or t["title"]   # as written, without "(Remastered)"
-                res = fm.call("track.getTopTags", artist=lead, track=title, autocorrect=1)
-                time.sleep(MOOD_SCAN_PACE)
-                tags = [(x["name"], int(x.get("count") or 0)) for x in ((res.get("toptags") or {}).get("tag") or [])[:15]
-                        if isinstance(x, dict)]
-                got = moods_of(tags)
-                if got:
-                    return got, "lastfm"
-                if norm(lead) not in self.artist_tags:
-                    self.artist_tags[norm(lead)] = fm.artist_tags(lead)
-                    time.sleep(MOOD_SCAN_PACE)
-                got = moods_of(self.artist_tags[norm(lead)], 2)
-                if got:
-                    return got, "lastfm"
-            except Exception as e:  # noqa: BLE001 -- a guess, then
-                print(f"omarchy-music: moods: last.fm: {e}", file=sys.stderr)
-        got = genre_moods(t)
-        if got:
-            return got, "guess"
-        lead = t["artist"].split(",")[0].strip()
-        if norm(lead) not in self.mb_tags:
-            try:
-                self.mb_tags[norm(lead)] = musicbrainz_tags(lead)
-            except Exception as e:  # noqa: BLE001 -- its title, then
-                print(f"omarchy-music: moods: musicbrainz: {e}", file=sys.stderr)
-                self.mb_tags[norm(lead)] = []
-            time.sleep(MB_PACE)
-        return moods_of(self.mb_tags[norm(lead)], 2) or title_moods(t), "guess"
-
-    def scan(self, again=False, progress=None):
-        """(blocking) Find the moods of the songs that have none yet; how many it read."""
-        todo = self.todo(self.pool(), again)
-        token = self.app.api_keys.get("chartmetric")
-        cm = Chartmetric(token) if token else None
-        fm = self.app.lastfm
-        self.stop, self.artist_tags, self.mb_tags = False, {}, {}
-        for i, t in enumerate(todo):
-            if self.stop:
-                break
-            if progress and i % 5 == 0:
-                progress(f"Finding your songs' moods · {i} of {len(todo)}")
-            moods, src = self.find(t, fm, cm)
-            with self.lock:
-                self.songs[self.key(t)] = {"moods": moods, "from": src, "t": time.time()}
-            if i % 25 == 24:
-                self.save()
-        self.save()
-        return len(todo)
-
-    def save(self):
-        with self.lock:
-            text = json.dumps({"songs": self.songs})
-        write_atomic(MOODS_FILE, text)
-
-    def songs_in(self, mood, pool=None):
-        """The songs of pool (all that have moods) in mood, the ones it's their strongest mood of first."""
-        hits = [(self.of(t).index(mood), i, t) for i, t in enumerate(pool if pool is not None else self.pool())
-                if mood in self.of(t)]
-        return [t for _r, _i, t in sorted(hits, key=lambda x: (x[0], x[1]))]
-
-    def counts(self, pool=None):
-        """How many songs are in each mood (the moods with none left out), most first."""
-        c = Counter(m for t in (pool if pool is not None else self.pool()) for m in self.of(t))
-        return [(m, n) for m, n in c.most_common() if m in MOODS]
-
-
-# =============================================================================
-# DJ, like Spotify's: what you play most, songs you haven't heard in a while and
-# new ones, in sets of a few songs, each begun with a line from the DJ. Your
-# history is Last.fm (when it's connected) and what you play here; the new songs
-# come from Tidal's and YouTube Music's radios. "Switch it up" starts another
-# kind of set, and you can ask for one: a mood, a decade, a genre or an artist.
+# DJ, like Spotify's: sets of a few songs, each begun with a line from the DJ, made from
+# your listening: what you've had on repeat, what you play at this time of day, your
+# favourites, throwbacks to a year you played something to death, songs you loved and
+# haven't heard in months, and new ones like yours (Tidal's and YouTube Music's radios),
+# leaving out the ones you keep skipping. Your history is every play Most played counts:
+# Last.fm's scrobbles, your Spotify and Apple Music imports, and the plays here.
+# "Switch it up" starts another kind of set, and you can ask for one: a decade, a genre,
+# an artist or a vibe ("something chill": Last.fm's tags for it).
 # =============================================================================
 DJ_SET = 6   # songs in a set
-DJ_ORDER = ("repeat", "fresh", "mood", "throwback", "deep", "fresh", "genre", "like")
+DJ_ORDER = ("repeat", "fresh", "hour", "throwback", "deep", "rediscover", "fresh", "favorites", "genre", "like")
 # Playing from songs you picked (a playlist, a folder, an album): sets of only those.
-DJ_FROM_ORDER = ("loved", "unplayed", "mood", "artist", "throwback", "mix")
+DJ_FROM_ORDER = ("loved", "unplayed", "hour", "artist", "throwback", "mix")
 # …and with new songs too: sets of new ones like them in between.
-DJ_FROM_NEW_ORDER = ("loved", "fresh", "unplayed", "mood", "like", "artist", "fresh", "throwback", "mix")
+DJ_FROM_NEW_ORDER = ("loved", "fresh", "unplayed", "hour", "like", "artist", "fresh", "throwback", "mix")
 DJ_KINDS = {"repeat": "On repeat", "fresh": "New for you", "throwback": "Throwback", "deep": "Deep cuts",
             "genre": "Your genre", "like": "More like this", "ask": "You asked", "loved": "Your favourites",
-            "unplayed": "Not played yet", "artist": "One artist", "mix": "Mix", "mood": "Your mood"}
+            "unplayed": "Not played yet", "artist": "One artist", "mix": "Mix", "hour": "This time of day",
+            "rediscover": "Rediscover", "favorites": "Your favourites"}
+DJ_HISTORY_FOR = 600   # seconds your history is good for, before the DJ reads it again
 # Words in a request and the Last.fm tags they mean.
-DJ_MOODS = {
+DJ_WORDS = {
     "chill": ("chill", "chillout"), "chilled": ("chill", "chillout"), "relax": ("chill", "relaxing"),
     "relaxing": ("relaxing", "chill"), "calm": ("calm", "chill"), "study": ("study", "chill"),
     "studying": ("study", "chill"), "focus": ("focus", "instrumental"), "work": ("focus", "chill"),
@@ -6387,7 +5972,7 @@ DJ_FILLER = {"play", "some", "something", "songs", "song", "music", "me", "for",
 
 
 def dj_tags(text):
-    """The Last.fm tags a request means: its mood words, its decade ("80s", "2010s"), else the
+    """The Last.fm tags a request means: its words ("chill", "workout"), its decade ("80s", "2010s"), else the
     request itself as a genre ("house", "k-pop")."""
     every = re.findall(r"[\w'-]+", text.lower())
     words = [w for w in every if w not in DJ_FILLER]
@@ -6395,7 +5980,7 @@ def dj_tags(text):
     for w in words:
         if re.fullmatch(r"(19|20)?\d0s", w):
             tags.append(w)   # "80s", "1980s", "2010s"
-        tags.extend(DJ_MOODS.get(w, ()))
+        tags.extend(DJ_WORDS.get(w, ()))
     while every and every[0] in DJ_FILLER:   # "play some drum and bass music": "drum and bass"
         every.pop(0)
     while every and every[-1] in DJ_FILLER:
@@ -6403,14 +5988,6 @@ def dj_tags(text):
     if not tags and every:
         tags.append(" ".join(every))
     return list(dict.fromkeys(tags))
-
-
-def request_moods(text):
-    """The moods (of MOODS) a request's words mean: "something to chill to" is chill."""
-    out = []
-    for w in re.findall(r"[\w'-]+", text.lower()):
-        out += moods_of([(c, 1) for c in {w, *DJ_MOODS.get(w, ())} if any(c in words for words in MOODS.values())], 1)
-    return list(dict.fromkeys(out))
 
 
 def dj_pick(pool, n, used, rng=random):
@@ -6453,39 +6030,90 @@ class DJ:
 
     # ---- what you like ----
     def load_taste(self):
-        """(blocking) Your history, asked of Last.fm at most every ten minutes."""
-        if self.taste and time.time() - self.taste_at < 600:
+        """(blocking) What you play, from every play Most played counts (read again every ten minutes):
+        all: your most played songs of all time; recent: of the last 30 days; hour: what you play around
+        this hour; years: each year's most played; last: when you last played each song (stats key);
+        artists: the ones you've played most lately; skipped: songs you keep skipping."""
+        if self.taste and time.time() - self.taste_at < DJ_HISTORY_FOR:
             return self.taste
         a = self.app
-        mine = {}
-        for t in [e["track"] for e in a.plays.items.values()] + a.my_songs():
-            mine[song_key(t)] = t
-        taste = {"mine": mine, "recent": [], "all": [], "artists": []}
-        if a.lastfm.connected:
-            def songs(rows):
-                return [dict(a.fm_song(name, artist, img, mine), plays=n) for name, artist, n, img in rows]
-            try:
-                taste["recent"] = songs(a.lastfm.top("track", 50, "1month"))
-                taste["all"] = songs(a.lastfm.top("track", 200, "overall"))
-                taste["artists"] = [name for name, _a, _n, _i in a.lastfm.top("artist", 20, "3month")]
-            except Exception:  # noqa: BLE001 -- what you played here, then
-                pass
+        mine = a.song_index()
         now = time.time()
-        rows = list(a.plays.items.values())
-        if not taste["recent"]:
-            taste["recent"] = [dict(e["track"], plays=e["plays"]) for e in sorted(
-                (e for e in rows if now - e.get("last", 0) < 30 * 86400), key=lambda e: -e.get("plays", 0))[:50]]
+        history = self.history()
+        last, recent, hour, years, artists, names = {}, Counter(), Counter(), {}, Counter(), {}
+        h = datetime.now().hour
+        for when, artist, title in history:
+            k = stats_key(title, artist)
+            names.setdefault(k, (title, artist))
+            last[k] = max(last.get(k, 0), when)
+            age = now - when
+            if age < 30 * 86400:
+                recent[k] += 1
+            if age < 90 * 86400:
+                artists[lead_artist(artist) or artist] += 1
+            if age < 365 * 86400 and abs((datetime.fromtimestamp(when).hour - h + 12) % 24 - 12) <= 1:
+                hour[k] += 1
+            years.setdefault(datetime.fromtimestamp(when).year, Counter())[k] += 1
+
+        def songs(counter, n):
+            return [dict(a.fm_song(*names[k], "", mine), plays=c) for k, c in counter.most_common(n)]
+        taste = {"mine": mine, "last": last, "recent": songs(recent, 60), "hour": songs(hour, 80),
+                 "years": {y: songs(c, 60) for y, c in years.items() if sum(c.values()) >= 30},
+                 "artists": [n for n, _c in artists.most_common(20) if n]}
+        try:
+            taste["all"] = [dict(t) for t in a.most_played()[:300]]
+        except Exception:  # noqa: BLE001 -- the plays here, then
+            taste["all"] = []
         if not taste["all"]:
-            taste["all"] = [dict(e["track"], plays=e["plays"]) for e in sorted(rows, key=lambda e: -e.get("plays", 0))[:200]]
+            taste["all"] = [dict(e["track"], plays=e["plays"]) for e in sorted(
+                a.plays.items.values(), key=lambda e: -e.get("plays", 0))[:300]]
         if not taste["artists"]:
-            count = Counter((t.get("artist") or "").split(",")[0].strip() for t in taste["recent"] + taste["all"])
+            count = Counter(lead_artist(t.get("artist")) for t in taste["recent"] + taste["all"])
             taste["artists"] = [n for n, _c in count.most_common(20) if n]
-        taste["last"] = {song_key(e["track"]): e.get("last", 0) for e in rows}
+        # Skipped more often than heard out, three times or more: left out of the DJ's sets.
+        skipped = set()
+        try:
+            for t, n, f in a.song_stats.rows():
+                if n >= 3 and n > f:
+                    skipped |= {song_key(t), stats_key(t.get("title"), t.get("artist"))}
+        except Exception:  # noqa: BLE001 -- none, then
+            pass
+        taste["skipped"] = skipped
         self.taste, self.taste_at = taste, time.time()
         return taste
 
+    def history(self):
+        """(blocking) Every play Most played counts, as (time, artist, title): your Last.fm scrobbles (else
+        the plays here) and your Spotify and Apple Music imports."""
+        a = self.app
+        out = []
+        if a.lastfm.connected:
+            try:
+                out += [(r[0], r[1], r[2]) for r in all_scrobbles(a.lastfm)]
+            except Exception:  # noqa: BLE001 -- the plays here, then
+                out = []
+        if not out:
+            for e in list(a.plays.items.values()):
+                t = e.get("track") or {}
+                out += [(x, t.get("artist", ""), t.get("title", "")) for x in e.get("at") or []]
+        out += [(p[0], p[1], p[2]) for p in list(a.spotify_history.plays) + a.apple_history.timed_plays()]
+        return out
+
+    def last_played(self, taste, t):
+        return taste["last"].get(stats_key(t.get("title"), t.get("artist")), 0)
+
+    def ok(self, taste, pool):
+        """pool without the songs you keep skipping."""
+        sk = taste.get("skipped") or set()
+        return [t for t in pool if song_key(t) not in sk and stats_key(t.get("title"), t.get("artist")) not in sk]
+
     def known(self, taste):
+        """Song keys and stats keys of every song you have or have played."""
         return set(taste["mine"]) | {song_key(t) for t in taste["all"]} | set(taste["last"])
+
+    @staticmethod
+    def new_to_you(t, known):
+        return song_key(t) not in known and stats_key(t.get("title"), t.get("artist")) not in known
 
     def radio(self, seed, key):
         src = self.app.sources.get(key)
@@ -6503,7 +6131,7 @@ class DJ:
 
     # ---- the kinds of set: each gives (songs, line) or None ----
     def set_repeat(self, taste, first):
-        songs = dj_pick(taste["recent"][:25], DJ_SET, self.used)
+        songs = dj_pick(self.ok(taste, taste["recent"][:25]), DJ_SET, self.used)
         if len(songs) < 3:
             return None
         if first:
@@ -6511,16 +6139,54 @@ class DJ:
         return songs, f"Back to what you've had on repeat lately: {dj_names(songs, 3)}."
 
     def set_throwback(self, taste, first):
-        recent = {song_key(t) for t in taste["recent"]}
+        """A year you played something to death: that year's most played, the ones you haven't played in two months."""
         now = time.time()
-        pool = [t for t in taste["all"] if song_key(t) not in recent and now - taste["last"].get(song_key(t), 0) > 21 * 86400]
+        this = datetime.now().year
+        years = [y for y in taste["years"] if y < this]
+        random.shuffle(years)
+        for y in years:
+            pool = [t for t in self.ok(taste, taste["years"][y]) if now - self.last_played(taste, t) > 60 * 86400]
+            songs = dj_pick(pool[:40], DJ_SET, self.used)
+            if len(songs) >= 3:
+                t = songs[0]
+                n = t.get("plays") or 0
+                return songs, (f"Throwback to {y}. You played “{t['title']}” {n} times that year." if n > 1
+                               else f"Throwback to {y}, starting with “{t['title']}” by {dj_names([t])}.")
+        return None
+
+    def set_rediscover(self, taste, first):
+        """Songs you've played a lot, all told, but not for three months."""
+        now = time.time()
+        recent = {song_key(t) for t in taste["recent"]}
+        pool = [t for t in self.ok(taste, taste["all"]) if song_key(t) not in recent
+                and now - self.last_played(taste, t) > 90 * 86400]
         songs = dj_pick(pool[:120], DJ_SET, self.used)
         if len(songs) < 3:
             return None
         t = songs[0]
-        n = t.get("plays") or 0
-        return songs, (f"Throwback time. You've played “{t['title']}” {n} times, but not for a while." if n > 1
-                       else f"Throwback time, starting with “{t['title']}” by {dj_names([t])}.")
+        when = self.last_played(taste, t)
+        since = f", not since {datetime.fromtimestamp(when):%B %Y}" if when else ""
+        return songs, f"Remember this one? You've played “{t['title']}” {t.get('plays') or 'a lot of'} times{since}."
+
+    def set_hour(self, taste, first):
+        """What you usually play around this hour."""
+        songs = dj_pick(self.ok(taste, taste["hour"][:40]), DJ_SET, self.used)
+        if len(songs) < 3:
+            return None
+        h = datetime.now().hour
+        when = "this morning" if 5 <= h < 12 else "this afternoon" if h < 17 else "tonight" if h < 23 else "this late"
+        if first:
+            return songs, f"{greeting()}, I'm your DJ. Here's what you usually play {when}, starting with “{songs[0]['title']}”."
+        return songs, f"What you usually play {when}: {dj_names(songs, 3)}."
+
+    def set_favorites(self, taste, first):
+        """Your starred songs, the ones you play most likelier."""
+        plays = {song_key(t): t.get("plays") or 0 for t in taste["all"]}
+        favs = sorted(self.app.favorites.tracks(), key=lambda t: -plays.get(song_key(t), 0))
+        songs = dj_pick(self.ok(taste, favs), DJ_SET, self.used)
+        if len(songs) < 3:
+            return None
+        return songs, f"Some of your favourites, like “{songs[0]['title']}” by {dj_names(songs[:1])}."
 
     def set_fresh(self, taste, first):
         seeds = dj_pick(taste["recent"][:20] or taste["all"][:40], 2, set())
@@ -6531,7 +6197,7 @@ class DJ:
         for i, seed in enumerate(seeds):
             keys = self.services()
             got = self.radio(seed, keys[i % len(keys)]) or self.radio(seed, keys[(i + 1) % len(keys)])
-            found.append([t for t in got if song_key(t) not in known])
+            found.append([t for t in got if self.new_to_you(t, known)])
         mixed = [t for pair in itertools.zip_longest(*found) for t in pair if t]
         songs = dj_pick(mixed[:30], DJ_SET, self.used)
         if len(songs) < 3:
@@ -6547,7 +6213,7 @@ class DJ:
             if not info:
                 continue
             known = self.known(taste) | self.used
-            songs = [t for t in info.get("top") or [] if song_key(t) not in known][:DJ_SET]
+            songs = [t for t in info.get("top") or [] if self.new_to_you(t, known)][:DJ_SET]
             if len(songs) >= 3:
                 return songs, f"Deep cuts from {info.get('name') or name}: songs of theirs you haven't played yet."
         return None
@@ -6572,21 +6238,6 @@ class DJ:
         if len(songs) < 3:
             return None
         return songs, f"Some {tag}, since you've been playing {dj_names([{'artist': lead[0]}])} so much."
-
-    def set_mood(self, taste, first):
-        """Songs of yours in the mood of what's playing, or of what you've played lately."""
-        moods = self.app.moods
-        cur = self.app.current_track()
-        want = moods.of(cur)[:1] if cur else []
-        if not want:
-            count = Counter(m for t in taste["recent"][:30] for m in moods.of(t)[:1])
-            want = [m for m, _n in count.most_common(2)]
-        for mood in want:
-            songs = dj_pick(moods.songs_in(mood), DJ_SET, self.used)
-            if len(songs) >= 3:
-                return songs, (f"Something {mood} now, like “{songs[0]['title']}” by {dj_names(songs[:1])}." if not first else
-                               f"{greeting()}, I'm your DJ. You're in a {mood} mood, so let's start with “{songs[0]['title']}”.")
-        return None
 
     def set_like(self, taste, first):
         """Radio of what's playing (or, when no service has one of it, of a song you play a lot)."""
@@ -6632,7 +6283,8 @@ class DJ:
         plays = {song_key(e["track"]): e.get("plays", 0) for e in self.app.plays.items.values()}
         for t in taste["all"]:
             plays[song_key(t)] = max(plays.get(song_key(t), 0), t.get("plays") or 0)
-        last, now = taste["last"], time.time()
+        now = time.time()
+        fresh = self.ok(taste, fresh) or fresh
         recent = {song_key(t) for t in taste["recent"]}
         n, least = min(DJ_SET, len(fresh)), min(3, len(fresh))
         songs, line = [], ""
@@ -6642,24 +6294,22 @@ class DJ:
             if songs:
                 line = f"From {name}, the ones you keep coming back to, like “{songs[0]['title']}” by {dj_names(songs[:1])}."
         elif kind == "unplayed":
-            new = [t for t in fresh if not plays.get(song_key(t)) and song_key(t) not in last]
+            new = [t for t in fresh if not plays.get(song_key(t)) and not self.last_played(taste, t)]
             songs = random.sample(new, min(n, len(new)))
             if songs:
                 line = f"Some from {name} you haven't played yet, starting with “{songs[0]['title']}” by {dj_names(songs[:1])}."
         elif kind == "throwback":
             old = [t for t in fresh if plays.get(song_key(t)) and song_key(t) not in recent
-                   and now - last.get(song_key(t), 0) > 21 * 86400]
+                   and now - self.last_played(taste, t) > 21 * 86400]
             songs = random.sample(old, min(n, len(old)))
             if songs:
                 line = f"From {name}, a few you haven't played in a while, like “{songs[0]['title']}”."
-        elif kind == "mood":
-            count = Counter(m for t in fresh for m in self.app.moods.of(t)[:1])
-            who = [m for m, c in count.items() if c >= least]
-            if len(who) > 1:   # all of one mood: nothing to pick between
-                mood = random.choices(who, weights=[count[m] for m in who])[0]
-                theirs = self.app.moods.songs_in(mood, fresh)
-                songs = random.sample(theirs, min(n, len(theirs)))
-                line = f"The {mood} ones from {name}, starting with “{songs[0]['title']}”."
+        elif kind == "hour":
+            at = {song_key(t): i for i, t in enumerate(taste["hour"])}
+            theirs = sorted((t for t in fresh if song_key(t) in at), key=lambda t: at[song_key(t)])
+            songs = dj_pick(theirs, n, set())
+            if songs:
+                line = f"From {name}, what you usually play around now, like “{songs[0]['title']}”."
         elif kind == "artist":
             count = Counter((t.get("artist") or "").split(",")[0].strip() for t in fresh)
             who = [a for a, c in count.items() if a and c >= least]
@@ -6685,10 +6335,6 @@ class DJ:
             return None
         hits = [t for t in pool if all(w in norm(" ".join(str(t.get(k) or "") for k in ("title", "artist", "album", "genre")))
                                        for w in words)]
-        for mood in request_moods(text) if not hits else ():
-            hits = self.app.moods.songs_in(mood, pool)
-            if hits:
-                break
         unplayed = [t for t in hits if song_key(t) not in self.used]
         songs = dj_pick(random.sample(unplayed, len(unplayed)) + random.sample(hits, len(hits)), DJ_SET, set())
         if not songs:
@@ -6696,7 +6342,7 @@ class DJ:
         return "ask", songs, f"From {name}, you asked for {text.strip()}: “{songs[0]['title']}” by {dj_names(songs[:1])} first."
 
     def ask(self, text):
-        """(blocking) A set for what you asked, ("ask", songs, line): an artist, a mood, a decade or a genre.
+        """(blocking) A set for what you asked, ("ask", songs, line): an artist, a decade, a genre or a vibe.
         Playing from songs you picked: the ones of them that match, else from everywhere."""
         if self.scope:
             got = self.ask_from(text)
@@ -6712,8 +6358,8 @@ class DJ:
         names = {norm(n): n for n in taste["artists"]}
         names.update({norm(t["artist"].split(",")[0]): t["artist"].split(",")[0].strip() for t in taste["mine"].values()})
         who = best_named(list(names.values()), words, lambda n: n) if words else None
-        moods = any(w in DJ_MOODS for w in words.lower().split()) or re.search(r"\d0s", words)
-        if not who and words and not moods:
+        vibe = any(w in DJ_WORDS for w in words.lower().split()) or re.search(r"\d0s", words)
+        if not who and words and not vibe:
             try:
                 info = self.app.artist_info(words)
             except Exception:  # noqa: BLE001 -- not an artist, then
@@ -6728,11 +6374,6 @@ class DJ:
             songs = dj_pick(pool, DJ_SET, self.used)
             if songs:
                 return "ask", songs, f"{info.get('name') or who}, coming up: some you know, and some you might not."
-        for mood in request_moods(text):   # your songs in that mood, when the scan found some
-            songs = dj_pick(self.app.moods.songs_in(mood), DJ_SET, self.used)
-            if len(songs) >= 3:
-                return "ask", songs, (f"You asked for {text.strip()}: {mood} songs of yours, starting with "
-                                      f"“{songs[0]['title']}” by {dj_names(songs[:1])}.")
         for tag in dj_tags(text):
             songs = self.tag_songs(tag, taste)
             if len(songs) >= 3:
@@ -7600,6 +7241,11 @@ def split_artists(text):
     return list(dict.fromkeys(out))
 
 
+def lead_artist(text):
+    """The first artist in a credit, or "" (none, or "Unknown artist")."""
+    return next(iter(split_artists(text)), "")
+
+
 def artist_link(win, text, css="sub"):
     """A label of artists' names; a click opens the artist's page (a choice of them for a few)."""
     lab = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
@@ -7929,15 +7575,28 @@ class SongList(Gtk.ListView):
                 e.thing.tile = None
         self.regroup()
 
+    def room(self):
+        """How wide the list may be: its scrolled window's width, which the window sets (the list's own
+        width follows its rows, so going by it let a row of tiles widen the window, and that make
+        another tile fit, and so on: the window grew off the screen)."""
+        sw = self.get_ancestor(Gtk.ScrolledWindow)
+        width = (sw.get_width() if sw else 0) or self.get_width()
+        return width or (self.win.get_width() - (300 if self.win.split.get_show_sidebar() else 0))
+
     def tiles_per_row(self):
         size, gap = self.TILE[self.layout], self.GAP[self.layout]
-        width = self.get_width() or (self.win.get_width() - (300 if self.win.split.get_show_sidebar() else 0))
-        return max(2, (max(width, 320) - 36 + gap) // (size + gap))
+        return max(2, (max(self.room(), 320) - 36 + gap) // (size + gap))
 
     def do_size_allocate(self, w, h, baseline):
         Gtk.ListView.do_size_allocate(self, w, h, baseline)
-        if self.layout != "list" and self.per_row and self.tiles_per_row() != self.per_row:
-            GLib.idle_add(lambda: (self.regroup(), False)[1])
+        if self.layout != "list" and self.per_row and getattr(self, "_regroup_soon", 0) == 0 \
+                and self.tiles_per_row() != self.per_row:
+            def later():   # once the size has settled (a resize sends many sizes)
+                self._regroup_soon = 0
+                if self.tiles_per_row() != self.per_row:
+                    self.regroup()
+                return False
+            self._regroup_soon = GLib.timeout_add(120, later)
 
     def regroup(self):
         """The places again, from everything appended: tiles grouped into rows as wide as the list."""
@@ -7967,7 +7626,8 @@ class SongList(Gtk.ListView):
         self.store.splice(0, old, [str(i) for i in range(len(self.entries))])
 
     def tile_row(self, things):
-        box = Gtk.Box(spacing=self.GAP[self.layout], halign=Gtk.Align.START)
+        box = Gtk.Box(spacing=self.GAP[self.layout], halign=Gtk.Align.START, hexpand=False)
+        box.set_overflow(Gtk.Overflow.HIDDEN)
         box.add_css_class("tile-row")
         box.add_css_class(self.layout)
         for t in things:
@@ -7998,17 +7658,18 @@ class SongList(Gtk.ListView):
             title = pl["title"]
             sub = pl.get("sub") or (f"{n} song{'s' if n != 1 else ''}" if n not in ("", None) else "")
             more = ""
-        chars = max(8, size // 8)
         for text, css in ((title, "tile-title"), (sub, "tile-sub"), (more, "tile-more")):
             if text:
-                lab = Gtk.Label(label=text, xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=chars,
-                                width_chars=chars)
+                # Ellipsized, with no width of its own: wider letters (Windows' fonts, scaling) can't
+                # make a tile, and so the row and the window, wider than the cover.
+                lab = Gtk.Label(label=text, xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=1)   # the tile's width
                 lab.add_css_class(css)
                 col.append(lab)
         b = Gtk.Button(child=col, tooltip_text=f"{title} · {sub}" if sub else title)
         b.add_css_class("flat")
         b.add_css_class("tile")
         b.set_size_request(size, -1)
+        col.set_size_request(size, -1)
         if isinstance(thing, TrackRow):
             thing.tile = b
             for c in thing.classes:
@@ -8332,7 +7993,9 @@ class MiniBars(Gtk.Widget):
 
 class MiniPlayer(Adw.Window):
     """The mini player: the cover, the song, its bars in the cover's colour, where it is, and play, previous
-    and next, in a small window that stays on top (on Windows). ⤢ goes back to the full window."""
+    and next, in a small window that stays on top (on Windows). Up next (the queue button) puts the queue in
+    the cover's place, as Now playing has it: Shuffle, Repeat, Autoplay, your queue and what plays on.
+    ⤢ goes back to the full window."""
 
     def __init__(self, app):
         super().__init__(title="Radon Player", default_width=320, default_height=470, resizable=False)
@@ -8341,6 +8004,9 @@ class MiniPlayer(Adw.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=16, margin_end=16, margin_top=10,
                       margin_bottom=14)
         top = Gtk.Box(spacing=6)
+        self.q_btn = draw_button("queue", "mini-tool", "Up next: the queue in the cover's place (again: the cover back)",
+                                 lambda: self.show_queue(), 18)
+        top.append(self.q_btn)
         top.append(Gtk.Box(hexpand=True))
         full = Gtk.Button(icon_name="view-fullscreen-symbolic", tooltip_text="Back to the full window")
         full.add_css_class("flat")
@@ -8351,17 +8017,22 @@ class MiniPlayer(Adw.Window):
         top.append(full)
         top.append(close)
         box.append(Gtk.WindowHandle(child=top))   # drag it by the top
+        now = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.frame, self.pic = art_widget(288)
         self.frame.set_halign(Gtk.Align.CENTER)
-        box.append(Gtk.WindowHandle(child=self.frame))
+        now.append(Gtk.WindowHandle(child=self.frame))
         self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.title.add_css_class("title")
         self.artist = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.artist.add_css_class("sub")
-        box.append(self.title)
-        box.append(self.artist)
+        now.append(self.title)
+        now.append(self.artist)
         self.bars = MiniBars(self)
-        box.append(self.bars)
+        now.append(self.bars)
+        self.views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, vhomogeneous=True)
+        self.views.add_named(now, "now")
+        self.views.add_named(self.queue_view(), "queue")
+        box.append(self.views)
         self.seek = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, draw_value=False, hexpand=True)
         self.seek.add_css_class("progress")
         self.seek.set_range(0, 1)
@@ -8398,6 +8069,95 @@ class MiniPlayer(Adw.Window):
             ctypes.windll.user32.SetWindowPos(ctypes.c_void_p(hwnd), ctypes.c_void_p(-1), 0, 0, 0, 0, 0x1 | 0x2 | 0x10)   # TOPMOST
         except Exception:  # noqa: BLE001 -- a normal window, then
             pass
+
+    # ---- Up next ----
+    def queue_view(self):
+        """Now playing's queue, small: Shuffle / Repeat / Autoplay, the songs you queued (Clear), then what plays on."""
+        a = self.app
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.add_css_class("mini-q")
+        modes = Gtk.Box(spacing=8, homogeneous=True)
+        modes.add_css_class("np-modes")
+
+        def mode(icon, tip, cb):
+            b = draw_button(icon, "np-mode", tip, lambda: (cb(), self.refresh_queue()), 18)
+            b.set_hexpand(True)
+            modes.append(b)
+            return b
+        self.q_shuffle = mode("shuffle", "Shuffle what's coming up", a.shuffle)
+        self.q_repeat = mode("repeat", "Repeat: off, all, this song", a.cycle_repeat)
+        self.q_autoplay = mode("infinity", "Autoplay: when the queue runs out, songs like the last one",
+                               lambda: a.set_autoplay(not a.autoplay))
+        box.append(modes)
+        lists = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.q_queued_head = Gtk.Box(spacing=10, margin_top=4)
+        t = Gtk.Label(label="Queue", xalign=0, hexpand=True)
+        t.add_css_class("np-q-title")
+        clear = Gtk.Button(label="Clear", valign=Gtk.Align.CENTER)
+        clear.add_css_class("np-link")
+        clear.connect("clicked", lambda *_: (a.clear_queued(), self.refresh_queue()))
+        self.q_queued_head.append(t)
+        self.q_queued_head.append(clear)
+        lists.append(self.q_queued_head)
+        self.q_queued = self.q_list()
+        lists.append(self.q_queued)
+        t = Gtk.Label(label="Continue Playing", xalign=0, margin_top=6)
+        t.add_css_class("np-q-title")
+        lists.append(t)
+        self.q_from = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.q_from.add_css_class("np-q-sub")
+        lists.append(self.q_from)
+        self.q_next = self.q_list()
+        lists.append(self.q_next)
+        self.q_scroll = Gtk.ScrolledWindow(child=lists, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        self.q_scroll.add_css_class("np-q-scroll")
+        box.append(self.q_scroll)
+        return box
+
+    @staticmethod
+    def q_list():
+        lst = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lst.add_css_class("np-list")
+        lst.connect("row-activated", lambda _l, r: getattr(r, "go", None) and r.go())
+        return lst
+
+    def show_queue(self, on=None):
+        """Up next in the cover's place (or the cover back)."""
+        now = self.views.get_visible_child_name() == "queue"
+        on = not now if on is None else on
+        if on:
+            self.refresh_queue()
+            self.q_scroll.get_vadjustment().set_value(0)
+        self.views.set_visible_child_name("queue" if on else "now")
+        (self.q_btn.add_css_class if on else self.q_btn.remove_css_class)("on")
+
+    def refresh_queue(self):
+        """The queue as it is now (it's made again when the song or the queue changes, while it shows)."""
+        a, win = self.app, self.app.win
+        q, i = a.queue, a.index
+        start = max(i, 0) + 1
+        queued = [j for j in range(start, len(q)) if q[j].get("queued")]
+        rest = [j for j in range(start, len(q)) if not q[j].get("queued")]
+        for lst in (self.q_queued, self.q_next):
+            lst.remove_all()
+        if win is not None:
+            for j in queued[:30]:
+                self.q_queued.append(win.np_song_row(q[j], j))
+            for j in rest[:40]:
+                self.q_next.append(win.np_song_row(q[j], j))
+        self.q_queued_head.set_visible(bool(queued))
+        self.q_queued.set_visible(bool(queued))
+        name = a.queue_name_s or ""
+        self.q_from.set_label((f"From {name}" if name else "From your music") +
+                              (f" · {len(rest)} songs" if len(rest) > 40 else ""))
+        if not rest:
+            lab = Gtk.Label(label="Autoplay plays songs like this one next" if a.autoplay else "Nothing after this song",
+                            xalign=0)
+            lab.add_css_class("np-row-sub")
+            self.q_next.append(Gtk.ListBoxRow(child=lab, activatable=False))
+        self.q_repeat.icon.set_name("repeat_one" if a.repeat == "one" else "repeat")
+        for b, on in ((self.q_repeat, a.repeat != "off"), (self.q_shuffle, a.shuffled), (self.q_autoplay, a.autoplay)):
+            (b.add_css_class if on else b.remove_css_class)("on")
 
     def start(self):
         win = self.app.win
@@ -8438,6 +8198,8 @@ class MiniPlayer(Adw.Window):
         a = self.app
         t = a.current_track()
         self.play.icon.set_name("play" if a.paused else "pause")
+        if self.views.get_visible_child_name() == "queue":
+            self.refresh_queue()
         if not t:
             self.title.set_label("Nothing playing")
             self.artist.set_label("")
@@ -9235,6 +8997,9 @@ class MusicWindow(Adw.ApplicationWindow):
         shell.add_css_class("shell")
         # Under it all, Now playing's backdrop: the cover blurred, and the visualizer if it's on.
         self.backdrop = Backdrop(self)
+        # Maximized (the window's own button) or full screen: the EQ's bands stretch to fill it.
+        for prop in ("notify::maximized", "notify::fullscreened"):
+            self.connect(prop, lambda *_: self.eq_fullscreen(self.is_maximized() or self.is_fullscreen()))
         stage = Gtk.Overlay(child=self.backdrop)
         stage.add_overlay(shell)
         stage.set_measure_overlay(shell, True)
@@ -9529,14 +9294,8 @@ class MusicWindow(Adw.ApplicationWindow):
         title.add_css_class("title")
         self.eq_switch = Gtk.Switch(valign=Gtk.Align.CENTER)
         self.eq_switch.connect("notify::active", lambda sw, _p: self.syncing_eq or a.set_eq_on(sw.get_active()))
-        self.eq_full_btn = Gtk.Button(label="Full screen", valign=Gtk.Align.CENTER,
-                                      tooltip_text="The bands as big as the screen, the rest small (Esc to leave)")
-        self.eq_full_btn.add_css_class("pill")
-        self.eq_full_btn.add_css_class("quiet")
-        self.eq_full_btn.connect("clicked", lambda *_: self.eq_fullscreen(not self.eq_full))
-        self.eq_full = False
+        self.eq_full = False   # the window maximized: the bands as wide and tall as there is room
         head.append(title)
-        head.append(self.eq_full_btn)
         head.append(self.eq_switch)
         box.append(head)
         # Bit-perfect is on: the EQ steps aside (a warning, and the way to turn it off).
@@ -9645,41 +9404,16 @@ class MusicWindow(Adw.ApplicationWindow):
         return self.eq_btn
 
     def eq_fullscreen(self, on):
-        """The EQ full screen: the window fills the screen, the menu and the player step aside, the
-        settings shrink to one row, and the bands stretch as tall and wide as there is room."""
-        if on == self.eq_full:
+        """The window maximized (or full screen): the EQ's bands stretch as wide and tall as there is
+        room; back to their usual size when it's not. (The window's own maximize button does it.)"""
+        if on == self.eq_full or not hasattr(self, "eq_clamp"):
             return
         self.eq_full = on
-        if on:
-            self.eq_was_sidebar = self.split.get_show_sidebar()
-            self.show_tab("eq")
-            self.fullscreen()
-        else:
-            self.unfullscreen()
-        self.split.set_show_sidebar(False if on else getattr(self, "eq_was_sidebar", True))
-        for w in (self.player_bar, self.top_bar, self.eq_out_box, self.eq_saved, self.eq_auto, self.eq_note):
-            if w is not None:
-                w.set_visible(not on)
         self.eq_clamp.set_maximum_size(100000 if on else 640)
-        self.eq_box.set_spacing(6 if on else 10)
-        (self.eq_box.add_css_class if on else self.eq_box.remove_css_class)("compact")
-        # The three choices side by side, labels left out.
-        for i, child in enumerate(list(self.eq_grid)):
-            info = self.eq_grid.query_child(child)
-            col, row = info[0], info[1]
-            if col == 0:
-                child.set_visible(not on)
-        for row, dd in enumerate((self.eq_phones, self.eq_preset, self.eq_count)):
-            self.eq_grid.remove(dd)
-            if on:
-                self.eq_grid.attach(dd, 1 + row, 0, 1, 1)
-            else:
-                self.eq_grid.attach(dd, 1, row, 1, 1)
-        self.eq_full_btn.set_label("Leave full screen" if on else "Full screen")
         self.build_eq_bands()
         self.update_eq()
         if on:
-            GLib.timeout_add(300, lambda: (self.build_eq_bands(), self.update_eq(), False)[2])   # once the screen's size is known
+            GLib.timeout_add(300, lambda: (self.eq_full and self.build_eq_bands(), self.update_eq(), False)[2])   # once the size is known
 
     def build_eq_bands(self):
         """The band sliders, as many as the EQ has (3 to 31)."""
@@ -9709,7 +9443,7 @@ class MusicWindow(Adw.ApplicationWindow):
             self.eq_scales.append(sc)
             self.eq_values.append(value)
         if getattr(self, "eq_full", False):   # as tall as the screen allows, the full width
-            tall = max(180, self.get_height() - 240)
+            tall = max(180, self.get_height() - 520)
             for sc in self.eq_scales:
                 sc.set_size_request(-1, tall)
         elif n > 15:
@@ -9861,7 +9595,7 @@ class MusicWindow(Adw.ApplicationWindow):
 
     # ---- accounts: the services, Last.fm, the tagger, lyrics ----
     # ---- the library's front page, Poweramp-like ----
-    HOME_ICONS = {"all": "note", "playlists": "playlist", "recent": "clock", "top": "chart", "moods": "mood",
+    HOME_ICONS = {"all": "note", "playlists": "playlist", "recent": "clock", "top": "chart",
                   "favorites": "star", "unfavorited": "star_line", "skips": "skip", "dupes": "copy", "dj": "disc"}
     HOME_NAMES = {"all": "All songs", "recent": "Recently played"}
 
@@ -10309,6 +10043,9 @@ class MusicWindow(Adw.ApplicationWindow):
 
     def refresh_np_queue(self):
         """The queue view, made again when it's what you see (else when you next open it)."""
+        mini = getattr(self.app, "mini", None)
+        if mini and mini.views.get_visible_child_name() == "queue":
+            mini.refresh_queue()
         if self.shown("nowplaying") and self.np_views.get_visible_child_name() == "queue":
             self.stale.pop("np-queue", None)
             self._refresh_np_queue()
@@ -10560,8 +10297,7 @@ class MusicWindow(Adw.ApplicationWindow):
                                                ("Not favorited", "star_line", "music", "unfavorited"),
                                                ("Repeat", "repeat", "music", "repeat"))),
         ("utilities", "Utilities", (("Visualizer", "vis", "visualizer", None), ("Wrapped", "sparkle", "wrapped", None),
-                                    ("DJ", "disc", "music", "dj"), ("Duplicates", "copy", "music", "dupes"),
-                                    ("Moods", "mood", "music", "moods"))),
+                                    ("DJ", "disc", "music", "dj"), ("Duplicates", "copy", "music", "dupes"))),
     )
     DRAWER = DRAWER_TOP + tuple(item for _k, _n, items in DRAWER_SECTIONS for item in items)
 
@@ -10688,7 +10424,7 @@ class MusicWindow(Adw.ApplicationWindow):
             self.show_tab(tab)
 
     # The pages with a list, grid or compact grid layout: lists of songs, albums, artists… (not the ones that
-    # do something: Moods, the DJ, Duplicates, New releases…). Opened (an album's songs, a playlist's), it's a list.
+    # do something: the DJ, Duplicates, New releases…). Opened (an album's songs, a playlist's), it's a list.
     LAYOUT_VIEWS = ("all", "albums", "genres", "folders", "playlists", "recent", "top", "skips", "favorites",
                     "unfavorited", "pinned", "repeat")
     LAYOUT_ICONS = {"list": "list", "grid": "grid", "compact": "grid_small"}
@@ -11038,9 +10774,6 @@ class MusicWindow(Adw.ApplicationWindow):
         rg.connect("notify::active-name", lambda g, _p: g.get_active_name() and a.set_replaygain(g.get_active_name()))
         line("ReplayGain", "Songs as loud as each other (Track), or albums as their makers set them (Album), from the "
              "files' tags. Off in bit-perfect", False, rg)
-        line("Is it really lossless?", a.quality_scan_status or "Look through your FLAC and other lossless files for fakes: made "
-             "from an MP3 or AAC, hi-res made from CD quality, or 24-bit holding 16-bit music. Upgrade swaps them for "
-             "Tidal's real thing", False, pill("Check my files…", self.check_my_files, quiet=True))
 
         group("Tags, lyrics & more")
         t = a.tagger
@@ -11071,7 +10804,7 @@ class MusicWindow(Adw.ApplicationWindow):
              "On · Discord isn't open" if st in ("", "Discord isn't open") else f"On · {st}", a.discord_on and st == "on", disc)
         have = [API_KEYS[k][0] for k in API_KEYS if a.api_keys.get(k)]
         line("Settings", ("Using your " + ", ".join(have)) if have else
-             "Keys of yours for Google's pictures, Chartmetric's moods and an AutoEq server: none is needed",
+             "Keys of yours for Google's pictures and an AutoEq server: none is needed",
              bool(have), pill("Edit", self.edit_settings, quiet=True))
 
     def add_folder(self):
@@ -11321,54 +11054,6 @@ class MusicWindow(Adw.ApplicationWindow):
                 self.app.import_spotify_history(f.get_path())
         dlg.open(self, None, chosen)
 
-    def check_my_files(self):
-        """Is it really lossless?: check every lossless file of yours, then show the fakes (and offer Upgrade)."""
-        a = self.app
-        if a.quality_scanning:
-            a.quality_stop = True
-            return
-        files = [t for t in a.local.tracks() if Path(t.get("file") or "").suffix.lstrip(".").upper() in LOSSLESS_FILES]
-        if not files:
-            a.toast("No lossless files of yours to check")
-            return
-        a.quality_scanning, a.quality_stop = True, False
-
-        def work():
-            fakes = []
-            for i, t in enumerate(files):
-                if a.quality_stop:
-                    break
-                a.quality_scan_status = f"Checking {i + 1} of {len(files)}: {t['title']}"
-                if i % 20 == 0:
-                    a.refresh_accounts_soon()
-                q = true_quality(t["file"])
-                if q["verdict"] in ("lossy", "upsampled", "padded"):
-                    fakes.append((t, q["why"]))
-            return fakes
-
-        def done(fakes, err):
-            a.quality_scanning, a.quality_scan_status = False, ""
-            a.refresh_accounts_soon()
-            if err is not None:
-                a.toast(f"Couldn't check them: {str(err)[:100]}")
-            elif not fakes:
-                a.toast("Your lossless files are all what they say")
-            else:
-                self.show_fakes(fakes)
-        in_thread(work, done=done)
-        a.toast(f"Checking {len(files)} files: a second or so each")
-
-    def show_fakes(self, fakes):
-        a = self.app
-        dlg = Adw.AlertDialog(heading=f"{len(fakes)} file{'s' if len(fakes) != 1 else ''} not what {'they say' if len(fakes) != 1 else 'it says'}",
-                              body="\n".join(f"• {t['title']} — {t['artist']}: {why}" for t, why in fakes[:30])
-                              + (f"\n…and {len(fakes) - 30} more" if len(fakes) > 30 else ""))
-        dlg.add_response("cancel", "Close")
-        dlg.add_response("up", "Upgrade them…")
-        dlg.set_response_appearance("up", Adw.ResponseAppearance.SUGGESTED)
-        dlg.connect("response", lambda _d, r: r == "up" and self.confirm_upgrade([t for t, _w in fakes]))
-        dlg.present(self)
-
     def pick_apple_history(self):
         """Pick Apple's privacy download (.zip), one of its .csv files, or a library .xml."""
         filt = Gtk.FileFilter(name="Apple's data download or a Music library (.zip, .csv, .xml)")
@@ -11453,8 +11138,6 @@ class MusicWindow(Adw.ApplicationWindow):
             self.tab_buttons[key].set_active(True)
         if self.stack.get_visible_child_name() == "eq" and key != "eq":
             self.app.eq_settled()   # done adjusting: the filters rebuilt with the new gains
-            if getattr(self, "eq_full", False):
-                self.eq_fullscreen(False)
         self.stack.set_visible_child_name(key)
         self.run_stale(key)
         (self.visualizer.start if key == "visualizer" else self.visualizer.stop)()
@@ -11532,6 +11215,39 @@ class MusicWindow(Adw.ApplicationWindow):
         if any(source_of(t) != "file" and not self.lib.has(t["id"]) for t in tracks):
             return [("Download", lambda _b: self.app.download(tracks), True)]
         return []
+
+    def stats_bar(self, lst, count):
+        """Most played's Refresh (reads your new Last.fm scrobbles and adds everything up again) and where the counts are from."""
+        a = self.app
+        st = a.stats
+        box = Gtk.Box(spacing=10)
+        box.add_css_class("actions")
+        b = Gtk.Button(label="Refreshing…" if st.busy else "Refresh", valign=Gtk.Align.CENTER, sensitive=not st.busy)
+        b.add_css_class("pill")
+        b.set_tooltip_text("Read your new Last.fm scrobbles and add up every play again")
+
+        def go(_b):
+            st.refresh(force=True)
+            self.refresh_music()
+        b.connect("clicked", go)
+        box.append(b)
+        mine = Gtk.CheckButton(label="Only songs on this device", active=a.top_mine_only, valign=Gtk.Align.CENTER)
+        mine.set_tooltip_text("Only the songs you have as files (every play of theirs still counts); off: every song you've played")
+
+        def toggled(c):
+            a.top_mine_only = c.get_active()
+            a.save_soon()
+            self.refresh_music()
+        mine.connect("toggled", toggled)
+        box.append(mine)
+        d = datetime.fromtimestamp(st.built) if st.built else None
+        when = f"updated {d.day} {d:%b, %H:%M}" if d else ""
+        text = st.status if st.busy and st.status else st.error and f"Couldn't refresh: {st.error}" or " · ".join(
+            x for x in (f"{count:,} songs", " + ".join(st.sources), when) if x)
+        lab = Gtk.Label(label=text, xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END)
+        lab.add_css_class("sub")
+        box.append(lab)
+        lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=box))
 
     def actions_row(self, lst, buttons):
         """A row of pills: [(label, callback(the button), quiet)]."""
@@ -11641,7 +11357,6 @@ class MusicWindow(Adw.ApplicationWindow):
                    ("playlists", "Playlists", "The playlists you make here"),
                    ("recent", "Recent", "Recently played"),
                    ("top", "Most played", "The songs you play most"),
-                   ("moods", "Moods", "Playlists that make themselves: your songs by mood"),
                    ("favorites", "Favorites", "The songs you starred (right-click a song › Favorite)"),
                    ("unfavorited", "Not favorited", "Your songs you haven't starred"),
                    ("skips", "Skips", "How often you skip each song, or hear it out"),
@@ -11882,13 +11597,12 @@ class MusicWindow(Adw.ApplicationWindow):
         nr = a.new_releases
         self._music_sig = None
         lst.remove_all()
-        buttons = [("Scan…" if not nr.busy else "Stop", lambda _b: self.nr_scan() if not nr.busy else setattr(nr, "stop", True), False),
-                   ("Settings…", lambda _b: self.nr_settings(), True)]
+        buttons = [("Refresh…" if not nr.busy else "Stop", lambda _b: self.nr_scan() if not nr.busy else setattr(nr, "stop", True), False)]
         self.actions_row(lst, buttons)
         if nr.busy:
             self.section(lst, nr.status.upper() or "LOOKING…")
-        if not nr.artists:
-            hint = Gtk.Label(label="Press Settings… to read the artists in your songs, then Scan… for what they've put "
+        if not nr.scanned:
+            hint = Gtk.Label(label="Press Refresh… to look at every artist with songs on your device for what they've put "
                                    "out in the last week, month or year. Nothing is checked on its own.", xalign=0, wrap=True)
             hint.add_css_class("sub")
             hint.set_margin_start(12)
@@ -11896,9 +11610,6 @@ class MusicWindow(Adw.ApplicationWindow):
             return
         lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=self.sort_chips(NR_KINDS, "nr_kind")))
         when = {"week": "the last week", "month": "the last month", "year": "the last year"}.get(nr.range, "")
-        if not nr.scanned:
-            self.section(lst, f"{len(nr.artists)} ARTISTS · PRESS SCAN… TO LOOK")
-            return
         rows = nr.found
         if a.nr_kind == "artists":
             by = {}
@@ -11923,29 +11634,13 @@ class MusicWindow(Adw.ApplicationWindow):
             lst.append(PlaylistRow(self, {"kind": "release", "id": r["link"] or r["title"], "title": r["title"], "thumb": r["cover"],
                                           "sub": f"{r['artist']} · {fmt_date(r['date'])}", "release": r}, icon="media-optical-symbolic"))
 
-    def nr_settings(self):
-        a, nr = self.app, self.app.new_releases
-        dlg = Adw.AlertDialog(heading="New releases",
-                              body=(f"It looks at {len(nr.artists)} artists from your songs." if nr.artists else
-                                    "It looks at the artists in your songs.") + " Read them again after you add music. "
-                                   "Releases come from Deezer's catalogue; nothing is checked on its own.")
-        dlg.add_response("cancel", "Close")
-        dlg.add_response("read", "Read my artists")
-        dlg.set_response_appearance("read", Adw.ResponseAppearance.SUGGESTED)
-
-        def answered(_d, r):
-            if r == "read":
-                n = nr.read_artists(a.my_songs())
-                a.toast(f"{n} artists to look at: Scan… when you like")
-                self.refresh_music()
-        dlg.connect("response", answered)
-        dlg.present(self)
-
     def nr_scan(self):
         a, nr = self.app, self.app.new_releases
-        if not nr.artists:
-            nr.read_artists(a.my_songs())
-        dlg = Adw.AlertDialog(heading="Scan for new releases", body=f"What {len(nr.artists)} artists put out in…")
+        n = nr.read_artists(a.my_songs())   # every artist with songs on your device, read again each time
+        if not n:
+            a.toast("There are no artists in your songs yet: add a music folder in Settings (⚙), or download some")
+            return
+        dlg = Adw.AlertDialog(heading="Look for new releases", body=f"What the {n:,} artists with songs on your device put out in…")
         dlg.add_response("cancel", "Cancel")
         for k, label in (("week", "The last week"), ("month", "The last month"), ("year", "The last year")):
             dlg.add_response(k, label)
@@ -12284,9 +11979,6 @@ class MusicWindow(Adw.ApplicationWindow):
         if view == "dj":
             self.refresh_dj()
             return
-        if view == "moods":
-            self.refresh_moods()
-            return
         if view == "dupes":
             self.refresh_dupes()
             return
@@ -12321,7 +12013,8 @@ class MusicWindow(Adw.ApplicationWindow):
             tracks = a.most_played()
         # The same songs in the same order as shown: only the marks may have changed.
         sig = (view, sort if view != "skips" else (a.skip_order, a.skip_period),
-               tuple((t["id"], t.get("plays"), t.get("skips"), t.get("full")) for t in tracks), tuple(a.stats.sources))
+               tuple((t["id"], t.get("plays"), t.get("skips"), t.get("full")) for t in tracks), tuple(a.stats.sources),
+               a.stats.busy if view == "top" else None)
         if sig == getattr(self, "_music_sig", None) and not lst.is_empty():
             self.refresh_count()
             self.mark_rows()
@@ -12363,6 +12056,8 @@ class MusicWindow(Adw.ApplicationWindow):
             self.section(lst, {"recent": "RECENTLY PLAYED", "top": "MOST PLAYED · STATS" if a.stats.songs and (
                 a.lastfm.connected or a.spotify_history.plays or a.apple_history.rows) else "MOST PLAYED",
                 "favorites": f"{len(tracks)} FAVORITES", "unfavorited": f"{len(tracks)} SONGS NOT FAVORITED"}[view])
+            if view == "top" and (a.lastfm.connected or a.spotify_history.plays or a.apple_history.rows):
+                self.stats_bar(lst, len(tracks))
         group = [None]
 
         def add(i):
@@ -12600,35 +12295,6 @@ class MusicWindow(Adw.ApplicationWindow):
                 self.app.set_download_dir(folder.get_path())
         dlg.select_folder(self, None, chosen)
 
-    def refresh_moods(self):
-        """Moods: a playlist of each mood your songs are in, kept up to date by itself."""
-        lst, m = self.music_list, self.app.moods
-        self._music_sig = None
-        pool = m.pool()
-        todo = len(m.todo(pool))
-        counts = m.counts(pool)
-        lst.remove_all()
-        if m.scanning:
-            self.section(lst, m.status.upper())
-            self.actions_row(lst, [("Stop", lambda _b: setattr(m, "stop", True), True)])
-        else:
-            where = ("Chartmetric, then Last.fm" if self.app.api_keys.get("chartmetric") else
-                     "Last.fm's tags" if self.app.lastfm.key else "the songs' genres (connect Last.fm for better ones)")
-            self.section(lst, (f"{todo} SONG{'S' if todo != 1 else ''} NOT SCANNED YET" if todo else
-                               f"ALL {len(pool)} SONGS SCANNED") + f" · MOODS FROM {where.upper()}")
-            buttons = [("Scan", lambda _b: self.app.scan_moods(), False)] if todo else []
-            buttons.append(("Look again", lambda _b: self.app.scan_moods(again=True), True))
-            self.actions_row(lst, buttons)
-        if not counts:
-            return
-        self.section(lst, "YOUR MOODS")
-        for mood, n in counts:
-            songs = m.songs_in(mood, pool)
-            lst.append(PlaylistRow(self, {"kind": "album", "id": f"mood-{mood}", "title": MOOD_NAMES[mood], "thumb": "",
-                                          "sub": f"Mood · {n} song{'s' if n != 1 else ''}", "tracks": songs},
-                                   cover=next((t for t in songs if t.get("thumb") or source_of(t) == "file"), None),
-                                   icon="emblem-music-symbolic"))
-
     def refresh_dj(self):
         """The DJ: what it said last, Start or Switch it up, a box to ask it for something, and its songs to come."""
         lst, a = self.music_list, self.app
@@ -12643,8 +12309,8 @@ class MusicWindow(Adw.ApplicationWindow):
         box.append(head)
         line = Gtk.Label(xalign=0, wrap=True, label=shown["line"] if shown else
                          "Your own DJ: a mix of the songs you love, ones you haven't heard in a while and new ones from "
-                         "Tidal and YouTube Music, a few at a time. Switch it up for something else, or ask for a mood, "
-                         "a decade, a genre or an artist.")
+                         "Tidal and YouTube Music, a few at a time. Switch it up for something else, or ask for an artist, "
+                         "a genre, a decade or a vibe.")
         line.add_css_class("dj-line")
         box.append(line)
         if a.dj_busy:
@@ -12830,7 +12496,6 @@ class MusicWindow(Adw.ApplicationWindow):
             return
         lst.remove_all()
         lst.append(self.action_row("＋  New playlist", "new-playlist"))
-        lst.append(self.action_row("✦  New smart playlist", "new-smart"))
         lst.append(self.action_row("＋  New folder", "new-folder"))
         lst.append(self.action_row("⤓  Import a playlist (.m3u8)", "import-m3u"))
         self.folder_rows(lst)
@@ -12845,11 +12510,9 @@ class MusicWindow(Adw.ApplicationWindow):
             hint.set_margin_start(8)
             lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=hint))
         for pl in lists:
-            songs = self.app.smart_tracks(pl) if pl.get("smart") else pl["tracks"]
+            songs = pl["tracks"]
             cover = next((t for t in songs if t.get("thumb") or source_of(t) == "file"), None)
             row = {"id": pl["id"], "title": pl["name"], "thumb": "", "count": len(songs)}
-            if pl.get("smart"):
-                row["sub"] = "Smart · " + smart_words(pl["smart"])
             lst.append(PlaylistRow(self, row, cover=cover, icon="view-list-symbolic"))
 
     def refresh_mine(self):
@@ -12863,23 +12526,17 @@ class MusicWindow(Adw.ApplicationWindow):
             return
         lst.remove_all()
         lst.append(self.action_row(f"‹  {pl['name']}", "mine-back"))
-        smart = pl.get("smart")
-        tracks = self.sorted_playlist(dict(t) for t in (self.app.smart_tracks(pl) if smart else pl["tracks"]))
+        tracks = self.sorted_playlist(dict(t) for t in pl["tracks"])
         buttons = [("Play", lambda _b: self.app.play_list(tracks), False),
                    ("Shuffle", lambda _b: self.app.play_list(tracks, shuffled=True), False),
                    ("DJ", lambda _b, pid=pl["id"]: self.dj_from({"kind": "playlist", "id": pid}), True),
                    ("Rename", lambda _b: self.rename_mine(), True),
                    ("Export", lambda _b, name=pl["name"]: self.export_m3u8(name, tracks), True)]
         buttons += self.download_button(tracks)
-        if smart:
-            buttons.append(("Edit…", lambda _b: self.smart_dialog(pl), True))
         buttons.append(("Delete", lambda _b: self.delete_mine(), True))
         self.actions_row(lst, buttons if tracks else buttons[3:])
-        if smart:
-            self.section(lst, "SMART · " + smart_words(smart).upper())
         if not tracks:
-            self.section(lst, "NO SONGS FIT IT YET: MOODS (IN UTILITIES) READS YOUR SONGS' MOODS" if smart
-                         else "EMPTY: RIGHT-CLICK A SONG › ADD TO PLAYLIST")
+            self.section(lst, "EMPTY: RIGHT-CLICK A SONG › ADD TO PLAYLIST")
             return
         self.section(lst, f"{len(tracks)} SONG{'S' if len(tracks) != 1 else ''} · {fmt_total(tracks)}")
         self.playlist_sort_row(lst, self.refresh_music)
@@ -12934,7 +12591,7 @@ class MusicWindow(Adw.ApplicationWindow):
         a = self.app
         on_disk = [t for t in tracks if song_file(a.lib, t)]
         if not on_disk:
-            self.moods_dialog(tracks)   # streamed songs have no file: their moods can still be set
+            self.app.toast("Those songs aren't on this computer: there are no tags to edit")
             return
         have = read_edit_tags([song_file(a.lib, t) for t in on_disk])
         n = len(on_disk)
@@ -12953,11 +12610,7 @@ class MusicWindow(Adw.ApplicationWindow):
             grid.attach(e, 1, i, 1, 1)
             entries[k] = e
         touched.clear()   # filling them in isn't an edit
-        moods_box, mood_result = self.mood_picker(tracks)
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        outer.append(grid)
-        outer.append(moods_box)
-        dlg.set_extra_child(outer)
+        dlg.set_extra_child(grid)
         dlg.add_response("cancel", "Cancel")
         dlg.add_response("save", "Save")
         dlg.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
@@ -12965,9 +12618,6 @@ class MusicWindow(Adw.ApplicationWindow):
 
         def answered(_d, r):
             changes = {k: entries[k].get_text() for k in touched}
-            moods = mood_result() if r == "save" else None
-            if r == "save" and moods is not None:
-                a.set_moods(tracks, moods)
             if r == "save" and changes:
                 a.edit_tags_soon(on_disk, changes)
             if r == "save" and self.selecting:
@@ -13200,124 +12850,6 @@ class MusicWindow(Adw.ApplicationWindow):
         dlg.connect("response", answered)
         dlg.present(self)
 
-    def smart_dialog(self, pl=None):
-        """New smart playlist (or Edit… one): a name, the moods and the genres it takes your songs from."""
-        a = self.app
-        rule = (pl or {}).get("smart") or {}
-        dlg = Adw.AlertDialog(heading="Edit the smart playlist" if pl else "New smart playlist",
-                              body="It fills itself with your songs in any of the moods you pick, of any of the genres "
-                                   "you pick (pick none of one: any). Moods come from the mood scan (Utilities › Moods).")
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        name = Gtk.Entry(placeholder_text="Name", text=(pl or {}).get("name", ""))
-        box.append(name)
-
-        def chips(title, items, on, label=lambda x: x):
-            head = Gtk.Label(label=title, xalign=0)
-            head.add_css_class("service")
-            box.append(head)
-            flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=5, min_children_per_line=3,
-                               column_spacing=4, row_spacing=4, homogeneous=True)
-            toggles = {}
-            for x in items:
-                b = Gtk.ToggleButton(label=label(x), active=x in on)
-                b.add_css_class("pill")
-                toggles[x] = b
-                flow.append(b)
-            box.append(flow)
-            return toggles
-        moods = chips("Moods and feelings", list(MOODS), set(rule.get("moods") or []), lambda m: MOOD_NAMES[m])
-        genres = a.genres_here(24)
-        genres += [g for g in rule.get("genres") or [] if g not in genres]
-        gen = chips("Genres", genres, set(rule.get("genres") or []))
-        if not genres:
-            none = Gtk.Label(label="Your songs' tags name no genres yet (the tagger fills them in).", xalign=0, wrap=True)
-            none.add_css_class("sub")
-            box.append(none)
-        dlg.set_extra_child(Gtk.ScrolledWindow(child=box, min_content_height=360, propagate_natural_height=True,
-                                               hscrollbar_policy=Gtk.PolicyType.NEVER))
-        dlg.add_response("cancel", "Cancel")
-        dlg.add_response("save", "Save" if pl else "Make it")
-        dlg.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
-        dlg.set_close_response("cancel")
-
-        def answered(_d, r):
-            if r != "save":
-                return
-            smart = {"moods": [m for m, b in moods.items() if b.get_active()],
-                     "genres": [g for g, b in gen.items() if b.get_active()]}
-            if not smart["moods"] and not smart["genres"]:
-                a.toast("Pick a mood or a genre for it")
-                return
-            nm = name.get_text().strip() or smart_words(smart).title()
-            if pl:
-                a.lists.set_smart(pl["id"], smart)
-                if nm != pl["name"]:
-                    a.lists.rename(pl["id"], nm)
-            else:
-                new = a.lists.create(nm, smart)
-                self.open_mine = new["id"]
-            if a.moods.todo(a.moods.pool()):
-                a.toast("Some of your songs' moods aren't read yet: Utilities › Moods › Scan")
-            self.refresh_music()
-        dlg.connect("response", answered)
-        dlg.present(self)
-
-    def mood_picker(self, tracks):
-        """Toggles for the moods (the ones the first song has lit), and a switch: set by hand or found."""
-        a = self.app
-        now = a.moods.of(tracks[0]) if tracks else []
-        manual = bool(tracks) and a.moods.is_manual(tracks[0])
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        head = Gtk.Label(label="Moods" + ("" if manual else (" · found: " + ", ".join(MOOD_NAMES[m] for m in now
-                                                                                       if m in MOOD_NAMES) if now else " · none found yet")),
-                         xalign=0, wrap=True)
-        head.add_css_class("service")
-        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=5, min_children_per_line=3,
-                           column_spacing=4, row_spacing=4, homogeneous=True)
-        toggles = {}
-        for m in MOODS:
-            b = Gtk.ToggleButton(label=MOOD_NAMES[m], active=m in now)
-            b.add_css_class("pill")
-            toggles[m] = b
-            flow.append(b)
-        auto = Gtk.CheckButton(label="Let the app find them (undo my picks)", active=False)
-        box.append(head)
-        box.append(flow)
-        if manual:
-            box.append(auto)
-        state = {"start": {m for m in MOODS if toggles[m].get_active()}}
-
-        def result():
-            """None: as they were; "auto": back to found; else the moods picked."""
-            if manual and auto.get_active():
-                return "auto"
-            picked = [m for m in MOODS if toggles[m].get_active()]
-            return None if set(picked) == state["start"] and (manual or len(tracks) == 1 and not picked) else picked
-        return box, result
-
-    def moods_dialog(self, tracks):
-        """Moods…: set a song's moods by hand when the app got them wrong (the DJ and Moods use them)."""
-        a = self.app
-        if not tracks:
-            return
-        dlg = Adw.AlertDialog(heading="Moods" if len(tracks) == 1 else f"Moods · {len(tracks)} songs",
-                              body=f"“{tracks[0]['title']}” · {tracks[0]['artist']}" if len(tracks) == 1 else
-                              "The moods you pick go on every one of these songs")
-        box, result = self.mood_picker(tracks)
-        dlg.set_extra_child(box)
-        dlg.add_response("cancel", "Cancel")
-        dlg.add_response("save", "Save")
-        dlg.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
-        dlg.set_close_response("cancel")
-
-        def answered(_d, r):
-            if r == "save":
-                a.set_moods(tracks, result())
-                if self.selecting:
-                    self.after_option()
-        dlg.connect("response", answered)
-        dlg.present(self)
-
     def delete_songs_dialog(self, tracks):
         """Are you sure? before deleting the files of tracks."""
         a = self.app
@@ -13510,8 +13042,7 @@ class MusicWindow(Adw.ApplicationWindow):
         item("＋  New playlist…", lambda: self.ask_name(
             "New playlist", "", lambda name: self.app.add_to_playlist(self.app.new_playlist(name, show=False), tracks)))
         for pl in self.app.lists.all():
-            if not pl.get("smart"):   # a smart one fills itself
-                item(pl["name"], lambda pid=pl["id"]: self.app.add_to_playlist(pid, tracks))
+            item(pl["name"], lambda pid=pl["id"]: self.app.add_to_playlist(pid, tracks))
         pop.connect("closed", lambda p: GLib.idle_add(lambda: (p.unparent(), False)[1]))
         pop.popup()
 
@@ -14011,7 +13542,7 @@ class MusicWindow(Adw.ApplicationWindow):
         items.append(("art", "Cover…", "cover"))
         if files:
             items.append(("edit", "Edit tags…", "tags"))
-        items += [("chart", "Speed…", "speed"), ("speaker", "Volume…", "volume"), ("mood", "Moods…", "moods")]
+        items += [("chart", "Speed…", "speed"), ("speaker", "Volume…", "volume")]
         if not a.upgrading and any(upgradable(t) for t in tracks):
             items.append(("reload", "Upgrade to Tidal's FLAC…", "upgrade"))
         if len(tracks) == 1:   # one song: the ones that are about a single song
@@ -14027,7 +13558,6 @@ class MusicWindow(Adw.ApplicationWindow):
             items.append(("trash", "Delete…", "delete"))
         dialogs = {"cover": lambda: self.cover_dialog(tracks), "tags": lambda: self.edit_tags_dialog(files),
                    "speed": lambda: self.speed_dialog(tracks), "volume": lambda: self.volume_dialog(tracks),
-                   "moods": lambda: self.moods_dialog(tracks),
                    "upgrade": lambda: self.confirm_upgrade([t for t in tracks if upgradable(t)]),
                    "delete": lambda: self.delete_songs_dialog(files)}
         for icon, label, cb in items:
@@ -14412,13 +13942,12 @@ class MusicWindow(Adw.ApplicationWindow):
                 item("Upgrade to FLAC…", lambda: self.confirm_upgrade([t]))
             item("Delete…", lambda: self.delete_songs_dialog([t]))
         item("Unfavorite" if self.app.favorites.has(t) else "Favorite", lambda: self.app.set_favorite([t]))
-        item("Moods…", lambda: self.moods_dialog([t]))
         item("Cover…", lambda: self.cover_dialog([t]))
         gain = self.app.gains.get(t)
         item("Volume…" if gain == 0 else f"Volume ({gain:+g} dB)…", lambda: self.volume_dialog([t]))
         speed = self.app.speeds.get(t)[0]
         item("Speed…" if speed == 1.0 else f"Speed ({speed:g}×)…", lambda: self.speed_dialog([t]))
-        lead = split_artists(t["artist"])[0] if t.get("artist") else ""
+        lead = lead_artist(t.get("artist"))
         if lead:
             item(f"Discovery playlist for {lead}", lambda: self.app.make_discovery(lead))
         if song_file(self.lib, t) and source_of(t) != "lastfm":
@@ -14466,9 +13995,6 @@ class MusicWindow(Adw.ApplicationWindow):
         if action == "back":
             self.open_playlist = None
             self.refresh_account()
-            return
-        if action == "new-smart":
-            self.smart_dialog()
             return
         if action == "new-playlist":
             self.ask_name("New playlist", "", self.app.new_playlist, ok="Make it")
@@ -14869,9 +14395,7 @@ class MusicWindow(Adw.ApplicationWindow):
     def on_key(self, _ctl, keyval, _code, state):
         ctrl = state & Gdk.ModifierType.CONTROL_MASK
         if keyval == Gdk.KEY_Escape:   # the menu stays: only ☰ (F9, Ctrl+M) closes it
-            if getattr(self, "eq_full", False):
-                self.eq_fullscreen(False)
-            elif self.selecting:
+            if self.selecting:
                 self.stop_selecting()
             elif self.stack.get_visible_child_name() != "nowplaying":
                 self.nav_back()
@@ -14962,7 +14486,6 @@ PICTURES = CACHE / f"pictures{SUFFIX}.json"
 API_KEYS = {
     "google_key": ("Google API key", "Custom Search JSON API key from console.cloud.google.com: pictures and covers from Google"),
     "google_cx": ("Google search engine ID", "A Programmable Search Engine (programmablesearchengine.google.com) set to search the whole web"),
-    "chartmetric": ("Chartmetric refresh token", "From your Chartmetric API account: songs' moods from Chartmetric"),
     "autoeq_api": ("AutoEq server", "The address of an AutoEqApi server of your own (github.com/timschneeb/AutoEqApi)"),
     "discord_app_id": ("Discord application ID", "An app of your own at discord.com/developers: Discord shows "
                        "“Listening to” its name (Radon Player's own is used without one)"),
@@ -15315,13 +14838,13 @@ def my_covers(app):
     """A finder of covers from your own songs: (artist, title or album, album=False) -> a picture's path, or ""."""
     songs, albums = {}, {}
     for t in app.my_songs():
-        lead = norm(split_artists(t.get("artist") or "")[0] if t.get("artist") else "")
+        lead = norm(lead_artist(t.get("artist")))
         songs.setdefault((lead, norm(clean_title(t.get("title") or ""))), t)
         if t.get("album"):
             albums.setdefault((lead, norm(t["album"])), t)
 
     def find(artist, name, album=False):
-        lead = norm(split_artists(artist)[0] if artist else "")
+        lead = norm(lead_artist(artist))
         t = (albums if album else songs).get((lead, norm(name if album else clean_title(name))))
         if not t:
             return ""
@@ -15467,7 +14990,7 @@ def wrapped_data(app, period, progress):
         for y in reversed(years):
             if fm.connected:
                 rows += scrobble_rows(fm, y, progress)
-        rows = sorted(rows + [(p[0], p[1], p[2], p[3], "") for p in not_scrobbled(spotify, rows)])
+        rows = sorted(rows + [(p[0], p[1], p[2], p[3], "") for p in spotify])
         if not rows:
             return base | {"empty": True}
         data = base | year_stats(rows)
@@ -15496,8 +15019,8 @@ def wrapped_data(app, period, progress):
         end = min(natural_end, time.time())
         rows = scrobble_rows(fm, period, progress) if fm.connected else []
         mine = [p for p in spotify if start <= p[0] < end]
-        if mine:   # with your Spotify plays that Last.fm hasn't got
-            rows = sorted(rows + [(p[0], p[1], p[2], p[3], "") for p in not_scrobbled(mine, rows)])
+        if mine:   # with your Spotify and Apple Music plays, added up
+            rows = sorted(rows + [(p[0], p[1], p[2], p[3], "") for p in mine])
         if not rows:
             return base | {"empty": True}
         data = base | year_stats(rows)
@@ -15782,16 +15305,22 @@ class WrappedWindow(Adw.Window):
         self.app.save_soon()
 
     # ---- full screen ----
+    def is_full(self):
+        return self.is_maximized() if WINDOWS else self.is_fullscreen()
+
     def toggle_fullscreen(self):
-        if self.is_fullscreen():
+        # Windows: maximized, not true full screen (a full-screen GTK window stuttered there).
+        if WINDOWS:
+            self.unmaximize() if self.is_maximized() else self.maximize()
+        elif self.is_fullscreen():
             self.unfullscreen()
         else:
             self.fullscreen()
 
     def on_size_mode(self):
         big = self.is_fullscreen() or self.is_maximized()
-        self.full.set_icon_name("view-restore-symbolic" if self.is_fullscreen() else "view-fullscreen-symbolic")
-        self.full.set_tooltip_text("Leave full screen (F11)" if self.is_fullscreen() else "Full screen (F11)")
+        self.full.set_icon_name("view-restore-symbolic" if self.is_full() else "view-fullscreen-symbolic")
+        self.full.set_tooltip_text("Leave full screen (F11)" if self.is_full() else "Full screen (F11)")
         (self.add_css_class if big else self.remove_css_class)("big")
         k = 1.5 if big else 1.0
         if k != self.k:
@@ -16362,8 +15891,8 @@ class WrappedWindow(Adw.Window):
 
     def on_key(self, _ctl, keyval, _code, _state):
         if keyval == Gdk.KEY_Escape:
-            if self.is_fullscreen():
-                self.unfullscreen()
+            if self.is_full():
+                self.toggle_fullscreen()
             else:
                 self.close()
         elif keyval in (Gdk.KEY_F11, Gdk.KEY_f):
@@ -16623,6 +16152,7 @@ class MusicApp(Adw.Application):
         self.discord_on = True     # what's playing on your Discord profile
         self.skip_order = "most"   # how the Music tab's Skips is sorted
         self.skip_period = "all"   # …and over which time: week, month, year, all
+        self.top_mine_only = True  # Most played: only the songs on this device (your files), plays from everywhere
         self.repeat_period = "week"   # Repeat's chart: week, month, year
         self.vis_preset = "bars"   # the Visualizer tab's look
         self.drawer_open = True    # the menu (☰) beside the page
@@ -16643,7 +16173,6 @@ class MusicApp(Adw.Application):
         self.new_releases = NewReleases()
         self.stats = Stats(self)   # every play added up: Most played, the Artists tab, artist pages
         self.pictures = Pictures(lambda: self.api_keys)   # artists' pictures and bios, album covers
-        self.moods = Moods(self)   # your songs' moods: the DJ and the mood playlists
         self.stats.watchers.append(self.stats_changed)
         self.streaming = False     # what's playing comes from Tidal's stream, not a file
         self.stream_retry = -1     # the load_seq whose broken stream was picked up again already
@@ -16711,6 +16240,7 @@ class MusicApp(Adw.Application):
         self.discord_on = bool(state.get("discord", True))
         self.skip_order = state.get("skip_order") if state.get("skip_order") in ("most", "least", "heard") else "most"
         self.skip_period = state.get("skip_period") if state.get("skip_period") in ("week", "month", "year", "all") else "all"
+        self.top_mine_only = state.get("top_mine_only", True) is not False
         self.repeat_period = state.get("repeat_period") if state.get("repeat_period") in ("week", "month", "year") else "week"
         # Sound quality: bit-perfect (exclusive), ReplayGain (off in bit-perfect)
         self.bitperfect = bool(state.get("bitperfect"))
@@ -16739,7 +16269,7 @@ class MusicApp(Adw.Application):
             and state.get("search_before_local") != "local" else "tidal"   # where the search looked before
         self.lyrics_mode = state.get("lyrics_mode") if state.get("lyrics_mode") in ("genius", "synced") else "genius"
         self.remote_tokens = {k: v for k, v in (state.get("remote_tokens") or {}).items() if isinstance(v, dict)}
-        # Settings: keys of yours for Google's image search, Chartmetric and an AutoEq server (see API_KEYS)
+        # Settings: keys of yours for Google's image search and an AutoEq server (see API_KEYS)
         self.api_keys = {k: v for k, v in (state.get("api_keys") or {}).items() if k in API_KEYS and isinstance(v, str)}
         self.remote = Remote(self)
         if state.get("remote"):
@@ -16835,6 +16365,7 @@ class MusicApp(Adw.Application):
                                        "keep_played": self.keep_played,
                                        "discord": self.discord_on, "look": self.look, "styled": True, "np_fallback": self.np_fallback,
                                        "skip_order": self.skip_order, "skip_period": self.skip_period, "dj_new": self.dj_new,
+                                       "top_mine_only": self.top_mine_only,
                                        "tray_told": getattr(self, "tray_told", False),
                                        "repeat_period": self.repeat_period, "bitperfect": self.bitperfect,
                                        "replaygain": self.replaygain, "vis_preset": self.vis_preset,
@@ -17451,23 +16982,6 @@ class MusicApp(Adw.Application):
                 out.append(dict(t))
         return out + [t for t in self.local.tracks() if same(t["file"]) not in seen]
 
-    def smart_tracks(self, pl):
-        """A smart playlist's songs: yours with any of its moods and any of its genres (either left
-        empty: any), the ones with more of its moods first."""
-        rule = pl.get("smart") or {}
-        moods = set(rule.get("moods") or [])
-        genres = {g.lower() for g in rule.get("genres") or []}
-        out = []
-        for i, t in enumerate(self.my_songs()):
-            have = set(self.moods.of(t))
-            if moods and not have & moods:
-                continue
-            g = self.genre_of(t).lower()
-            if genres and not any(x == g or x in g for x in genres):
-                continue
-            out.append((-len(have & moods), i, t))
-        return [t for *_k, t in sorted(out, key=lambda x: (x[0], x[1]))]
-
     def genres_here(self, n=30):
         """Your songs' genres, the most common first."""
         c = Counter(g for g in (self.genre_of(t) for t in self.my_songs()) if g)
@@ -17475,7 +16989,6 @@ class MusicApp(Adw.Application):
 
     # ---- Discovery: an artist's songs you haven't got, heard one by one ----
     discovering = set()   # the artists whose discovery playlist is being made
-    quality_scanning, quality_stop, quality_scan_status = False, False, ""   # Is it really lossless?
     nr_kind = "album"     # New releases' tab: album, single, ep, artists
 
     def discovery_lists(self):
@@ -17580,7 +17093,7 @@ class MusicApp(Adw.Application):
 
     def repeat_top(self, period):
         """(blocking) Repeat: your most played songs of the last week (50), month (100) or year (200):
-        your scrobbles (or the plays here, without Last.fm), and Spotify's and Apple Music's plays Last.fm hasn't got."""
+        your scrobbles (or the plays here, without Last.fm), and Spotify's and Apple Music's plays, added up."""
         days, n = self.REPEAT[period]
         now = time.time()
         since = now - days * 86400
@@ -17602,7 +17115,7 @@ class MusicApp(Adw.Application):
                 t = e.get("track") or {}
                 rows += [(x, t.get("artist", ""), t.get("title", ""), t.get("album", ""), "") for x in e.get("at") or [] if x >= since]
         extra = [p for p in list(self.spotify_history.plays) + self.apple_history.timed_plays() if p[0] >= since]
-        rows += [(p[0], p[1], p[2], p[3], "") for p in not_scrobbled(extra, rows)]
+        rows += [(p[0], p[1], p[2], p[3], "") for p in extra]
         songs = {}
         for r in rows:
             add_plays(songs, r[2], r[1], r[3], r[4] if len(r) > 4 else "", 1, "here")
@@ -17624,23 +17137,67 @@ class MusicApp(Adw.Application):
         if not self.stats.songs:
             return self.plays.top(None)
         mine = self.song_index()
-        return [dict(self.fm_song(st["title"], st["artist"], st["thumb"], mine, st.get("album")), plays=st["plays"],
-                     plays_from={k: st[k] for k in STAT_SOURCES if st.get(k)})
-                for st in self.stats.songs]
+        out, at = [], {}
+        for st in self.stats.songs:
+            t = self.fm_song(st["title"], st["artist"], st["thumb"], mine, st.get("album"))
+            i = at.get(t["id"])
+            if i is not None:   # two names for one song of yours (a remaster's, a feat.'s): one row, plays added up
+                o = out[i]
+                o["plays"] += st["plays"]
+                for k in STAT_SOURCES:
+                    if st.get(k):
+                        o["plays_from"][k] = o["plays_from"].get(k, 0) + st[k]
+                continue
+            at[t["id"]] = len(out)
+            out.append(dict(t, plays=st["plays"], plays_from={k: st[k] for k in STAT_SOURCES if st.get(k)}))
+        if getattr(self, "top_mine_only", False):   # your files only (matched by song name, artist and album: see fm_song)
+            out = [t for t in out if source_of(t) == "file" or self.lib.has(t["id"])]
+        out.sort(key=lambda t: -t["plays"])
+        return out
 
     def song_index(self):
-        """Song key -> your copy of it (saved, in your folders, or played here)."""
+        """Song key -> your copy of it. Files on your device win over songs only played (streamed): each
+        is kept under ("L", stats key) and ("T", title) too, so fm_song can pick the right one by album."""
         mine = {}
-        for t in [e["track"] for e in self.plays.items.values()] + self.my_songs():
-            mine[song_key(t)] = t   # yours on disk win over ones only played
+        for t in [e["track"] for e in self.plays.items.values()]:
+            mine[song_key(t)] = t
             mine[stats_key(t.get("title"), t.get("artist"))] = t
+        for t in self.my_songs():
+            k = stats_key(t.get("title"), t.get("artist"))
+            mine[song_key(t)] = mine[k] = t
+            mine.setdefault(("L",) + k, []).append(t)
+            mine.setdefault(("T", k[0]), []).append(t)
         return mine
 
     @staticmethod
+    def best_copy(copies, album=""):
+        """Of your copies of a song, the one on the album asked for, then the best file (FLAC first)."""
+        rank = {"flac": 0, "wav": 1, "aiff": 1, "alac": 1, "m4a": 2, "ogg": 3, "opus": 3, "mp3": 4}
+        want = norm(clean_title(album or ""))
+
+        def score(t):
+            ext = str(t.get("file") or "").rsplit(".", 1)[-1].lower()
+            on_album = bool(want) and norm(clean_title(t.get("album") or "")) == want
+            return (not on_album, rank.get(ext, 5))
+        return min(copies, key=score)
+
+    @staticmethod
     def fm_song(name, artist, img, mine, album=""):
-        """A song Last.fm named: yours (mine: song key -> song) when you have it, else one to be
+        """A song Last.fm (or Spotify, or Apple Music) named: your file of it when you have one (the same
+        song name and artist; the one on the same album first), else a song played here, else one to be
         found on Tidal or YouTube Music when it plays."""
-        t = mine.get(song_key({"title": name, "artist": artist})) or mine.get(stats_key(name, artist))
+        k = stats_key(name, artist)
+        copies = mine.get(("L",) + k)
+        if not copies:   # the artist written differently: one of the song's artists is one of your file's
+            theirs = {re.sub(r"[\W_]+", "", norm(a)) for a in split_artists(artist)} - {""}
+            copies = [t for t in mine.get(("T", k[0])) or []
+                      if theirs & {re.sub(r"[\W_]+", "", norm(a)) for a in split_artists(t.get("artist") or "")}]
+        if not copies and album:   # the artist tagged another way still: the same song name on the same album
+            want = norm(clean_title(album))
+            copies = [t for t in mine.get(("T", k[0])) or [] if want and norm(clean_title(t.get("album") or "")) == want]
+        if copies:
+            return dict(MusicApp.best_copy(copies, album))
+        t = mine.get(song_key({"title": name, "artist": artist})) or mine.get(k)
         if t is not None:
             return dict(t)
         return {"id": "lfm-" + hashlib.sha1(f"{norm(artist)}|{norm(name)}".encode()).hexdigest()[:16], "source": "lastfm",
@@ -17773,7 +17330,7 @@ class MusicApp(Adw.Application):
         def done(res, err):
             self.dj_busy = None
             if not res:
-                self.toast(f"The DJ found nothing for “{ask.strip()}”. Try a mood, a decade, a genre or an artist." if ask
+                self.toast(f"The DJ found nothing for “{ask.strip()}”. Try an artist, a genre, a decade or a vibe." if ask
                            else "The DJ has nothing else right now" + (f": {str(err)[:80]}" if err else "."))
                 self.dj_changed()
                 return
@@ -17916,7 +17473,7 @@ class MusicApp(Adw.Application):
         added up: see Stats): the counted ones, then the rest of yours."""
         mine, out, seen = self.song_index(), [], set()
         for st in self.stats.artist_songs(name):
-            t = dict(self.fm_song(st["title"], st["artist"], st.get("thumb", ""), mine), plays=st["plays"])
+            t = dict(self.fm_song(st["title"], st["artist"], st.get("thumb", ""), mine, st.get("album")), plays=st["plays"])
             if song_key(t) not in seen:
                 seen.add(song_key(t))
                 out.append(t)
@@ -18189,20 +17746,6 @@ class MusicApp(Adw.Application):
             if done:
                 done()
         in_thread(self.set_cover, tracks, source, done=finished)
-
-    # ---- moods by hand ----
-    def set_moods(self, tracks, moods):
-        """moods picked for tracks; "auto": the app finds them again (the next scan reads them)."""
-        if moods is None:
-            return
-        self.moods.set_manual(tracks, None if moods == "auto" else moods)
-        what = f"“{tracks[0]['title']}”" if len(tracks) == 1 else f"{len(tracks)} songs"
-        self.toast(f"{what}: the app finds the moods again" if moods == "auto" else
-                   f"{what}: {', '.join(MOOD_NAMES[m] for m in moods)}" if moods else f"{what}: no mood")
-        if self.win and self.win.music_view == "moods":
-            self.win.refresh_music()
-        if moods == "auto":
-            self.scan_moods()
 
     # ---- songs' speeds and volumes ----
     def speed_opts(self, t):
@@ -18970,27 +18513,6 @@ class MusicApp(Adw.Application):
             k = song_key(st)
             counts[k] = max(counts.get(k, 0), st.get("plays", 0))
         return counts
-
-    def scan_moods(self, again=False):
-        """Find the moods of the songs that have none yet (again: and look again at the guessed ones), in the background."""
-        m = self.moods
-        if m.scanning:
-            return
-        m.scanning, m.status = True, "Finding your songs' moods…"
-
-        def progress(text):
-            m.status = text
-            GLib.idle_add(lambda: (self.win and self.win.music_view == "moods" and self.win.refresh_music(), False)[1])
-
-        def done(n, err):
-            m.scanning, m.status = False, ""
-            if err:
-                self.toast(f"Couldn't finish the mood scan: {str(err)[:80]}")
-            elif n:
-                self.toast(f"Moods found for {n} song{'s' if n != 1 else ''}")
-            if self.win:
-                self.win.refresh_music()
-        in_thread(lambda: m.scan(again, progress), done=done)
 
     def set_api_keys(self, keys):
         self.api_keys = {k: v for k, v in keys.items() if k in API_KEYS and v}

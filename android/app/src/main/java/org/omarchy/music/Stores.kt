@@ -167,7 +167,7 @@ data class Playlist(val id: String, val name: String, val created: Double, val u
 @Serializable
 data class Discovery(val artist: String, val role: String)
 
-/** A smart playlist's rule: your songs in any of moods, of any of genres (either empty: any). */
+/** A smart playlist's rule (1.4; gone in 1.4.1: kept only so older playlists still read). */
 @Serializable
 data class Smart(val moods: List<String> = emptyList(), val genres: List<String> = emptyList()) {
     /** In words: "Happy, Chill · Pop". */
@@ -262,12 +262,13 @@ class Playlists(ctx: Context) {
         private set
 
     private fun save() = writeAtomic(file, JSON.encodeToString(ser, items))
-    fun all() = items.sortedByDescending { it.updated }
+    /** Your playlists, the last changed first (the smart ones 1.4 made, by mood, are gone). */
+    fun all() = items.filter { it.smart == null }.sortedByDescending { it.updated }
     fun get(id: String) = items.firstOrNull { it.id == id }
 
     @Synchronized
-    fun create(name: String, smart: Smart? = null, discovery: Discovery? = null): Playlist {
-        val pl = Playlist(randomHex(6), name, now(), now(), smart = smart, discovery = discovery)
+    fun create(name: String, discovery: Discovery? = null): Playlist {
+        val pl = Playlist(randomHex(6), name, now(), now(), discovery = discovery)
         items += pl
         save()
         return pl
@@ -275,9 +276,6 @@ class Playlists(ctx: Context) {
 
     @Synchronized
     fun rename(id: String, name: String) = edit(id) { it.copy(name = name, updated = now()) }
-
-    @Synchronized
-    fun setSmart(id: String, smart: Smart) = edit(id) { it.copy(smart = smart, updated = now()) }
 
     @Synchronized
     fun delete(id: String) {

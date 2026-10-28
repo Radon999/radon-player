@@ -113,7 +113,7 @@ object Wrapped {
     )
 
     @Serializable
-    private data class Row(val t: Long, val artist: String, val title: String, val album: String, val image: String,
+    data class Row(val t: Long, val artist: String, val title: String, val album: String, val image: String,
                            val ms: Long = 0)   // how long it played, for Spotify's plays
     @Serializable
     private data class Saved(val rows: List<Row> = emptyList(), val until: Long = 0)
@@ -246,8 +246,8 @@ object Wrapped {
         val file = File(dir, "${safeName(LastFm.user.lowercase())}-${period.key}.json")
         val saved = readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } ?: Saved()
         var rows = saved.rows
-        val since = if (saved.until > 0) saved.until else start
-        if (since < end - 60) {
+        val since = if (saved.until > 0) maxOf(start, saved.until - 14 * 86_400L) else start   // Last.fm takes scrobbles two weeks late
+        if (saved.until < end) {
             val new = LastFm.recent(since, end) { p, n -> progress("Reading your scrobbles · ${period.name} · page $p of $n") }
             val have = rows.map { it.t to it.title }.toHashSet()
             rows = (rows + new.filter { (it.time to it.title) !in have }.map { Row(it.time, it.artist, it.title, it.album, it.image) })
@@ -262,23 +262,26 @@ object Wrapped {
     fun scrobblePlays(ctx: Context, period: Period): List<SpotifyHistory.Play> =
         scrobbles(File(ctx.filesDir, "wrapped").apply { mkdirs() }, period) {}.map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album) }
 
-    fun scrobbleTimes(ctx: Context, year: Int): List<Pair<Long, String>> =
-        scrobbles(File(ctx.filesDir, "wrapped").apply { mkdirs() }, Period.Year(year)) {}.map { it.t to it.title }
+    /** (blocking) Every scrobble you have on Last.fm, a year at a time (kept: after the first time only the
+     *  new ones are read). From the year you joined, and further back while there are fewer than Last.fm's
+     *  count (scrobbles imported from before). For [Stats]. */
+    fun allScrobbles(ctx: Context, progress: (String) -> Unit = {}): List<Row> {
+        val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
+        val me = LastFm.info()
+        val now = LocalDate.now().year
+        val first = me.registered.takeIf { it > 0 }?.let { local(it).year } ?: now
+        val rows = ArrayList<Row>()
+        for (y in first..now) rows += scrobbles(dir, Period.Year(y), progress)
+        var y = first - 1
+        while (rows.size < me.playcount - 10 && y >= 2002) { rows += scrobbles(dir, Period.Year(y), progress); y-- }
+        return rows
+    }
 
-    /** rows with your Spotify plays from start to end that Last.fm hasn't got. A play Last.fm
-     *  has is the same song scrobbled from five minutes before it began until five after it stopped. */
+    /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
         val plays = (SpotifyHistory.plays + AppleHistory.timed()).filter { it.t in start until end }
         if (plays.isEmpty()) return rows
-        val scrobbled = HashMap<String, MutableList<Long>>()
-        for (r in rows) scrobbled.getOrPut(cleanTitle(r.title)) { ArrayList() } += r.t
-        val extra = plays.filter { p ->
-            val times = scrobbled[cleanTitle(p.title)] ?: return@filter true
-            val i = times.indexOfFirst { it >= p.t - 300 && it <= p.t + p.ms / 1000 + 300 }
-            if (i >= 0) times.removeAt(i)   // each scrobble stands for one play
-            i < 0
-        }.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }
-        return (rows + extra).sortedBy { it.t }
+        return (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
     }
 
     /** Everything Wrapped shows for a period. It blocks. */

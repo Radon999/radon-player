@@ -51,18 +51,32 @@ object NewReleases {
 
     private fun kindOf(t: String?) = when (t?.lowercase()) { "ep" -> "ep"; "single" -> "single"; else -> "album" }
 
+    /** The same artist, written either way: "half•alive" and "half alive", "K.Flay" and "KFlay". */
+    private fun bare(a: String?) = norm((a ?: "").replace(Regex("^the ", RegexOption.IGNORE_CASE), "")).replace(Regex("[\\W_]+"), "")
+
+    /** Deezer's answer; when it says too many asks at once, wait and ask again. */
+    private fun deezer(url: String): kotlinx.serialization.json.JsonElement {
+        var got = httpJson(url)
+        for (wait in listOf(5_000L, 10_000L)) {
+            if (got["error"]["code"].long != 4L) return got   // 4: quota (50 asks every 5 seconds)
+            Thread.sleep(wait)
+            got = httpJson(url)
+        }
+        return got
+    }
+
     private fun artistId(name: String): Long {
         val k = norm(name)
-        ids[k]?.let { return it }
-        val got = httpJson("https://api.deezer.com/search/artist?q=${enc(name)}&limit=5")
-        val hit = got["data"].list.firstOrNull { norm(it["name"].str) == k }
+        ids[k]?.takeIf { it != 0L }?.let { return it }   // not found before: look again
+        val got = deezer("https://api.deezer.com/search/artist?q=${enc(name)}&limit=10")
+        val hit = got["data"].list.firstOrNull { bare(it["name"].str).let { b -> b.isNotEmpty() && b == bare(name) } }
         return (hit?.get("id").long ?: 0L).also { ids[k] = it }
     }
 
     /** Look at each artist's releases from the last week, month or year (in the background). */
     fun scan(period: String) {
         if (status != null) return
-        if (artists.isEmpty()) readArtists(Music.mySongs())
+        readArtists(Music.mySongs())   // every artist with songs on the phone, read again each time
         status = "Looking…"
         stop = false
         val since = LocalDate.now().minusDays(RANGES[period] ?: 30).toString()
@@ -75,7 +89,7 @@ object NewReleases {
                 main.post { status = line }
                 val aid = runCatching { artistId(name) }.getOrDefault(0L)
                 if (aid == 0L) continue
-                val got = runCatching { httpJson("https://api.deezer.com/artist/$aid/albums?limit=50") }.getOrNull() ?: continue
+                val got = runCatching { deezer("https://api.deezer.com/artist/$aid/albums?limit=100") }.getOrNull() ?: continue
                 for (al in got["data"].list) {
                     val date = al["release_date"].str ?: ""
                     if (date >= since) out += Release(al["title"].str ?: "", name, date, kindOf(al["record_type"].str),

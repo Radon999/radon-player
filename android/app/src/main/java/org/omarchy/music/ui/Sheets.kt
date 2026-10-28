@@ -105,7 +105,6 @@ fun Sheets(ui: Ui) {
     ui.artistPictureFor?.let { name -> ArtistPictureDialog(ui, name) }
     ui.speedFor?.let { tracks -> if (tracks.isNotEmpty()) SpeedDialog(ui, tracks) else ui.speedFor = null }
     ui.volumeFor?.let { tracks -> if (tracks.isNotEmpty()) VolumeDialog(ui, tracks) else ui.volumeFor = null }
-    ui.moodsFor?.let { tracks -> if (tracks.isNotEmpty()) MoodsDialog(ui, tracks) else ui.moodsFor = null }
     ui.upgradeFor?.let { tracks -> UpgradeDialog(ui, tracks) }
     Music.upgradeKept?.let { kept -> UpgradeKeptDialog(kept) }
     Music.dupePrompt?.let { (new, dupes) -> DupeDownloadDialog(new, dupes) }
@@ -419,7 +418,7 @@ private fun AppleHistoryLine() {
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
 }
 
-/** Bit-perfect to a USB DAC, ReplayGain, and "Is it really lossless?". */
+/** Bit-perfect to a USB DAC, and ReplayGain. */
 @Composable
 private fun SoundQuality(ui: Ui) {
     Line("Bit-perfect", Music.dacNote.ifEmpty {
@@ -434,31 +433,6 @@ private fun SoundQuality(ui: Ui) {
             Chip(l, Music.replayGain == k) { if (!Music.bitPerfect) Music.chooseReplayGain(k) }
         }
     }
-    var show by remember { mutableStateOf(false) }
-    Line("Is it really lossless?", Music.qualityBusy ?: if (Music.fakes.isNotEmpty()) "${Music.fakes.size} of your lossless files aren't what they say"
-        else "Find FLACs made from an MP3 or AAC, and hi-res made from CD quality, by their spectrum. Upgrade swaps them for the real thing",
-        Music.qualityBusy != null) {
-        if (Music.qualityBusy != null) Pill("Stop", quiet = true) { Music.qualityStop = true }
-        else Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (Music.fakes.isNotEmpty()) Pill("Show", quiet = true) { show = true }
-            Pill("Check my files") { Music.checkMyFiles() }
-        }
-    }
-    if (show) AlertDialog(onDismissRequest = { show = false }, containerColor = C.light,
-        title = { Text("Not what they say", style = T.title) },
-        text = {
-            androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                items(Music.fakes.size) { i ->
-                    val (t, v) = Music.fakes[i]
-                    Column(Modifier.padding(vertical = 4.dp)) {
-                        Text(t.title, style = T.title, maxLines = 1)
-                        Text("${t.artist} · ${org.omarchy.music.AudioQuality.said(v)}", style = T.sub, maxLines = 2)
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton({ show = false; ui.upgradeFor = Music.fakes.map { it.first } }) { Text("Upgrade…", color = C.accent) } },
-        dismissButton = { TextButton({ show = false }) { Text("Close", color = C.muted) } })
 }
 
 /** The keys in API_KEYS: each one you fill in is kept with the rest of the app's state. */
@@ -468,7 +442,7 @@ private fun SettingsLine() {
     val keys = remember { androidx.compose.runtime.mutableStateMapOf<String, String>().apply { putAll(Music.apiKeys) } }
     val have = org.omarchy.music.API_KEYS.filterKeys { Music.apiKeys[it] != null }.values.map { it.first }
     Line("Settings", if (have.isNotEmpty()) "Using your " + have.joinToString(", ")
-        else "Keys of yours for Google's pictures, Chartmetric's moods and an AutoEq server: none is needed", have.isNotEmpty()) {
+        else "Keys of yours for Google's pictures and an AutoEq server: none is needed", have.isNotEmpty()) {
         Pill(if (open) "Close" else "Edit", quiet = true) { open = !open }
     }
     if (open) {
@@ -744,7 +718,7 @@ private fun PlaylistPicker(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                         ui.askName = Triple("New playlist", "") { n -> Music.addToPlaylist(Music.newPlaylist(n), tracks) }
                     }.padding(vertical = 10.dp))
                 }
-                val lists = Music.lists.all().filter { it.smart == null }   // a smart one fills itself
+                val lists = Music.lists.all()
                 items(lists.size) { i ->
                     val pl = lists[i]
                     Text("${pl.name}  ·  ${pl.tracks.size}", style = T.body, modifier = Modifier.fillMaxWidth().clickable {
@@ -984,35 +958,6 @@ private fun VolumeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
         dismissButton = {
             Row {
                 TextButton({ done(0.0) }) { Text("Normal", color = C.fg) }
-                TextButton(close) { Text("Cancel", color = C.muted) }
-            }
-        })
-}
-
-/** Moods…: pick a song's moods by hand (a scan leaves them alone), or let the scan find them again. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun MoodsDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
-    val picked = remember(tracks) { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(org.omarchy.music.Moods.of(tracks[0])) } }
-    val close = { ui.moodsFor = null }
-    AlertDialog(onDismissRequest = close, containerColor = C.light,
-        title = { Text(if (tracks.size == 1) "Moods of “${tracks[0].title}”" else "Moods of ${tracks.size} songs", style = T.title,
-            maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        text = {
-            Column {
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    org.omarchy.music.Moods.MOODS.keys.forEach { m ->
-                        Chip(m.replaceFirstChar { it.uppercase() }, m in picked) { if (m in picked) picked.remove(m) else picked.add(m) }
-                    }
-                }
-                Text(if (org.omarchy.music.Moods.isManual(tracks[0])) "Set by hand: scans leave them as they are."
-                     else "Found by the scan. Pick some and they're set by hand from now on.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
-            }
-        },
-        confirmButton = { TextButton({ close(); Music.setMoods(tracks, picked.toList()); ui.afterOption() }) { Text("Save", color = C.accent) } },
-        dismissButton = {
-            Row {
-                TextButton({ close(); Music.setMoods(tracks, null); ui.afterOption() }) { Text("Find them", color = C.fg) }
                 TextButton(close) { Text("Cancel", color = C.muted) }
             }
         })
