@@ -88,6 +88,8 @@ class Ui {
     var sheet by mutableStateOf<String?>(null)          // "accounts", "eq", "tidal-login", "spotify-login"…
     var pickPlaylistFor by mutableStateOf<List<Track>?>(null)
     var editTagsFor by mutableStateOf<List<Track>?>(null)
+    var taggerFor by mutableStateOf<List<Track>?>(null)
+    var collageFor by mutableStateOf<String?>(null)   // Collage…: "songs", "albums" or "artists"   // Tagger…: tags, cover, the files' details, lyrics
     var deleteFor by mutableStateOf<List<Track>?>(null)
     var speedFor by mutableStateOf<List<Track>?>(null)
     var volumeFor by mutableStateOf<List<Track>?>(null)     // Volume…: a song's own boost
@@ -256,11 +258,10 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
             ui.confirm = "Delete the downloaded FLAC of “${t.title}”?" to { Music.removeDownload(t.id) }
         }()
         else if (Music.phoneFile(t) != null) item("Delete…") { ui.deleteFor = listOf(t) }()
-        if (org.omarchy.music.Tags.editable(t) != null) item("Edit tags…") { ui.editTagsFor = listOf(t) }()
+        item("Tagger…") { ui.taggerFor = listOf(t) }()
         if (org.omarchy.music.upgradable(t) && Music.upgrading == null) item("Upgrade to FLAC…") { ui.upgradeFor = listOf(t) }()
         item(if (Music.favorites.has(t)) "Unfavorite" else "Favorite") { Music.setFavorite(listOf(t)) }()
         Music.gains.get(t).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
-        item("Cover…") { ui.pickCovers(listOf(t)) }()
         Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }
         splitArtists(t.artist).firstOrNull()?.let { lead -> item("Discovery playlist for $lead") { Music.makeDiscovery(lead) }() }
         if (t.isFile || Music.lib.has(t.id)) item("File location") { showLocation(ui, t) }()

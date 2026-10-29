@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "1.4.2"            # the release this is; GitHub's latest release is compared with it
+VERSION = "1.4.3"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -8755,6 +8755,75 @@ class BackdropBars(Gtk.Widget):
                               rect(pad + i * slot + (slot - bw) / 2, base - bh, bw, bh))
 
 
+COLLAGE_SIZES = (5, 10, 15, 20, 25)   # a collage's covers across (and down)
+
+
+def collage_png(items, n, labels, out, cell=None):
+    """A collage: the first n×n of items [{"title", "sub", "plays", "art": a picture's path or None}] as covers in a
+    square grid, most played first, each with its name and plays over its bottom (labels), written to out (PNG)."""
+    import cairo
+    gi.require_version("PangoCairo", "1.0")
+    from gi.repository import PangoCairo, GdkPixbuf, Gdk
+    cell = cell or max(120, min(300, 3000 // n))
+    side = cell * n
+    surf = cairo.ImageSurface(cairo.FORMAT_RGB24, side, side)
+    cr = cairo.Context(surf)
+    cr.set_source_rgb(0.07, 0.07, 0.08)
+    cr.paint()
+
+    def text(t, size, weight, alpha, x, y, width):
+        lay = PangoCairo.create_layout(cr)
+        lay.set_width(int(width * Pango.SCALE))
+        lay.set_ellipsize(Pango.EllipsizeMode.END)
+        lay.set_font_description(Pango.FontDescription.from_string(f"Inter, Sans {weight} {size:.1f}px"))
+        lay.set_text(t, -1)
+        cr.set_source_rgba(1, 1, 1, alpha)
+        cr.move_to(x, y)
+        PangoCairo.show_layout(cr, lay)
+    for i, it in enumerate(items[:n * n]):
+        x, y = (i % n) * cell, (i // n) * cell
+        pb = None
+        if it.get("art"):
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file(str(it["art"]))
+            except GLib.Error:
+                pb = None
+        cr.save()
+        cr.rectangle(x, y, cell, cell)
+        cr.clip()
+        if pb is not None:   # filled, the middle kept (a cover that isn't square is cut, not squashed)
+            k = cell / min(pb.get_width(), pb.get_height())
+            w, h = pb.get_width() * k, pb.get_height() * k
+            cr.translate(x + (cell - w) / 2, y + (cell - h) / 2)
+            cr.scale(k, k)
+            Gdk.cairo_set_source_pixbuf(cr, pb, 0, 0)
+            cr.paint()
+        else:   # no picture: a quiet tile with the name big
+            cr.set_source_rgb(0.16, 0.16, 0.19)
+            cr.paint()
+        cr.restore()
+        if labels:
+            pad = cell * 0.06
+            grad = cairo.LinearGradient(0, y + cell * 0.45, 0, y + cell)
+            grad.add_color_stop_rgba(0, 0, 0, 0, 0)
+            grad.add_color_stop_rgba(1, 0, 0, 0, 0.85)
+            cr.rectangle(x, y + cell * 0.45, cell, cell * 0.55)
+            cr.set_source(grad)
+            cr.fill()
+            big, small = cell * 0.105, cell * 0.088
+            plays = it.get("plays") or 0
+            lines = [(it.get("title") or "", big, "Bold", 1.0)]
+            if it.get("sub"):
+                lines.append((it["sub"], small, "", 0.8))
+            lines.append((f"{plays:,} play{'s' if plays != 1 else ''}", small, "", 0.8))
+            yy = y + cell - pad - sum(sz * 1.25 for _t, sz, _w, _a in lines)
+            for t, sz, w, alpha in lines:
+                text(t, sz, w, alpha, x + pad, yy, cell - 2 * pad)
+                yy += sz * 1.25
+    surf.write_to_png(str(out))
+    return out
+
+
 CARD_W, CARD_H = 1080, 1350   # a lyrics card: a portrait picture, as phones share them
 CARD_LINES = 12
 
@@ -11369,6 +11438,143 @@ class MusicWindow(Adw.ApplicationWindow):
             return [("Download", lambda _b: self.app.download(tracks), True)]
         return []
 
+    TOP_KINDS = (("songs", "Songs"), ("albums", "Albums"), ("artists", "Artists"))   # Most played: songs, albums or artists
+
+    def top_artists_rows(self, lst):
+        a = self.app
+        artists = a.top_artists(a.top_period)
+        if not artists:
+            self.section(lst, "NO ARTISTS PLAYED IN THIS TIME")
+            return
+        self.section(lst, f"{len(artists)} ARTISTS · MOST PLAYED FIRST")
+
+        def add(i):
+            x = artists[i]
+            known = a.pictures.artists.get(norm(x["name"])) or {}
+            lst.append(PlaylistRow(self, {"kind": "artist", "id": x["name"], "title": x["name"],
+                                          "thumb": known.get("image") or x.get("thumb") or "",
+                                          "sub": f"{x['plays']:,} play{'s' if x['plays'] != 1 else ''}"},
+                                   icon="avatar-default-symbolic"))
+        self.lazy(lst, len(artists), add)
+
+    def top_albums_rows(self, lst):
+        albums = self.app.top_albums(self.app.top_period)
+        if not albums:
+            self.section(lst, "NO ALBUMS PLAYED IN THIS TIME")
+            return
+        self.section(lst, f"{len(albums)} ALBUMS · MOST PLAYED FIRST")
+
+        def add(i):
+            al = albums[i]
+            tracks = sorted(al["tracks"], key=lambda t: (track_no(t), norm(t["title"])))
+            lst.append(PlaylistRow(self, {"kind": "album", "id": "top-al-" + al["key"], "title": al["title"], "thumb": "",
+                                          "sub": f"{al['artist']} · {al['plays']:,} play{'s' if al['plays'] != 1 else ''}",
+                                          "tracks": tracks, "source": "local"},
+                                   cover=next((t for t in tracks if t.get("thumb") or source_of(t) == "file"), tracks[0]),
+                                   icon="media-optical-symbolic"))
+        self.lazy(lst, len(albums), add)
+
+    def collage_dialog(self, kind, period=None):
+        """Collage…: your top songs, albums or artists as covers in a square grid (5×5 up to 25×25), each with its
+        plays, to save or copy (and post anywhere)."""
+        a = self.app
+        period = period or a.top_period
+        when = dict(self.SKIP_PERIODS).get(period, "All time")
+        if kind == "songs":
+            src = [{"title": t["title"], "sub": t["artist"], "plays": t.get("plays") or 0, "track": t} for t in a.most_played(period)]
+        elif kind == "albums":
+            src = [{"title": al["title"], "sub": al["artist"], "plays": al["plays"],
+                    "track": next((t for t in al["tracks"] if t.get("thumb") or source_of(t) == "file"), al["tracks"][0])}
+                   for al in a.top_albums(period)]
+        else:
+            src = [{"title": x["name"], "sub": "", "plays": x["plays"], "thumb": x.get("thumb") or "",
+                    "image": (a.pictures.artists.get(norm(x["name"])) or {}).get("image") or ""} for x in a.top_artists(period)]
+        if not src:
+            self.toast("Nothing played yet to make a collage of")
+            return
+        name = {"songs": "Top songs", "albums": "Top albums", "artists": "Top artists"}[kind]
+        dlg = Adw.Dialog(title=f"Collage · {name}", content_width=720, content_height=760)
+        page = Adw.ToolbarView()
+        page.add_top_bar(Adw.HeaderBar())
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=14, margin_end=14, margin_bottom=14)
+        sizes = Adw.ToggleGroup(halign=Gtk.Align.START)
+        sizes.add_css_class("sources")
+        for k in COLLAGE_SIZES:
+            sizes.add(Adw.Toggle(label=f"{k}×{k}", name=str(k)))
+        sizes.set_active_name(str(getattr(a, "collage_size", 25) if getattr(a, "collage_size", 25) in COLLAGE_SIZES else 25))
+        labels = Gtk.CheckButton(label="Names and plays", active=True)
+        top = Gtk.Box(spacing=12)
+        top.append(sizes)
+        top.append(labels)
+        box.append(top)
+        status = Gtk.Label(xalign=0, wrap=True)
+        status.add_css_class("sub")
+        box.append(status)
+        pic = Gtk.Picture(content_fit=Gtk.ContentFit.CONTAIN, vexpand=True)
+        box.append(pic)
+        bar = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        box.append(bar)
+        page.set_content(box)
+        dlg.set_child(page)
+        out = CACHE / "collage.png"
+        seq = [0]
+
+        def make(*_):
+            n = int(sizes.get_active_name() or 25)
+            a.collage_size = n
+            a.save_soon()
+            seq[0] += 1
+            me, want, show = seq[0], src[:n * n], labels.get_active()
+            status.set_label(f"Getting {len(want)} pictures…")
+
+            def work():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(8) as pool:
+                    arts = list(pool.map(lambda it: a.collage_art(it), want))
+                items = [dict(it, art=p) for it, p in zip(want, arts)]
+                return collage_png(items, n, show, out)
+
+            def done(_r, err):
+                if me != seq[0]:
+                    return
+                if err:
+                    status.set_label(f"Couldn't make it: {str(err)[:100]}")
+                    return
+                pic.set_paintable(Gdk.Texture.new_from_filename(str(out)))
+                status.set_label(f"{name} · {when} · {min(len(src), n * n)} of {len(src)}" +
+                                 (f" (only {len(src)} to show: the rest of the grid is empty)" if len(src) < n * n else ""))
+            in_thread(work, done=done)
+        sizes.connect("notify::active-name", make)
+        labels.connect("toggled", make)
+
+        def save(*_):
+            n = sizes.get_active_name()
+            fd = Gtk.FileDialog(title="Save the collage", initial_name=safe_name(f"{name} {when} {n}x{n}") + ".png")
+
+            def chosen(d, res):
+                try:
+                    f = d.save_finish(res)
+                except GLib.Error:
+                    return
+                import shutil
+                shutil.copyfile(out, f.get_path())
+                self.toast(f"Saved {Path(f.get_path()).name}")
+            fd.save(self, None, chosen)
+
+        def copy(*_):
+            if out.exists():
+                self.get_clipboard().set_texture(Gdk.Texture.new_from_filename(str(out)))
+                self.toast("Copied the collage: paste it anywhere")
+        for label, cb, quiet in (("Copy", copy, True), ("Save…", save, False)):
+            b = Gtk.Button(label=label)
+            b.add_css_class("pill")
+            if quiet:
+                b.add_css_class("quiet")
+            b.connect("clicked", cb)
+            bar.append(b)
+        make()
+        dlg.present(self)
+
     def stats_bar(self, lst, count):
         """Most played's Refresh (reads your new Last.fm scrobbles and adds everything up again) and where the counts are from."""
         a = self.app
@@ -11384,6 +11590,11 @@ class MusicWindow(Adw.ApplicationWindow):
             self.refresh_music()
         b.connect("clicked", go)
         box.append(b)
+        col = Gtk.Button(label="Collage…", valign=Gtk.Align.CENTER, tooltip_text="Your top ones as a grid of covers, to save or share")
+        col.add_css_class("pill")
+        col.add_css_class("quiet")
+        col.connect("clicked", lambda _b: self.collage_dialog(a.top_kind))
+        box.append(col)
         mine = Gtk.CheckButton(label="Only songs on this device", active=a.top_mine_only, valign=Gtk.Align.CENTER)
         mine.set_tooltip_text("Only the songs you have as files (every play of theirs still counts); off: every song you've played")
 
@@ -11632,6 +11843,8 @@ class MusicWindow(Adw.ApplicationWindow):
             return
         lst.remove_all()
         order = sorted(groups.items(), key=lambda kv: (kv[1][0].startswith("Unknown"), norm(kv[1][0]), norm(kv[1][1])))
+        if view == "albums":
+            self.actions_row(lst, [("Collage of your top albums…", lambda _b: self.collage_dialog("albums", "all"), True)])
         self.section(lst, f"{len(order)} {self.GROUP_VIEWS[view].upper()}")
 
         def add(i):
@@ -12248,7 +12461,7 @@ class MusicWindow(Adw.ApplicationWindow):
         else:
             tracks = a.most_played()
         # The same songs in the same order as shown: only the marks may have changed.
-        sig = (view, sort if view not in ("skips", "top") else (a.skip_order, a.skip_period) if view == "skips" else a.top_period,
+        sig = (view, sort if view not in ("skips", "top") else (a.skip_order, a.skip_period) if view == "skips" else (a.top_period, a.top_kind),
                tuple((t["id"], t.get("plays"), t.get("skips"), t.get("full")) for t in tracks), tuple(a.stats.sources),
                a.stats.busy if view == "top" else None)
         if sig == getattr(self, "_music_sig", None) and not lst.is_empty():
@@ -12294,8 +12507,16 @@ class MusicWindow(Adw.ApplicationWindow):
                 "favorites": f"{len(tracks)} FAVORITES", "unfavorited": f"{len(tracks)} SONGS NOT FAVORITED"}[view])
             if view == "top" and (a.lastfm.connected or a.spotify_history.plays or a.apple_history.rows):
                 lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=self.sort_chips(
+                    self.TOP_KINDS, "top_kind")))
+                lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=self.sort_chips(
                     self.SKIP_PERIODS, "top_period")))
                 self.stats_bar(lst, len(tracks))
+            if view == "top" and a.top_kind == "albums":   # Most played albums: the songs above, added up by album
+                self.top_albums_rows(lst)
+                return
+            if view == "top" and a.top_kind == "artists":   # Most played artists: every play of theirs
+                self.top_artists_rows(lst)
+                return
         group = [None]
 
         def add(i):
@@ -12876,6 +13097,162 @@ class MusicWindow(Adw.ApplicationWindow):
         dlg.connect("response", answered)
         dlg.present(self)
 
+    def tagger_dialog(self, tracks):
+        """Tagger…: everything about the songs picked, in one place: their tags (Save writes the ones you
+        changed; with several, a field they disagree on is left as it is in each unless you type in it),
+        their cover (a new one found or picked, as Cover… did), what the files are (format, quality, every
+        tag), and the lyrics (in the file, found, or typed, saved into it)."""
+        a = self.app
+        tracks = list(tracks)
+        if not tracks:
+            return
+        if self.selecting:
+            self.after_option()
+        files = [(t, song_file(a.lib, t)) for t in tracks]
+        on_disk = [(t, f) for t, f in files if f]
+        n = len(tracks)
+        title = tracks[0]["title"] if n == 1 else f"{n} songs"
+        dlg = Adw.Dialog(title="Tagger", content_width=600, content_height=640)
+        page = Adw.ToolbarView()
+        stack = Adw.ViewStack()
+        head = Adw.HeaderBar(title_widget=Adw.ViewSwitcher(stack=stack, policy=Adw.ViewSwitcherPolicy.WIDE))
+        page.add_top_bar(head)
+
+        def scrolled(child):
+            return Gtk.ScrolledWindow(child=child, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+
+        def column():
+            return Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=16, margin_end=16,
+                           margin_top=12, margin_bottom=16)
+
+        def label(text, css=None, **kw):
+            lab = Gtk.Label(label=text, xalign=0, wrap=True, selectable=kw.pop("selectable", False), **kw)
+            if css:
+                lab.add_css_class(css)
+            return lab
+
+        def pill(text, cb, quiet=False):
+            b = Gtk.Button(label=text, halign=Gtk.Align.START)
+            b.add_css_class("pill")
+            if quiet:
+                b.add_css_class("quiet")
+            b.connect("clicked", lambda _b: cb())
+            return b
+        sub_line = (f"{tracks[0]['artist']} · {tracks[0].get('album') or ''}".strip(" ·") if n == 1 else
+                    f"{len(on_disk)} of them on this computer" if len(on_disk) != n else "")
+
+        # ---- Tags ----
+        tags = column()
+        tags.append(label(title, "title-4"))
+        if sub_line:
+            tags.append(label(sub_line, "service"))
+        entries, touched = {}, set()
+        if on_disk:
+            have = read_edit_tags([f for _t, f in on_disk])
+            grid = Gtk.Grid(column_spacing=10, row_spacing=6)
+            for i, (k, name) in enumerate(TAG_FIELDS):
+                grid.attach(label(name, "service"), 0, i, 1, 1)
+                e = Gtk.Entry(hexpand=True, text=have.get(k) or "",
+                              placeholder_text="Several (left as they are)" if have.get(k) is None else "")
+                e.connect("changed", lambda _e, k=k: touched.add(k))
+                grid.attach(e, 1, i, 1, 1)
+                entries[k] = e
+            touched.clear()   # filling them in isn't an edit
+            tags.append(grid)
+
+            def save_tags():
+                changes = {k: entries[k].get_text() for k in touched}
+                if not changes:
+                    a.toast("Nothing changed")
+                    return
+                a.edit_tags_soon([t for t, _f in on_disk], changes)
+                touched.clear()
+            tags.append(pill("Save the tags", save_tags))
+            tags.append(label("Tag now… (Genius's notes, the album's details) is in the song's options.", "service")
+                        if any((a.lib.items.get(t["id"]) or {}).get("format") == "flac" for t, _f in on_disk) else
+                        Gtk.Box())
+        else:
+            tags.append(label("These songs aren't files on this computer, so there are no tags to edit. "
+                              "Download them first (the cover can still be changed).", "service"))
+        stack.add_titled_with_icon(scrolled(tags), "tags", "Tags", "document-edit-symbolic")
+
+        # ---- Cover ----
+        cover = column()
+        frame, pic = art_widget(220)
+        frame.set_halign(Gtk.Align.START)
+        self.art.apply(pic, tracks[0])
+        cover.append(frame)
+        albums = {album_key(t) for t in tracks}
+        cover.append(label(f"{len(albums)} albums: each gets its own cover, one after the other" if len(albums) > 1 else
+                           f"The cover of “{tracks[0].get('album') or tracks[0]['title']}”", "service"))
+        cover.append(pill("Find a new cover…", lambda: self.cover_dialog(tracks)))
+        stack.add_titled_with_icon(scrolled(cover), "cover", "Cover", "image-x-generic-symbolic")
+
+        # ---- Info: what the files are ----
+        info = column()
+        if not on_disk:
+            t = tracks[0]
+            info.append(label(f"Streamed from {SOURCES.get(source_of(t), source_of(t))}: not a file on this computer.", "service"))
+        for t, f in on_disk[:40]:
+            info.append(label(f"{t['title']} · {t['artist']}", "title"))
+            grid = Gtk.Grid(column_spacing=12, row_spacing=2)
+            for i, (k, v) in enumerate(file_metadata(f)):
+                grid.attach(label(k, "service"), 0, i, 1, 1)
+                grid.attach(label(v, selectable=True, hexpand=True), 1, i, 1, 1)
+            info.append(grid)
+        if len(on_disk) > 40:
+            info.append(label(f"…and {len(on_disk) - 40} more", "service"))
+        stack.add_titled_with_icon(scrolled(info), "info", "Info", "dialog-information-symbolic")
+
+        # ---- Lyrics ----
+        lyr = column()
+        if n == 1:
+            t, f = files[0]
+            view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, vexpand=True, top_margin=8, bottom_margin=8,
+                                left_margin=8, right_margin=8)
+            view.add_css_class("card")
+            status = label("", "service")
+            buf = view.get_buffer()
+            buf.set_text(file_lyrics(f) if f else "")
+            status.set_label("In the file" if f and buf.get_char_count() else
+                             "None in the file yet: Find them, or type them" if f else
+                             "Not a file on this computer: the lyrics can be found and read, not saved")
+
+            def find():
+                status.set_label("Looking…")
+
+                def done(got, err):
+                    words = Lyrics.words(got) if got else ""
+                    if words:
+                        buf.set_text(words)
+                    status.set_label("Found: Save puts them into the file" if words and f else
+                                     "Found" if words else f"None found{': ' + str(err)[:80] if err else ''}")
+                in_thread(a.lyrics.get, t, done=done)
+
+            def save():
+                text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False)
+
+                def done(_r, err):
+                    status.set_label(f"Couldn't save: {str(err)[:100]}" if err else "Saved into the file")
+                in_thread(set_file_lyrics, f, text, done=done)
+            row = Gtk.Box(spacing=8)
+            row.append(pill("Find the lyrics", find, quiet=True))
+            if f:
+                row.append(pill("Save into the file", save))
+            lyr.append(row)
+            lyr.append(status)
+            lyr.append(view)
+        else:
+            lyr.append(label(f"Each song's lyrics, found and put into its own file ({len(on_disk)} on this computer). "
+                             "Songs that have lyrics already keep them.", "service"))
+            if on_disk:
+                lyr.append(pill("Put the lyrics into the files", lambda: a.lyrics_into_files([t for t, _f in on_disk])))
+        stack.add_titled_with_icon(lyr if n == 1 else scrolled(lyr), "lyrics", "Lyrics", "format-justify-left-symbolic")
+
+        page.set_content(stack)
+        dlg.set_child(page)
+        dlg.present(self)
+
     def cover_dialog(self, tracks):
         """Cover…: a new cover for each album of tracks, one album at a time, from Google's,
         Genius's and Wikipedia's pictures of it, or a file of yours."""
@@ -13327,7 +13704,16 @@ class MusicWindow(Adw.ApplicationWindow):
                                         max_children_per_line=10, column_spacing=4, row_spacing=6, valign=Gtk.Align.START)
         self.artists_flow.add_css_class("artist-grid")
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        box.append(self.artists_note)
+        head = Gtk.Box(spacing=10)
+        self.artists_note.set_hexpand(True)
+        head.append(self.artists_note)
+        col = Gtk.Button(label="Collage…", valign=Gtk.Align.CENTER, tooltip_text="Your top artists as a grid, with their plays, to save or share")
+        col.add_css_class("pill")
+        col.add_css_class("quiet")
+        col.set_margin_end(12)
+        col.connect("clicked", lambda _b: self.collage_dialog("artists", "all"))
+        head.append(col)
+        box.append(head)
         box.append(self.artists_flow)
         self.artist_tiles = {}   # norm(name) -> its picture
         return Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, child=box, vexpand=True)
@@ -13790,9 +14176,7 @@ class MusicWindow(Adw.ApplicationWindow):
             items.append(("down", "Download in FLAC", lambda: a.download(tracks)))
         if files:
             items.append(("lyrics", "Put the lyrics into the files", lambda: a.lyrics_into_files(files)))
-        items.append(("art", "Cover…", "cover"))
-        if files:
-            items.append(("edit", "Edit tags…", "tags"))
+        items.append(("edit", "Tagger…", "tagger"))   # tags, cover, the file's details and lyrics
         items += [("chart", "Speed…", "speed"), ("speaker", "Volume…", "volume")]
         if not a.upgrading and any(upgradable(t) for t in tracks):
             items.append(("reload", "Upgrade to Tidal's FLAC…", "upgrade"))
@@ -13807,7 +14191,7 @@ class MusicWindow(Adw.ApplicationWindow):
         items.append(("copy", "Copy the names", lambda: self.copy_names(tracks)))
         if files:
             items.append(("trash", "Delete…", "delete"))
-        dialogs = {"cover": lambda: self.cover_dialog(tracks), "tags": lambda: self.edit_tags_dialog(files),
+        dialogs = {"tagger": lambda: self.tagger_dialog(tracks),
                    "speed": lambda: self.speed_dialog(tracks), "volume": lambda: self.volume_dialog(tracks),
                    "upgrade": lambda: self.confirm_upgrade([t for t in tracks if upgradable(t)]),
                    "delete": lambda: self.delete_songs_dialog(files)}
@@ -14187,13 +14571,12 @@ class MusicWindow(Adw.ApplicationWindow):
             item("Remove from this playlist", lambda: self.app.remove_from_playlist(self.open_mine, {t["id"]}))
         if source_of(t) != "file" and not self.lib.has(t["id"]) and not self.dl.busy(t["id"]):
             item("Download", lambda: self.download_only(t))
+        item("Tagger…", lambda: self.tagger_dialog([t]))
         if song_file(self.lib, t):
-            item("Edit tags…", lambda: self.edit_tags_dialog([t]))
             if upgradable(t) and not self.app.upgrading:
                 item("Upgrade to FLAC…", lambda: self.confirm_upgrade([t]))
             item("Delete…", lambda: self.delete_songs_dialog([t]))
         item("Unfavorite" if self.app.favorites.has(t) else "Favorite", lambda: self.app.set_favorite([t]))
-        item("Cover…", lambda: self.cover_dialog([t]))
         gain = self.app.gains.get(t)
         item("Volume…" if gain == 0 else f"Volume ({gain:+g} dB)…", lambda: self.volume_dialog([t]))
         speed = self.app.speeds.get(t)[0]
@@ -16283,6 +16666,85 @@ def put_lyrics(path, text):
     return True
 
 
+def file_lyrics(path):
+    """The lyrics inside a file (a FLAC's or Ogg's LYRICS, an MP3's ID3 lyrics, an M4A's), or ""."""
+    import mutagen
+    try:
+        f = mutagen.File(path)
+    except Exception:  # noqa: BLE001 -- unreadable: none
+        return ""
+    tags = getattr(f, "tags", None) if f is not None else None
+    if not tags:
+        return ""
+    try:
+        for k in list(tags.keys()):
+            if str(k).startswith("USLT"):
+                return str(tags[k].text or "").strip()
+    except Exception:  # noqa: BLE001
+        pass
+    for k in ("\xa9lyr", "LYRICS", "UNSYNCEDLYRICS"):   # M4A's, then Vorbis comments' (any case)
+        try:
+            v = tags[k] if k in tags else None
+        except Exception:  # noqa: BLE001 -- not a key this kind of tags can have
+            continue
+        if v:
+            return str(v[0] if isinstance(v, list) else v).strip()
+    return ""
+
+
+def set_file_lyrics(path, text):
+    """The file's lyrics replaced by text ("" takes them off)."""
+    import mutagen
+    from mutagen.id3 import ID3, USLT
+    from mutagen.mp4 import MP4
+    text = (text or "").strip()
+    f = mutagen.File(path)
+    if f is None:
+        raise ValueError(f"{Path(path).name} isn't a file whose tags can be written")
+    if f.tags is None:
+        f.add_tags()
+    if isinstance(f, MP4):
+        f.tags.pop("\xa9lyr", None)
+        if text:
+            f.tags["\xa9lyr"] = [text]
+    elif isinstance(f.tags, ID3):
+        f.tags.delall("USLT")
+        if text:
+            f.tags.add(USLT(encoding=3, lang="eng", desc="", text=text))
+    else:
+        for k in ("LYRICS", "UNSYNCEDLYRICS"):
+            if k in f.tags:
+                del f.tags[k]
+        if text:
+            f.tags["LYRICS"] = [text]
+    f.save()
+
+
+def file_metadata(path):
+    """Everything a file says about itself, for the Tagger's Info: [(name, value)]."""
+    import mutagen
+    facts = file_facts(path)
+    out = [("File", str(path)), ("Format", facts["format"]), ("Quality", facts["quality"]),
+           ("Length", fmt_time(facts["duration"]) if facts["duration"] else ""),
+           ("Bitrate", f"{facts['bitrate']} kbps" if facts["bitrate"] else ""),
+           ("Size", f"{facts['size'] / 1e6:.1f} MB" if facts["size"] else "")]
+    try:
+        f = mutagen.File(path)
+        tags = getattr(f, "tags", None) if f is not None else None
+        for k in sorted(tags.keys(), key=str) if tags else []:
+            name = str(k)
+            if name.startswith(("APIC", "USLT", "SYLT")) or name.lower() in (
+                    "covr", "metadata_block_picture", "lyrics", "unsyncedlyrics", "\xa9lyr"):
+                continue
+            v = tags[k]
+            v = getattr(v, "text", v)
+            v = ", ".join(str(x) for x in v) if isinstance(v, list) else str(v)
+            out.append((name, v[:300]))
+    except Exception:  # noqa: BLE001 -- the facts alone
+        pass
+    return [(k, v) for k, v in out if v]
+
+
 def cover_image(data):
     """Picture bytes as a cover: (bytes, mime). A JPEG or PNG stays as it is; anything else
     (WebP, GIF…) becomes a JPEG. ValueError if it isn't a picture."""
@@ -16414,6 +16876,8 @@ class MusicApp(Adw.Application):
         self.skip_period = "all"   # …and over which time: week, month, year, all
         self.top_mine_only = True  # Most played: only the songs on this device (your files), plays from everywhere
         self.top_period = "all"    # …over which time: week, month, year, all
+        self.top_kind = "songs"    # …songs or albums
+        self.collage_size = 25     # Collage…: covers across (25×25 unless you pick fewer)
         self.repeat_period = "week"   # Repeat's chart: week, month, year
         self.vis_preset = "bars"   # the Visualizer tab's look
         self.drawer_open = True    # the menu (☰) beside the page
@@ -16503,6 +16967,8 @@ class MusicApp(Adw.Application):
         self.skip_period = state.get("skip_period") if state.get("skip_period") in ("week", "month", "year", "all") else "all"
         self.top_mine_only = state.get("top_mine_only", True) is not False
         self.top_period = state.get("top_period") if state.get("top_period") in ("week", "month", "year", "all") else "all"
+        self.top_kind = state.get("top_kind") if state.get("top_kind") in ("songs", "albums", "artists") else "songs"
+        self.collage_size = state.get("collage_size") if state.get("collage_size") in COLLAGE_SIZES else 25
         self.repeat_period = state.get("repeat_period") if state.get("repeat_period") in ("week", "month", "year") else "week"
         # Sound quality: bit-perfect (exclusive), ReplayGain (off in bit-perfect)
         self.bitperfect = bool(state.get("bitperfect"))
@@ -16628,6 +17094,7 @@ class MusicApp(Adw.Application):
                                        "discord": self.discord_on, "look": self.look, "styled": True, "np_fallback": self.np_fallback,
                                        "skip_order": self.skip_order, "skip_period": self.skip_period, "dj_new": self.dj_new,
                                        "top_mine_only": self.top_mine_only, "top_period": self.top_period,
+                                       "top_kind": self.top_kind, "collage_size": self.collage_size,
                                        "tray_told": getattr(self, "tray_told", False),
                                        "repeat_period": self.repeat_period, "bitperfect": self.bitperfect,
                                        "replaygain": self.replaygain, "vis_preset": self.vis_preset,
@@ -17516,6 +17983,58 @@ class MusicApp(Adw.Application):
             out = [t for t in out if source_of(t) == "file" or self.lib.has(t["id"])]
         out.sort(key=lambda t: -t["plays"])
         return out
+
+    def top_albums(self, period="all"):
+        """Most played albums: Most played's songs (the same period, the same "only songs on this device")
+        added up by album. [{"key", "title", "artist", "plays", "tracks"}], most played first."""
+        out = {}
+        for t in self.most_played(period):
+            album = (t.get("album") or "").strip()
+            if not album:
+                continue
+            artist = (t.get("albumartist") or lead_artist(t.get("artist") or "") or t.get("artist") or "").split(",")[0].strip()
+            bare = re.sub(r"[\W_]+", "", norm(artist))
+            key = f"{norm(clean_title(album))}|{bare}"
+            al = out.setdefault(key, {"key": key, "title": album, "artist": artist, "plays": 0, "tracks": []})
+            al["plays"] += t.get("plays") or 0
+            al["tracks"].append(t)
+        return sorted(out.values(), key=lambda a: -a["plays"])
+
+    def top_artists(self, period="all"):
+        """Most played artists over a period: every play of theirs (every source with a time, as Most played
+        counts them), by lead artist. [{"name", "plays", "thumb"}], most played first. All time: the Artists tab's."""
+        if period == "all":
+            return list(self.stats.artists)
+        out = {}
+        for st in self.stats.periods.get(period, []):
+            lead = lead_artist(st["artist"]) or st["artist"]
+            k = stats_key(lead, lead)[1]
+            x = out.setdefault(k, {"name": lead, "plays": 0, "thumb": ""})
+            x["plays"] += st["plays"]
+            x["thumb"] = x["thumb"] or st.get("thumb") or ""
+        return sorted(out.values(), key=lambda x: -x["plays"])
+
+    def collage_art(self, it):
+        """(blocking) A picture on disk for a collage tile: a song's (or an album's first song's) cover, an
+        artist's picture; downloaded if it has to be. Its path, or None."""
+        t = it.get("track")
+        if t is not None:
+            lib = self.lib.items.get(t["id"]) or {}
+            for p in (lib.get("art"), self.win.art.paths.get(t["id"]) if self.win else None, THUMBS / f"{t['id']}.jpg"):
+                if p and Path(p).exists():
+                    return str(p)
+            f = song_file(self.lib, t)
+            if f:
+                data = file_cover(f)
+                if data:
+                    dest = CACHE / "collage" / (hashlib.sha1(str(f).encode()).hexdigest() + ".jpg")
+                    if not dest.exists():
+                        write_file(dest, data)
+                    return str(dest)
+            url = sized_thumb(t["thumb"], 600) if t.get("thumb") else ""
+            return cached_image(url) or None
+        url = it.get("image") or it.get("thumb") or ""
+        return cached_image(url) or None
 
     def song_index(self):
         """Song key -> your copy of it. Files on your device win over songs only played (streamed): each

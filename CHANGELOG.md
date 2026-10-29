@@ -4,6 +4,16 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 1.4.3: The Tagger, collages and most played albums (Windows and Android)
+- Song options (one song or several): Cover… and Edit tags… are now one **Tagger…**, with four tabs:
+  - Tags: change the title, artist, album, album artist, genre, year and track (with several songs, a field they disagree on stays as it is unless you type in it)
+  - Cover: the cover, and Find a new cover… (searching for it, or a picture of yours, as before)
+  - Info: what the file is: format, quality, size, length, bitrate and every tag in it
+  - Lyrics: the lyrics in the file; Find the lyrics, edit them, and Save them into the file (several songs: put each one's lyrics into its file)
+- Android: tags and lyrics can be written into the songs the app downloaded (Android keeps your own files to other apps)
+- Most played: Songs, Albums or Artists (an album's plays are its songs' added up), for this week, month, year or all time
+- Collage…: your top songs, albums or artists (in Most played, and in the Albums and Artists tabs) as a grid of covers, 5×5 up to 25×25, with each one's name and plays; save it, copy it (Windows) or share it (Android)
+
 ## 1.4.2: Steadier, smoother, and Most played by week, month and year (Windows and Android)
 - Most played: This week, This month, This year and All time, each adding up Last.fm, Spotify and Apple Music (every play with a time)
 - Wrapped counts a song once across Last.fm, Spotify and Apple Music, as Most played does

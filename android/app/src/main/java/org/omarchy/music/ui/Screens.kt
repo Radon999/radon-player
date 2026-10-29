@@ -331,6 +331,10 @@ fun MusicTab(ui: Ui) {
                                 val st = org.omarchy.music.Stats
                                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists").forEach { (k, l) -> Chip(l, Music.topKind == k) { Music.chooseTopKind(k) } }
+                                }
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     listOf("week" to "This week", "month" to "This month", "year" to "This year", "all" to "All time").forEach { (k, l) ->
                                         Chip(l, Music.topPeriod == k) { Music.chooseTopPeriod(k) }
                                     }
@@ -338,12 +342,15 @@ fun MusicTab(ui: Ui) {
                                 ActionRow(if (st.busy) "Refreshing…" else "Refresh  ↻  ${tracks.size} songs · ${st.sources.joinToString(" + ")}") {
                                     if (!st.busy) st.refresh(force = true)
                                 }
-                                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Chip("Only songs on this phone", Music.topMineOnly) { Music.chooseTopMineOnly(!Music.topMineOnly) }
+                                    Chip("Collage…", false) { ui.collageFor = Music.topKind }
                                 }
                             }
                         }
-                        if (ui.musicView == "all" && Music.musicSort in setOf("artist", "album") && layoutNow(ui) == "list" && ui.filter.isNullOrBlank()) grouped(tracks, ui, Music.musicSort == "artist")
+                        if (ui.musicView == "top" && Music.topKind == "albums") topAlbumsItems(ui)   // the songs above, added up by album
+                        else if (ui.musicView == "top" && Music.topKind == "artists") topArtistsItems(ui)   // every play of theirs
+                        else if (ui.musicView == "all" && Music.musicSort in setOf("artist", "album") && layoutNow(ui) == "list" && ui.filter.isNullOrBlank()) grouped(tracks, ui, Music.musicSort == "artist")
                         else tracks(tracks, ui, ui.musicView) { t ->
                             when (ui.musicView) {
                                 "top" -> "${t.plays} play${if (t.plays != 1) "s" else ""}"
@@ -705,6 +712,7 @@ fun ArtistsTab(ui: Ui) {
         item {
             Section((listOf("YOUR TOP ARTISTS") + org.omarchy.music.Stats.sources.joinToString(" + ").uppercase().ifEmpty { null })
                 .filterNotNull().joinToString(" · "))
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Collage…", false) { ui.collageFor = "artists-all" } }
         }
         laidOutItems(shown, ui, key = { "ar-" + shown[it].name }, row = { i ->
             val a = shown[i]
@@ -967,5 +975,38 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatView(ui: Ui) {
             val rank = chart.withIndex().associate { (i, t) -> t.id to i + 1 }
             tracks(chart, ui, "repeat") { t -> "#${rank[t.id] ?: ""} · ${t.plays} play${if (t.plays != 1) "s" else ""}" }
         }
+    }
+}
+
+
+/** Most played albums: Most played's songs added up by album; an album opens its songs. */
+fun androidx.compose.foundation.lazy.LazyListScope.topAlbumsItems(ui: Ui) {
+    val albums = runCatching { Music.topAlbums(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.title, it.artist) }
+    item { Section(if (albums.isEmpty()) "NO ALBUMS PLAYED IN THIS TIME" else "${albums.size} ALBUMS · MOST PLAYED FIRST") }
+    fun open(al: Music.TopAlbum) {
+        ui.pages += Ui.Page.AlbumPage(Album("top-" + al.key, al.title, al.artist, al.tracks.first().thumb), "local", al.tracks)
+    }
+    fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
+    laidOutItems(albums, ui, key = { "tal-" + albums[it].key }, row = { i ->
+        val al = albums[i]
+        PlaylistRow(Album(al.key, al.title, "${al.artist} · ${plays(al.plays)}"), artModel(al.tracks.first())) { open(al) }
+    }) { i, mod, compact ->
+        val al = albums[i]
+        Tile(artModel(al.tracks.first(), tilePx(compact)), al.title, al.artist, mod, compact, extra = plays(al.plays), ico = Ico.DISC) { open(al) }
+    }
+}
+
+
+/** Most played artists: every play of theirs over the period; an artist opens their page. */
+fun androidx.compose.foundation.lazy.LazyListScope.topArtistsItems(ui: Ui) {
+    val artists = runCatching { Music.topArtists(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.name) }
+    item { Section(if (artists.isEmpty()) "NO ARTISTS PLAYED IN THIS TIME" else "${artists.size} ARTISTS · MOST PLAYED FIRST") }
+    fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
+    laidOutItems(artists, ui, key = { "tar-" + artists[it].name }, row = { i ->
+        val a = artists[i]
+        PlaylistRow(Album(a.name, a.name, plays(a.plays)), artistArt(a.name, a.thumb)) { ui.pages += Ui.Page.Artist(a.name) }
+    }) { i, mod, compact ->
+        val a = artists[i]
+        Tile(artistArt(a.name, a.thumb), a.name, plays(a.plays), mod, compact, round = true, ico = Ico.PERSON) { ui.pages += Ui.Page.Artist(a.name) }
     }
 }

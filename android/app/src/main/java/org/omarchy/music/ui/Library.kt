@@ -52,7 +52,10 @@ fun AlbumsTab(ui: Ui) {
     val albums = all.filter { fits(ui, it.first.title, it.first.sub) }
     fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
     LazyColumn(Modifier.fillMaxSize()) {
-        item { Section("${albums.size} ALBUMS") }
+        item {
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Collage of your top albums…", false) { ui.collageFor = "albums-all" } }
+            Section("${albums.size} ALBUMS")
+        }
         laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, row = { i ->
             val (al, songs) = albums[i]
             PlaylistRow(Album(al.id, al.title, al.sub, "", songs.size.toString()), artModel(songs.first()),
@@ -253,8 +256,7 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
                 add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
                 add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
-                if (picked.any { org.omarchy.music.Tags.editable(it) != null }) add(Triple(Ico.EDIT, "Edit tags…") { ui.editTagsFor = picked })
-                add(Triple(Ico.ART, "Cover…") { ui.pickCovers(picked) })
+                add(Triple(Ico.EDIT, "Tagger…") { ui.taggerFor = picked })   // tags, cover, the files' details, lyrics
                 add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
                 add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
                 if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })

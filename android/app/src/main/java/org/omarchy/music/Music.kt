@@ -264,6 +264,7 @@ object Music {
         val pins: List<Pin> = emptyList(), val layouts: Map<String, String> = emptyMap(), val mic_asked: Boolean = false,
         val skip_period: String = "all", val bit_perfect: Boolean = false, val replay_gain: String = "off",
         val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
+        val top_kind: String = "songs", val collage_size: Int = 25,
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -303,6 +304,8 @@ object Music {
         djNew = st.dj_new
         topMineOnly = st.top_mine_only
         topPeriod = st.top_period.takeIf { it in setOf("week", "month", "year", "all") } ?: "all"
+        topKind = st.top_kind.takeIf { it in setOf("songs", "albums", "artists") } ?: "songs"
+        collageSize = st.collage_size.takeIf { it in listOf(5, 10, 15, 20, 25) } ?: 25
         Dj.withNew = djNew
         replayGain = st.replay_gain.takeIf { it in setOf("off", "track", "album") } ?: "off"
         eqProcessor.bypass = bitPerfect
@@ -330,7 +333,7 @@ object Music {
         val st = State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod)
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize)
         bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
     }
 
@@ -462,6 +465,39 @@ object Music {
     /** The Music tab's Most played: every play added up (see [Stats]): Last.fm's, your Spotify
      *  history's and, without Last.fm, the plays here. Until the counts are in, the plays here stand in. */
     var showDiscoveryLists by mutableStateOf(false)   // Playlists: the discovery playlists unfolded
+    var topKind by mutableStateOf("songs")     // Most played: songs, or albums
+    fun chooseTopKind(k: String) { topKind = k; saveState() }
+    var collageSize by mutableStateOf(25)       // Collage…: covers across (25×25 unless you pick fewer)
+    fun chooseCollageSize(n: Int) { if (n != collageSize) { collageSize = n; saveState() } }
+
+    data class TopArtist(val name: String, val plays: Int, val thumb: String)
+
+    /** Most played artists over a period: every play of theirs (every source with a time), by lead artist. All time: the Artists tab's. */
+    fun topArtists(period: String = "all"): List<TopArtist> {
+        if (period == "all") return Stats.artists.map { TopArtist(it.name, it.plays, it.thumb) }
+        val out = LinkedHashMap<String, TopArtist>()
+        for (s in Stats.periods[period].orEmpty()) {
+            val lead = splitArtists(s.artist).firstOrNull()?.ifEmpty { null } ?: s.artist
+            val k = Stats.statsKey(lead, lead).second
+            val x = out[k]
+            out[k] = if (x == null) TopArtist(lead, s.plays, s.thumb) else x.copy(plays = x.plays + s.plays, thumb = x.thumb.ifEmpty { s.thumb })
+        }
+        return out.values.sortedByDescending { it.plays }
+    }
+
+    data class TopAlbum(val key: String, val title: String, val artist: String, val plays: Int, val tracks: List<Track>)
+
+    /** Most played albums: Most played's songs (the same period, the same "only songs on this phone") added up by album. */
+    fun topAlbums(period: String = "all"): List<TopAlbum> {
+        val out = LinkedHashMap<String, MutableList<Track>>()
+        for (t in mostPlayed(period)) {
+            if (t.album.isBlank()) continue
+            val artist = splitArtists(t.artist).firstOrNull()?.ifEmpty { null } ?: t.artist
+            out.getOrPut(norm(cleanTitle(t.album)) + "|" + norm(artist).replace(Regex("[\\W_]+"), "")) { ArrayList() } += t
+        }
+        return out.map { (k, ts) -> TopAlbum(k, ts.first().album, splitArtists(ts.first().artist).firstOrNull() ?: ts.first().artist, ts.sumOf { it.plays }, ts) }
+            .sortedByDescending { it.plays }
+    }
     var topPeriod by mutableStateOf("all")      // Most played over: week, month, year, all
     fun chooseTopPeriod(p: String) { topPeriod = p; mostPlayedFor = null; musicVersion++; saveState() }
 
@@ -1604,8 +1640,8 @@ object Music {
     fun canWriteOwnFiles() = android.os.Build.VERSION.SDK_INT < 30 || android.os.Environment.isExternalStorageManager()
 
     /** Write the lyrics found for t into its file's tags (if it has none). Your own files need All files access. */
-    fun lyricsIntoFile(t: Track) {
-        if (!lyricsToFiles || Remote.active) return
+    fun lyricsIntoFile(t: Track, force: Boolean = false) {   // force: asked for (the Tagger), whatever the setting
+        if ((!lyricsToFiles && !force) || Remote.active) return
         val uri = (lib.items[t.id]?.file ?: t.file)?.takeIf { it.startsWith("content://") } ?: return
         val own = lib.items[t.id] == null
         if (own && !canWriteOwnFiles()) return

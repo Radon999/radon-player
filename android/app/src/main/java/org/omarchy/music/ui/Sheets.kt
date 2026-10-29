@@ -99,6 +99,8 @@ fun Sheets(ui: Ui) {
     ui.pickPlaylistFor?.let { tracks -> PlaylistPicker(ui, tracks) }
     ui.folderFor?.let { item -> FolderPicker(ui, item) }
     ui.editTagsFor?.let { tracks -> TagsDialog(ui, tracks) }
+    ui.taggerFor?.let { tracks -> TaggerSheet(ui, tracks) }
+    ui.collageFor?.let { kind -> CollageSheet(ui, kind) }
     DeleteDialog(ui)
     Music.importReport?.let { ImportReportDialog(it) }
     ui.coverFor?.let { albums -> CoverDialog(ui, albums) }
@@ -512,11 +514,11 @@ private fun Line(name: String, state: String, ok: Boolean, actions: @Composable 
 private fun Divider() = HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 6.dp))
 
 @Composable
-fun Field(value: String, hint: String, password: Boolean = false, onChange: (String) -> Unit) {
+fun Field(value: String, hint: String, password: Boolean = false, multiLine: Boolean = false, onChange: (String) -> Unit) {
     Box(Modifier.fillMaxWidth().padding(vertical = 3.dp).border(1.dp, C.line).background(C.fg.copy(alpha = 0.04f))
         .padding(horizontal = 10.dp, vertical = 10.dp)) {
         if (value.isEmpty()) Text(hint, style = T.body.copy(color = C.muted))
-        BasicTextField(value, onChange, singleLine = true, textStyle = T.body, cursorBrush = SolidColor(C.accent),
+        BasicTextField(value, onChange, singleLine = !multiLine, textStyle = T.body, cursorBrush = SolidColor(C.accent),
             visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation()
                 else androidx.compose.ui.text.input.VisualTransformation.None,
             modifier = Modifier.fillMaxWidth())
