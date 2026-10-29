@@ -54,7 +54,7 @@ import org.omarchy.music.norm
 
 /** The pages that can be a list, a grid or a compact grid (and searched on their own). */
 private val LAID_OUT = setOf("all", "recent", "favorites", "unfavorited", "top", "skips", "playlists", "playlist", "pinned",
-    "library", "albums", "artists", "genres", "folders", "artist-page", "album-page", "songs-page", "repeat", "newreleases")
+    "library", "albums", "eps", "singles", "artists", "genres", "folders", "artist-page", "album-page", "songs-page", "repeat", "newreleases")
 
 /** Which page is in front, for its layout. */
 fun layoutKey(ui: Ui): String = when (ui.pages.lastOrNull()) {
@@ -152,7 +152,7 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     Box(modifier) {
         Tile(artModel(t, tilePx(compact)), t.title, t.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
-            onLongClick = { if (ui.selecting) ui.toggle(t) else menu = true },
+            onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
             over = {
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                     Icon(if (Music.paused) Ico.PAUSE else Ico.PLAY, C.accent, if (compact) 20.dp else 26.dp)

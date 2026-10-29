@@ -5,3 +5,4 @@ ytmusicapi
 tidalapi
 yt-dlp
 zeroconf
+pychromecast   # Cast: Chromecasts, Google speakers and TVs

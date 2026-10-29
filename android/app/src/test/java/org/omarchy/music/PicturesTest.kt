@@ -29,6 +29,8 @@ class PicturesTest {
         {"link":"https://example.com/g2.jpg"}]}"""
 
     private var down = setOf<String>()
+    private var deezerOn = false
+    private var deezerBusy = false
     private val calls = ArrayList<String>()
     private var keys = mapOf<String, String>()
 
@@ -37,6 +39,8 @@ class PicturesTest {
         if (down.any { it in url.substringAfter("//").substringBefore("/") }) throw IOException("unreachable")
         val u = URLDecoder.decode(url, "UTF-8")
         return JSON.parseToJsonElement(when {
+            "api.deezer.com" in url && deezerBusy -> """{"error":{"type":"Exception","message":"busy","code":100}}"""
+            "api.deezer.com" in url -> if (deezerOn) """{"data":[{"name":"Joji","picture_xl":"https://cdn-images.dzcdn.net/images/artist/j/1000x1000.jpg"}]}""" else """{"data":[]}"""
             "googleapis" in url -> google
             "/api/search/artist" in url -> geniusArtists
             "/api/search/album" in url -> geniusAlbums
@@ -98,5 +102,27 @@ class PicturesTest {
         assertEquals("Tame Impala is a project.", Pictures.wikiText("Tame Impala ( TAYM im-PAHL-ə) is a project."))
         val keep = "Mac Miller (January 19, 1992 – September 7, 2018) was a rapper."
         assertEquals(keep, Pictures.wikiText(keep))
+    }
+
+    @Test fun deezerFirst() {
+        deezerOn = true
+        try {
+            val a = Pictures.artist("Joji", refresh = true)
+            assertEquals("https://cdn-images.dzcdn.net/images/artist/j/1000x1000.jpg" to "Deezer", a.image to a.imageFrom)
+            assertTrue(a.bio.isNotEmpty())
+        } finally { deezerOn = false }
+    }
+
+    /** Deezer busy: not kept as "no picture" for two weeks, asked again soon; old misses (before pacing) again once. */
+    @Test fun deezerBusyIsAskedAgain() {
+        deezerBusy = true
+        try {
+            val a = Pictures.artist("Sleep Token", refresh = true)
+            assertTrue(a.failed)
+            assertTrue(Pictures.settled(a))
+            assertTrue(!Pictures.settled(a.copy(t = a.t - 3601)))
+        } finally { deezerBusy = false }
+        assertTrue(!Pictures.settled(Pictures.Artist(v = 2, t = System.currentTimeMillis() / 1000.0)))
+        assertTrue(Pictures.settled(Pictures.Artist(image = "https://x/a.jpg", v = 2, t = 1.0)))
     }
 }

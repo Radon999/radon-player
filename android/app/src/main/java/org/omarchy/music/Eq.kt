@@ -198,6 +198,11 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile var songGain = 1.0   // the playing song's own volume (Volume…), on top
     @Volatile var rgGain = 1.0     // ReplayGain, on top of that
     @Volatile var bypass = false   // bit-perfect: every sample passes exactly as it came
+    /** Headphone crossfeed (Equalizer › Crossfeed): a little of each side, its highs softened, into the other, as you'd
+     *  hear speakers across a room. The desktop's ffmpeg crossfeed, its strength 0.3. */
+    @Volatile var crossfeed = false
+    private var lpL = 0.0
+    private var lpR = 0.0
     private var rate = 48000.0
     private var channels = 2
 
@@ -235,7 +240,7 @@ class EqProcessor : BaseAudioProcessor() {
         val st = stages
         val float = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
         input.order(ByteOrder.nativeOrder())
-        if (bypass || (st.isEmpty() && songGain == 1.0 && rgGain == 1.0)) {
+        if (bypass || (st.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed)) {
             out.put(input)
         } else {
             val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain
@@ -254,11 +259,33 @@ class EqProcessor : BaseAudioProcessor() {
                 else out.putShort((x * 32768.0).roundToInt().coerceIn(-32768, 32767).toShort())
                 ch = (ch + 1) % channels
             }
+            if (crossfeed && channels == 2) crossfeedPass(out, n, float)
         }
         out.flip()
     }
 
+    /** Crossfeed over the frames just written to out (n bytes). */
+    private fun crossfeedPass(out: ByteBuffer, n: Int, float: Boolean) {
+        val a = 1.0 - kotlin.math.exp(-2.0 * Math.PI * 700.0 / rate)   // the other side's highs softened above 700 Hz
+        val k = 0.3
+        val size = if (float) 4 else 2
+        var i = out.position() - n
+        while (i + 2 * size <= out.position()) {
+            val l = if (float) out.getFloat(i).toDouble() else out.getShort(i) / 32768.0
+            val r = if (float) out.getFloat(i + size).toDouble() else out.getShort(i + size) / 32768.0
+            lpL += a * (l - lpL); lpR += a * (r - lpR)
+            val nl = (l + k * lpR) / (1 + k); val nr = (r + k * lpL) / (1 + k)
+            if (float) { out.putFloat(i, nl.toFloat()); out.putFloat(i + size, nr.toFloat()) }
+            else {
+                out.putShort(i, (nl * 32768.0).roundToInt().coerceIn(-32768, 32767).toShort())
+                out.putShort(i + size, (nr * 32768.0).roundToInt().coerceIn(-32768, 32767).toShort())
+            }
+            i += 2 * size
+        }
+    }
+
     override fun onFlush() {
         stages.forEach { s -> s.state.forEach { it.fill(0.0) } }
+        lpL = 0.0; lpR = 0.0
     }
 }

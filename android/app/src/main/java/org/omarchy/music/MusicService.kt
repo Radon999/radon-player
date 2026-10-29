@@ -17,6 +17,9 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.compose.runtime.snapshotFlow
+import androidx.media3.cast.CastPlayer
+import androidx.media3.cast.SessionAvailabilityListener
+import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -95,12 +98,58 @@ class MusicService : MediaLibraryService() {
         })
         val s = MediaLibrarySession.Builder(this, if (Remote.active) remote else local, Car.callback).setSessionActivity(open).build()
         session = s
+        val cast = castPlayer()?.let { queueAware(it) }
+        if (cast != null) players = players + cast
         switching = Music.scope.launch {
-            snapshotFlow { Remote.active }.collect { on -> s.player = if (on) remote else local }
+            snapshotFlow { Remote.active to (Music.cast != null) }.collect { (on, casting) ->
+                s.player = if (on) remote else if (casting && cast != null) cast else local
+            }
+        }
+        // The notification's and lock screen's Repeat and Favorite show how they stand.
+        Music.scope.launch {
+            snapshotFlow { Triple(Music.repeat, Music.current()?.id, Music.musicVersion) }.collect { runCatching { s.setCustomLayout(Car.buttons()) } }
+        }
+        // The home screen widget: the song, playing or paused, the queue.
+        Music.scope.launch {
+            snapshotFlow { listOf(Music.current()?.id, Music.paused, Music.repeat, Music.index, Music.queue.size) }.collect {
+                kotlinx.coroutines.delay(150)
+                runCatching { PlayerWidget.update(this@MusicService) }
+            }
         }
         Music.player = exo
         Music.playerReady()
+        LockScreen.register(this)
     }
+
+    /** Cast: a Chromecast, Google speaker or TV picked (Now playing's Cast button) takes over from where the phone was;
+     *  disconnected, the phone takes it back. Null without Google Play services. */
+    @Suppress("DEPRECATION")
+    private fun castPlayer(): CastPlayer? = runCatching {
+        val ctx = CastContext.getSharedInstance(this)
+        val cp = CastPlayer(ctx)
+        cp.addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (Music.cast === cp) Music.paused = !playWhenReady
+            }
+            override fun onPlaybackStateChanged(state: Int) {
+                if (Music.cast !== cp) return
+                if (state == Player.STATE_ENDED) Music.trackEnded()
+                if (state == Player.STATE_READY) cp.duration.takeIf { it > 0 }?.let { Music.duration = it / 1000.0 }
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                if (Music.cast === cp) Music.toast("The cast device couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")
+            }
+        })
+        cp.setSessionAvailabilityListener(object : SessionAvailabilityListener {
+            override fun onCastSessionAvailable() {
+                val dev = ctx.sessionManager.currentCastSession?.castDevice
+                Music.castHost = dev?.ipAddress?.hostAddress ?: ""
+                Music.castStarted(cp, dev?.friendlyName ?: "the cast device")
+            }
+            override fun onCastSessionUnavailable() = Music.castStopped()
+        })
+        cp
+    }.onFailure { Crashes.note("Cast isn't available: ${it.message}") }.getOrNull()
 
     /** The session's buttons: next and previous always there, and they go to our queue (or the desktop's). */
     private fun queueAware(p: Player) = object : ForwardingPlayer(p) {
@@ -135,13 +184,7 @@ class MusicService : MediaLibraryService() {
         override fun getPlaybackState(): Int = masked(super.getPlaybackState())
         private val wrapped = HashMap<Player.Listener, Player.Listener>()
         override fun addListener(listener: Player.Listener) {
-            val w = object : Player.Listener by listener {
-                override fun onPlaybackStateChanged(playbackState: Int) = listener.onPlaybackStateChanged(masked(playbackState))
-                @Deprecated("Deprecated in Java")
-                @Suppress("DEPRECATION")
-                override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) =
-                    listener.onPlayerStateChanged(playWhenReady, masked(playbackState))
-            }
+            val w = MaskedListener(listener, ::masked)
             synchronized(wrapped) { wrapped[listener] = w }
             super.addListener(w)
         }
@@ -174,6 +217,14 @@ class MusicService : MediaLibraryService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        try {
+            super.onUpdateNotification(session, startInForegroundRequired)
+        } catch (e: Exception) {
+            Crashes.note("The music's notification couldn't be shown: ${e.message}")
+        }
+    }
+
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Swiped away while paused: stop; while playing, the music keeps going.
         val p = session?.player
@@ -181,6 +232,7 @@ class MusicService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        LockScreen.unregister(this)
         Music.player = null
         switching?.cancel()
         players.forEach { it.release() }
@@ -188,4 +240,50 @@ class MusicService : MediaLibraryService() {
         session = null
         super.onDestroy()
     }
+}
+
+/** A player listener passed on as it is, but for the playback state, which goes through mask. Every callback is passed
+ *  on by hand: Kotlin's "by" doesn't pass on a Java interface's default methods (all of Player.Listener's), and without
+ *  them the media session never heard the music start, so Android got no notification and stopped the music in the
+ *  background. */
+@Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+private class MaskedListener(val l: Player.Listener, val mask: (Int) -> Int) : Player.Listener {
+    override fun onEvents(player: Player, events: Player.Events) = l.onEvents(player, events)
+    override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = l.onTimelineChanged(timeline, reason)
+    override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) = l.onMediaItemTransition(mediaItem, reason)
+    override fun onTracksChanged(tracks: androidx.media3.common.Tracks) = l.onTracksChanged(tracks)
+    override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) = l.onMediaMetadataChanged(mediaMetadata)
+    override fun onPlaylistMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) = l.onPlaylistMetadataChanged(mediaMetadata)
+    override fun onIsLoadingChanged(isLoading: Boolean) = l.onIsLoadingChanged(isLoading)
+    override fun onLoadingChanged(isLoading: Boolean) = l.onLoadingChanged(isLoading)
+    override fun onAvailableCommandsChanged(availableCommands: Player.Commands) = l.onAvailableCommandsChanged(availableCommands)
+    override fun onTrackSelectionParametersChanged(parameters: androidx.media3.common.TrackSelectionParameters) = l.onTrackSelectionParametersChanged(parameters)
+    override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) = l.onPlayerStateChanged(playWhenReady, mask(playbackState))
+    override fun onPlaybackStateChanged(playbackState: Int) = l.onPlaybackStateChanged(mask(playbackState))
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) = l.onPlayWhenReadyChanged(playWhenReady, reason)
+    override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) = l.onPlaybackSuppressionReasonChanged(playbackSuppressionReason)
+    override fun onIsPlayingChanged(isPlaying: Boolean) = l.onIsPlayingChanged(isPlaying)
+    override fun onRepeatModeChanged(repeatMode: Int) = l.onRepeatModeChanged(repeatMode)
+    override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = l.onShuffleModeEnabledChanged(shuffleModeEnabled)
+    override fun onPlayerError(error: PlaybackException) = l.onPlayerError(error)
+    override fun onPlayerErrorChanged(error: PlaybackException?) = l.onPlayerErrorChanged(error)
+    override fun onPositionDiscontinuity(reason: Int) = l.onPositionDiscontinuity(reason)
+    override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) =
+        l.onPositionDiscontinuity(oldPosition, newPosition, reason)
+    override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) = l.onPlaybackParametersChanged(playbackParameters)
+    override fun onSeekBackIncrementChanged(seekBackIncrementMs: Long) = l.onSeekBackIncrementChanged(seekBackIncrementMs)
+    override fun onSeekForwardIncrementChanged(seekForwardIncrementMs: Long) = l.onSeekForwardIncrementChanged(seekForwardIncrementMs)
+    override fun onMaxSeekToPreviousPositionChanged(maxSeekToPreviousPositionMs: Long) = l.onMaxSeekToPreviousPositionChanged(maxSeekToPreviousPositionMs)
+    override fun onAudioSessionIdChanged(audioSessionId: Int) = l.onAudioSessionIdChanged(audioSessionId)
+    override fun onAudioAttributesChanged(audioAttributes: AudioAttributes) = l.onAudioAttributesChanged(audioAttributes)
+    override fun onVolumeChanged(volume: Float) = l.onVolumeChanged(volume)
+    override fun onSkipSilenceEnabledChanged(skipSilenceEnabled: Boolean) = l.onSkipSilenceEnabledChanged(skipSilenceEnabled)
+    override fun onDeviceInfoChanged(deviceInfo: androidx.media3.common.DeviceInfo) = l.onDeviceInfoChanged(deviceInfo)
+    override fun onDeviceVolumeChanged(volume: Int, muted: Boolean) = l.onDeviceVolumeChanged(volume, muted)
+    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = l.onVideoSizeChanged(videoSize)
+    override fun onSurfaceSizeChanged(width: Int, height: Int) = l.onSurfaceSizeChanged(width, height)
+    override fun onRenderedFirstFrame() = l.onRenderedFirstFrame()
+    override fun onCues(cues: MutableList<androidx.media3.common.text.Cue>) = l.onCues(cues)
+    override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) = l.onCues(cueGroup)
+    override fun onMetadata(metadata: androidx.media3.common.Metadata) = l.onMetadata(metadata)
 }

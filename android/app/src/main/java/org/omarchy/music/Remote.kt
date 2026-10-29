@@ -172,6 +172,40 @@ object Remote {
         return if (s.duration > 0) minOf(p, s.duration) else p
     }
 
+    // ---- Continue where you left off (Settings › Playback), with the phone playing on its own ----
+    private var offered = ""
+
+    /** The phone stopped in t at position: the desktop offers to carry on with it when you're back at the PC. */
+    fun handoff(t: Track, position: Double) {
+        if (!paired || on || !Prefs.on(Prefs.CONTINUE)) return
+        val body = buildJsonObject {
+            put("verb", "handoff"); put("position", JsonPrimitive(position))
+            put("tracks", JSON.encodeToJsonElement(ListSerializer(Track.serializer()), listOf(t.slim())))
+        }
+        Music.bg({ httpJson("http://$host/cmd", headers(), jsonBody(body)) })   // quietly: the desktop may be off
+    }
+
+    /** Back on the phone, nothing playing: if the desktop stopped in a song, offer to carry on with it here. */
+    fun offerFromDesktop() {
+        if (!paired || on || !Prefs.on(Prefs.CONTINUE) || !Music.paused) return
+        Music.bg({ httpJson("http://$host/status", headers()) }) { s, err ->
+            if (err != null || s == null) return@bg
+            val q = parse(s["queue"]); val i = s["index"].long?.toInt() ?: -1
+            val t = q.getOrNull(i) ?: return@bg
+            val pos = s["position"].dbl ?: 0.0
+            if (s["paused"].bool != true || pos < 5 || !Music.paused) return@bg
+            val key = "${t.id}@${pos.toInt()}"
+            val cur = Music.current()
+            if (key == offered || (cur != null && songKey(cur) == songKey(t) && kotlin.math.abs(Music.position - pos) < 10)) return@bg
+            offered = key
+            Music.offers.trySend(Triple("Continue “${t.title}” at ${fmtTime(pos)}, where the PC stopped?", "Play") {
+                val mine = Music.fmSong(t.title, t.artist, t.thumb, Music.songIndex(), t.album)
+                Music.resumeAt = maxOf(0.0, pos - 2)
+                Music.playFrom(listOf(mine), 0, false)
+            })
+        }
+    }
+
     fun cmd(verb: String, vararg args: Pair<String, Any?>) {
         val body = buildJsonObject {
             put("verb", verb)

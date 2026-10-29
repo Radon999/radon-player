@@ -16,6 +16,7 @@ class MusicApp : Application(), ImageLoaderFactory {
         Music.init(this)
         LastFm.init(this)
         SpotifyHistory.init(this)
+        DeezerHistory.init(this)
         AppleHistory.init(this)
         NewReleases.init(this)
         Stats.init(this)

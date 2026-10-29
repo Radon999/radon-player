@@ -23,7 +23,7 @@ import kotlin.math.sin
 enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HEART_LINE, STAR, STAR_LINE, EQ, LYRICS, VIS,
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
-    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN }
+    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -166,6 +166,12 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
         Ico.CAR -> {
             line(3f, 15f, 4.5f, 9.5f, 7f, 6f, 17f, 6f, 19.5f, 9.5f, 21f, 15f, 21f, 18f, 3f, 18f, 3f, 15f)
             line(4.5f, 10f, 19.5f, 10f); dot(7.5f, 14.5f, 1.4f); dot(16.5f, 14.5f, 1.4f)
+        }
+        Ico.CAST -> {   // a screen, and waves from its corner
+            line(3f, 9f, 3f, 5f, 21f, 5f, 21f, 19f, 14f, 19f)
+            drawArc(color, -90f, 90f, false, p(-1f, 15f), Size(8f * u, 8f * u), style = stroke)
+            drawArc(color, -90f, 90f, false, p(-5f, 11f), Size(16f * u, 16f * u), style = stroke)
+            dot(3.6f, 18.4f, 1.4f)
         }
         Ico.BLUETOOTH -> line(7f, 7.5f, 17f, 16.5f, 12f, 21f, 12f, 3f, 17f, 7.5f, 7f, 16.5f)
         Ico.SPEAKER -> {   // a speaker cone and two sound waves

@@ -125,6 +125,7 @@ class Library(private val ctx: Context) {
 
 /** Seconds of a song (or half of a shorter one) before it counts as played. */
 const val PLAY_AFTER = 30
+const val RECENT_SHOWN = 180
 
 @Serializable
 data class PlayEntry(val plays: Int = 0, val last: Double = 0.0, val track: Track, val at: List<Long> = emptyList())
@@ -143,7 +144,8 @@ class Plays(ctx: Context) {
         writeAtomic(file, JSON.encodeToString(ser, items))
     }
 
-    fun recent(n: Int = 200) = items.values.sortedByDescending { it.last }.take(n).map { it.track }
+    /** Recently played: the last RECENT_SHOWN songs, a new one pushing the oldest off the bottom. */
+    fun recent(n: Int = RECENT_SHOWN) = items.values.sortedByDescending { it.last }.take(n).map { it.track }
 
     /** Songs gone (replaced by keep): their plays go to it. */
     @Synchronized

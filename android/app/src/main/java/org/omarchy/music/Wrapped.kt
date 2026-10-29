@@ -110,6 +110,7 @@ object Wrapped {
         // weeks and months: plays a day; every period: how many days it has had so far, whether it's
         // still going, and how many scrobbles the same stretch before it had (to compare with)
         val daily: List<Int> = emptyList(), val spanDays: Int = 0, val partial: Boolean = false, val prevCount: Int? = null,
+        val milestones: List<Stats.Milestone> = emptyList(),   // songs and artists that reached 100, 250, 500, 1,000… plays in it
     )
 
     @Serializable
@@ -158,12 +159,18 @@ object Wrapped {
             // The same song from Last.fm, Spotify and Apple Music counts as one (as in Most played).
             val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
             artists.merge(ka, 1, Int::plus); songs.merge(ks, 1, Int::plus)
-            artistName.putIfAbsent(ka, splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist); songName.putIfAbsent(ks, r.title to r.artist); firstPlay.putIfAbsent(ks, r.t)
+            val lead = splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist
+            val had = artistName[ka]   // named as they are on their own ("Quinn XCII", not "Quinn XCII & …")
+            if (had == null || (soloName(mapOf(had to 0, lead to 0)) == lead && had != lead)) artistName[ka] = lead
+            songName.putIfAbsent(ks, r.title to r.artist); firstPlay.putIfAbsent(ks, r.t)
             val img = picture(r.image)
             if (img.isNotEmpty()) art[ks] = img
             if (r.album.isNotEmpty()) {
-                val kb = ka to norm(cleanTitle(r.album))
-                albums.merge(kb, 1, Int::plus); albumName.putIfAbsent(kb, r.album to r.artist)
+                val (base, edition) = albumEdition(r.album)   // an album and its deluxe edition are one, the edition's name
+                val kb = ka to norm(cleanTitle(base))
+                albums.merge(kb, 1, Int::plus)
+                val was = albumName[kb]
+                if (was == null || (edition.isNotEmpty() && albumEdition(was.first).second.isEmpty())) albumName[kb] = r.album to lead
                 if (img.isNotEmpty()) albumArt[kb] = img
             }
             val d = local(r.t)
@@ -240,6 +247,16 @@ object Wrapped {
     }
 
     /** A period's scrobbles: kept, and only the new ones read from Last.fm. */
+    /** Every scrobble kept here (Most played reads them all once): no asking Last.fm. */
+    fun keptScrobbles(ctx: Context): List<Row> {
+        if (!LastFm.connected) return emptyList()
+        val dir = File(ctx.filesDir, "wrapped")
+        val me = safeName(LastFm.user.lowercase())
+        return dir.listFiles { f -> Regex("${Regex.escape(me)}-\\d{4}\\.json").matches(f.name) }.orEmpty().flatMap { f ->
+            readText(f)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it).rows }.getOrNull() }.orEmpty()
+        }
+    }
+
     private fun scrobbles(dir: File, period: Period, progress: (String) -> Unit): List<Row> {
         val start = epoch(period.start())
         val end = minOf(epoch(period.end()), now().toLong())
@@ -280,7 +297,7 @@ object Wrapped {
 
     /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
-        val plays = (SpotifyHistory.plays + AppleHistory.timed()).filter { it.t in start until end }
+        val plays = (SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()).filter { it.t in start until end }
         if (plays.isEmpty()) return rows
         return (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
     }
@@ -289,8 +306,8 @@ object Wrapped {
     fun load(ctx: Context, period: Period, progress: (String) -> Unit): Data {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
-        val spotify = (SpotifyHistory.plays + AppleHistory.timed()).sortedBy { it.t }   // Spotify's and Apple Music's plays
-        if (!fm && spotify.isEmpty()) error("Connect Last.fm, or import your Spotify or Apple Music history, in Settings (⚙).")
+        val spotify = (SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()).sortedBy { it.t }   // Spotify's, Deezer's and Apple Music's plays
+        if (!fm && spotify.isEmpty()) error("Connect Last.fm, or import your Spotify, Deezer or Apple Music history, in Settings (⚙).")
         val me = if (fm) { progress("Opening your Last.fm…"); LastFm.info() } else null
         val thisYear = LocalDate.now().year
         var firstYear = me?.registered?.takeIf { it > 0 }?.let { local(it).year } ?: thisYear
@@ -342,6 +359,10 @@ object Wrapped {
             progress("Adding up your minutes…")
             data = data.copy(minutes = minutes(dir, rows))
         }
+        data = data.copy(milestones = runCatching {
+            if (period == Period.All) Stats.periodMilestones(0, Long.MAX_VALUE)
+            else Stats.periodMilestones(epoch(period.start()), epoch(period.end()))
+        }.getOrDefault(emptyList()))
         progress("Finding your genres…")
         data = data.copy(genres = genres(dir, data.artists))
         progress("Getting the pictures…")

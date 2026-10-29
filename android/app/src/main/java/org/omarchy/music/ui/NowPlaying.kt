@@ -112,8 +112,10 @@ private suspend fun loadNowColors(ctx: Context, model: Any?): NowColors? {
     return nowColors(Tint.artColor(bmp))
 }
 
+/** lock: on the lock screen (LockScreenActivity): no menu or settings at the top, an arrow down to the phone's own
+ *  lock screen instead, which lock() goes to. */
 @Composable
-fun ApplePlayer(ui: Ui) {
+fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val n = now()
     val t = n.t
     val ctx = LocalContext.current
@@ -134,7 +136,7 @@ fun ApplePlayer(ui: Ui) {
         if (levels != null) NowBars(levels.first, levels.second, cols.bars, Modifier.align(Alignment.BottomCenter))
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            NowTop(ui, n)
+            if (lock != null) LockTop(n, lock) else NowTop(ui, n)
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (ui.pane) {
                     "queue" -> QueuePane(ui, n)
@@ -155,6 +157,32 @@ fun ApplePlayer(ui: Ui) {
     }
 }
 
+/** On the lock screen: the time, where it plays from, and ⌄ to the phone's lock screen. */
+@Composable
+private fun LockTop(n: Now, lock: () -> Unit) {
+    var clock by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        while (true) {
+            clock = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())
+            kotlinx.coroutines.delay(10_000)
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(48.dp))
+            Text(clock, style = T.big.copy(color = WHITE, fontSize = 30.sp, fontWeight = FontWeight.SemiBold), textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f))
+            Box(Modifier.size(48.dp).clip(R.pill).background(GLASS).clickable(onClick = lock)
+                .semantics { contentDescription = "To the lock screen" }, contentAlignment = Alignment.Center) {
+                Text("⌄", style = T.big.copy(color = WHITE, fontSize = 26.sp))
+            }
+        }
+        val t = n.t
+        if (t != null && t.album.isNotEmpty()) Text("From the album ${t.album}", style = T.sub.copy(color = WHITE.copy(alpha = 0.85f)),
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
 /** ☰ (always there), where it plays from, and the gear. */
 @Composable
 private fun NowTop(ui: Ui, n: Now) {
@@ -172,7 +200,8 @@ private fun NowTop(ui: Ui, n: Now) {
         Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
-        IconButton(Ico.SETTINGS, WHITE) { ui.sheet = "accounts" }
+        if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
+        IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
     }
 }
 
@@ -467,7 +496,7 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
         Row(Modifier.fillMaxWidth().height(60.dp).clip(R.card)
             .background(if (checked) WHITE.copy(alpha = 0.14f) else Color.Transparent)
             .combinedClickable(onClick = { if (ui.selecting) ui.toggle(t) else Music.playIndex(j) },
-                onLongClick = { if (ui.selecting) ui.toggle(t) else menu = true }),
+                onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true }),
             verticalAlignment = Alignment.CenterVertically) {
             if (ui.selecting) androidx.compose.material3.Checkbox(checked, { ui.toggle(t) },   // picked: a checkmark, as in the lists
                 colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = WHITE, checkmarkColor = Color.Black,

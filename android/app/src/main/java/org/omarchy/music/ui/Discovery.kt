@@ -136,3 +136,77 @@ fun TagPreviewDialog(ui: Ui, ids: List<String>, full: Boolean) {
         },
         dismissButton = { TextButton({ ui.tagPreview = null }) { Text("Cancel", color = C.muted) } })
 }
+
+
+/** A discovery playlist for each release (“Persona (Extended) from half•alive”), its songs checked first, one release
+ *  after another: each song Add or Leave out (the ones you have already start out left out). The desktop's release_picker. */
+@Composable
+fun ReleasePicker(ui: Ui, releases: List<org.omarchy.music.NewReleases.Release>) {
+    var at by remember(releases) { androidx.compose.runtime.mutableIntStateOf(0) }
+    val made = remember(releases) { ArrayList<String>() }   // each release's playlist, made as soon as its songs are picked
+    var songs by remember(releases) { androidx.compose.runtime.mutableStateOf<List<Track>?>(null) }
+    var note by remember(releases) { androidx.compose.runtime.mutableStateOf("") }
+    val add = remember(releases) { mutableStateMapOf<String, Boolean>() }
+    val r = releases.getOrNull(at)
+    fun finish() {
+        ui.releasePick = null
+        if (made.isNotEmpty()) Music.toast(if (made.size == 1) "Made “${made[0]} Discovery playlist”"
+            else "Made ${made.size} discovery playlists, one for each release")
+    }
+    if (r == null) { androidx.compose.runtime.LaunchedEffect(Unit) { finish() }; return }
+    androidx.compose.runtime.LaunchedEffect(at) {
+        songs = null; note = "Getting its songs…"; add.clear()
+        Music.bg({ Music.releaseTracks(r) to Music.mySongs().map { org.omarchy.music.songKey(it) }.toSet() }) { res, err ->
+            val (got, mine) = res ?: (emptyList<Track>() to emptySet())
+            if (got.isEmpty()) {
+                note = "Couldn't find it on your services" + (err?.message?.let { ": ${it.take(80)}" } ?: "")
+                songs = emptyList(); return@bg
+            }
+            got.forEach { add[it.id] = org.omarchy.music.songKey(it) !in mine }
+            note = "Add the songs you want in it, leave out the rest (the ones you have already are left out)."
+            songs = got
+        }
+    }
+    val box = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = C.muted)
+    val last = at + 1 >= releases.size
+    AlertDialog(onDismissRequest = { ui.releasePick = null }, containerColor = C.light,
+        title = { Text("${at + 1} of ${releases.size} · ${Music.releaseName(r)}", style = T.head, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column {
+                Text(note, style = T.sub)
+                val list = songs.orEmpty()
+                if (list.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("Add all", quiet = true) { list.forEach { add[it.id] = true } }
+                    Pill("Leave out all", quiet = true) { list.forEach { add[it.id] = false } }
+                }
+                LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    items(list.size) { i ->
+                        val t = list[i]
+                        val on = add[t.id] == true
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(t.title, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(t.artist, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Checkbox(on, { add[t.id] = true }, colors = box)
+                                Text("Add", style = T.time)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Checkbox(!on, { add[t.id] = false }, colors = box)
+                                Text("Leave out", style = T.time)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton({
+                val keep = songs.orEmpty().filter { add[it.id] == true }
+                if (keep.isNotEmpty()) made += Music.makeReleaseDiscoveries(listOf(r to keep), quiet = true)
+                if (last) finish() else at++
+            }, enabled = songs != null) { Text(if (last) "Make the playlist" else "Make it, then the next", color = C.accent) }
+        },
+        dismissButton = { TextButton({ ui.releasePick = null }) { Text("Cancel", color = C.muted) } })
+}

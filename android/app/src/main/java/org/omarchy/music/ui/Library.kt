@@ -46,24 +46,65 @@ import org.omarchy.music.Track
 
 /** Albums: your songs by album: covers in a grid (or a list, or a compact grid). */
 @Composable
-fun AlbumsTab(ui: Ui) {
-    val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.albums() }.getOrDefault(emptyList()) }
-    if (all.isEmpty()) { Empty("No albums yet", "Your songs, by album, show up here."); return }
+fun AlbumsTab(ui: Ui, kind: String = "albums") {
+    // EPs: only the albums with "EP" in their name; Singles: "single" in their name, named for their song, or songs with no album
+    val eps = kind == "eps"; val singles = kind == "singles"
+    val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
+        .flatMap { (al, songs) ->
+            if (kind == "singles" && songs.first().album.isEmpty())   // no album at all: each song is its own single
+                songs.map { t -> Album("single:" + (t.file ?: t.id), t.title, t.artist.split(",")[0].trim(), count = "1") to listOf(t) }
+            else listOf(al to songs)
+        }
+        .filter { (al, songs) ->
+            when (kind) {
+                "eps" -> org.omarchy.music.isEp(al.title)
+                "singles" -> al.id.startsWith("single:") || songs.any { org.omarchy.music.isSingle(al.title, it.title) }
+                else -> true
+            }
+        }.sortedBy { org.omarchy.music.norm(it.first.title) } }
+    if (all.isEmpty()) { Empty(if (eps) "No EPs yet" else if (singles) "No singles yet" else "No albums yet",
+        if (eps) "Your EPs (\"EP\" in their name) show up here." else if (singles) "Your singles show up here." else "Your songs, by album, show up here."); return }
     val albums = all.filter { fits(ui, it.first.title, it.first.sub) }
     fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
+    val picking = ui.pickingAlbums
+    val picked = ui.albumsPicked
+    fun menu(al: Album, songs: List<Track>) {
+        if (picking) { picked[al.id] = songs; ui.optionsFor(picked.values.flatten()); return }   // picking: Options for them
+        ui.choices = al.title to listOf(pinChoice(pin(al)), "Options…" to { ui.optionsFor(songs) },
+            "Select" to { ui.albumsPicked.clear(); ui.albumsPicked[al.id] = songs; ui.pickingAlbums = true })
+    }
+    fun tap(al: Album, songs: List<Track>) {
+        if (picking) { if (al.id in picked) picked.remove(al.id) else picked[al.id] = songs }
+        else ui.pages += Ui.Page.AlbumPage(al, "local", songs)
+    }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Collage of your top albums…", false) { ui.collageFor = "albums-all" } }
-            Section("${albums.size} ALBUMS")
+            if (picking) {   // Select: tap albums, then Options for all their songs
+                val n = picked.values.sumOf { it.size }
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Chip(if (picked.isEmpty()) "Options" else "Options ($n songs)", true) {
+                        if (picked.isNotEmpty()) ui.optionsFor(picked.values.flatten()) }
+                    if (picked.isNotEmpty()) Chip("Clear", false) { picked.clear() }
+                    Chip("Done", false) { picked.clear(); ui.pickingAlbums = false }
+                }
+                Section(if (picked.isEmpty()) "PICK ALBUMS: A TAP TICKS ONE" else "${picked.size} PICKED")
+            } else {
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Chip("Collage of your top ${if (eps) "EPs" else if (singles) "singles" else "albums"}…", false) { ui.collageFor = "$kind-all" }
+                    Chip("Select", false) { picked.clear(); ui.pickingAlbums = true }
+                    if (singles) Chip("Single scan…", false) { ui.singleScan = true }
+                }
+            }
+            Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
         }
         laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, row = { i ->
             val (al, songs) = albums[i]
             PlaylistRow(Album(al.id, al.title, al.sub, "", songs.size.toString()), artModel(songs.first()),
-                onLongClick = { ui.choices = al.title to listOf(pinChoice(pin(al))) }) { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }
+                onLongClick = { menu(al, songs) }, checked = if (picking) al.id in picked else null) { tap(al, songs) }
         }) { i, mod, compact ->
             val (al, songs) = albums[i]
-            Tile(artModel(songs.first(), tilePx(compact)), al.title, al.sub, mod, compact, ico = Ico.DISC,
-                onLongClick = { ui.choices = al.title to listOf(pinChoice(pin(al))) }) { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }
+            Tile(artModel(songs.first(), tilePx(compact)), al.title, al.sub, mod, compact, ico = Ico.DISC, lit = picking && al.id in picked,
+                onLongClick = { menu(al, songs) }) { tap(al, songs) }
         }
     }
 }
@@ -261,6 +302,9 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
                 if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })
                     add(Triple(Ico.SPARKLE, "Upgrade to FLAC…") { ui.upgradeFor = picked.filter { org.omarchy.music.upgradable(it) } })
+                picked.filter { it.album.isNotBlank() }.distinctBy { org.omarchy.music.norm(org.omarchy.music.bareTitle(it.album)) }
+                    .takeIf { it.size in 1..3 }?.forEach { t ->   // the albums the songs are on (up to 3): go to one
+                        add(Triple(Ico.DISC, "Go to album “${t.album.trim()}”") { goToAlbum(ui, t) }) }
                 if (picked.size == 1) {   // one song: the options about a single song
                     val one = picked[0]
                     org.omarchy.music.splitArtists(one.artist).firstOrNull()?.let { lead ->

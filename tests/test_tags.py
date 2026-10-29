@@ -1,3 +1,4 @@
+import tempfile
 """Editing songs' tags by hand (write_tags, read_edit_tags, MusicApp.edit_tags)."""
 import shutil
 import subprocess
@@ -36,7 +37,9 @@ class TagsTest(unittest.TestCase):
         lib = types.SimpleNamespace(items={}, lock=om.threading.Lock(), save=lambda: None)
         local = types.SimpleNamespace(files={t["file"]: {"mtime": 0, "size": 0, "track": dict(t, added=5)}})
         lists = types.SimpleNamespace(items=[{"id": "p", "tracks": [dict(t)]}], save=lambda: None)
-        app = types.SimpleNamespace(lib=lib, local=local, lists=lists, queue=[dict(t)])
+        stars = types.SimpleNamespace(items={}, key=om.Favorites.key, path=om.Path(tempfile.mkdtemp()) / "f.json")
+        app = types.SimpleNamespace(lib=lib, local=local, lists=lists, queue=[dict(t)], favorites=stars, song_stats=stars)
+        app.edit_tags_each = lambda pairs: om.MusicApp.edit_tags_each(app, pairs)
         self.assertEqual(om.MusicApp.edit_tags(app, [t, {"id": "x", "source": "tidal"}], {"title": "New"}), (1, []))
         self.assertEqual(local.files[t["file"]]["track"]["title"], "New")
         self.assertEqual(local.files[t["file"]]["track"]["added"], 5)

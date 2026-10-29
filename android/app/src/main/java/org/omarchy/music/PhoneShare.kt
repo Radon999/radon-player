@@ -54,6 +54,16 @@ object PhoneShare {
         return t.copy(id = "ph$id", file = "$base/song/$id?k=${code("song/$id")}", thumb = "$base/art/$id?k=${code("art/$id")}")
     }
 
+    /** t as a cast device on the network (at host) can play it: from this phone. Null if it can't. */
+    fun forCast(t: Track, host: String): String? {
+        if (!::ctx.isInitialized) init(Music.ctx)
+        val file = t.file ?: Music.lib.items[t.id]?.file ?: return null
+        val id = LocalFiles.mediaId(file) ?: return null
+        val me = address("$host:8009") ?: return null
+        start()
+        return "http://$me:$PORT/song/$id?k=${code("song/$id")}"
+    }
+
     @Synchronized fun start() {
         if (server != null) return
         val s = runCatching { ServerSocket(PORT) }.getOrNull() ?: return

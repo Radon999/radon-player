@@ -25,7 +25,8 @@ class SongSpeedsTest(unittest.TestCase):
 
     def test_every_file_gets_its_speed(self):
         sent = []
-        p = types.SimpleNamespace(cmd=lambda *a: sent.append(a), has_gain=False, _volume_now=lambda: None)
+        p = types.SimpleNamespace(cmd=lambda *a: sent.append(a), has_gain=False, _volume_now=lambda: None, fade_next=0,
+                                  bitperfect=False)
         om.Player.load(p, "/a.flac", paused=True, speed=1.25, pitch=True)
         om.Player.load(p, "/b.flac")
         self.assertEqual(sent[0], ("loadfile", "/a.flac", "replace", -1, "pause=yes,speed=1.25,audio-pitch-correction=no"))

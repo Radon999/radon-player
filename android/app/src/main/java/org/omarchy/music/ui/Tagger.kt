@@ -2,6 +2,7 @@ package org.omarchy.music.ui
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -112,7 +113,7 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
                 "cover" -> {
                     ArtImage(artModel(tracks[0], 640), 220.dp)
                     val albums = tracks.map { org.omarchy.music.Covers.albumKey(it) }.distinct().size
-                    Text(if (albums > 1) "$albums albums: each gets its own cover, one after the other"
+                    Text(if (albums > 1) "$albums albums: one cover for all of them, or each its own, one after the other"
                         else "The cover of “${tracks[0].album.ifEmpty { tracks[0].title }}”", style = T.sub)
                     Pill("Find a new cover…") { ui.pickCovers(tracks) }
                 }
@@ -121,6 +122,14 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
             }
         }
     }
+}
+
+/** The names to suggest in the Tagger: (artists, albums) of your songs. */
+private fun suggestNames(): Pair<List<String>, List<String>> {
+    val songs = runCatching { Music.mySongs() }.getOrDefault(emptyList())
+    val artists = songs.flatMap { org.omarchy.music.ownArtists(it.artist) + listOf(it.artist).filter { a -> "," !in a } }
+    return artists.filter { it.isNotBlank() }.distinctBy { org.omarchy.music.norm(it) } to
+        songs.map { it.album }.filter { it.isNotBlank() }.distinctBy { org.omarchy.music.norm(it) }
 }
 
 @Composable
@@ -137,9 +146,23 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
     val h = have
     if (h == null) { Text("Reading the tags…", style = T.sub); return }
     if (songs.size < tracks.size) Text("${tracks.size - songs.size} of the songs aren't downloads of the app's: they're left out.", style = T.sub)
+    val names = remember { suggestNames() }
     Tags.FIELDS.forEach { (k, label) ->
         Text(label, style = T.sub, modifier = Modifier.padding(top = 2.dp))
         Field(typed[k] ?: h[k] ?: "", if (h.containsKey(k) && h[k] == null) "Several (left as they are)" else "") { typed[k] = it }
+        // Artist, Album artist, Album: yours that match what you type, under it; a tap fills it in
+        val pool = when (k) { "artist", "albumartist" -> names.first; "album" -> names.second; else -> null }
+        val q = typed[k]
+        if (pool != null && !q.isNullOrBlank()) {
+            val before = if (k == "artist") Regex("^(.*(?:,|\\s&)\\s*)[^,&]*$").find(q)?.groupValues?.get(1).orEmpty() else ""
+            val part = org.omarchy.music.norm(q.removePrefix(before).trim())
+            val hits = if (part.isEmpty()) emptyList() else pool.filter { part in org.omarchy.music.norm(it) && org.omarchy.music.norm(it) != org.omarchy.music.norm(q) }
+                .sortedWith(compareBy({ n -> org.omarchy.music.norm(n).let { if (it.startsWith(part)) 0 else if (it.split(" ").any { w -> w.startsWith(part) }) 1 else 2 } },
+                    { org.omarchy.music.norm(it) })).take(6)
+            hits.forEach { n ->
+                Text(n, style = T.body, modifier = Modifier.fillMaxWidth().clickable { typed[k] = before + n }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+        }
     }
     Pill("Save the tags") {
         if (typed.isEmpty()) Music.toast("Nothing changed")

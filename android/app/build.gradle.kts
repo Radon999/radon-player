@@ -29,8 +29,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 10403   // major·10000 + minor·100 + patch
-        versionName = "1.4.3"
+        versionCode = 20000   // major·10000 + minor·100 + patch
+        versionName = "2.0.0"
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
         buildConfigField("String", "TIDAL_CLIENT_SECRET", "\"${tidal.getProperty("client_secret", "")}\"")
     }
@@ -81,6 +81,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-dash:$media3")
     implementation("androidx.media3:media3-session:$media3")
+    implementation("androidx.media3:media3-cast:$media3")          // Cast: a Chromecast, Google speaker or TV
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

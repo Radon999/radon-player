@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        controller?.let { MediaController.releaseFuture(it) }
+        controller = null
         runCatching { unregisterReceiver(miniButtons) }
         super.onDestroy()
     }
@@ -96,6 +98,13 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         visible = true
         Updater.resumed(this)
+        Music.resumed++
+        Remote.offerFromDesktop()
+        // Playing with notifications off: no player in the notification shade. Say so once, and where to turn them on.
+        if (!Music.paused && Music.current() != null && !Music.notificationsOn() && !Prefs.on(Prefs.NOTIF_HINTED)) {
+            Prefs.set(Prefs.NOTIF_HINTED, true)
+            Music.toast("Notifications are off, so the player isn't in your notifications: Settings › General › Notifications")
+        }
     }
 
     override fun onPause() {
@@ -111,12 +120,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        controller = MediaController.Builder(this, SessionToken(this, ComponentName(this, MusicService::class.java))).buildAsync()
+        // Connected to the music's service while the window exists (not just while it's on screen): going to the home
+        // screen or another app never leaves the service with nobody connected, so the music carries on.
+        if (controller == null)
+            controller = MediaController.Builder(this, SessionToken(this, ComponentName(this, MusicService::class.java))).buildAsync()
     }
 
     override fun onStop() {
-        controller?.let { MediaController.releaseFuture(it) }
-        controller = null
+        // Leaving the phone with the music stopped: the PC can carry on from here (Continue where you left off).
+        if (Music.paused && Prefs.on(Prefs.CONTINUE)) runCatching { Music.current()?.let { Remote.handoff(it, Music.position) } }
         super.onStop()
     }
 }

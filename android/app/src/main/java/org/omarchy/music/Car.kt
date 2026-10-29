@@ -24,6 +24,7 @@ object Car {
     private const val ROOT = "root"
     val FAVORITE = SessionCommand("radon.favorite", Bundle.EMPTY)
     val SHUFFLE = SessionCommand("radon.shuffle", Bundle.EMPTY)
+    val REPEAT = SessionCommand("radon.repeat", Bundle.EMPTY)
 
     private fun folder(id: String, title: String, playable: Boolean = false) = MediaItem.Builder().setMediaId(id)
         .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setIsBrowsable(true).setIsPlayable(playable)
@@ -69,20 +70,24 @@ object Car {
         if (list == "queue") Music.playIndex(i.coerceIn(0, ts.size - 1)) else Music.playFrom(ts, i.coerceIn(0, ts.size - 1), false)
     }
 
-    /** Favorite and Shuffle, on the car's screen beside the usual buttons. */
+    /** Shuffle, Repeat (off, all, one) and Favorite beside the usual buttons: in the notification and on the lock
+     *  screen (Android shows the first two there, beside previous, play and next) and on the car's screen. */
     fun buttons(): ImmutableList<CommandButton> {
         val fav = Music.current()?.let { Music.favorites.has(it) } == true
+        val rep = Music.repeat
         return ImmutableList.of(
+            CommandButton.Builder().setIconResId(R.drawable.car_shuffle).setDisplayName("Shuffle").setSessionCommand(SHUFFLE).build(),
+            CommandButton.Builder().setIconResId(when (rep) { "one" -> R.drawable.car_repeat_one; "all" -> R.drawable.car_repeat; else -> R.drawable.car_repeat_off })
+                .setDisplayName(when (rep) { "one" -> "Repeat one"; "all" -> "Repeat all"; else -> "Repeat off" }).setSessionCommand(REPEAT).build(),
             CommandButton.Builder().setIconResId(if (fav) R.drawable.car_star else R.drawable.car_star_line)
-                .setDisplayName(if (fav) "Unfavorite" else "Favorite").setSessionCommand(FAVORITE).build(),
-            CommandButton.Builder().setIconResId(R.drawable.car_shuffle).setDisplayName("Shuffle").setSessionCommand(SHUFFLE).build())
+                .setDisplayName(if (fav) "Unfavorite" else "Favorite").setSessionCommand(FAVORITE).build())
     }
 
     val callback = object : MediaLibrarySession.Callback {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             val base = super.onConnect(session, controller)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).build())
+                .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).build())
                 .setAvailablePlayerCommands(base.availablePlayerCommands)
                 .setCustomLayout(buttons()).build()
         }
@@ -92,6 +97,7 @@ object Car {
             when (command.customAction) {
                 FAVORITE.customAction -> Music.current()?.let { Music.setFavorite(listOf(it)) }
                 SHUFFLE.customAction -> Music.shuffle()
+                REPEAT.customAction -> Music.cycleRepeat()
             }
             session.setCustomLayout(buttons())
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

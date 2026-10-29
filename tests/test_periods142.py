@@ -21,7 +21,7 @@ class PeriodsTest(unittest.TestCase):
         app = types.SimpleNamespace(
             lastfm=types.SimpleNamespace(connected=False, user=""),
             plays=types.SimpleNamespace(items={}),
-            spotify_history=types.SimpleNamespace(plays=plays),
+            spotify_history=types.SimpleNamespace(plays=plays), deezer_history=types.SimpleNamespace(plays=[]),
             apple_history=types.SimpleNamespace(rows=[], plays=0))
         om.STATS = Path(tempfile.mkdtemp()) / "stats.json"
         st = om.Stats(app)

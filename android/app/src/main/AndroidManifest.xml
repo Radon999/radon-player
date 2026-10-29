@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- The lock screen player: Now playing over the lock screen when the screen turns on (Settings switch). -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- The Visualizer tab: Android's Visualizer reads the app's own sound only, but asks for this. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -56,6 +58,26 @@
 
         <receiver android:name=".Updater$Answer" android:exported="false" />
 
+        <!-- The home screen widget (see PlayerWidget.kt). -->
+        <receiver android:name=".PlayerWidget" android:exported="false" android:label="Radon Player">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_player" />
+        </receiver>
+        <service android:name=".PlayerWidgetRows" android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <!-- The lock screen player (see LockScreen.kt). -->
+        <activity
+            android:name=".LockScreenActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=".lock"
+            android:theme="@style/Theme.OmarchyMusic" />
+
         <!-- Hands Wrapped's pictures to the app they're shared with. -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -66,6 +88,8 @@
         </provider>
 
         <!-- Android Auto: a media app, browsed through MusicService's library session (see Car). -->
+        <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="org.omarchy.music.CastSetup" />
         <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
 
         <service

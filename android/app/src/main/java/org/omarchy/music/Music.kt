@@ -45,11 +45,47 @@ object Music {
     val eqProcessor = EqProcessor()
 
     /** The player, while the playback service runs. */
-    var player: Player? = null
-        set(value) {
-            field = value
-            if (value != null) pendingLoad?.let { pendingLoad = null; it() }
+    /** The player that plays: the cast device's while casting (Cast), else this phone's (ExoPlayer). */
+    var localPlayer: Player? = null
+    var cast by mutableStateOf<Player?>(null)
+    var castName by mutableStateOf("")
+    var player: Player?
+        get() = cast ?: localPlayer
+        set(v) {
+            localPlayer = v
+            if (v != null) pendingLoad?.let { pendingLoad = null; it() }
         }
+
+    var castHost = ""   // the cast device's address (the phone's files are served to it)
+
+    private fun castMime(t: Track, uri: String): String {
+        val name = (t.file ?: lib.items[t.id]?.file ?: uri).substringBefore('?').lowercase()
+        return when {
+            name.endsWith(".mp3") -> MimeTypes.AUDIO_MPEG; name.endsWith(".m4a") || name.endsWith(".aac") -> MimeTypes.AUDIO_MP4
+            name.endsWith(".ogg") || name.endsWith(".opus") -> MimeTypes.AUDIO_OGG; name.endsWith(".wav") -> MimeTypes.AUDIO_WAV
+            else -> MimeTypes.AUDIO_FLAC
+        }
+    }
+
+    /** A cast device connected: what's playing goes there, from where it was. */
+    fun castStarted(p: Player, name: String) {
+        val at = position
+        val wasPlaying = !paused
+        localPlayer?.pause()
+        cast = p; castName = name
+        toast("Casting to $name")
+        if (current() != null) { resumeAt = at; loadCurrent(autoplay = wasPlaying) }
+    }
+
+    /** Back to this phone, where the cast left off. */
+    fun castStopped() {
+        if (cast == null) return
+        val at = position
+        val wasPlaying = !paused
+        cast = null; castName = ""
+        toast("Playing on this phone")
+        if (current() != null) { resumeAt = at; loadCurrent(autoplay = wasPlaying) }
+    }
     private var pendingLoad: (() -> Unit)? = null
 
     // ---- what the screens show ----
@@ -61,7 +97,7 @@ object Music {
     var queueId = ""
     var multiQueue by mutableStateOf(true)
     var listName = ""   // where songs are picked from now (the screen's name): a new queue is called that
-    private var resumeAt = 0.0
+    var resumeAt = 0.0
     // Lyrics into the files: what's found for a song goes into its own tags once it's done playing.
     var lyricsToFiles by mutableStateOf(true)
     private var lastLoaded: Track? = null
@@ -80,6 +116,10 @@ object Music {
     var musicVersion by mutableStateOf(0)      // bumps when your songs, playlists or plays change
     var savedVersion by mutableStateOf(0)      // bumps when downloads change
     var accountsVersion by mutableStateOf(0)   // bumps when a sign-in changes
+    var resumed by mutableStateOf(0)           // bumps when the app comes back on screen (from Android's settings, say)
+
+    /** Whether Android shows the app's notifications (the player in the notification shade). */
+    fun notificationsOn(): Boolean = androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled()
     var syncSources = mutableStateMapOf<String, Boolean>()
     var keepPlayed by mutableStateOf(false)
     var artColors by mutableStateOf(true)
@@ -92,7 +132,7 @@ object Music {
     var shuffled = false   // the queue was shuffled: repeat-all shuffles it again
     var playlistSort by mutableStateOf("order")   // how a playlist's songs are listed (PLAYLIST_SORTS)
     var browseLocal by mutableStateOf(false)   // Local picked in the source bar: your own songs, no Library tab
-    var look by mutableStateOf("apple")        // the app's colours: Light ("apple"), Dark ("apple-dark") or Now playing ("nowplaying")
+    var look by mutableStateOf("nowplaying")   // the app's colours: Light ("apple"), Dark ("apple-dark") or Now playing ("nowplaying")
     var npFallback by mutableStateOf("apple-dark")   // the Now playing look while nothing is playing
     val drawerFolds = androidx.compose.runtime.mutableStateMapOf("music" to true)   // the menu's sections that are open
     fun foldSection(key: String) { drawerFolds[key] = drawerFolds[key] != true; saveState() }
@@ -162,6 +202,8 @@ object Music {
     var syncing by mutableStateOf(false)
     var syncTracks by mutableStateOf(listOf<Track>())
     val toasts = Channel<String>(Channel.BUFFERED)
+    /** Notes with a button: (what it says, the button, what the button does). */
+    val offers = Channel<Triple<String, String, () -> Unit>>(Channel.BUFFERED)
     var shared by mutableStateOf<String?>(null)   // a link shared to the app, for Search
     var dj by mutableStateOf(Dj.State())          // the DJ: on, its sets' kinds and lines, the one shown
     var djNew by mutableStateOf(true)             // the DJ brings new songs too, or only yours
@@ -196,6 +238,8 @@ object Music {
     fun init(c: Context) {
         if (::ctx.isInitialized) return
         ctx = c.applicationContext
+        Prefs.init(ctx)
+        eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
         lib = Library(ctx)
         plays = Plays(ctx)
         lists = Playlists(ctx)
@@ -229,6 +273,7 @@ object Music {
                     position = now
                     if (step in 0.0..1.5) listened(step)
                     p.duration.takeIf { it > 0 }?.let { duration = it / 1000.0 }
+                    maybeCrossfade(p)
                 }
                 delay(500)
             }
@@ -264,7 +309,9 @@ object Music {
         val pins: List<Pin> = emptyList(), val layouts: Map<String, String> = emptyMap(), val mic_asked: Boolean = false,
         val skip_period: String = "all", val bit_perfect: Boolean = false, val replay_gain: String = "off",
         val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
-        val top_kind: String = "songs", val collage_size: Int = 25,
+        val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
+        val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
+        val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(),
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -294,7 +341,7 @@ object Music {
         val night = (ctx.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         // 1.4 keeps Light, Dark and Now playing: any other look becomes Light or Dark, as the phone is.
-        look = st.look.takeIf { st.apple_ui && org.omarchy.music.ui.Looks.known(it) } ?: if (night) "apple-dark" else "apple"
+        look = st.look.takeIf { st.apple_ui && org.omarchy.music.ui.Looks.known(it) } ?: "nowplaying"   // 2.0: a first start is on Now playing
         npFallback = st.np_fallback.takeIf { it == "apple" || it == "apple-dark" } ?: "apple-dark"
         drawerFolds.clear(); drawerFolds.putAll(st.drawer_folds)
         pins.clear(); pins.addAll(st.pins)
@@ -304,8 +351,14 @@ object Music {
         djNew = st.dj_new
         topMineOnly = st.top_mine_only
         topPeriod = st.top_period.takeIf { it in setOf("week", "month", "year", "all") } ?: "all"
-        topKind = st.top_kind.takeIf { it in setOf("songs", "albums", "artists") } ?: "songs"
+        topKind = (if (st.top_kind == "time") "time_artists" else st.top_kind)
+            .takeIf { it in setOf("songs", "albums", "artists", "time_songs", "time_albums", "time_artists") } ?: "songs"
         collageSize = st.collage_size.takeIf { it in listOf(5, 10, 15, 20, 25) } ?: 25
+        artistPicks = st.artist_picks
+        similarKept = st.similar_kept
+        albumPicks = st.album_picks
+        songPicks = st.song_picks
+        singlesKept = st.singles_kept.toSet()
         Dj.withNew = djNew
         replayGain = st.replay_gain.takeIf { it in setOf("off", "track", "album") } ?: "off"
         eqProcessor.bypass = bitPerfect
@@ -329,12 +382,22 @@ object Music {
         else if (t != null) restorePending = true   // it has to come from Tidal: wait for the player and the login
     }
 
+    var restoring = false   // a backup is going back in: nothing saved over it
+
+    /** The state written now, not in the background (a backup is being made of it). */
+    fun saveStateNow() { if (!restoring) writeAtomic(stateFile, JSON.encodeToString(State.serializer(), stateNow())) }
+
     fun saveState() {
-        val st = State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
+        if (restoring) return
+        val st = stateNow()
+        bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
+    }
+
+    private fun stateNow(): State {
+        return State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize)
-        bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList())
     }
 
     fun saveApiKeys(keys: Map<String, String>) {
@@ -411,14 +474,33 @@ object Music {
 
     /** Look up the pictures and bios of the artists named, one after another off the main thread. */
     fun lookUpArtists(names: List<String>) {
-        val todo = names.filter { Pictures.known(it) == null && synchronized(lookingUp) { lookingUp.add(norm(it)) } }
+        val todo = names.distinctBy { norm(it) }.filter { n -> !Pictures.settled(Pictures.known(n)) &&
+            synchronized(lookingUp) { lookingUp.add(norm(n)) } }
         if (todo.isEmpty()) return
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             for (n in todo) {
                 runCatching { Pictures.artist(n) }
+                runCatching { Pictures.keepOnPhone(n) }   // the picture itself kept on the phone: not loaded again
+                synchronized(lookingUp) { lookingUp.remove(norm(n)) }
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { artistsVersion++ }
             }
         }
+        // Ones looked up before pictures were kept on the phone: kept now (no lookup, just the picture)
+        val unsaved = names.distinctBy { norm(it) }.filter { n -> Pictures.known(n)?.let { it.saved.isEmpty() && it.image.startsWith("http") } == true }
+        if (unsaved.isNotEmpty()) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            var got = 0
+            for (n in unsaved) if (runCatching { Pictures.keepOnPhone(n) }.getOrNull() != null) got++
+            if (got > 0) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { artistsVersion++ }
+        }
+    }
+
+    /** The pictures of artists gone from your music (no songs of theirs left, and no plays in your stats): forgotten,
+     *  their files deleted. */
+    fun prunePictures() {
+        val songs = runCatching { mySongs() }.getOrDefault(emptyList())
+        if (songs.isEmpty()) return
+        val keep = (songs.flatMap { ownArtists(it.artist) } + Stats.artists.map { it.name }).map { norm(it) }.toSet()
+        bg({ Pictures.prune(keep) })
     }
 
     /** Keep source (a picture's web address, or a content:// one you picked) as the artist's picture. */
@@ -468,6 +550,59 @@ object Music {
     var topKind by mutableStateOf("songs")     // Most played: songs, or albums
     fun chooseTopKind(k: String) { topKind = k; saveState() }
     var collageSize by mutableStateOf(25)       // Collage…: covers across (25×25 unless you pick fewer)
+    /** Joint artists…: whose plays a pair's are ({pairKey: name, or "" for the pair's own}). */
+    var artistPicks by mutableStateOf<Map<String, String>>(emptyMap())
+    /** Similar artists…: the pairs you kept apart ("from>to" keys), not asked about again. */
+    var similarKept by mutableStateOf<List<String>>(emptyList())
+    /** Plays on singles and albums: a song's plays on one album -> the album they count for ("" left as they are). */
+    var albumPicks by mutableStateOf<Map<String, String>>(emptyMap())
+    /** Duplicates in Most played: a song's key -> "title\u0000artist" it counts as ("" left as it is). */
+    var songPicks by mutableStateOf<Map<String, String>>(emptyMap())
+    var singlesKept: Set<String> = emptySet()   // Singles › Single scan: songs left alone (their files)
+    fun keepSingles(more: Collection<String>) { singlesKept = singlesKept + more; saveState() }
+    fun addSongPicks(more: Map<String, String>) { songPicks = songPicks + more; saveState(); Stats.refresh(force = true) }
+    fun addAlbumPicks(more: Map<String, String>) { albumPicks = albumPicks + more; saveState(); Stats.refresh(force = true) }
+    fun keepApart(from: String, to: String) {
+        val k = norm(from).replace(Regex("[\\W_]+"), "") + ">" + norm(to).replace(Regex("[\\W_]+"), "")
+        if (k !in similarKept) { similarKept = similarKept + k; saveState() }
+    }
+    fun setArtistPick(credit: String, name: String?) {
+        artistPicks = if (name == null) artistPicks - pairKey(credit) else artistPicks + (pairKey(credit) to name)
+        saveState()
+    }
+    /** Merge into…: name's plays count as to's from now on, and name's songs the app downloaded get to in their tags
+     *  (name's part of a pair's credit, or the whole credit). The desktop's merge_artist. */
+    fun mergeArtist(name: String, to: String) {
+        setArtistPick(name, to)
+        val k = norm(name).replace(Regex("[\\W_]+"), "")
+        fun same(n: String) = norm(n).replace(Regex("[\\W_]+"), "") == k
+        fun swap(credit: String): String = if (same(credit)) to
+            else credit.split(Regex("(?<=( & | x |, |;))|(?=( & | x |, |;))")).joinToString("") { if (same(it)) to else it }
+        bg({
+            var n = 0
+            for (t in mySongs()) {
+                val uri = Tags.editable(t) ?: continue
+                val new = swap(t.artist)
+                if (new == t.artist) continue
+                runCatching { Tags.write(ctx, uri, mapOf("artist" to new, "albumartist" to new)) }.onSuccess { n++ }
+            }
+            n
+        }) { n, _ ->
+            toast("$name is $to now" + if ((n ?: 0) > 0) ": $n song${if (n != 1) "s" else ""} retagged" else "")
+            Stats.refresh(force = true)
+            musicVersion++
+        }
+    }
+
+    private var resolverCache: Pair<Any, (String) -> String>? = null
+    /** artistResolver for your songs and your Joint artists… picks, kept until either changes. */
+    fun artistResolver(): (String) -> String {
+        val sig = listOf(lib.items.size, local.files.size, musicVersion, artistPicks)
+        resolverCache?.let { if (it.first == sig) return it.second }
+        val r = artistResolver(runCatching { mySongs() }.getOrDefault(emptyList()), artistPicks)
+        resolverCache = sig to r
+        return r
+    }
     fun chooseCollageSize(n: Int) { if (n != collageSize) { collageSize = n; saveState() } }
 
     data class TopArtist(val name: String, val plays: Int, val thumb: String)
@@ -476,27 +611,49 @@ object Music {
     fun topArtists(period: String = "all"): List<TopArtist> {
         if (period == "all") return Stats.artists.map { TopArtist(it.name, it.plays, it.thumb) }
         val out = LinkedHashMap<String, TopArtist>()
+        val called = HashMap<String, HashMap<String, Int>>()
+        val resolve = runCatching { artistResolver() }.getOrDefault { c: String -> c }
         for (s in Stats.periods[period].orEmpty()) {
-            val lead = splitArtists(s.artist).firstOrNull()?.ifEmpty { null } ?: s.artist
-            val k = Stats.statsKey(lead, lead).second
+            val lead = resolve(s.artist).ifEmpty { splitArtists(s.artist).firstOrNull() ?: s.artist }
+            val k = resolvedKey(lead)
             val x = out[k]
             out[k] = if (x == null) TopArtist(lead, s.plays, s.thumb) else x.copy(plays = x.plays + s.plays, thumb = x.thumb.ifEmpty { s.thumb })
+            called.getOrPut(k) { HashMap() }.merge(lead, s.plays, Int::plus)
         }
-        return out.values.sortedByDescending { it.plays }
+        // "Quinn XCII & Jeremy Zucker" is Quinn XCII's: named as they are on their own.
+        return out.map { (k, x) -> x.copy(name = called[k]?.maxByOrNull { it.value }?.key ?: x.name) }.sortedByDescending { it.plays }
     }
 
     data class TopAlbum(val key: String, val title: String, val artist: String, val plays: Int, val tracks: List<Track>)
 
     /** Most played albums: Most played's songs (the same period, the same "only songs on this phone") added up by album. */
     fun topAlbums(period: String = "all"): List<TopAlbum> {
-        val out = LinkedHashMap<String, MutableList<Track>>()
-        for (t in mostPlayed(period)) {
-            if (t.album.isBlank()) continue
-            val artist = splitArtists(t.artist).firstOrNull()?.ifEmpty { null } ?: t.artist
-            out.getOrPut(norm(cleanTitle(t.album)) + "|" + norm(artist).replace(Regex("[\\W_]+"), "")) { ArrayList() } += t
+        // An album and its deluxe, extended or anniversary edition are one, under the edition's name; an album split
+        // by featured artists ("half•alive & The Walters") is one; a single's plays count for the album it's on, when
+        // you have that album's copy of the song. The desktop's top_albums.
+        class G(val key: String) { val names = HashMap<String, Int>(); val credits = HashMap<String, Int>(); var plays = 0
+            val tracks = LinkedHashMap<Pair<String, String>, Track>() }
+        val songs = mostPlayed(period)
+        if (songs.isNotEmpty() && localCopies.isEmpty()) songIndex()
+        val groups = LinkedHashMap<String, G>()
+        for (t in songs) {
+            var album = t.album.trim(); var credit = t.artist
+            if (album.isEmpty()) continue
+            val sk = Stats.statsKey(t.title, t.artist)
+            if (isSingle(album, t.title)) localCopies[sk].orEmpty().firstOrNull { it.album.isNotBlank() && !isSingle(it.album, it.title) }?.let {
+                album = it.album.trim(); credit = it.artist
+            }
+            val (base, edition) = albumEdition(album)
+            val key = norm(cleanTitle(albumWithoutPart(base))) + "|" + artistKey(credit)   // its parts (Pt. 1, Pt. 2) one too
+            val g = groups.getOrPut(key) { G(key) }
+            g.names.merge(album, 1 + if (edition.isNotEmpty()) 1000 else 0, Int::plus)
+            g.credits.merge(splitArtists(credit).firstOrNull()?.ifEmpty { null } ?: credit, 1, Int::plus)
+            g.plays += t.plays
+            g.tracks[sk] = g.tracks[sk]?.let { it.copy(plays = it.plays + t.plays) } ?: t   // the same song on both editions: one
         }
-        return out.map { (k, ts) -> TopAlbum(k, ts.first().album, splitArtists(ts.first().artist).firstOrNull() ?: ts.first().artist, ts.sumOf { it.plays }, ts) }
-            .sortedByDescending { it.plays }
+        return groups.values.map { g ->
+            TopAlbum(g.key, g.names.maxByOrNull { it.value }!!.key, soloName(g.credits), g.plays, g.tracks.values.toList())
+        }.sortedByDescending { it.plays }
     }
     var topPeriod by mutableStateOf("all")      // Most played over: week, month, year, all
     fun chooseTopPeriod(p: String) { topPeriod = p; mostPlayedFor = null; musicVersion++; saveState() }
@@ -517,7 +674,7 @@ object Music {
         }
         return mostPlayedMade
     }
-    val mostPlayedFromStats get() = Stats.songs.isNotEmpty() && (LastFm.connected || SpotifyHistory.count > 0 || AppleHistory.count > 0)
+    val mostPlayedFromStats get() = Stats.songs.isNotEmpty() && (LastFm.connected || SpotifyHistory.count > 0 || DeezerHistory.count > 0 || AppleHistory.count > 0)
 
     /** Song key to your copy of it: saved, in your folders, or played here. */
     fun songIndex(): Map<Pair<String, String>, Track> {
@@ -891,7 +1048,6 @@ object Music {
     }
 
     // ---- New releases: straight to one, and a discovery playlist from the ones you pick ----
-    const val NR_DISCOVERY = "New releases"   // the discovery playlists made from New releases go by this name
     private val releaseFound = java.util.concurrent.ConcurrentHashMap<String, Triple<String, Album?, List<Track>>>()
 
     /** (blocking) Where a new release is on the streaming services (never your files): (service, its album,
@@ -930,35 +1086,58 @@ object Music {
     /** A discovery playlist from New releases you picked: their songs you haven't got ("New releases
      *  Discovery playlist"), and "New releases discovered" for the ones you hear to the end, to download
      *  or let go, as an artist's discovery playlist works. */
-    fun makeReleaseDiscovery(releases: List<NewReleases.Release>) {
-        val name = NR_DISCOVERY
-        if (releases.isEmpty() || norm(name) in discovering) return
-        discovering += norm(name)
-        toast("Finding the songs of ${releases.size} new release${if (releases.size != 1) "s" else ""}…")
-        bg({
-            val have = HashSet(songIndex().keys)
-            discoveryLists().firstOrNull { norm(it.first) == norm(name) }?.let { (_, d, f) ->
-                (d?.tracks.orEmpty() + f?.tracks.orEmpty()).forEach { have += songKey(it) } }
-            val seen = HashSet<Pair<String, String>>()
-            val out = ArrayList<Track>(); val missing = ArrayList<String>()
-            for (r in releases) {
-                val songs = runCatching { releaseTracks(r) }.getOrDefault(emptyList())
-                if (songs.isEmpty()) missing += r.title
-                for (t in songs) { val k = songKey(t); if (k !in have && seen.add(k)) out += t }
+    // ---- An album's songs you haven't got (its page's bottom) ----
+    data class Missing(val n: Int, val title: String, val short: String, val secs: Int)
+    private val albumTracksSeen = HashMap<Pair<String, String>, List<Missing>>()
+
+    /** (blocking) The songs of your album you haven't got, from its tracklist on Deezer, in order ([] if none or not found). */
+    fun albumMissing(album: String, artist: String, tracks: List<Track>): List<Missing> {
+        val k = norm(artist) to norm(album)
+        val all = albumTracksSeen.getOrPut(k) {
+            val data = httpJson("https://api.deezer.com/search/album?q=" + enc("artist:\"$artist\" album:\"$album\"") + "&limit=5")["data"]
+            val best = (data as? kotlinx.serialization.json.JsonArray)?.firstOrNull { norm(it["title"].str) == norm(album) }
+            if (best == null) emptyList() else {
+                val ts = httpJson("https://api.deezer.com/album/${best["id"].long}/tracks?limit=200")["data"] as? kotlinx.serialization.json.JsonArray
+                ts.orEmpty().mapIndexed { i, t -> Missing((t["track_position"].long ?: (i + 1).toLong()).toInt(), t["title"].str ?: "",
+                    t["title_short"].str ?: "", (t["duration"].long ?: 0L).toInt()) }
             }
-            out to missing
-        }) { res, err ->
-            discovering.remove(norm(name))
-            if (res == null) { toast("Couldn't make it: ${err?.message?.take(100)}"); return@bg }
-            val (songs, missing) = res
+        }
+        val have = tracks.flatMap { listOf(norm(cleanTitle(it.title)), norm(bareTitle(it.title))) }.toSet()
+        return all.filter { norm(cleanTitle(it.title)) !in have && norm(cleanTitle(it.short)) !in have && norm(bareTitle(it.title)) !in have }
+    }
+
+    /** Download missing tracks…: the ones picked, found on Tidal (or YouTube Music) and saved. */
+    fun downloadMissing(artist: String, album: String, want: List<Missing>) {
+        val key = if (tidal.connected) "tidal" else "ytm"
+        val src = sources[key] ?: run { toast("Connect Tidal or YouTube Music in Settings to download"); return }
+        toast("Finding ${want.size} song${if (want.size != 1) "s" else ""}…")
+        bg({ want.mapNotNull { m -> runCatching { matchSong(src, artist, m.title, m.secs).first }.getOrNull()?.let { it.copy(album = it.album.ifEmpty { album }) } } }) { got, err ->
+            val found = got.orEmpty()
+            if (found.isNotEmpty()) download(found)
+            toast(if (err != null) "Couldn't download: ${err.message?.take(100)}" else "Downloading ${found.size} of ${want.size}" +
+                if (found.size < want.size) " (${want.size - found.size} not found)" else "")
+        }
+    }
+
+    /** A release's discovery playlist's name: “Persona (Extended) from half•alive”. */
+    fun releaseName(r: NewReleases.Release) = "${r.title} from ${r.artist}"
+
+    /** A discovery playlist (and its discovered one) for each release, with the songs picked. They work as an
+     *  artist's do: a song heard to the end moves to the discovered one. */
+    fun makeReleaseDiscoveries(chosen: List<Pair<NewReleases.Release, List<Track>>>, quiet: Boolean = false): List<String> {
+        val made = ArrayList<String>()
+        for ((r, songs) in chosen) {
+            val name = releaseName(r)
             val pair = discoveryLists().firstOrNull { norm(it.first) == norm(name) }
             val disc = pair?.second ?: lists.create("$name Discovery playlist", discovery = Discovery(name, "discover"))
             if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"))
-            val n = lists.add(disc.id, songs)
-            val notFound = if (missing.isEmpty()) "" else " (not found: ${missing.take(3).joinToString()}${if (missing.size > 3) "…" else ""})"
-            toast((if (n > 0) "“${disc.name}”: $n new song${if (n != 1) "s" else ""} you haven't got" else "You have every song of those already") + notFound)
-            musicVersion++
+            lists.add(disc.id, songs)
+            made += name
         }
+        if (made.isEmpty()) return made
+        if (!quiet) toast(if (made.size == 1) "Made “${made[0]} Discovery playlist”" else "Made ${made.size} discovery playlists")
+        musicVersion++
+        return made
     }
 
     /** A song heard to the end: out of its discovery playlist, into the discovered one. */
@@ -1330,10 +1509,10 @@ object Music {
             val raw = if (source.startsWith("content://")) ctx.contentResolver.openInputStream(android.net.Uri.parse(source))!!.use { it.readBytes() }
                 else httpBytes(source)
             val jpeg = Covers.jpeg(raw)
-            val key = Covers.albumKey(t)
+            val keys = tracks.map { Covers.albumKey(it) }.toSet()   // every album of the songs: all of each one's songs
             val saved = File(File(ctx.filesDir, "covers").apply { mkdirs() }, "${randomHex(8)}.jpg").apply { writeBytes(jpeg) }
             val ids = tracks.map { x -> x.id }.toSet()
-            val album = lib.items.values.filter { (wholeAlbum && Covers.albumKey(it.track()) == key) || it.id in ids }
+            val album = lib.items.values.filter { (wholeAlbum && Covers.albumKey(it.track()) in keys) || it.id in ids }
             var written = 0
             val failed = ArrayList<String>()
             for (e in album.distinctBy { it.file }) {
@@ -1346,8 +1525,9 @@ object Music {
                 lib.update(e.id) { it.copy(art = art.path) }
                 if (old.isNotEmpty() && lib.items.values.none { it.art == old }) File(old).delete()
             }
-            if (t.album.isNotEmpty()) Pictures.chooseCover(t.artist, t.album, saved.path)
-            else for (x in tracks) Pictures.chooseCover(x.artist, x.title, saved.path)
+            for (x in tracks.distinctBy { Covers.albumKey(it) })   // your own songs' albums show it too
+                if (x.album.isNotEmpty()) Pictures.chooseCover(x.artist, x.album, saved.path)
+            for (x in tracks.filter { it.album.isEmpty() }) Pictures.chooseCover(x.artist, x.title, saved.path)
             written to failed
         }) { res, err ->
             if (err != null || res?.second?.isNotEmpty() == true) toast("Couldn't use that cover: ${(err?.message ?: res!!.second[0]).take(100)}")
@@ -1811,6 +1991,112 @@ object Music {
         if (p.playbackState == Player.STATE_ENDED) p.pause()   // nothing came: it stops, and Android hears it
     }
 
+    // ---- 2.0: song crossfade ----
+    private var fadingId: String? = null
+    private var fadeIn = 0.0
+    private var fadeJob: kotlinx.coroutines.Job? = null
+
+    private var tail: androidx.media3.exoplayer.ExoPlayer? = null   // the song ending, ready to carry on fading in a player of its own
+    private var tailFor: String? = null
+
+    private fun dropTail() {
+        tail?.let { runCatching { it.release() } }
+        tail = null; tailFor = null
+    }
+
+    /** Crossfade (Equalizer › Crossfade): the last seconds of a song fade out while the next fades in. A few seconds
+     *  before, a second player gets the song ending ready, paused at the same place; at the fade it takes over from
+     *  the same moment (only once it's really playing does this one move on), so there's no gap: the ending song
+     *  gets quieter while the next one comes up from quiet, both at once. Not with bit-perfect, Repeat one, streams,
+     *  casting, or (Smart transitions) between songs of one album, which flow into each other. */
+    private fun maybeCrossfade(p: Player) {
+        val t = current()
+        if (t == null || !Prefs.on(Prefs.CROSSFADE) || bitPerfect || repeat == "one" || Remote.active || cast != null || streaming) {
+            if (tail != null && tailFor != fadingId) dropTail()
+            return
+        }
+        if (fadingId == t.id) return
+        if (tailFor != null && tailFor != t.id) dropTail()   // moved on (skipped) before it faded
+        val n = Prefs.num(Prefs.CROSSFADE_SECS, 6f).toDouble()
+        if (duration < n * 3) return
+        val nxt = queue.getOrNull(index + 1) ?: return
+        if (Prefs.on(Prefs.SMART_TRANSITIONS) && sameAlbum(t, nxt)) return
+        val fadeAt = duration - n
+        // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
+        if (tail == null && position >= fadeAt - 5 && position < fadeAt) {
+            val uri = p.currentMediaItem?.localConfiguration?.uri ?: return
+            runCatching {
+                val x = androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
+                    .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC).build(), false).build()
+                x.setMediaItem(MediaItem.fromUri(uri), (fadeAt * 1000).toLong())
+                x.volume = 0f
+                x.playWhenReady = false
+                x.prepare()
+                tail = x; tailFor = t.id
+            }
+            return
+        }
+        val x = tail ?: return
+        if (position < fadeAt) return
+        if (x.playbackState != Player.STATE_READY) {   // not ready in time: no crossfade this once, just the usual change
+            if (position > duration - 1) dropTail()
+            return
+        }
+        // Take over: the second player plays on from this moment, at this volume; once it's really playing, this one
+        // moves on to the next song (coming up from quiet), and the ending fades out over the same seconds.
+        fadingId = t.id
+        val from = p.volume.coerceAtLeast(0.05f)
+        x.seekTo(p.currentPosition + 40)
+        x.volume = from
+        x.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (!isPlaying || fadingId != t.id || current()?.id != t.id) return
+                x.removeListener(this)
+                player?.volume = 0f   // the second player has it now: no doubled sound while the next one loads
+                fadeIn = n
+                trackEnded()
+            }
+        })
+        x.play()
+        tail = null; tailFor = null
+        scope.launch {
+            val left = maxOf(1.0, minOf(n, duration - position))
+            val steps = (left * 20).toInt().coerceAtLeast(1)
+            for (k in 1..steps) {
+                delay(50)
+                x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
+            }
+            runCatching { x.release() }
+        }
+        scope.launch {   // if it never got going, move on anyway
+            delay(1500)
+            if (fadingId == t.id && current()?.id == t.id && !x.isPlaying) { fadeIn = 0.0; trackEnded() }
+        }
+    }
+
+    /** Smart shuffle (Settings › Playback): each song's weight, more for the ones you love (play a lot) that you haven't
+     *  heard in a while; null (plain chance) with it off. */
+    fun shuffleWeight(): ((Track) -> Double)? {
+        if (!Prefs.on(Prefs.SMART_SHUFFLE)) return null
+        val plays = HashMap<Pair<String, String>, Int>()
+        for (st in Stats.songs.take(20000)) plays[Stats.statsKey(st.title, st.artist)] = st.plays
+        val last = HashMap<Pair<String, String>, Double>()
+        for (e in this.plays.items.values) { val k = Stats.statsKey(e.track.title, e.track.artist); last[k] = maxOf(last[k] ?: 0.0, e.last) }
+        val now = System.currentTimeMillis() / 1000.0
+        return { t -> Stats.statsKey(t.title, t.artist).let { k -> smartWeight(plays[k] ?: 0, last[k] ?: 0.0, now) } }
+    }
+
+    /** One of 2.0's switches (Prefs), with what it takes to take effect. */
+    fun setOpt(key: String, on: Boolean) {
+        Prefs.set(key, on)
+        if (key == Prefs.CROSSFEED) eqProcessor.crossfeed = on
+    }
+
+    /** Songs of one album, one after the other: Smart transitions leaves them to flow into each other. */
+    fun sameAlbum(a: Track, b: Track) = a.album.isNotBlank() && norm(albumEdition(a.album).first) == norm(albumEdition(b.album).first) &&
+        artistKey(a.artist) == artistKey(b.artist)
+
     fun trackEnded() {
         advancing = true
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
@@ -1919,10 +2205,12 @@ object Music {
 
     private fun play(t: Track, ready: Downloader.Ready, autoplay: Boolean, startAt: Double = 0.0) {
         val p = player ?: return
-        val art = lib.items[t.id]?.art?.takeIf { it.isNotEmpty() }?.let { android.net.Uri.fromFile(File(it)) }
+        val art = lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && cast == null }?.let { android.net.Uri.fromFile(File(it)) }
             ?: t.thumb.takeIf { it.isNotEmpty() }?.let { android.net.Uri.parse(sizedThumb(it, 544)) }
-        val item = MediaItem.Builder().setUri(ready.uri).setMediaId(t.id)
-            .apply { if (ready.isDash) setMimeType(MimeTypes.APPLICATION_MPD) }
+        // Casting: the device fetches the song itself: a stream as it is, a file of the phone's from here over the network.
+        val uri = if (cast != null && !ready.uri.startsWith("http")) PhoneShare.forCast(t, castHost) ?: ready.uri else ready.uri
+        val item = MediaItem.Builder().setUri(uri).setMediaId(t.id)
+            .apply { if (ready.isDash) setMimeType(MimeTypes.APPLICATION_MPD) else if (cast != null) setMimeType(castMime(t, uri)) }
             .setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album)
                 .setArtworkUri(art).build())
             .build()
@@ -1932,6 +2220,16 @@ object Music {
         p.prepare()
         p.playWhenReady = autoplay
         advancing = false   // buffering for real now
+        fadeJob?.cancel()
+        if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
+            val n = fadeIn; fadeIn = 0.0
+            p.volume = 0f
+            fadeJob = scope.launch {
+                val steps = (n * 20).toInt().coerceAtLeast(1)
+                for (i in 1..steps) { delay(50); p.volume = kotlin.math.sin(Math.PI / 2 * i / steps).toFloat() }   // …the next comes up
+                p.volume = 1f
+            }
+        } else p.volume = 1f
     }
 
     private fun prefetch() {

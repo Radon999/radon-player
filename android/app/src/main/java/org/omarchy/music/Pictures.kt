@@ -12,7 +12,8 @@ import java.io.File
 object Pictures {
     @Serializable
     data class Artist(val image: String = "", val imageFrom: String = "", val bio: String = "", val bioFrom: String = "",
-                      val bioUrl: String = "", val chosen: Boolean = false, val t: Double = 0.0)
+                      val bioUrl: String = "", val chosen: Boolean = false, val t: Double = 0.0, val v: Int = 0,
+                      val failed: Boolean = false, val saved: String = "")   // saved: the picture's copy on the phone
 
     /** A picture to pick from, and where it's from ("Google", "Genius", "Wikipedia"). */
     data class Choice(val url: String, val thumb: String, val from: String)
@@ -21,6 +22,10 @@ object Pictures {
     private data class Saved(val artists: Map<String, Artist> = emptyMap(), val covers: Map<String, String> = emptyMap())
 
     private const val RETRY = 14 * 86400   // an artist nothing was found for is looked for again after this long
+    private const val RETRY_FAILED = 3600   // …or after this long, when Deezer didn't answer (rather than had nothing)
+    const val V = 3   // 3: Deezer paced; the ones found with no picture before it are looked for again, once
+    private val deezerGap = Any()
+    private var deezerLast = 0L
     private const val WIKI_API = "https://en.wikipedia.org/w/api.php"
     private const val GENIUS_BLANK = "assets.genius.com/images/default_"   // Genius's grey placeholder
     private val MUSIC_WORDS = Regex("singer|band|music|rapper|group|producer|\\bdj\\b|composer|songwriter|duo|trio|artist|" +
@@ -34,9 +39,12 @@ object Pictures {
     private val covers = HashMap<String, String>()
     private var file: File? = null
 
+    private var picsDir: File? = null   // where artists' pictures are kept on the phone (not looked up again)
+
     fun init(c: Context) {
         val f = File(c.applicationContext.filesDir, "pictures.json")
         file = f
+        picsDir = File(c.applicationContext.filesDir, "artist-pics")
         Music.bg({ readText(f)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
             if (s != null) synchronized(this) { s.artists.forEach { (k, v) -> artists.putIfAbsent(k, v) }; s.covers.forEach { (k, v) -> covers.putIfAbsent(k, v) } }
         }
@@ -53,7 +61,31 @@ object Pictures {
         null
     }
 
+    /** Waits its turn to ask Deezer: about nine a second at most, for everything that asks it (it allows fifty in five). */
+    fun deezerPace() = synchronized(deezerGap) {
+        val wait = deezerLast + 110 - System.currentTimeMillis()
+        if (wait > 0) Thread.sleep(wait)
+        deezerLast = System.currentTimeMillis()
+    }
+
     // ---- the services ----
+    /** Deezer's photo of the artist (no key needed), if one is named closely enough; its blank one isn't. */
+    internal fun deezer(name: String): String? {
+        val url = "https://api.deezer.com/search/artist?q=${enc(name)}&limit=5"
+        // Paced, about nine a second (Deezer allows fifty in five): Most played's hundreds at once went over the
+        // limit and came back empty, as if there were no picture. Still over it: an error, asked again soon.
+        fun ask(): JsonElement { deezerPace(); return fetch(url, emptyMap()) }
+        var res = ask()
+        if (res["error"]["code"].long == 4L) { Thread.sleep(5000); res = ask() }
+        if (res["error"] is kotlinx.serialization.json.JsonObject && res["data"] == null)
+            throw java.io.IOException("Deezer: ${res["error"]["message"].str ?: "busy"}")
+        val data = res["data"].list
+            .sortedByDescending { similar(norm(it["name"].str), norm(name)) }
+        val best = data.firstOrNull() ?: return null
+        if (similar(norm(best["name"].str), norm(name)) <= 0.85) return null
+        return (best["picture_xl"].str ?: best["picture_big"].str)?.takeIf { it.isNotEmpty() && "/artist//" !in it }
+    }
+
     internal fun google(q: String, n: Int = 6): List<Choice> {
         val k = keys()
         val key = k["google_key"].orEmpty(); val cx = k["google_cx"].orEmpty()
@@ -132,16 +164,58 @@ object Pictures {
     private fun wikiAlbum(artist: String, album: String) = wikipedia("${bareTitle(album)} $artist album", bareTitle(album), ALBUM_WORDS)
 
     // ---- what the app asks for ----
+    /** The artist's picture kept on the phone (downloaded once, then shown from there): its file, or null. */
+    fun keepOnPhone(name: String): File? {
+        val dir = picsDir ?: return null
+        val a = known(name) ?: return null
+        if (a.saved.isNotEmpty() && File(a.saved).exists()) return File(a.saved)
+        val url = a.image.takeIf { it.startsWith("http") } ?: return null
+        val f = File(dir.apply { mkdirs() }, "${java.security.MessageDigest.getInstance("SHA-1")
+            .digest("${norm(name)}|$url".toByteArray()).joinToString("") { "%02x".format(it) }.take(24)}.jpg")
+        val bytes = runCatching { httpBytes(url) }.getOrNull()?.takeIf { it.size > 100 } ?: return null
+        f.writeBytes(bytes)
+        synchronized(this) { artists[norm(name)]?.let { if (it.image == url) artists[norm(name)] = it.copy(saved = f.path) } }
+        save()
+        return f
+    }
+
+    /** Forget the artists not in keep (names, normed), and delete their pictures kept on the phone. How many. */
+    fun prune(keep: Set<String>): Int {
+        val gone = synchronized(this) { artists.filterKeys { it !in keep }.also { g -> g.keys.forEach { artists.remove(it) } } }
+        for (a in gone.values) {
+            if (a.saved.isNotEmpty()) File(a.saved).delete()
+            if (a.chosen && a.image.startsWith("/") && "/artists/" in a.image) File(a.image).delete()   // one you picked, copied in
+        }
+        if (gone.isNotEmpty()) save()
+        return gone.size
+    }
+
     /** What's known of the artist, if it was looked up already (no network). */
     fun known(name: String): Artist? = synchronized(this) { artists[norm(name)] }
+
+    /** Whether the artist's picture needn't be looked for (again): picked by you, found (since Deezer was
+     *  asked), or not found lately. */
+    fun settled(a: Artist?): Boolean = a != null && (a.chosen || (a.image.isNotEmpty() && a.v >= 2) ||
+        (a.v >= V && now() - a.t < (if (a.failed) RETRY_FAILED else RETRY)))
 
     /** The artist's picture and bio ("" where none was found), looked up the first time. */
     fun artist(name: String, refresh: Boolean = false): Artist {
         val k = norm(name)
         val have = known(name)
-        if (have != null && !refresh && (have.image.isNotEmpty() || have.bio.isNotEmpty() || now() - have.t < RETRY)) return have
-        var out = Artist(t = now())
+        // (one looked for before Deezer was asked, and not picked by you: looked for again, once)
+        if (have != null && !refresh && settled(have)) return have
+        var out = Artist(t = now(), v = V)
         if (have?.chosen == true) out = out.copy(image = have.image, imageFrom = have.imageFrom, chosen = true)   // a picture you picked stays
+        if (out.image.isEmpty()) {   // Deezer first: the artist's own photo; "Surfaces & Quinn XCII": Surfaces's, if the pair has none
+            val lead = ownArtists(name).firstOrNull().orEmpty()
+            for (n in listOf(name) + listOfNotNull(lead.takeIf { it.isNotEmpty() && norm(it) != k })) {
+                val pic = try { deezer(n) } catch (e: Exception) {
+                    tried("deezer") { throw e }
+                    out = out.copy(failed = true); null
+                } ?: continue
+                out = out.copy(image = pic, imageFrom = "Deezer", failed = false); break
+            }
+        }
         if (out.image.isEmpty()) tried("google") { google("$name musician", 1) }?.firstOrNull()?.let { out = out.copy(image = it.url, imageFrom = "Google") }
         val genius = tried("genius") { geniusArtist(name) }
         if (out.image.isEmpty() && !genius?.image.isNullOrEmpty()) out = out.copy(image = genius!!.image, imageFrom = "Genius")
@@ -150,14 +224,22 @@ object Pictures {
         if (wiki != null && wiki.bio.isNotEmpty()) out = out.copy(bio = wiki.bio, bioFrom = "Wikipedia", bioUrl = wiki.url)
         else if (genius != null && genius.id > 0)
             tried("genius bio") { geniusBio(genius.id) }?.takeIf { it.isNotEmpty() }?.let { out = out.copy(bio = it, bioFrom = "Genius", bioUrl = genius.url) }
-        synchronized(this) { artists[k] = out }
+        synchronized(this) {
+            val now = artists[k]
+            // You picked one while this was being looked up: yours stays (the bio found comes along).
+            if (now != null && now.chosen && !(have?.chosen == true && have.image == now.image))
+                out = out.copy(image = now.image, imageFrom = now.imageFrom, chosen = true, saved = now.saved)
+            artists[k] = out
+        }
         save()
         return out
     }
 
-    /** Pictures of the artist to pick from: Google's, Genius's and Wikipedia's. */
+    /** Pictures of the artist to pick from: Deezer's, Google's, Genius's and Wikipedia's. */
     fun artistChoices(name: String): List<Choice> {
-        val out = ArrayList(tried("google") { google("$name musician") }.orEmpty())
+        val out = ArrayList<Choice>()
+        tried("deezer") { deezer(name) }?.let { out += Choice(it, it, "Deezer") }
+        out += tried("google") { google("$name musician") }.orEmpty()
         tried("genius") { geniusArtist(name) }?.image?.takeIf { it.isNotEmpty() }?.let { out += Choice(it, it, "Genius") }
         tried("wikipedia") { wikiArtist(name) }?.image?.takeIf { it.isNotEmpty() }?.let { out += Choice(it, it, "Wikipedia") }
         return out.distinctBy { it.url }
@@ -173,11 +255,14 @@ object Pictures {
 
     /** Keep url (a web address or a file's) as the artist's picture. */
     fun chooseArtist(name: String, url: String, from: String = "you") {
-        synchronized(this) { artists[norm(name)] = (artists[norm(name)] ?: Artist(t = now())).copy(image = url, imageFrom = from, chosen = true) }
+        synchronized(this) { artists[norm(name)] = (artists[norm(name)] ?: Artist(t = now())).copy(image = url, imageFrom = from, chosen = true, saved = "") }
         save()
     }
 
-    private fun coverKey(artist: String, album: String) = "${norm(artist.split(",")[0])}|${norm(bareTitle(album))}"
+    /** An album's key for a cover you picked: its lead artist ("Quinn XCII & Jeremy Zucker" as Quinn XCII, so the
+     *  album's songs with someone featured get it too) and its name. */
+    private fun coverKey(artist: String, album: String) =
+        "${norm(artist.split(Regex(",| & | x | feat\\.? | ft\\.? | featuring | with ", RegexOption.IGNORE_CASE))[0])}|${norm(bareTitle(album))}"
 
     /** The cover you picked for artist's album, or "". */
     fun cover(artist: String, album: String): String = synchronized(this) { covers[coverKey(artist, album)] ?: "" }

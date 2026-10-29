@@ -99,6 +99,13 @@ fun App() {
     val snack = remember { SnackbarHostState() }
     val ctx = LocalContext.current
     LaunchedEffect(Unit) { for (t in Music.toasts) { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
+    LaunchedEffect(Unit) {   // a note with a button (Continue where you left off's Play)
+        for ((text, label, act) in Music.offers) {
+            snack.currentSnackbarData?.dismiss()
+            if (snack.showSnackbar(text, actionLabel = label, duration = androidx.compose.material3.SnackbarDuration.Long) ==
+                androidx.compose.material3.SnackbarResult.ActionPerformed) act()
+        }
+    }
 
     // Dark icons on the system bars over a light look.
     val view = LocalView.current
@@ -179,6 +186,8 @@ fun App() {
                         "music" -> MusicTab(ui)
                         "artists" -> ArtistsTab(ui)
                         "albums" -> AlbumsTab(ui)
+                        "eps" -> AlbumsTab(ui, kind = "eps")
+                        "singles" -> AlbumsTab(ui, kind = "singles")
                         "genres" -> GenresTab(ui)
                         "folders" -> FoldersTab(ui)
                         "queue" -> QueueTab(ui)
@@ -195,6 +204,8 @@ fun App() {
             if (ui.showQueues) QueuesDialog(ui)
             ChoicesDialog(ui)
             ui.reviewFor?.let { ReviewDialog(ui, it) }
+            ui.releasePick?.let { ReleasePicker(ui, it) }
+            if (ui.castPick) CastPicker(ui)
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
         }
@@ -248,6 +259,8 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
     Triple("music", "Music", buildList {
         add(Entry("My music", Ico.NOTE, "music", "all"))
         add(Entry("Albums", Ico.DISC, "albums"))
+        add(Entry("EPs", Ico.DISC, "eps"))
+        add(Entry("Singles", Ico.DISC, "singles"))
         add(Entry("Artists", Ico.PERSON, "artists"))
         add(Entry("Genres", Ico.GENRE, "genres"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
@@ -300,7 +313,7 @@ private fun DrawerSheet(ui: Ui) {
                 if (open) list.forEach { item(it) }
             }
             androidx.compose.material3.HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 8.dp))
-            DrawerItem("Settings", Ico.SETTINGS, false, quiet = true) { ui.drawer = false; ui.sheet = "accounts" }
+            DrawerItem("Settings", Ico.SETTINGS, false, quiet = true) { ui.drawer = false; ui.openSettings() }
             DrawerItem("Equalizer", Ico.EQ, false, quiet = true) { ui.drawer = false; ui.sheet = "eq" }
             val act = LocalContext.current as? org.omarchy.music.MainActivity
             DrawerItem("Mini player", Ico.VIS, false, quiet = true) { ui.drawer = false; act?.enterMini() }
@@ -370,7 +383,7 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
                     Music.setLayout(key, LAYOUTS[(LAYOUTS.indexOf(now) + 1) % LAYOUTS.size])
                 }
             } else if (ui.tab != "search" || page != null) IconButton(Ico.SEARCH) { goTo(ui, "search") }
-            IconButton(Ico.SETTINGS) { ui.sheet = "accounts" }
+            IconButton(Ico.SETTINGS) { ui.openSettings() }
         }
         if (ui.tab == "search" && page == null) SearchField(ui)
         else if (ui.filter != null && laidOut(ui)) FilterField(ui, title)
@@ -388,6 +401,8 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "library" -> if (Music.browseLocal) "My music" else "${SOURCES[Music.source] ?: "Service"} library"
         "artists" -> "Artists"
         "albums" -> "Albums"
+        "eps" -> "EPs"
+        "singles" -> "Singles"
         "genres" -> "Genres"
         "folders" -> "Folders"
         "queue" -> "Up next"
@@ -550,7 +565,7 @@ private fun PlayerTop(ui: Ui, n: Now) {
             IconButton(Ico.MORE) { if (n.t != null) menu = true }
             if (n.t != null && !n.remote) TrackMenu(n.t, RowPlace(listOf(n.t), 0), ui, menu) { menu = false }
         }
-        IconButton(Ico.SETTINGS) { ui.sheet = "accounts" }
+        IconButton(Ico.SETTINGS) { ui.openSettings() }
     }
 }
 

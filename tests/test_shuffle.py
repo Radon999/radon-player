@@ -37,7 +37,8 @@ class ShuffleTest(unittest.TestCase):
         self.assertEqual([t["id"] for t in om.shuffle_songs(songs(1), after=songs(1)[0])], ["0"])
 
     def test_repeat_all_shuffles_again_at_the_end(self):
-        app = types.SimpleNamespace(queue=songs(6), index=5, repeat="all", shuffled=True, loaded=0, changed=0)
+        app = types.SimpleNamespace(queue=songs(6), index=5, repeat="all", shuffled=True, loaded=0, changed=0,
+                                    shuffle_weight=lambda: None)
         app.current_track = lambda: app.queue[app.index]
         app.load_current = lambda: setattr(app, "loaded", app.loaded + 1)
         app.after_queue_change = lambda: setattr(app, "changed", app.changed + 1)

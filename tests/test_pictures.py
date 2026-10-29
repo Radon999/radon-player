@@ -124,3 +124,106 @@ class PicturesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeezerFirstTest(unittest.TestCase):
+    """2.0: Deezer's artist photo first (no key needed), everywhere; pictures found before it was asked looked for again once."""
+    def setUp(self):
+        om.PICTURES.unlink(missing_ok=True)
+        self.pics = om.Pictures(dict)
+
+    def test_deezer_first(self):
+        http, _ = fake()
+        with mock.patch.object(om, "http_json", http), \
+                mock.patch.object(om, "deezer_artist_image", lambda n: "https://cdn-images.dzcdn.net/images/artist/abc/1000x1000.jpg"):
+            a = self.pics.artist("Joji")
+        self.assertEqual(a["image_from"], "Deezer")
+        self.assertTrue(a["bio"])   # the bio still from Wikipedia
+
+    def test_old_pictures_looked_for_again_once(self):
+        self.pics.artists["joji"] = {"image": "https://upload.wikimedia.org/wrong.png", "image_from": "Wikipedia", "bio": "x", "t": 1}
+        http, _ = fake()
+        with mock.patch.object(om, "http_json", http), \
+                mock.patch.object(om, "deezer_artist_image", lambda n: "https://cdn-images.dzcdn.net/images/artist/abc/1000x1000.jpg"):
+            self.assertEqual(self.pics.artist("Joji")["image_from"], "Deezer")
+        with mock.patch.object(om, "deezer_artist_image", lambda n: self.fail("asked twice")):
+            self.assertEqual(self.pics.artist("Joji")["image_from"], "Deezer")
+
+    def test_duo_falls_back_to_the_lead(self):
+        asked = []
+        http, _ = fake()
+        with mock.patch.object(om, "http_json", http), \
+                mock.patch.object(om, "deezer_artist_image", lambda n: asked.append(n) or ("https://x/artist/1/a.jpg" if n == "Surfaces" else None)):
+            a = self.pics.artist("Surfaces & Quinn XCII")
+        self.assertEqual(asked, ["Surfaces & Quinn XCII", "Surfaces"])
+        self.assertEqual(a["image_from"], "Deezer")
+
+
+class DeezerBusyTest(unittest.TestCase):
+    """2.0: Most played's hundreds of artists went over Deezer's limit: those came back as "no picture" and
+    weren't asked again for two weeks. Now paced; a busy Deezer is asked again in an hour; old misses once more."""
+    def setUp(self):
+        om.PICTURES.unlink(missing_ok=True)
+        self.pics = om.Pictures(dict)
+
+    def test_over_the_limit_is_not_none(self):
+        busy = {"error": {"type": "Exception", "message": "Quota limit exceeded", "code": 4}}
+        with mock.patch.object(om, "deezer_get", lambda url: busy):
+            with self.assertRaises(RuntimeError):
+                om.deezer_artist_image("Sleep Token")
+
+    def test_busy_asked_again_soon(self):
+        def boom(n):
+            raise RuntimeError("Deezer: quota")
+        http, _ = fake()
+        with mock.patch.object(om, "http_json", http), mock.patch.object(om, "deezer_artist_image", boom), \
+                mock.patch.object(om, "google_images", lambda *a: []), mock.patch.object(om, "genius_artist", lambda n: None), \
+                mock.patch.object(om, "wikipedia_artist", lambda n: None):
+            a = self.pics.artist("Sleep Token")
+        self.assertTrue(a.get("failed"))
+        self.assertTrue(self.pics.known("Sleep Token"))   # not straight away…
+        self.pics.artists["sleep token"]["t"] -= om.PICTURES_RETRY_FAILED + 1
+        self.assertFalse(self.pics.known("Sleep Token"))   # …but in an hour
+
+    def test_old_misses_asked_again(self):
+        self.pics.artists["sleep token"] = {"image": "", "bio": "", "v": 2, "t": om.time.time()}
+        self.assertFalse(self.pics.known("Sleep Token"))
+        self.pics.artists["owl city"] = {"image": "https://x/artist/1/a.jpg", "v": 2, "t": 1}
+        self.assertTrue(self.pics.known("Owl City"))   # ones found stay found
+
+
+class PruneTest(unittest.TestCase):
+    """2.0: pictures of artists gone from your music (no songs, no plays) are forgotten and their files deleted."""
+    def setUp(self):
+        om.PICTURES.unlink(missing_ok=True)
+        self.pics = om.Pictures(dict)
+
+    def test_prune(self):
+        url = "https://cdn-images.dzcdn.net/images/artist/abc/1000x1000.jpg"
+        self.pics.artists["joji"] = {"image": url, "v": 3}
+        self.pics.artists["gone band"] = {"image": url, "v": 3}
+        f = om.thumb_path(om.artist_picture("gone band", url)["id"])
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x")
+        self.assertEqual(self.pics.prune({"joji"}), 1)
+        self.assertEqual(set(self.pics.artists), {"joji"})
+        self.assertFalse(f.exists())
+
+
+class PickedWhileLookingTest(unittest.TestCase):
+    """2.0: a picture you pick while the artist is still being looked up stays: the lookup doesn't put its own over it."""
+    def setUp(self):
+        om.PICTURES.unlink(missing_ok=True)
+        self.pics = om.Pictures(dict)
+
+    def test_picked_stays(self):
+        http, _ = fake()
+
+        def slow(n):   # you pick one while Deezer is being asked
+            self.pics.choose_artist("Joji", "file:///home/me/joji.jpg")
+            return "https://cdn-images.dzcdn.net/images/artist/abc/1000x1000.jpg"
+        with mock.patch.object(om, "http_json", http), mock.patch.object(om, "deezer_artist_image", slow):
+            a = self.pics.artist("Joji")
+        self.assertEqual(a["image"], "file:///home/me/joji.jpg")
+        self.assertTrue(a["chosen"])
+        self.assertTrue(self.pics.artists["joji"]["chosen"])

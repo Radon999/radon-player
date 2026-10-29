@@ -133,7 +133,7 @@ object Dj {
         val out = ArrayList<Heard>()
         if (LastFm.connected) runCatching { Wrapped.allScrobbles(Music.ctx).forEach { out += Heard(it.t, it.artist, it.title) } }
         if (out.isEmpty()) for (e in Music.plays.items.values.toList()) for (x in e.at) out += Heard(x, e.track.artist, e.track.title)
-        for (p in SpotifyHistory.plays + AppleHistory.timed()) out += Heard(p.t, p.artist, p.title)
+        for (p in SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()) out += Heard(p.t, p.artist, p.title)
         return out
     }
 

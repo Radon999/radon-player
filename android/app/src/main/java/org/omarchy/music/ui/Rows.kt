@@ -86,9 +86,19 @@ class Ui {
     var resultsAreList by mutableStateOf(false)
     var searching by mutableStateOf(false)
     var sheet by mutableStateOf<String?>(null)          // "accounts", "eq", "tidal-login", "spotify-login"…
+    /** Settings' sections unfolded: none each time Settings opens (openSettings), or the one it was opened for. */
+    val settingsOpen = androidx.compose.runtime.mutableStateListOf<String>()
+    fun openSettings(section: String? = null) { settingsOpen.clear(); section?.let { settingsOpen += it }; sheet = "accounts" }
     var pickPlaylistFor by mutableStateOf<List<Track>?>(null)
     var editTagsFor by mutableStateOf<List<Track>?>(null)
     var taggerFor by mutableStateOf<List<Track>?>(null)
+    var tagScan by mutableStateOf(false)   // Settings › Tagger › Scan…
+    var jointArtists by mutableStateOf(false)   // Settings › Joint artists…
+    var similarArtists by mutableStateOf(false)   // Settings › Similar artists…
+    var albumPlays by mutableStateOf(false)   // Settings › Plays on singles and albums…
+    var singleScan by mutableStateOf(false)   // Singles › Single scan…
+    var duplicates by mutableStateOf(false)   // Settings › Duplicates in Most played…
+    var cardFor by mutableStateOf<String?>(null)     // Share card…: "songs", "albums", "artists" or "time"
     var collageFor by mutableStateOf<String?>(null)   // Collage…: "songs", "albums" or "artists"   // Tagger…: tags, cover, the files' details, lyrics
     var deleteFor by mutableStateOf<List<Track>?>(null)
     var speedFor by mutableStateOf<List<Track>?>(null)
@@ -97,8 +107,11 @@ class Ui {
     var exportFor by mutableStateOf<Pair<String, List<Track>>?>(null)   // Export…: a playlist as .m3u8
     var coverFor by mutableStateOf<List<List<Track>>?>(null)   // the albums still to pick a cover for
     var artistPictureFor by mutableStateOf<String?>(null)
+    var mergeArtist by mutableStateOf<String?>(null)   // Merge into…: this artist
     var filter by mutableStateOf<String?>(null)        // the page's own search (null: closed)
-    var reviewFor by mutableStateOf<org.omarchy.music.Playlist?>(null)   // a discovered list, being reviewed
+    var reviewFor by mutableStateOf<org.omarchy.music.Playlist?>(null)
+    var castPick by mutableStateOf(false)               // Cast…: the devices to play on
+    var releasePick by mutableStateOf<List<org.omarchy.music.NewReleases.Release>?>(null)   // releases to make discovery playlists of   // a discovered list, being reviewed
     var tagPreview by mutableStateOf<Pair<List<String>, Boolean>?>(null)   // Tag now…: these songs, from scratch or not
     var width by mutableStateOf(392f)                  // the lists' width, in dp: how many covers fit across
     var choices by mutableStateOf<Pair<String, List<Pair<String, () -> Unit>>>?>(null)   // a long-press's options
@@ -149,6 +162,25 @@ class Ui {
     fun stopSelecting() {
         selecting = false
         selected.clear()
+        albumsPicked.clear()
+        pickingAlbums = false
+    }
+
+    /** Albums: picking some (Select), for Options on all their songs. */
+    var pickingAlbums by mutableStateOf(false)
+    val albumsPicked = androidx.compose.runtime.mutableStateMapOf<String, List<Track>>()
+
+    /** Options (the sheet) for these songs: an album's, or the albums picked. */
+    fun optionsFor(songs: List<Track>) {
+        selected.clear()
+        songs.forEach { selected[it.id] = it }
+        showOptions = true
+    }
+
+    /** Picking songs: a long-press is the Options button's sheet for them, this song picked too. */
+    fun optionsHere(t: Track) {
+        selected[t.id] = t
+        showOptions = true
     }
 
     fun toggle(t: Track) { if (t.id in selected) selected.remove(t.id) else selected[t.id] = t }
@@ -206,7 +238,7 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                     else if (C.isLight && !C.apple) C.light else Color.Transparent)
                 .combinedClickable(
                     onClick = { if (ui.selecting) ui.toggle(t) else onPlay() },
-                    onLongClick = { if (ui.selecting) ui.toggle(t) else menu = true },
+                    onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
                 )
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -237,6 +269,32 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
     }
 }
 
+/** The album song t is on: yours (Albums) if you have it, else its page on the song's service (or Tidal's, YouTube Music's). */
+fun goToAlbum(ui: Ui, t: Track) {
+    val album = t.album.trim()
+    if (album.isEmpty()) { Music.toast("This song has no album in its tags"); return }
+    if (ui.selecting) ui.stopSelecting()
+    val want = org.omarchy.music.norm(org.omarchy.music.bareTitle(album))
+    val mine = runCatching { Music.albums() }.getOrDefault(emptyList())
+    val key = org.omarchy.music.Covers.albumKey(t)
+    val names = splitArtists(t.artist).map { org.omarchy.music.norm(it) }.filter { it.isNotEmpty() }.toSet()
+    val hit = mine.firstOrNull { (_, songs) -> songs.any { org.omarchy.music.Covers.albumKey(it) == key } }
+        ?: mine.filter { org.omarchy.music.norm(org.omarchy.music.bareTitle(it.first.title)) == want }
+            .let { same -> same.firstOrNull { org.omarchy.music.norm(it.first.sub) in names } ?: same.singleOrNull() }
+    if (hit != null) { ui.pages += Ui.Page.AlbumPage(hit.first, "local", hit.second); return }
+    val name = listOf(t.source, "tidal", "ytm").firstOrNull { k -> Music.sources[k]?.let { k != "tidal" || it.signedIn } == true }
+    val src = name?.let { Music.sources[it] }
+    if (src == null) { Music.toast("“$album” isn't in your music, and no service is connected to look it up"); return }
+    val lead = splitArtists(t.artist).firstOrNull().orEmpty()
+    Music.toast("Looking for “$album”…")
+    Music.bg({ src.find("$album $lead".trim()).albums }) { albums, _ ->
+        val same = albums.orEmpty().filter { org.omarchy.music.norm(org.omarchy.music.bareTitle(it.title)) == want }
+        val pick = same.firstOrNull { org.omarchy.music.norm(lead) in org.omarchy.music.norm(it.sub) } ?: same.firstOrNull()
+        if (pick == null) Music.toast("Couldn't find “$album” on ${org.omarchy.music.SOURCES[name] ?: name}")
+        else ui.pages += Ui.Page.AlbumPage(pick, name!!)
+    }
+}
+
 @Composable
 fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> Unit) {
     DropdownMenu(expanded = open, onDismissRequest = dismiss) {
@@ -252,6 +310,7 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         }
         item("Add to playlist…") { ui.pickPlaylistFor = listOf(t) }()
         splitArtists(t.artist).take(3).forEach { n -> item("Go to $n") { ui.pages += Ui.Page.Artist(n, t.source) }() }
+        if (t.album.isNotBlank()) item("Go to album “${t.album.trim()}”") { goToAlbum(ui, t) }()
         if (place.playlistId != null) item("Remove from this playlist") { Music.removeFromPlaylist(place.playlistId, setOf(t.id)) }()
         if (!t.isFile && !Music.lib.has(t.id)) item("Download") { Music.download(listOf(t)) }()
         if (Music.lib.has(t.id)) item("Remove download") {

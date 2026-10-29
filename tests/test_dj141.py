@@ -21,6 +21,7 @@ def fake_app(history, favorites=(), skips=()):
         song_index=lambda: {om.song_key(t): t for t in mine},
         apple_history=types.SimpleNamespace(timed_plays=lambda: []), lastfm=types.SimpleNamespace(connected=False, key=""),
         most_played=lambda: [], fm_song=om.MusicApp.fm_song, current_track=lambda: None,
+        imported_plays=lambda: list(hist.plays),
         favorites=types.SimpleNamespace(tracks=lambda: [songs[k] for k in favorites]),
         song_stats=types.SimpleNamespace(rows=lambda since=0: [(songs[k], 5, 0) for k in skips]))
     return app

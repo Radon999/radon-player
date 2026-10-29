@@ -71,6 +71,8 @@ import androidx.compose.ui.platform.LocalContext
 import org.omarchy.music.SOURCES
 import org.omarchy.music.Services
 import org.omarchy.music.Tidal
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun Sheets(ui: Ui) {
@@ -89,7 +91,7 @@ fun Sheets(ui: Ui) {
             ui.sheet = "accounts"; if (url != null) Services.appleSignedIn()
         }
         "spotify-login" -> WebLogin(Services.spotifyLoginUrl(), { it.startsWith(org.omarchy.music.Spotify.REDIRECT) }) { url ->
-            ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
+            ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
         }
         "lastfm-login" -> WebLogin(LastFm.authUrl(), { LastFm.authDone(it) }) { url ->
             ui.sheet = "accounts"; LastFm.finishLogin(quiet = url == null)
@@ -100,11 +102,19 @@ fun Sheets(ui: Ui) {
     ui.folderFor?.let { item -> FolderPicker(ui, item) }
     ui.editTagsFor?.let { tracks -> TagsDialog(ui, tracks) }
     ui.taggerFor?.let { tracks -> TaggerSheet(ui, tracks) }
+    if (ui.tagScan) TagScanScreen(ui)
+    if (ui.jointArtists) JointArtistsScreen(ui)
+    if (ui.similarArtists) SimilarArtistsScreen(ui)
+    if (ui.albumPlays) AlbumPlaysScreen(ui)
+    if (ui.singleScan) SingleScanScreen(ui)
+    if (ui.duplicates) DuplicatesScreen(ui)
     ui.collageFor?.let { kind -> CollageSheet(ui, kind) }
+    ui.cardFor?.let { kind -> CardSheet(ui, kind) }
     DeleteDialog(ui)
     Music.importReport?.let { ImportReportDialog(it) }
     ui.coverFor?.let { albums -> CoverDialog(ui, albums) }
     ui.artistPictureFor?.let { name -> ArtistPictureDialog(ui, name) }
+    ui.mergeArtist?.let { name -> MergeArtistDialog(ui, name) }
     ui.speedFor?.let { tracks -> if (tracks.isNotEmpty()) SpeedDialog(ui, tracks) else ui.speedFor = null }
     ui.volumeFor?.let { tracks -> if (tracks.isNotEmpty()) VolumeDialog(ui, tracks) else ui.volumeFor = null }
     ui.upgradeFor?.let { tracks -> UpgradeDialog(ui, tracks) }
@@ -133,7 +143,7 @@ private fun AccountsSheet(ui: Ui) {
                 while (c !is android.app.Activity && c is android.content.ContextWrapper) c = c.baseContext
                 c as? android.app.Activity
             }
-            Group("General") {
+            Group("General", ui) {
             val v = Updater.latest
             if (v != null) Line("Update", when (Updater.state) {
                 "" -> "Radon Player $v is out (this is ${Updater.version})"
@@ -163,8 +173,15 @@ private fun AccountsSheet(ui: Ui) {
                     Pill("Clear", quiet = true) { org.omarchy.music.Crashes.clear() }
                 }
             }
+            NotificationsLine(activity)
             }
-            Group("Play on") {
+            Group("Playback", ui) {
+            PlaybackLines()
+            }
+            Group("Backup", ui) {
+            BackupLines(activity)
+            }
+            Group("Play on", ui) {
             // ---- play on ----
             Line("Play on", if (Remote.active) "The desktop (${Remote.name})" + if (!Remote.reachable) " · not reachable" else ""
                 else "This phone", Remote.active) {
@@ -176,7 +193,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
             }
-            Group("Accounts") {
+            Group("Accounts", ui) {
             // ---- services ----
             for (key in listOf("ytm", "apple")) {
                 val src = Music.sources[key]
@@ -197,7 +214,7 @@ private fun AccountsSheet(ui: Ui) {
             }
             SpotifyLine(ui)
             }
-            Group("Your music") {
+            Group("Your music", ui) {
             // ---- your music ----
             val n = Music.local.files.size
             Line("Folders", if (Music.local.scanning) "Reading your music…" else "$n song${if (n != 1) "s" else ""} in your folders, in the Music tab", n > 0) {
@@ -227,12 +244,12 @@ private fun AccountsSheet(ui: Ui) {
                 val untagged = remember(Music.savedVersion, tg.busy) { tg.untagged() }
                 val saved = remember(Music.savedVersion) { Music.lib.items.values.count { it.format == "flac" } }
                 Line("Tagger", tg.busy ?: if (untagged.isNotEmpty()) "${untagged.size} downloads to tag: genre, composer, label, " +
-                    "lyrics and Genius's notes" else "All $saved downloads tagged: genre, composer, label, lyrics, Genius's notes",
+                    "lyrics and Genius's notes" else if (saved > 0) "All $saved downloads tagged. Scan them for missing or wrong tags and covers"
+                    else "Scan your downloads for missing or wrong tags and covers, and fix them",
                     tg.busy == null && untagged.isEmpty()) {
                     if (tg.busy == null) {
                         if (untagged.isNotEmpty()) Pill("Tag now…") { ui.tagPreview = untagged to false }
-                        else if (saved > 0) Pill("Retag", quiet = true) {
-                            ui.tagPreview = Music.lib.items.values.filter { it.format == "flac" && it.file.startsWith("content://") }.map { it.id } to true }
+                        Pill("Scan…", quiet = untagged.isNotEmpty()) { ui.tagScan = true }
                     }
                 }
             }
@@ -290,15 +307,29 @@ private fun AccountsSheet(ui: Ui) {
                 else Pill("Upgrade…") { ui.upgradeFor = emptyList() }
             }
             }
-            Group("Sound quality") {
+            Group("Sound quality", ui) {
             SoundQuality(ui)
             }
-            Group("Last.fm & your stats") {
+            Group("Last.fm & your stats", ui) {
             LastFmLine(ui)
             SpotifyHistoryLine(ui)
             AppleHistoryLine()
+            DeezerHistoryLine()
+            run {
+                val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
+                Line("Similar artists", "Artists that look like another of yours (cavetown offline and Cavetown): merge them, " +
+                    "their songs' plays and all", false) { Pill("Scan…", quiet = true) { ui.similarArtists = true } }
+                Line("Duplicates in Most played", "Songs counted twice under different names (\"N.P.D\" and \"NPD\"), and versions " +
+                    "of a song (acoustic, live, remix): you pick which to merge", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
+                Line("Plays on singles and albums", "Your Last.fm scrobbles and Spotify, Apple Music or Deezer imports: a song's plays on its " +
+                    "single, an EP and its album, all onto the album (its deluxe or extended edition when there is one)", false) {
+                    Pill("Scan…", quiet = true) { ui.albumPlays = true } }
+                Line("Joint artists", "A pair's plays go to its main artist (Quinn XCII & Jeremy Zucker: Quinn XCII). " +
+                    if (undecided > 0) "$undecided pairs aren't clear: pick whose plays they are" else "Pick whose plays a pair's are",
+                    undecided == 0) { Pill("Choose…", quiet = undecided == 0) { ui.jointArtists = true } }
             }
-            Group("More") {
+            }
+            Group("More", ui) {
             SettingsLine()
             }
         }
@@ -433,6 +464,155 @@ private fun AppleHistoryLine() {
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
 }
 
+/** Your Deezer plays for Most played, Artists and Wrapped: the .xlsx from Deezer's privacy settings (My personal data). */
+@Composable
+private fun DeezerHistoryLine() {
+    val h = org.omarchy.music.DeezerHistory
+    var asking by remember { mutableStateOf(false) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
+            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
+                else "Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "")
+            if (err == null) org.omarchy.music.Stats.refresh(force = true)
+        }
+    }
+    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Deezer plays in Most played, Artists and Wrapped, each counted once with your scrobbles"
+        else "Add your Deezer listening: import the file from Deezer's privacy settings (My account › Privacy settings › " +
+            "My personal data: the .xlsx with your listening history)"
+    Line("Deezer history", state, h.count > 0) {}
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+        Pill("Get the file", quiet = true) { Services.open("https://www.deezer.com/account/privacy") }
+        if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
+        Pill("Import") { if (h.busy == null) pick.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/zip", "application/octet-stream")) }
+    }
+    if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
+        title = { Text("Clear your Deezer history?", style = T.title) },
+        text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
+        confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
+        dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** Back up… / Restore…: the app's own files (playlists, favorites, plays, settings, imports) in a zip of your choosing. */
+@Composable
+private fun BackupLines(activity: android.app.Activity?) {
+    val ctx = LocalContext.current
+    var asking by remember { mutableStateOf<android.net.Uri?>(null) }
+    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) Music.bg({ org.omarchy.music.Backup.make(ctx, uri) }) { n, err ->
+            Music.toast(if (err != null) "Couldn't back up: ${err.message?.take(100)}" else "Backed up ($n files)")
+        }
+    }
+    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> asking = uri }
+    Line("Back up and restore", "Your playlists, favorites, plays, queues, settings, equalizer and imported histories in one file: " +
+        "for a new phone, or after reinstalling. Not your songs or sign-ins", false) {}
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+        Pill("Restore…", quiet = true) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
+        Pill("Back up…") { save.launch("Radon Player backup ${java.time.LocalDate.now()}.zip") }
+    }
+    asking?.let { uri ->
+        AlertDialog(onDismissRequest = { asking = null }, containerColor = C.light,
+            title = { Text("Restore this backup?", style = T.title) },
+            text = { Text("Your playlists, favorites, plays, settings and imported histories become the backup's (what's here now is kept " +
+                "beside them, in case). The app closes after: open it again.", style = T.sub) },
+            confirmButton = { TextButton({
+                asking = null
+                Music.restoring = true
+                Music.bg({ org.omarchy.music.Backup.restore(ctx, uri) }) { names, err ->
+                    if (err != null) { Music.restoring = false; Music.toast("Couldn't restore: ${err.message?.take(120)}") }
+                    else { Music.toast("Restored ${names?.size ?: 0} files: open the app again"); Music.scope.launch {
+                        kotlinx.coroutines.delay(1500); org.omarchy.music.Backup.close(activity) } }
+                }
+            }) { Text("Restore", color = C.red) } },
+            dismissButton = { TextButton({ asking = null }) { Text("Cancel", color = C.muted) } })
+    }
+}
+
+/** Notifications: the player in the notification shade needs them. On: Android's question (or its settings page,
+ *  once it won't ask again); off: its settings page (only Android can turn them off). */
+@Composable
+private fun NotificationsLine(activity: android.app.Activity?) {
+    val ctx = LocalContext.current
+    Music.resumed
+    val on = Music.notificationsOn()
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        Music.resumed++
+        if (!ok) openNotificationSettings(ctx)
+    }
+    Line("Notifications", if (on) "On: the player is in your notifications and on the lock screen, with shuffle and repeat"
+        else "Off: the player isn't in your notifications. Switch on to allow them", on) {
+        Switch(on, { want ->
+            if (want && android.os.Build.VERSION.SDK_INT >= 33 && activity != null &&
+                (activity.shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS) || !org.omarchy.music.Prefs.on("notif_asked"))) {
+                org.omarchy.music.Prefs.set("notif_asked", true)
+                ask.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            } else openNotificationSettings(ctx)
+        }, colors = swColors())
+    }
+}
+
+private fun openNotificationSettings(ctx: android.content.Context) {
+    runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+/** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, smart shuffle. */
+@Composable
+private fun PlaybackLines() {
+    val ctx = LocalContext.current
+    val P = org.omarchy.music.Prefs
+    Music.resumed
+    val lock = P.on(P.LOCK_SCREEN)
+    val allowed = org.omarchy.music.LockScreen.allowed(ctx)
+    Line("Lock screen player", when {
+        lock && !allowed -> "Android needs you to allow it full-screen notifications: tap Allow"
+        lock -> "When the screen turns on while music plays, Now playing shows over the lock screen; ⌄ goes on to the lock screen"
+        else -> "Now playing over the lock screen, with the queue and lyrics, when the screen turns on while music plays"
+    }, lock && allowed) {
+        if (lock && !allowed) { Pill("Allow", quiet = true) { org.omarchy.music.LockScreen.askAllowed(ctx) }; Spacer(Modifier.width(6.dp)) }
+        Switch(lock, { P.set(P.LOCK_SCREEN, it); if (it && !allowed) org.omarchy.music.LockScreen.askAllowed(ctx) }, colors = swColors())
+    }
+    Line("Continue where you left off", "Stop on the PC and open the phone (or the other way round): it offers the same song at the same spot. " +
+        "Needs the phone paired with the PC (Play on)", P.on(P.CONTINUE)) {
+        Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
+    }
+    Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
+        P.on(P.SMART_SHUFFLE)) {
+        Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
+    }
+}
+
+/** The Equalizer's crossfeed, crossfade (and its length) and smart transitions: each off until you turn it on. */
+@Composable
+fun TransitionSwitches() {
+    val P = org.omarchy.music.Prefs
+    @Composable
+    fun row(name: String, about: String, key: String) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                Text(name, style = T.body)
+                Text(about, style = T.sub)
+            }
+            Switch(P.on(key), { Music.setOpt(key, it) }, colors = swColors())
+        }
+    }
+    row("Headphone crossfeed", "A little of each side into the other, as from speakers across a room: easier on the ears with " +
+        "old hard-panned records", P.CROSSFEED)
+    row("Song crossfade", "Each song fades into the next" + if (Music.bitPerfect) " (not in bit-perfect)" else "", P.CROSSFADE)
+    if (P.on(P.CROSSFADE)) {
+        val secs = P.num(P.CROSSFADE_SECS, 6f)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Length", style = T.sub, modifier = Modifier.width(60.dp))
+            Slider(secs, { P.setNum(P.CROSSFADE_SECS, it.roundToInt().toFloat()) }, valueRange = 1f..12f, steps = 10,
+                colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+                modifier = Modifier.weight(1f))
+            Text("${secs.roundToInt()} s", style = T.time, modifier = Modifier.width(44.dp))
+        }
+    }
+    row("Smart transitions", "No crossfade between songs of one album: albums that flow from song to song (live albums, mixes) stay seamless",
+        P.SMART_TRANSITIONS)
+}
+
 /** Bit-perfect to a USB DAC, and ReplayGain. */
 @Composable
 private fun SoundQuality(ui: Ui) {
@@ -490,11 +670,18 @@ private fun SyncSwitch(key: String) {
 private fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, checkedTrackColor = C.accent,
     uncheckedThumbColor = C.muted, uncheckedTrackColor = C.dark, uncheckedBorderColor = C.line)
 
-/** A section of Settings, Apple's way: its name above a rounded group of rows. */
+/** A section of Settings: a row with its name and an arrow that folds it open or shut (all shut when Settings opens). */
 @Composable
-private fun Group(title: String, content: @Composable () -> Unit) {
-    Text(title.uppercase(), style = T.section, modifier = Modifier.padding(start = 14.dp, top = 18.dp, bottom = 6.dp))
-    Column(Modifier.fillMaxWidth().clip(R.card).background(if (C.apple && C.isLight) androidx.compose.ui.graphics.Color(0xFFF2F2F7) else C.light)
+private fun Group(title: String, ui: Ui, content: @Composable () -> Unit) {
+    val open = title in ui.settingsOpen
+    val bg = if (C.apple && C.isLight) androidx.compose.ui.graphics.Color(0xFFF2F2F7) else C.light
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp).clip(R.card).background(bg)
+        .clickable { if (open) ui.settingsOpen -= title else ui.settingsOpen += title }
+        .padding(horizontal = 16.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = T.body.copy(fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.weight(1f))
+        Text(if (open) "▾" else "▸", style = T.sub)
+    }
+    if (open) Column(Modifier.fillMaxWidth().padding(top = 6.dp).clip(R.card).background(bg)
         .padding(horizontal = 14.dp, vertical = 4.dp)) { content() }
 }
 
@@ -686,6 +873,8 @@ private fun EqSheet(ui: Ui) {
             Text("Headphones correction", style = T.section, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
             ChipRow(Eq.headphones(eq).map { (k, v) -> k to v.first }, eq.headphones) { Music.setEqHeadphones(it) }
             AutoEqFinder()
+            Text("Between songs, and on headphones", style = T.section, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            TransitionSwitches()
             Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB keeps the boosts from clipping." else "Off: the music plays untouched.",
                 style = T.sub, modifier = Modifier.padding(top = 8.dp))
           }
@@ -825,11 +1014,17 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
     var choices by remember(songs) { mutableStateOf<List<org.omarchy.music.Pictures.Choice>?>(null) }
     var busy by remember(songs) { mutableStateOf(false) }
     var wholeAlbum by remember(songs) { mutableStateOf(true) }
+    var allPicked by remember(albums.size) { mutableStateOf(true) }   // several albums: one cover for every song picked
+    val several = albums.size > 1
     val start = "${t.artist.split(",")[0].trim()} - ${t.album.ifEmpty { t.title }}"
     var query by remember(songs) { mutableStateOf(start) }
     var asked by remember(songs) { mutableStateOf(start) }
     val next = { ui.coverFor = albums.drop(1).ifEmpty { null } }
-    val use = { src: String -> busy = true; Music.setCover(songs, src, wholeAlbum) { next() } }
+    val use = { src: String ->
+        busy = true
+        if (several && allPicked) Music.setCover(albums.flatten(), src, true) { ui.coverFor = null }
+        else Music.setCover(songs, src, wholeAlbum) { next() }
+    }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) use(uri.toString()) }
     LaunchedEffect(songs, asked) {
         choices = null
@@ -873,7 +1068,12 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
         },
         confirmButton = {
             Column(horizontalAlignment = Alignment.End) {
-                if (t.album.isNotEmpty()) Row(Modifier.clickable { wholeAlbum = !wholeAlbum }, verticalAlignment = Alignment.CenterVertically) {
+                if (several) Row(Modifier.clickable { allPicked = !allPicked }, verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(allPicked, { allPicked = it },
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.accent))
+                    Text("Use this cover for all ${albums.sumOf { it.size }} songs picked, not one album at a time", style = T.sub)
+                }
+                if (t.album.isNotEmpty() && !(several && allPicked)) Row(Modifier.clickable { wholeAlbum = !wholeAlbum }, verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(wholeAlbum, { wholeAlbum = it },
                         colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.accent))
                     Text("Apply the cover to all the songs on this album", style = T.sub)

@@ -526,6 +526,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
             Text(big, style = W.big.copy(fontSize = 22.sp, lineHeight = 26.sp)); Text(small, style = W.sub)
         }
     }
+    out += milestoneSlides(d, "in ${p.of}")
     out += habitSlides(p)
     out += summary(d, p.name.uppercase())
     return out
@@ -584,9 +585,35 @@ private fun allTime(d: Wrapped.Data): List<Slide> {
                 height = 150.dp, top = best)
         }
     }
+    out += milestoneSlides(d, "so far")
     out += habitSlides(Wrapped.Period.All)
     out += summary(d, "ALL TIME")
     return out
+}
+
+/** Milestones: the songs and artists that reached 100, 250, 500, 1,000… plays (in the period, or ever). */
+private fun milestoneSlides(d: Wrapped.Data, whenText: String): List<Slide> {
+    val ms = d.milestones
+    val top = ms.firstOrNull() ?: return emptyList()
+    return listOf(Slide(4) {
+        Text("MILESTONES", style = W.kicker)
+        Text(n(top.plays), style = W.huge.copy(color = WS.accent, shadow = WS.shadow))
+        Text("plays of " + (if (top.what == "song") "“${top.name}”" else top.name), style = W.big)
+        Text((if (top.what == "song" && top.artist.isNotEmpty()) "by ${top.artist} · " else "") + "reached $whenText" +
+            (if (top.at > 0) ", on ${day(top.at, "MMMM d")}" else ""), style = W.sub)
+        if (ms.size > 1) {
+            Spacer(Modifier.height(6.dp)); Rule()
+            Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ms.drop(1).take(5).forEach { m ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(n(m.plays), style = W.rank)
+                        Text(if (m.what == "song" && m.artist.isNotEmpty()) "“${m.name}” · ${m.artist}" else m.name, style = W.name,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    })
 }
 
 /** How you took your songs, from the app's own counts: skips, songs always heard out, the ones you starred. */

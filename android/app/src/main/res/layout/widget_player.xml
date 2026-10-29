@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home screen widget: like Now playing — the song with its controls on top, the queue (or the cover) under it,
+     and three buttons at the bottom. Its background is the cover's main colour, a little see-through (PlayerWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_bg">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:id="@+id/w_cover" android:layout_width="54dp" android:layout_height="54dp"
+            android:scaleType="centerCrop" android:contentDescription="Cover" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:orientation="vertical">
+            <TextView android:id="@+id/w_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="15sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" android:text="Nothing playing" />
+            <TextView android:id="@+id/w_artist" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="13sp" android:maxLines="1" android:ellipsize="end" android:alpha="0.75" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="6dp"
+        android:orientation="horizontal" android:gravity="center">
+        <ImageButton android:id="@+id/w_shuffle" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/car_shuffle" android:contentDescription="Shuffle" />
+        <ImageButton android:id="@+id/w_prev" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_prev" android:contentDescription="Previous" />
+        <ImageButton android:id="@+id/w_play" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_play" android:contentDescription="Play or pause" />
+        <ImageButton android:id="@+id/w_next" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_next" android:contentDescription="Next" />
+        <ImageButton android:id="@+id/w_repeat" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/car_repeat_off" android:contentDescription="Repeat" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="6dp">
+        <ListView android:id="@+id/w_queue" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:divider="@null" android:dividerHeight="0dp" />
+        <TextView android:id="@+id/w_empty" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:textSize="13sp" android:alpha="0.7" android:text="Nothing up next" />
+        <ImageView android:id="@+id/w_big" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:scaleType="fitCenter" android:visibility="gone" android:contentDescription="Cover" />
+    </FrameLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:layout_marginTop="6dp"
+        android:orientation="horizontal" android:gravity="center">
+        <TextView android:id="@+id/w_tab_song" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:gravity="center" android:textSize="13sp" android:textStyle="bold" android:text="♪  Song" />
+        <TextView android:id="@+id/w_tab_queue" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:gravity="center" android:textSize="13sp" android:textStyle="bold" android:text="≡  Queue" />
+        <TextView android:id="@+id/w_tab_open" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:gravity="center" android:textSize="13sp" android:textStyle="bold" android:text="⤢  Open" />
+    </LinearLayout>
+</LinearLayout>

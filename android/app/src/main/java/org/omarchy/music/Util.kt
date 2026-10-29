@@ -181,13 +181,25 @@ fun sortSongs(tracks: List<Track>, sort: String, plays: Map<Pair<String, String>
 val SHUFFLE_RANDOM: kotlin.random.Random = SecureRandom().asKotlinRandom()
 
 /** tracks in a new random order; after (the song that just played) isn't first. */
-fun shuffleSongs(tracks: List<Track>, after: Track? = null, rng: kotlin.random.Random = SHUFFLE_RANDOM): List<Track> {
-    val out = tracks.shuffled(rng).toMutableList()
+fun shuffleSongs(tracks: List<Track>, after: Track? = null, rng: kotlin.random.Random = SHUFFLE_RANDOM,
+                 weight: ((Track) -> Double)? = Music.shuffleWeight()): List<Track> {
+    // Smart shuffle: a weighted draw, each song's chance by its weight; else plain chance.
+    val out = (if (weight != null) tracks.sortedByDescending { Math.pow(rng.nextDouble(), 1.0 / maxOf(0.01, weight(it))) }
+        else tracks.shuffled(rng)).toMutableList()
     if (after != null && out.size > 1 && songKey(out[0]) == songKey(after)) {
         val j = rng.nextInt(1, out.size)
         out[0] = out[j].also { out[j] = out[0] }
     }
     return out
+}
+
+/** Smart shuffle's weight for a song played plays times, last at last (seconds; 0: not here): loved songs weigh
+ *  more, the more so the longer it's been (up to a month); one heard in the last day weighs little. */
+fun smartWeight(plays: Int, last: Double, now: Double): Double {
+    val love = 1.0 + kotlin.math.ln(1.0 + plays)
+    val days = if (last > 0) (now - last) / 86400 else 60.0
+    val fresh = if (days < 1) 0.25 else minOf(1.5, 0.5 + days / 30)
+    return love * fresh
 }
 
 fun <T> bestNamed(items: List<T>, name: String, get: (T) -> String): T? {
@@ -296,3 +308,320 @@ fun localMatches(songs: List<Track>, q: String): Found {
     return Found(hits, artists.values.take(8).map { Album("ar-" + norm(it), it, "Artist") }, shown.map { it.first },
         shown.associate { it.first.id to it.second })
 }
+
+
+// An album's edition at the end of its name: "(Deluxe)", "[Deluxe Edition]", "(Extended)", "(10th Anniversary
+// Edition)", " - Deluxe". Only deluxe, extended and anniversary ones: "(Sessions)", "(Bonus Track Version)",
+// "(Expanded)"… are albums of their own. The desktop's album_edition.
+private val EDITION_END = Regex("\\s*(?:[(\\[]\\s*([^)\\]]{1,60}?)\\s*[)\\]]|\\s[-–:]\\s*([^-–:()\\[\\]]{1,60}?))\\s*$")
+private val EDITION_WORDS = Regex("^(?:the\\s+)?(?:[\\w']+\\s+){0,2}(?:deluxe|extended|anniversary|edition|expanded)(?:\\s+[\\w']+){0,2}$", RegexOption.IGNORE_CASE)   // "Full Moon Edition": any edition
+private val SESSIONS = Regex("\\bsessions?\\b", RegexOption.IGNORE_CASE)
+
+/** (the album's name without its edition, the edition) — ("Persona", "Extended") — or (album, ""). */
+fun albumEdition(album: String): Pair<String, String> {
+    val a = album.trim()
+    val m = EDITION_END.find(a) ?: return a to ""
+    val inner = (m.groupValues[1].ifEmpty { m.groupValues[2] }).trim()
+    val base = a.substring(0, m.range.first).trim()
+    return if (EDITION_WORDS.matches(inner) && !SESSIONS.containsMatchIn(inner) && base.isNotEmpty()) base to inner else a to ""
+}
+
+private val SINGLE_END = Regex("\\bsingles?\\b", RegexOption.IGNORE_CASE)   // "Talk - Single", "RUN (Single)", "Singles Collection": the word anywhere
+
+/** An album that's a single: named for its song ("Song", "Song - Single"), or called a single. */
+fun isSingle(album: String, title: String): Boolean {
+    val a = album.trim()
+    if (a.isEmpty()) return false
+    if (SINGLE_END.containsMatchIn(a)) return true
+    return title.isNotBlank() && norm(cleanTitle(a)) == norm(cleanTitle(title))
+}
+
+/** A credit's main artist as a key ("Quinn XCII & Jeremy Zucker" = "Quinn XCII"): as statsKey keys a song's artist. */
+fun artistKey(credit: String) = Stats.statsKey("", credit).second
+
+private val DUO = Regex(" & | x |,")
+
+private fun soloKey(n: String) = norm(n).replace(Regex("[\\W_]+"), "")
+
+/** The artists known on their own (as soloKey keys them): in your songs, or among names played with a credit of their own. */
+fun soloArtists(extra: Collection<String> = emptyList()): Set<String> {
+    val mine = runCatching { Music.mySongs().flatMap { ownArtists(it.artist) } }.getOrDefault(emptyList())
+    return (mine + extra).filter { it.isNotBlank() && !Regex(" & | x | X | and |,|;").containsMatchIn(it) }.map(::soloKey).toSet()
+}
+
+/** Of the names one artist goes by ("Quinn XCII", "Quinn XCII & Jeremy Zucker"), the one they have on their own; with only
+ *  "A & B", A when A is an artist of their own (solo), else the duo ("Simon & Garfunkel"). The desktop's artist_named. */
+fun soloName(names: Map<String, Int>, solo: Set<String> = emptySet()): String {
+    val best = names.entries.minWithOrNull(compareBy<Map.Entry<String, Int>>({ DUO.containsMatchIn(it.key) }, { -it.value }))?.key ?: return ""
+    if (!DUO.containsMatchIn(best)) return best
+    val head = best.split(Regex(",| & | x ")).first().trim()
+    return if (head.isNotEmpty() && soloKey(head) in solo) head else best
+}
+
+
+/** The artists in a credit, for lists of artists: a credit of one ("Tyler, The Creator") whole; "A & B feat. C" as
+ *  A, B and C. The desktop's own_artists. */
+fun ownArtists(credit: String?): List<String> {
+    val c = credit?.trim().orEmpty()
+    if (c.isEmpty()) return emptyList()
+    val many = Regex(" & | x | X | and |;|\\s(?:feat\\.?|ft\\.?|featuring|with)\\s", RegexOption.IGNORE_CASE)
+    if (!many.containsMatchIn(c)) return listOf(c)
+    return c.split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+| & | x | X | and ", RegexOption.IGNORE_CASE))
+        .map { it.trim() }.filter { it.isNotEmpty() }
+}
+
+// ---- Whose plays a joint credit's are (the desktop's artist_resolver) ----
+private val FEAT_SPLIT = Regex("\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE)
+private val PAIR_SEP = Regex(" & | x |,|;")
+private fun plainKey(n: String) = norm(n).replace(Regex("[\\W_]+"), "")
+
+/** The artists of a credit joined by "&", "x" or commas; a band's own name stays whole ("Of Monsters and Men",
+ *  "Lil Nas X", "Tyler, The Creator"). */
+fun duoParts(credit: String?): List<String> {
+    val c = credit?.trim().orEmpty()
+    if (c.isEmpty()) return emptyList()
+    if (!PAIR_SEP.containsMatchIn(c) || (c.count { it == ',' } == 1 && !Regex(" & | x |;").containsMatchIn(c))) return listOf(c)
+    return c.split(PAIR_SEP).map { it.trim() }.filter { it.isNotEmpty() }
+}
+
+/** A pair's key, whichever way round they're billed. */
+fun pairKey(credit: String): String =
+    duoParts(credit.split(FEAT_SPLIT).first().trim()).map(::plainKey).sorted().joinToString("&")
+
+/** The key an artist's plays are added up under: a pair kept as a pair is its own. */
+fun resolvedKey(name: String): String = if (duoParts(name).size > 1) plainKey(name) else Stats.statsKey(name, name).second
+
+/** (spellings of the artists credited alone in your songs {key: the most common spelling}, how many credits each is in). */
+private fun soloInfo(songs: List<Track>): Pair<Map<String, String>, Map<String, Int>> {
+    val spelt = HashMap<String, HashMap<String, Int>>()
+    val credits = HashMap<String, HashSet<String>>()
+    for (t in songs) {
+        val c = t.artist.trim()
+        if (c.isEmpty() || c.equals("unknown artist", true)) continue
+        val lead = c.split(FEAT_SPLIT).first().trim()
+        val parts = duoParts(lead)
+        if (parts.size == 1 && !FEAT_SPLIT.containsMatchIn(c)) spelt.getOrPut(plainKey(lead)) { HashMap() }.merge(lead, 1, Int::plus)
+        for (p in parts + c.split(FEAT_SPLIT).drop(1)) credits.getOrPut(artistKey(p)) { HashSet() } += norm(c)
+    }
+    return spelt.mapValues { (_, m) -> m.maxByOrNull { it.value }!!.key } to credits.mapValues { it.value.size }
+}
+
+/** A credit's main artist and whether that's sure (the desktop's pick_main). */
+fun pickMain(credit: String, alone: Map<String, String>, counts: Map<String, Int>): Pair<String, Boolean> {
+    val lead = credit.split(FEAT_SPLIT).first().trim()
+    val parts = duoParts(lead)
+    fun named(n: String) = alone[plainKey(n)] ?: n
+    if (parts.size <= 1) return (parts.firstOrNull()?.let(::named) ?: lead) to true
+    val solo = parts.filter { plainKey(it) in alone }
+    if (solo.size == 1) return named(solo[0]) to true
+    if (solo.size > 1) return named(solo[0]) to false
+    val ranked = parts.sortedByDescending { counts[artistKey(it)] ?: 0 }
+    val a = counts[artistKey(ranked[0])] ?: 0; val b = counts[artistKey(ranked[1])] ?: 0
+    return named(ranked[0]) to (a > maxOf(1, b))
+}
+
+/** credit -> the artist its plays count for (the desktop's artist_resolver): "Quinn XCII & Jeremy Zucker" is Quinn XCII,
+ *  "Big Wild & Surfaces" is Surfaces, "A feat. B" is A, your Joint artists… picks stand, an unclear pair stays a pair. */
+fun artistResolver(songs: List<Track>, picks: Map<String, String>): (String) -> String {
+    val (alone, counts) = soloInfo(songs)
+    val cache = HashMap<String, String>()
+    return { credit ->
+        val c = credit.trim()
+        cache.getOrPut(c) {
+            val lead0 = c.split(FEAT_SPLIT).first().split(";").first().trim()
+            val pk = pairKey(c)
+            when {
+                pk in picks -> picks[pk]!!.ifEmpty { lead0 }
+                else -> {
+                    var lead = lead0
+                    if (',' in lead && duoParts(lead).size == 1 && plainKey(lead) !in alone) lead = lead.substringBefore(',').trim()
+                    if (duoParts(lead).size <= 1) alone[plainKey(lead)] ?: lead
+                    else pickMain(lead, alone, counts).let { (m, sure) -> if (sure) m else lead }
+                }
+            }
+        }
+    }
+}
+
+/** The pairs Most played can't tell the main artist of: [(credit, names, picked or null)], the most played first. */
+fun jointCredits(credits: Map<String, Int>, songs: List<Track>, picks: Map<String, String>): List<Triple<String, List<String>, String?>> {
+    val (alone, counts) = soloInfo(songs)
+    val seen = HashSet<String>()
+    val out = ArrayList<Triple<String, List<String>, String?>>()
+    for ((credit, _) in credits.entries.sortedByDescending { it.value }) {
+        val lead = credit.split(FEAT_SPLIT).first().trim()
+        val parts = duoParts(lead)
+        val pk = pairKey(lead)
+        if (parts.size <= 1 || !seen.add(pk)) continue
+        if (!pickMain(lead, alone, counts).second || pk in picks) out += Triple(lead, parts, picks[pk])
+    }
+    return out
+}
+
+/** Words too common in band names to say two are one (the desktop's NAME_WORDS). */
+private val NAME_WORDS = ("a an and the of in on at to for from with by or x vs feat ft featuring my your our his her their its " +
+    "i me we you he she it they this that these those is are was be been am not no yes all one two three four five six seven " +
+    "eight nine ten band boys girls boy girl men women man woman brothers sisters kids club crew gang squad family orchestra " +
+    "quartet trio duo ensemble group project collective society experience company sound sounds music records beats dj mc " +
+    "lil big little young old new good bad best real true dead live love life time day night world city street house home " +
+    "heart soul fire blue black white red green gold golden silver dark light sun moon star stars sky sea ocean river rain " +
+    "summer winter spring fall wild sweet hot cold king queen kings queens lord lady prince princess saint st mr mrs miss dr " +
+    "el la le los las les de del da di du van von official").split(" ").toSet()
+
+/** Similar artists…: artists that look like another of yours ("cavetown offline" and Cavetown): [(name, theirs, plays,
+ *  same songs' titles)], those with songs of the same name first. The desktop's similar_artists. */
+fun similarArtists(library: Set<String>, played: Map<String, Int>, titles: Map<String, Set<String>>, picks: Map<String, String>,
+                   kept: Set<String>, counts: Map<String, Int>): List<Pair<Pair<String, String>, Pair<Int, List<String>>>> {
+    fun key(n: String) = plainKey(n)
+    fun words(n: String) = Regex("\\w+").findAll(norm(n)).map { it.value }.toList()
+    fun distinct(w: String) = w.length >= 4 && w !in NAME_WORDS && !w.all { it.isDigit() }
+    fun close(a: String, b: String) = kotlin.math.abs(a.length - b.length) <= 2 && minOf(a.length, b.length) >= 5 && similar(a, b) >= 0.85
+    fun inside(a: List<String>, b: List<String>) = b.size < a.size && (0..a.size - b.size).any { a.subList(it, it + b.size) == b }
+    val names = LinkedHashMap<String, String>()
+    for (n in library + played.keys) if (n.isNotBlank() && duoParts(n).size == 1 && pairKey(n) !in picks && key(n).length >= 3) names.putIfAbsent(key(n), n)
+    val mine = library.map(::key).toSet()
+    val byWord = HashMap<String, HashSet<String>>()
+    for ((k, n) in names) for (w in words(n).toSet()) if (distinct(w)) byWord.getOrPut(w) { HashSet() } += k
+    val byStart = names.keys.groupBy { it.take(2) }
+    val seen = HashSet<String>()
+    val out = ArrayList<Pair<Pair<String, String>, Pair<Int, List<String>>>>()
+    for (ka in names.keys) {
+        val cands = HashSet<String>()
+        for (w in words(names[ka]!!).toSet()) byWord[w]?.let { cands += it }
+        for (kb in byStart[ka.take(2)].orEmpty()) if (kb != ka && close(ka, kb)) cands += kb
+        for (kb in cands) {
+            if (kb == ka || !seen.add(listOf(ka, kb).sorted().joinToString("|"))) continue
+            if (ka !in mine && kb !in mine) continue
+            val a = names[ka]!!; val b = names[kb]!!
+            val wa = words(a); val wb = words(b)
+            val same = (titles[ka].orEmpty() intersect titles[kb].orEmpty())
+            val shortWords = if (wa.size <= wb.size) wa else wb
+            val isInside = inside(wa, wb) || inside(wb, wa)
+            val shared = wa.toSet().intersect(wb.toSet()).any(::distinct)
+            if (!((isInside && (shortWords.size >= 2 || minOf(ka.length, kb.length) >= 6 || same.isNotEmpty())) || close(ka, kb) ||
+                    (shared && same.isNotEmpty()))) continue
+            val aFirst = (counts[ka] ?: 0) < (counts[kb] ?: 0) || ((counts[ka] ?: 0) == (counts[kb] ?: 0) && (played[a] ?: 0) < (played[b] ?: 0))
+            val (src, dst) = if (aFirst) a to b else b to a
+            if (key(dst) !in mine || "${key(src)}>${key(dst)}" in kept) continue
+            out += (src to dst) to ((played[src] ?: 0) to same.sorted())
+        }
+    }
+    return out.sortedWith(compareBy({ it.second.second.isEmpty() }, { -it.second.first }, { norm(it.first.first) }))
+}
+
+
+/** What an album is, for which one a song's plays go to: 0 a single, 1 an EP, 2 an album, 3 a deluxe, extended or
+ *  anniversary edition (always the one, when there is one). The desktop's album_kind. */
+fun albumKind(album: String, title: String = ""): Int {
+    val name = album.trim()
+    return when {
+        isSingle(name, title) -> 0
+        Regex("(?:^|[\\s(\\[-])EP\\b").containsMatchIn(name) -> 1
+        Regex("\\bsessions?\\b|\\bgreatest hits\\b|\\bbest of\\b", RegexOption.IGNORE_CASE).containsMatchIn(name) -> 1
+        albumEdition(name).second.isNotEmpty() -> 3
+        else -> 2
+    }
+}
+
+/** A song's plays on one album, for albumPicks: "title|artist|album", tidied. */
+fun albumPlayKey(title: String, artist: String, album: String): String =
+    Stats.statsKey(title, artist).let { "${it.first}|${it.second}|${norm(cleanTitle(album))}" }
+
+/** A song whose plays are on more than one of its releases: [to] is where they all go. */
+data class AlbumPlays(val title: String, val artist: String, val albums: List<Pair<String, Int>>, val to: String)
+
+/** Songs whose plays (title, artist, album, n) are on more than one album (a single, an EP, the album, its deluxe):
+ *  the album over an EP and a single, a deluxe or extended edition over the album; then one you have (mine), then
+ *  the most played. Decided ones (picks) aren't offered. The desktop's album_plays_plan. */
+data class AlbumPlay(val title: String, val artist: String, val album: String, val n: Int)
+
+fun albumPlaysPlan(plays: List<AlbumPlay>, mine: List<Track>, picks: Map<String, String>): List<AlbumPlays> {
+    class S(val title: String, val artist: String) { val albums = LinkedHashMap<String, Int>(); val names = HashMap<String, String>(); val have = HashSet<String>() }
+    val songs = LinkedHashMap<Pair<String, String>, S>()
+    for ((title, artist, album, n) in plays) {
+        if (title.isBlank() || artist.isBlank() || album.isBlank()) continue
+        val s = songs.getOrPut(Stats.statsKey(title, artist)) { S(title, artist) }
+        val a = norm(cleanTitle(album))
+        s.albums.merge(a, n, Int::plus); s.names.putIfAbsent(a, album.trim())
+    }
+    for (t in mine) {
+        val s = songs[Stats.statsKey(t.title, t.artist)] ?: continue
+        if (t.album.isBlank()) continue
+        val a = norm(cleanTitle(t.album))
+        s.names.putIfAbsent(a, t.album.trim()); s.albums.putIfAbsent(a, 0); s.have += a
+    }
+    val out = ArrayList<AlbumPlays>()
+    for ((k, s) in songs) {
+        if (s.albums.size < 2 || s.albums.values.none { it > 0 }) continue
+        if (s.albums.keys.any { "${k.first}|${k.second}|$it" in picks }) continue
+        val to = s.albums.keys.maxWithOrNull(compareBy<String>({ albumKind(s.names[it]!!, s.title) }, { it in s.have }, { s.albums[it]!! }))!!
+        if (s.albums.all { (a, n) -> a == to || n == 0 }) continue
+        out += AlbumPlays(s.title, s.artist, s.albums.entries.sortedByDescending { it.value }.map { s.names[it.key]!! to it.value }, s.names[to]!!)
+    }
+    return out.sortedWith(compareBy({ norm(it.artist) }, { norm(it.title) }))
+}
+
+
+private val SONG_VERSION = Regex("\\b(acoustic|remix|rmx|live|demo|stripped|orchestra|session|sessions|alternate|commentary|instrumental|" +
+    "sped|slowed|mix|edit|rework|piano|reprise|cover|karaoke|cappella|unplugged|extended|voice memo|home recording|recorded at|version|vip|bootleg|flip)\\b",
+    RegexOption.IGNORE_CASE)
+
+/** A song's name with everything after it left out and no punctuation ("N.P.D" = "NPD"). The desktop's loose_title. */
+fun looseTitle(title: String): String {
+    var t = Normalizer.normalize(title.lowercase(), Normalizer.Form.NFKC)
+    t = Regex("[(\\[][^)\\]]*[)\\]]").replace(t, " ")
+    t = Regex("\\s[-–—]\\s.*$").replace(t, " ")
+    t = Regex("\\s(?:feat|ft|featuring)\\b.*$").replace(t, " ")
+    return Regex("[\\W_]+").replace(t, "")
+}
+
+fun songPickKey(title: String, artist: String): String = Stats.statsKey(title, artist).let { "${it.first}|${it.second}" }
+
+/** A song in Most played that may be another counted twice: [to] (title, artist, plays) is the one it'd count as. */
+data class DuplicateSong(val title: String, val artist: String, val plays: Int, val to: Triple<String, String, Int>,
+                         val others: List<String>, val version: Boolean)
+
+/** Songs that may be one song counted twice (the same name but for what's after it, or its punctuation), or versions of
+ *  one (acoustic, live, remix): each onto its group's most played one that isn't a version. The desktop's duplicate_songs_plan. */
+fun duplicateSongsPlan(songs: List<Stats.Song>, picks: Map<String, String>): List<DuplicateSong> {
+    val groups = LinkedHashMap<Pair<String, String>, MutableList<Stats.Song>>()
+    for (s in songs) {
+        val lt = looseTitle(s.title)
+        if (lt.length >= 2 && s.artist.isNotBlank()) groups.getOrPut(lt to Stats.statsKey("", s.artist).second) { ArrayList() } += s
+    }
+    fun extra(t: String) = Regex("^[^(\\[\\-–—]*").replace(t, "")
+    val out = ArrayList<DuplicateSong>()
+    for (g in groups.values) {
+        if (g.size < 2) continue
+        val to = g.maxWithOrNull(compareBy<Stats.Song>({ !SONG_VERSION.containsMatchIn(extra(it.title)) }, { it.plays }))!!
+        for (x in g) {
+            if (x === to || songPickKey(x.title, x.artist) in picks) continue
+            out += DuplicateSong(x.title, x.artist, x.plays, Triple(to.title, to.artist, to.plays),
+                g.filter { it !== x && it !== to }.map { it.title }, SONG_VERSION.containsMatchIn(extra(x.title)))
+        }
+    }
+    return out.sortedWith(compareBy({ norm(it.artist) }, { norm(it.to.first) }, { -it.plays }))
+}
+
+
+private val PART_END = Regex("\\s*(?:[:,(\\[]|\\s[-–])?\\s*\\b(?:pt\\.?|part)\\s*(\\d+|[ivx]+|one|two|three|four)\\s*[)\\]]?\\s*$", RegexOption.IGNORE_CASE)
+
+/** An album's name without its part ("The Original Motion Picture Soundtrack: Pt. 2" -> "The Original Motion Picture
+ *  Soundtrack"), or the name. The desktop's album_part. */
+fun albumWithoutPart(album: String): String {
+    val m = PART_END.find(album.trim()) ?: return album.trim()
+    val base = album.trim().substring(0, m.range.first).trim().trim(':', '-', '–', ',', ' ')
+    return base.ifEmpty { album.trim() }
+}
+
+
+/** An EP: "EP" as a word in its name ("South - EP", "Ruby EP", "Remote EP (Deluxe)"). The desktop's is_ep. */
+fun isEp(album: String): Boolean = Regex("(?:^|[\\s(\\[-])EP\\b").containsMatchIn(album)
+
+
+private val LIVE_PART = Regex("\\s*[(\\[][^)\\]]*\\blive\\b[^)\\]]*[)\\]]|\\s+[-–—]\\s+[^-–—]*\\blive\\b.*$", RegexOption.IGNORE_CASE)
+
+/** A song's name without its live part ("Song (Live)", "Song - Live at Red Rocks" -> "Song"); "Live Forever" stays. */
+fun stripLive(title: String): String = LIVE_PART.replace(title, "").trim().ifEmpty { title }
+
+fun hasLive(title: String): Boolean = LIVE_PART.containsMatchIn(title)

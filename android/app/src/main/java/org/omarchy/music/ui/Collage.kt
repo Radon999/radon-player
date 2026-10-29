@@ -50,6 +50,9 @@ object Collage {
     fun items(kind: String): List<Item> = when (kind.removeSuffix("-all")) {
         "songs" -> Music.mostPlayed(period(kind)).map { Item(it.title, it.artist, it.plays, artModel(it, 600)) }
         "albums" -> Music.topAlbums(period(kind)).map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
+        "eps" -> Music.topAlbums(period(kind)).filter { org.omarchy.music.isEp(it.title) }.map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
+        "singles" -> Music.topAlbums(period(kind)).filter { al -> al.tracks.any { org.omarchy.music.isSingle(al.title, it.title) } }
+            .map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
         else -> Music.topArtists(period(kind)).map { Item(it.name, "", it.plays, artistArt(it.name, it.thumb)) }
     }
 
@@ -121,7 +124,7 @@ fun CollageSheet(ui: Ui, kind: String) {
     var bmp by remember { mutableStateOf<Bitmap?>(null) }
     var status by remember { mutableStateOf("") }
     val items = remember(kind) { runCatching { Collage.items(kind) }.getOrDefault(emptyList()) }
-    val name = mapOf("songs" to "Top songs", "albums" to "Top albums")[kind.removeSuffix("-all")] ?: "Top artists"
+    val name = mapOf("songs" to "Top songs", "albums" to "Top albums", "eps" to "Top EPs", "singles" to "Top singles")[kind.removeSuffix("-all")] ?: "Top artists"
     val period = mapOf("week" to "This week", "month" to "This month", "year" to "This year")[Collage.period(kind)] ?: "All time"
     LaunchedEffect(n, labels) {
         Music.chooseCollageSize(n)
@@ -147,6 +150,101 @@ fun CollageSheet(ui: Ui, kind: String) {
                 Image(b.asImageBitmap(), contentDescription = "The collage", modifier = Modifier.fillMaxWidth().aspectRatio(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val file = "${name} ${period} ${n}x$n".replace(' ', '-')
+                    Pill("Share…") { if (!sharePicture(ctx, b, file, null)) Music.toast("Couldn't share it") }
+                    Pill("Save to Pictures", quiet = true) {
+                        Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) "Saved to Pictures" else "Couldn't save it") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Share card…: your top 5 (songs, albums or artists) or your listening time as a picture the size of a phone story
+ *  (1080×1920), to share or save. The desktop's card_png. */
+object Card {
+    data class Row(val title: String, val sub: String, val value: String, val model: Any?)
+
+    fun draw(ctx: Context, title: String, whenText: String, rows: List<Row>, lead: String?): Bitmap {
+        val w = 1080; val h = 1920
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val pics = rows.take(5).map { runCatching { cover(ctx, it.model, 700) }.getOrNull() }
+        val rgb = pics.firstOrNull()?.let { runCatching { Tint.artColor(it) }.getOrNull() } ?: 0xFF5A3C8C.toInt()
+        val hsl = FloatArray(3); androidx.core.graphics.ColorUtils.colorToHSL(rgb, hsl)
+        val s = hsl[1].coerceIn(0.3f, 0.8f)
+        val top = androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf(hsl[0], s, 0.42f))
+        val bottom = androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf(hsl[0], s, 0.12f))
+        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), Paint().apply { shader = LinearGradient(0f, 0f, 0f, h.toFloat(), top, bottom, Shader.TileMode.CLAMP) })
+        fun text(t: String, size: Float, bold: Boolean, alpha: Int, x: Float, y: Float, width: Float, right: Boolean = false) {
+            val p = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(alpha, 255, 255, 255); textSize = size
+                typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT; textAlign = if (right) Paint.Align.RIGHT else Paint.Align.LEFT }
+            c.drawText(TextUtils.ellipsize(t, p, width, TextUtils.TruncateAt.END).toString(), if (right) x + width else x, y + size, p)
+        }
+        fun picture(b: Bitmap?, x: Float, y: Float, side: Float, r: Float) {
+            val dst = RectF(x, y, x + side, y + side)
+            val path = android.graphics.Path().apply { addRoundRect(dst, r, r, android.graphics.Path.Direction.CW) }
+            c.save(); c.clipPath(path)
+            if (b != null) {
+                val m = minOf(b.width, b.height)
+                c.drawBitmap(b, Rect((b.width - m) / 2, (b.height - m) / 2, (b.width + m) / 2, (b.height + m) / 2), dst, Paint(Paint.FILTER_BITMAP_FLAG))
+            } else c.drawColor(0x1FFFFFFF)
+            c.restore()
+        }
+        text(title, 64f, true, 255, 80f, 110f, w - 160f)
+        text(whenText, 40f, false, 190, 80f, 200f, w - 160f)
+        var y = 300f
+        if (lead != null) { text(lead, 150f, true, 255, 80f, y, w - 160f); y += 260f }
+        else if (rows.isNotEmpty()) { picture(pics[0], 190f, y, 700f, 36f); y += 760f }
+        rows.take(5).forEachIndexed { i, r ->
+            text("${i + 1}", 52f, true, 150, 80f, y + 20f, 70f)
+            picture(pics.getOrNull(i), 160f, y, 120f, 16f)
+            text(r.title, 46f, true, 255, 310f, y + 8f, 430f)
+            text(r.sub, 34f, false, 190, 310f, y + 70f, 430f)
+            text(r.value, 36f, true, 230, 740f, y + 36f, 260f, right = true)
+            y += 160f
+        }
+        text("Radon Player", 32f, true, 128, 80f, h - 110f, w - 160f)
+        return bmp
+    }
+
+    private fun cover(ctx: Context, model: Any?, px: Int): Bitmap? {
+        model ?: return null
+        val req = coil.request.ImageRequest.Builder(ctx).data(model).size(px).allowHardware(false).build()
+        val res = kotlinx.coroutines.runBlocking { coil.Coil.imageLoader(ctx).execute(req) }
+        return (res as? coil.request.SuccessResult)?.drawable?.toBitmap()
+    }
+}
+
+@Composable
+fun CardSheet(ui: Ui, kind: String) {
+    val ctx = LocalContext.current
+    var bmp by remember { mutableStateOf<Bitmap?>(null) }
+    var status by remember { mutableStateOf("Making it…") }
+    val period = mapOf("week" to "This week", "month" to "This month", "year" to "This year")[Music.topPeriod] ?: "All time"
+    val title = mapOf("songs" to "My top songs", "albums" to "My top albums", "artists" to "My top artists")[kind] ?: "My listening time"
+    LaunchedEffect(kind) {
+        Music.bg({
+            var lead: String? = null
+            val rows = when (kind) {
+                "time", "time_artists" -> Stats.time[Music.topPeriod]?.let { t -> lead = fmtHours(t.secs); t.artists.take(5).map { (n, v) -> Card.Row(n, "", fmtHours(v), artistArt(n, "")) } }.orEmpty()
+                "time_songs", "time_albums" -> Stats.time[Music.topPeriod]?.let { t -> lead = fmtHours(t.secs)
+                    timeItemsOf(kind.removePrefix("time_"), t).take(5).map { Card.Row(it.title, it.artist, fmtHours(it.secs), artModel(it.tracks.first(), 600)) } }.orEmpty()
+                "songs" -> Music.mostPlayed(Music.topPeriod).take(5).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it, 600)) }
+                "albums" -> Music.topAlbums(Music.topPeriod).take(5).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it.tracks.first(), 600)) }
+                else -> Music.topArtists(Music.topPeriod).take(5).map { Card.Row(it.name, "", "%,d".format(it.plays), artistArt(it.name, it.thumb)) }
+            }
+            if (rows.isEmpty()) null else Card.draw(ctx, title, period, rows, lead)
+        }) { b, err -> bmp = b; status = if (b != null) "Share it to a story or a chat, or save it" else err?.message?.take(100) ?: "Nothing played in this time yet" }
+    }
+    FullScreen("Share card · $title", { ui.cardFor = null }) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp).navigationBarsPadding().padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(status, style = T.sub)
+            bmp?.let { b ->
+                Image(b.asImageBitmap(), contentDescription = "The card", modifier = Modifier.fillMaxWidth().aspectRatio(1080f / 1920f))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val file = "$title $period".replace(' ', '-')
                     Pill("Share…") { if (!sharePicture(ctx, b, file, null)) Music.toast("Couldn't share it") }
                     Pill("Save to Pictures", quiet = true) {
                         Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) "Saved to Pictures" else "Couldn't save it") }
