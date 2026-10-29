@@ -34,4 +34,10 @@ class NamesTest {
         assertTrue(similar("heavydirtysoul", "heavy dirty soul") > 0.85)
         assertEquals("The Original Motion Picture Soundtrack", albumWithoutPart("The Original Motion Picture Soundtrack: Pt. 2"))
     }
+
+    @Test fun sameSongAnywhere() {
+        assertEquals(statsKey("Heavydirtysoul", "Twenty One Pilots"), statsKey("Heavydirtysoul (Remastered)", "twenty one pilots feat. X"))
+        assertEquals("kflay", statsKey("Song", "K.Flay").second)
+        assertEquals("0:42", fmtTime(42.0))
+    }
 }

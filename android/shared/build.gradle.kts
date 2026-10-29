@@ -1,6 +1,7 @@
 // The code the phone and the PC run alike: plain Kotlin, no Android, so the PC app (desktop/) builds on it too.
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 java {
@@ -13,5 +14,6 @@ kotlin {
 }
 
 dependencies {
+    api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     testImplementation("junit:junit:4.13.2")
 }

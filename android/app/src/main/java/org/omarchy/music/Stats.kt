@@ -224,9 +224,7 @@ object Stats {
 
     /** A song across Last.fm, Spotify, Apple Music and here: its name and lead artist, tidied
      *  (feat., & and x credits, remaster notes left out). The desktop's stats_key. */
-    fun statsKey(title: String, artist: String): Pair<String, String> =
-        norm(cleanTitle(title)) to norm(artist.lowercase().split(Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with "))[0])
-            .let { n -> n.replace(Regex("[\\W_]+"), "").ifEmpty { n } }   // K.Flay = kflay
+    fun statsKey(title: String, artist: String): Pair<String, String> = org.omarchy.music.statsKey(title, artist)
 
     private fun MutableMap<Pair<String, String>, Counts>.count(title: String, artist: String, album: String, thumb: String,
                                                                  n: Int, source: String, key: Pair<String, String>? = null) {
