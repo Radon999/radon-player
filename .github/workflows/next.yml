@@ -1,5 +1,5 @@
-# Radon Player Next: the one-codebase app (radon-player-next). Patches (ci/next/*.patch.b64, applied in order on
-# NEXT_BASE, Radon Player 2.0.0) are built and tested here: the shared code's tests, the phone's app (a side-by-side
+# Radon Player Next: the one-codebase app (radon-player-next). Patches (ci/next/r*.patch.b64, applied in order on
+# NEXT_BASE, Radon Player 2.1.2) are built and tested here: the shared code's tests, the phone's app (a side-by-side
 # test app, "Radon Player Next", so 2.0 stays as it is) and the PC app (on Windows: an installer). With ci/next/PUSH
 # present, the code goes to radon-player-next as one new commit (its first line: the branch; the rest: the message).
 name: Next build
@@ -14,7 +14,7 @@ concurrency:
   group: next
   cancel-in-progress: false
 env:
-  NEXT_BASE: 328819e988a4dddea0f02e8c999402f77187b499
+  NEXT_BASE: 1b67961807a4a9ef770847c7ff56f610ec621e3f
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,8 +31,8 @@ jobs:
       - name: Apply the patches
         working-directory: app
         run: |
-          git checkout -q "$NEXT_BASE"
-          for f in $(ls ../work/ci/next/*.patch.b64 | sort -V); do
+          git fetch -q origin radon-player && git checkout -q "$NEXT_BASE"
+          for f in $(ls ../work/ci/next/r*.patch.b64 | sort -V); do
             echo "applying $f"
             base64 -d "$f" | gunzip | git apply --whitespace=nowarn -
           done
@@ -97,7 +97,7 @@ jobs:
           sed 1d ../work/ci/next/PUSH > "$RUNNER_TEMP/message"
           grep -q . "$RUNNER_TEMP/message" || echo "Radon Player Next" > "$RUNNER_TEMP/message"
           # The newest patch's own message (ci/next/N.msg beside N.patch.b64), when it has one
-          LAST="$(ls ../work/ci/next/*.patch.b64 | sort -V | tail -1)"
+          LAST="$(ls ../work/ci/next/r*.patch.b64 | sort -V | tail -1)"
           [ -f "${LAST%.patch.b64}.msg" ] && cp "${LAST%.patch.b64}.msg" "$RUNNER_TEMP/message" || true
           C=$(git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
           git push origin "$C:refs/heads/$B"
@@ -117,8 +117,8 @@ jobs:
         shell: bash
         working-directory: app
         run: |
-          git checkout -q "$NEXT_BASE"
-          for f in $(ls ../work/ci/next/*.patch.b64 | sort -V); do tr -d '\r\n' < "$f" | base64 -d | gunzip | git apply --whitespace=nowarn -; done
+          git fetch -q origin radon-player && git checkout -q "$NEXT_BASE"
+          for f in $(ls ../work/ci/next/r*.patch.b64 | sort -V); do tr -d '\r\n' < "$f" | base64 -d | gunzip | git apply --whitespace=nowarn -; done
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
