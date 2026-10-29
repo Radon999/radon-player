@@ -1,37 +1,34 @@
-run 40898989197 · Thu Oct 29 15:13:08 UTC 2026
+run 40902405993 · Thu Oct 29 15:33:48 UTC 2026
 PHONE FAILED
 PC FAILED
-> Task :shared:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:5 Unresolved reference 'readText'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:25 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:69:9 Unresolved reference 'writeAtomic'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:95:9 Unresolved reference 'writeAtomic'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:146:9 Unresolved reference 'writeAtomic'.
+TESTS: tests="5" failures="0" 
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+w: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Track.kt:46:69 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
 
-> Task :app:checkReleaseAarMetadata
+--
+> Task :ui-common:compileReleaseKotlinAndroid FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/ui-common/src/commonMain/kotlin/org/omarchy/music/ui/Theme.kt:88:18 Unresolved reference 'core'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/ui-common/src/commonMain/kotlin/org/omarchy/music/ui/Theme.kt:91:62 Unresolved reference 'core'.
+
+> Task :app:expandReleaseL8ArtProfileWildcards
 
 --
 * What went wrong:
-Execution failed for task ':shared:compileKotlin'.
+Execution failed for task ':ui-common:compileReleaseKotlinAndroid'.
 > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
    > Compilation error. See log for more details
 --
-BUILD FAILED in 1m 21s
-3 actionable tasks: 3 executed
+BUILD FAILED in 1m 57s
+47 actionable tasks: 47 executed
+e: file:///home/runner/work/radon-player/radon-player/app/android/ui-common/src/commonMain/kotlin/org/omarchy/music/ui/Theme.kt:91:62 Unresolved reference 'core'.
 
-> Task :shared:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:5 Unresolved reference 'readText'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:25 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:69:9 Unresolved reference 'writeAtomic'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:95:9 Unresolved reference 'writeAtomic'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:146:9 Unresolved reference 'writeAtomic'.
-
-> Task :app:checkReleaseAarMetadata
+> Task :app:expandReleaseL8ArtProfileWildcards
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':shared:compileKotlin'.
+Execution failed for task ':ui-common:compileReleaseKotlinAndroid'.
 > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
    > Compilation error. See log for more details
 
@@ -41,5 +38,11 @@ Execution failed for task ':shared:compileKotlin'.
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 1m 21s
-3 actionable tasks: 3 executed
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 1m 57s
+47 actionable tasks: 47 executed
