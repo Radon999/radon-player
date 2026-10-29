@@ -88,6 +88,8 @@ jobs:
         if: hashFiles('work/ci/next/PUSH') != ''
         working-directory: app
         run: |
+          # Only a build that worked goes to the branch
+          if ! grep -q "PHONE OK" ../work/ci/next/result.txt || ! grep -q "PC OK" ../work/ci/next/result.txt; then echo "The build failed: not pushed"; exit 0; fi
           git checkout -q -- android/app/build.gradle.kts android/app/src/main/AndroidManifest.xml
           B="$(head -1 ../work/ci/next/PUSH | tr -d '[:space:]' | grep . || echo radon-player-next)"
           git fetch -q origin "$B"
