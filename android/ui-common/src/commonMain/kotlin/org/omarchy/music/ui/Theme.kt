@@ -85,10 +85,10 @@ object Looks {
         if (rgb == null) { apply(fallback); return }
         apply("apple-dark")
         val hsl = FloatArray(3)
-        androidx.core.graphics.ColorUtils.colorToHSL(rgb, hsl)
+        colorToHsl(rgb, hsl)
         val grey = hsl[1] <= 0.08f
         val s = if (grey) hsl[1] else hsl[1].coerceIn(0.25f, 0.75f)
-        fun shade(l: Float, sat: Float = s) = Color(androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf(hsl[0], sat, l)))
+        fun shade(l: Float, sat: Float = s) = Color(hslToColor(hsl[0], sat, l))
         C.isLight = false; C.apple = true
         C.accent = if (grey) Color(0xFFFA2D48) else shade(0.74f, kotlin.math.min(1f, s + 0.15f))
         C.selection = shade(0.30f); C.bg = shade(0.20f); C.dark = shade(0.14f); C.darker = shade(0.10f)
@@ -191,4 +191,34 @@ fun OmarchyTheme(content: @Composable () -> Unit) {
         shapes = androidx.compose.material3.Shapes(extraSmall = R.small, small = R.small, medium = R.card, large = R.big, extraLarge = R.big),
         content = content,
     )
+}
+
+/** A colour (0xRRGGBB) as hue (0..360), saturation and lightness (0..1) into out: androidx's ColorUtils.colorToHSL,
+ *  here so the PC has it too. */
+fun colorToHsl(rgb: Int, out: FloatArray) {
+    val r = ((rgb shr 16) and 0xFF) / 255f; val g = ((rgb shr 8) and 0xFF) / 255f; val b = (rgb and 0xFF) / 255f
+    val max = maxOf(r, g, b); val min = minOf(r, g, b); val d = max - min
+    val l = (max + min) / 2f
+    var h: Float; val s: Float
+    if (max == min) { h = 0f; s = 0f } else {
+        h = when (max) { r -> ((g - b) / d) % 6f; g -> (b - r) / d + 2f; else -> (r - g) / d + 4f }
+        s = d / (1f - kotlin.math.abs(2f * l - 1f))
+    }
+    h = (h * 60f) % 360f
+    if (h < 0) h += 360f
+    out[0] = h; out[1] = s.coerceIn(0f, 1f); out[2] = l.coerceIn(0f, 1f)
+}
+
+/** Hue, saturation and lightness back to an opaque colour (0xFFRRGGBB): ColorUtils.HSLToColor. */
+fun hslToColor(h: Float, s: Float, l: Float): Int {
+    val c = (1f - kotlin.math.abs(2 * l - 1f)) * s
+    val m = l - 0.5f * c
+    val x = c * (1f - kotlin.math.abs((h / 60f % 2f) - 1f))
+    val hs = (h.toInt() / 60) % 6
+    val (r, g, b) = when (hs) {
+        0 -> Triple(c + m, x + m, m); 1 -> Triple(x + m, c + m, m); 2 -> Triple(m, c + m, x + m)
+        3 -> Triple(m, x + m, c + m); 4 -> Triple(x + m, m, c + m); else -> Triple(c + m, m, x + m)
+    }
+    fun ch(v: Float) = kotlin.math.round(v * 255f).toInt().coerceIn(0, 255)
+    return (0xFF shl 24) or (ch(r) shl 16) or (ch(g) shl 8) or ch(b)
 }
