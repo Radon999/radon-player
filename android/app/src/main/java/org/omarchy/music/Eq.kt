@@ -99,6 +99,9 @@ object Eq {
         "vocal" to ("Vocal" to listOf(-2.0, -2.0, -1.0, 0.0, 1.5, 2.5, 2.5, 1.5, 0.0, -1.0)),
         "bright" to ("Bright" to listOf(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.5, 3.5, 4.0)),
         "v" to ("V-shape" to listOf(4.0, 3.5, 2.0, 0.0, -1.0, -1.0, 0.0, 1.5, 3.0, 3.5)),
+        // Cars, for every kind of music: the cab's boom around 250 Hz down, the dash's glare at 2-4 kHz softened, air back
+        "colorado" to ("Chevy Colorado 2023+ (standard)" to listOf(0.0, 1.5, 1.0, -2.0, -1.0, 0.0, -1.0, -1.5, 1.0, 2.0)),
+        "colorado-bose" to ("Chevy Colorado 2023+ (Bose)" to listOf(0.0, 0.0, 0.0, -1.5, -0.5, 0.0, -0.5, -1.0, 0.5, 1.5)),
         "custom" to ("Custom" to null),
     )
 

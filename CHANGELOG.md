@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 2.1.1: Car EQ (Windows and Android)
+- EQ presets for the Chevy Colorado (2023 and later), the standard system and Bose: tuned for every kind of music, not one genre (the cab's boom around 250 Hz down, the dash's glare softened, air added back). Picked on the car's Bluetooth, the phone remembers it for the car
+
 ## 2.1.0: Sound (Windows and Android)
 Every new setting is off (or neutral) until you change it. Never Dolby Atmos.
 - Clip guard (Equalizer on the PC, Settings › Sound on the phone): a limiter just under full scale catches a peak the EQ, ReplayGain or a song's volume would push over, instead of letting it crackle

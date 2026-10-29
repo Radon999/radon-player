@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "2.1.0"            # the release this is; GitHub's latest release is compared with it
+VERSION = "2.1.1"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -3900,6 +3900,10 @@ EQ_PRESETS = {
     "vocal": ("Vocal", (-2, -2, -1, 0, 1.5, 2.5, 2.5, 1.5, 0, -1)),
     "bright": ("Bright", (0, 0, 0, 0, 0, 0, 1, 2.5, 3.5, 4)),
     "v": ("V-shape", (4, 3.5, 2, 0, -1, -1, 0, 1.5, 3, 3.5)),
+    # Cars, for every kind of music: the cab's boom around 250 Hz taken down, the dash's glare at 2-4 kHz softened,
+    # air added back; the standard system's door speakers get a little low bass, Bose (tuned already) less of all
+    "colorado": ("Chevy Colorado 2023+ (standard)", (0, 1.5, 1, -2, -1, 0, -1, -1.5, 1, 2)),
+    "colorado-bose": ("Chevy Colorado 2023+ (Bose)", (0, 0, 0, -1.5, -0.5, 0, -0.5, -1, 0.5, 1.5)),
     "custom": ("Custom", None),
 }
 # Bass and treble: a low and a high shelf on top of the bands, (type, Hz, Q).
