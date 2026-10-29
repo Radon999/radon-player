@@ -240,6 +240,7 @@ object Music {
         ctx = c.applicationContext
         Prefs.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
+        eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
         lib = Library(ctx)
         plays = Plays(ctx)
         lists = Playlists(ctx)
@@ -2091,6 +2092,8 @@ object Music {
     fun setOpt(key: String, on: Boolean) {
         Prefs.set(key, on)
         if (key == Prefs.CROSSFEED) eqProcessor.crossfeed = on
+        if (key == Prefs.AUTO_MONO) AutoMono.check()
+        if (key == Prefs.MONO) { eqProcessor.mono = on || AutoMono.active; if (on && bitPerfect) toast("Mono isn't heard in bit-perfect: turn bit-perfect off for it") }
     }
 
     /** Songs of one album, one after the other: Smart transitions leaves them to flow into each other. */

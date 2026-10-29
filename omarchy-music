@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "2.0.0"            # the release this is; GitHub's latest release is compared with it
+VERSION = "2.0.1"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -4044,6 +4044,8 @@ def eq_preamp(filters):
 # Headphone crossfeed: a little of each side into the other, its highs softened, as you'd hear speakers across a
 # room (ffmpeg's crossfeed, built into every ffmpeg and so every mpv). Hard-panned old records stop tiring the ears.
 CROSSFEED = "crossfeed=strength=0.3:range=0.5"
+# Mono (the player's Mono button): both sides mixed into each ear, for one earbud in. Stays two channels.
+MONO = "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1"
 
 
 def eq_graph(correction, bands, preamp, tone=None):
@@ -6076,7 +6078,7 @@ STATS_PERIODS = {"week": 7, "month": 30, "year": 365}
 
 # 2.0's switches and their defaults (the app's opts): each one off until you turn it on.
 OPTS = {"crossfade": False, "crossfade_secs": 6, "smart_transitions": False, "crossfeed": False, "continue_across": False,
-        "smart_shuffle": False, "loudness_check": False}   # Most played over the last so many days (and all time)
+        "smart_shuffle": False, "loudness_check": False, "mono": False}   # Most played over the last so many days (and all time)
 
 
 def all_scrobbles(fm, progress=None):
@@ -10364,6 +10366,19 @@ class MusicWindow(Adw.ApplicationWindow):
         self.cast_btn.add_css_class("eq-btn")
         self.cast_btn.connect("clicked", lambda *_: self.cast_dialog())
         end.append(self.cast_btn)
+        self.mono_btn = Gtk.Button(label="Mono", valign=Gtk.Align.CENTER, tooltip_text="Mono: both sides in each ear, for one earbud in")
+        self.mono_btn.add_css_class("ctl")
+        self.mono_btn.add_css_class("eq-btn")
+        if app.opt("mono"):
+            self.mono_btn.add_css_class("on")
+
+        def mono_clicked(b):
+            on = not app.opt("mono")
+            app.set_opt("mono", on)
+            (b.add_css_class if on else b.remove_css_class)("on")
+            self.toast("Mono: both sides in each ear" if on else "Stereo")
+        self.mono_btn.connect("clicked", mono_clicked)
+        end.append(self.mono_btn)
         end.append(self.eq_button())
         end.append(self.volume_button())
         controls.set_end_widget(end)
@@ -25294,7 +25309,7 @@ class MusicApp(Adw.Application):
     def set_opt(self, key, value):
         self.opts[key] = value
         self.save_state()
-        if key == "crossfeed":
+        if key in ("crossfeed", "mono"):
             self.apply_eq()
         if key == "loudness_check" and value:
             self.quality_scan()
@@ -25363,6 +25378,8 @@ class MusicApp(Adw.Application):
                          {name: self.eq[name] for name in TONE}) if self.eq["on"] else ""
         if self.opt("crossfeed"):
             graph = ",".join(x for x in (graph, CROSSFEED) if x)
+        if self.opt("mono"):
+            graph = ",".join(x for x in (graph, MONO) if x)
         self.player.set_filters(graph)
         self.eq_synced = True
 

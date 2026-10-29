@@ -200,6 +200,12 @@ private fun NowTop(ui: Ui, n: Now) {
         Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
+        if (!n.remote) {   // Mono: both sides in each ear (one earbud in); lit while it's on
+            val mono = org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO)
+            IconButton(Ico.HEADPHONES, if (mono || org.omarchy.music.AutoMono.active) C.accent else WHITE, desc = if (mono) "Mono on" else "Mono off") {
+                Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear")
+            }
+        }
         if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
     }

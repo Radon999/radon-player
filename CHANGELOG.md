@@ -4,6 +4,10 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 2.0.1: Mono (Windows and Android)
+- Mono: a Mono button on Now playing (the phone: the headphones button at the top; the PC: Mono beside Cast) mixes both sides into each ear, for listening with one earbud in. Lit while it's on, kept between starts; not in bit-perfect
+- Android: Settings › Auto mono (a switch, off until you turn it on): mono on its own while the earbuds you pick are connected, off again when they go. Android can't tell apps whether one earbud or both are in (Sony's and most others keep that to their own app), so it goes by the earbuds being connected; the Mono button still works by hand
+
 ## 2.0.0: The big one (Windows and Android)
 Everything new is a switch, and off until you turn it on.
 

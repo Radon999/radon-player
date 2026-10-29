@@ -37,6 +37,9 @@ object Prefs {
     const val CROSSFADE_SECS = "crossfade_secs"  // its length
     const val SMART_TRANSITIONS = "smart_transitions"
     const val CROSSFEED = "crossfeed"
+    const val MONO = "mono"                      // Now playing's Mono: both sides in each ear
+    const val AUTO_MONO = "auto_mono"            // Mono on its own while the chosen earbuds are connected
+    const val AUTO_MONO_DEVICE = "auto_mono_device"   // which earbuds (their Bluetooth name)
     const val CONTINUE = "continue_across"       // continue where you left off, across the PC and the phone
     const val SMART_SHUFFLE = "smart_shuffle"
     const val LOUDNESS_CHECK = "loudness_check"

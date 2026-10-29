@@ -201,6 +201,8 @@ class EqProcessor : BaseAudioProcessor() {
     /** Headphone crossfeed (Equalizer › Crossfeed): a little of each side, its highs softened, into the other, as you'd
      *  hear speakers across a room. The desktop's ffmpeg crossfeed, its strength 0.3. */
     @Volatile var crossfeed = false
+    /** Mono (Now playing's Mono button, or Auto mono): left and right mixed into both ears, for one earbud in. */
+    @Volatile var mono = false
     private var lpL = 0.0
     private var lpR = 0.0
     private var rate = 48000.0
@@ -240,7 +242,7 @@ class EqProcessor : BaseAudioProcessor() {
         val st = stages
         val float = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
         input.order(ByteOrder.nativeOrder())
-        if (bypass || (st.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed)) {
+        if (bypass || (st.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono)) {
             out.put(input)
         } else {
             val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain
@@ -260,8 +262,20 @@ class EqProcessor : BaseAudioProcessor() {
                 ch = (ch + 1) % channels
             }
             if (crossfeed && channels == 2) crossfeedPass(out, n, float)
+            if (mono && channels == 2) monoPass(out, n, float)
         }
         out.flip()
+    }
+
+    /** Mono over the frames just written to out (n bytes): each side the two sides' average. */
+    private fun monoPass(out: ByteBuffer, n: Int, float: Boolean) {
+        val size = if (float) 4 else 2
+        var i = out.position() - n
+        while (i + 2 * size <= out.position()) {
+            if (float) { val m = (out.getFloat(i) + out.getFloat(i + size)) / 2f; out.putFloat(i, m); out.putFloat(i + size, m) }
+            else { val m = ((out.getShort(i) + out.getShort(i + size)) / 2).toShort(); out.putShort(i, m); out.putShort(i + size, m) }
+            i += 2 * size
+        }
     }
 
     /** Crossfeed over the frames just written to out (n bytes). */

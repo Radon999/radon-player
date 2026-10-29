@@ -556,7 +556,8 @@ private fun openNotificationSettings(ctx: android.content.Context) {
         .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-/** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, smart shuffle. */
+/** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, auto mono, smart shuffle. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlaybackLines() {
     val ctx = LocalContext.current
@@ -575,6 +576,25 @@ private fun PlaybackLines() {
     Line("Continue where you left off", "Stop on the PC and open the phone (or the other way round): it offers the same song at the same spot. " +
         "Needs the phone paired with the PC (Play on)", P.on(P.CONTINUE)) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
+    }
+    val auto = P.on(P.AUTO_MONO)
+    val picked = P.text(P.AUTO_MONO_DEVICE)
+    Line("Auto mono", when {
+        !auto -> "Mono on its own while your earbuds are connected (for one earbud in), off when they go. Now playing's Mono button still works by hand"
+        picked.isEmpty() -> "Connect your earbuds, then pick them below"
+        org.omarchy.music.AutoMono.active -> "$picked connected: mono is on"
+        else -> "Mono while $picked is connected"
+    }, auto) {
+        Switch(auto, { Music.setOpt(P.AUTO_MONO, it) }, colors = swColors())
+    }
+    if (auto) {
+        val now = remember(auto, org.omarchy.music.AutoMono.active) { org.omarchy.music.AutoMono.connected() }
+        androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            (now + listOf(picked)).filter { it.isNotEmpty() }.distinct().forEach { name ->
+                Chip(name, name == picked) { P.setText(P.AUTO_MONO_DEVICE, name); org.omarchy.music.AutoMono.check() }
+            }
+            if (now.isEmpty() && picked.isEmpty()) Text("No Bluetooth earbuds connected right now", style = T.sub)
+        }
     }
     Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
         P.on(P.SMART_SHUFFLE)) {
