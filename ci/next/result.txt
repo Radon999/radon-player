@@ -1,11 +1,7 @@
-run 40895245598 · Thu Oct 29 14:53:12 UTC 2026
+run 40897469620 · Thu Oct 29 15:06:22 UTC 2026
 PHONE OK
 PC OK
-TESTS: tests="4" failures="0" 
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-
-> Task :shared:compileJava NO-SOURCE
+TESTS: tests="5" failures="0" 
   int max;
 }`
 Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.LongSummaryStatistics {
@@ -21,13 +17,13 @@ Info: Proguard configuration rule does not match anything: `-keepclassmembers cl
   double max;
 }`
 
+> Task :app:lintVitalAnalyzeRelease
 > Task :app:compileReleaseArtProfile
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalAnalyzeRelease
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
 
-BUILD SUCCESSFUL in 3m 49s
+BUILD SUCCESSFUL in 3m 38s
 62 actionable tasks: 62 executed
