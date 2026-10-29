@@ -8,37 +8,37 @@ Success
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 1.mp3' ']'
 + adb push '/tmp/Test Song 1.mp3' /sdcard/Music/
-/tmp/Test Song 1.mp3: 1 file pushed, 0 skipped. 26.0 MB/s (1097303 bytes in 0.040s)
+/tmp/Test Song 1.mp3: 1 file pushed, 0 skipped. 14.5 MB/s (1097303 bytes in 0.072s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 2.mp3' ']'
 + adb push '/tmp/Test Song 2.mp3' /sdcard/Music/
-/tmp/Test Song 2.mp3: 1 file pushed, 0 skipped. 287.0 MB/s (1097303 bytes in 0.004s)
+/tmp/Test Song 2.mp3: 1 file pushed, 0 skipped. 165.7 MB/s (1097303 bytes in 0.006s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 3.mp3' ']'
 + adb push '/tmp/Test Song 3.mp3' /sdcard/Music/
-/tmp/Test Song 3.mp3: 1 file pushed, 0 skipped. 297.1 MB/s (1097303 bytes in 0.004s)
+/tmp/Test Song 3.mp3: 1 file pushed, 0 skipped. 156.1 MB/s (1097303 bytes in 0.007s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 4.mp3' ']'
 + adb push '/tmp/Test Song 4.mp3' /sdcard/Music/
-/tmp/Test Song 4.mp3: 1 file pushed, 0 skipped. 343.9 MB/s (1097866 bytes in 0.003s)
+/tmp/Test Song 4.mp3: 1 file pushed, 0 skipped. 143.2 MB/s (1097866 bytes in 0.007s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 5.mp3' ']'
 + adb push '/tmp/Test Song 5.mp3' /sdcard/Music/
-/tmp/Test Song 5.mp3: 1 file pushed, 0 skipped. 244.9 MB/s (1097866 bytes in 0.004s)
+/tmp/Test Song 5.mp3: 1 file pushed, 0 skipped. 142.6 MB/s (1097866 bytes in 0.007s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 6.mp3' ']'
 + adb push '/tmp/Test Song 6.mp3' /sdcard/Music/
-/tmp/Test Song 6.mp3: 1 file pushed, 0 skipped. 403.4 MB/s (1097866 bytes in 0.003s)
+/tmp/Test Song 6.mp3: 1 file pushed, 0 skipped. 212.6 MB/s (1097866 bytes in 0.005s)
 + break
 + adb shell content call --method scan_volume --uri content://media --arg external_primary
 Result: Bundle[{}]
@@ -65,7 +65,7 @@ args: [-p, org.omarchy.music.test, -c, android.intent.category.LAUNCHER, 1]
 data="org.omarchy.music.test"
 data="android.intent.category.LAUNCHER"
 Events injected: 1
-## Network stats: elapsed time=134ms (0ms mobile, 0ms wifi, 134ms not connected)
+## Network stats: elapsed time=166ms (0ms mobile, 0ms wifi, 166ms not connected)
 + sleep 12
 + python3 work/ci/tap.py Wait
 not found: wait
@@ -121,28 +121,28 @@ tap test song 1 240 714
 + cat /home/runner/work/radon-player/radon-player/shots/bg.txt
 + echo '== playing, app open'
 == playing, app open
-+ grep -iE 'package=|state=PlaybackState'
 + adb shell dumpsys media_session
++ grep -iE 'package=|state=PlaybackState'
 + head -12
     package=com.android.server.telecom
       package=org.omarchy.music.test
-      state=PlaybackState {state=PLAYING(3), position=6066, buffered position=85995, speed=1.0, updated=120208, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+      state=PlaybackState {state=PLAYING(3), position=5877, buffered position=85995, speed=1.0, updated=156881, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=24577, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=33209, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=24587, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=33223, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=27032, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=37068, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=27086, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=37343, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.youtube
 ++ adb shell pidof org.omarchy.music.test
-+ echo 'pid: 5424'
-pid: 5424
++ echo 'pid: 5546'
+pid: 5546
 + adb shell dumpsys activity services org.omarchy.music.test
 + grep -iE 'ServiceRecord|isForeground|startRequested|foregroundId'
 + head -8
-  * ServiceRecord{907da3b u0 org.omarchy.music.test/org.omarchy.music.MusicService}
+  * ServiceRecord{307e8ba u0 org.omarchy.music.test/org.omarchy.music.MusicService}
     isForeground=true foregroundId=1001 types=00000002 foregroundNoti=Notification(channel=default_channel_id shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x68 color=0x00000000 category=transport groupKey=media3_group_key actions=6 vis=PUBLIC)
     startRequested=true delayedStop=false stopIfKilled=false callStart=true lastStartId=4
 + echo '== services (app open)'
@@ -151,51 +151,51 @@ pid: 5424
 + head -60
 ACTIVITY MANAGER SERVICES (dumpsys activity services)
   User 0 active services:
-  * ServiceRecord{907da3b u0 org.omarchy.music.test/org.omarchy.music.MusicService}
+  * ServiceRecord{307e8ba u0 org.omarchy.music.test/org.omarchy.music.MusicService}
     intent={act=androidx.media3.session.MediaSessionService cmp=org.omarchy.music.test/org.omarchy.music.MusicService}
     packageName=org.omarchy.music.test
     processName=org.omarchy.music.test
-    baseDir=/data/app/~~FumTKSFT0iRFkfbsU9VHkw==/org.omarchy.music.test-8xj0aJEz92IkxR4R5QNUvA==/base.apk
+    baseDir=/data/app/~~T-jiAygd1MdOc6EDap5QXw==/org.omarchy.music.test-VXhOK4EJhE5WxwpTnqhQpQ==/base.apk
     dataDir=/data/user/0/org.omarchy.music.test
-    app=ProcessRecord{f8f539b 5424:org.omarchy.music.test/u0a192}
+    app=ProcessRecord{a929297 5546:org.omarchy.music.test/u0a192}
     mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP
     allowUiJobScheduling=true
     recentCallingPackage=com.android.systemui
     recentCallingUid=10168
     allowStartForeground=PROC_STATE_TOP
     startForegroundCount=1
-    infoAllowStartForeground=[callingPackage: org.omarchy.music.test; callingUid: 10192; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=androidx.media3.session.MediaSessionService cmp=org.omarchy.music.test/org.omarchy.music.MusicService }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:35; callerTargetSdkVersion:35; startForegroundCount:0; bindFromPackage:null: isBindService:false]; startForegroundDelayMs:36542
+    infoAllowStartForeground=[callingPackage: org.omarchy.music.test; callingUid: 10192; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=androidx.media3.session.MediaSessionService cmp=org.omarchy.music.test/org.omarchy.music.MusicService }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:35; callerTargetSdkVersion:35; startForegroundCount:0; bindFromPackage:null: isBindService:false]; startForegroundDelayMs:38537
     isForeground=true foregroundId=1001 types=00000002 foregroundNoti=Notification(channel=default_channel_id shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x68 color=0x00000000 category=transport groupKey=media3_group_key actions=6 vis=PUBLIC)
-    createTime=-44s823ms startingBgTimeout=--
-    lastActivity=-7s890ms restartTime=-44s823ms createdFromFg=true
+    createTime=-47s327ms startingBgTimeout=--
+    lastActivity=-8s363ms restartTime=-47s327ms createdFromFg=true
     startRequested=true delayedStop=false stopIfKilled=false callStart=true lastStartId=4
  startCommandResult=1
     Bindings:
-    * IntentBindRecord{9d96398}:
+    * IntentBindRecord{f841d8b}:
       intent={act=android.media.browse.MediaBrowserService cmp=org.omarchy.music.test/org.omarchy.music.MusicService}
-      binder=android.os.BinderProxy@d77e7f1
+      binder=android.os.BinderProxy@c31e68
       requested=true received=true hasBound=false doRebind=false
-    * IntentBindRecord{a1f5fd6 CREATE}:
+    * IntentBindRecord{2c7d281 CREATE}:
       intent={act=androidx.media3.session.MediaSessionService cmp=org.omarchy.music.test/org.omarchy.music.MusicService}
-      binder=android.os.BinderProxy@4133257
+      binder=android.os.BinderProxy@1fe1f26
       requested=true received=true hasBound=true doRebind=false
-      * Client AppBindRecord{bcd2144 ProcessRecord{f8f539b 5424:org.omarchy.music.test/u0a192}}
+      * Client AppBindRecord{4150767 ProcessRecord{a929297 5546:org.omarchy.music.test/u0a192}}
         Per-process Connections:
-          ConnectionRecord{87e8ca u0 CR CAPS org.omarchy.music.test/org.omarchy.music.MusicService:@ac1ec35 flags=0x1001}
+          ConnectionRecord{ba335e5 u0 CR CAPS org.omarchy.music.test/org.omarchy.music.MusicService:@ed220dc flags=0x1001}
     All Connections:
-      ConnectionRecord{87e8ca u0 CR CAPS org.omarchy.music.test/org.omarchy.music.MusicService:@ac1ec35 flags=0x1001}
+      ConnectionRecord{ba335e5 u0 CR CAPS org.omarchy.music.test/org.omarchy.music.MusicService:@ed220dc flags=0x1001}
 
   Connection bindings to services:
-  * ConnectionRecord{87e8ca u0 CR CAPS org.omarchy.music.test/org.omarchy.music.MusicService:@ac1ec35 flags=0x1001}
-    binding=AppBindRecord{bcd2144 org.omarchy.music.test/org.omarchy.music.MusicService:org.omarchy.music.test}
-    activity=ActivityRecord{99a4e7f u0 org.omarchy.music.test/org.omarchy.music.MainActivity t8}
-    conn=android.os.BinderProxy@ac1ec35 flags=0x1001
+  * ConnectionRecord{ba335e5 u0 CR CAPS org.omarchy.music.test/org.omarchy.music.MusicService:@ed220dc flags=0x1001}
+    binding=AppBindRecord{4150767 org.omarchy.music.test/org.omarchy.music.MusicService:org.omarchy.music.test}
+    activity=ActivityRecord{55e55bb u0 org.omarchy.music.test/org.omarchy.music.MainActivity t8}
+    conn=android.os.BinderProxy@ed220dc flags=0x1001
 + echo '== notifications (app open)'
 == notifications (app open)
 + adb shell dumpsys notification --noredact
 + grep -A14 pkg=org.omarchy.music.test
 + head -80
-    NotificationRecord(0x01ae9cf3: pkg=org.omarchy.music.test user=UserHandle{0} id=1001 tag=null importance=2 key=0|org.omarchy.music.test|1001|null|10192: Notification(channel=default_channel_id shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x68 color=0x00000000 category=transport groupKey=media3_group_key actions=6 vis=PUBLIC))
+    NotificationRecord(0x089d07b2: pkg=org.omarchy.music.test user=UserHandle{0} id=1001 tag=null importance=2 key=0|org.omarchy.music.test|1001|null|10192: Notification(channel=default_channel_id shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x68 color=0x00000000 category=transport groupKey=media3_group_key actions=6 vis=PUBLIC))
       uid=10192 userId=0
       opPkg=org.omarchy.music.test
       icon=Icon(typ=RESOURCE pkg=org.omarchy.music.test id=0x7f0801b7)
@@ -207,76 +207,76 @@ ACTIVITY MANAGER SERVICES (dumpsys activity services)
       groupKey=0|org.omarchy.music.test|g:media3_group_key
       notification=
             fullscreenIntent=null
-            contentIntent=PendingIntent{21d0db0: PendingIntentRecord{1610bef org.omarchy.music.test startActivity (allowlist: 89a32b5:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
-            deleteIntent=PendingIntent{6aaa429: PendingIntentRecord{9181bda org.omarchy.music.test startService (allowlist: 89a32b5:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+            contentIntent=PendingIntent{8e0b303: PendingIntentRecord{e8508f8 org.omarchy.music.test startActivity (allowlist: 9b10650:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
+            deleteIntent=PendingIntent{5895280: PendingIntentRecord{af0073f org.omarchy.music.test startService (allowlist: 9b10650:+30s0ms/0/NOTIFICATION_SERVICE/NotificationManagerService)}}
             number=0
             groupAlertBehavior=0
-            when=1793269124786
+            when=1793272200888
             tickerText=null
 + echo '== app log so far'
 == app log so far
 + grep -E 'RadonBg| [EF] |MediaSession|MediaNotif|Foreground|AndroidRuntime'
 ++ adb shell pidof org.omarchy.music.test
 + tail -150
-+ adb logcat -d --pid=5424
-10-29 10:18:07.317  5424  5424 E rchy.music.test: Not starting debugger since process cannot load the jdwp agent.
-10-29 10:18:08.135  5424  5424 E AudioEffect: set(): AudioFlinger could not create effect e46b26a0-dddd-11db-8afd-0002a5d5c51b / NULL, status: -1
-10-29 10:18:08.135  5424  5424 E visualizers-JNI: Visualizer initCheck failed -3
-10-29 10:18:08.135  5424  5424 E Visualizer-JAVA: Error code -3 when initializing Visualizer.
-10-29 10:18:09.236  5424  5462 E SurfaceSyncGroup: Failed to receive transaction ready in 1000ms. Marking SurfaceSyncGroup(wmsSync-VRI[MainActivity]#0) as ready
-10-29 10:18:09.236  5424  5462 E SurfaceSyncGroup: Failed to receive transaction ready in 1000ms. Marking SurfaceSyncGroup(VRI[MainActivity]#1) as ready
-10-29 10:18:09.921  5424  5424 I MediaSessionImpl: Init 396e06e [AndroidXMedia3/1.4.1] [emu64xa, sdk_gphone64_x86_64, Google, 34]
-10-29 10:18:09.922  5424  5424 W MediaSessionCompat: Couldn't find a unique registered media button receiver in the given context.
++ adb logcat -d --pid=5546
+10-29 11:09:21.149  5546  5546 E rchy.music.test: Not starting debugger since process cannot load the jdwp agent.
+10-29 11:09:22.108  5546  5546 E AudioEffect: set(): AudioFlinger could not create effect e46b26a0-dddd-11db-8afd-0002a5d5c51b / NULL, status: -1
+10-29 11:09:22.108  5546  5546 E visualizers-JNI: Visualizer initCheck failed -3
+10-29 11:09:22.108  5546  5546 E Visualizer-JAVA: Error code -3 when initializing Visualizer.
+10-29 11:09:23.220  5546  5606 E SurfaceSyncGroup: Failed to receive transaction ready in 1000ms. Marking SurfaceSyncGroup(wmsSync-VRI[MainActivity]#0) as ready
+10-29 11:09:23.220  5546  5606 E SurfaceSyncGroup: Failed to receive transaction ready in 1000ms. Marking SurfaceSyncGroup(VRI[MainActivity]#1) as ready
+10-29 11:09:24.213  5546  5546 I MediaSessionImpl: Init 9c7b532 [AndroidXMedia3/1.4.1] [emu64xa, sdk_gphone64_x86_64, Google, 34]
+10-29 11:09:24.219  5546  5546 W MediaSessionCompat: Couldn't find a unique registered media button receiver in the given context.
 + echo '== 8 s after Home'
 == 8 s after Home
 + adb shell dumpsys media_session
-+ head -12
 + grep -iE 'package=|state=PlaybackState'
++ head -12
     package=com.android.server.telecom
       package=org.omarchy.music.test
-      state=PlaybackState {state=PLAYING(3), position=15115, buffered position=85995, speed=1.0, updated=129291, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+      state=PlaybackState {state=PLAYING(3), position=14723, buffered position=85995, speed=1.0, updated=165889, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=24577, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=33209, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=24587, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=33223, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=27032, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=37068, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=27086, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=37343, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.youtube
 ++ adb shell pidof org.omarchy.music.test
-+ echo 'pid: 5424'
-pid: 5424
++ echo 'pid: 5546'
+pid: 5546
 + adb shell dumpsys activity services org.omarchy.music.test
 + grep -iE 'ServiceRecord|isForeground|startRequested|foregroundId'
 + head -8
-  * ServiceRecord{907da3b u0 org.omarchy.music.test/org.omarchy.music.MusicService}
+  * ServiceRecord{307e8ba u0 org.omarchy.music.test/org.omarchy.music.MusicService}
     isForeground=true foregroundId=1001 types=00000002 foregroundNoti=Notification(channel=default_channel_id shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x68 color=0x00000000 category=transport groupKey=media3_group_key actions=6 vis=PUBLIC)
     startRequested=true delayedStop=false stopIfKilled=false callStart=true lastStartId=4
 + echo '== 23 s after Home'
 == 23 s after Home
-+ grep -iE 'package=|state=PlaybackState'
 + adb shell dumpsys media_session
++ grep -iE 'package=|state=PlaybackState'
 + head -12
     package=com.android.server.telecom
       package=org.omarchy.music.test
-      state=PlaybackState {state=PLAYING(3), position=30124, buffered position=85995, speed=1.0, updated=144299, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+      state=PlaybackState {state=PLAYING(3), position=29732, buffered position=85995, speed=1.0, updated=180894, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=24577, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=33209, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=24587, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=33223, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=27032, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=37068, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.bluetooth
-      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=27086, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=37343, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
       package=com.google.android.youtube
 ++ adb shell pidof org.omarchy.music.test
-+ echo 'pid: 5424'
-pid: 5424
++ echo 'pid: 5546'
+pid: 5546
 + adb shell dumpsys activity services org.omarchy.music.test
 + grep -iE 'ServiceRecord|isForeground|startRequested|foregroundId'
 + head -8
-  * ServiceRecord{907da3b u0 org.omarchy.music.test/org.omarchy.music.MusicService}
+  * ServiceRecord{307e8ba u0 org.omarchy.music.test/org.omarchy.music.MusicService}
     isForeground=true foregroundId=1001 types=00000002 foregroundNoti=Notification(channel=default_channel_id shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x68 color=0x00000000 category=transport groupKey=media3_group_key actions=6 vis=PUBLIC)
     startRequested=true delayedStop=false stopIfKilled=false callStart=true lastStartId=4
 + echo '== logcat'
@@ -284,59 +284,60 @@ pid: 5424
 + adb logcat -d
 + grep -iE 'RadonBg|omarchy|AndroidRuntime|FATAL|ForegroundService|MediaSessionService|MediaNotification|Killing|crash'
 + tail -120
-10-29 10:18:53.383   526   545 V WindowManager:     info={id=9 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{ae9aae3 Task{4000bd0 #1 type=home}}} m=TO_FRONT f=SHOW_WALLPAPER|MOVE_TO_TOP leash=Surface(name=Task=1)/@0x3fd8d75 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{87d929d Task{fd84e4c #8 type=standard A=10192:org.omarchy.music.test}}} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0xb344147 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{null m=TO_FRONT f=IS_WALLPAPER leash=Surface(name=WallpaperWindowToken{748d8c3 token=android.os.Binder@46f1928})/@0x83d5cfb sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
-10-29 10:18:53.933  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=9147, buffered position=85995, speed=1.0, updated=123285, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:18:53.937  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:18:53.940  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:18:53.940  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=9147, buffered position=85995, speed=1.0, updated=123285, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:18:53.952  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:18:53.956  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:18:56.934  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=12119, buffered position=85995, speed=1.0, updated=126290, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:18:56.934  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:18:56.935  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:18:56.936  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=12119, buffered position=85995, speed=1.0, updated=126290, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:18:56.936  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:18:56.936  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:18:57.727   526   618 D OomAdjuster: Not killing cached processes
-10-29 10:18:59.935  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=15115, buffered position=85995, speed=1.0, updated=129291, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:18:59.935  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:18:59.936  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:18:59.937  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=15115, buffered position=85995, speed=1.0, updated=129291, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:18:59.938  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:18:59.938  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:02.739   526  2158 D OomAdjuster: Not killing cached processes
-10-29 10:19:02.936  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=18117, buffered position=85995, speed=1.0, updated=132292, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:02.936  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:02.937  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:02.938  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=18117, buffered position=85995, speed=1.0, updated=132292, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:02.938  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:02.938  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:05.937  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=21118, buffered position=85995, speed=1.0, updated=135293, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:05.938  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:05.939  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:05.945  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=21118, buffered position=85995, speed=1.0, updated=135293, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:05.948  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:05.949  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:08.174   526  2152 D OomAdjuster: Not killing cached processes
-10-29 10:19:08.940  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=24121, buffered position=85995, speed=1.0, updated=138296, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:08.941  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:08.941  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:08.941  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=24121, buffered position=85995, speed=1.0, updated=138296, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:08.941  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:08.942  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:11.942  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=27126, buffered position=85995, speed=1.0, updated=141297, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:11.942  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:11.943  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:11.943  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=27126, buffered position=85995, speed=1.0, updated=141297, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:11.943  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:11.944  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:14.943  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=30124, buffered position=85995, speed=1.0, updated=144299, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:14.944  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:14.944  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:14.944  1030  1030 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=30124, buffered position=85995, speed=1.0, updated=144299, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
-10-29 10:19:14.945  1030  1030 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
-10-29 10:19:14.945  1030  1030 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
-10-29 10:19:15.691   526   909 D OomAdjuster: Not killing cached processes
+10-29 11:10:09.404   524  1405 D OomAdjuster: Not killing cached processes
+10-29 11:10:09.729   524   541 V WindowManager:     info={id=8 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{46c9c68 Task{41b89eb #1 type=home}}} m=TO_FRONT f=SHOW_WALLPAPER|MOVE_TO_TOP leash=Surface(name=Task=1)/@0xfa145cb sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{f2ab55a Task{ebaad8 #8 type=standard A=10192:org.omarchy.music.test}}} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0xceab47c sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{null m=TO_FRONT f=IS_WALLPAPER leash=Surface(name=WallpaperWindowToken{8a49775 token=android.os.Binder@5fcceac})/@0xd96575b sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+10-29 11:10:09.824  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=8877, buffered position=85995, speed=1.0, updated=159885, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:09.838  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:09.840  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:09.876  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=8877, buffered position=85995, speed=1.0, updated=159885, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:09.876  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:09.886  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:12.801  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=11729, buffered position=85995, speed=1.0, updated=162889, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:12.802  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:12.803  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:12.805  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=11729, buffered position=85995, speed=1.0, updated=162889, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:12.805  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:12.805  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:15.538   524   905 D OomAdjuster: Not killing cached processes
+10-29 11:10:15.802  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=14723, buffered position=85995, speed=1.0, updated=165889, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:15.802  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:15.803  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:15.804  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=14723, buffered position=85995, speed=1.0, updated=165889, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:15.804  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:15.804  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:18.802  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=17729, buffered position=85995, speed=1.0, updated=168890, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:18.803  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:18.804  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:18.804  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=17729, buffered position=85995, speed=1.0, updated=168890, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:18.805  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:18.807  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:21.283   524   553 D OomAdjuster: Not killing cached processes
+10-29 11:10:21.804  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=20729, buffered position=85995, speed=1.0, updated=171891, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:21.805  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:21.806  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:21.807  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=20729, buffered position=85995, speed=1.0, updated=171891, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:21.808  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:21.808  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:24.805  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=23728, buffered position=85995, speed=1.0, updated=174892, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:24.805  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:24.806  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:24.808  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=23728, buffered position=85995, speed=1.0, updated=174892, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:24.809  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:24.809  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:26.324   524  2165 D OomAdjuster: Not killing cached processes
+10-29 11:10:27.806  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=26729, buffered position=85995, speed=1.0, updated=177893, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:27.807  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:27.807  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:27.808  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=26729, buffered position=85995, speed=1.0, updated=177893, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:27.809  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:27.809  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:30.809  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=29732, buffered position=85995, speed=1.0, updated=180894, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:30.812  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:30.812  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:30.817  1026  1026 V AudioMediaPlayerWrapper: onPlaybackStateChanged(): org.omarchy.music.test : PlaybackState {state=PLAYING(3), position=29732, buffered position=85995, speed=1.0, updated=180894, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+10-29 11:10:30.818  1026  1026 D AudioMediaPlayerWrapper: org.omarchy.music.test Only Title and Artist info sync for metadata
+10-29 11:10:30.818  1026  1026 V AudioMediaPlayerWrapper: trySendMediaUpdate(): Metadata has been updated for org.omarchy.music.test
+10-29 11:10:31.332   524  2337 D OomAdjuster: Not killing cached processes
 + echo '=== END BACKGROUND CHECK ==='
 === END BACKGROUND CHECK ===
 + front
@@ -403,8 +404,8 @@ tap lyrics 366 2237
 + has 'content-desc="Menu"'
 + calm
 + python3 work/ci/tap.py Wait
-+ grep -q 'content-desc="Menu"'
 + adb exec-out uiautomator dump /dev/tty
++ grep -q 'content-desc="Menu"'
 + break
 + tap --desc Menu
 + python3 work/ci/tap.py --desc Menu
@@ -741,31 +742,31 @@ tap now playing 281 582
 + python3 work/ci/tap.py Wait
 + adb exec-out screencap -p
 + ls -la /home/runner/work/radon-player/radon-player/shots
-total 12728
-drwxr-xr-x 2 runner runner    4096 Oct 29 10:29 .
-drwxr-xr-x 5 runner runner    4096 Oct 29 10:17 ..
--rw-r--r-- 1 runner runner  148880 Oct 29 10:18 01-home.png
--rw-r--r-- 1 runner runner  148880 Oct 29 10:18 01-player-empty.png
--rw-r--r-- 1 runner runner  172271 Oct 29 10:18 02-drawer.png
--rw-r--r-- 1 runner runner  174432 Oct 29 10:18 03-songs.png
--rw-r--r-- 1 runner runner  682480 Oct 29 10:18 04-songs-playing.png
--rw-r--r-- 1 runner runner  392730 Oct 29 10:19 05-player.png
--rw-r--r-- 1 runner runner  386225 Oct 29 10:19 05b-player-bars.png
--rw-r--r-- 1 runner runner  374678 Oct 29 10:23 05c-player-ocean.png
--rw-r--r-- 1 runner runner  450427 Oct 29 10:20 06-queue.png
--rw-r--r-- 1 runner runner  363681 Oct 29 10:20 07-lyrics.png
--rw-r--r-- 1 runner runner  212141 Oct 29 10:22 08-vis-tab.png
--rw-r--r-- 1 runner runner  510683 Oct 29 10:22 09-albums.png
--rw-r--r-- 1 runner runner  615753 Oct 29 10:23 09b-album.png
--rw-r--r-- 1 runner runner  356676 Oct 29 10:24 10-settings.png
--rw-r--r-- 1 runner runner  356676 Oct 29 10:24 11-settings-2.png
--rw-r--r-- 1 runner runner  356676 Oct 29 10:24 12-settings-3.png
--rw-r--r-- 1 runner runner  701409 Oct 29 10:26 30-look-Apple-Music-dark.png
--rw-r--r-- 1 runner runner  653314 Oct 29 10:28 30-look-Apple-Music.png
--rw-r--r-- 1 runner runner  702237 Oct 29 10:26 31-songs-Apple-Music-dark.png
--rw-r--r-- 1 runner runner  722768 Oct 29 10:28 31-songs-Apple-Music.png
--rw-r--r-- 1 runner runner  357122 Oct 29 10:26 32-player-Apple-Music-dark.png
--rw-r--r-- 1 runner runner 2504193 Oct 29 10:29 32-player-Apple-Music.png
--rw-r--r-- 1 runner runner 1379069 Oct 29 10:19 bg-home.png
--rw-r--r-- 1 runner runner  217268 Oct 29 10:19 bg-shade.png
--rw-r--r-- 1 runner runner   25647 Oct 29 10:19 bg.txt
+total 10200
+drwxr-xr-x 2 runner runner    4096 Oct 29 11:21 .
+drwxr-xr-x 5 runner runner    4096 Oct 29 11:08 ..
+-rw-r--r-- 1 runner runner  148506 Oct 29 11:09 01-home.png
+-rw-r--r-- 1 runner runner  148506 Oct 29 11:09 01-player-empty.png
+-rw-r--r-- 1 runner runner  172010 Oct 29 11:09 02-drawer.png
+-rw-r--r-- 1 runner runner  174358 Oct 29 11:09 03-songs.png
+-rw-r--r-- 1 runner runner  681575 Oct 29 11:10 04-songs-playing.png
+-rw-r--r-- 1 runner runner  388052 Oct 29 11:11 05-player.png
+-rw-r--r-- 1 runner runner  383002 Oct 29 11:11 05b-player-bars.png
+-rw-r--r-- 1 runner runner  372605 Oct 29 11:15 05c-player-ocean.png
+-rw-r--r-- 1 runner runner  451870 Oct 29 11:11 06-queue.png
+-rw-r--r-- 1 runner runner  362702 Oct 29 11:11 07-lyrics.png
+-rw-r--r-- 1 runner runner  211321 Oct 29 11:13 08-vis-tab.png
+-rw-r--r-- 1 runner runner  510040 Oct 29 11:14 09-albums.png
+-rw-r--r-- 1 runner runner  614208 Oct 29 11:14 09b-album.png
+-rw-r--r-- 1 runner runner  356128 Oct 29 11:16 10-settings.png
+-rw-r--r-- 1 runner runner  356128 Oct 29 11:16 11-settings-2.png
+-rw-r--r-- 1 runner runner  356128 Oct 29 11:16 12-settings-3.png
+-rw-r--r-- 1 runner runner  701702 Oct 29 11:18 30-look-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner  692462 Oct 29 11:20 30-look-Apple-Music.png
+-rw-r--r-- 1 runner runner  701654 Oct 29 11:18 31-songs-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner  384323 Oct 29 11:20 31-songs-Apple-Music.png
+-rw-r--r-- 1 runner runner  352598 Oct 29 11:18 32-player-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner  246625 Oct 29 11:21 32-player-Apple-Music.png
+-rw-r--r-- 1 runner runner 1378485 Oct 29 11:10 bg-home.png
+-rw-r--r-- 1 runner runner  217240 Oct 29 11:10 bg-shade.png
+-rw-r--r-- 1 runner runner   25723 Oct 29 11:10 bg.txt
