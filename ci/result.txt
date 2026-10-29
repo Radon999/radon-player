@@ -1,42 +1,29 @@
-run 40830143439 · Thu Oct 29 06:37:50 UTC 2026
-BUILD FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:9 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:12 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:18 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:20 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:20 Function declaration must have a name.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:87:13 Unresolved reference 'field'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:87:21 Unresolved reference 'value'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:88:17 Unresolved reference 'value'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Stats.kt:168:21 This annotation is not applicable to target 'destructuring declaration'.
+run 40830488740 · Thu Oct 29 06:42:52 UTC 2026
+BUILD OK
 
-FAILURE: Build failed with an exception.
---
-* What went wrong:
-Execution failed for task ':app:compileReleaseKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:9 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:12 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:18 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:20 Syntax error: Expecting member declaration.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:86:20 Function declaration must have a name.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:87:13 Unresolved reference 'field'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:87:21 Unresolved reference 'value'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:88:17 Unresolved reference 'value'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Stats.kt:168:21 This annotation is not applicable to target 'destructuring declaration'.
+> Task :app:compileReleaseJavaWithJavac
+  int max;
+}`
+Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.LongSummaryStatistics {
+  long count;
+  long sum;
+  long min;
+  long max;
+}`
+Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
+  long count;
+  double sum;
+  double min;
+  double max;
+}`
 
-FAILURE: Build failed with an exception.
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
 
-* What went wrong:
-Execution failed for task ':app:compileReleaseKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-
-BUILD FAILED in 1m 50s
-28 actionable tasks: 28 executed
+BUILD SUCCESSFUL in 3m 22s
+52 actionable tasks: 52 executed
