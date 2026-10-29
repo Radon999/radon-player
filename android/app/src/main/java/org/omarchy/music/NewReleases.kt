@@ -52,6 +52,22 @@ object NewReleases {
     private fun kindOf(t: String?) = when (t?.lowercase()) { "ep" -> "ep"; "single" -> "single"; else -> "album" }
 
     /** The same artist, written either way: "half•alive" and "half alive", "K.Flay" and "KFlay". */
+    fun sameName(a: String?, b: String?) = bare(a).let { it.isNotEmpty() && it == bare(b) }
+
+    /** New releases' Select: what's picked (across Albums, Singles, EPs and Artists): key -> a release, or an artist's name. */
+    var selecting by mutableStateOf(false)
+    val picked = androidx.compose.runtime.mutableStateMapOf<String, Pair<Release?, String>>()
+    fun key(r: Release) = "r:" + norm(r.artist) + "|" + r.link.ifEmpty { norm(r.title) }
+    fun artistKey(name: String) = "a:" + norm(name)
+    fun toggle(key: String, what: Pair<Release?, String>) { if (picked.remove(key) == null) picked[key] = what }
+
+    /** The releases picked (an artist picked: all of theirs found), each once. */
+    fun pickedReleases(): List<Release> {
+        val out = LinkedHashMap<String, Release>()
+        for ((r, artist) in picked.values) (if (r != null) listOf(r) else found.filter { it.artist == artist }).forEach { out.putIfAbsent(key(it), it) }
+        return out.values.toList()
+    }
+
     private fun bare(a: String?) = norm((a ?: "").replace(Regex("^the ", RegexOption.IGNORE_CASE), "")).replace(Regex("[\\W_]+"), "")
 
     /** Deezer's answer; when it says too many asks at once, wait and ask again. */

@@ -59,7 +59,7 @@ fun AlbumsTab(ui: Ui) {
                 onLongClick = { ui.choices = al.title to listOf(pinChoice(pin(al))) }) { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }
         }) { i, mod, compact ->
             val (al, songs) = albums[i]
-            Tile(artModel(songs.first(), if (compact) 226 else 400), al.title, al.sub, mod, compact, ico = Ico.DISC,
+            Tile(artModel(songs.first(), tilePx(compact)), al.title, al.sub, mod, compact, ico = Ico.DISC,
                 onLongClick = { ui.choices = al.title to listOf(pinChoice(pin(al))) }) { ui.pages += Ui.Page.AlbumPage(al, "local", songs) }
         }
     }
@@ -94,7 +94,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
         GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id) }) { open(id, songs) }
     }) { i, mod, compact ->
         val (id, songs) = list[i]
-        Tile(artModel(songs.first(), if (compact) 226 else 400), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico,
+        Tile(artModel(songs.first(), tilePx(compact)), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico,
             onLongClick = { menu(id) }) { open(id, songs) }
     }
 }

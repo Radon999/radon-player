@@ -155,13 +155,14 @@ object Wrapped {
         val firstPlay = HashMap<Pair<String, String>, Long>()
         val months = IntArray(12); val hours = IntArray(24); val weekdays = IntArray(7); val days = LinkedHashMap<LocalDate, Int>()
         for (r in rows) {
-            val ka = r.artist.lowercase(); val ks = ka to r.title.lowercase()
+            // The same song from Last.fm, Spotify and Apple Music counts as one (as in Most played).
+            val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
             artists.merge(ka, 1, Int::plus); songs.merge(ks, 1, Int::plus)
-            artistName.putIfAbsent(ka, r.artist); songName.putIfAbsent(ks, r.title to r.artist); firstPlay.putIfAbsent(ks, r.t)
+            artistName.putIfAbsent(ka, splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist); songName.putIfAbsent(ks, r.title to r.artist); firstPlay.putIfAbsent(ks, r.t)
             val img = picture(r.image)
             if (img.isNotEmpty()) art[ks] = img
             if (r.album.isNotEmpty()) {
-                val kb = ka to r.album.lowercase()
+                val kb = ka to norm(cleanTitle(r.album))
                 albums.merge(kb, 1, Int::plus); albumName.putIfAbsent(kb, r.album to r.artist)
                 if (img.isNotEmpty()) albumArt[kb] = img
             }
@@ -178,7 +179,7 @@ object Wrapped {
         fun <K> common(m: Map<K, Int>) = m.entries.sortedByDescending { it.value }
         val busiest = common(days).first()
         val topArtist = common(artists).first().key
-        val byTop = common(songs).firstOrNull { it.key.first == topArtist }
+        val byTop = common(songs).firstOrNull { it.key.second == topArtist }
         val t0 = rows.first()
         return base.copy(
             scrobbles = rows.size, artistCount = artists.size, songCount = songs.size,

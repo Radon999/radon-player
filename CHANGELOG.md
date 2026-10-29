@@ -4,6 +4,18 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 1.4.2: Steadier, smoother, and Most played by week, month and year (Windows and Android)
+- Most played: This week, This month, This year and All time, each adding up Last.fm, Spotify and Apple Music (every play with a time)
+- Wrapped counts a song once across Last.fm, Spotify and Apple Music, as Most played does
+- New releases: tap an album, single or EP to open it straight on Tidal or YouTube Music (no search, no looking through your files); an artist opens their page
+- New releases: Select, pick releases and artists on any of its tabs, and make a discovery playlist of their songs you haven't got (“New releases Discovery playlist”; the ones you hear to the end go to “New releases discovered”, to download or let go)
+- Android: the app no longer closes after a few songs with the screen off (between songs it stayed a "finished" player, and Android shut it down)
+- Android: Settings › Problems keeps what went wrong (if the app ever closes) with a Copy button
+- Android: bigger grids: the layout button goes list, small, grid, big (two across) and biggest (one across)
+- Windows: the Visualizer and Now playing's bars run smoothly in a big or maximized window (drawn by the graphics card, and only the bars' strip each frame)
+- Playlists: the discovery playlists fold away under one “Discovery playlists” row, opened when you want them
+- A failed stats refresh waits two minutes before trying again
+
 ## 1.4.1: Most played, fixed (Windows and Android)
 - Most played: every play counted and added up: all your Last.fm scrobbles, plus every play in your Spotify and Apple Music imports. Songs that went missing (one long play made the rest look too short) are back
 - Refresh on Most played reads your newest Last.fm scrobbles; plays now come from Last.fm (the imports stay as they were)

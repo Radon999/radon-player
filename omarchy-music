@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "1.4.1"            # the release this is; GitHub's latest release is compared with it
+VERSION = "1.4.2"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -5797,7 +5797,8 @@ def scrobble_rows(fm, period, progress=None):
 
 
 STAT_SOURCES = ("lastfm", "spotify", "apple", "here")
-STATS_VERSION = 2   # 2: every scrobble and every imported play, added up
+STATS_VERSION = 3   # 2: every scrobble and every imported play, added up; 3: this week, month and year too
+STATS_PERIODS = {"week": 7, "month": 30, "year": 365}   # Most played over the last so many days (and all time)
 
 
 def all_scrobbles(fm, progress=None):
@@ -5846,6 +5847,7 @@ class Stats:
         saved = read_json(STATS, {})
         self.songs = saved.get("songs") or []       # most played first: {title, artist, album, thumb, plays, lastfm, spotify, here}
         self.artists = saved.get("artists") or []   # [{name, plays, lastfm, spotify, here, thumb}], most played first
+        self.periods = saved.get("periods") or {}   # "week", "month", "year" -> songs as above, from those days' plays
         self.built, self.sig = saved.get("built", 0), saved.get("sig")
         self.busy, self.status, self.error = False, "", ""
         self.watchers = []   # called (on the UI thread) when new counts are in
@@ -5889,9 +5891,20 @@ class Stats:
         a, fm = self.app, self.app.lastfm
         sig = self.inputs()
         songs = {}
+        # This week's, month's and year's: the plays with a time (scrobbles, Spotify's, Apple Music's timed ones).
+        now = time.time()
+        since = {k: now - d * 86400 for k, d in STATS_PERIODS.items()}
+        recent = {k: {} for k in STATS_PERIODS}
+
+        def timed(t, title, artist, album, thumb, n, source):
+            for k, start in since.items():
+                if t >= start:
+                    add_plays(recent[k], title, artist, album, thumb, n, source)
         if fm.connected:
             for r in all_scrobbles(fm, progress):
-                add_plays(songs, r[2], r[1], r[3], "" if LASTFM_BLANK in (r[4] or "") else r[4], 1, "lastfm")
+                img = "" if LASTFM_BLANK in (r[4] or "") else r[4]
+                add_plays(songs, r[2], r[1], r[3], img, 1, "lastfm")
+                timed(r[0], r[2], r[1], r[3], img, 1, "lastfm")
         else:
             for e in a.plays.items.values():
                 t = e.get("track") or {}
@@ -5900,9 +5913,11 @@ class Stats:
         # added to Last.fm's: the totals add up, even where Spotify scrobbled to Last.fm too.
         for p in a.spotify_history.plays:
             add_plays(songs, p[2], p[1], p[3], "", 1, "spotify")
+            timed(p[0], p[2], p[1], p[3], "", 1, "spotify")
         for r in a.apple_history.rows:
             if r[0] > 0:
                 add_plays(songs, r[2], r[1], r[3], "", int(r[5]), "apple")
+                timed(r[0], r[2], r[1], r[3], "", int(r[5]), "apple")
         # A library's counts: Apple's all-time total for a song, past the Apple plays counted already.
         for r in a.apple_history.rows:
             if r[0] <= 0:
@@ -5919,8 +5934,14 @@ class Stats:
         self.songs = sorted(songs.values(), key=lambda s: -s["plays"])
         self.artists = [{"name": s["title"], **{k: s.get(k, 0) for k in ("plays", *STAT_SOURCES)}, "thumb": s["thumb"]}
                         for s in sorted(artists.values(), key=lambda s: -s["plays"])]
+        for k, got in recent.items():   # a cover from the all-time row where the period's has none
+            for key, st in got.items():
+                if not st["thumb"] and songs.get(key):
+                    st["thumb"] = songs[key]["thumb"]
+        self.periods = {k: sorted(got.values(), key=lambda s: -s["plays"])[:5000] for k, got in recent.items()}
         self.built, self.sig = time.time(), sig
-        write_atomic(STATS, json.dumps({"songs": self.songs, "artists": self.artists, "built": self.built, "sig": sig}))
+        write_atomic(STATS, json.dumps({"songs": self.songs, "artists": self.artists, "periods": self.periods,
+                                        "built": self.built, "sig": sig}))
 
     def artist_songs(self, name):
         """The songs of artist name (theirs or with them), most played first."""
@@ -7947,8 +7968,115 @@ def texture_rgb(data, w, h):
     return Gdk.MemoryTexture.new(w, h, Gdk.MemoryFormat.R8G8B8, GLib.Bytes.new(data), w * 3)
 
 
+class SnapGradient:
+    """A linear gradient for SnapPainter (cairo.LinearGradient's way)."""
+    __slots__ = ("x0", "y0", "x1", "y1", "stops")
+
+    def __init__(self, x0, y0, x1, y1):
+        self.x0, self.y0, self.x1, self.y1, self.stops = x0, y0, x1, y1, []
+
+    def add_color_stop_rgba(self, off, r, g, b, a=1.0):
+        st = Gsk.ColorStop()
+        st.offset, st.color = off, gdk_rgba(r, g, b, a)
+        self.stops.append(st)
+
+
+class SnapPainter:
+    """The bit of cairo the visualizer draws with, drawn as GTK's own (GPU) shapes instead. With cairo
+    the whole picture was painted on the processor and handed to the graphics card every frame: at 4K,
+    32 MB sixty times a second, the visualizer's lag on Windows when the window was big. Rectangles and
+    gradients go in as they are; curves and circles as paths."""
+
+    def __init__(self, snap, w, h):
+        self.snap, self.w, self.h = snap, w, h
+        self.src = (0.0, 0.0, 0.0, 1.0)
+        self.rects = []
+        self.builder = None
+        self.width = 2.0
+        self.cap = Gsk.LineCap.BUTT
+
+    @staticmethod
+    def linear_gradient(x0, y0, x1, y1):
+        return SnapGradient(x0, y0, x1, y1)
+
+    def set_source_rgba(self, r, g, b, a=1.0):
+        self.src = (r, g, b, a)
+
+    def set_source_rgb(self, r, g, b):
+        self.src = (r, g, b, 1.0)
+
+    def set_source(self, grad):
+        self.src = grad
+
+    def set_line_width(self, w):
+        self.width = w
+
+    def set_line_cap(self, cap):
+        self.cap = Gsk.LineCap.ROUND if cap == 1 else Gsk.LineCap.SQUARE if cap == 2 else Gsk.LineCap.BUTT
+
+    def rectangle(self, x, y, w, h):
+        self.rects.append(rect(x, y, w, h) if w >= 0 and h >= 0 else rect(min(x, x + w), min(y, y + h), abs(w), abs(h)))
+
+    def _path(self):
+        if self.builder is None:
+            self.builder = Gsk.PathBuilder.new()
+        return self.builder
+
+    def move_to(self, x, y):
+        self._path().move_to(x, y)
+
+    def line_to(self, x, y):
+        self._path().line_to(x, y)
+
+    def curve_to(self, x1, y1, x2, y2, x3, y3):
+        self._path().cubic_to(x1, y1, x2, y2, x3, y3)
+
+    def close_path(self):
+        self._path().close()
+
+    def arc(self, cx, cy, r, _a0, _a1):   # (only whole circles here)
+        self._path().add_circle(Graphene.Point().init(cx, cy), r)
+
+    def _paint_in(self, bounds):
+        src = self.src
+        if isinstance(src, SnapGradient):
+            if len(src.stops) >= 2:
+                self.snap.append_linear_gradient(bounds, Graphene.Point().init(src.x0, src.y0),
+                                                 Graphene.Point().init(src.x1, src.y1), src.stops)
+        else:
+            self.snap.append_color(gdk_rgba(*src), bounds)
+
+    def paint(self):
+        self._paint_in(rect(0, 0, self.w, self.h))
+
+    def fill(self):
+        self.fill_preserve()
+        self.rects, self.builder = [], None
+
+    def fill_preserve(self):
+        for r in self.rects:
+            self._paint_in(r)
+        if self.builder is not None:
+            path = self.builder.to_path()
+            self.builder = Gsk.PathBuilder.new()
+            self.builder.add_path(path)
+            self.snap.push_fill(path, Gsk.FillRule.WINDING)
+            self._paint_in(rect(0, 0, self.w, self.h))
+            self.snap.pop()
+
+    def stroke(self):
+        if self.builder is not None:
+            path = self.builder.to_path()
+            st = Gsk.Stroke.new(self.width)
+            st.set_line_cap(self.cap)
+            self.snap.push_stroke(path, st)
+            self._paint_in(rect(-self.width, -self.width, self.w + 2 * self.width, self.h + 2 * self.width))
+            self.snap.pop()
+        self.rects, self.builder = [], None
+
+
 class VisArea(Gtk.Widget):
-    """Where the Visualizer tab draws (with cairo, in a snapshot of its own)."""
+    """Where the Visualizer tab draws (GTK's own shapes, through SnapPainter)."""
     __gtype_name__ = "VarMusicVisArea"
 
     def __init__(self, vis):
@@ -7961,7 +8089,7 @@ class VisArea(Gtk.Widget):
         if w <= 0 or h <= 0:
             return
         preset = self.vis.app.vis_preset
-        cr = snap.append_cairo(rect(0, 0, w, h))
+        cr = SnapPainter(snap, w, h)
         c = self.get_color()
         self.vis.paint(cr, w, h, preset, Fg(c.red, c.green, c.blue))
 
@@ -7979,7 +8107,7 @@ class MiniBars(Gtk.Widget):
         vis = self.mini.vis
         if w <= 0 or h <= 0 or vis is None:
             return
-        cr = snap.append_cairo(rect(0, 0, w, h))
+        cr = SnapPainter(snap, w, h)
         r, g, b = self.mini.color
         n = VIS_BANDS
         gap = max(1.0, w / n * 0.28)
@@ -8396,8 +8524,7 @@ class Visualizer(Gtk.Box):
             cr.curve_to(mx, y0, mx, y1, x1, y1)
         cr.line_to(w - pad, base)
         cr.close_path()
-        import cairo
-        grad = cairo.LinearGradient(0, base * 0.15, 0, base)
+        grad = cr.linear_gradient(0, base * 0.15, 0, base)
         grad.add_color_stop_rgba(0, *acc, 0.75)
         grad.add_color_stop_rgba(1, *mag, 0.12)
         cr.set_source(grad)
@@ -8451,7 +8578,6 @@ class Visualizer(Gtk.Box):
 
     def draw_neon(self, cr, w, h, col):
         """Black, with neon bars: a soft glow around each, a white-hot top on the loud ones."""
-        import cairo
         red = hex_rgb(col)
         cr.set_source_rgb(0, 0, 0)
         cr.paint()
@@ -8469,7 +8595,7 @@ class Visualizer(Gtk.Box):
                 cr.set_source_rgba(*red, alpha * (0.5 + lv))
                 cr.rectangle(x - spread, base - bh - spread, bw + 2 * spread, bh + spread)
                 cr.fill()
-            grad = cairo.LinearGradient(0, base - bh, 0, base)
+            grad = cr.linear_gradient(0, base - bh, 0, base)
             hot = 0.45 + 0.4 * lv
             grad.add_color_stop_rgba(0, *(c + (1 - c) * hot for c in red), 1.0)   # hot at the top
             grad.add_color_stop_rgba(0.25, *red, 1.0)
@@ -8482,7 +8608,6 @@ class Visualizer(Gtk.Box):
             cr.fill()
 
     def draw_glow(self, cr, w, h):
-        import cairo
         acc, mag, cy = self.colors()
         n, pad = VIS_BANDS, 16
         gap = max(1.0, (w - 2 * pad) / n * 0.25)
@@ -8493,7 +8618,7 @@ class Visualizer(Gtk.Box):
             bh = max(2.0, lv * base * 0.95)
             k = b / max(1, n - 1)
             col = tuple(cy[i] * (1 - k) + mag[i] * k for i in range(3))
-            grad = cairo.LinearGradient(0, base - bh, 0, base)
+            grad = cr.linear_gradient(0, base - bh, 0, base)
             grad.add_color_stop_rgba(0, *col, 1.0)
             grad.add_color_stop_rgba(1, *acc, 0.25)
             cr.set_source(grad)
@@ -8519,6 +8644,7 @@ class Backdrop(Gtk.Widget):
         self.active = False   # Now playing in view
         self.tick = None
         self.last = 0.0
+        self.strip = BackdropBars(self)   # the bars, in a widget of their own along the bottom (see MusicWindow)
 
     def set_cover(self, path):
         if path == self.path:
@@ -8546,6 +8672,7 @@ class Backdrop(Gtk.Widget):
 
     def update(self):
         """Ticking (the bars move) only while Now playing shows and something plays."""
+        self.strip.queue_draw()
         want = self.active and not self.app.paused
         if want:
             self.win.visualizer.ensure()
@@ -8561,8 +8688,14 @@ class Backdrop(Gtk.Widget):
         now = time.monotonic()
         if moving and now - self.last >= 1 / 30:   # 30 frames a second is plenty for a background
             self.last = now
-            self.queue_draw()
+            self.strip.queue_draw()   # only the strip along the bottom: the rest of the window stays as it was
         return GLib.SOURCE_CONTINUE
+
+    def do_size_allocate(self, w, h, baseline):
+        Gtk.Widget.do_size_allocate(self, w, h, baseline)
+        want = max(1, int(h * 0.28) + 2)
+        if self.strip.get_size_request()[1] != want:
+            GLib.idle_add(lambda: (self.strip.set_size_request(-1, want), False)[1])
 
     def do_snapshot(self, snap):
         if not self.active:
@@ -8582,26 +8715,44 @@ class Backdrop(Gtk.Widget):
             snap.push_opacity(0.28)
             snap.append_scaled_texture(self.cover, Gsk.ScalingFilter.LINEAR, rect((w - side) / 2, (h - side) / 2, side, side))
             snap.pop()
-        # The bars: along the bottom, behind the controls, in a light shade of the colour.
-        levels = self.win.visualizer.levels
-        n = len(levels)
-        if n and not self.app.paused:
-            pad, span = 0.0, w   # under Now playing only (not under the menu beside it)
-            ok, area = self.win.np_scroll.compute_bounds(self)
-            if ok and area.get_width() > 50:
-                pad, span = area.get_x(), area.get_width()
-            # Twice as many bars as bands (each between two bands is their mix): slim, with room between them.
-            m = n * 2 - 1
-            vals = [levels[i // 2] if i % 2 == 0 else (levels[i // 2] + levels[i // 2 + 1]) / 2 for i in range(m)]
-            slot = span / m
-            bw = max(1.5, slot * 0.38)
-            base, reach = h, h * 0.28
-            r, g, b = self.bars
-            for i, lv in enumerate(vals):
-                bh = max(2.0, lv * reach)
-                snap.append_color(gdk_rgba(r, g, b, 0.12 + 0.22 * lv),
-                                  rect(pad + i * slot + (slot - bw) / 2, base - bh, bw, bh))
         snap.append_color(gdk_rgba(0, 0, 0, 0.12), full)   # a touch darker, for the white text
+        # (the bars: BackdropBars, over this)
+
+
+class BackdropBars(Gtk.Widget):
+    """Now playing's bars, along the bottom behind the controls, in a light shade of the cover's colour.
+    A widget of their own, only as tall as the bars reach: each frame redraws that strip, not the whole
+    window (which, maximized at 4K, made Now playing stutter)."""
+    __gtype_name__ = "RadonBackdropBars"
+
+    def __init__(self, backdrop):
+        super().__init__(hexpand=True, valign=Gtk.Align.END, can_target=False)
+        self.backdrop = backdrop
+
+    def do_snapshot(self, snap):
+        bd = self.backdrop
+        if not bd.active or bd.app.paused:
+            return
+        w, h = self.get_width(), self.get_height()
+        levels = bd.win.visualizer.levels
+        n = len(levels)
+        if not n or w <= 0 or h <= 0:
+            return
+        pad, span = 0.0, w   # under Now playing only (not under the menu beside it)
+        ok, area = bd.win.np_scroll.compute_bounds(self)
+        if ok and area.get_width() > 50:
+            pad, span = area.get_x(), area.get_width()
+        # Twice as many bars as bands (each between two bands is their mix): slim, with room between them.
+        m = n * 2 - 1
+        vals = [levels[i // 2] if i % 2 == 0 else (levels[i // 2] + levels[i // 2 + 1]) / 2 for i in range(m)]
+        slot = span / m
+        bw = max(1.5, slot * 0.38)
+        base, reach = h, max(1, h - 2)
+        r, g, b = bd.bars
+        for i, lv in enumerate(vals):
+            bh = max(2.0, lv * reach)
+            snap.append_color(gdk_rgba(r, g, b, 0.88 * (0.12 + 0.22 * lv)),   # (under the darkening, before)
+                              rect(pad + i * slot + (slot - bw) / 2, base - bh, bw, bh))
 
 
 CARD_W, CARD_H = 1080, 1350   # a lyrics card: a portrait picture, as phones share them
@@ -9002,6 +9153,7 @@ class MusicWindow(Adw.ApplicationWindow):
         for prop in ("notify::maximized", "notify::fullscreened"):
             self.connect(prop, lambda *_: self.eq_fullscreen(self.is_maximized() or self.is_fullscreen()))
         stage = Gtk.Overlay(child=self.backdrop)
+        stage.add_overlay(self.backdrop.strip)
         stage.add_overlay(shell)
         stage.set_measure_overlay(shell, True)
         self.toasts = Adw.ToastOverlay(child=stage)
@@ -11598,8 +11750,16 @@ class MusicWindow(Adw.ApplicationWindow):
         nr = a.new_releases
         self._music_sig = None
         lst.remove_all()
+        picked = self.nr_picked
         buttons = [("Refresh…" if not nr.busy else "Stop", lambda _b: self.nr_scan() if not nr.busy else setattr(nr, "stop", True), False)]
+        if nr.scanned and nr.found:
+            buttons.append(("Done" if self.nr_selecting else "Select", lambda _b: self.nr_select(not self.nr_selecting), True))
         self.actions_row(lst, buttons)
+        if self.nr_selecting:   # picks kept across Albums, Singles, EPs and Artists
+            n = len(picked)
+            self.actions_row(lst, [(f"Discovery playlist ({n})" if n else "Discovery playlist", lambda _b: self.nr_discovery(), False)]
+                             + ([("Clear", lambda _b: (picked.clear(), self.refresh_music()), True)] if n else []))
+            self.section(lst, f"{n} PICKED (ON ANY TAB)" if n else "PICK RELEASES OR ARTISTS, ON ANY TAB")
         if nr.busy:
             self.section(lst, nr.status.upper() or "LOOKING…")
         if not nr.scanned:
@@ -11618,9 +11778,10 @@ class MusicWindow(Adw.ApplicationWindow):
                 by.setdefault(r["artist"], []).append(r)
             self.section(lst, f"{len(by)} ARTISTS WITH NEW MUSIC · {when.upper()}")
             for artist, rs in by.items():
-                lst.append(PlaylistRow(self, {"kind": "artist", "id": artist, "name": artist, "title": artist, "thumb": rs[0]["cover"],
-                                              "sub": f"{len(rs)} new · latest {rs[0]['title']} ({fmt_date(rs[0]['date'])})"},
-                                       icon="avatar-default-symbolic"))
+                lst.append(self.nr_row(PlaylistRow(self, {"kind": "artist", "id": artist, "name": artist, "title": artist, "thumb": rs[0]["cover"],
+                                                          "sub": f"{len(rs)} new · latest {rs[0]['title']} ({fmt_date(rs[0]['date'])})",
+                                                          "nr_key": "a:" + norm(artist), "nr_artist": artist},
+                                                   icon="avatar-default-symbolic")))
             return
         rows = [r for r in rows if r["type"] == a.nr_kind]
         name = dict(NR_KINDS)[a.nr_kind].upper()
@@ -11632,8 +11793,80 @@ class MusicWindow(Adw.ApplicationWindow):
             hint.set_margin_start(12)
             lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=hint))
         for r in rows:
-            lst.append(PlaylistRow(self, {"kind": "release", "id": r["link"] or r["title"], "title": r["title"], "thumb": r["cover"],
-                                          "sub": f"{r['artist']} · {fmt_date(r['date'])}", "release": r}, icon="media-optical-symbolic"))
+            lst.append(self.nr_row(PlaylistRow(self, {"kind": "release", "id": r["link"] or r["title"], "title": r["title"], "thumb": r["cover"],
+                                                      "sub": f"{r['artist']} · {fmt_date(r['date'])}", "release": r,
+                                                      "nr_key": "r:" + norm(r["artist"]) + "|" + (r["link"] or norm(r["title"]))},
+                                               icon="media-optical-symbolic")))
+
+    def open_release(self, r):
+        """A new release's own page (the album, single or EP on Tidal or YouTube Music), straight away."""
+        a = self.app
+        a.toast(f"Opening “{r['title']}”…")
+
+        def done(found, err):
+            if not found:
+                a.toast(f"Couldn't find “{r['title']}” on your services" + (f": {str(err)[:80]}" if err else ""))
+                return
+            key, album, songs = found
+            if album:
+                self.open_album_page(album)
+            else:   # a single only as a song: a page of that song
+                self.open_album_page({"id": f"single-{songs[0]['id']}", "title": r["title"], "sub": f"{r['artist']} · Single",
+                                      "thumb": songs[0].get("thumb") or r.get("cover") or "", "source": key, "tracks": songs})
+        in_thread(a.release_find, r, done=done)
+
+    # ---- New releases: pick some (on any of its tabs) for a discovery playlist ----
+    nr_selecting = False
+
+    @property
+    def nr_picked(self):
+        """nr_key -> {"artist": name} or {"release": r}: what's picked, across the tabs."""
+        if not hasattr(self, "_nr_picked"):
+            self._nr_picked = {}
+        return self._nr_picked
+
+    def nr_select(self, on):
+        self.nr_selecting = on
+        if not on:
+            self.nr_picked.clear()
+        self.refresh_music()
+
+    def nr_row(self, row):
+        """In Select: a tick on the row (a click ticks it, instead of opening it)."""
+        if self.nr_selecting:
+            key = row.playlist["nr_key"]
+            tick = Gtk.CheckButton(active=key in self.nr_picked, valign=Gtk.Align.CENTER, can_target=False)
+            row.get_child().prepend(tick)
+            row.nr_tick = tick
+        return row
+
+    def nr_toggle(self, row):
+        pl, picked = row.playlist, self.nr_picked
+        key = pl["nr_key"]
+        if key in picked:
+            del picked[key]
+        else:
+            picked[key] = {"release": pl["release"]} if pl.get("release") else {"artist": pl["nr_artist"]}
+        if getattr(row, "nr_tick", None):
+            row.nr_tick.set_active(key in picked)
+        GLib.idle_add(lambda: (self.refresh_music(), False)[1])
+
+    def nr_discovery(self):
+        picked = list(self.nr_picked.values())
+        if not picked:
+            self.app.toast("Pick some releases or artists first (on any tab)")
+            return
+        found = self.app.new_releases.found
+        releases, seen = [], set()
+        for p in picked:
+            rs = [p["release"]] if "release" in p else [r for r in found if r["artist"] == p["artist"]]
+            for r in rs:
+                k = (norm(r["artist"]), r.get("link") or norm(r["title"]))
+                if k not in seen:
+                    seen.add(k)
+                    releases.append(r)
+        self.app.make_release_discovery(releases)
+        self.nr_select(False)
 
     def nr_scan(self):
         a, nr = self.app, self.app.new_releases
@@ -12010,10 +12243,12 @@ class MusicWindow(Adw.ApplicationWindow):
             order = {"least": lambda r: (rate(r[1], r[2]), -r[2], r[1]),
                      "heard": lambda r: (-r[2], r[1])}.get(a.skip_order, lambda r: (-r[1], -rate(r[1], r[2])))
             tracks = [dict(t, skips=n, full=f) for t, n, f in sorted(rows, key=order)]
+        elif view == "top":
+            tracks = a.most_played(a.top_period)
         else:
             tracks = a.most_played()
         # The same songs in the same order as shown: only the marks may have changed.
-        sig = (view, sort if view != "skips" else (a.skip_order, a.skip_period),
+        sig = (view, sort if view not in ("skips", "top") else (a.skip_order, a.skip_period) if view == "skips" else a.top_period,
                tuple((t["id"], t.get("plays"), t.get("skips"), t.get("full")) for t in tracks), tuple(a.stats.sources),
                a.stats.busy if view == "top" else None)
         if sig == getattr(self, "_music_sig", None) and not lst.is_empty():
@@ -12025,7 +12260,7 @@ class MusicWindow(Adw.ApplicationWindow):
         sw = lst.get_ancestor(Gtk.ScrolledWindow)
         keep = sw.get_vadjustment().get_value() if sw and same_view else 0
         made = sum(1 for _ in self.rows(lst)) if keep else 0
-        if not tracks and not (view == "skips" and a.skip_period != "all"):   # (a period with none: its chips stay)
+        if not tracks and not (view == "skips" and a.skip_period != "all") and not (view == "top" and a.top_period != "all"):   # (a period with none: its chips stay)
             folders = ", ".join(short_path(f) for f in a.folders) or "no folders yet"
             title, body = {
                 "all": ("No music yet", f"Songs you download, and the music in your folders\n({folders}), show up here."),
@@ -12058,6 +12293,8 @@ class MusicWindow(Adw.ApplicationWindow):
                 a.lastfm.connected or a.spotify_history.plays or a.apple_history.rows) else "MOST PLAYED",
                 "favorites": f"{len(tracks)} FAVORITES", "unfavorited": f"{len(tracks)} SONGS NOT FAVORITED"}[view])
             if view == "top" and (a.lastfm.connected or a.spotify_history.plays or a.apple_history.rows):
+                lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=self.sort_chips(
+                    self.SKIP_PERIODS, "top_period")))
                 self.stats_bar(lst, len(tracks))
         group = [None]
 
@@ -12510,11 +12747,24 @@ class MusicWindow(Adw.ApplicationWindow):
             hint.add_css_class("sub")
             hint.set_margin_start(8)
             lst.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=hint))
-        for pl in lists:
+        mine = [pl for pl in lists if not pl.get("discovery")]
+        disc = [pl for pl in lists if pl.get("discovery")]
+
+        def add(pl):
             songs = pl["tracks"]
             cover = next((t for t in songs if t.get("thumb") or source_of(t) == "file"), None)
             row = {"id": pl["id"], "title": pl["name"], "thumb": "", "count": len(songs)}
             lst.append(PlaylistRow(self, row, cover=cover, icon="view-list-symbolic"))
+        for pl in mine:
+            add(pl)
+        if disc:   # the discovery playlists: folded away under one row until you open it
+            lst.append(self.action_row(f"{'▾' if self.show_discovery_lists else '▸'}  Discovery playlists ({len(disc)})",
+                                       "toggle-discovery"))
+            if self.show_discovery_lists:
+                for pl in disc:
+                    add(pl)
+
+    show_discovery_lists = False   # Playlists: the discovery playlists unfolded
 
     def refresh_mine(self):
         """One of your playlists, open."""
@@ -14059,11 +14309,18 @@ class MusicWindow(Adw.ApplicationWindow):
         if action == "wrapped":
             self.app.open_wrapped()
             return
-        if isinstance(row, PlaylistRow) and row.playlist.get("kind") == "release":   # a new release: find it to play
-            r = row.playlist["release"]
-            self.show_tab("search")
-            self.entry.set_text(f"{r['artist']} {r['title']}")
-            self.search()
+        if action == "toggle-discovery":
+            self.show_discovery_lists = not self.show_discovery_lists
+            self.refresh_music()
+            return
+        if isinstance(row, PlaylistRow) and row.playlist.get("nr_key") and self.nr_selecting:   # New releases' Select: tick it
+            self.nr_toggle(row)
+            return
+        if isinstance(row, PlaylistRow) and row.playlist.get("kind") == "release":   # a new release: its page on a service
+            self.open_release(row.playlist["release"])
+            return
+        if isinstance(row, PlaylistRow) and row.playlist.get("nr_artist"):   # an artist with new music: their page on a service
+            self.open_artist(row.playlist["nr_artist"], prefer=self.app.source if self.app.source in SOURCES else None)
             return
         if isinstance(row, PlaylistRow) and row.playlist.get("kind") in ("artist", "album"):
             src = row.playlist.get("source")
@@ -14879,16 +15136,18 @@ def year_stats(rows):
     names, art, first_play = {}, {}, {}
     months, hours, weekdays, days = [0] * 12, [0] * 24, [0] * 7, Counter()
     for t, artist, title, album, img in rows:
-        ka, ks = artist.lower(), (artist.lower(), title.lower())
+        # The same song from Last.fm, Spotify and Apple Music counts as one (as in Most played).
+        ks = stats_key(title, artist)
+        ka = ks[1] or artist.lower()
         artists[ka] += 1
         songs[ks] += 1
-        names.setdefault(ka, artist)
+        names.setdefault(ka, lead_artist(artist) or artist)
         names.setdefault(ks, (title, artist))
         first_play.setdefault(ks, t)
         if img and LASTFM_BLANK not in img:
             art[ks] = img
         if album:
-            kb = (artist.lower(), album.lower())
+            kb = ("album", ka, norm(clean_title(album)))
             albums[kb] += 1
             names.setdefault(kb, (album, artist))
             if img and LASTFM_BLANK not in img:
@@ -14905,7 +15164,7 @@ def year_stats(rows):
         streak, prev = max(streak, run), day
     busiest, busiest_n = days.most_common(1)[0]
     top_artist = artists.most_common(1)[0][0]
-    by_top = [(k, n) for k, n in songs.most_common() if k[0] == top_artist]
+    by_top = [(k, n) for k, n in songs.most_common() if k[1] == top_artist]
     t0 = rows[0]
     return {
         "scrobbles": len(rows), "artist_count": len(artists), "song_count": len(songs),
@@ -16154,6 +16413,7 @@ class MusicApp(Adw.Application):
         self.skip_order = "most"   # how the Music tab's Skips is sorted
         self.skip_period = "all"   # …and over which time: week, month, year, all
         self.top_mine_only = True  # Most played: only the songs on this device (your files), plays from everywhere
+        self.top_period = "all"    # …over which time: week, month, year, all
         self.repeat_period = "week"   # Repeat's chart: week, month, year
         self.vis_preset = "bars"   # the Visualizer tab's look
         self.drawer_open = True    # the menu (☰) beside the page
@@ -16242,6 +16502,7 @@ class MusicApp(Adw.Application):
         self.skip_order = state.get("skip_order") if state.get("skip_order") in ("most", "least", "heard") else "most"
         self.skip_period = state.get("skip_period") if state.get("skip_period") in ("week", "month", "year", "all") else "all"
         self.top_mine_only = state.get("top_mine_only", True) is not False
+        self.top_period = state.get("top_period") if state.get("top_period") in ("week", "month", "year", "all") else "all"
         self.repeat_period = state.get("repeat_period") if state.get("repeat_period") in ("week", "month", "year") else "week"
         # Sound quality: bit-perfect (exclusive), ReplayGain (off in bit-perfect)
         self.bitperfect = bool(state.get("bitperfect"))
@@ -16366,7 +16627,7 @@ class MusicApp(Adw.Application):
                                        "keep_played": self.keep_played,
                                        "discord": self.discord_on, "look": self.look, "styled": True, "np_fallback": self.np_fallback,
                                        "skip_order": self.skip_order, "skip_period": self.skip_period, "dj_new": self.dj_new,
-                                       "top_mine_only": self.top_mine_only,
+                                       "top_mine_only": self.top_mine_only, "top_period": self.top_period,
                                        "tray_told": getattr(self, "tray_told", False),
                                        "repeat_period": self.repeat_period, "bitperfect": self.bitperfect,
                                        "replaygain": self.replaygain, "vis_preset": self.vis_preset,
@@ -17065,6 +17326,105 @@ class MusicApp(Adw.Application):
                 self.win.drawer_go("music", "discovery")
         in_thread(work, done=done)
 
+    NR_DISCOVERY = "New releases"   # the discovery playlists made from New releases go by this name
+
+    release_found = {}   # a new release -> where it is on the services (found once a session)
+
+    def release_find(self, r):
+        """(blocking) Where a new release is on the streaming services (never your files): (service, its album
+        entry, None) for the album (or single, or EP) by its name and artist, else (service, None, [the song of
+        that name]) for a single, else None."""
+        ck = (norm(r["artist"]), r.get("link") or norm(r["title"]))
+        if ck in self.release_found:
+            return self.release_found[ck]
+        want, by = norm(clean_title(r["title"])), r["artist"]
+        last, single = None, None
+        for key in [k for k in dict.fromkeys((self.source, "tidal", "ytm")) if k in SOURCES]:
+            src = self.wait_source(key, 10)
+            if not src or (key == "tidal" and not src.signed_in):
+                continue
+            try:
+                res = src.find(f"{by} {r['title']}")
+            except Exception as e:  # noqa: BLE001 -- the next service
+                last = e
+                continue
+            for al in res.get("albums") or []:
+                if norm(clean_title(al.get("title") or "")) == want and (
+                        NewReleases.same_name(by, (al.get("sub") or "").split(" · ")[0].split(",")[0]) or norm(by) in norm(al.get("sub") or "")):
+                    found = self.release_found[ck] = (key, dict(al, source=key), None)
+                    return found
+            songs = [t for t in res.get("songs") or [] if norm(clean_title(t.get("title") or "")) == want
+                     and NewReleases.same_name(by, lead_artist(t.get("artist") or ""))]
+            if songs and single is None:
+                single = (key, None, songs[:1])
+        if last and not single:
+            print(f"release {r['title']}: {last!r}", file=sys.stderr)
+        if single:
+            self.release_found[ck] = single
+        return single
+
+    def release_tracks(self, r):
+        """(blocking) A new release's songs (from the services: see release_find)."""
+        found = self.release_find(r)
+        if not found:
+            return []
+        key, album, songs = found
+        if album:
+            src = self.sources.get(key)
+            songs = src.album(album["id"]) if src else []
+        return [dict(t, album=t.get("album") or r["title"]) for t in songs or []]
+
+    def make_release_discovery(self, releases):
+        """A discovery playlist from New releases you picked: their songs you haven't got ("New releases
+        Discovery playlist"), and "New releases discovered" for the ones you hear to the end, to download or
+        let go, as an artist's discovery playlist works."""
+        name = self.NR_DISCOVERY
+        if norm(name) in self.discovering:
+            return
+        self.discovering.add(norm(name))
+        self.toast(f"Finding the songs of {len(releases)} new release{'s' if len(releases) != 1 else ''}…")
+
+        def work():
+            have = set(self.song_index())
+            pair = next((p for p in self.discovery_lists() if norm(p[0]) == norm(name)), None)
+            for pl in (pair[1], pair[2]) if pair else ():
+                for t in (pl or {}).get("tracks") or []:
+                    have.add(song_key(t))
+            out, seen, missing = [], set(), []
+            for r in releases:
+                songs = self.release_tracks(r)
+                if not songs:
+                    missing.append(r["title"])
+                for t in songs:
+                    k = song_key(t)
+                    if k not in have and k not in seen:
+                        seen.add(k)
+                        out.append(t)
+            return out, missing
+
+        def done(res, err):
+            self.discovering.discard(norm(name))
+            if err is not None:
+                self.toast(f"Couldn't make it: {str(err)[:100]}")
+                return
+            songs, missing = res
+            pair = next((p for p in self.discovery_lists() if norm(p[0]) == norm(name)), None)
+            disc = pair[1] if pair else None
+            if disc is None:
+                disc = self.lists.create(f"{name} Discovery playlist")
+                disc["discovery"] = {"artist": name, "role": "discover"}
+            if not (pair and pair[2]):
+                done_pl = self.lists.create(f"{name} discovered")
+                done_pl["discovery"] = {"artist": name, "role": "discovered"}
+            n = self.lists.add(disc["id"], songs)
+            self.lists.save()
+            not_found = f" (not found: {', '.join(missing[:3])}{'…' if len(missing) > 3 else ''})" if missing else ""
+            self.toast((f"“{disc['name']}”: {n} new song{'s' if n != 1 else ''} you haven't got" if n
+                        else "You have every song of those already") + not_found)
+            if self.win:
+                self.win.drawer_go("music", "discovery")
+        in_thread(work, done=done)
+
     def discovered(self, t):
         """A song heard to the end: out of its discovery playlist, into the discovered one."""
         for artist, disc, done_pl in self.discovery_lists():
@@ -17131,15 +17491,16 @@ class MusicApp(Adw.Application):
             g = g[0] if g else ""
         return str(g).strip()
 
-    def most_played(self):
+    def most_played(self, period="all"):
         """The Music tab's Most played: every play added up (see Stats): Last.fm's, your Spotify
-        history's and, without Last.fm, the plays here. Until the counts are in, the plays here stand in."""
+        history's and, without Last.fm, the plays here; period: "week", "month" or "year" for those
+        days' plays only. Until the counts are in, the plays here stand in."""
         self.stats.refresh()
         if not self.stats.songs:
-            return self.plays.top(None)
+            return self.plays.top(None) if period == "all" else []
         mine = self.song_index()
         out, at = [], {}
-        for st in self.stats.songs:
+        for st in self.stats.songs if period == "all" else self.stats.periods.get(period, []):
             t = self.fm_song(st["title"], st["artist"], st["thumb"], mine, st.get("album"))
             i = at.get(t["id"])
             if i is not None:   # two names for one song of yours (a remaster's, a feat.'s): one row, plays added up

@@ -88,6 +88,11 @@ class MusicService : MediaLibraryService() {
         val remote = queueAware(RemotePlayer(mainLooper))
         players = listOf(local, remote)
         // A library session: the car (Android Auto) browses your songs through it (see Car).
+        // If Android still won't let it into the foreground, note it (Settings › Problems).
+        setListener(object : Listener {
+            override fun onForegroundServiceStartNotAllowedException() =
+                Crashes.note("Android didn't let the music keep the app in the foreground")
+        })
         val s = MediaLibrarySession.Builder(this, if (Remote.active) remote else local, Car.callback).setSessionActivity(open).build()
         session = s
         switching = Music.scope.launch {
@@ -123,6 +128,26 @@ class MusicService : MediaLibraryService() {
         override fun seekToPrevious() = Music.previous()
         override fun seekToPreviousMediaItem() = Music.previous()
         override fun play() { if (p is RemotePlayer || p.mediaItemCount > 0) super.play() else Music.togglePause() }
+
+        // Between songs (one ran out, the next is loading) the session hears "buffering", not "ended":
+        // see Music.advancing. The listeners the session adds get the same.
+        private fun masked(state: Int) = if (state == Player.STATE_ENDED && p !is RemotePlayer && Music.advancing) Player.STATE_BUFFERING else state
+        override fun getPlaybackState(): Int = masked(super.getPlaybackState())
+        private val wrapped = HashMap<Player.Listener, Player.Listener>()
+        override fun addListener(listener: Player.Listener) {
+            val w = object : Player.Listener by listener {
+                override fun onPlaybackStateChanged(playbackState: Int) = listener.onPlaybackStateChanged(masked(playbackState))
+                @Deprecated("Deprecated in Java")
+                @Suppress("DEPRECATION")
+                override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) =
+                    listener.onPlayerStateChanged(playWhenReady, masked(playbackState))
+            }
+            synchronized(wrapped) { wrapped[listener] = w }
+            super.addListener(w)
+        }
+        override fun removeListener(listener: Player.Listener) {
+            super.removeListener(synchronized(wrapped) { wrapped.remove(listener) } ?: listener)
+        }
     }
 
     /** "FLAC 24-bit/96 kHz", "AAC 256 kbps/44.1 kHz". */

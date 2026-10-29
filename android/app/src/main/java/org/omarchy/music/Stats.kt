@@ -22,13 +22,20 @@ object Stats {
 
     @Serializable
     private data class Saved(val songs: List<Song> = emptyList(), val artists: List<ArtistPlays> = emptyList(),
-                             val built: Double = 0.0, val sig: String = "")
+                             val built: Double = 0.0, val sig: String = "",
+                             val periods: Map<String, List<Song>> = emptyMap())
+
+    /** Most played over the last so many days (and all time): the desktop's STATS_PERIODS. */
+    val PERIODS = linkedMapOf("week" to 7, "month" to 30, "year" to 365)
 
     const val FOR = 600          // seconds the counts are good for
 
     var songs by mutableStateOf(listOf<Song>())            // most played first
         private set
     var artists by mutableStateOf(listOf<ArtistPlays>())   // most played first
+        private set
+    /** "week", "month", "year" -> songs as [songs], from those days' plays (the ones with a time). */
+    var periods by mutableStateOf(mapOf<String, List<Song>>())
         private set
     var busy by mutableStateOf(false)
         private set
@@ -40,11 +47,11 @@ object Stats {
     fun init(c: Context) {
         ctx = c.applicationContext
         Music.bg({ readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
-            if (s != null && songs.isEmpty()) { songs = s.songs; artists = s.artists; built = s.built; sig = s.sig }
+            if (s != null && songs.isEmpty()) { songs = s.songs; artists = s.artists; periods = s.periods; built = s.built; sig = s.sig }
         }
     }
 
-    private fun inputs() = listOf("v2", if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, AppleHistory.count,
+    private fun inputs() = listOf("v3", if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")
 
     /** Where the counts come from, for the label over Most played. */
@@ -60,7 +67,7 @@ object Stats {
         busy = true
         Music.bg({ build() }) { s, err ->
             busy = false
-            if (s != null) { songs = s.songs; artists = s.artists; built = s.built; sig = s.sig }
+            if (s != null) { songs = s.songs; artists = s.artists; periods = s.periods; built = s.built; sig = s.sig }
             else {
                 built = now() - FOR + 120   // try again in two minutes (not straight away)
                 sig = inputs()
@@ -77,8 +84,16 @@ object Stats {
         val here = if (fm) emptyList() else Music.plays.items.values.map { it.track to it.plays }
         // Spotify's and Apple Music's imports: every play in them (from 30 seconds, as Spotify counts a
         // stream), added to Last.fm's, even where Spotify scrobbled to Last.fm too.
-        val (s, a) = combine(scrobbles, SpotifyHistory.plays, here, AppleHistory.timed(), AppleHistory.rows.filter { it.t <= 0 })
-        val out = Saved(s, a, now(), sig)
+        val spotify = SpotifyHistory.plays; val apple = AppleHistory.timed()
+        val (s, a) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 })
+        // This week's, month's and year's: the plays with a time (scrobbles, Spotify's, Apple Music's timed ones).
+        val thumbs = s.associate { statsKey(it.title, it.artist) to it.thumb }
+        val periods = PERIODS.mapValues { (_, days) ->
+            val start = (now() - days * 86400L).toLong()
+            combine(scrobbles.filter { it.t >= start }, spotify.filter { it.t >= start }, emptyList(), apple.filter { it.t >= start }).first
+                .take(5000).map { if (it.thumb.isEmpty()) it.copy(thumb = thumbs[statsKey(it.title, it.artist)] ?: "") else it }
+        }
+        val out = Saved(s, a, now(), sig, periods)
         writeAtomic(file, JSON.encodeToString(Saved.serializer(), out))
         return out
     }

@@ -283,9 +283,9 @@ fun MusicTab(ui: Ui) {
                                 else -> skipRows.sortedWith(compareBy<Triple<Track, Int, Int>>({ -it.second }, { -r(it.second, it.third) }))
                             }.map { it.first }
                         }
-                        else -> Music.mostPlayed()
+                        else -> Music.mostPlayed(Music.topPeriod)
                     }
-                    if (tracks.isEmpty() && !(ui.musicView == "skips" && Music.skipPeriod != "all")) item {   // (a period with none: its chips stay)
+                    if (tracks.isEmpty() && !(ui.musicView == "skips" && Music.skipPeriod != "all") && !(ui.musicView == "top" && Music.topPeriod != "all")) item {   // (a period with none: its chips stay)
                         val (t, b) = when (ui.musicView) {
                             "all" -> "No music yet" to "Songs you download, and the music in your folders\n(${Music.folders.joinToString()}), show up here."
                             "recent" -> "Nothing played yet" to "The songs you listen to show up here, the last one first."
@@ -329,6 +329,12 @@ fun MusicTab(ui: Ui) {
                             })
                             if (ui.musicView == "top" && (org.omarchy.music.LastFm.connected || Music.mostPlayedFromStats)) {
                                 val st = org.omarchy.music.Stats
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("week" to "This week", "month" to "This month", "year" to "This year", "all" to "All time").forEach { (k, l) ->
+                                        Chip(l, Music.topPeriod == k) { Music.chooseTopPeriod(k) }
+                                    }
+                                }
                                 ActionRow(if (st.busy) "Refreshing…" else "Refresh  ↻  ${tracks.size} songs · ${st.sources.joinToString(" + ")}") {
                                     if (!st.busy) st.refresh(force = true)
                                 }
@@ -584,18 +590,29 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
         fun menu(pl: org.omarchy.music.Playlist) {
             ui.choices = pl.name to listOf(pinChoice(org.omarchy.music.Pin("mine", pl.id, pl.name)), "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) })
         }
-        laidOutItems(shown, ui, key = { "pl-" + shown[it].id }, row = { i ->
-            val pl = shown[i]
+        fun lay(some: List<org.omarchy.music.Playlist>) = laidOutItems(some, ui, key = { "pl-" + some[it].id }, row = { i ->
+            val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
             PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
                 onLongClick = { menu(pl) }) { ui.openMine = pl.id }
         }) { i, mod, compact ->
-            val pl = shown[i]
+            val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            Tile(cover?.let { artModel(it, if (compact) 226 else 400) }, pl.name, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST,
+            Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.name, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST,
                 onLongClick = { menu(pl) }) { ui.openMine = pl.id }
+        }
+        lay(shown.filter { it.discovery == null })
+        // The discovery playlists: folded away under one row until you open it.
+        val disc = shown.filter { it.discovery != null }
+        if (disc.isNotEmpty()) {
+            item(key = "disc-fold") {
+                ActionRow("${if (Music.showDiscoveryLists) "▾" else "▸"}  Discovery playlists (${disc.size})") {
+                    Music.showDiscoveryLists = !Music.showDiscoveryLists
+                }
+            }
+            if (Music.showDiscoveryLists) lay(disc)
         }
         return
     }
@@ -834,6 +851,18 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
                 ui.choices = "New releases: what the artists with songs on your phone put out in…" to listOf(
                     "The last week" to { nr.scan("week") }, "The last month" to { nr.scan("month") }, "The last year" to { nr.scan("year") })
             } else Pill("Stop", quiet = true) { nr.stop = true }
+            if (nr.scanned > 0 && nr.found.isNotEmpty())
+                Pill(if (nr.selecting) "Done" else "Select", quiet = true) { nr.selecting = !nr.selecting; if (!nr.selecting) nr.picked.clear() }
+        }
+        if (nr.selecting) {   // picks kept across Albums, Singles, EPs and Artists
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(if (nr.picked.isEmpty()) "Discovery playlist" else "Discovery playlist (${nr.picked.size})") {
+                    if (nr.picked.isEmpty()) Music.toast("Pick some releases or artists first (on any tab)")
+                    else { Music.makeReleaseDiscovery(nr.pickedReleases()); nr.picked.clear(); nr.selecting = false }
+                }
+                if (nr.picked.isNotEmpty()) Pill("Clear", quiet = true) { nr.picked.clear() }
+            }
+            Section(if (nr.picked.isEmpty()) "PICK RELEASES OR ARTISTS, ON ANY TAB" else "${nr.picked.size} PICKED (ON ANY TAB)")
         }
         nr.status?.let { Section(it.uppercase()) }
     }
@@ -849,15 +878,28 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         }
     }
     val whenText = mapOf("week" to "THE LAST WEEK", "month" to "THE LAST MONTH", "year" to "THE LAST YEAR")[nr.range] ?: ""
+    // A release: its own page on Tidal or YouTube Music, straight away (your files aren't looked through).
     fun find(r: org.omarchy.music.NewReleases.Release) {
-        ui.pages.clear(); ui.tab = "search"; ui.query = "${r.artist} ${r.title}"; runSearch(ui)
+        if (nr.selecting) { nr.toggle(nr.key(r), r to r.artist); return }
+        Music.toast("Opening “${r.title}”…")
+        Music.bg({ Music.releaseFind(r) }) { found, err ->
+            if (found == null) { Music.toast("Couldn't find “${r.title}” on your services" + (err?.message?.let { ": ${it.take(80)}" } ?: "")); return@bg }
+            val (key, al, songs) = found
+            ui.pages += if (al != null) Ui.Page.AlbumPage(al, key)
+                else Ui.Page.AlbumPage(Album("single-${songs[0].id}", r.title, "${r.artist} · Single", songs[0].thumb.ifEmpty { r.cover }), key, songs)
+        }
     }
     if (nr.kind == "artists") {
         val by = nr.found.filter { fits(ui, it.artist, it.title) }.groupBy { it.artist }.toList()
         item { Section("${by.size} ARTISTS WITH NEW MUSIC · $whenText") }
         items(by.size, key = { "nra-${by[it].first}" }) { i ->
             val (artist, rs) = by[i]
-            PlaylistRow(Album(artist, artist, "${rs.size} new · latest ${rs[0].title} (${rs[0].date})", rs[0].cover)) { ui.pages += Ui.Page.Artist(artist) }
+            val k = nr.artistKey(artist)
+            PlaylistRow(Album(artist, artist, "${rs.size} new · latest ${rs[0].title} (${rs[0].date})", rs[0].cover),
+                checked = if (nr.selecting) k in nr.picked else null) {
+                if (nr.selecting) nr.toggle(k, null to artist)
+                else ui.pages += Ui.Page.Artist(artist, Music.source.takeIf { it == "tidal" || it == "ytm" })
+            }
         }
         return
     }
@@ -867,10 +909,12 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     if (rows.isEmpty()) item { Empty("None in this time", "Refresh… a longer time, or look at the other tabs.") }
     laidOutItems(rows, ui, key = { "nr-${rows[it].link}-${rows[it].title}-$it" }, row = { i ->
         val r = rows[i]
-        PlaylistRow(Album(r.link, r.title, "${r.artist} · ${r.date}", r.cover)) { find(r) }
+        PlaylistRow(Album(r.link, r.title, "${r.artist} · ${r.date}", r.cover), checked = if (nr.selecting) nr.key(r) in nr.picked else null) { find(r) }
     }) { i, mod, compact ->
         val r = rows[i]
-        Tile(r.cover.ifEmpty { null }, r.title, r.artist, mod, compact, extra = r.date, ico = Ico.DISC) { find(r) }
+        val on = nr.selecting && nr.key(r) in nr.picked
+        Tile(r.cover.ifEmpty { null }, r.title, r.artist, mod, compact, extra = r.date, ico = Ico.DISC, lit = on,
+            over = { if (nr.selecting) Tick(on, Modifier.align(Alignment.TopEnd).padding(6.dp)) }) { find(r) }
     }
 }
 

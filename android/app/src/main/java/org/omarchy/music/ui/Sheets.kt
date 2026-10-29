@@ -148,6 +148,19 @@ private fun AccountsSheet(ui: Ui) {
                 else Updater.checkError.ifEmpty { "${Updater.version} · up to date" }.let { if (it.startsWith("couldn't")) "${Updater.version} · $it" else it }, false) {
                 if (!Updater.checking) Pill("Check", quiet = true) { Updater.check(quiet = false) }
             }
+            // What went wrong lately (the app closing, or errors it lived through): copy it to send it on.
+            val problems = org.omarchy.music.Crashes.last
+            if (problems.isNotEmpty()) {
+                val ctx = LocalContext.current
+                Line("Problems", problems.lineSequence().first().split(" · ").let { "${it.last()} · ${it.first()}" }, false) {
+                    Pill("Copy", quiet = true) {
+                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Radon Player problems", problems))
+                        Music.toast("Copied what went wrong")
+                    }
+                    Pill("Clear", quiet = true) { org.omarchy.music.Crashes.clear() }
+                }
+            }
             }
             Group("Play on") {
             // ---- play on ----

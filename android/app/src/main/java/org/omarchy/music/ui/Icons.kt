@@ -23,7 +23,7 @@ import kotlin.math.sin
 enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HEART_LINE, STAR, STAR_LINE, EQ, LYRICS, VIS,
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
-    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, LIST, FOLDER_OPEN }
+    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -123,6 +123,8 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
         Ico.COMPASS -> { ring(12f, 12f, 9f); fill(15.5f, 8.5f, 13.2f, 13.2f, 8.5f, 15.5f, 10.8f, 10.8f) }
         Ico.GRID -> { rect(4f, 4f, 6.5f, 6.5f); rect(13.5f, 4f, 6.5f, 6.5f); rect(4f, 13.5f, 6.5f, 6.5f); rect(13.5f, 13.5f, 6.5f, 6.5f) }
         Ico.GRID_SMALL -> for (gx in listOf(3.5f, 10f, 16.5f)) for (gy in listOf(3.5f, 10f, 16.5f)) rect(gx, gy, 4.5f, 4.5f, 0.8f)
+        Ico.GRID_LARGE -> { rect(3.5f, 5f, 7.75f, 14f, 1.4f); rect(12.75f, 5f, 7.75f, 14f, 1.4f) }
+        Ico.GRID_HUGE -> rect(4f, 4f, 16f, 16f, 2f)
         Ico.LIST -> { line(8.5f, 6.5f, 20f, 6.5f); line(8.5f, 12f, 20f, 12f); line(8.5f, 17.5f, 20f, 17.5f); dot(4.5f, 6.5f, 1.3f); dot(4.5f, 12f, 1.3f); dot(4.5f, 17.5f, 1.3f) }
         Ico.FOLDER_OPEN -> { line(3f, 18.5f, 3f, 5.5f, 9f, 5.5f, 11f, 8f, 19f, 8f, 19f, 10.5f); line(3f, 18.5f, 6f, 10.5f, 21.5f, 10.5f, 18.5f, 18.5f, 3f, 18.5f) }
         Ico.CLOSE -> { line(5.5f, 5.5f, 18.5f, 18.5f); line(18.5f, 5.5f, 5.5f, 18.5f) }

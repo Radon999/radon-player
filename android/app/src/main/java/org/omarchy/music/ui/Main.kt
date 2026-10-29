@@ -365,8 +365,8 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
                 }
                 val key = layoutKey(ui)
                 val now = Music.layoutOf(key)
-                IconButton(when (now) { "grid" -> Ico.GRID; "compact" -> Ico.GRID_SMALL; else -> Ico.LIST },
-                    desc = "Layout: " + when (now) { "grid" -> "grid"; "compact" -> "compact grid"; else -> "list" }) {
+                IconButton(when (now) { "grid" -> Ico.GRID; "compact" -> Ico.GRID_SMALL; "large" -> Ico.GRID_LARGE; "huge" -> Ico.GRID_HUGE; else -> Ico.LIST },
+                    desc = "Layout: " + when (now) { "grid" -> "grid"; "compact" -> "small grid"; "large" -> "big grid"; "huge" -> "biggest grid"; else -> "list" }) {
                     Music.setLayout(key, LAYOUTS[(LAYOUTS.indexOf(now) + 1) % LAYOUTS.size])
                 }
             } else if (ui.tab != "search" || page != null) IconButton(Ico.SEARCH) { goTo(ui, "search") }

@@ -74,9 +74,20 @@ fun laidOut(ui: Ui) = layoutKey(ui) in LAID_OUT
 /** The page in front's layout: list, grid or compact. */
 fun layoutNow(ui: Ui): String = layoutKey(ui).let { if (it in LAID_OUT) Music.layoutOf(it) else "list" }
 
-/** How many covers fit across, for a grid. */
-private fun columns(ui: Ui, layout: String): Int =
-    if (layout == "compact") maxOf(3, ((ui.width - 16f) / 94f).toInt()) else maxOf(2, ((ui.width - 16f) / 128f).toInt())
+/** How many covers fit across, for a grid: small, as they were, bigger (two across a phone), biggest (one). */
+private fun columns(ui: Ui, layout: String): Int = when (layout) {
+    "compact" -> maxOf(3, ((ui.width - 16f) / 94f).toInt())
+    "large" -> maxOf(2, ((ui.width - 16f) / 170f).toInt())
+    "huge" -> maxOf(1, ((ui.width - 16f) / 300f).toInt())
+    else -> maxOf(2, ((ui.width - 16f) / 128f).toInt())
+}
+
+/** The grid being drawn (for the size of its covers and names). */
+val LocalTileLayout = androidx.compose.runtime.compositionLocalOf { "grid" }
+
+/** How big a cover to fetch for a tile. */
+@Composable
+fun tilePx(compact: Boolean): Int = when (LocalTileLayout.current) { "huge" -> 1080; "large" -> 640; else -> if (compact) 226 else 400 }
 
 /** What's typed in the page's search fits one of these. */
 fun fits(ui: Ui, vararg text: String): Boolean {
@@ -100,7 +111,9 @@ fun <T> LazyListScope.laidOutItems(list: List<T>, ui: Ui, key: (Int) -> String,
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
             for (j in 0 until k) {
                 val i = r * k + j
-                if (i < n) tile(i, Modifier.weight(1f), layout == "compact") else Spacer(Modifier.weight(1f))
+                if (i < n) androidx.compose.runtime.CompositionLocalProvider(LocalTileLayout provides layout) {
+                    tile(i, Modifier.weight(1f), layout == "compact")
+                } else Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -113,6 +126,7 @@ fun Tile(art: Any?, title: String, sub: String, modifier: Modifier, compact: Boo
          ico: Ico = Ico.NOTE, lit: Boolean = false, onLongClick: (() -> Unit)? = null, over: @Composable BoxScope.() -> Unit = {},
          onClick: () -> Unit) {
     val shape = if (round) CircleShape else R.card
+    val big = when (LocalTileLayout.current) { "huge" -> 2; "large" -> 1; else -> 0 }   // bigger covers, bigger names
     Column(modifier.padding(if (compact) 3.dp else 5.dp).clip(R.card)
         .background(if (lit) C.accent.copy(alpha = 0.10f) else Color.Transparent)
         .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(if (compact) 3.dp else 4.dp),
@@ -122,9 +136,9 @@ fun Tile(art: Any?, title: String, sub: String, modifier: Modifier, compact: Boo
             if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             over()
         }
-        Text(title, style = T.title.copy(fontSize = if (compact) 12.sp else 13.5.sp, color = if (lit) C.accent else C.fg), maxLines = 1,
+        Text(title, style = T.title.copy(fontSize = if (compact) 12.sp else (13.5f + big * 1.5f).sp, color = if (lit) C.accent else C.fg), maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-        if (sub.isNotEmpty()) Text(sub, style = T.sub.copy(fontSize = if (compact) 11.sp else 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (sub.isNotEmpty()) Text(sub, style = T.sub.copy(fontSize = if (compact) 11.sp else (12f + big).sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (extra.isNotEmpty()) Text(extra, style = T.time.copy(fontSize = if (compact) 10.sp else 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -137,7 +151,7 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
     var menu by remember { mutableStateOf(false) }
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     Box(modifier) {
-        Tile(artModel(t, if (compact) 226 else 400), t.title, t.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
+        Tile(artModel(t, tilePx(compact)), t.title, t.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
             onLongClick = { if (ui.selecting) ui.toggle(t) else menu = true },
             over = {
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {

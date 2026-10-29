@@ -272,17 +272,29 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, checked: Boolean? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(R.card)
         .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
+        if (checked != null) Tick(checked, Modifier.padding(end = 10.dp))   // picking: a tick, and a tap ticks it
         ArtImage(art ?: p.thumb.takeIf { it.isNotEmpty() }, 52.dp)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(p.title, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val sub = listOf(p.sub, if (p.count.isNotEmpty()) "${p.count} songs" else "").filter { it.isNotEmpty() }.joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, style = T.sub, maxLines = 1)
         }
-        Icon(Ico.BACK, C.muted, 16.dp, Modifier.graphicsLayer(rotationZ = 180f))
+        if (checked == null) Icon(Ico.BACK, C.muted, 16.dp, Modifier.graphicsLayer(rotationZ = 180f))
+    }
+}
+
+/** A round tick: filled in the accent when on. */
+@Composable
+fun Tick(on: Boolean, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Box(modifier.size(24.dp).clip(androidx.compose.foundation.shape.CircleShape)
+        .background(if (on) C.accent else C.light)
+        .then(if (on) Modifier else Modifier.border(1.5.dp, C.muted, androidx.compose.foundation.shape.CircleShape)),
+        contentAlignment = Alignment.Center) {
+        if (on) Icon(Ico.CHECK, C.darker, 16.dp)
     }
 }
 

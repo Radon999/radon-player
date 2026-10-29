@@ -12,6 +12,7 @@ import org.omarchy.music.ui.FileArtFetcher
 class MusicApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        Crashes.init(this)
         Music.init(this)
         LastFm.init(this)
         SpotifyHistory.init(this)

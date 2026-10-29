@@ -28,7 +28,8 @@ import java.io.File
 object Music {
     lateinit var ctx: Context
         private set
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    // An error in one of the app's jobs is noted (Settings › Problems) and the app keeps going, music and all.
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + kotlinx.coroutines.CoroutineExceptionHandler { _, e -> Crashes.caught(e) })
 
     lateinit var lib: Library
     lateinit var plays: Plays
@@ -262,7 +263,7 @@ object Music {
         val drawer_folds: Map<String, Boolean> = mapOf("music" to true),
         val pins: List<Pin> = emptyList(), val layouts: Map<String, String> = emptyMap(), val mic_asked: Boolean = false,
         val skip_period: String = "all", val bit_perfect: Boolean = false, val replay_gain: String = "off",
-        val dj_new: Boolean = true, val top_mine_only: Boolean = true,
+        val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -301,6 +302,7 @@ object Music {
         bitPerfect = st.bit_perfect
         djNew = st.dj_new
         topMineOnly = st.top_mine_only
+        topPeriod = st.top_period.takeIf { it in setOf("week", "month", "year", "all") } ?: "all"
         Dj.withNew = djNew
         replayGain = st.replay_gain.takeIf { it in setOf("off", "track", "album") } ?: "off"
         eqProcessor.bypass = bitPerfect
@@ -328,7 +330,7 @@ object Music {
         val st = State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly)
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod)
         bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
     }
 
@@ -459,9 +461,13 @@ object Music {
 
     /** The Music tab's Most played: every play added up (see [Stats]): Last.fm's, your Spotify
      *  history's and, without Last.fm, the plays here. Until the counts are in, the plays here stand in. */
-    fun mostPlayed(): List<Track> {
-        val counts = Stats.songs
-        if (counts.isEmpty()) return plays.top(Int.MAX_VALUE)   // Most played: every song
+    var showDiscoveryLists by mutableStateOf(false)   // Playlists: the discovery playlists unfolded
+    var topPeriod by mutableStateOf("all")      // Most played over: week, month, year, all
+    fun chooseTopPeriod(p: String) { topPeriod = p; mostPlayedFor = null; musicVersion++; saveState() }
+
+    fun mostPlayed(period: String = "all"): List<Track> {
+        val counts = if (period == "all") Stats.songs else Stats.periods[period] ?: emptyList()
+        if (Stats.songs.isEmpty()) return if (period == "all") plays.top(Int.MAX_VALUE) else emptyList()   // Most played: every song
         if (counts !== mostPlayedFor) {
             val mine = songIndex()
             // Two names for one song of yours (a remaster's, a feat.'s): one row, its plays added up.
@@ -844,6 +850,77 @@ object Music {
             if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"))
             val n = lists.add(disc.id, songs)
             toast(if (n > 0) "“${disc.name}”: $n song${if (n != 1) "s" else ""} of $name's you haven't got" else "You have every song of $name's the services list")
+            musicVersion++
+        }
+    }
+
+    // ---- New releases: straight to one, and a discovery playlist from the ones you pick ----
+    const val NR_DISCOVERY = "New releases"   // the discovery playlists made from New releases go by this name
+    private val releaseFound = java.util.concurrent.ConcurrentHashMap<String, Triple<String, Album?, List<Track>>>()
+
+    /** (blocking) Where a new release is on the streaming services (never your files): (service, its album,
+     *  []) for the album (or single, or EP) by its name and artist, else (service, null, [the song]) for a
+     *  single, else null. */
+    fun releaseFind(r: NewReleases.Release): Triple<String, Album?, List<Track>>? {
+        val ck = NewReleases.key(r)
+        releaseFound[ck]?.let { return it }
+        val want = norm(cleanTitle(r.title))
+        var single: Triple<String, Album?, List<Track>>? = null
+        var last: Throwable? = null
+        for (key in listOf(source, "tidal", "ytm").distinct()) {
+            val src = sources[key] ?: continue
+            if (key !in setOf("tidal", "ytm") || (key == "tidal" && !src.signedIn)) continue
+            val res = try { src.find("${r.artist} ${r.title}") } catch (e: Exception) { last = e; continue }
+            res.albums.firstOrNull { al ->
+                norm(cleanTitle(al.title)) == want && (NewReleases.sameName(r.artist, al.sub.substringBefore(" · ").substringBefore(",")) ||
+                    norm(r.artist) in norm(al.sub))
+            }?.let { al -> return Triple(key, al, emptyList<Track>()).also { releaseFound[ck] = it } }
+            if (single == null) res.songs.filter { t ->
+                norm(cleanTitle(t.title)) == want && NewReleases.sameName(r.artist, splitArtists(t.artist).firstOrNull() ?: "")
+            }.take(1).takeIf { it.isNotEmpty() }?.let { single = Triple(key, null, it) }
+        }
+        single?.let { releaseFound[ck] = it; return it }
+        last?.let { android.util.Log.w("radon-player", "release ${r.title}", it) }
+        return null
+    }
+
+    /** (blocking) A new release's songs, from the services (see [releaseFind]). */
+    fun releaseTracks(r: NewReleases.Release): List<Track> {
+        val (key, al, songs) = releaseFind(r) ?: return emptyList()
+        val got = if (al != null) sources[key]?.album(al.id).orEmpty() else songs
+        return got.map { if (it.album.isEmpty()) it.copy(album = r.title) else it }
+    }
+
+    /** A discovery playlist from New releases you picked: their songs you haven't got ("New releases
+     *  Discovery playlist"), and "New releases discovered" for the ones you hear to the end, to download
+     *  or let go, as an artist's discovery playlist works. */
+    fun makeReleaseDiscovery(releases: List<NewReleases.Release>) {
+        val name = NR_DISCOVERY
+        if (releases.isEmpty() || norm(name) in discovering) return
+        discovering += norm(name)
+        toast("Finding the songs of ${releases.size} new release${if (releases.size != 1) "s" else ""}…")
+        bg({
+            val have = HashSet(songIndex().keys)
+            discoveryLists().firstOrNull { norm(it.first) == norm(name) }?.let { (_, d, f) ->
+                (d?.tracks.orEmpty() + f?.tracks.orEmpty()).forEach { have += songKey(it) } }
+            val seen = HashSet<Pair<String, String>>()
+            val out = ArrayList<Track>(); val missing = ArrayList<String>()
+            for (r in releases) {
+                val songs = runCatching { releaseTracks(r) }.getOrDefault(emptyList())
+                if (songs.isEmpty()) missing += r.title
+                for (t in songs) { val k = songKey(t); if (k !in have && seen.add(k)) out += t }
+            }
+            out to missing
+        }) { res, err ->
+            discovering.remove(norm(name))
+            if (res == null) { toast("Couldn't make it: ${err?.message?.take(100)}"); return@bg }
+            val (songs, missing) = res
+            val pair = discoveryLists().firstOrNull { norm(it.first) == norm(name) }
+            val disc = pair?.second ?: lists.create("$name Discovery playlist", discovery = Discovery(name, "discover"))
+            if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"))
+            val n = lists.add(disc.id, songs)
+            val notFound = if (missing.isEmpty()) "" else " (not found: ${missing.take(3).joinToString()}${if (missing.size > 3) "…" else ""})"
+            toast((if (n > 0) "“${disc.name}”: $n new song${if (n != 1) "s" else ""} you haven't got" else "You have every song of those already") + notFound)
             musicVersion++
         }
     }
@@ -1590,7 +1667,7 @@ object Music {
         radioFrom = t.id
         val ctxNow = context
         bg({ radioTracks(t) }) { res, err ->
-            if (ctxNow != context || err != null || res.isNullOrEmpty()) return@bg
+            if (ctxNow != context || err != null || res.isNullOrEmpty()) { if (ended) doneAdvancing(); return@bg }
             var q = queue
             if (keepUntil != null) {
                 // A song picked from results: its radio replaces the rest of the results (not your queue).
@@ -1603,6 +1680,7 @@ object Music {
             queue = q
             afterQueueChange()
             if (ended && index + 1 < queue.size) next()   // it had stopped at the end: on it goes
+            else if (ended) doneAdvancing()
         }
     }
 
@@ -1647,8 +1725,13 @@ object Music {
             }
             repeat == "off" && nextQueue() != null -> switchQueue(nextQueue()!!.id)   // this queue is done: your next one goes on
             else -> {
-                ended = true; player?.pause()
-                if (autoplay && repeat == "off") current()?.let { extendRadio(it) }   // ∞: songs like it, and on it goes
+                ended = true
+                val more = autoplay && repeat == "off" && current() != null
+                if (more && advancing) extendRadio(current()!!)   // ∞: songs like it, and on it goes (it stays "playing" meanwhile)
+                else {
+                    doneAdvancing(); player?.pause()
+                    if (more) current()?.let { extendRadio(it) }
+                }
             }
         }
     }
@@ -1677,11 +1760,28 @@ object Music {
         }
     }
 
+    /** A song ran out and the next one is on its way: to the notification (and Android) it's still
+     *  playing, so the app stays a foreground music player between songs. Were it "ended" for that
+     *  moment, Android would take the app out of the foreground, and with the screen off it can't come
+     *  back: a minute later Android closed it (the app "crashing" every couple of songs). */
+    @Volatile var advancing = false
+        private set
+
+    /** Done moving on (playing the next song, or stopped): the notification gets the player's real state. */
+    private fun doneAdvancing() {
+        if (!advancing) return
+        advancing = false
+        val p = player ?: return
+        if (p.playbackState == Player.STATE_ENDED) p.pause()   // nothing came: it stops, and Android hears it
+    }
+
     fun trackEnded() {
+        advancing = true
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
         finishing = true
         if (repeat == "one") loadCurrent() else next()
+        if (ended && !(autoplay && repeat == "off")) doneAdvancing()
     }
 
     fun cycleRepeat() {
@@ -1762,7 +1862,7 @@ object Music {
             status = ""
             if (err != null || ready == null) {
                 toast(if (err is NoLosslessMatch) "Skipped “${t.title}”: ${err.message}" else "Couldn't get “${t.title}”: ${err?.message}")
-                if (autoplay) scope.launch { delay(1500); if (seq == loadSeq) next() } else paused = true
+                if (autoplay) scope.launch { delay(1500); if (seq == loadSeq) next() } else { paused = true; doneAdvancing() }
                 return@bg
             }
             if (!ready.onDisk) streaming = true   // Keep found no FLAC to save: it streams
@@ -1795,6 +1895,7 @@ object Music {
         eqProcessor.songGain = gainOf(t)
         p.prepare()
         p.playWhenReady = autoplay
+        advancing = false   // buffering for real now
     }
 
     private fun prefetch() {
@@ -1941,6 +2042,7 @@ data class Pin(val kind: String, val id: String, val title: String, val sub: Str
 }
 
 /** The layouts a list can have, in the order the button goes through them. */
-val LAYOUTS = listOf("list", "grid", "compact")
+// The layout button goes round: a list, small covers, the covers as they were, then bigger and biggest (two, then one, across a phone).
+val LAYOUTS = listOf("list", "compact", "grid", "large", "huge")
 /** The pages that start as a grid of covers. */
 val GRID_FIRST = setOf("albums", "artists")
