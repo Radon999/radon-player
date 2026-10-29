@@ -1,29 +1,45 @@
-run 40897469620 · Thu Oct 29 15:06:22 UTC 2026
-PHONE OK
-PC OK
-TESTS: tests="5" failures="0" 
-  int max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.LongSummaryStatistics {
-  long count;
-  long sum;
-  long min;
-  long max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
-  long count;
-  double sum;
-  double min;
-  double max;
-}`
+run 40898989197 · Thu Oct 29 15:13:08 UTC 2026
+PHONE FAILED
+PC FAILED
+> Task :shared:compileKotlin FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:5 Unresolved reference 'readText'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:25 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:69:9 Unresolved reference 'writeAtomic'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:95:9 Unresolved reference 'writeAtomic'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:146:9 Unresolved reference 'writeAtomic'.
 
-> Task :app:lintVitalAnalyzeRelease
-> Task :app:compileReleaseArtProfile
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+> Task :app:checkReleaseAarMetadata
 
-BUILD SUCCESSFUL in 3m 38s
-62 actionable tasks: 62 executed
+--
+* What went wrong:
+Execution failed for task ':shared:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+BUILD FAILED in 1m 21s
+3 actionable tasks: 3 executed
+
+> Task :shared:compileKotlin FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:5 Unresolved reference 'readText'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:50:25 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:69:9 Unresolved reference 'writeAtomic'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:95:9 Unresolved reference 'writeAtomic'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/shared/src/main/kotlin/org/omarchy/music/Extras.kt:146:9 Unresolved reference 'writeAtomic'.
+
+> Task :app:checkReleaseAarMetadata
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':shared:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 21s
+3 actionable tasks: 3 executed
