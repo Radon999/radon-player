@@ -37,11 +37,11 @@ class MusicService : MediaLibraryService() {
         Music.init(this)
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                DefaultAudioSink.Builder(context)
+                EqSink(DefaultAudioSink.Builder(context)
                     .setAudioProcessors(arrayOf(Music.eqProcessor))
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .build()
+                    .build(), Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
         }.setEnableAudioFloatOutput(true)   // hi-res FLAC stays 24-bit through the EQ
         val exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
@@ -73,7 +73,7 @@ class MusicService : MediaLibraryService() {
                     if (Music.bitPerfect) Music.bg({ Music.dacNote = AudioQuality.applyBitPerfect(this@MusicService, true, rate, bits) })
                     Music.eqProcessor.rgGain = if (Music.bitPerfect || Music.replayGain == "off") 1.0 else
                         (AudioQuality.replayGain(f.metadata, Music.replayGain == "album")
-                            ?: AudioQuality.replayGain(f.metadata, Music.replayGain != "album"))?.let { Math.pow(10.0, it / 20) }?.coerceAtMost(1.0) ?: 1.0
+                            ?: AudioQuality.replayGain(f.metadata, Music.replayGain != "album"))?.let { Music.rgFactor(it) } ?: 1.0
                 }
             }
 

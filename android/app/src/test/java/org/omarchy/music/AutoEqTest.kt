@@ -25,6 +25,15 @@ class AutoEqTest {
         assertEquals(Filter("pk", 1000.0, 4.0, Eq.Q), g[5])
     }
 
+    @Test fun importsEqFiles() {   // Squiglink's export (LSQ/HSQ), Wavelet's GraphicEQ
+        val f = AutoEq.parseFile("Preamp: -4.2 dB\nFilter 1: ON LSQ Fc 105 Hz Gain -2.6 dB Q 0.700\nFilter 2: ON HSQ Fc 10000 Hz Gain -7.6 dB Q 0.700\n")
+        assertEquals(listOf(Filter("ls", 105.0, -2.6, 0.7), Filter("hs", 10000.0, -7.6, 0.7)), f)
+        assertEquals(10, AutoEq.parseFile("GraphicEQ: 20 -1.0; 1000 0.0; 20000 2.0").size)
+        assertEquals(10, Eq.HEADPHONES["mangird-top-pro"]!!.second.size)
+        assertEquals(2.0, Eq.boostClean(EqSettings()), 0.01)   // EQ off: the limiter's unheard 2 dB
+        assertEquals(true, Eq.boostClean(EqSettings(on = true, headphones = "mangird-top-pro")) > 5.0)
+    }
+
     @Test fun knowsTheHeadphonesFromTheirName() {
         assertEquals("Sony WH-1000XM6", AutoEq.matchDevice(listOf("WH-1000XM6"), entries)?.name)   // Bluetooth's name
         assertEquals("Apple AirPods Pro 2", AutoEq.matchDevice(listOf("Apple AirPods Pro 2"), entries)?.name)

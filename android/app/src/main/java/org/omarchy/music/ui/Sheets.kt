@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -556,7 +557,8 @@ private fun openNotificationSettings(ctx: android.content.Context) {
         .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-/** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, smart shuffle. */
+/** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, auto mono, smart shuffle. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlaybackLines() {
     val ctx = LocalContext.current
@@ -575,6 +577,25 @@ private fun PlaybackLines() {
     Line("Continue where you left off", "Stop on the PC and open the phone (or the other way round): it offers the same song at the same spot. " +
         "Needs the phone paired with the PC (Play on)", P.on(P.CONTINUE)) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
+    }
+    val auto = P.on(P.AUTO_MONO)
+    val picked = P.text(P.AUTO_MONO_DEVICE)
+    Line("Auto mono", when {
+        !auto -> "Mono on its own while your earbuds are connected (for one earbud in), off when they go. Now playing's Mono button still works by hand"
+        picked.isEmpty() -> "Connect your earbuds, then pick them below"
+        org.omarchy.music.AutoMono.active -> "$picked connected: mono is on"
+        else -> "Mono while $picked is connected"
+    }, auto) {
+        Switch(auto, { Music.setOpt(P.AUTO_MONO, it) }, colors = swColors())
+    }
+    if (auto) {
+        val now = remember(auto, org.omarchy.music.AutoMono.active) { org.omarchy.music.AutoMono.connected() }
+        androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            (now + listOf(picked)).filter { it.isNotEmpty() }.distinct().forEach { name ->
+                Chip(name, name == picked) { P.setText(P.AUTO_MONO_DEVICE, name); org.omarchy.music.AutoMono.check() }
+            }
+            if (now.isEmpty() && picked.isEmpty()) Text("No Bluetooth earbuds connected right now", style = T.sub)
+        }
     }
     Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
         P.on(P.SMART_SHUFFLE)) {
@@ -598,6 +619,12 @@ fun TransitionSwitches() {
     }
     row("Headphone crossfeed", "A little of each side into the other, as from speakers across a room: easier on the ears with " +
         "old hard-panned records", P.CROSSFEED)
+    if (P.on(P.CROSSFEED)) Row(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        val k = P.num(P.CROSSFEED_K, 0.3f)
+        listOf(0.2f to "Light", 0.3f to "Medium", 0.45f to "Strong").forEach { (v, l) ->
+            Chip(l, kotlin.math.abs(k - v) < 0.01f) { Music.setSoundNum(P.CROSSFEED_K, v) }
+        }
+    }
     row("Song crossfade", "Each song fades into the next" + if (Music.bitPerfect) " (not in bit-perfect)" else "", P.CROSSFADE)
     if (P.on(P.CROSSFADE)) {
         val secs = P.num(P.CROSSFADE_SECS, 6f)
@@ -614,6 +641,7 @@ fun TransitionSwitches() {
 }
 
 /** Bit-perfect to a USB DAC, and ReplayGain. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SoundQuality(ui: Ui) {
     Line("Bit-perfect", Music.dacNote.ifEmpty {
@@ -621,11 +649,56 @@ private fun SoundQuality(ui: Ui) {
         Music.bitPerfect) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }
+    val P = org.omarchy.music.Prefs
+    Line("Clip guard", "When a song's volume, ReplayGain or the EQ would push a peak past full scale, a limiter catches it " +
+        "instead of letting it crackle. It only ever touches a peak that would clip", P.on(P.CLIP_GUARD)) {
+        Switch(P.on(P.CLIP_GUARD), { Music.setOpt(P.CLIP_GUARD, it) }, colors = swColors())
+    }
+    Line("Dither", "16-bit music through the EQ is rounded with a whisper of shaped noise, so quiet fades stay smooth " +
+        "instead of grainy (hi-res music stays 32-bit and needs none)", P.on(P.DITHER)) {
+        Switch(P.on(P.DITHER), { Music.setOpt(P.DITHER, it) }, colors = swColors())
+    }
+    Line("Loudness compensation", "Turned down, music loses bass and treble to the ear first: this lifts them back as far as " +
+        "the volume is down, and not at all at full volume", P.on(P.LOUDNESS)) {
+        Switch(P.on(P.LOUDNESS), { Music.setOpt(P.LOUDNESS, it) }, colors = swColors())
+    }
+    val bal = P.num(P.BALANCE, 0f)
+    Line("Balance", when {
+        bal < -0.005f -> "Left: the right side down ${"%.1f".format(-20 * kotlin.math.log10(1.0 + bal))} dB"
+        bal > 0.005f -> "Right: the left side down ${"%.1f".format(-20 * kotlin.math.log10(1.0 - bal))} dB"
+        else -> "Centre. For IEMs a little louder on one side, or one ear that hears less"
+    }, bal != 0f) {
+        if (bal != 0f) Pill("Centre", quiet = true) { Music.setSoundNum(P.BALANCE, 0f) }
+    }
+    Slider(bal, { Music.setSoundNum(P.BALANCE, (kotlin.math.round(it * 50) / 50f)) }, valueRange = -0.5f..0.5f,
+        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
+    Line("Detail", "Background sounds, bass lines and the little things brought forward: the stereo a touch wider, " +
+        "presence and air lifted a little, the level lowered to match so nothing clips", P.on(P.DETAIL)) {
+        Switch(P.on(P.DETAIL), { Music.setOpt(P.DETAIL, it) }, colors = swColors())
+    }
+    val tilt = P.num(P.TILT, 0f)
+    Line("Tilt", when {
+        tilt > 0.01f -> "Brighter: below 1 kHz down ${"%.1f".format(tilt)} dB"
+        tilt < -0.01f -> "Warmer: above 1 kHz down ${"%.1f".format(-tilt)} dB"
+        else -> "Neutral. Lean the whole sound warmer or brighter; only ever turns down, so it can't clip"
+    }, tilt != 0f) {
+        if (tilt != 0f) Pill("Neutral", quiet = true) { Music.setSoundNum(P.TILT, 0f) }
+    }
+    Slider(tilt, { Music.setSoundNum(P.TILT, kotlin.math.round(it * 2) / 2f) }, valueRange = -4f..4f,
+        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
     Line("ReplayGain", if (Music.bitPerfect) "Off in bit-perfect: it would change the sound"
-        else "Evens out loudness with the gain in your files' tags (never louder, so nothing clips)", Music.replayGain != "off") {}
+        else "Evens out loudness with the gain in your files' tags. Louder than Standard needs Clip guard on " +
+            "(it limits the peaks); without it, songs are never made louder than they are", Music.replayGain != "off") {}
     Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf("off" to "Off", "track" to "By song", "album" to "By album").forEach { (k, l) ->
             Chip(l, Music.replayGain == k) { if (!Music.bitPerfect) Music.chooseReplayGain(k) }
+        }
+    }
+    val target = P.num(P.RG_TARGET, -18f)
+    Text("Levelling target", style = T.sub)
+    androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf(-23f to "Quiet −23", -18f to "Standard −18", -16f to "Louder −16", -14f to "Loud −14").forEach { (v, l) ->
+            Chip(l, target == v) { Music.setSoundNum(P.RG_TARGET, v); Music.toast("Levelling to $v LUFS, from the next song") }
         }
     }
 }
@@ -854,6 +927,7 @@ private fun EqSheet(ui: Ui) {
                     Text(Eq.fmtDb(g), style = T.time, modifier = Modifier.width(44.dp).clickable { Music.setEqTone(k, 0.0) })
                 }
             }
+            BoostFader(eq)
             Text("Sound", style = T.section, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
             ChipRow(Eq.PRESETS.map { (k, v) -> k to v.first }, eq.preset) { Music.setEqPreset(it) }
             // The bands: one line each (31 fit this way), the frequency, the slider, the gain.
@@ -878,6 +952,43 @@ private fun EqSheet(ui: Ui) {
             Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB keeps the boosts from clipping." else "Off: the music plays untouched.",
                 style = T.sub, modifier = Modifier.padding(top = 8.dp))
           }
+        }
+    }
+}
+
+/** Boost: a fader from normal (the bottom) to 12 dB louder, on everything, for this output. A line marks how far it
+ *  goes cleanly (the EQ's own pre-cut back, and a little the limiter does unheard); above it the limiter squashes peaks. */
+@Composable
+private fun BoostFader(eq: org.omarchy.music.EqSettings) {
+    val clean = Eq.boostClean(eq)
+    val b = eq.boost
+    val over = b > clean
+    val red = MONO_RED
+    Text("Boost", style = T.section, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val h = 170.dp
+        val inset = 10.dp   // the thumb's room at each end
+        Box(Modifier.width(56.dp).height(h)) {
+            Slider(b.toFloat(), { Music.setEqBoost(it.toDouble()) }, valueRange = 0f..Eq.BOOST_MAX.toFloat(),
+                colors = SliderDefaults.colors(thumbColor = if (over) red else C.accent, activeTrackColor = if (over) red else C.accent,
+                    inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+                modifier = Modifier.vertical().width(h).align(Alignment.Center))
+            // the clean line, across the fader
+            val y = inset + (h - inset * 2) * (1f - (clean / Eq.BOOST_MAX).toFloat())
+            Box(Modifier.offset(y = y - 1.dp).fillMaxWidth().height(2.dp).background(red.copy(alpha = 0.8f)))
+        }
+        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+            Text(if (b == 0.0) "Off: normal volume" else "+${"%.1f".format(b).removeSuffix(".0")} dB louder",
+                style = T.title.copy(color = if (over) red else C.fg))
+            Text(when {
+                b == 0.0 -> "Louder than normal for quiet headphones, on everything you play, and only on this output. " +
+                    "Clean up to the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here)"
+                over -> "Past the line: the limiter is squashing the peaks to keep them from clipping. Fine for noisy places; " +
+                    "for the best sound stay at or under +${"%.1f".format(clean).removeSuffix(".0")} dB"
+                else -> "Clean: under the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here, more with the EQ " +
+                    "turning things down)"
+            }, style = T.sub)
+            if (b > 0) Pill("Off", quiet = true) { Music.setEqBoost(0.0) }
         }
     }
 }
@@ -975,8 +1086,11 @@ private fun AutoEqFinder() {
             note = if (err != null) "AutoEq couldn't be reached: ${err.message?.take(80)}" else if (found.isEmpty()) "Nothing in AutoEq by that name" else ""
         }
     }
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importEqFile(uri) }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
         Box(Modifier.weight(1f)) { Field(q, "Auto EQ: find your headphones") { q = it } }
+        Spacer(Modifier.width(6.dp))
+        Pill("Import", quiet = true) { importer.launch(arrayOf("text/*", "application/octet-stream")) }
         Spacer(Modifier.width(6.dp))
         Pill("Detect", quiet = true) {
             val dev = org.omarchy.music.AutoEq.output(Music.ctx)

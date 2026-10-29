@@ -188,6 +188,9 @@ fun QueueHeader(ui: Ui) {
             Text(if (Music.queues.isEmpty()) "Your only queue" else "${Music.queues.size + 1} queues · tap to switch",
                 style = T.sub)
         }
+        if (org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO) || org.omarchy.music.AutoMono.active)
+            Text("MONO", style = T.tab.copy(color = MONO_RED), modifier = Modifier.padding(end = 8.dp).clip(R.pill)
+                .background(MONO_RED.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 2.dp))
         Icon(Ico.DOWN, C.muted, 16.dp)
     }
 }

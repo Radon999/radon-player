@@ -240,6 +240,8 @@ object Music {
         ctx = c.applicationContext
         Prefs.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
+        eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
+        applySound()
         lib = Library(ctx)
         plays = Plays(ctx)
         lists = Playlists(ctx)
@@ -2087,10 +2089,26 @@ object Music {
         return { t -> Stats.statsKey(t.title, t.artist).let { k -> smartWeight(plays[k] ?: 0, last[k] ?: 0.0, now) } }
     }
 
+    /** Settings › Sound's switches and numbers into the EQ processor. */
+    fun applySound() {
+        eqProcessor.limiter = Prefs.on(Prefs.CLIP_GUARD)
+        eqProcessor.dither = Prefs.on(Prefs.DITHER)
+        eqProcessor.balance = Prefs.num(Prefs.BALANCE, 0f).toDouble()
+        eqProcessor.crossfeedK = Prefs.num(Prefs.CROSSFEED_K, 0.3f).toDouble()
+        eqProcessor.tilt = Prefs.num(Prefs.TILT, 0f).toDouble()
+        eqProcessor.detail = Prefs.on(Prefs.DETAIL)
+        Loudness.apply()
+    }
+
+    fun setSoundNum(key: String, v: Float) { Prefs.setNum(key, v); applySound() }
+
     /** One of 2.0's switches (Prefs), with what it takes to take effect. */
     fun setOpt(key: String, on: Boolean) {
         Prefs.set(key, on)
         if (key == Prefs.CROSSFEED) eqProcessor.crossfeed = on
+        if (key == Prefs.AUTO_MONO) AutoMono.check()
+        if (key == Prefs.CLIP_GUARD || key == Prefs.DITHER || key == Prefs.LOUDNESS || key == Prefs.DETAIL) applySound()
+        if (key == Prefs.MONO) { eqProcessor.mono = on || AutoMono.active; if (on && bitPerfect) toast("Mono isn't heard in bit-perfect: turn bit-perfect off for it") }
     }
 
     /** Songs of one album, one after the other: Smart transitions leaves them to flow into each other. */
@@ -2273,6 +2291,27 @@ object Music {
     }
 
     /** Keep an AutoEq profile among your headphones and use it. */
+    /** An EQ file of yours (AutoEq, Squiglink, Wavelet, Equalizer APO), picked: among your headphones, and used. */
+    fun importEqFile(uri: android.net.Uri) {
+        bg({
+            val text = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+            val name = (ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "My EQ")
+                .substringBeforeLast('.').replace(Regex("\\s*(ParametricEQ|GraphicEQ)$"), "").trim().ifEmpty { "My EQ" }
+            name to AutoEq.parseFile(text)
+        }) { r, err ->
+            if (r != null) addAutoEq(AutoEq.Entry(r.first, "imported"), r.second)
+            else toast("Couldn't import it: ${err?.message?.take(80)}")
+        }
+    }
+
+    /** ReplayGain's gain for a song (dB from its tags) at the levelling target: never louder than full scale unless
+     *  Clip guard is on to limit the peaks. */
+    fun rgFactor(db: Double): Double {
+        val g = Math.pow(10.0, (db + Prefs.num(Prefs.RG_TARGET, -18f) + 18) / 20)
+        return if (Prefs.on(Prefs.CLIP_GUARD)) g.coerceAtMost(4.0) else g.coerceAtMost(1.0)
+    }
+
     fun addAutoEq(e: AutoEq.Entry, filters: List<Filter>) {
         val key = "ae:" + norm("${e.name} ${e.source}").replace(" ", "-")
         setEq { it.copy(profiles = it.profiles + (key to AutoEq.profileOf("${e.name} · ${e.source.ifEmpty { "AutoEq" }}", filters))) }
@@ -2344,6 +2383,9 @@ object Music {
         }
         if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (eq.on) "" else " (off)")
     }
+    /** Boost: dB louder than normal (0-12) on everything, kept for this output. */
+    fun setEqBoost(db: Double) = setEq { it.copy(boost = (kotlin.math.round(db.coerceIn(0.0, Eq.BOOST_MAX) * 2) / 2)) }
+
     fun setEqTone(name: String, gain: Double) = setEq {
         if (name == "bass") it.copy(bass = Eq.clamp(gain), on = true) else it.copy(treble = Eq.clamp(gain), on = true)
     }

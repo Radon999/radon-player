@@ -34,7 +34,7 @@ class AutoEqTest(unittest.TestCase):
 
     def test_reads_a_profile_as_the_filters_the_eq_uses(self):
         self.assertEqual(om.parse_parametric(PARAMETRIC), [("ls", 105, -1.5, 0.7), ("pk", 161, -7.5, 0.69), ("hs", 10000, -1.5, 0.7)])
-        self.assertEqual(list(om.HEADPHONES), ["off"])   # nothing built in: Add headphones… finds yours
+        self.assertEqual(list(om.HEADPHONES)[0], "off")   # None first; the rest: built in, and Add headphones… finds yours
         with self.assertRaises(ValueError):
             om.parse_parametric("404: Not Found")
 

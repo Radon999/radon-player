@@ -24,6 +24,8 @@ class MusicApp : Application(), ImageLoaderFactory {
         PhoneShare.init(this)
         Services.start(this)
         Updater.init(this)
+        runCatching { AutoMono.start(this) }
+        runCatching { Loudness.start(this) }
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)

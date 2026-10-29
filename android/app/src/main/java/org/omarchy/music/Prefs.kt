@@ -37,6 +37,17 @@ object Prefs {
     const val CROSSFADE_SECS = "crossfade_secs"  // its length
     const val SMART_TRANSITIONS = "smart_transitions"
     const val CROSSFEED = "crossfeed"
+    const val MONO = "mono"                      // Now playing's Mono: both sides in each ear
+    const val AUTO_MONO = "auto_mono"            // Mono on its own while the chosen earbuds are connected
+    const val CLIP_GUARD = "clip_guard"          // a peak limiter instead of hard clipping
+    const val DITHER = "dither"                  // TPDF dither when cut to 16-bit
+    const val BALANCE = "balance"                // -1 … 1 (a number)
+    const val CROSSFEED_K = "crossfeed_k"        // crossfeed's strength (a number: 0.2, 0.3, 0.45)
+    const val DETAIL = "detail"                  // Detail: background sounds brought forward
+    const val TILT = "tilt"                      // dB: > 0 brighter, < 0 warmer (a number)
+    const val RG_TARGET = "rg_target"            // ReplayGain's levelling target, LUFS (a number: -23, -18, -16, -14)
+    const val LOUDNESS = "loudness_comp"         // loudness compensation at low volume
+    const val AUTO_MONO_DEVICE = "auto_mono_device"   // which earbuds (their Bluetooth name)
     const val CONTINUE = "continue_across"       // continue where you left off, across the PC and the phone
     const val SMART_SHUFFLE = "smart_shuffle"
     const val LOUDNESS_CHECK = "loudness_check"
