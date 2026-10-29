@@ -1,6 +1,11 @@
 package org.omarchy.music.desktop
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import org.jaudiotagger.audio.AudioFileIO
+import org.omarchy.music.JSON
+import org.omarchy.music.Track
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.util.logging.Level
@@ -18,9 +23,45 @@ object Library {
         Logger.getLogger("org.jaudiotagger").level = Level.OFF   // it logs every file it reads
     }
 
-    /** The folders to read: RADON_MUSIC (folders separated by ;), else your Music folder. */
-    fun folders(): List<File> = (System.getenv("RADON_MUSIC")?.split(';')?.filter { it.isNotBlank() }?.map(::File)
-        ?: listOf(File(System.getProperty("user.home"), "Music"))).filter { it.isDirectory }
+    private val home = File(System.getProperty("user.home"))
+    /** Where the Python app keeps its music and lists (the same files: one library for both while they live side by side). */
+    val musicDir = File(System.getenv("OMARCHY_MUSIC_DIR") ?: File(home, "Music/Omarchy Music").path)
+    private val stateFile = File(home, ".local/state/omarchy-music.json")
+
+    /** The folders to read: RADON_MUSIC (separated by ;), else the Python app's music folders, else your Music folder. */
+    fun folders(): List<File> {
+        System.getenv("RADON_MUSIC")?.let { env -> return env.split(';').filter { it.isNotBlank() }.map(::File).filter { it.isDirectory } }
+        val theirs = runCatching {
+            JSON.parseToJsonElement(stateFile.readText()).let { (it as kotlinx.serialization.json.JsonObject)["folders"]!!.jsonArray }
+                .map { File(it.jsonPrimitive.content) }
+        }.getOrDefault(emptyList()).filter { it.isDirectory }
+        return theirs.ifEmpty { listOf(File(home, "Music")).filter { it.isDirectory } }
+    }
+
+    /** A playlist of the Python app's (playlists.json): its name and songs. */
+    @Serializable
+    data class Playlist(val id: String = "", val name: String = "", val tracks: List<Track> = emptyList())
+
+    fun playlists(): List<Playlist> = runCatching {
+        JSON.decodeFromString<List<Playlist>>(File(musicDir, "playlists.json").readText())
+    }.getOrDefault(emptyList()).filter { it.tracks.isNotEmpty() }
+
+    /** The song of a playlist's track on this PC: its own file, or the download of it (library.json), or one of your
+     *  songs with its name and artist; null if it isn't here. */
+    fun fileOf(t: Track, songs: List<Song>): File? {
+        t.file?.let { File(it) }?.takeIf { it.isFile }?.let { return it }
+        downloads[t.id]?.let { File(it) }?.takeIf { it.isFile }?.let { return it }
+        val k = org.omarchy.music.statsKey(t.title, t.artist)
+        return songs.firstOrNull { org.omarchy.music.statsKey(it.title, it.artist) == k }?.file
+    }
+
+    private val downloads: Map<String, String> by lazy {
+        runCatching {
+            (JSON.parseToJsonElement(File(musicDir, "library.json").readText()) as kotlinx.serialization.json.JsonObject)
+                .mapValues { (_, v) -> ((v as kotlinx.serialization.json.JsonObject)["file"]?.jsonPrimitive?.content).orEmpty() }
+                .filterValues { it.isNotEmpty() }
+        }.getOrDefault(emptyMap())
+    }
 
     fun scan(folders: List<File> = folders()): List<Song> = folders.flatMap { root ->
         root.walkTopDown().filter { it.isFile && it.extension.lowercase() in AUDIO }.map(::read).toList()

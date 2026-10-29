@@ -54,8 +54,21 @@ fun App(player: Player) {
     var q by remember { mutableStateOf("") }
     var now by remember { mutableStateOf<Song?>(null) }
     var paused by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { songs = withContext(Dispatchers.IO) { Library.scan() } }
-    val shown = remember(songs, q) { Library.search(songs ?: emptyList(), q) }
+    var tab by remember { mutableStateOf("songs") }   // songs, or playlists
+    var lists by remember { mutableStateOf<List<Library.Playlist>>(emptyList()) }
+    var open by remember { mutableStateOf<Library.Playlist?>(null) }
+    LaunchedEffect(Unit) {
+        songs = withContext(Dispatchers.IO) { Library.scan() }
+        lists = withContext(Dispatchers.IO) { Library.playlists() }
+    }
+    // What the list shows: your songs searched, or the open playlist's songs that are on this PC
+    val shown = remember(songs, q, tab, open) {
+        val all = songs ?: emptyList()
+        val pl = open
+        if (tab == "playlists" && pl != null) pl.tracks.mapNotNull { t ->
+            Library.fileOf(t, all)?.let { f -> Song(f, t.title, t.artist, t.album, "", 0, t.duration.toInt()) } }
+        else Library.search(all, q)
+    }
 
     fun play(i: Int) {
         val s = shown.getOrNull(i) ?: return
@@ -78,7 +91,26 @@ fun App(player: Player) {
                     modifier = Modifier.fillMaxWidth())
             }
         }
-        LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
+        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((key, name) in listOf("songs" to "Songs", "playlists" to "Playlists")) {
+                val on = tab == key
+                Text(name, style = T.tab.copy(color = if (on) C.darker else C.fg), modifier = Modifier.clip(R.pill)
+                    .background(if (on) C.accent else C.light).clickable { tab = key; open = null }.padding(horizontal = 14.dp, vertical = 6.dp))
+            }
+            open?.let { Text("‹ ${it.name}", style = T.title, modifier = Modifier.clickable { open = null }.padding(6.dp)) }
+        }
+        if (tab == "playlists" && open == null) LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
+            items(lists.size) { i ->
+                val pl = lists[i]
+                Row(Modifier.fillMaxWidth().clip(R.small).clickable { open = pl }.padding(vertical = 8.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Ico.PLAYLIST, C.muted, 20.dp)
+                    Text(pl.name, style = T.title, modifier = Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                    Text("%,d songs".format(pl.tracks.size), style = T.time)
+                }
+            }
+        } else LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
             items(shown.size) { i ->
                 val s = shown[i]
                 val on = s == now
