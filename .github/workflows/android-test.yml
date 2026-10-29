@@ -53,8 +53,11 @@ jobs:
           base64 -d ../work/ci/test.keystore.b64 > "$RUNNER_TEMP/test.keystore"
           mkdir -p ~/.local/share/omarchy-music
           printf 'storeFile=%s\nstorePassword=varmusictest\nkeyAlias=test\nkeyPassword=varmusictest\n' "$RUNNER_TEMP/test.keystore" > ~/.local/share/omarchy-music/keystore.properties
-          sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.test"/' android/app/build.gradle.kts
-          sed -i 's/android:label="VarMusic"/android:label="VarMusic Test"/' android/app/src/main/AndroidManifest.xml
+          # ci/RELEASE: the real app (org.omarchy.music, "Radon Player"), to install over it; else a test app beside it
+          if [ ! -f ../work/ci/RELEASE ]; then
+            sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.test"/' android/app/build.gradle.kts
+            sed -i 's/android:label="VarMusic"/android:label="VarMusic Test"/; s/android:label="Radon Player"/android:label="Radon Player Test"/' android/app/src/main/AndroidManifest.xml
+          fi
           grep -n 'applicationId' android/app/build.gradle.kts
       - name: Build
         working-directory: app/android
