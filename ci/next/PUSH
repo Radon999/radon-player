@@ -7,3 +7,4 @@ The start of the move from the Python/GTK PC app and the Kotlin phone app to one
 - desktop/: the PC app in Compose Multiplatform, on the shared code: your songs, searched as you type,
   played through mpv
 2.0.0 stays on radon-player as it was.
+
