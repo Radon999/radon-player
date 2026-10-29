@@ -200,10 +200,12 @@ private fun NowTop(ui: Ui, n: Now) {
         Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
-        if (!n.remote) {   // Mono: both sides in each ear (one earbud in); lit while it's on
-            val mono = org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO)
-            IconButton(Ico.HEADPHONES, if (mono || org.omarchy.music.AutoMono.active) C.accent else WHITE, desc = if (mono) "Mono on" else "Mono off") {
-                Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear")
+        if (!n.remote) {   // Mono: both sides in each ear (one earbud in); red while it's on, the cover's colour while it's off
+            val auto = org.omarchy.music.AutoMono.active
+            val mono = org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO) || auto
+            IconButton(Ico.HEADPHONES, if (mono) MONO_RED else C.accent, desc = if (mono) "Mono on" else "Mono off") {
+                if (auto) Music.toast("Auto mono has mono on while your earbuds are connected (Settings › Playback)")
+                else { Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear") }
             }
         }
         if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
@@ -614,3 +616,6 @@ fun MiniPlayer() {
         }
     }
 }
+
+/** Mono's colour while it is on (Now playing's button, the queue's badge). */
+val MONO_RED = androidx.compose.ui.graphics.Color(0xFFE5484D)

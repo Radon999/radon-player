@@ -29,8 +29,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 20001   // major·10000 + minor·100 + patch
-        versionName = "2.0.1"
+        versionCode = 20100   // major·10000 + minor·100 + patch
+        versionName = "2.1.0"
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
         buildConfigField("String", "TIDAL_CLIENT_SECRET", "\"${tidal.getProperty("client_secret", "")}\"")
     }

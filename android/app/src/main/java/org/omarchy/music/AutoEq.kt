@@ -14,7 +14,8 @@ import kotlin.math.ln
 object AutoEq {
     const val RESULTS = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/"
     private const val INDEX_FOR = 7 * 86400L   // seconds the index is kept before it's fetched again
-    private val TYPES = mapOf("PK" to "pk", "LSC" to "ls", "HSC" to "hs", "LS" to "ls", "HS" to "hs")
+    private val TYPES = mapOf("PK" to "pk", "PEQ" to "pk", "LSC" to "ls", "HSC" to "hs", "LS" to "ls", "HS" to "hs",
+        "LSQ" to "ls", "HSQ" to "hs")
 
     /** A profile: from the index (path), or from your own AutoEqApi (id). */
     data class Entry(val name: String, val source: String, val path: String = "", val id: Long? = null)
@@ -72,6 +73,13 @@ object AutoEq {
             return lo.second + (hi.second - lo.second) * ln(hz / lo.first) / ln(hi.first / lo.first)
         }
         return Eq.BANDS.map { Filter("pk", it.toDouble(), Math.round(at(it.toDouble()) * 10) / 10.0, Eq.Q) }
+    }
+
+    /** An EQ file you import: parametric (AutoEq's ParametricEQ.txt, Equalizer APO's config, Squiglink's export),
+     *  else a GraphicEQ (Wavelet's, AutoEq's). */
+    fun parseFile(text: String): List<Filter> = try { parseParametric(text) } catch (e: IllegalArgumentException) {
+        if ("GraphicEQ" in text || Regex("\\d+\\s+-?[\\d.]+\\s*;").containsMatchIn(text)) graphicToFilters(text)
+        else throw IllegalArgumentException("that file has no EQ in it (a parametric or GraphicEQ file is wanted)")
     }
 
     /** (blocking) An entry's filters. */

@@ -29,6 +29,31 @@ object Eq {
     // headphones… finds yours and brings it to the Harman target, the sound most listeners prefer.
     val HEADPHONES: LinkedHashMap<String, Pair<String, List<Filter>>> = linkedMapOf(
         "off" to ("None" to emptyList()),
+        // Built in (AutoEq, to the Harman in-ear target): Xenns Mangird Top Pro, measured by two reviewers
+        "mangird-top-pro" to ("Xenns Mangird Top Pro · Super Review" to listOf(
+            Filter("ls", 105.0, -2.6, 0.70), Filter("pk", 310.0, -2.4, 0.80), Filter("pk", 5665.0, 4.0, 3.54),
+            Filter("pk", 875.0, 1.7, 1.09), Filter("pk", 3144.0, 1.6, 2.45), Filter("hs", 10000.0, -7.6, 0.70),
+            Filter("pk", 71.0, 0.8, 2.41), Filter("pk", 8299.0, 2.0, 1.91), Filter("pk", 146.0, -0.3, 1.98),
+            Filter("pk", 1763.0, 0.2, 3.00))),
+        "mangird-top-pro-j" to ("Xenns Mangird Top Pro · Jaytiss" to listOf(
+            Filter("ls", 105.0, -1.8, 0.70), Filter("pk", 5757.0, 6.1, 2.20), Filter("pk", 304.0, -2.0, 1.02),
+            Filter("pk", 1818.0, -1.1, 1.84), Filter("pk", 803.0, 1.3, 2.30), Filter("hs", 10000.0, -7.8, 0.70),
+            Filter("pk", 74.0, 0.9, 2.19), Filter("pk", 8502.0, 2.4, 2.28), Filter("pk", 3346.0, 0.9, 3.79),
+            Filter("pk", 173.0, -0.2, 1.53))),
+        // Sony WH-1000XM6 over Bluetooth and on its cable (AutoEq, Super Review), and the WF-1000XM6 earbuds: no full
+        // measurement of those yet, so a gentle approximation from reviews
+        "wh1000xm6-bt" to ("Sony WH-1000XM6 headphones · Bluetooth" to listOf(
+            Filter("ls", 105.0, -8.3, 0.70), Filter("pk", 171.0, -4.9, 0.99), Filter("pk", 648.0, 2.5, 0.63),
+            Filter("pk", 2499.0, -5.2, 1.50), Filter("pk", 5689.0, 4.1, 0.40), Filter("hs", 10000.0, 3.3, 0.70),
+            Filter("pk", 4137.0, 1.3, 3.44), Filter("pk", 6747.0, -2.2, 3.84), Filter("pk", 1496.0, -1.5, 3.88),
+            Filter("pk", 1151.0, 1.4, 4.07))),
+        "wh1000xm6-cable" to ("Sony WH-1000XM6 headphones · cable" to listOf(
+            Filter("ls", 105.0, -1.5, 0.70), Filter("pk", 161.0, -7.5, 0.69), Filter("pk", 2143.0, 4.3, 3.66),
+            Filter("pk", 1019.0, -5.3, 1.74), Filter("pk", 8308.0, 5.3, 0.21), Filter("hs", 10000.0, -1.5, 0.70),
+            Filter("pk", 57.0, -2.0, 2.27), Filter("pk", 463.0, 1.5, 2.87), Filter("pk", 103.0, 1.7, 2.95),
+            Filter("pk", 4339.0, 0.9, 3.49))),
+        "wf1000xm6" to ("Sony WF-1000XM6 earbuds · approximate" to listOf(
+            Filter("ls", 250.0, -2.5, 0.70), Filter("pk", 6000.0, -1.5, 1.0), Filter("hs", 10000.0, 1.0, 0.70))),
     )
     val BANDS = listOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
     const val Q = 1.41        // an octave wide, so neighbouring bands blend smoothly
@@ -203,6 +228,27 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile var crossfeed = false
     /** Mono (Now playing's Mono button, or Auto mono): left and right mixed into both ears, for one earbud in. */
     @Volatile var mono = false
+    /** Clip guard (Settings › Sound): a peak limiter instead of hard clipping when a song's volume, ReplayGain or the
+     *  EQ would go over full scale. Only ever acts on a peak that would clip. */
+    @Volatile var limiter = false
+    /** Dither (Settings › Sound): TPDF dither when the result is cut to 16-bit, so quiet passages fade smoothly. */
+    @Volatile var dither = false
+    /** Balance: -1 (all left) … 0 … 1 (all right); the other side is turned down, never up. */
+    @Volatile var balance = 0.0
+    /** Crossfeed's strength: 0.2 light, 0.3 medium, 0.45 strong. */
+    @Volatile var crossfeedK = 0.3
+    /** Loudness compensation: how far (dB) the volume is turned down; bass and treble lifted to match (0: off). */
+    @Volatile var loudnessDb = 0.0
+        set(v) { if (kotlin.math.abs(v - field) >= 0.5) { field = v; rebuild() } }
+    /** Tilt (Settings › Sound), dB: brighter (> 0) turns everything below 1 kHz down, warmer (< 0) everything above.
+     *  Only ever down, so it can't clip. */
+    @Volatile var tilt = 0.0
+        set(v) { if (v != field) { field = v; rebuild() } }
+    /** Detail (Settings › Sound): the sides (ambience, background parts) a touch louder, presence and air lifted a little. */
+    @Volatile var detail = false
+        set(v) { if (v != field) { field = v; rebuild() } }
+    private var env = 0.0   // the limiter's envelope
+    private val rnd = java.util.Random()
     private var lpL = 0.0
     private var lpR = 0.0
     private var rate = 48000.0
@@ -213,10 +259,24 @@ class EqProcessor : BaseAudioProcessor() {
         rebuild()
     }
 
+    /** The loudness compensation's shelves for loudnessDb (ISO 226's lift at low levels, roughly): bass up to +10 dB,
+     *  treble up to +4 dB. */
+    private fun loudnessFilters(): List<Filter> {
+        val d = loudnessDb
+        if (d < 0.5) return emptyList()
+        return listOf(Filter("ls", 90.0, min(10.0, d * 0.3), 0.71), Filter("hs", 9000.0, min(4.0, d * 0.12), 0.71))
+    }
+
     private fun rebuild() {
         val s = settings
-        if (!s.on) { stages = emptyList(); gain = 1.0; return }
-        val fs = Eq.filters(s)
+        val t = tilt
+        val extra = loudnessFilters() + when {
+            t > 0 -> listOf(Filter("ls", 1000.0, -t, 0.5))
+            t < 0 -> listOf(Filter("hs", 1000.0, t, 0.5))
+            else -> emptyList()
+        } + if (detail) listOf(Filter("pk", 3000.0, 1.5, 1.0), Filter("hs", 10000.0, 1.5, 0.7)) else emptyList()
+        if (!s.on && extra.isEmpty()) { stages = emptyList(); gain = 1.0; return }
+        val fs = (if (s.on) Eq.filters(s) else emptyList()) + extra
         val old = stages
         stages = fs.mapIndexed { i, f ->
             val c = Eq.coeffs(f, rate).let { k -> DoubleArray(5) { j -> (if (j < 3) k[j] else k[j + 1]) / k[3] } }
@@ -239,32 +299,68 @@ class EqProcessor : BaseAudioProcessor() {
         val n = input.remaining()
         if (n == 0) return
         val out = replaceOutputBuffer(n)
-        val st = stages
-        val float = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
-        input.order(ByteOrder.nativeOrder())
-        if (bypass || (st.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono)) {
-            out.put(input)
-        } else {
-            val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain
-            var ch = 0
-            while (input.hasRemaining()) {
-                var x = (if (float) input.float.toDouble() else input.short / 32768.0) * g
-                for (s in st) {
-                    val z = s.state[ch]
-                    val c = s.c
-                    val y = c[0] * x + z[0]
-                    z[0] = c[1] * x - c[3] * y + z[1]
-                    z[1] = c[2] * x - c[4] * y
-                    x = y
-                }
-                if (float) out.putFloat(x.toFloat())
-                else out.putShort((x * 32768.0).roundToInt().coerceIn(-32768, 32767).toShort())
-                ch = (ch + 1) % channels
-            }
-            if (crossfeed && channels == 2) crossfeedPass(out, n, float)
-            if (mono && channels == 2) monoPass(out, n, float)
-        }
+        process(input, out, inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT)
         out.flip()
+    }
+
+    /** Nothing to do: every sample would pass exactly as it came. */
+    fun idle() = bypass || (stages.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono && !detail && balance == 0.0)
+
+    /** The float path (EqSink, for hi-res): set up for rate and channels outside the player's processor chain. */
+    fun configureFloat(sampleRate: Int, channelCount: Int) {
+        rate = sampleRate.toDouble()
+        channels = channelCount
+        stages = emptyList()
+        rebuild()
+    }
+
+    fun resetFloat() = onFlush()
+
+    /** input's samples (16-bit or float), through gain, the EQ, balance, crossfeed, mono and the limiter, into out. */
+    fun process(input: ByteBuffer, out: ByteBuffer, float: Boolean) {
+        val n = input.remaining()
+        val st = stages
+        input.order(ByteOrder.nativeOrder())
+        out.order(ByteOrder.nativeOrder())
+        if (idle()) {
+            out.put(input)
+            return
+        }
+        val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain
+        val b = balance
+        val gl = if (b > 0) 1.0 - b else 1.0
+        val gr = if (b < 0) 1.0 + b else 1.0
+        val lim = limiter
+        val rel = kotlin.math.exp(-1.0 / (0.08 * rate))   // the limiter lets go over 80 ms
+        val th = 0.97
+        val dith = dither && !float
+        var ch = 0
+        while (input.hasRemaining()) {
+            var x = (if (float) input.float.toDouble() else input.short / 32768.0) * g
+            for (s in st) {
+                val z = s.state[ch]
+                val c = s.c
+                val y = c[0] * x + z[0]
+                z[0] = c[1] * x - c[3] * y + z[1]
+                z[1] = c[2] * x - c[4] * y
+                x = y
+            }
+            if (channels == 2) x *= if (ch == 0) gl else gr
+            if (lim) {
+                val a = kotlin.math.abs(x)
+                env = if (a > env) a else env * rel
+                if (env > th) x *= th / env
+            }
+            if (float) out.putFloat(x.toFloat())
+            else {
+                val d = if (dith) (rnd.nextDouble() - rnd.nextDouble()) else 0.0   // TPDF: ±1 LSB, triangular
+                out.putShort((x * 32768.0 + d).roundToInt().coerceIn(-32768, 32767).toShort())
+            }
+            ch = (ch + 1) % channels
+        }
+        if (detail && channels == 2) widthPass(out, n, float)
+        if (crossfeed && channels == 2) crossfeedPass(out, n, float)
+        if (mono && channels == 2) monoPass(out, n, float)
     }
 
     /** Mono over the frames just written to out (n bytes): each side the two sides' average. */
@@ -278,10 +374,28 @@ class EqProcessor : BaseAudioProcessor() {
         }
     }
 
+    /** Detail's wider stereo over the frames just written to out (n bytes): the sides 25% louder, both 10% lower. */
+    private fun widthPass(out: ByteBuffer, n: Int, float: Boolean) {
+        val size = if (float) 4 else 2
+        var i = out.position() - n
+        while (i + 2 * size <= out.position()) {
+            val l = if (float) out.getFloat(i).toDouble() else out.getShort(i) / 32768.0
+            val r = if (float) out.getFloat(i + size).toDouble() else out.getShort(i + size) / 32768.0
+            val m = (l + r) / 2; val s = (l - r) / 2 * 1.25
+            val nl = (m + s) * 0.9; val nr = (m - s) * 0.9
+            if (float) { out.putFloat(i, nl.toFloat()); out.putFloat(i + size, nr.toFloat()) }
+            else {
+                out.putShort(i, (nl * 32768.0).roundToInt().coerceIn(-32768, 32767).toShort())
+                out.putShort(i + size, (nr * 32768.0).roundToInt().coerceIn(-32768, 32767).toShort())
+            }
+            i += 2 * size
+        }
+    }
+
     /** Crossfeed over the frames just written to out (n bytes). */
     private fun crossfeedPass(out: ByteBuffer, n: Int, float: Boolean) {
         val a = 1.0 - kotlin.math.exp(-2.0 * Math.PI * 700.0 / rate)   // the other side's highs softened above 700 Hz
-        val k = 0.3
+        val k = crossfeedK
         val size = if (float) 4 else 2
         var i = out.position() - n
         while (i + 2 * size <= out.position()) {
@@ -300,6 +414,6 @@ class EqProcessor : BaseAudioProcessor() {
 
     override fun onFlush() {
         stages.forEach { s -> s.state.forEach { it.fill(0.0) } }
-        lpL = 0.0; lpR = 0.0
+        lpL = 0.0; lpR = 0.0; env = 0.0
     }
 }

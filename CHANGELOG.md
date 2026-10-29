@@ -4,6 +4,24 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 2.1.0: Sound (Windows and Android)
+Every new setting is off (or neutral) until you change it. Never Dolby Atmos.
+- Clip guard (Equalizer on the PC, Settings › Sound on the phone): a limiter just under full scale catches a peak the EQ, ReplayGain or a song's volume would push over, instead of letting it crackle
+- Android: the EQ, song volume, ReplayGain, crossfeed and mono now work on hi-res (32-bit float) playback too; before, float output skipped them
+- Android: Dither: 16-bit music through the EQ is rounded with TPDF dither, so quiet fades stay smooth
+- Loudness compensation: turned down, bass and treble are lifted back as far as the volume is down (not at all at full volume)
+- Balance: one side a little quieter, for IEMs or an ear that hears less
+- Tilt: the whole sound leant warmer or brighter around 1 kHz; only ever turns down, so it can't clip
+- Crossfeed strength: Light, Medium or Strong
+- Levelling target (ReplayGain): Quiet −23, Standard −18, Louder −16 or Loud −14 LUFS; louder than Standard is limited by Clip guard (without it, songs are never made louder than they are)
+- Auto EQ: Import… an EQ file: AutoEq's ParametricEQ.txt, a Squiglink or Equalizer APO export, or Wavelet's GraphicEQ
+- Built-in corrections for the Xenns Mangird Top Pro (AutoEq, Super Review's and Jaytiss's measurements)
+- Built-in corrections for the Sony WH-1000XM6 headphones (Bluetooth, and on the cable: AutoEq, Super Review) and the WF-1000XM6 earbuds (a gentle approximation from reviews until a full measurement is out)
+- Detail: background sounds, bass lines and the little things brought forward: the stereo a touch wider, presence and air lifted a little, the level lowered to match so nothing clips
+- Mono button: red while mono is on, the cover's colour while it's off; with Auto mono on and your earbuds connected it stays on (the button says so). The phone's Up next shows MONO while it's on
+- Android: mono, the EQ and the rest now work on hi-res songs too (2.0.1's Auto mono showed "mono is on" but those songs stayed stereo)
+- Windows: High-quality resampling: a longer, sharper filter when a song's rate has to change for your output
+
 ## 2.0.1: Mono (Windows and Android)
 - Mono: a Mono button on Now playing (the phone: the headphones button at the top; the PC: Mono beside Cast) mixes both sides into each ear, for listening with one earbud in. Lit while it's on, kept between starts; not in bit-perfect
 - Android: Settings › Auto mono (a switch, off until you turn it on): mono on its own while the earbuds you pick are connected, off again when they go. Android can't tell apps whether one earbud or both are in (Sony's and most others keep that to their own app), so it goes by the earbuds being connected; the Mono button still works by hand

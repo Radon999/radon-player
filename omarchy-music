@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "2.0.1"            # the release this is; GitHub's latest release is compared with it
+VERSION = "2.1.0"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -871,6 +871,8 @@ scale.eqband {{ min-height: 140px; padding: 0 2px; }}
 .eq {{ padding: 6px 4px 2px 4px; }}
 .eq .hz {{ color: {muted}; font-size: 0.74em; }}
 button.ctl.eq-btn label {{ font-weight: 800; font-size: 0.82em; letter-spacing: 1px; }}
+button.ctl.mono {{ color: {acc}; }}
+button.ctl.mono.on {{ color: #e5484d; }}
 button.ctl {{ background: transparent; border: none; box-shadow: none; color: {fg}; min-width: 34px; min-height: 34px; border-radius: {R}px; }}
 button.ctl:hover {{ color: {acc}; background-color: {rgba(acc, 0.10)}; }}
 button.ctl:checked, button.ctl.on, button.ctl.liked {{ color: {acc}; }}
@@ -3865,6 +3867,28 @@ class Player:
 # headphones… finds yours and brings it to the Harman target, the sound most listeners prefer.
 HEADPHONES = {
     "off": ("None", ()),
+    # Built in (AutoEq, to the Harman in-ear target): Xenns Mangird Top Pro, measured by two reviewers
+    "mangird-top-pro": ("Xenns Mangird Top Pro · Super Review", (
+        ("ls", 105, -2.6, 0.70), ("pk", 310, -2.4, 0.80), ("pk", 5665, 4.0, 3.54), ("pk", 875, 1.7, 1.09),
+        ("pk", 3144, 1.6, 2.45), ("hs", 10000, -7.6, 0.70), ("pk", 71, 0.8, 2.41), ("pk", 8299, 2.0, 1.91),
+        ("pk", 146, -0.3, 1.98), ("pk", 1763, 0.2, 3.00))),
+    "mangird-top-pro-j": ("Xenns Mangird Top Pro · Jaytiss", (
+        ("ls", 105, -1.8, 0.70), ("pk", 5757, 6.1, 2.20), ("pk", 304, -2.0, 1.02), ("pk", 1818, -1.1, 1.84),
+        ("pk", 803, 1.3, 2.30), ("hs", 10000, -7.8, 0.70), ("pk", 74, 0.9, 2.19), ("pk", 8502, 2.4, 2.28),
+        ("pk", 3346, 0.9, 3.79), ("pk", 173, -0.2, 1.53))),
+    # Sony WH-1000XM6 over Bluetooth and on its cable (AutoEq, Super Review), and the WF-1000XM6 earbuds: no full
+    # measurement of those yet, so a gentle approximation from reviews (bass with noise cancelling a few dB up, 4-8 kHz a
+    # little forward, the top a hair low)
+    "wh1000xm6-bt": ("Sony WH-1000XM6 headphones · Bluetooth", (
+        ("ls", 105, -8.3, 0.70), ("pk", 171, -4.9, 0.99), ("pk", 648, 2.5, 0.63), ("pk", 2499, -5.2, 1.50),
+        ("pk", 5689, 4.1, 0.40), ("hs", 10000, 3.3, 0.70), ("pk", 4137, 1.3, 3.44), ("pk", 6747, -2.2, 3.84),
+        ("pk", 1496, -1.5, 3.88), ("pk", 1151, 1.4, 4.07))),
+    "wh1000xm6-cable": ("Sony WH-1000XM6 headphones · cable", (
+        ("ls", 105, -1.5, 0.70), ("pk", 161, -7.5, 0.69), ("pk", 2143, 4.3, 3.66), ("pk", 1019, -5.3, 1.74),
+        ("pk", 8308, 5.3, 0.21), ("hs", 10000, -1.5, 0.70), ("pk", 57, -2.0, 2.27), ("pk", 463, 1.5, 2.87),
+        ("pk", 103, 1.7, 2.95), ("pk", 4339, 0.9, 3.49))),
+    "wf1000xm6": ("Sony WF-1000XM6 earbuds · approximate", (
+        ("ls", 250, -2.5, 0.70), ("pk", 6000, -1.5, 1.0), ("hs", 10000, 1.0, 0.70))),
 }
 EQ_BANDS = (31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 EQ_Q = 1.41         # an octave wide, so neighbouring bands blend smoothly
@@ -4044,6 +4068,59 @@ def eq_preamp(filters):
 # Headphone crossfeed: a little of each side into the other, its highs softened, as you'd hear speakers across a
 # room (ffmpeg's crossfeed, built into every ffmpeg and so every mpv). Hard-panned old records stop tiring the ears.
 CROSSFEED = "crossfeed=strength=0.3:range=0.5"
+# Clip guard (Sound): a limiter just under full scale instead of clipping, when the EQ, ReplayGain or a song's volume
+# would push a peak over. It only ever touches a peak that would clip.
+CLIP_GUARD = "alimiter=limit=0.97:attack=1:release=80:level=disabled"
+# High-quality resampling (Sound): a longer, sharper resampling filter when a song's rate has to change for the output.
+HQ_RESAMPLE = "filter_size=64,phase_shift=12,cutoff=0.97"
+
+
+def crossfeed_graph(k):
+    """Crossfeed at strength k (0.2 light, 0.3 medium, 0.45 strong)."""
+    return f"crossfeed=strength={k:g}:range=0.5"
+
+
+def balance_graph(b):
+    """Balance b (-1 all left … 1 all right): the other side turned down, never up."""
+    left, right = (1 - b if b > 0 else 1.0), (1 + b if b < 0 else 1.0)
+    return f"pan=stereo|c0={left:.3f}*c0|c1={right:.3f}*c1"
+
+
+def loudness_gains(volume):
+    """Loudness compensation for mpv's volume (0–100, a cube law): (bass dB, treble dB) to lift, 0 at full volume."""
+    down = max(0.0, -60 * math.log10(max(1, volume) / 100))
+    return min(10.0, down * 0.3), min(4.0, down * 0.12)
+
+
+def tilt_graph(t):
+    """Tilt t dB (Sound): brighter (t > 0) turns everything below 1 kHz down by t, warmer (t < 0) everything above;
+    only ever down, so it can't clip."""
+    if t > 0:
+        return f"lowshelf@tilt=f=1000:t=q:w=0.5:g={-t:.1f}"
+    return f"highshelf@tilt=f=1000:t=q:w=0.5:g={t:.1f}" if t < 0 else ""
+
+
+def parse_eq_file(text):
+    """An EQ file you import: parametric (AutoEq's ParametricEQ.txt, Equalizer APO's config, Squiglink's export),
+    else a GraphicEQ (Wavelet's, AutoEq's): its filters."""
+    try:
+        return parse_parametric(text)
+    except ValueError:
+        if "GraphicEQ" in text or re.search(r"\d+\s+-?[\d.]+\s*;", text):
+            return graphic_to_filters(text)
+        raise ValueError("that file has no EQ in it (a parametric or GraphicEQ file is wanted)")
+
+
+# Detail (Equalizer): the little things brought forward: the sides (where ambience and background parts sit) a touch
+# louder, presence and air lifted a little, all 2.5 dB lower first so nothing clips.
+DETAIL = ("volume@dpre=volume=-2.5dB,extrastereo@dw=m=1.25:c=false,equalizer@dp=f=3000:t=q:w=1.0:g=1.5,"
+          "highshelf@da=f=10000:t=q:w=0.7:g=1.5")
+
+
+# Levelling target (Sound › ReplayGain): how loud ReplayGain makes songs, in LUFS. ReplayGain's own is about -18.
+RG_TARGETS = ((-23.0, "Quiet (−23 LUFS)"), (-18.0, "Standard (−18 LUFS)"), (-16.0, "Louder (−16)"), (-14.0, "Loud (−14, like Spotify)"))
+
+
 # Mono (the player's Mono button): both sides mixed into each ear, for one earbud in. Stays two channels.
 MONO = "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1"
 
@@ -4069,7 +4146,7 @@ def eq_graph(correction, bands, preamp, tone=None):
 AUTOEQ_RESULTS = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/"
 AUTOEQ_INDEX = CACHE / "autoeq-index.md"
 AUTOEQ_INDEX_FOR = 7 * 86400   # seconds the index is kept before it's fetched again
-AUTOEQ_TYPES = {"PK": "pk", "LSC": "ls", "HSC": "hs", "LS": "ls", "HS": "hs"}
+AUTOEQ_TYPES = {"PK": "pk", "PEQ": "pk", "LSC": "ls", "HSC": "hs", "LS": "ls", "HS": "hs", "LSQ": "ls", "HSQ": "hs"}
 
 
 def autoeq_index_entries(text):
@@ -6078,7 +6155,8 @@ STATS_PERIODS = {"week": 7, "month": 30, "year": 365}
 
 # 2.0's switches and their defaults (the app's opts): each one off until you turn it on.
 OPTS = {"crossfade": False, "crossfade_secs": 6, "smart_transitions": False, "crossfeed": False, "continue_across": False,
-        "smart_shuffle": False, "loudness_check": False, "mono": False}   # Most played over the last so many days (and all time)
+        "smart_shuffle": False, "loudness_check": False, "mono": False,
+        "clip_guard": False, "loudness_comp": False, "hq_resample": False, "balance": 0.0, "crossfeed_k": 0.3, "tilt": 0.0, "rg_target": -18.0, "detail": False}   # Most played over the last so many days (and all time)
 
 
 def all_scrobbles(fm, progress=None):
@@ -10369,6 +10447,7 @@ class MusicWindow(Adw.ApplicationWindow):
         self.mono_btn = Gtk.Button(label="Mono", valign=Gtk.Align.CENTER, tooltip_text="Mono: both sides in each ear, for one earbud in")
         self.mono_btn.add_css_class("ctl")
         self.mono_btn.add_css_class("eq-btn")
+        self.mono_btn.add_css_class("mono")   # red while it's on, the cover's colour while it's off
         if app.opt("mono"):
             self.mono_btn.add_css_class("on")
 
@@ -10545,6 +10624,14 @@ class MusicWindow(Adw.ApplicationWindow):
         for key, name, about in (
                 ("crossfeed", "Headphone crossfeed", "A little of each side into the other, as from speakers across a room: "
                                                      "easier on the ears with old hard-panned records"),
+                ("clip_guard", "Clip guard", "A limiter catches a peak the EQ, ReplayGain or a song's volume would push past full "
+                                              "scale, instead of letting it crackle; it only ever touches a peak that would clip"),
+                ("loudness_comp", "Loudness compensation", "Turned down, music loses bass and treble to the ear first: this lifts "
+                                                           "them back as far as the volume is down, not at all at full volume"),
+                ("detail", "Detail", "Background sounds, bass lines and the little things brought forward: the stereo "
+                                     "a touch wider, presence and air lifted a little; the level is lowered to match so nothing clips"),
+                ("hq_resample", "High-quality resampling", "When a song's rate has to change for your output, a longer, sharper "
+                                                           "filter does it (from the next song)"),
                 ("crossfade", "Song crossfade", "Each song fades into the next (not in bit-perfect)"),
                 ("smart_transitions", "Smart transitions", "No crossfade between songs of one album: albums that flow from song "
                                                            "to song (live albums, mixes) stay seamless")):
@@ -10562,6 +10649,74 @@ class MusicWindow(Adw.ApplicationWindow):
             r.append(sw)
             box.append(r)
             self.eq_opts[key] = sw
+            if key == "smart_transitions":   # last: the balance, for IEMs a little louder on one side
+                br = Gtk.Box(spacing=8)
+                bl = Gtk.Label(label="Balance", xalign=0)
+                bl.add_css_class("sub")
+                bs = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, hexpand=True, draw_value=False)
+                bs.add_css_class("progress")
+                bs.set_range(-0.5, 0.5)
+                bs.set_increments(0.02, 0.1)
+                bs.add_mark(0, Gtk.PositionType.BOTTOM, None)
+                bs.set_value(a.opt("balance"))
+                bv = Gtk.Label(width_chars=9, xalign=1)
+                bv.add_css_class("time")
+
+                def bal_text(b):
+                    if abs(b) < 0.005:
+                        return "Centre"
+                    return f"{'L' if b < 0 else 'R'} {20 * math.log10(1 - abs(b)):.1f} dB"
+                bv.set_label(bal_text(a.opt("balance")))
+
+                def bal_moved(sc):
+                    b = round(sc.get_value() / 0.02) * 0.02
+                    bv.set_label(bal_text(b))
+                    if abs(b - a.opt("balance")) > 1e-6:
+                        a.set_opt("balance", round(b, 2))
+                bs.connect("value-changed", bal_moved)
+                br.append(bl)
+                br.append(bs)
+                br.append(bv)
+                box.append(br)
+                tr = Gtk.Box(spacing=8)
+                tl = Gtk.Label(label="Tilt", xalign=0, tooltip_text="Warmer (left) or brighter (right): the whole sound "
+                               "leant around 1 kHz, a dB at a time. Only ever turns down, so it can't clip")
+                tl.add_css_class("sub")
+                ts = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, hexpand=True, draw_value=False)
+                ts.add_css_class("progress")
+                ts.set_range(-4, 4)
+                ts.set_increments(0.5, 1)
+                ts.add_mark(0, Gtk.PositionType.BOTTOM, None)
+                ts.set_value(a.opt("tilt"))
+                tv = Gtk.Label(width_chars=9, xalign=1)
+                tv.add_css_class("time")
+
+                def tilt_text(t):
+                    return "Neutral" if abs(t) < 0.01 else f"{'Brighter' if t > 0 else 'Warmer'} {abs(t):g}"
+                tv.set_label(tilt_text(a.opt("tilt")))
+
+                def tilt_moved(sc):
+                    t = round(sc.get_value() * 2) / 2
+                    tv.set_label(tilt_text(t))
+                    if abs(t - a.opt("tilt")) > 1e-6:
+                        a.set_opt("tilt", t)
+                ts.connect("value-changed", tilt_moved)
+                tr.append(tl)
+                tr.append(ts)
+                tr.append(tv)
+                box.append(tr)
+            if key == "crossfeed":   # its strength
+                kr = Gtk.Box(spacing=8)
+                kl = Gtk.Label(label="Strength", xalign=0)
+                kl.add_css_class("sub")
+                strengths = ((0.2, "Light"), (0.3, "Medium"), (0.45, "Strong"))
+                kd = Gtk.DropDown.new_from_strings([n for _v, n in strengths])
+                now = a.opt("crossfeed_k")
+                kd.set_selected(min(range(3), key=lambda i: abs(strengths[i][0] - now)))
+                kd.connect("notify::selected", lambda d, _p: a.set_opt("crossfeed_k", strengths[d.get_selected()][0]))
+                kr.append(kl)
+                kr.append(kd)
+                box.append(kr)
             if key == "crossfade":
                 lr = Gtk.Box(spacing=8)
                 ll = Gtk.Label(label="Length", xalign=0)
@@ -10652,8 +10807,14 @@ class MusicWindow(Adw.ApplicationWindow):
         detect = Gtk.Button(label="Detect", tooltip_text="Find the headphones the sound goes to now")
         detect.add_css_class("pill")
         detect.add_css_class("quiet")
+        imp = Gtk.Button(label="Import…", tooltip_text="An EQ file: AutoEq's ParametricEQ.txt, a Squiglink or "
+                         "Equalizer APO export, or Wavelet's GraphicEQ")
+        imp.add_css_class("pill")
+        imp.add_css_class("quiet")
+        imp.connect("clicked", lambda _b: self.pick_eq_file())
         row.append(entry)
         row.append(detect)
+        row.append(imp)
         results = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         results.add_css_class("tracks")
         scroll = Gtk.ScrolledWindow(child=results, hscrollbar_policy=Gtk.PolicyType.NEVER, max_content_height=180,
@@ -10730,6 +10891,24 @@ class MusicWindow(Adw.ApplicationWindow):
         entry.connect("search-changed", changed)
         detect.connect("clicked", detect_now)
         return box
+
+    def pick_eq_file(self):
+        """Pick an EQ file to import (Auto EQ's Import…)."""
+        filt = Gtk.FileFilter(name="EQ files (.txt)")
+        for pat in ("*.txt", "*.TXT", "*.csv"):
+            filt.add_pattern(pat)
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(filt)
+        dlg = Gtk.FileDialog(title="Import an EQ file", filters=filters, default_filter=filt)
+
+        def chosen(d, res):
+            try:
+                f = d.open_finish(res)
+            except GLib.Error:
+                return   # cancelled
+            if f and f.get_path():
+                self.app.import_eq_file(f.get_path())
+        dlg.open(self, None, chosen)
 
     def update_eq(self):
         self.update_np_output()
@@ -12054,6 +12233,12 @@ class MusicWindow(Adw.ApplicationWindow):
         rg.connect("notify::active-name", lambda g, _p: g.get_active_name() and a.set_replaygain(g.get_active_name()))
         line("ReplayGain", "Songs as loud as each other (Track), or albums as their makers set them (Album), from the "
              "files' tags. Off in bit-perfect", False, rg)
+        td = Gtk.DropDown.new_from_strings([n for _v, n in RG_TARGETS])
+        td.set_valign(Gtk.Align.CENTER)
+        td.set_selected(min(range(len(RG_TARGETS)), key=lambda i: abs(RG_TARGETS[i][0] - a.opt("rg_target"))))
+        td.connect("notify::selected", lambda d, _p: a.set_opt("rg_target", RG_TARGETS[d.get_selected()][0]))
+        line("Levelling target", "How loud ReplayGain makes your songs. Louder than Standard, turn on Clip guard "
+             "(Equalizer) so peaks are limited, not clipped", False, td)
 
         group("Tags, lyrics & more")
         t = a.tagger
@@ -25019,6 +25204,10 @@ class MusicApp(Adw.Application):
             self.player.set_volume(self.volume, True)
             return
         self.player.set_volume(self.volume, self.muted)
+        if self.opt("loudness_comp"):   # its lift follows the volume, without a gap
+            lo, hi = loudness_gains(self.volume)
+            self.player.filter_cmd("g", f"{lo:.1f}", "lowshelf@ldlo")
+            self.player.filter_cmd("g", f"{hi:.1f}", "highshelf@ldhi")
         self.mpris.changed()
         if self.win:
             self.win.update_volume()
@@ -25061,6 +25250,16 @@ class MusicApp(Adw.Application):
 
     def eq_correction(self):
         return self.headphones().get(self.eq["headphones"], HEADPHONES["off"])[1]
+
+    def import_eq_file(self, path):
+        """An EQ file of yours (AutoEq, Squiglink, Wavelet, Equalizer APO) among your headphones, and used."""
+        try:
+            filters = parse_eq_file(Path(path).read_text(encoding="utf-8", errors="replace"))
+        except (OSError, ValueError) as e:
+            self.toast(f"Couldn't import it: {str(e)[:80]}")
+            return
+        name = re.sub(r"\s*(ParametricEQ|GraphicEQ)$", "", Path(path).stem).strip() or "My EQ"
+        self.add_autoeq({"name": name, "source": "imported"}, filters)
 
     def add_autoeq(self, entry, filters):
         """Keep an AutoEq profile among your headphones and use it."""
@@ -25309,8 +25508,12 @@ class MusicApp(Adw.Application):
     def set_opt(self, key, value):
         self.opts[key] = value
         self.save_state()
-        if key in ("crossfeed", "mono"):
+        if key in ("crossfeed", "mono", "clip_guard", "loudness_comp", "balance", "crossfeed_k", "tilt", "detail"):
             self.apply_eq()
+        if key == "rg_target":
+            self.apply_rg_target()
+        if key == "hq_resample":
+            self.player.cmd("set_property", "audio-swresample-o", HQ_RESAMPLE if value else "")
         if key == "loudness_check" and value:
             self.quality_scan()
 
@@ -25376,12 +25579,32 @@ class MusicApp(Adw.Application):
         """(Re)build mpv's filters from the settings; the music skips a beat. Headphone crossfeed goes last."""
         graph = eq_graph(self.eq_correction(), self.eq["bands"], self.eq_preamp(),
                          {name: self.eq[name] for name in TONE}) if self.eq["on"] else ""
+        if self.opt("loudness_comp"):
+            lo, hi = loudness_gains(self.volume)
+            graph = ",".join(x for x in (graph, f"lowshelf@ldlo=f=90:t=q:w=0.71:g={lo:.1f}",
+                                         f"highshelf@ldhi=f=9000:t=q:w=0.71:g={hi:.1f}") if x)
+        if self.opt("detail"):
+            graph = ",".join(x for x in (graph, DETAIL) if x)
+        if self.opt("tilt"):
+            graph = ",".join(x for x in (graph, tilt_graph(self.opt("tilt"))) if x)
+        if self.opt("balance"):
+            graph = ",".join(x for x in (graph, balance_graph(self.opt("balance"))) if x)
         if self.opt("crossfeed"):
-            graph = ",".join(x for x in (graph, CROSSFEED) if x)
+            graph = ",".join(x for x in (graph, crossfeed_graph(self.opt("crossfeed_k"))) if x)
         if self.opt("mono"):
             graph = ",".join(x for x in (graph, MONO) if x)
+        if self.opt("clip_guard"):
+            graph = ",".join(x for x in (graph, CLIP_GUARD) if x)
         self.player.set_filters(graph)
+        self.player.cmd("set_property", "audio-swresample-o", HQ_RESAMPLE if self.opt("hq_resample") else "")
+        self.apply_rg_target()
         self.eq_synced = True
+
+    def apply_rg_target(self):
+        """ReplayGain to the levelling target: a pre-gain on top of its own -18 LUFS. Louder than that, peaks are kept
+        under full scale by ReplayGain's own clip prevention, or by Clip guard's limiter when that's on."""
+        self.player.cmd("set_property", "replaygain-preamp", f"{self.opt('rg_target') + 18:g}")
+        self.player.cmd("set_property", "replaygain-clip", "no" if self.opt("clip_guard") else "yes")
 
     def retune_eq(self):
         """Set the bands and pre-gain in the running filters, without a gap. mpv
