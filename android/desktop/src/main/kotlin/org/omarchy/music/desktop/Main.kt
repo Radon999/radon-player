@@ -54,9 +54,10 @@ fun App(player: Player) {
     var q by remember { mutableStateOf("") }
     var now by remember { mutableStateOf<Song?>(null) }
     var paused by remember { mutableStateOf(false) }
-    var tab by remember { mutableStateOf("songs") }   // songs, or playlists
+    var tab by remember { mutableStateOf("songs") }   // songs, albums, artists or playlists
     var lists by remember { mutableStateOf<List<Library.Playlist>>(emptyList()) }
     var open by remember { mutableStateOf<Library.Playlist?>(null) }
+    var group by remember { mutableStateOf<Library.Group?>(null) }   // the album or artist open
     LaunchedEffect(Unit) {
         songs = withContext(Dispatchers.IO) { Library.scan() }
         lists = withContext(Dispatchers.IO) { Library.playlists() }
@@ -65,9 +66,20 @@ fun App(player: Player) {
     val shown = remember(songs, q, tab, open) {
         val all = songs ?: emptyList()
         val pl = open
+        val g = group
         if (tab == "playlists" && pl != null) pl.tracks.mapNotNull { t ->
             Library.fileOf(t, all)?.let { f -> Song(f, t.title, t.artist, t.album, "", 0, t.duration.toInt()) } }
+        else if (g != null) g.songs
         else Library.search(all, q)
+    }
+    // Albums or artists, searched as you type (by their name and artist)
+    val groups = remember(songs, q, tab) {
+        val all = songs ?: emptyList()
+        when (tab) {
+            "albums" -> Library.albums(all)
+            "artists" -> Library.artists(all)
+            else -> emptyList()
+        }.let { gs -> Library.searchGroups(gs, q) }
     }
 
     fun play(i: Int) {
@@ -92,12 +104,14 @@ fun App(player: Player) {
             }
         }
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((key, name) in listOf("songs" to "Songs", "playlists" to "Playlists")) {
+            for ((key, name) in listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists", "playlists" to "Playlists")) {
                 val on = tab == key
                 Text(name, style = T.tab.copy(color = if (on) C.darker else C.fg), modifier = Modifier.clip(R.pill)
-                    .background(if (on) C.accent else C.light).clickable { tab = key; open = null }.padding(horizontal = 14.dp, vertical = 6.dp))
+                    .background(if (on) C.accent else C.light).clickable { tab = key; open = null; group = null }
+                    .padding(horizontal = 14.dp, vertical = 6.dp))
             }
             open?.let { Text("‹ ${it.name}", style = T.title, modifier = Modifier.clickable { open = null }.padding(6.dp)) }
+            group?.let { Text("‹ ${it.name}", style = T.title, modifier = Modifier.clickable { group = null }.padding(6.dp)) }
         }
         if (tab == "playlists" && open == null) LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
             items(lists.size) { i ->
@@ -108,6 +122,19 @@ fun App(player: Player) {
                     Text(pl.name, style = T.title, modifier = Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                     Text("%,d songs".format(pl.tracks.size), style = T.time)
+                }
+            }
+        } else if ((tab == "albums" || tab == "artists") && group == null) LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
+            items(groups.size) { i ->
+                val gr = groups[i]
+                Row(Modifier.fillMaxWidth().clip(R.small).clickable { group = gr }.padding(vertical = 8.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (tab == "albums") Ico.DISC else Ico.PERSON, C.muted, 20.dp)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(gr.name, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (gr.sub.isNotEmpty()) Text(gr.sub, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text("%,d songs".format(gr.songs.size), style = T.time)
                 }
             }
         } else LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {

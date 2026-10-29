@@ -84,6 +84,33 @@ object Library {
         }
     }
 
+    /** An album or an artist: its name, a line under it (the album's artist), and its songs in order. */
+    data class Group(val key: String, val name: String, val sub: String, val songs: List<Song>)
+
+    /** Your albums: songs with an album, by album artist (else artist) and album, in track order. */
+    fun albums(songs: List<Song>): List<Group> = songs.filter { it.album.isNotBlank() }
+        .groupBy { org.omarchy.music.norm(it.albumArtist.ifEmpty { it.artist }) + "|" + org.omarchy.music.norm(it.album) }
+        .map { (k, ss) -> val f = ss.first(); Group(k, f.album, f.albumArtist.ifEmpty { f.artist }, ss.sortedBy { it.track }) }
+        .sortedBy { org.omarchy.music.norm(it.name) }
+
+    /** Your artists: songs by their album artist (else artist), each artist's albums together. */
+    fun artists(songs: List<Song>): List<Group> = songs
+        .groupBy { org.omarchy.music.norm(it.albumArtist.ifEmpty { it.artist }) }
+        .map { (k, ss) ->
+            val f = ss.first()
+            val albums = ss.map { it.album }.filter { it.isNotBlank() }.distinct().size
+            Group(k, f.albumArtist.ifEmpty { f.artist }, if (albums == 0) "" else if (albums == 1) "1 album" else "$albums albums",
+                ss.sortedWith(compareBy({ org.omarchy.music.norm(it.album) }, { it.track })))
+        }
+        .sortedBy { org.omarchy.music.norm(it.name) }
+
+    /** The groups whose name or line has every word of q in it. */
+    fun searchGroups(groups: List<Group>, q: String): List<Group> {
+        val words = org.omarchy.music.norm(q).split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return groups
+        return groups.filter { g -> org.omarchy.music.norm("${g.name} ${g.sub}").let { h -> words.all { it in h } } }
+    }
+
     /** The songs whose title, artist or album has every word of q in it (tidied as norm does), in their order. */
     fun search(songs: List<Song>, q: String): List<Song> {
         val words = org.omarchy.music.norm(q).split(' ').filter { it.isNotEmpty() }
