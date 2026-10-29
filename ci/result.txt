@@ -1,29 +1,37 @@
-run 40872984665 · Thu Oct 29 12:29:23 UTC 2026
-BUILD OK
+run 40875128463 · Thu Oct 29 12:43:38 UTC 2026
+BUILD FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:555:5 Platform declaration clash: The following declarations have the same JVM signature (setAlbumPicks(Ljava/util/Map;)V):
+    fun `<set-albumPicks>`(`<set-?>`: Map<String, String>): Unit defined in org.omarchy.music.Music
+    fun setAlbumPicks(more: Map<String, String>): Unit defined in org.omarchy.music.Music
+e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:556:5 Platform declaration clash: The following declarations have the same JVM signature (setAlbumPicks(Ljava/util/Map;)V):
+    fun `<set-albumPicks>`(`<set-?>`: Map<String, String>): Unit defined in org.omarchy.music.Music
+    fun setAlbumPicks(more: Map<String, String>): Unit defined in org.omarchy.music.Music
+--
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+> Task :app:optimizeReleaseResources
 
-> Task :app:compileReleaseJavaWithJavac
-  int max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.LongSummaryStatistics {
-  long count;
-  long sum;
-  long min;
-  long max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
-  long count;
-  double sum;
-  double min;
-  double max;
-}`
+> Task :app:compileReleaseKotlin FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:555:5 Platform declaration clash: The following declarations have the same JVM signature (setAlbumPicks(Ljava/util/Map;)V):
+    fun `<set-albumPicks>`(`<set-?>`: Map<String, String>): Unit defined in org.omarchy.music.Music
+    fun setAlbumPicks(more: Map<String, String>): Unit defined in org.omarchy.music.Music
+e: file:///home/runner/work/radon-player/radon-player/app/android/app/src/main/java/org/omarchy/music/Music.kt:556:5 Platform declaration clash: The following declarations have the same JVM signature (setAlbumPicks(Ljava/util/Map;)V):
+    fun `<set-albumPicks>`(`<set-?>`: Map<String, String>): Unit defined in org.omarchy.music.Music
+    fun setAlbumPicks(more: Map<String, String>): Unit defined in org.omarchy.music.Music
 
-> Task :app:lintVitalAnalyzeRelease
-> Task :app:compileReleaseArtProfile
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+FAILURE: Build failed with an exception.
 
-BUILD SUCCESSFUL in 4m 32s
-52 actionable tasks: 52 executed
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 3m 13s
+38 actionable tasks: 38 executed
