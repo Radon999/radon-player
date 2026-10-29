@@ -93,6 +93,9 @@ jobs:
           git fetch -q origin "$B"
           sed 1d ../work/ci/next/PUSH > "$RUNNER_TEMP/message"
           grep -q . "$RUNNER_TEMP/message" || echo "Radon Player Next" > "$RUNNER_TEMP/message"
+          # The newest patch's own message (ci/next/N.msg beside N.patch.b64), when it has one
+          LAST="$(ls ../work/ci/next/*.patch.b64 | sort -V | tail -1)"
+          [ -f "${LAST%.patch.b64}.msg" ] && cp "${LAST%.patch.b64}.msg" "$RUNNER_TEMP/message" || true
           C=$(git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
           git push origin "$C:refs/heads/$B"
   windows:
