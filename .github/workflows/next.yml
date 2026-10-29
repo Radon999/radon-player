@@ -67,6 +67,7 @@ jobs:
         working-directory: work
         run: |
           mkdir -p ci/next
+          git config user.name Radon999; git config user.email radon721690@gmail.com
           { echo "run ${{ github.run_id }} · $(date -u)"; \
             if [ -f ../app/android/app/build/outputs/apk/release/app-release.apk ]; then echo "PHONE OK"; else echo "PHONE FAILED"; fi; \
             if ls ../app/android/desktop/build/compose/jars/*.jar >/dev/null 2>&1; then echo "PC OK"; else echo "PC FAILED"; fi; \
@@ -117,7 +118,7 @@ jobs:
         working-directory: app
         run: |
           git checkout -q "$NEXT_BASE"
-          for f in $(ls ../work/ci/next/*.patch.b64 | sort -V); do base64 -d "$f" | gunzip | git apply --whitespace=nowarn -; done
+          for f in $(ls ../work/ci/next/*.patch.b64 | sort -V); do tr -d '\r\n' < "$f" | base64 -d | gunzip | git apply --whitespace=nowarn -; done
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
