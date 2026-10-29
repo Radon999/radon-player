@@ -1,0 +1,127 @@
+# Radon Player Next: the one-codebase app (radon-player-next). Patches (ci/next/*.patch.b64, applied in order on
+# NEXT_BASE, Radon Player 2.0.0) are built and tested here: the shared code's tests, the phone's app (a side-by-side
+# test app, "Radon Player Next", so 2.0 stays as it is) and the PC app (on Windows: an installer). With ci/next/PUSH
+# present, the code goes to radon-player-next as one new commit (its first line: the branch; the rest: the message).
+name: Next build
+on:
+  push:
+    branches: [android-work]
+    paths: ["ci/next/*.patch.b64", "ci/next/PUSH"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: next
+  cancel-in-progress: false
+env:
+  NEXT_BASE: 328819e988a4dddea0f02e8c999402f77187b499
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: android-work
+          path: work
+      - uses: actions/checkout@v6
+        with:
+          ref: radon-player-next
+          path: app
+          fetch-depth: 0
+      - name: Apply the patches
+        working-directory: app
+        run: |
+          git checkout -q "$NEXT_BASE"
+          for f in $(ls ../work/ci/next/*.patch.b64 | sort -V); do
+            echo "applying $f"
+            base64 -d "$f" | gunzip | git apply --whitespace=nowarn -
+          done
+          git add -A
+          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "Radon Player Next" || true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Tidal's app keys
+        working-directory: app
+        run: |
+          python -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python android/tools/tidal-keys.sh
+      - name: A side-by-side app, with the test key
+        working-directory: app
+        run: |
+          base64 -d ../work/ci/test.keystore.b64 > "$RUNNER_TEMP/test.keystore"
+          mkdir -p ~/.local/share/omarchy-music
+          printf 'storeFile=%s\nstorePassword=varmusictest\nkeyAlias=test\nkeyPassword=varmusictest\n' "$RUNNER_TEMP/test.keystore" > ~/.local/share/omarchy-music/keystore.properties
+          sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.next"/' android/app/build.gradle.kts
+          sed -i 's/android:label="Radon Player"/android:label="Radon Player Next"/' android/app/src/main/AndroidManifest.xml
+      - name: Build and test
+        working-directory: app/android
+        run: |
+          ./gradlew --no-daemon :shared:test :app:assembleRelease :desktop:packageUberJarForCurrentOS > "$RUNNER_TEMP/build.log" 2>&1 || true
+      - name: Say how it went (ci/next/result.txt)
+        if: always()
+        working-directory: work
+        run: |
+          mkdir -p ci/next
+          { echo "run ${{ github.run_id }} · $(date -u)"; \
+            if [ -f ../app/android/app/build/outputs/apk/release/app-release.apk ]; then echo "PHONE OK"; else echo "PHONE FAILED"; fi; \
+            if ls ../app/android/desktop/build/compose/jars/*.jar >/dev/null 2>&1; then echo "PC OK"; else echo "PC FAILED"; fi; \
+            if [ -d ../app/android/shared/build/test-results/test ]; then echo "TESTS: $(grep -ho 'tests="[0-9]*"\|failures="[0-9]*"' ../app/android/shared/build/test-results/test/*.xml | tr '\n' ' ')"; fi; \
+            grep -E "^e: |error:|What went wrong|FAILED" -A3 "$RUNNER_TEMP/build.log" | head -150; \
+            tail -25 "$RUNNER_TEMP/build.log"; } > ci/next/result.txt || true
+          cp ../app/android/app/build/outputs/apk/release/app-release.apk ci/next/RadonPlayer-Next.apk || true
+          git add ci/next/result.txt; git add ci/next/RadonPlayer-Next.apk || true
+          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "ci: next result" || true
+          git pull -q --rebase origin android-work || true
+          git push origin HEAD:android-work || true
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: RadonPlayerNext-pc-jar
+          path: app/android/desktop/build/compose/jars/*.jar
+          if-no-files-found: ignore
+      - name: To radon-player-next
+        if: hashFiles('work/ci/next/PUSH') != ''
+        working-directory: app
+        run: |
+          git checkout -q -- android/app/build.gradle.kts android/app/src/main/AndroidManifest.xml
+          B="$(head -1 ../work/ci/next/PUSH | tr -d '[:space:]' | grep . || echo radon-player-next)"
+          git fetch -q origin "$B"
+          sed 1d ../work/ci/next/PUSH > "$RUNNER_TEMP/message"
+          grep -q . "$RUNNER_TEMP/message" || echo "Radon Player Next" > "$RUNNER_TEMP/message"
+          C=$(git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
+          git push origin "$C:refs/heads/$B"
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: android-work
+          path: work
+      - uses: actions/checkout@v6
+        with:
+          ref: radon-player-next
+          path: app
+          fetch-depth: 0
+      - name: Apply the patches
+        shell: bash
+        working-directory: app
+        run: |
+          git checkout -q "$NEXT_BASE"
+          for f in $(ls ../work/ci/next/*.patch.b64 | sort -V); do base64 -d "$f" | gunzip | git apply --whitespace=nowarn -; done
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: The PC installer
+        shell: bash
+        working-directory: app/android
+        run: ./gradlew --no-daemon :desktop:packageMsi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: RadonPlayerNext-windows
+          path: app/android/desktop/build/compose/binaries/main/msi/*.msi
