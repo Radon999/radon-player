@@ -19,6 +19,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":ui-common"))
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation("net.jthink:jaudiotagger:3.0.1")   // reading songs' tags, as mutagen does on the Python app

@@ -70,6 +70,7 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":ui-common"))
     val compose = "1.7.0-rc01"
     val media3 = "1.4.1"
     implementation("androidx.core:core-ktx:1.13.1")

@@ -11,14 +11,6 @@ import java.io.File
 // The app's files, in the same shapes as the desktop's: library.json (songs saved here),
 // missing.json, playlists.json, plays.json and state.json, in the app's private folder.
 
-fun writeAtomic(file: File, text: String) {
-    file.parentFile?.mkdirs()
-    val tmp = File(file.path + ".tmp")
-    tmp.writeText(text)
-    tmp.renameTo(file)
-}
-
-fun readText(file: File): String? = try { file.readText() } catch (_: Exception) { null }
 
 /** Whether a content:// (or file) address still opens: songs deleted by hand drop out. */
 fun uriExists(ctx: Context, uri: String): Boolean = try {

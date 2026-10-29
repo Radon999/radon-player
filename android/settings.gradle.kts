@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "OmarchyMusic"
-include(":app", ":shared", ":desktop")
+include(":app", ":shared", ":ui-common", ":desktop")
 // shared: the code the phone and the PC run alike (names, matching, …); desktop: the PC app, in Compose like the phone's
