@@ -1,0 +1,9 @@
+radon-player-next
+Radon Player Next: one codebase for the phone and the PC (Kotlin + Compose)
+
+The start of the move from the Python/GTK PC app and the Kotlin phone app to one Kotlin codebase:
+- shared/: the code both run alike, starting with the names code (norm, cleanTitle, similar, editions,
+  singles, EPs, live names), with its tests; the phone app now builds on it
+- desktop/: the PC app in Compose Multiplatform, on the shared code: your songs, searched as you type,
+  played through mpv
+2.0.0 stays on radon-player as it was.
