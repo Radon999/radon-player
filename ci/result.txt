@@ -1,8 +1,7 @@
-run 40862146717 · Thu Oct 29 11:06:35 UTC 2026
+run 40867315012 · Thu Oct 29 11:44:29 UTC 2026
 BUILD OK
 
 > Task :app:compileReleaseJavaWithJavac
-  int min;
   int max;
 }`
 Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.LongSummaryStatistics {
@@ -21,9 +20,10 @@ Info: Proguard configuration rule does not match anything: `-keepclassmembers cl
 > Task :app:compileReleaseArtProfile
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalAnalyzeRelease
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
 
-BUILD SUCCESSFUL in 4m 33s
+BUILD SUCCESSFUL in 2m 41s
 52 actionable tasks: 52 executed
