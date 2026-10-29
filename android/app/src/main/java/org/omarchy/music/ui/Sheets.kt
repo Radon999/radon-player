@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -926,6 +927,7 @@ private fun EqSheet(ui: Ui) {
                     Text(Eq.fmtDb(g), style = T.time, modifier = Modifier.width(44.dp).clickable { Music.setEqTone(k, 0.0) })
                 }
             }
+            BoostFader(eq)
             Text("Sound", style = T.section, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
             ChipRow(Eq.PRESETS.map { (k, v) -> k to v.first }, eq.preset) { Music.setEqPreset(it) }
             // The bands: one line each (31 fit this way), the frequency, the slider, the gain.
@@ -950,6 +952,43 @@ private fun EqSheet(ui: Ui) {
             Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB keeps the boosts from clipping." else "Off: the music plays untouched.",
                 style = T.sub, modifier = Modifier.padding(top = 8.dp))
           }
+        }
+    }
+}
+
+/** Boost: a fader from normal (the bottom) to 12 dB louder, on everything, for this output. A line marks how far it
+ *  goes cleanly (the EQ's own pre-cut back, and a little the limiter does unheard); above it the limiter squashes peaks. */
+@Composable
+private fun BoostFader(eq: org.omarchy.music.EqSettings) {
+    val clean = Eq.boostClean(eq)
+    val b = eq.boost
+    val over = b > clean
+    val red = MONO_RED
+    Text("Boost", style = T.section, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val h = 170.dp
+        val inset = 10.dp   // the thumb's room at each end
+        Box(Modifier.width(56.dp).height(h)) {
+            Slider(b.toFloat(), { Music.setEqBoost(it.toDouble()) }, valueRange = 0f..Eq.BOOST_MAX.toFloat(),
+                colors = SliderDefaults.colors(thumbColor = if (over) red else C.accent, activeTrackColor = if (over) red else C.accent,
+                    inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+                modifier = Modifier.vertical().width(h).align(Alignment.Center))
+            // the clean line, across the fader
+            val y = inset + (h - inset * 2) * (1f - (clean / Eq.BOOST_MAX).toFloat())
+            Box(Modifier.offset(y = y - 1.dp).fillMaxWidth().height(2.dp).background(red.copy(alpha = 0.8f)))
+        }
+        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+            Text(if (b == 0.0) "Off: normal volume" else "+${"%.1f".format(b).removeSuffix(".0")} dB louder",
+                style = T.title.copy(color = if (over) red else C.fg))
+            Text(when {
+                b == 0.0 -> "Louder than normal for quiet headphones, on everything you play, and only on this output. " +
+                    "Clean up to the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here)"
+                over -> "Past the line: the limiter is squashing the peaks to keep them from clipping. Fine for noisy places; " +
+                    "for the best sound stay at or under +${"%.1f".format(clean).removeSuffix(".0")} dB"
+                else -> "Clean: under the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here, more with the EQ " +
+                    "turning things down)"
+            }, style = T.sub)
+            if (b > 0) Pill("Off", quiet = true) { Music.setEqBoost(0.0) }
         }
     }
 }

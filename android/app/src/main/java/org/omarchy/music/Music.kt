@@ -2383,6 +2383,9 @@ object Music {
         }
         if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (eq.on) "" else " (off)")
     }
+    /** Boost: dB louder than normal (0-12) on everything, kept for this output. */
+    fun setEqBoost(db: Double) = setEq { it.copy(boost = (kotlin.math.round(db.coerceIn(0.0, Eq.BOOST_MAX) * 2) / 2)) }
+
     fun setEqTone(name: String, gain: Double) = setEq {
         if (name == "bass") it.copy(bass = Eq.clamp(gain), on = true) else it.copy(treble = Eq.clamp(gain), on = true)
     }

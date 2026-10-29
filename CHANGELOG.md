@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 2.1.2: Boost (Windows and Android)
+- Equalizer › Boost: a fader from normal (the bottom) up to 12 dB louder, for headphones that are too quiet. It's on everything you play, not one song, and each output keeps its own (the car stays at normal). A red line marks how far it goes cleanly: the EQ's own pre-cut back, plus a couple of dB the limiter does without being heard. Above the line the limiter squashes the peaks to keep them from clipping, and the fader turns red
+
 ## 2.1.1: Car EQ (Windows and Android)
 - EQ presets for the Chevy Colorado (2023 and later), the standard system and Bose: tuned for every kind of music, not one genre (the cab's boom around 250 Hz down, the dash's glare softened, air added back). Picked on the car's Bluetooth, the phone remembers it for the car
 

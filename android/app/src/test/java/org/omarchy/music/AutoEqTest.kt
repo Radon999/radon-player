@@ -30,6 +30,8 @@ class AutoEqTest {
         assertEquals(listOf(Filter("ls", 105.0, -2.6, 0.7), Filter("hs", 10000.0, -7.6, 0.7)), f)
         assertEquals(10, AutoEq.parseFile("GraphicEQ: 20 -1.0; 1000 0.0; 20000 2.0").size)
         assertEquals(10, Eq.HEADPHONES["mangird-top-pro"]!!.second.size)
+        assertEquals(2.0, Eq.boostClean(EqSettings()), 0.01)   // EQ off: the limiter's unheard 2 dB
+        assertEquals(true, Eq.boostClean(EqSettings(on = true, headphones = "mangird-top-pro")) > 5.0)
     }
 
     @Test fun knowsTheHeadphonesFromTheirName() {

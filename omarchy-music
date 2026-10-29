@@ -102,7 +102,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango  # noqa: E402
 
-VERSION = "2.1.1"            # the release this is; GitHub's latest release is compared with it
+VERSION = "2.1.2"            # the release this is; GitHub's latest release is compared with it
 REPO = "Radon999/radon-player"   # updates come from here: its releases, and its code (Linux)
 
 # OMARCHY_MUSIC_PROFILE=dev runs a second copy beside the real one, with its own
@@ -873,6 +873,7 @@ scale.eqband {{ min-height: 140px; padding: 0 2px; }}
 button.ctl.eq-btn label {{ font-weight: 800; font-size: 0.82em; letter-spacing: 1px; }}
 button.ctl.mono {{ color: {acc}; }}
 button.ctl.mono.on {{ color: #e5484d; }}
+label.time.warn {{ color: #e5484d; }}
 button.ctl {{ background: transparent; border: none; box-shadow: none; color: {fg}; min-width: 34px; min-height: 34px; border-radius: {R}px; }}
 button.ctl:hover {{ color: {acc}; background-color: {rgba(acc, 0.10)}; }}
 button.ctl:checked, button.ctl.on, button.ctl.liked {{ color: {acc}; }}
@@ -3909,11 +3910,20 @@ EQ_PRESETS = {
 # Bass and treble: a low and a high shelf on top of the bands, (type, Hz, Q).
 TONE = {"bass": ("ls", 100, 0.71), "treble": ("hs", 8000, 0.71)}
 EQ_DEFAULT = {"on": False, "headphones": "off", "preset": "flat", "bands": [0.0] * 10, "custom": [0.0] * 10,
-              "bass": 0.0, "treble": 0.0, "count": 10, "per_output": True, "outputs": {}}
+              "bass": 0.0, "treble": 0.0, "count": 10, "per_output": True, "outputs": {}, "boost": 0.0}
 # How many bands: 3, 5, 10, 15 or 31 (a third of an octave each, like a graphic EQ's).
 EQ_COUNTS = (3, 5, 10, 15, 31)
 # What each output keeps of its own: the whole EQ, as it was set there last.
-EQ_OUTPUT_KEYS = ("on", "headphones", "preset", "bands", "custom", "bass", "treble", "count")
+EQ_OUTPUT_KEYS = ("on", "headphones", "preset", "bands", "custom", "bass", "treble", "count", "boost")
+# Boost (Equalizer): extra loudness for quiet headphones, 0 to 12 dB, on any sound; Clip guard's limiter keeps its peaks
+# from clipping. Up to the EQ's own pre-cut (and a couple of dB the limiter does unheard) it costs nothing.
+BOOST_MAX = 12.0
+BOOST_FREE = 2.0    # dB of the limiter catching only the odd peak: not heard
+
+
+def boost_clean(preamp):
+    """How far Boost goes before the limiter starts squashing: the EQ's pre-cut back, plus BOOST_FREE."""
+    return min(BOOST_MAX, -preamp + BOOST_FREE)
 
 
 def eq_bands_for(n):
@@ -10590,8 +10600,12 @@ class MusicWindow(Adw.ApplicationWindow):
         self.eq_auto = self.auto_eq_box()
         box.append(self.eq_auto)
 
-        self.eq_bands_box = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True)
-        box.append(self.eq_bands_box)
+        self.eq_bands_box = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True,
+                                               hexpand=True)
+        bands_row = Gtk.Box(spacing=10)
+        bands_row.append(self.eq_bands_box)
+        bands_row.append(self.boost_fader())
+        box.append(bands_row)
         self.build_eq_bands()
         tones = Gtk.Grid(column_spacing=8, row_spacing=2)
         self.eq_tones = {}
@@ -10801,6 +10815,50 @@ class MusicWindow(Adw.ApplicationWindow):
             bands.set_size_request(n * 26, -1)
         self.eq_bands_box.set_child(bands)
 
+    def boost_fader(self):
+        """Boost: a fader beside the bands, from normal (the bottom) to 12 dB louder. A line marks how far it goes
+        cleanly; above it the limiter has to squash the peaks."""
+        a = self.app
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        col.set_tooltip_text("Boost: louder than normal, for quiet headphones, on everything you play (each output its "
+                             "own). Up to the line it stays clean; above it the limiter squashes the peaks")
+        value = Gtk.Label(width_chars=5)
+        value.add_css_class("time")
+        sc = Gtk.Scale(orientation=Gtk.Orientation.VERTICAL, inverted=True, draw_value=False, halign=Gtk.Align.CENTER)
+        sc.add_css_class("volume")
+        sc.add_css_class("eqband")
+        sc.set_range(0, BOOST_MAX)
+        sc.set_increments(0.5, 1)
+        name = Gtk.Label(label="Boost")
+        name.add_css_class("hz")
+        self.boost_scale, self.boost_value = sc, value
+
+        def moved(s):
+            if not self.syncing_eq:
+                a.set_eq_boost(s.get_value())
+            self.show_boost()
+        sc.connect("value-changed", moved)
+        for w in (value, sc, name):
+            col.append(w)
+        self.show_boost()
+        return col
+
+    def show_boost(self):
+        """Boost's value and its clean line, for the EQ as it is now."""
+        sc = getattr(self, "boost_scale", None)
+        if sc is None:
+            return
+        a = self.app
+        b, clean = a.eq.get("boost", 0.0), a.boost_clean()
+        if abs(sc.get_value() - b) > 1e-6:
+            self.syncing_eq, was = True, self.syncing_eq
+            sc.set_value(b)
+            self.syncing_eq = was
+        sc.clear_marks()
+        sc.add_mark(clean, Gtk.PositionType.LEFT, "clean")
+        self.boost_value.set_label("Off" if b == 0 else f"+{b:g}")
+        (self.boost_value.add_css_class if b > clean else self.boost_value.remove_css_class)("warn")
+
     def auto_eq_box(self):
         """Auto EQ: find any headphones in AutoEq's results (as you type), or Detect the ones the
         sound goes to now, and their correction is added to Headphones and used."""
@@ -10926,6 +10984,7 @@ class MusicWindow(Adw.ApplicationWindow):
             lr.set_visible(bool(self.app.opt("crossfade")))
             sc.set_value(self.app.opt("crossfade_secs"))
             val.set_label(f"{int(self.app.opt('crossfade_secs'))} s")
+        self.show_boost()
         phones = self.app.headphones()
         if list(phones) != self.eq_phone_keys:   # an AutoEq profile was added
             self.eq_phone_keys = list(phones)
@@ -25244,6 +25303,8 @@ class MusicApp(Adw.Application):
         for key in TONE:
             if isinstance(saved.get(key), (int, float)):
                 eq[key] = max(-EQ_RANGE, min(EQ_RANGE, float(saved[key])))
+        if isinstance(saved.get("boost"), (int, float)):
+            eq["boost"] = max(0.0, min(BOOST_MAX, float(saved["boost"])))
         eq["on"] = bool(saved.get("on"))
         if eq["on"]:
             self.apply_eq()
@@ -25302,10 +25363,14 @@ class MusicApp(Adw.Application):
             for k in EQ_OUTPUT_KEYS:
                 if k in mine:
                     eq[k] = json.loads(json.dumps(mine[k]))
+            eq["boost"] = float(mine.get("boost", 0.0))   # each output its own boost; none until you set it
             if eq["headphones"] not in self.headphones():
                 eq["headphones"] = "off"
             self.apply_eq()
             self.toast(f"{label}: its own equalizer" + ("" if eq["on"] else " (off)"))
+        else:
+            eq["boost"] = 0.0   # a new output: no boost until you want it there
+            self.apply_eq()
         outs[new] = dict(self.eq_profile(), label=label, kind=kind)
         self.save_soon()
 
@@ -25587,6 +25652,9 @@ class MusicApp(Adw.Application):
             lo, hi = loudness_gains(self.volume)
             graph = ",".join(x for x in (graph, f"lowshelf@ldlo=f=90:t=q:w=0.71:g={lo:.1f}",
                                          f"highshelf@ldhi=f=9000:t=q:w=0.71:g={hi:.1f}") if x)
+        boost = self.eq.get("boost", 0.0)
+        if boost > 0:
+            graph = ",".join(x for x in (graph, f"volume@boost=volume={boost:g}dB:precision=double") if x)
         if self.opt("detail"):
             graph = ",".join(x for x in (graph, DETAIL) if x)
         if self.opt("tilt"):
@@ -25597,7 +25665,7 @@ class MusicApp(Adw.Application):
             graph = ",".join(x for x in (graph, crossfeed_graph(self.opt("crossfeed_k"))) if x)
         if self.opt("mono"):
             graph = ",".join(x for x in (graph, MONO) if x)
-        if self.opt("clip_guard"):
+        if self.opt("clip_guard") or boost > 0:   # Boost always has the limiter
             graph = ",".join(x for x in (graph, CLIP_GUARD) if x)
         self.player.set_filters(graph)
         self.player.cmd("set_property", "audio-swresample-o", HQ_RESAMPLE if self.opt("hq_resample") else "")
@@ -25671,6 +25739,27 @@ class MusicApp(Adw.Application):
             return
         self.eq[name] = gain
         self.eq_changed()
+
+    def set_eq_boost(self, db):
+        """Boost (Equalizer): extra loudness, 0 to 12 dB, kept for this output."""
+        db = round(max(0.0, min(BOOST_MAX, db)) * 2) / 2
+        if db == self.eq.get("boost", 0.0):
+            return
+        was = self.eq.get("boost", 0.0)
+        self.eq["boost"] = db
+        if was > 0 and db > 0:   # in the running filters, without a gap
+            self.player.filter_cmd("volume", f"{db:g}dB", "volume@boost")
+            self.eq_synced = False
+        else:
+            self.apply_eq()
+        self.keep_output_eq()
+        self.save_soon()
+        if self.win:
+            self.win.show_boost()
+
+    def boost_clean(self):
+        """How far Boost goes cleanly with the EQ as it is now."""
+        return boost_clean(self.eq_preamp() if self.eq["on"] else 0.0)
 
     def set_eq_band(self, i, gain):
         gain = round(max(-EQ_RANGE, min(EQ_RANGE, gain)) * 2) / 2

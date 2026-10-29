@@ -153,6 +153,12 @@ object Eq {
         return -ceil(max(0.0, peak) * 10) / 10
     }
 
+    const val BOOST_MAX = 12.0
+    const val BOOST_FREE = 2.0   // dB of the limiter catching only the odd peak: not heard
+
+    /** How far Boost goes before the limiter starts squashing: the EQ's pre-cut back, plus BOOST_FREE. */
+    fun boostClean(s: EqSettings) = min(BOOST_MAX, -(if (s.on) preamp(filters(s)) else 0.0) + BOOST_FREE)
+
     fun fmtDb(g: Double) = if (g == 0.0) "0" else (if (g > 0) "+" else "−") + "%.1f".format(kotlin.math.abs(g)).removeSuffix(".0")
 }
 
@@ -167,21 +173,22 @@ data class EqSettings(
     val perOutput: Boolean = true,                            // a separate EQ for each output (speaker, headphones, car…)
     val outputs: Map<String, OutputEq> = emptyMap(),          // each output's own EQ, by its key (see [Outputs])
     val output: String = "",                                  // the output these settings are for now
+    val boost: Double = 0.0,                                  // Boost: dB louder than normal (0-12), this output's
 ) {
     /** These settings as one output keeps them. */
-    fun toOutput(label: String) = OutputEq(label, on, headphones, preset, bands, custom, bass, treble, count)
+    fun toOutput(label: String) = OutputEq(label, on, headphones, preset, bands, custom, bass, treble, count, boost)
     /** These settings with an output's own EQ put in. */
     fun withOutput(key: String, o: OutputEq?) = if (o == null) copy(output = key, on = false, headphones = "off", preset = "flat",
-        bands = List(count) { 0.0 }, custom = List(count) { 0.0 }, bass = 0.0, treble = 0.0)
+        bands = List(count) { 0.0 }, custom = List(count) { 0.0 }, bass = 0.0, treble = 0.0, boost = 0.0)
         else copy(output = key, on = o.on, headphones = o.headphones, preset = o.preset, bands = o.bands, custom = o.custom,
-            bass = o.bass, treble = o.treble, count = o.count)
+            bass = o.bass, treble = o.treble, count = o.count, boost = o.boost)
 }
 
 /** One output's own EQ. */
 @Serializable
 data class OutputEq(val label: String = "", val on: Boolean = false, val headphones: String = "off", val preset: String = "flat",
                     val bands: List<Double> = List(10) { 0.0 }, val custom: List<Double> = List(10) { 0.0 },
-                    val bass: Double = 0.0, val treble: Double = 0.0, val count: Int = 10)
+                    val bass: Double = 0.0, val treble: Double = 0.0, val count: Int = 10, val boost: Double = 0.0)
 
 /** Where the sound goes: the phone's speaker, wired headphones, each Bluetooth device by its name (your car,
  *  your earbuds), USB. Each is a key ("speaker", "wired", "bt:Name", "usb:Name") with a label and a kind. */
@@ -223,6 +230,7 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile private var settings = EqSettings()
     @Volatile private var stages: List<Stage> = emptyList()
     @Volatile private var gain = 1.0
+    @Volatile private var boostGain = 1.0   // Boost (Equalizer): always with the limiter
     @Volatile var songGain = 1.0   // the playing song's own volume (Volume…), on top
     @Volatile var rgGain = 1.0     // ReplayGain, on top of that
     @Volatile var bypass = false   // bit-perfect: every sample passes exactly as it came
@@ -272,6 +280,7 @@ class EqProcessor : BaseAudioProcessor() {
 
     private fun rebuild() {
         val s = settings
+        boostGain = 10.0.pow(s.boost.coerceIn(0.0, Eq.BOOST_MAX) / 20)
         val t = tilt
         val extra = loudnessFilters() + when {
             t > 0 -> listOf(Filter("ls", 1000.0, -t, 0.5))
@@ -307,7 +316,7 @@ class EqProcessor : BaseAudioProcessor() {
     }
 
     /** Nothing to do: every sample would pass exactly as it came. */
-    fun idle() = bypass || (stages.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono && !detail && balance == 0.0)
+    fun idle() = bypass || (stages.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono && !detail && balance == 0.0 && boostGain == 1.0)
 
     /** The float path (EqSink, for hi-res): set up for rate and channels outside the player's processor chain. */
     fun configureFloat(sampleRate: Int, channelCount: Int) {
@@ -329,11 +338,11 @@ class EqProcessor : BaseAudioProcessor() {
             out.put(input)
             return
         }
-        val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain
+        val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain * boostGain
         val b = balance
         val gl = if (b > 0) 1.0 - b else 1.0
         val gr = if (b < 0) 1.0 + b else 1.0
-        val lim = limiter
+        val lim = limiter || boostGain > 1.0
         val rel = kotlin.math.exp(-1.0 / (0.08 * rate))   // the limiter lets go over 80 ms
         val th = 0.97
         val dith = dither && !float
