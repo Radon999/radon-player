@@ -8,37 +8,37 @@ Success
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 1.mp3' ']'
 + adb push '/tmp/Test Song 1.mp3' /sdcard/Music/
-/tmp/Test Song 1.mp3: 1 file pushed, 0 skipped. 29.9 MB/s (1097303 bytes in 0.035s)
+/tmp/Test Song 1.mp3: 1 file pushed, 0 skipped. 12.0 MB/s (1097303 bytes in 0.087s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 2.mp3' ']'
 + adb push '/tmp/Test Song 2.mp3' /sdcard/Music/
-/tmp/Test Song 2.mp3: 1 file pushed, 0 skipped. 145.6 MB/s (1097303 bytes in 0.007s)
+/tmp/Test Song 2.mp3: 1 file pushed, 0 skipped. 130.1 MB/s (1097303 bytes in 0.008s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 3.mp3' ']'
 + adb push '/tmp/Test Song 3.mp3' /sdcard/Music/
-/tmp/Test Song 3.mp3: 1 file pushed, 0 skipped. 145.1 MB/s (1097303 bytes in 0.007s)
+/tmp/Test Song 3.mp3: 1 file pushed, 0 skipped. 154.9 MB/s (1097303 bytes in 0.007s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 4.mp3' ']'
 + adb push '/tmp/Test Song 4.mp3' /sdcard/Music/
-/tmp/Test Song 4.mp3: 1 file pushed, 0 skipped. 142.0 MB/s (1097866 bytes in 0.007s)
+/tmp/Test Song 4.mp3: 1 file pushed, 0 skipped. 117.8 MB/s (1097866 bytes in 0.009s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 5.mp3' ']'
 + adb push '/tmp/Test Song 5.mp3' /sdcard/Music/
-/tmp/Test Song 5.mp3: 1 file pushed, 0 skipped. 151.1 MB/s (1097866 bytes in 0.007s)
+/tmp/Test Song 5.mp3: 1 file pushed, 0 skipped. 153.5 MB/s (1097866 bytes in 0.007s)
 + break
 + for i in 1 2 3 4 5 6
 + for e in mp3 wav
 + '[' -f '/tmp/Test Song 6.mp3' ']'
 + adb push '/tmp/Test Song 6.mp3' /sdcard/Music/
-/tmp/Test Song 6.mp3: 1 file pushed, 0 skipped. 281.0 MB/s (1097866 bytes in 0.004s)
+/tmp/Test Song 6.mp3: 1 file pushed, 0 skipped. 158.9 MB/s (1097866 bytes in 0.007s)
 + break
 + adb shell content call --method scan_volume --uri content://media --arg external_primary
 Result: Bundle[{}]
@@ -64,7 +64,7 @@ args: [-p, org.omarchy.music.test, -c, android.intent.category.LAUNCHER, 1]
 data="org.omarchy.music.test"
 data="android.intent.category.LAUNCHER"
 Events injected: 1
-## Network stats: elapsed time=140ms (0ms mobile, 0ms wifi, 140ms not connected)
+## Network stats: elapsed time=147ms (0ms mobile, 0ms wifi, 147ms not connected)
 + sleep 12
 + python3 work/ci/tap.py Wait
 not found: wait
@@ -111,6 +111,103 @@ tap test song 1 240 606
 + sleep 15
 + bgcheck '23 s after Home'
 + adb shell screencap -p
++ adb shell cmd statusbar expand-notifications
++ sleep 2
++ adb exec-out screencap -p
++ adb shell cmd statusbar collapse
++ echo '=== BACKGROUND CHECK ==='
+=== BACKGROUND CHECK ===
++ cat /home/runner/work/radon-player/radon-player/shots/bg.txt
++ echo '== playing, app open'
+== playing, app open
++ adb shell dumpsys media_session
++ grep -iE 'package=|state=PlaybackState'
++ head -12
+    package=com.android.server.telecom
+      package=org.omarchy.music.test
+      state=PlaybackState {state=PLAYING(3), position=0, buffered position=3735, speed=1.0, updated=153157, actions=7340031, custom actions=[Action:mName='Shuffle, mIcon=2131230812, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat off, mIcon=2131230810, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Favorite, mIcon=2131230814, mExtras=Bundle[EMPTY_PARCEL]], active item id=0, error=null}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=34533, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=34550, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=38167, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=38179, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.youtube
+++ adb shell pidof org.omarchy.music.test
++ echo 'pid: 5128'
+pid: 5128
++ adb shell dumpsys activity services org.omarchy.music.test
++ grep -iE 'ServiceRecord|isForeground|startRequested|foregroundId'
++ head -8
+  * ServiceRecord{89cbaac u0 org.omarchy.music.test/org.omarchy.music.MusicService}
++ echo '== 8 s after Home'
+== 8 s after Home
++ adb shell dumpsys media_session
++ head -12
++ grep -iE 'package=|state=PlaybackState'
+    package=com.android.server.telecom
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=34533, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=34550, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=38167, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=38179, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.youtube
+      state=PlaybackState {state=NONE(0), position=0, buffered position=0, speed=1.0, updated=41292, actions=8192, custom actions=[], active item id=-1, error=null}
+      package=com.google.android.apps.youtube.music
+++ adb shell pidof org.omarchy.music.test
++ echo 'pid: 5128'
+pid: 5128
++ adb shell dumpsys activity services org.omarchy.music.test
++ grep -iE 'ServiceRecord|isForeground|startRequested|foregroundId'
++ head -8
++ echo '== 23 s after Home'
+== 23 s after Home
++ adb shell dumpsys media_session
++ grep -iE 'package=|state=PlaybackState'
++ head -12
+    package=com.android.server.telecom
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=34533, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=34550, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=38167, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.bluetooth
+      state=PlaybackState {state=ERROR(7), position=0, buffered position=0, speed=0.0, updated=38179, actions=0, custom actions=[], active item id=-1, error=Bluetooth audio disconnected}
+      package=com.google.android.youtube
+      state=PlaybackState {state=NONE(0), position=0, buffered position=0, speed=1.0, updated=41292, actions=8192, custom actions=[], active item id=-1, error=null}
+      package=com.google.android.apps.youtube.music
+++ adb shell pidof org.omarchy.music.test
++ echo 'pid: 5128'
+pid: 5128
++ adb shell dumpsys activity services org.omarchy.music.test
++ grep -iE 'ServiceRecord|isForeground|startRequested|foregroundId'
++ head -8
++ echo '== logcat'
+== logcat
++ adb logcat -d
++ grep -iE 'omarchy|AndroidRuntime|FATAL|ForegroundService|MediaSessionService|MediaNotification|Killing|crash'
++ tail -120
+10-29 07:56:42.577   521  2299 D OomAdjuster: Not killing cached processes
+10-29 07:56:44.810   521   540 V WindowManager:     info={id=8 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{835824b Task{13979dc #1 type=home}}} m=TO_FRONT f=SHOW_WALLPAPER|MOVE_TO_TOP leash=Surface(name=Task=1)/@0xe7ab004 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{206b1c5 Task{359105 #8 type=standard A=10192:org.omarchy.music.test}}} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0x471f22f sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{null m=TO_FRONT f=IS_WALLPAPER leash=Surface(name=WallpaperWindowToken{a0989c3 token=android.os.Binder@b9c0172})/@0x6f41c29 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+10-29 07:56:45.331  5128  5128 I SessionManager: End session for org.omarchy.music.test
+10-29 07:56:45.337   521  2441 I MediaSessionStack: removeSession | record: org.omarchy.music.test/androidx.media3.session.id. (userId=0)
+10-29 07:56:45.337   521  2441 D MediaSessionService: Media button session is changed to null
+10-29 07:56:45.356  1029  1029 W AudioMediaPlayerWrapper: The session was destroyed org.omarchy.music.test
+10-29 07:56:45.356  1029  1029 D MediaPlayerList: sessionUpdatedCallback(): packageName: org.omarchy.music.test
+10-29 07:56:45.362  1029  1029 W AudioMediaPlayerWrapper: The session was destroyed org.omarchy.music.test
+10-29 07:56:45.362  1029  1029 D MediaPlayerList: sessionUpdatedCallback(): packageName: org.omarchy.music.test
+10-29 07:56:47.937   521   606 D OomAdjuster: Not killing cached processes
+10-29 07:56:52.951   521   550 D OomAdjuster: Not killing cached processes
+10-29 07:56:58.932   521  2471 D OomAdjuster: Not killing cached processes
+10-29 07:57:03.967   521   931 D OomAdjuster: Not killing cached processes
++ echo '=== END BACKGROUND CHECK ==='
+=== END BACKGROUND CHECK ===
 + front
 + adb shell monkey -p org.omarchy.music.test -c android.intent.category.LAUNCHER 1
 + sleep 2
@@ -283,8 +380,8 @@ tap now playing 281 582
 + has 'content-desc="Menu"'
 + calm
 + python3 work/ci/tap.py Wait
-+ grep -q 'content-desc="Menu"'
 + adb exec-out uiautomator dump /dev/tty
++ grep -q 'content-desc="Menu"'
 + break
 + tap --desc Menu
 + python3 work/ci/tap.py --desc Menu
@@ -433,8 +530,8 @@ tap now playing 281 582
 + has 'content-desc="Menu"'
 + calm
 + python3 work/ci/tap.py Wait
-+ grep -q 'content-desc="Menu"'
 + adb exec-out uiautomator dump /dev/tty
++ grep -q 'content-desc="Menu"'
 + break
 + tap --desc Menu
 + python3 work/ci/tap.py --desc Menu
@@ -513,30 +610,31 @@ tap now playing 281 582
 + python3 work/ci/tap.py Wait
 + adb exec-out screencap -p
 + ls -la /home/runner/work/radon-player/radon-player/shots
-total 7628
-drwxr-xr-x 2 runner runner    4096 Oct 29 07:34 .
-drwxr-xr-x 5 runner runner    4096 Oct 29 07:23 ..
--rw-r--r-- 1 runner runner  147083 Oct 29 07:24 01-home.png
--rw-r--r-- 1 runner runner  147083 Oct 29 07:24 01-player-empty.png
--rw-r--r-- 1 runner runner  170727 Oct 29 07:25 02-drawer.png
--rw-r--r-- 1 runner runner  160793 Oct 29 07:25 03-songs.png
--rw-r--r-- 1 runner runner  173171 Oct 29 07:25 04-songs-playing.png
--rw-r--r-- 1 runner runner  282822 Oct 29 07:26 05-player.png
--rw-r--r-- 1 runner runner  282822 Oct 29 07:26 05b-player-bars.png
--rw-r--r-- 1 runner runner  374283 Oct 29 07:29 05c-player-ocean.png
--rw-r--r-- 1 runner runner  347321 Oct 29 07:26 06-queue.png
--rw-r--r-- 1 runner runner  262552 Oct 29 07:26 07-lyrics.png
--rw-r--r-- 1 runner runner  192659 Oct 29 07:28 08-vis-tab.png
--rw-r--r-- 1 runner runner  105401 Oct 29 07:28 09-albums.png
--rw-r--r-- 1 runner runner  140924 Oct 29 07:28 09b-album.png
--rw-r--r-- 1 runner runner   78753 Oct 29 07:29 10-settings.png
--rw-r--r-- 1 runner runner   78753 Oct 29 07:29 11-settings-2.png
--rw-r--r-- 1 runner runner   78753 Oct 29 07:29 12-settings-3.png
--rw-r--r-- 1 runner runner  172425 Oct 29 07:31 30-look-Apple-Music-dark.png
--rw-r--r-- 1 runner runner  259851 Oct 29 07:34 30-look-Apple-Music.png
--rw-r--r-- 1 runner runner  172828 Oct 29 07:32 31-songs-Apple-Music-dark.png
--rw-r--r-- 1 runner runner  257324 Oct 29 07:34 31-songs-Apple-Music.png
--rw-r--r-- 1 runner runner  350009 Oct 29 07:32 32-player-Apple-Music-dark.png
--rw-r--r-- 1 runner runner 2133917 Oct 29 07:34 32-player-Apple-Music.png
--rw-r--r-- 1 runner runner 1370821 Oct 29 07:26 bg-home.png
--rw-r--r-- 1 runner runner    7164 Oct 29 07:26 bg.txt
+total 7892
+drwxr-xr-x 2 runner runner    4096 Oct 29 08:06 .
+drwxr-xr-x 5 runner runner    4096 Oct 29 07:54 ..
+-rw-r--r-- 1 runner runner  147449 Oct 29 07:56 01-home.png
+-rw-r--r-- 1 runner runner  147449 Oct 29 07:56 01-player-empty.png
+-rw-r--r-- 1 runner runner  170874 Oct 29 07:56 02-drawer.png
+-rw-r--r-- 1 runner runner  160979 Oct 29 07:56 03-songs.png
+-rw-r--r-- 1 runner runner  173348 Oct 29 07:56 04-songs-playing.png
+-rw-r--r-- 1 runner runner  282291 Oct 29 07:57 05-player.png
+-rw-r--r-- 1 runner runner  282291 Oct 29 07:57 05b-player-bars.png
+-rw-r--r-- 1 runner runner  374650 Oct 29 08:00 05c-player-ocean.png
+-rw-r--r-- 1 runner runner  347110 Oct 29 07:57 06-queue.png
+-rw-r--r-- 1 runner runner  262257 Oct 29 07:57 07-lyrics.png
+-rw-r--r-- 1 runner runner  192429 Oct 29 07:59 08-vis-tab.png
+-rw-r--r-- 1 runner runner  105357 Oct 29 07:59 09-albums.png
+-rw-r--r-- 1 runner runner  140915 Oct 29 07:59 09b-album.png
+-rw-r--r-- 1 runner runner   78613 Oct 29 08:01 10-settings.png
+-rw-r--r-- 1 runner runner   78613 Oct 29 08:01 11-settings-2.png
+-rw-r--r-- 1 runner runner   78613 Oct 29 08:01 12-settings-3.png
+-rw-r--r-- 1 runner runner  173430 Oct 29 08:03 30-look-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner  266377 Oct 29 08:05 30-look-Apple-Music.png
+-rw-r--r-- 1 runner runner  173432 Oct 29 08:03 31-songs-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner  262787 Oct 29 08:05 31-songs-Apple-Music.png
+-rw-r--r-- 1 runner runner  358019 Oct 29 08:03 32-player-Apple-Music-dark.png
+-rw-r--r-- 1 runner runner 2272775 Oct 29 08:06 32-player-Apple-Music.png
+-rw-r--r-- 1 runner runner 1378615 Oct 29 07:57 bg-home.png
+-rw-r--r-- 1 runner runner  108798 Oct 29 07:57 bg-shade.png
+-rw-r--r-- 1 runner runner    6962 Oct 29 07:57 bg.txt
