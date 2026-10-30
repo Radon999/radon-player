@@ -112,6 +112,7 @@ fun Sheets(ui: Ui) {
     ui.mergeArtist?.let { name -> MergeArtistDialog(ui, name) }
     ui.speedFor?.let { tracks -> if (tracks.isNotEmpty()) SpeedDialog(ui, tracks) else ui.speedFor = null }
     ui.volumeFor?.let { tracks -> if (tracks.isNotEmpty()) VolumeDialog(ui, tracks) else ui.volumeFor = null }
+    ui.songEqFor?.let { tracks -> if (tracks.isNotEmpty()) SongEqDialog(ui, tracks) else ui.songEqFor = null }
     ui.upgradeFor?.let { tracks -> UpgradeDialog(ui, tracks) }
     Music.upgradeKept?.let { kept -> UpgradeKeptDialog(kept) }
     Music.dupePrompt?.let { (new, dupes) -> DupeDownloadDialog(new, dupes) }
@@ -663,8 +664,8 @@ private fun BackupLines(activity: Any?) {
     val open = rememberOpenFile { uri -> asking = uri }
     Line("Back up and restore", "Saves your playlists, favorites, plays, queues, settings, equalizer and imported histories " +
         "in one file, for moving to a new ${DEVICE} or after reinstalling. Your songs and sign-ins aren't included. A backup of " +
-        "the phone's restores on the PC and the other way (this ${DEVICE}'s folders and sound output stay its own, and your " +
-        "songs there are matched to the same songs here). Restoring keeps what's already here alongside the backup, just in case", false) {}
+        "the phone's restores on the PC and the other way (this ${DEVICE}'s folders, sound output and the volumes and Custom EQs " +
+        "you gave songs stay its own, and your songs there are matched to the same songs here). Restoring keeps what's already here alongside the backup, just in case", false) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Restore…", quiet = true) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
         Pill("Back up…") { save.launch("Radon Player backup ${java.time.LocalDate.now()}.zip") }
@@ -1489,6 +1490,68 @@ private fun VolumeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
         dismissButton = {
             Row {
                 TextButton({ done(0.0) }) { Text("Normal", color = C.fg) }
+                TextButton(close) { Text("Cancel", color = C.muted) }
+            }
+        })
+}
+
+/** Custom EQ…: a song's own EQ on the output playing now (its Headphones correction, Sound and Boost), used instead of
+ *  that output's EQ whenever this song plays there; everywhere else, and every other song, keeps the usual one. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SongEqDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
+    val E = org.omarchy.music.Eq
+    val first = tracks[0]
+    val had = Music.songEqs.get(first, Music.outputNow.key)
+    val base = had ?: Music.eq.toOutput(Music.outputNow.label)
+    var hp by remember(tracks) { mutableStateOf(base.headphones) }
+    var preset by remember(tracks) { mutableStateOf(base.preset) }
+    val count = base.count
+    var bands by remember(tracks) { mutableStateOf(base.bands.takeIf { it.size == count } ?: List(count) { 0.0 }) }
+    var boost by remember(tracks) { mutableStateOf(base.boost) }
+    val close = { ui.songEqFor = null }
+    AlertDialog(onDismissRequest = close, containerColor = C.light,
+        title = { Text(if (tracks.size == 1) "Custom EQ for “${first.title}”" else "Custom EQ for ${tracks.size} songs", style = T.title,
+            maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("On ${Music.outputNow.label} only: whenever ${if (tracks.size == 1) "this song plays" else "these songs play"} there, " +
+                    "this EQ is used instead of the usual one (C EQ lights up red in Now playing). Everywhere else, and every other " +
+                    "song, keeps the usual EQ. Bass and treble, dither and the other sound settings stay as they are.", style = T.sub)
+                Text("Boost: " + if (boost == 0.0) "off" else "+%.1f dB".format(boost), style = T.title.copy(color = C.accent),
+                    modifier = Modifier.padding(top = 10.dp))
+                Slider(boost.toFloat(), { boost = Math.round(it * 2) / 2.0 }, valueRange = 0f..E.BOOST_MAX.toFloat(),
+                    colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
+                Text("Sound", style = T.time, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    E.PRESETS.forEach { (k, v) ->
+                        Chip(v.first, preset == k) { preset = k; E.preset(k, count)?.let { bands = it } }
+                    }
+                }
+                E.bandsFor(count).forEachIndexed { i, hz ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(E.label(hz), style = T.time, modifier = Modifier.width(40.dp))
+                        Slider(bands[i].toFloat(), { v -> bands = bands.toMutableList().also { it[i] = E.clamp(v.toDouble()) }; preset = "custom" },
+                            valueRange = -12f..12f, modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
+                        Text(E.fmtDb(bands[i]), style = T.time, modifier = Modifier.width(36.dp))
+                    }
+                }
+                Text("Headphones correction", style = T.time, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    E.headphones(Music.eq).forEach { (k, v) -> Chip(v.first, hp == k) { hp = k } }
+                }
+            }
+        },
+        confirmButton = { TextButton({
+            close()
+            Music.setSongEq(tracks, base.copy(on = true, headphones = hp, preset = preset, bands = bands, custom = bands, count = count, boost = boost))
+            ui.afterOption()
+        }) { Text("Save", color = C.accent) } },
+        dismissButton = {
+            Row {
+                if (tracks.any { Music.songEqs.get(it, Music.outputNow.key) != null })
+                    TextButton({ close(); Music.setSongEq(tracks, null); ui.afterOption() }) { Text("Remove", color = C.red) }
                 TextButton(close) { Text("Cancel", color = C.muted) }
             }
         })

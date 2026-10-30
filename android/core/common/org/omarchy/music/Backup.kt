@@ -11,7 +11,10 @@ import java.util.zip.ZipOutputStream
  *  other device play from the same song of yours here (else the service's). */
 object Backup {
     private val FILES = listOf("state.json", "playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json",
-        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "new-releases.json")
+        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "song-eq.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "new-releases.json")
+    /** Kept to the kind of device they were made on: the volumes and EQs you gave songs fit the headphones you use with
+     *  it, so a phone's go only to a phone and a PC's only to a PC. */
+    private val OWN_DEVICE = setOf("song-volume.json", "song-volume-outputs.json", "song-eq.json")
     private const val PREFS = "radon-2"   // 2.0's switches (Prefs)
 
     /** (blocking) Into the zip at uri. How many files went in. */
@@ -49,6 +52,7 @@ object Backup {
         val cross = "\"$platformName\"" !in info   // made on the other device (the phone, or the PC)
         val done = ArrayList<String>()
         for (name in FILES) {
+            if (cross && name in OWN_DEVICE) continue   // songs' volumes and EQs are the phone's or the PC's own
             var data = got[name]?.decodeToString() ?: continue
             val f = File(ctx.filesDir, name)
             if (cross && name == "state.json") data = BackupMerge.mergeState(data, readText(f))

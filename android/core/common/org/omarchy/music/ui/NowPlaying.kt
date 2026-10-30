@@ -194,6 +194,14 @@ private fun NowTop(ui: Ui, n: Now) {
             IconButton(Ico.VOLUME_ALERT, if (now) MONO_RED else C.accent,
                 desc = if (now) "Volume changed here" else "Volume changed on another output") { ui.volumeFor = listOf(t) }
         }
+        // A song with its own EQ (Custom EQ…): C EQ, red while it's in effect here (on this output)
+        if (!n.remote && t != null && Music.musicVersion >= 0 && Music.songEqs.has(t)) {
+            val now = Music.songEqActive
+            Box(Modifier.clip(R.pill).clickable { ui.songEqFor = listOf(t) }
+                .semantics { contentDescription = if (now) "Custom EQ on" else "Custom EQ on another output" }.padding(horizontal = 6.dp, vertical = 10.dp)) {
+                Text("C EQ", style = T.tab.copy(color = if (now) MONO_RED else C.accent, fontWeight = FontWeight.Bold))
+            }
+        }
         if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
     }
@@ -364,17 +372,20 @@ private fun ToolPill(ui: Ui) {
         Row(Modifier.clip(R.pill).background(GLASS).border(1.dp, WHITE.copy(alpha = 0.14f), R.pill).padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             PillTool(Ico.LYRICS, ui.pane == "lyrics", "Lyrics") { ui.pane = if (ui.pane == "lyrics") "art" else "lyrics" }
-            PillTool(Ico.SPEAKER, false, "Output and equalizer") { ui.sheet = "eq" }
+            // The song's own EQ is in effect: the usual one greyed out (it isn't what's heard); C EQ is where to change it
+            if (Music.songEqActive) PillTool(Ico.SPEAKER, false, "Output and equalizer (this song uses its own EQ)", dim = true) {
+                Music.toast("This song has its own EQ on ${Music.outputNow.label}: tap C EQ at the top to change it"); ui.sheet = "eq" }
+            else PillTool(Ico.SPEAKER, false, "Output and equalizer") { ui.sheet = "eq" }
             PillTool(Ico.QUEUE, ui.pane == "queue", "Queue") { ui.pane = if (ui.pane == "queue") "art" else "queue" }
         }
     }
 }
 
 @Composable
-private fun PillTool(ico: Ico, on: Boolean, desc: String, onClick: () -> Unit) {
+private fun PillTool(ico: Ico, on: Boolean, desc: String, dim: Boolean = false, onClick: () -> Unit) {
     Box(Modifier.size(width = 52.dp, height = 40.dp).clip(R.pill).background(if (on) WHITE.copy(alpha = 0.88f) else Color.Transparent)
         .clickable(onClick = onClick).semantics { contentDescription = desc }, contentAlignment = Alignment.Center) {
-        Icon(ico, if (on) Color(0xFF222222) else WHITE, 22.dp)
+        Icon(ico, if (on) Color(0xFF222222) else if (dim) WHITE.copy(alpha = 0.3f) else WHITE, 22.dp)
     }
 }
 

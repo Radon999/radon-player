@@ -32,6 +32,7 @@ object Music {
     lateinit var favorites: Favorites   // the songs you starred
     lateinit var songStats: SongStats   // skips, and songs heard to the end
     lateinit var gains: SongGains       // songs' own volume boosts
+    lateinit var songEqs: SongEqs       // songs' own EQ (Custom EQ…), by output
     lateinit var local: LocalFiles
     lateinit var tidal: Tidal
     lateinit var dl: Downloader
@@ -245,6 +246,7 @@ object Music {
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
         songStats = SongStats(File(ctx.filesDir, "skips.json"))
         gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
+        songEqs = SongEqs(File(ctx.filesDir, "song-eq.json"))
         local = LocalFiles(ctx)
         tidal = Tidal(ctx)
         dl = Downloader(ctx, lib, tidal)
@@ -363,7 +365,7 @@ object Music {
         downloadDir = st.download_dir
         dupeAction = st.dupe_action.takeIf { it in setOf("ask", "keep", "replace") } ?: "ask"
         eq = st.eq
-        eqProcessor.update(eq)
+        applyEq()
         queues = st.queues
         queueName = st.queue_name
         queueId = st.queue_id
@@ -2338,6 +2340,7 @@ object Music {
         p.load(item, (startAt * 1000).toLong())
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         eqProcessor.songGain = gainOf(t)
+        applyEq()   // the song's own EQ on this output, or the usual one
         p.playWhenReady = autoplay
         advancing = false   // buffering for real now
         fadeJob?.cancel()
@@ -2382,8 +2385,32 @@ object Music {
     // ---- the equalizer ----
     fun setEq(f: (EqSettings) -> EqSettings) {
         eq = f(eq)
-        eqProcessor.update(eq)
+        applyEq()
         saveState()
+    }
+
+    /** The playing song's own EQ on this output (Custom EQ…), if it has one: then it's what's heard. */
+    fun songEqNow(t: Track? = current()): OutputEq? = t?.let { if (::songEqs.isInitialized) songEqs.get(it, outputNow.key) else null }
+    var songEqActive by mutableStateOf(false)   // the playing song's own EQ is in effect (Now playing's C EQ, red)
+        private set
+
+    /** What the EQ plays: this output's, or the playing song's own for this output (its correction, Sound and Boost; the
+     *  bass and treble, crossfeed, dither and the rest stay as they are). */
+    private fun applyEq() {
+        val s = songEqNow()
+        songEqActive = s != null
+        eqProcessor.update(if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
+            custom = s.custom, count = s.count, boost = s.boost))
+    }
+
+    /** Custom EQ…: e (null: take it away) for tracks, on the output playing now. */
+    fun setSongEq(tracks: List<Track>, e: OutputEq?) {
+        if (tracks.isEmpty()) return
+        songEqs.set(tracks, outputNow.key, e?.copy(label = outputNow.label))
+        applyEq()
+        val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
+        toast(if (e == null) "$what back to the usual EQ on ${outputNow.label}" else "$what with its own EQ on ${outputNow.label}")
+        musicVersion++
     }
 
     fun setEqOn(on: Boolean) = setEq { it.copy(on = on) }
@@ -2478,6 +2505,7 @@ object Music {
         outputNow = o
         eqProcessor.bypass = bitPerfectNow()
         current()?.let { eqProcessor.songGain = gainOf(it) }   // a song's volume change for this output, if it has one
+        applyEq()
         if (!eq.perOutput || o.key == eq.output) {
             if (eq.output.isEmpty()) setEq { it.copy(output = o.key, outputs = it.outputs + (o.key to it.toOutput(o.label))) }
             return

@@ -329,6 +329,7 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
                 add(Triple(Ico.EDIT, "Tagger…") { ui.taggerFor = picked })   // tags, cover, the files' details, lyrics
                 add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
+                add(Triple(Ico.EQ, "Custom EQ…") { ui.songEqFor = picked })
                 add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
                 if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })
                     add(Triple(Ico.SPARKLE, "Upgrade to FLAC…") { ui.upgradeFor = picked.filter { org.omarchy.music.upgradable(it) } })

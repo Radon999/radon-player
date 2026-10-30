@@ -668,11 +668,15 @@ private fun Toolbar(ui: Ui, n: Now) {
         if (t != null && !n.remote) {
             Music.speeds.get(t).speed.let { if (it != 1.0) Text("  " + org.omarchy.music.fmtSpeed(it), style = T.time) }
             Music.gainNow(t).let { if (it != 0.0) Text("  %+.1f dB".format(it), style = T.time) }
+            if (Music.musicVersion >= 0 && Music.songEqs.has(t))   // the song's own EQ: red while it's in effect here
+                Text("  C EQ", style = T.time.copy(color = if (Music.songEqActive) MONO_RED else C.accent, fontWeight = FontWeight.Bold),
+                    modifier = Modifier.clickable { ui.songEqFor = listOf(t) })
         }
         val status = if (n.remote) Remote.status.message else Music.status
         Text(status, style = T.time.copy(color = C.accent), maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-        Text(if (Music.eq.on) "EQ · ${Music.outputNow.label}" else "EQ off", style = T.time.copy(color = if (Music.eq.on) C.accent else C.muted),
+        Text(if (Music.songEqActive) "EQ · this song's own" else if (Music.eq.on) "EQ · ${Music.outputNow.label}" else "EQ off",
+            style = T.time.copy(color = if (Music.eq.on && !Music.songEqActive) C.accent else C.muted),
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.clip(R.small).clickable { ui.sheet = "eq" }.padding(horizontal = 6.dp, vertical = 4.dp))
     }

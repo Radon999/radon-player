@@ -111,6 +111,7 @@ class Ui {
     var deleteFor by mutableStateOf<List<Track>?>(null)
     var speedFor by mutableStateOf<List<Track>?>(null)
     var volumeFor by mutableStateOf<List<Track>?>(null)     // Volume…: a song's own boost
+    var songEqFor by mutableStateOf<List<Track>?>(null)     // Custom EQ…: a song's own EQ on this output
     var upgradeFor by mutableStateOf<List<Track>?>(null)    // Upgrade…: these songs (empty: all of yours)
     var exportFor by mutableStateOf<Pair<String, List<Track>>?>(null)   // Export…: a playlist as .m3u8
     val dupeRemove = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()   // Duplicates: Remove (true) or Keep, by copy
@@ -349,6 +350,7 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         if (org.omarchy.music.upgradable(t) && Music.upgrading == null) item("Upgrade to FLAC…") { ui.upgradeFor = listOf(t) }()
         item(if (Music.favorites.has(t)) "Unfavorite" else "Favorite") { Music.setFavorite(listOf(t)) }()
         Music.gains.get(t, Music.outputNow.key).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
+        item(if (Music.songEqs.get(t, Music.outputNow.key) != null) "Custom EQ (on)…" else "Custom EQ…") { ui.songEqFor = listOf(t) }()
         Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }
         splitArtists(t.artist).firstOrNull()?.let { lead -> item("Discovery playlist for $lead") { Music.makeDiscovery(lead) }() }
         if (t.isFile || Music.lib.has(t.id)) item("File location") { showLocation(ui, t) }()
