@@ -288,6 +288,7 @@ private fun DrawerSheet(ui: Ui) {
             androidx.compose.material3.HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 8.dp))
             DrawerItem("Settings", Ico.SETTINGS, false, quiet = true) { ui.drawer = false; ui.openSettings() }
             DrawerItem("Equalizer", Ico.EQ, false, quiet = true) { ui.drawer = false; ui.sheet = "eq" }
+            DrawerItem("Changelog & features", Ico.LYRICS, false, quiet = true) { ui.drawer = false; ui.guide = true }
             if (hasMiniPlayer) {
                 val act = currentActivity()
                 DrawerItem("Mini player", Ico.VIS, false, quiet = true) { ui.drawer = false; enterMiniPlayer(act) }

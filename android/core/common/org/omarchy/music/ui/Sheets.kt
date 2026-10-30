@@ -96,6 +96,7 @@ fun Sheets(ui: Ui) {
     ui.taggerFor?.let { tracks -> TaggerSheet(ui, tracks) }
     if (ui.tagScan) TagScanScreen(ui)
     ToolScreens(ui)
+    if (ui.guide) GuideScreen(ui)
     if (ui.jointArtists) JointArtistsScreen(ui)
     if (ui.similarArtists) SimilarArtistsScreen(ui)
     if (ui.albumPlays) AlbumPlaysScreen(ui)

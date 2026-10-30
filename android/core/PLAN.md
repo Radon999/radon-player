@@ -43,4 +43,5 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
-- [ ] Settings descriptions rewritten; feature guide; Changelog & features tab
+- [x] Feature guide (core/FEATURES.md, gen-guide.py) and the Changelog & features tab
+- [ ] Settings descriptions rewritten in detail; the guide sent to the owner and put on GitHub when done
