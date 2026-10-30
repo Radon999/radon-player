@@ -104,7 +104,8 @@ class Ui {
     var singleScan by mutableStateOf(false)   // Singles › Single scan…
     var duplicates by mutableStateOf(false)   // Settings › Duplicates in Most played…
     var identifyFor by mutableStateOf<org.omarchy.music.Track?>(null)   // Identify by sound…
-    var guide by mutableStateOf(false)   // Changelog & features
+    var guide by mutableStateOf(false)   // Features
+    var changelog by mutableStateOf(false)   // Changelog
     var tool by mutableStateOf<String?>(null)   // Settings › Your music: "fixup", "live", "empty" or "skip"
     var cardFor by mutableStateOf<String?>(null)     // Share card…: "songs", "albums", "artists" or "time"
     var collageFor by mutableStateOf<String?>(null)   // Collage…: "songs", "albums" or "artists"   // Tagger…: tags, cover, the files' details, lyrics

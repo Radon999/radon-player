@@ -17,12 +17,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Changelog & features (the menu): everything the app does and what each release brought, in big type as the lyrics
- *  are. From FEATURES.md (FeatureGuide.kt): every new feature gets its description there. */
+/** Features and Changelog (the menu), in big type as the lyrics are. Features: everything the app does (FEATURES.md,
+ *  each feature in the section it belongs with). Changelog: what each update brought, the newest first, like patch notes
+ *  (CHANGELOG.md); it starts with the updates after the one that added it. */
 @Composable
-fun GuideScreen(ui: Ui) {
-    val lines = remember { FEATURE_GUIDE.lines().filter { it.isNotBlank() } }
-    FullScreen("Changelog & features", { ui.guide = false }) {
+fun GuideScreen(ui: Ui, changelog: Boolean = false) {
+    val lines = remember(changelog) {
+        val all = (if (changelog) CHANGELOG else FEATURE_GUIDE).lines().filter { it.isNotBlank() }
+        if (changelog && all.none { it.startsWith("## ") })
+            all + "Nothing new yet. When Radon Player is updated, what each update adds or fixes shows up here, the newest at the top."
+        else all
+    }
+    FullScreen(if (changelog) "Changelog" else "Features", { if (changelog) ui.changelog = false else ui.guide = false }) {
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp).navigationBarsPadding()) {
             items(lines.size) { i ->
                 val l = lines[i].trim()

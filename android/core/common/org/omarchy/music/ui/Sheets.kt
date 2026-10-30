@@ -98,6 +98,7 @@ fun Sheets(ui: Ui) {
     if (ui.tagScan) TagScanScreen(ui)
     ToolScreens(ui)
     if (ui.guide) GuideScreen(ui)
+    if (ui.changelog) GuideScreen(ui, changelog = true)
     if (ui.jointArtists) JointArtistsScreen(ui)
     if (ui.similarArtists) SimilarArtistsScreen(ui)
     if (ui.albumPlays) AlbumPlaysScreen(ui)
