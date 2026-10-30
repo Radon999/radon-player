@@ -1,7 +1,8 @@
 package org.omarchy.music.ui
 
-import android.content.Context
-import android.net.Uri
+import org.omarchy.music.Ctx
+import org.omarchy.music.displayName
+import org.omarchy.music.openIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -38,33 +39,13 @@ object TaggerFiles {
     fun uri(t: Track): String? = (Music.lib.items[t.id]?.file ?: t.file?.takeIf { t.isFile })?.takeIf { it.isNotEmpty() }
 
     /** [(name, value)]: where it is, the format and quality, its size and length, and (a FLAC's) every tag. */
-    fun info(ctx: Context, t: Track): List<Pair<String, String>> {
+    fun info(ctx: Ctx, t: Track): List<Pair<String, String>> {
         val u = uri(t) ?: return listOf("Source" to "Streamed: not a file on this phone")
         val out = ArrayList<Pair<String, String>>()
         val entry = Music.lib.items[t.id]
         out += "Source" to if (entry != null) "Downloaded by the app" else "Your file"
-        out += "File" to (runCatching { Uri.parse(u).lastPathSegment }.getOrNull()?.let { Uri.decode(it) } ?: u)
-        runCatching {
-            ctx.contentResolver.query(Uri.parse(u), arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { c ->
-                if (c.moveToFirst() && !c.isNull(0)) out += "Size" to "%.1f MB".format(c.getLong(0) / 1e6)
-            }
-        }
-        runCatching {
-            val r = android.media.MediaMetadataRetriever()
-            try {
-                r.setDataSource(ctx, Uri.parse(u))
-                r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_MIMETYPE)?.let { out += "Format" to it.substringAfter('/').uppercase() }
-                r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.let {
-                    out += "Length" to "%d:%02d".format(it / 60000, it / 1000 % 60)
-                }
-                r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()?.let { out += "Bitrate" to "${it / 1000} kbps" }
-                if (android.os.Build.VERSION.SDK_INT >= 31) {
-                    val bits = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)
-                    val rate = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toDoubleOrNull()
-                    if (bits != null && rate != null) out += "Quality" to "$bits-bit/${"%.1f".format(rate / 1000).removeSuffix(".0")} kHz"
-                }
-            } finally { r.release() }
-        }
+        out += "File" to (runCatching { ctx.displayName(u) }.getOrNull() ?: u.substringAfterLast('/'))
+        out += fileFacts(u)
         entry?.quality?.takeIf { it.isNotEmpty() && out.none { p -> p.first == "Quality" } }?.let { out += "Quality" to it }
         flacComments(ctx, u)?.toSortedMap()?.forEach { (k, v) ->
             if (k !in setOf("LYRICS", "UNSYNCEDLYRICS", "METADATA_BLOCK_PICTURE")) out += k.lowercase() to v.joinToString(", ").take(300)
@@ -72,19 +53,19 @@ object TaggerFiles {
         return out.filter { it.second.isNotEmpty() }
     }
 
-    private fun flacComments(ctx: Context, u: String): Map<String, List<String>>? = runCatching {
-        ctx.contentResolver.openInputStream(Uri.parse(u))!!.buffered().use { s ->
+    private fun flacComments(ctx: Ctx, u: String): Map<String, List<String>>? = runCatching {
+        ctx.openIn(u)!!.buffered().use { s ->
             s.mark(4); val head = ByteArray(4); s.read(head); s.reset()
             if (String(head, Charsets.ISO_8859_1) != "fLaC") null else Flac.comments(Flac.readHeader(s))
         }
     }.getOrNull()
 
     /** The lyrics in the song's file (a FLAC's LYRICS), or "". */
-    fun lyrics(ctx: Context, t: Track): String =
+    fun lyrics(ctx: Ctx, t: Track): String =
         uri(t)?.let { u -> flacComments(ctx, u)?.let { c -> (c["LYRICS"] ?: c["UNSYNCEDLYRICS"])?.firstOrNull() } }?.trim() ?: ""
 
     /** Replace the lyrics in a FLAC the app downloaded ("" takes them off). */
-    fun saveLyrics(ctx: Context, t: Track, text: String) {
+    fun saveLyrics(ctx: Ctx, t: Track, text: String) {
         val u = Tags.editable(t) ?: error("only songs the app downloaded (FLAC) can be written here")
         Tags.write(ctx, u, mapOf("lyrics" to text, "unsyncedlyrics" to ""))
     }

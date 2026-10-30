@@ -1,10 +1,5 @@
 package org.omarchy.music.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.media.audiofx.Visualizer
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,11 +29,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.media3.exoplayer.ExoPlayer
 import org.omarchy.music.Music
 import org.omarchy.music.Spectrum
 
@@ -50,38 +42,21 @@ val VIS_PRESETS: List<Pair<String, String>> = listOf("bars" to "Bars", "mirror" 
  *  Visualizer on the player's own audio session (so only this app's sound, never the mic). */
 @Composable
 fun VisualizerTab() {
-    val ctx = LocalContext.current
-    var allowed by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
+    var allowed by remember { mutableStateOf(hasPermission(Perm.MIC)) }
+    val ask = rememberPermission { allowed = it }
     if (!allowed) {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally) {
-            androidx.compose.material3.Text("Android's visualizer reads the music this app plays, and for that it asks for " +
-                "the microphone permission. The microphone itself is never used.", style = T.sub, textAlign = TextAlign.Center)
-            Box(Modifier.padding(top = 14.dp)) { Pill("Allow it") { ask.launch(Manifest.permission.RECORD_AUDIO) } }
+            androidx.compose.material3.Text(SPECTRUM_ASK, style = T.sub, textAlign = TextAlign.Center)
+            Box(Modifier.padding(top = 14.dp)) { Pill("Allow it") { ask.launch(Perm.MIC) } }
         }
         return
     }
-    val session = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? ExoPlayer)?.audioSessionId ?: 0
-    val target = remember { FloatArray(Spectrum.BANDS) }
+    var failed by remember { mutableStateOf<String?>(null) }
+    val heard = rememberSpectrum(true) { failed = it }
+    val target = heard ?: remember { FloatArray(Spectrum.BANDS) }
     val levels = remember { FloatArray(Spectrum.BANDS) }
     var frame by remember { mutableIntStateOf(0) }
-    var failed by remember { mutableStateOf<String?>(null) }
-    DisposableEffect(session) {
-        val vis = runCatching {
-            Visualizer(session).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
-                setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                    override fun onWaveFormDataCapture(v: Visualizer, wave: ByteArray, rate: Int) {}
-                    override fun onFftDataCapture(v: Visualizer, fft: ByteArray, rate: Int) {
-                        Spectrum.bands(fft, rate / 1000).copyInto(target)   // rate comes in millihertz
-                    }
-                }, Visualizer.getMaxCaptureRate(), false, true)
-                enabled = true
-            }
-        }.onFailure { failed = it.message ?: "Android's visualizer isn't available" }.getOrNull()
-        onDispose { vis?.runCatching { enabled = false; release() } }
-    }
     LaunchedEffect(Unit) {
         while (true) withFrameNanos {
             for (b in levels.indices) {

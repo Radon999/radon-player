@@ -1,16 +1,5 @@
 package org.omarchy.music.ui
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.RectF
-import android.graphics.Shader
-import android.graphics.Typeface
-import android.text.TextPaint
-import android.text.TextUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -30,10 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import org.omarchy.music.Music
 import org.omarchy.music.Stats
 
@@ -57,71 +44,54 @@ object Collage {
     }
 
     /** (blocking) The collage of the first n×n items. */
-    fun draw(ctx: Context, items: List<Item>, n: Int, labels: Boolean, progress: (Int) -> Unit = {}): Bitmap {
+    fun draw(items: List<Item>, n: Int, labels: Boolean, progress: (Int) -> Unit = {}): ImageBitmap {
         val cell = (2400 / n).coerceIn(96, 300)
         val side = cell * n
-        val bmp = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        c.drawColor(0xFF121214.toInt())
+        val pt = Painter(side, side)
+        pt.fill(0xFF121214.toInt())
         val want = items.take(n * n)
-        // The covers, a few at a time (Coil fetches and caches them, the phone's own files too).
+        // The covers, a few at a time (fetched and kept, the phone's own files too).
         val pics = java.util.concurrent.Executors.newFixedThreadPool(6).let { pool ->
             try {
                 want.mapIndexed { i, it ->
-                    pool.submit<Bitmap?> {
-                        val got = runCatching { cover(ctx, it.model, cell) }.getOrNull()
+                    pool.submit<ImageBitmap?> {
+                        val got = runCatching { cover(it.model, cell * 2) }.getOrNull()
                         progress(i)
                         got
                     }
                 }.map { runCatching { it.get() }.getOrNull() }
             } finally { pool.shutdown() }
         }
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        val big = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); textSize = cell * 0.105f; typeface = Typeface.DEFAULT_BOLD }
-        val small = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xCCFFFFFF.toInt(); textSize = cell * 0.088f }
+        val big = cell * 0.105f; val small = cell * 0.088f
         for ((i, it) in want.withIndex()) {
             val x = (i % n) * cell.toFloat(); val y = (i / n) * cell.toFloat()
-            val dst = RectF(x, y, x + cell, y + cell)
-            val pic = pics[i]
-            if (pic != null) {   // filled, the middle kept (a cover that isn't square is cut, not squashed)
-                val s = minOf(pic.width, pic.height)
-                val src = Rect((pic.width - s) / 2, (pic.height - s) / 2, (pic.width + s) / 2, (pic.height + s) / 2)
-                c.drawBitmap(pic, src, dst, paint)
-            } else {
-                paint.color = 0xFF29292F.toInt(); c.drawRect(dst, paint)
-            }
+            pt.picture(pics[i], x, y, cell.toFloat(), empty = 0xFF29292F.toInt())
             if (!labels) continue
-            val shade = Paint().apply {
-                shader = LinearGradient(0f, y + cell * 0.45f, 0f, y + cell, 0x00000000, 0xD9000000.toInt(), Shader.TileMode.CLAMP)
-            }
-            c.drawRect(x, y + cell * 0.45f, x + cell, y + cell, shade)
+            pt.gradient(x, y + cell * 0.45f, x + cell, y + cell, 0x00000000, 0xD9000000.toInt())
             val pad = cell * 0.06f; val w = cell - 2 * pad
-            val lines = listOfNotNull(it.title to big, it.sub.ifEmpty { null }?.let { s -> s to small },
-                "%,d play%s".format(it.plays, if (it.plays != 1) "s" else "") to small)
-            var yy = y + cell - pad - lines.sumOf { (_, p) -> (p.textSize * 1.25f).toDouble() }.toFloat()
-            for ((t, p) in lines) {
-                yy += p.textSize
-                c.drawText(TextUtils.ellipsize(t, p, w, TextUtils.TruncateAt.END).toString(), x + pad, yy, p)
-                yy += p.textSize * 0.25f
+            val lines = listOfNotNull(Triple(it.title, big, true), it.sub.ifEmpty { null }?.let { s -> Triple(s, small, false) },
+                Triple("%,d play%s".format(it.plays, if (it.plays != 1) "s" else ""), small, false))
+            var yy = y + cell - pad - lines.sumOf { (_, sz, _) -> (sz * 1.25f).toDouble() }.toFloat()
+            for ((t, sz, bold) in lines) {
+                yy += sz
+                pt.text(t, sz, bold, if (bold) 0xFFFFFFFF.toInt() else 0xCCFFFFFF.toInt(), x + pad, yy, w)
+                yy += sz * 0.25f
             }
         }
-        return bmp
+        return pt.img
     }
 
-    private fun cover(ctx: Context, model: Any?, px: Int): Bitmap? {
+    internal fun cover(model: Any?, px: Int): ImageBitmap? {
         model ?: return null
-        val req = coil.request.ImageRequest.Builder(ctx).data(model).size(px * 2).allowHardware(false).build()
-        val res = kotlinx.coroutines.runBlocking { coil.Coil.imageLoader(ctx).execute(req) }
-        return (res as? coil.request.SuccessResult)?.drawable?.toBitmap()
+        return kotlinx.coroutines.runBlocking { loadImage(model, px) }
     }
 }
 
 @Composable
 fun CollageSheet(ui: Ui, kind: String) {
-    val ctx = LocalContext.current
     var n by remember { mutableStateOf(Music.collageSize) }
     var labels by remember { mutableStateOf(true) }
-    var bmp by remember { mutableStateOf<Bitmap?>(null) }
+    var bmp by remember { mutableStateOf<ImageBitmap?>(null) }
     var status by remember { mutableStateOf("") }
     val items = remember(kind) { runCatching { Collage.items(kind) }.getOrDefault(emptyList()) }
     val name = mapOf("songs" to "Top songs", "albums" to "Top albums", "eps" to "Top EPs", "singles" to "Top singles")[kind.removeSuffix("-all")] ?: "Top artists"
@@ -131,7 +101,7 @@ fun CollageSheet(ui: Ui, kind: String) {
         if (items.isEmpty()) { status = "Nothing played yet to make a collage of"; return@LaunchedEffect }
         val want = minOf(items.size, n * n)
         status = "Getting $want pictures…"
-        Music.bg({ Collage.draw(ctx, items, n, labels) }) { b, err ->
+        Music.bg({ Collage.draw(items, n, labels) }) { b, err ->
             if (b != null) {
                 bmp = b
                 status = "$name · $period · $want of ${items.size}" + if (items.size < n * n) " (only ${items.size}: the rest of the grid is empty)" else ""
@@ -147,10 +117,10 @@ fun CollageSheet(ui: Ui, kind: String) {
             }
             Text(status, style = T.sub)
             bmp?.let { b ->
-                Image(b.asImageBitmap(), contentDescription = "The collage", modifier = Modifier.fillMaxWidth().aspectRatio(1f))
+                Image(b, contentDescription = "The collage", modifier = Modifier.fillMaxWidth().aspectRatio(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val file = "${name} ${period} ${n}x$n".replace(' ', '-')
-                    Pill("Share…") { if (!sharePicture(ctx, b, file, null)) Music.toast("Couldn't share it") }
+                    Pill("Share…") { if (!sharePicture(b, file, null)) Music.toast("Couldn't share it") }
                     Pill("Save to Pictures", quiet = true) {
                         Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) "Saved to Pictures" else "Couldn't save it") }
                     }
@@ -165,32 +135,19 @@ fun CollageSheet(ui: Ui, kind: String) {
 object Card {
     data class Row(val title: String, val sub: String, val value: String, val model: Any?)
 
-    fun draw(ctx: Context, title: String, whenText: String, rows: List<Row>, lead: String?): Bitmap {
+    fun draw(title: String, whenText: String, rows: List<Row>, lead: String?): ImageBitmap {
         val w = 1080; val h = 1920
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val pics = rows.take(5).map { runCatching { cover(ctx, it.model, 700) }.getOrNull() }
+        val pt = Painter(w, h)
+        val pics = rows.take(5).map { runCatching { Collage.cover(it.model, 700) }.getOrNull() }
         val rgb = pics.firstOrNull()?.let { runCatching { Tint.artColor(it) }.getOrNull() } ?: 0xFF5A3C8C.toInt()
-        val hsl = FloatArray(3); androidx.core.graphics.ColorUtils.colorToHSL(rgb, hsl)
+        val hsl = FloatArray(3); Rgb.toHsl(rgb, hsl)
         val s = hsl[1].coerceIn(0.3f, 0.8f)
-        val top = androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf(hsl[0], s, 0.42f))
-        val bottom = androidx.core.graphics.ColorUtils.HSLToColor(floatArrayOf(hsl[0], s, 0.12f))
-        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), Paint().apply { shader = LinearGradient(0f, 0f, 0f, h.toFloat(), top, bottom, Shader.TileMode.CLAMP) })
-        fun text(t: String, size: Float, bold: Boolean, alpha: Int, x: Float, y: Float, width: Float, right: Boolean = false) {
-            val p = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(alpha, 255, 255, 255); textSize = size
-                typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT; textAlign = if (right) Paint.Align.RIGHT else Paint.Align.LEFT }
-            c.drawText(TextUtils.ellipsize(t, p, width, TextUtils.TruncateAt.END).toString(), if (right) x + width else x, y + size, p)
-        }
-        fun picture(b: Bitmap?, x: Float, y: Float, side: Float, r: Float) {
-            val dst = RectF(x, y, x + side, y + side)
-            val path = android.graphics.Path().apply { addRoundRect(dst, r, r, android.graphics.Path.Direction.CW) }
-            c.save(); c.clipPath(path)
-            if (b != null) {
-                val m = minOf(b.width, b.height)
-                c.drawBitmap(b, Rect((b.width - m) / 2, (b.height - m) / 2, (b.width + m) / 2, (b.height + m) / 2), dst, Paint(Paint.FILTER_BITMAP_FLAG))
-            } else c.drawColor(0x1FFFFFFF)
-            c.restore()
-        }
+        val top = Rgb.fromHsl(floatArrayOf(hsl[0], s, 0.42f))
+        val bottom = Rgb.fromHsl(floatArrayOf(hsl[0], s, 0.12f))
+        pt.gradient(0f, 0f, w.toFloat(), h.toFloat(), top, bottom)
+        fun text(t: String, size: Float, bold: Boolean, alpha: Int, x: Float, y: Float, width: Float, right: Boolean = false) =
+            pt.text(t, size, bold, Rgb.argb(alpha, 255, 255, 255), x, y + size, width, right)
+        fun picture(b: ImageBitmap?, x: Float, y: Float, side: Float, r: Float) = pt.picture(b, x, y, side, r, empty = 0x1FFFFFFF)
         text(title, 64f, true, 255, 80f, 110f, w - 160f)
         text(whenText, 40f, false, 190, 80f, 200f, w - 160f)
         var y = 300f
@@ -205,21 +162,13 @@ object Card {
             y += 160f
         }
         text("Radon Player", 32f, true, 128, 80f, h - 110f, w - 160f)
-        return bmp
-    }
-
-    private fun cover(ctx: Context, model: Any?, px: Int): Bitmap? {
-        model ?: return null
-        val req = coil.request.ImageRequest.Builder(ctx).data(model).size(px).allowHardware(false).build()
-        val res = kotlinx.coroutines.runBlocking { coil.Coil.imageLoader(ctx).execute(req) }
-        return (res as? coil.request.SuccessResult)?.drawable?.toBitmap()
+        return pt.img
     }
 }
 
 @Composable
 fun CardSheet(ui: Ui, kind: String) {
-    val ctx = LocalContext.current
-    var bmp by remember { mutableStateOf<Bitmap?>(null) }
+    var bmp by remember { mutableStateOf<ImageBitmap?>(null) }
     var status by remember { mutableStateOf("Making it…") }
     val period = mapOf("week" to "This week", "month" to "This month", "year" to "This year")[Music.topPeriod] ?: "All time"
     val title = mapOf("songs" to "My top songs", "albums" to "My top albums", "artists" to "My top artists")[kind] ?: "My listening time"
@@ -234,7 +183,7 @@ fun CardSheet(ui: Ui, kind: String) {
                 "albums" -> Music.topAlbums(Music.topPeriod).take(5).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it.tracks.first(), 600)) }
                 else -> Music.topArtists(Music.topPeriod).take(5).map { Card.Row(it.name, "", "%,d".format(it.plays), artistArt(it.name, it.thumb)) }
             }
-            if (rows.isEmpty()) null else Card.draw(ctx, title, period, rows, lead)
+            if (rows.isEmpty()) null else Card.draw(title, period, rows, lead)
         }) { b, err -> bmp = b; status = if (b != null) "Share it to a story or a chat, or save it" else err?.message?.take(100) ?: "Nothing played in this time yet" }
     }
     FullScreen("Share card · $title", { ui.cardFor = null }) {
@@ -242,10 +191,10 @@ fun CardSheet(ui: Ui, kind: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(status, style = T.sub)
             bmp?.let { b ->
-                Image(b.asImageBitmap(), contentDescription = "The card", modifier = Modifier.fillMaxWidth().aspectRatio(1080f / 1920f))
+                Image(b, contentDescription = "The card", modifier = Modifier.fillMaxWidth().aspectRatio(1080f / 1920f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val file = "$title $period".replace(' ', '-')
-                    Pill("Share…") { if (!sharePicture(ctx, b, file, null)) Music.toast("Couldn't share it") }
+                    Pill("Share…") { if (!sharePicture(b, file, null)) Music.toast("Couldn't share it") }
                     Pill("Save to Pictures", quiet = true) {
                         Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) "Saved to Pictures" else "Couldn't save it") }
                     }

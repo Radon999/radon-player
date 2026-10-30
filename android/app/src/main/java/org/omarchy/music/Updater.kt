@@ -91,9 +91,9 @@ object Updater {
     }
 
     /** Install, for an update whose question is waiting. */
-    fun askAgain(activity: android.app.Activity) {
+    fun askAgain(activity: Any?) {
         if (confirm == null) { state = ""; install(); return }
-        resumed(activity)
+        (activity as? android.app.Activity)?.let { resumed(it) }
     }
 
     fun install() {

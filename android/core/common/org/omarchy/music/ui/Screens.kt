@@ -1,7 +1,5 @@
 package org.omarchy.music.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
@@ -248,7 +246,7 @@ fun MusicTab(ui: Ui) {
     if (choosing) FolderBrowser { choosing = false }
     LaunchedEffect(Unit) { if (granted) Music.rescanSoon() }
     LaunchedEffect(ui.musicView, Music.accountsVersion, SpotifyHistory.count, org.omarchy.music.DeezerHistory.count) { if (ui.musicView == "top") Stats.refresh() }
-    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importPlaylist(uri.toString()) }
+    val importer = rememberOpenFile { uri -> if (uri != null) Music.importPlaylist(uri) }
     Music.musicVersion
     Music.savedVersion
     Column(Modifier.fillMaxSize()) {
@@ -713,7 +711,7 @@ fun artistArt(name: String, fallback: String = ""): Any? =
 @Composable
 fun RoundArt(model: Any?, size: androidx.compose.ui.unit.Dp) {
     Box(Modifier.size(size).clip(androidx.compose.foundation.shape.CircleShape).background(C.light), contentAlignment = Alignment.Center) {
-        if (model != null) coil.compose.AsyncImage(model = model, contentDescription = null,
+        if (model != null) AsyncImage(model = model, contentDescription = null,
             contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.size(size))
         else Text("♪", style = T.title.copy(color = C.muted))
     }

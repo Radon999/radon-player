@@ -100,7 +100,10 @@ fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? = runCatching {
 fun discoverDesktops(ctx: Ctx, found: (String, String) -> Unit) {}
 
 /** A picture that needs a login header: fetched as bytes on the PC. */
-fun imageWithAuth(ctx: Ctx, url: String, auth: String): Any = url
+fun imageWithAuth(ctx: Ctx, url: String, auth: String): Any = AuthImage(url, auth)
+
+/** A picture that needs a header to fetch (the phone-as-remote's covers). */
+data class AuthImage(val url: String, val auth: String)
 
 /** The switches' storage on the PC: a small JSON file. */
 class PrefsStore(ctx: Ctx, name: String) {

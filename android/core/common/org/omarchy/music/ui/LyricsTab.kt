@@ -206,10 +206,9 @@ private fun LyricsSearch(t: org.omarchy.music.Track, found: (Lyrics.Got?) -> Uni
     var artist by remember(t.id) { mutableStateOf(t.artist.split(",")[0].trim()) }
     var title by remember(t.id) { mutableStateOf(t.title) }
     var busy by remember(t.id) { mutableStateOf(false) }
-    val ctx = androidx.compose.ui.platform.LocalContext.current
     val go = {
         busy = true
-        Music.bg({ Lyrics.search(ctx, t, artist, title) }) { g, _ ->
+        Music.bg({ Lyrics.search(Music.ctx, t, artist, title) }) { g, _ ->
             busy = false
             if (g == null) Music.toast("No lyrics for “$title” by $artist") else Music.toast("Found: kept for offline")
             found(g)

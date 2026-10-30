@@ -1,11 +1,5 @@
 package org.omarchy.music.ui
 
-import android.content.ContentValues
-import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import android.os.Environment
-import android.provider.MediaStore
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,13 +50,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -70,7 +62,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.omarchy.music.Music
 import org.omarchy.music.Wrapped
@@ -178,15 +169,14 @@ fun WrappedScreen(onClose: () -> Unit) {
         data!!.period == Wrapped.Period.All -> allTime(data!!)
         else -> periodSlides(data!!)
     }
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onClose, properties = fullScreenDialog()) {
         val pager = rememberPagerState { slides.size }
         val scope = rememberCoroutineScope()
         LaunchedEffect(slides.size, data) { pager.scrollToPage(0) }
-        val ctx = LocalContext.current
         val layers = remember { HashMap<Int, GraphicsLayer>() }   // each page's drawing, for its picture
         var busy by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
-        val apps = remember { SHARE_APPS.filter { (pkg, _) -> runCatching { ctx.packageManager.getPackageInfo(pkg, 0) }.isSuccess } }
+        val apps = remember { SHARE_APPS.filter { (pkg, _) -> appInstalled(pkg) } }
 
         /** A picture of the slide showing: saved to Pictures, or sent to an app (pkg) or to the one you pick (null). */
         fun share(save: Boolean, pkg: String? = null) {
@@ -196,14 +186,14 @@ fun WrappedScreen(onClose: () -> Unit) {
             scope.launch {
                 busy = true                            // the Share… button hides,
                 withFrameNanos {}; withFrameNanos {}   // and the page is drawn again without it
-                val bmp = runCatching { layer.toImageBitmap().asAndroidBitmap() }.getOrNull()
+                val bmp = runCatching { layer.toImageBitmap() }.getOrNull()
                 busy = false
                 val last = i == slides.size - 1   // the summary: named as it always was
                 val name = "Wrapped ${label.lowercase().replaceFirstChar { it.uppercase() }} · ${d.user}${if (last) "" else " · ${i + 1}"}"
                 when {
                     bmp == null -> Music.toast("Couldn't make the picture")
                     save -> Music.toast(if (savePicture(bmp, name)) "Saved to Pictures" else "Couldn't save it")
-                    else -> if (!sharePicture(ctx, bmp, name, pkg)) Music.toast("Couldn't share it")
+                    else -> if (!sharePicture(bmp, name, pkg)) Music.toast("Couldn't share it")
                 }
             }
         }
@@ -696,30 +686,5 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     }
 }
 
-/** A bitmap Bitmap.compress can write (a GraphicsLayer's may be in the GPU's memory). */
-internal fun Bitmap.plain(): Bitmap = if (config == Bitmap.Config.HARDWARE) copy(Bitmap.Config.ARGB_8888, false) else this
 
-internal fun savePicture(bmp: Bitmap, name: String): Boolean = runCatching {
-    val cr = Music.ctx.contentResolver
-    val uri = cr.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-        put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
-        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-        put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
-    }) ?: return false
-    cr.openOutputStream(uri)?.use { bmp.plain().compress(Bitmap.CompressFormat.PNG, 100, it) } ?: return false
-    true
-}.getOrDefault(false)
-
-/** Send the picture to pkg (Instagram, Facebook), or to the app you pick in Android's share sheet. */
-internal fun sharePicture(ctx: Context, bmp: Bitmap, name: String, pkg: String?): Boolean = runCatching {
-    val dir = File(ctx.cacheDir, "shared").apply { mkdirs(); listFiles()?.forEach { it.delete() } }   // only the latest one is kept
-    val file = File(dir, name.replace(Regex("[\\\\/:*?\"<>|]"), "") + ".png")
-    file.outputStream().use { bmp.plain().compress(Bitmap.CompressFormat.PNG, 100, it) }
-    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".files", file)
-    val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    send.clipData = android.content.ClipData.newRawUri(name, uri)
-    ctx.startActivity(if (pkg != null) send.setPackage(pkg) else Intent.createChooser(send, "Share"))
-    true
-}.getOrDefault(false)
 

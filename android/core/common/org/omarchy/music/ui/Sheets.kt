@@ -1,14 +1,5 @@
 package org.omarchy.music.ui
 
-import android.annotation.SuppressLint
-import android.graphics.Bitmap
-import android.view.ViewGroup
-import android.webkit.CookieManager
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,7 +49,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.omarchy.music.DESKTOP_UA
@@ -68,7 +58,6 @@ import org.omarchy.music.Music
 import org.omarchy.music.Remote
 import org.omarchy.music.Updater
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import org.omarchy.music.SOURCES
 import org.omarchy.music.Services
 import org.omarchy.music.Tidal
@@ -139,11 +128,7 @@ private fun AccountsSheet(ui: Ui) {
     FullScreen("Settings", { ui.sheet = null }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
             LaunchedEffect(Unit) { Updater.checkSoon() }
-            val activity = LocalContext.current.let { c0 ->   // the sheet's context wraps the activity's
-                var c = c0
-                while (c !is android.app.Activity && c is android.content.ContextWrapper) c = c.baseContext
-                c as? android.app.Activity
-            }
+            val activity = currentActivity()   // the sheet's context wraps the activity's
             Group("General", ui) {
             val v = Updater.latest
             if (v != null) Line("Update", when (Updater.state) {
@@ -154,7 +139,7 @@ private fun AccountsSheet(ui: Ui) {
             }, false) {
                 when (Updater.state) {
                     "working" -> Unit
-                    "confirm" -> Pill("Install") { activity?.let { Updater.askAgain(it) } }
+                    "confirm" -> Pill("Install") { Updater.askAgain(activity) }
                     else -> Pill("Update") { Updater.install() }
                 }
             } else Line("Version", if (Updater.checking) "${Updater.version} · checking…"
@@ -164,17 +149,15 @@ private fun AccountsSheet(ui: Ui) {
             // What went wrong lately (the app closing, or errors it lived through): copy it to send it on.
             val problems = org.omarchy.music.Crashes.last
             if (problems.isNotEmpty()) {
-                val ctx = LocalContext.current
                 Line("Problems", problems.lineSequence().first().split(" · ").let { "${it.last()} · ${it.first()}" }, false) {
                     Pill("Copy", quiet = true) {
-                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Radon Player problems", problems))
+                        copyText("Radon Player problems", problems)
                         Music.toast("Copied what went wrong")
                     }
                     Pill("Clear", quiet = true) { org.omarchy.music.Crashes.clear() }
                 }
             }
-            NotificationsLine(activity)
+            if (onPhone) NotificationsLine(activity)
             }
             Group("Playback", ui) {
             PlaybackLines()
@@ -231,11 +214,7 @@ private fun AccountsSheet(ui: Ui) {
                 else if (Music.canWriteOwnFiles()) "The lyrics found for a song go into its file's tags (FLAC, MP3) once it's done playing, so they stay with it"
                 else "Into the app's downloads. Your own files need All files access: tap Allow", Music.lyricsToFiles) {
                 if (Music.lyricsToFiles && !Music.canWriteOwnFiles()) {
-                    val c = LocalContext.current
-                    Pill("Allow", quiet = true) {
-                        runCatching { c.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                            android.net.Uri.parse("package:" + c.packageName))) }
-                    }
+                    Pill("Allow", quiet = true) { openSystemSettings("allfiles") }
                     Spacer(Modifier.width(6.dp))
                 }
                 Switch(Music.lyricsToFiles, { Music.setLyricsToFiles(it) }, colors = swColors())
@@ -405,8 +384,8 @@ private fun SpotifyHistoryLine(ui: Ui) {
     val h = org.omarchy.music.SpotifyHistory
     val sp = Music.sources["spotify"] as? org.omarchy.music.Spotify
     var asking by remember { mutableStateOf(false) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri.toString()) }) { n, err ->
+    val pick = rememberOpenFile { uri ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
             Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(140)}"
                 else "Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "")
         }
@@ -441,8 +420,8 @@ private fun SpotifyHistoryLine(ui: Ui) {
 private fun AppleHistoryLine() {
     val h = org.omarchy.music.AppleHistory
     var asking by remember { mutableStateOf(false) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri.toString()) }) { n, err ->
+    val pick = rememberOpenFile { uri ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
             Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
                 else "Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "")
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
@@ -470,8 +449,8 @@ private fun AppleHistoryLine() {
 private fun DeezerHistoryLine() {
     val h = org.omarchy.music.DeezerHistory
     var asking by remember { mutableStateOf(false) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri.toString()) }) { n, err ->
+    val pick = rememberOpenFile { uri ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
             Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
                 else "Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "")
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
@@ -496,17 +475,17 @@ private fun DeezerHistoryLine() {
 
 /** Back up… / Restore…: the app's own files (playlists, favorites, plays, settings, imports) in a zip of your choosing. */
 @Composable
-private fun BackupLines(activity: android.app.Activity?) {
-    val ctx = LocalContext.current
-    var asking by remember { mutableStateOf<android.net.Uri?>(null) }
-    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) Music.bg({ org.omarchy.music.Backup.make(ctx, uri.toString()) }) { n, err ->
+private fun BackupLines(activity: Any?) {
+    val ctx = Music.ctx
+    var asking by remember { mutableStateOf<String?>(null) }
+    val save = rememberSaveFile("application/zip") { uri ->
+        if (uri != null) Music.bg({ org.omarchy.music.Backup.make(ctx, uri) }) { n, err ->
             Music.toast(if (err != null) "Couldn't back up: ${err.message?.take(100)}" else "Backed up ($n files)")
         }
     }
-    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> asking = uri }
+    val open = rememberOpenFile { uri -> asking = uri }
     Line("Back up and restore", "Your playlists, favorites, plays, queues, settings, equalizer and imported histories in one file: " +
-        "for a new phone, or after reinstalling. Not your songs or sign-ins", false) {}
+        "for a new ${DEVICE}, or after reinstalling. Not your songs or sign-ins", false) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Restore…", quiet = true) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
         Pill("Back up…") { save.launch("Radon Player backup ${java.time.LocalDate.now()}.zip") }
@@ -519,7 +498,7 @@ private fun BackupLines(activity: android.app.Activity?) {
             confirmButton = { TextButton({
                 asking = null
                 Music.restoring = true
-                Music.bg({ org.omarchy.music.Backup.restore(ctx, uri.toString()) }) { names, err ->
+                Music.bg({ org.omarchy.music.Backup.restore(ctx, uri) }) { names, err ->
                     if (err != null) { Music.restoring = false; Music.toast("Couldn't restore: ${err.message?.take(120)}") }
                     else { Music.toast("Restored ${names?.size ?: 0} files: open the app again"); Music.scope.launch {
                         kotlinx.coroutines.delay(1500); org.omarchy.music.Backup.close(activity) } }
@@ -532,41 +511,35 @@ private fun BackupLines(activity: android.app.Activity?) {
 /** Notifications: the player in the notification shade needs them. On: Android's question (or its settings page,
  *  once it won't ask again); off: its settings page (only Android can turn them off). */
 @Composable
-private fun NotificationsLine(activity: android.app.Activity?) {
-    val ctx = LocalContext.current
+private fun NotificationsLine(activity: Any?) {
     Music.resumed
     val on = Music.notificationsOn()
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+    val ask = rememberPermission { ok ->
         Music.resumed++
-        if (!ok) openNotificationSettings(ctx)
+        if (!ok) openSystemSettings("notifications")
     }
     Line("Notifications", if (on) "On: the player is in your notifications and on the lock screen, with shuffle and repeat"
         else "Off: the player isn't in your notifications. Switch on to allow them", on) {
         Switch(on, { want ->
-            if (want && android.os.Build.VERSION.SDK_INT >= 33 && activity != null &&
-                (activity.shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS) || !org.omarchy.music.Prefs.on("notif_asked"))) {
+            if (want && org.omarchy.music.sdkAtLeast(33) && activity != null &&
+                (shouldExplain(activity, Perm.NOTIFY) || !org.omarchy.music.Prefs.on("notif_asked"))) {
                 org.omarchy.music.Prefs.set("notif_asked", true)
-                ask.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-            } else openNotificationSettings(ctx)
+                ask.launch(Perm.NOTIFY)
+            } else openSystemSettings("notifications")
         }, colors = swColors())
     }
-}
-
-private fun openNotificationSettings(ctx: android.content.Context) {
-    runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
 /** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, auto mono, smart shuffle. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlaybackLines() {
-    val ctx = LocalContext.current
+    val ctx = Music.ctx
     val P = org.omarchy.music.Prefs
     Music.resumed
     val lock = P.on(P.LOCK_SCREEN)
     val allowed = org.omarchy.music.LockScreen.allowed(ctx)
-    Line("Lock screen player", when {
+    if (onPhone) Line("Lock screen player", when {
         lock && !allowed -> "Android needs you to allow it full-screen notifications: tap Allow"
         lock -> "When the screen turns on while music plays, Now playing shows over the lock screen; ⌄ goes on to the lock screen"
         else -> "Now playing over the lock screen, with the queue and lyrics, when the screen turns on while music plays"
@@ -578,6 +551,18 @@ private fun PlaybackLines() {
         "Needs the phone paired with the PC (Play on)", P.on(P.CONTINUE)) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
     }
+    if (onPhone) AutoMonoLines()
+    Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
+        P.on(P.SMART_SHUFFLE)) {
+        Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
+    }
+}
+
+/** Auto mono (the phone's: it goes by the Bluetooth earbuds connected to it). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AutoMonoLines() {
+    val P = org.omarchy.music.Prefs
     val auto = P.on(P.AUTO_MONO)
     val picked = P.text(P.AUTO_MONO_DEVICE)
     Line("Auto mono", when {
@@ -596,10 +581,6 @@ private fun PlaybackLines() {
             }
             if (now.isEmpty() && picked.isEmpty()) Text("No Bluetooth earbuds connected right now", style = T.sub)
         }
-    }
-    Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
-        P.on(P.SMART_SHUFFLE)) {
-        Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
     }
 }
 
@@ -776,7 +757,7 @@ private fun Divider() = HorizontalDivider(color = C.line, modifier = Modifier.pa
 /** A screen over everything, with ‹ and a name: Settings, the Equalizer. */
 @Composable
 fun FullScreen(title: String, close: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
-    androidx.activity.compose.BackHandler { close() }
+    PlatformBack { close() }
     Column(Modifier.fillMaxSize().background(C.bg).then(C.gradient?.let { Modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(it)) } ?: Modifier)
         .pointerInput(Unit) { detectTapGestures { } }.statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -797,7 +778,7 @@ private fun EqSheet(ui: Ui) {
     var outs by remember { mutableStateOf(false) }
     // Compact: the bands fill the screen, every one in view at once; the rest is one row.
     var compact by remember { mutableStateOf(false) }
-    val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val screenH = screenHeightDp()
     FullScreen("Equalizer", { ui.sheet = null }, actions = {
         Chip("Compact", compact) { compact = !compact }
         Spacer(Modifier.width(6.dp))
@@ -1074,7 +1055,7 @@ private fun AutoEqFinder() {
             note = if (err != null) "AutoEq couldn't be reached: ${err.message?.take(80)}" else if (found.isEmpty()) "Nothing in AutoEq by that name" else ""
         }
     }
-    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importEqFile(uri.toString()) }
+    val importer = rememberOpenFile { uri -> if (uri != null) Music.importEqFile(uri) }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
         Box(Modifier.weight(1f)) { Field(q, "Auto EQ: find your headphones") { q = it } }
         Spacer(Modifier.width(6.dp))
@@ -1127,7 +1108,7 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
         if (several && allPicked) Music.setCover(albums.flatten(), src, true) { ui.coverFor = null }
         else Music.setCover(songs, src, wholeAlbum) { next() }
     }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) use(uri.toString()) }
+    val pick = rememberOpenFile { uri -> if (uri != null) use(uri) }
     LaunchedEffect(songs, asked) {
         choices = null
         val (a, al) = if (" - " in asked) asked.substringBefore(" - ").trim() to asked.substringAfter(" - ").trim() else "" to asked.trim()
@@ -1194,7 +1175,7 @@ private fun ArtistPictureDialog(ui: Ui, name: String) {
     var choices by remember(name) { mutableStateOf<List<org.omarchy.music.Pictures.Choice>?>(null) }
     val close = { ui.artistPictureFor = null }
     val use = { src: String -> close(); Music.setArtistPicture(name, src) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) use(uri.toString()) }
+    val pick = rememberOpenFile { uri -> if (uri != null) use(uri) }
     LaunchedEffect(name) { Music.bg({ org.omarchy.music.Pictures.artistChoices(name) }) { c, _ -> choices = c ?: emptyList() } }
     AlertDialog(onDismissRequest = close, containerColor = C.light,
         title = { Text("A picture of $name", style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -1366,25 +1347,18 @@ private fun DupeDownloadDialog(new: List<org.omarchy.music.Track>, dupes: List<P
 /** Your files Android is asked to put in its trash (Upgrade, Replace, Duplicates): it asks you, then they go. */
 @Composable
 private fun Trasher() {
-    val ctx = LocalContext.current
     var asked by remember { mutableStateOf<Music.TrashJob?>(null) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+    val ask = rememberFileRemoval(trash = true) { ok ->
         val job = asked
         asked = null
-        if (job != null) Music.trashed(job, r.resultCode == android.app.Activity.RESULT_OK)
+        if (job != null) Music.trashed(job, ok)
     }
     val job = Music.trashJob
     LaunchedEffect(job) {
         if (job == null || asked != null) return@LaunchedEffect
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
-            val uris = job.tracks.mapNotNull { Music.phoneFile(it) }.map { android.net.Uri.parse(it) }
-            if (uris.isEmpty()) Music.trashed(job, false)
-            else {
-                asked = job
-                val req = android.provider.MediaStore.createTrashRequest(ctx.contentResolver, uris, true)
-                ask.launch(androidx.activity.result.IntentSenderRequest.Builder(req.intentSender).build())
-            }
-        } else Music.trashed(job, false)
+        val uris = job.tracks.mapNotNull { Music.phoneFile(it) }
+        if (uris.isEmpty() || !canRemoveFiles) Music.trashed(job, false)
+        else { asked = job; ask(uris) }
     }
 }
 
@@ -1392,10 +1366,10 @@ private fun Trasher() {
 @Composable
 private fun Exporter(ui: Ui) {
     var pending by remember { mutableStateOf<List<org.omarchy.music.Track>?>(null) }
-    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+    val save = rememberSaveFile("audio/x-mpegurl") { uri ->
         val t = pending
         pending = null
-        if (uri != null && t != null) Music.exportM3u8(uri.toString(), t)
+        if (uri != null && t != null) Music.exportM3u8(uri, t)
     }
     val job = ui.exportFor
     LaunchedEffect(job) {
@@ -1411,12 +1385,11 @@ private fun Exporter(ui: Ui) {
 @Composable
 private fun DeleteDialog(ui: Ui) {
     var phone by remember { mutableStateOf<List<org.omarchy.music.Track>>(emptyList()) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
-        if (r.resultCode == android.app.Activity.RESULT_OK) Music.phoneFilesDeleted(phone)
+    val ask = rememberFileRemoval(trash = false) { ok ->
+        if (ok) Music.phoneFilesDeleted(phone)
         phone = emptyList()
     }
     val tracks = ui.deleteFor ?: return
-    val ctx = LocalContext.current
     val downloads = tracks.filter { Music.lib.has(it.id) }
     val files = tracks.filter { Music.phoneFile(it) != null }
     val n = downloads.size + files.size
@@ -1427,7 +1400,7 @@ private fun DeleteDialog(ui: Ui) {
         text = {
             Text(listOfNotNull(
                 if (downloads.isNotEmpty()) "${if (n == 1) "Its" else "${downloads.size}"} downloaded FLAC${if (downloads.size > 1) "s" else ""} will be deleted for good (you can download them again)." else null,
-                if (files.isNotEmpty()) "${if (n == 1) "Its file" else "${files.size} files"} on the phone will be deleted: Android asks you once more." else null,
+                if (files.isNotEmpty()) "${if (n == 1) "Its file" else "${files.size} files"} on the $DEVICE will be deleted" + if (onPhone) ": Android asks you once more." else "." else null,
                 (tracks.size - n).takeIf { it > 0 }?.let { left ->
                     if (left == 1) "1 of the songs you picked has no file here: it stays." else "$left of the songs you picked have no file here: they stay."
                 },
@@ -1440,10 +1413,9 @@ private fun DeleteDialog(ui: Ui) {
                 val playing = Music.current()?.id
                 val todo = files.filter { it.id != playing }
                 if (todo.size < files.size) Music.toast("The playing song is left as it is: skip it first")
-                if (todo.isNotEmpty() && android.os.Build.VERSION.SDK_INT >= 30) {
+                if (todo.isNotEmpty() && canRemoveFiles) {
                     phone = todo
-                    val req = android.provider.MediaStore.createDeleteRequest(ctx.contentResolver, todo.map { android.net.Uri.parse(Music.phoneFile(it)) })
-                    ask.launch(androidx.activity.result.IntentSenderRequest.Builder(req.intentSender).build())
+                    ask(todo.mapNotNull { Music.phoneFile(it) })
                 }
             }, enabled = n > 0) { Text("Delete", color = C.red) }
         },
@@ -1495,38 +1467,3 @@ private fun NameDialog(title: String, start: String, dismiss: () -> Unit, done: 
         dismissButton = { TextButton(dismiss) { Text("Cancel", color = C.muted) } })
 }
 
-/** A sign-in page in the app; done(url) once isDone says the sign-in finished, done(null) if closed. */
-@SuppressLint("SetJavaScriptEnabled")
-@Composable
-fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false, done: (String?) -> Unit) {
-    var finished by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = { done(null) }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.fillMaxSize().background(C.bg)) {
-            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Sign in", style = T.title, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                Text("✕", style = T.title, modifier = Modifier.clickable { done(null) }.padding(10.dp))
-            }
-            AndroidView(factory = { ctx ->
-                CookieManager.getInstance().setAcceptCookie(true)
-                WebView(ctx).apply {
-                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    // Google's sign-in takes the WebView as it is; a borrowed browser name gives it away.
-                    if (desktop) settings.userAgentString = DESKTOP_UA
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                    webViewClient = object : WebViewClient() {
-                        fun check(u: String): Boolean {
-                            if (!finished && isDone(u)) { finished = true; CookieManager.getInstance().flush(); done(u); return true }
-                            return false
-                        }
-                        override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest) = check(req.url.toString())
-                        override fun onPageStarted(view: WebView, u: String, favicon: Bitmap?) { check(u) }
-                        override fun onPageFinished(view: WebView, u: String) { check(u) }
-                    }
-                    loadUrl(url)
-                }
-            }, modifier = Modifier.fillMaxSize())
-        }
-    }
-}

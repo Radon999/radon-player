@@ -35,7 +35,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import org.omarchy.music.Dj
 import org.omarchy.music.Album
 import org.omarchy.music.Music
@@ -286,7 +285,6 @@ private fun BarButton(ico: Ico, label: String, onClick: () -> Unit) {
 fun OptionsSheet(ui: Ui) {
     val picked = ui.selectedTracks()
     val place = ui.selectPlace
-    val ctx = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = { ui.showOptions = false }, containerColor = C.light) {
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
             item { Text("Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}", style = T.head,
@@ -321,13 +319,9 @@ fun OptionsSheet(ui: Ui) {
                 if (place?.kind == "queue") add(Triple(Ico.CLOSE, "Remove from the queue") {
                     val ids = picked.map { it.id }.toSet()
                     Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids }) })
-                val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { it.startsWith("content://") }
+                val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
                 if (files.isNotEmpty()) add(Triple(Ico.SHARE, "Share") {
-                    val uris = ArrayList(files.map { android.net.Uri.parse(it) })
-                    val send = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).setType("audio/*")
-                        .putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
-                        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    ctx.startActivity(android.content.Intent.createChooser(send, "Share ${files.size} songs"))
+                    shareFiles(files, "Share ${files.size} songs")
                 })
                 if (picked.any { Music.deletable(it) }) add(Triple(Ico.TRASH, "Delete permanently…") { ui.deleteFor = picked })
             }

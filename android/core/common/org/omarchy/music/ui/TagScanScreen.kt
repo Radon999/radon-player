@@ -1,5 +1,6 @@
 package org.omarchy.music.ui
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -52,7 +53,7 @@ fun TagScanScreen(ui: Ui) {
             TagScan.plan(songs, TagScan::findTrack, TagScan::albumInfo, { ar, al, found ->
                 found + runCatching { TagScan.albumCovers(ar, al) }.getOrDefault(emptyList()) +
                     runCatching { org.omarchy.music.Pictures.coverChoices(ar, al).map { it.url } }.getOrDefault(emptyList())
-            }, progress = { i, n -> android.os.Handler(android.os.Looper.getMainLooper()).post { done = i to n } })
+            }, progress = { i, n -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { done = i to n } })
         }) { res, err ->
             if (err != null) failed = err.message ?: "Couldn't scan"
             groups = res ?: emptyList()

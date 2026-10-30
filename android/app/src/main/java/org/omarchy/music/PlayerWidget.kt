@@ -1,5 +1,6 @@
 package org.omarchy.music
 
+import org.omarchy.music.ui.artColor
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider

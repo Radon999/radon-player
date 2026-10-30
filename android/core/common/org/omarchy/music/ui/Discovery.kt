@@ -72,14 +72,13 @@ fun ReviewDialog(ui: Ui, pl: Playlist) {
         dismissButton = { TextButton({ ui.reviewFor = null }) { Text("Cancel", color = C.muted) } })
 }
 
-/** Where a song's file is: its folder, to copy (Android can't open a file manager at a file). */
+/** Where a song's file is: its folder, to copy (Android can't open a file manager at a file; the PC opens it). */
 fun showLocation(ui: Ui, t: Track) {
-    val folder = "/storage/emulated/0/" + (if (Music.lib.has(t.id)) Music.downloadFolder() else Music.folderOf(t)).trimEnd('/')
-    ui.choices = "In $folder" to listOf("Copy the folder" to {
-        val cm = Music.ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        cm.setPrimaryClip(android.content.ClipData.newPlainText("Folder", folder))
+    val folder = fullFolderPath((if (Music.lib.has(t.id)) Music.downloadFolder() else Music.folderOf(t)).trimEnd('/'))
+    ui.choices = "In $folder" to listOfNotNull("Copy the folder" to {
+        copyText("Folder", folder)
         Music.toast("Copied")
-    })
+    }, if (canOpenFolders) "Open the folder" to { openFolder(folder) } else null)
 }
 
 /** Tag now, seen first: what the tagger would change in the first few songs (yours → new), then Tag all. */

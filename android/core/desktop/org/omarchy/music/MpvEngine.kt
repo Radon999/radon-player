@@ -45,10 +45,10 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     private var sounding: (() -> Unit)? = null
 
     /** The volume you set in the app (0 to 1), on top of crossfade's. */
-    @Volatile var master = 1f
+    @Volatile var master = level
         set(v) { field = v; send("set_property", "volume", (vol * v * 100).toDouble()) }
 
-    init { start() }
+    init { synchronized(all) { all += this }; start() }
 
     private fun mpvPath(): String = System.getenv("RADON_MPV")
         ?: listOfNotNull(System.getenv("LOCALAPPDATA")?.let { "$it\\Programs\\Omarchy Music\\bin\\mpv.exe" })
@@ -57,7 +57,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
 
     private fun start() {
         val p = ProcessBuilder(mpvPath(), "--idle=yes", "--no-video", "--really-quiet", "--audio-display=no", "--keep-open=no",
-            "--input-ipc-server=$pipe", "--volume=100", "--replaygain=no")
+            "--input-ipc-server=$pipe", "--volume=${(level * 100).toInt()}", "--replaygain=no")
             .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
         proc = p
         Thread({ connect() }, "mpv-$id").apply { isDaemon = true }.start()
@@ -222,5 +222,13 @@ class MpvEngine(private val main: Boolean = true) : Engine {
 
     companion object {
         private val COUNT = AtomicInteger()
+        private val all = java.util.Collections.newSetFromMap(java.util.WeakHashMap<MpvEngine, Boolean>())
+        /** The app's volume (0 to 1), for every player. */
+        @Volatile var level = 1f
+            private set
+        fun setLevel(v: Float) {
+            level = v.coerceIn(0f, 1f)
+            synchronized(all) { all.toList() }.forEach { it.master = level }
+        }
     }
 }

@@ -1,10 +1,5 @@
 package org.omarchy.music.ui
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.media.AudioManager
-import android.media.audiofx.Visualizer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -56,7 +51,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -65,13 +59,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
-import androidx.media3.exoplayer.ExoPlayer
-import coil.compose.AsyncImage
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.SuccessResult
 import org.omarchy.music.Music
 import org.omarchy.music.Remote
 import org.omarchy.music.Spectrum
@@ -99,18 +86,13 @@ private val GREY = NowColors(Color(0xFF4D4D55), Color(0xFF1A1A1E), Color(0xFFDAD
 
 private fun nowColors(rgb: Int): NowColors {
     val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(rgb, hsl)
+    Rgb.toHsl(rgb, hsl)
     val s = if (hsl[1] > 0.08f) hsl[1].coerceIn(0.25f, 0.75f) else hsl[1]   // a grey cover stays grey
-    fun shade(l: Float, sat: Float = s) = Color(ColorUtils.HSLToColor(floatArrayOf(hsl[0], sat, l)))
+    fun shade(l: Float, sat: Float = s) = Color(Rgb.fromHsl(floatArrayOf(hsl[0], sat, l)))
     return NowColors(shade(0.46f), shade(0.20f), shade(0.80f, min(1f, s + 0.1f)))
 }
 
-private suspend fun loadNowColors(ctx: Context, model: Any?): NowColors? {
-    model ?: return null
-    val res = ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(model).allowHardware(false).size(64).build())
-    val bmp = ((res as? SuccessResult)?.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap ?: return null
-    return nowColors(Tint.artColor(bmp))
-}
+private suspend fun loadNowColors(model: Any?): NowColors? = Tint.rgbOf(model)?.let { nowColors(it) }
 
 /** lock: on the lock screen (LockScreenActivity): no menu or settings at the top, an arrow down to the phone's own
  *  lock screen instead, which lock() goes to. */
@@ -118,20 +100,18 @@ private suspend fun loadNowColors(ctx: Context, model: Any?): NowColors? {
 fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val n = now()
     val t = n.t
-    val ctx = LocalContext.current
     val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 1200) }
     var cols by remember { mutableStateOf(GREY) }
-    LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(ctx, art) ?: GREY }
+    LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(art) ?: GREY }
     // The bars behind Now playing hear the music through Android's visualizer, which needs the
     // microphone permission (nothing is recorded): asked once, the first time Now playing shows.
-    var micOk by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) }
-    val askMic = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { micOk = it }
-    LaunchedEffect(Unit) { if (!micOk && !Music.micAsked) { Music.micAsked = true; Music.saveState(); askMic.launch(Manifest.permission.RECORD_AUDIO) } }
+    var micOk by remember { mutableStateOf(hasPermission(Perm.MIC)) }
+    val askMic = rememberPermission { micOk = it }
+    LaunchedEffect(Unit) { if (!micOk && !Music.micAsked) { Music.micAsked = true; Music.saveState(); askMic.launch(Perm.MIC) } }
     val levels = if (micOk) rememberLevels(on = true) else null
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))) {
         // The cover in the colour, faintly, slightly blurred (a small copy drawn big is soft on every phone).
-        if (art != null) AsyncImage(model = ImageRequest.Builder(ctx).data(art).size(20).build(), contentDescription = null,
+        if (art != null) AsyncImage(model = smallArt(art, 20), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer(alpha = 0.28f))
         if (levels != null) NowBars(levels.first, levels.second, cols.bars, Modifier.align(Alignment.BottomCenter))
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
@@ -355,18 +335,15 @@ private fun Transport(n: Now) {
 /** The phone's media volume, as a slim bar between a quiet and a loud speaker. */
 @Composable
 private fun VolumeLine() {
-    val ctx = LocalContext.current
-    val am = remember { ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    val max = remember { am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
-    var v by remember { mutableFloatStateOf(am.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat()) }
+    var v by remember { mutableFloatStateOf(SysVolume.get()) }
     var held by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {   // the volume keys change it too
         while (true) {
             kotlinx.coroutines.delay(600)
-            if (!held) v = am.getStreamVolume(AudioManager.STREAM_MUSIC) / max.toFloat()
+            if (!held) v = SysVolume.get()
         }
     }
-    fun set(f: Float) { v = f; am.setStreamVolume(AudioManager.STREAM_MUSIC, (f * max).roundToInt().coerceIn(0, max), 0) }
+    fun set(f: Float) { v = f; SysVolume.set(f) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Ico.SPEAKER, SOFT, 16.dp)
         SlimBar(v, onMove = { held = true; set(it) }, onDone = { held = false; set(it) }, modifier = Modifier.weight(1f).padding(horizontal = 10.dp))
@@ -530,32 +507,13 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
 
 // ───────────────────────────── The bars ─────────────────────────────
 
-/** The bands' levels from Android's Visualizer on the player's own sound, and a frame count that ticks
+/** The bands' levels from the music's spectrum (rememberSpectrum), and a frame count that ticks
  *  while they move (null: the visualizer isn't allowed, or isn't there). */
 @Composable
 fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
-    val ctx = LocalContext.current
-    val allowed = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-    if (!on || !allowed || Remote.active) return null
-    val session = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? ExoPlayer)?.audioSessionId ?: 0
-    val target = remember { FloatArray(Spectrum.BANDS) }
+    val target = rememberSpectrum(on) ?: return null
     val levels = remember { FloatArray(Spectrum.BANDS) }
     var frame by remember { mutableIntStateOf(0) }
-    DisposableEffect(session) {
-        val vis = runCatching {
-            Visualizer(session).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
-                setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                    override fun onWaveFormDataCapture(v: Visualizer, wave: ByteArray, rate: Int) {}
-                    override fun onFftDataCapture(v: Visualizer, fft: ByteArray, rate: Int) {
-                        Spectrum.bands(fft, rate / 1000).copyInto(target)
-                    }
-                }, Visualizer.getMaxCaptureRate(), false, true)
-                enabled = true
-            }
-        }.getOrNull()
-        onDispose { vis?.runCatching { enabled = false; release() } }
-    }
     LaunchedEffect(Unit) {
         var last = 0L
         while (true) withFrameNanos { now ->
@@ -597,11 +555,11 @@ private fun NowBars(levels: FloatArray, frame: Int, col: Color, modifier: Modifi
 fun MiniPlayer() {
     val n = now()
     val t = n.t
-    val ctx = LocalContext.current
+    val act = currentActivity()
     val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 600) }
     var cols by remember { mutableStateOf(GREY) }
-    LaunchedEffect(t?.id) { cols = loadNowColors(ctx, art) ?: GREY }
-    LaunchedEffect(Music.paused) { (ctx as? org.omarchy.music.MainActivity)?.updateMini() }
+    LaunchedEffect(t?.id) { cols = loadNowColors(art) ?: GREY }
+    LaunchedEffect(Music.paused) { updateMiniPlayer(act) }
     val levels = rememberLevels(on = true)
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))) {
         if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,

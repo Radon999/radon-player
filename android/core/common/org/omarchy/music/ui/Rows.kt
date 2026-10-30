@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
-import coil.compose.AsyncImage
 import org.omarchy.music.Album
 import org.omarchy.music.FolderItem
 import org.omarchy.music.Music

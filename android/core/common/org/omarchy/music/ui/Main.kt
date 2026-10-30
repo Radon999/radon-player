@@ -1,6 +1,5 @@
 package org.omarchy.music.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -63,9 +62,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -75,8 +72,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.imageLoader
 import org.omarchy.music.LastFm
 import org.omarchy.music.LAYOUTS
 import org.omarchy.music.Music
@@ -97,7 +92,6 @@ import org.omarchy.music.liveSearchWait
 fun App() {
     val ui = remember { Ui() }
     val snack = remember { SnackbarHostState() }
-    val ctx = LocalContext.current
     LaunchedEffect(Unit) { for (t in Music.toasts) { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
     LaunchedEffect(Unit) {   // a note with a button (Continue where you left off's Play)
         for ((text, label, act) in Music.offers) {
@@ -108,26 +102,18 @@ fun App() {
     }
 
     // Dark icons on the system bars over a light look.
-    val view = LocalView.current
-    SideEffect {
-        (view.context as? android.app.Activity)?.window?.let { w ->
-            androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
-                isAppearanceLightStatusBars = C.isLight
-                isAppearanceLightNavigationBars = C.isLight
-            }
-        }
-    }
+    SystemBars(C.isLight)
 
     // The Now playing look: every screen in the colours of what's playing's cover.
     val cur = if (Remote.active) Remote.status.track else Music.current()
     val tint: Pair<Color, Color>? = null
     LaunchedEffect(cur?.id, Music.savedVersion, Music.look, Music.npFallback) {
         if (Music.look != "nowplaying") return@LaunchedEffect
-        val rgb = if (cur == null) null else Tint.rgbOf(ctx, ctx.imageLoader, if (Remote.active) Remote.artModel(cur) else artModel(cur))
+        val rgb = if (cur == null) null else Tint.rgbOf(if (Remote.active) Remote.artModel(cur) else artModel(cur))
         val old = Music.coverRgb
-        val same = rgb != null && old != null && kotlin.math.abs(android.graphics.Color.red(rgb) - android.graphics.Color.red(old)) +
-            kotlin.math.abs(android.graphics.Color.green(rgb) - android.graphics.Color.green(old)) +
-            kotlin.math.abs(android.graphics.Color.blue(rgb) - android.graphics.Color.blue(old)) < 18
+        val same = rgb != null && old != null && kotlin.math.abs(Rgb.red(rgb) - Rgb.red(old)) +
+            kotlin.math.abs(Rgb.green(rgb) - Rgb.green(old)) +
+            kotlin.math.abs(Rgb.blue(rgb) - Rgb.blue(old)) < 18
         if (!same || rgb == null) { Music.coverRgb = rgb; Music.applyLook() }
     }
     // A link shared from another app: search it on the service it's from.
@@ -154,7 +140,7 @@ fun App() {
     LaunchedEffect(ui.tab, ui.musicView, page, ui.openMine, ui.openList?.first, ui.openFolder) { ui.filter = null }
     LaunchedEffect(title, ui.query) { Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else title }
 
-    BackHandler(enabled = ui.drawer || ui.selecting || ui.pane != "art" || page != null || ui.openMine != null ||
+    PlatformBack(enabled = ui.drawer || ui.selecting || ui.pane != "art" || page != null || ui.openMine != null ||
         ui.openList != null || ui.openFolder != null || ui.tab != "player") {
         when {
             ui.drawer -> ui.drawer = false
@@ -302,8 +288,10 @@ private fun DrawerSheet(ui: Ui) {
             androidx.compose.material3.HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 8.dp))
             DrawerItem("Settings", Ico.SETTINGS, false, quiet = true) { ui.drawer = false; ui.openSettings() }
             DrawerItem("Equalizer", Ico.EQ, false, quiet = true) { ui.drawer = false; ui.sheet = "eq" }
-            val act = LocalContext.current as? org.omarchy.music.MainActivity
-            DrawerItem("Mini player", Ico.VIS, false, quiet = true) { ui.drawer = false; act?.enterMini() }
+            if (hasMiniPlayer) {
+                val act = currentActivity()
+                DrawerItem("Mini player", Ico.VIS, false, quiet = true) { ui.drawer = false; enterMiniPlayer(act) }
+            }
         }
     }
 }
@@ -501,7 +489,7 @@ private fun Player(ui: Ui) {
         // A dark plain look: the cover again, blurred and dimmed, behind everything.
         if (art != null && !C.isLight && C.gradient == null) {
             AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().blur(70.dp).graphicsLayer(alpha = if (android.os.Build.VERSION.SDK_INT >= 31) 0.5f else 0.16f))
+                modifier = Modifier.fillMaxSize().blur(70.dp).graphicsLayer(alpha = blurAlpha))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.2f),
                 Color.Black.copy(alpha = 0.5f), C.darker.copy(alpha = 0.95f)))))
         }

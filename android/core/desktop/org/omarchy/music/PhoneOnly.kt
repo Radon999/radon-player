@@ -6,6 +6,7 @@ package org.omarchy.music
 /** Auto mono goes by the phone's Bluetooth earbuds: never on the PC (Mono itself works). */
 object AutoMono {
     val active = false
+    fun connected(): List<String> = emptyList()
     fun check() { Music.eqProcessor.mono = Prefs.on(Prefs.MONO) }
 }
 
@@ -54,3 +55,9 @@ class EqProcessor {
     fun update(s: EqSettings) { settings = s; version++ }
 }
 
+
+/** The lock screen player is the phone's (Android's lock screen). */
+object LockScreen {
+    fun allowed(ctx: Ctx) = true
+    fun askAllowed(ctx: Ctx) {}
+}
