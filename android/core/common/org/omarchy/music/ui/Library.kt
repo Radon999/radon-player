@@ -312,7 +312,7 @@ fun OptionsSheet(ui: Ui) {
                         add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
                     if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
                 }
-                picked.filter { Music.lib.items[it.id]?.let { e -> e.format == "flac" && e.file.startsWith("content://") } == true }
+                picked.filter { Music.lib.items[it.id]?.let { e -> e.format == "flac" && org.omarchy.music.Tags.writable(e.file) } == true }
                     .takeIf { it.isNotEmpty() }?.let { flacs -> add(Triple(Ico.EDIT, "Tag now…") { ui.tagPreview = flacs.map { it.id } to true }) }
                 if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
                     Music.removeFromPlaylist(place.playlistId, picked.map { it.id }.toSet()) })

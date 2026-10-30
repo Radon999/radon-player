@@ -93,7 +93,7 @@ fun MergeArtistDialog(ui: Ui, name: String) {
                 Text("Which artist is $name really? Their plays count as that artist's in Most played, Artists and Wrapped, " +
                     "and the songs the app downloaded get that artist in their tags.", style = T.sub)
                 androidx.compose.material3.OutlinedTextField(to, { to = it }, singleLine = true, placeholder = { Text("Type an artist") },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).typing())
                 LazyColumn(Modifier.padding(top = 2.dp).fillMaxWidth().heightIn(max = 260.dp)) {
                     items(shown, key = { it }) { n ->
                         Text(n, style = T.body, modifier = Modifier.fillMaxWidth()

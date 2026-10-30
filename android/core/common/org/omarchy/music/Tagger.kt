@@ -28,7 +28,7 @@ object Tagger {
     private val fresh = HashSet<String>()   // songs to tag from scratch (Retag)
     private var running = false
 
-    private fun taggable(e: LibEntry?) = e != null && e.format == "flac" && e.file.startsWith("content://")
+    private fun taggable(e: LibEntry?) = e != null && e.format == "flac" && Tags.writable(e.file)
 
     fun untagged(): List<String> = Music.lib.items.values.filter { taggable(it) && it.tagged < VERSION }.map { it.id }
 

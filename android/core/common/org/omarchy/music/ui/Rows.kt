@@ -56,6 +56,10 @@ data class RowPlace(val group: List<Track>, val index: Int, val kind: String = "
 
 /** What the screens share: the tab, the open pages, what's selected, the open sheets. */
 class Ui {
+    companion object {
+        /** The window's Ui (the PC's keyboard shortcuts reach the screens through it). */
+        var current: Ui? = null
+    }
     var tab by mutableStateOf("player")                // what's in front: the player, or a list (from the ☰ menu)
     var player by mutableStateOf(false)                // (kept for the screens that close it: the player is a tab now)
     var drawer by mutableStateOf(false)                // the ☰ menu is out
@@ -327,8 +331,10 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }
         splitArtists(t.artist).firstOrNull()?.let { lead -> item("Discovery playlist for $lead") { Music.makeDiscovery(lead) }() }
         if (t.isFile || Music.lib.has(t.id)) item("File location") { showLocation(ui, t) }()
-        if (Music.lib.items[t.id]?.let { it.format == "flac" && it.file.startsWith("content://") } == true)
+        if (Music.lib.items[t.id]?.let { it.format == "flac" && org.omarchy.music.Tags.writable(it.file) } == true)
             item("Tag now…") { ui.tagPreview = listOf(t.id) to true }()
+        if (org.omarchy.music.AudioTools.supported && (t.file ?: Music.lib.items[t.id]?.file) != null)
+            item("Identify by sound…") { ui.identifyFor = t }()
         item("Select…") { ui.startSelecting(place.group, place, t) }()
     }
 }

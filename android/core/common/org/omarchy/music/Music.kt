@@ -1501,7 +1501,7 @@ object Music {
             var written = 0
             val failed = ArrayList<String>()
             for (e in album.distinctBy { it.file }) {
-                if (e.id == playing || e.format != "flac" || !e.file.startsWith("content://")) continue
+                if (e.id == playing || e.format != "flac" || !Tags.writable(e.file)) continue
                 try { Covers.write(ctx, e.file, jpeg); written++ } catch (x: Exception) { failed += "${e.title}: ${x.message}" }
             }
             for (e in album) {   // a new file each time: the old picture stays in the image cache under the old name
@@ -1807,7 +1807,7 @@ object Music {
     /** Write the lyrics found for t into its file's tags (if it has none). Your own files need All files access. */
     fun lyricsIntoFile(t: Track, force: Boolean = false) {   // force: asked for (the Tagger), whatever the setting
         if ((!lyricsToFiles && !force) || Remote.active) return
-        val uri = (lib.items[t.id]?.file ?: t.file)?.takeIf { it.startsWith("content://") } ?: return
+        val uri = (lib.items[t.id]?.file ?: t.file)?.takeIf { Tags.writable(it) } ?: return
         val own = lib.items[t.id] == null
         if (own && !canWriteOwnFiles()) return
         bg({

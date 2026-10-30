@@ -91,6 +91,7 @@ import org.omarchy.music.liveSearchWait
 @Composable
 fun App() {
     val ui = remember { Ui() }
+    Ui.current = ui
     val snack = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { for (t in Music.toasts) { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
     LaunchedEffect(Unit) {   // a note with a button (Continue where you left off's Play)
@@ -410,7 +411,7 @@ private fun SearchField(ui: Ui) {
                 textStyle = T.body, cursorBrush = SolidColor(C.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); ui.pages.clear(); runSearch(ui) }),
-                modifier = Modifier.fillMaxWidth())
+                modifier = Modifier.fillMaxWidth().typing())
         }
         if (ui.query.isNotEmpty()) IconButton(Ico.CLOSE, C.muted, 16.dp, 8.dp) { ui.query = "" }
         // Where to search: Tidal, YouTube Music or your own songs.

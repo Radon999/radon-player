@@ -9,8 +9,15 @@ object Tags {
     val FIELDS = listOf("title" to "Title", "artist" to "Artist", "album" to "Album", "albumartist" to "Album artist",
         "genre" to "Genre", "date" to "Year", "tracknumber" to "Track")
 
-    /** The FLAC of the song's that can be edited (a content:// address the app made), or null. */
-    fun editable(t: Track): String? = Music.lib.items[t.id]?.takeIf { it.format == "flac" && it.file.startsWith("content://") }?.file
+    /** Whether the app can change the file: on the phone the FLACs it downloaded (content:// addresses it made), on the
+     *  PC any file of yours it may write, as the Python app. */
+    fun writable(file: String) = file.startsWith("content://") || FileTags.canWrite(file)
+
+    /** The FLAC of the song's that can be edited, or null: a download of the app's, or (on the PC) a FLAC of your own. */
+    fun editable(t: Track): String? {
+        Music.lib.items[t.id]?.let { e -> return e.file.takeIf { e.format == "flac" && writable(it) } }
+        return t.file?.takeIf { t.isFile && it.substringAfterLast('.').equals("flac", true) && FileTags.canWrite(it) }
+    }
 
     /** What each field says in the files' comments: null where they disagree. */
     internal fun common(all: List<Map<String, List<String>>>): Map<String, String?> = FIELDS.associate { (k, _) ->

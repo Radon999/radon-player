@@ -1308,7 +1308,7 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(C.accent),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                         keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { asked = query }),
-                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 11.dp))
+                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 11.dp).typing())
                     if (query.isNotEmpty()) IconButton(Ico.CLOSE, C.muted, 14.dp, 8.dp) { query = "" }
                     IconButton(Ico.SEARCH, C.accent, 18.dp, 8.dp) { asked = query }
                 }

@@ -185,6 +185,8 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Mini player window:** A small always-on-top window with the cover, the song and previous/play/next buttons.
 - **Discord:** Shows what you're playing on your Discord profile, as Spotify does, and clears it when you pause. It works through the Discord app on your PC and sends nothing anywhere else.
 - **Right-click menus:** Right-click anything to get the same menus you'd get with a long-press on the phone. **Esc** goes back.
+- **Keyboard shortcuts:** **Space** plays and pauses, **→** or **N** skips, **←** or **P** goes back, **R** changes repeat, **L** likes the song, **F** makes it a favorite, **+** and **−** change the volume, **M** mutes, **W** opens Wrapped, **E** the Equalizer and **/** search. **Ctrl+,** opens Settings, **F9** or **Ctrl+M** the ☰ menu, **Ctrl+F** search and **Ctrl+Q** quits. The one-key shortcuts wait while you're typing in a box.
+- **Your own files:** Edit tags, the Tagger, covers and lyrics are written into your own FLAC files too, not only the app's downloads.
 - **PC-only sound and tools:** High-quality resampling, Empty folders, and moving fixed songs into the right folders.
 - **Signing in on the PC:** Spotify and Last.fm sign in by themselves: their page opens in your browser, you agree there, and the app notices on its own. Tidal's page ends on an "Oops" address that you copy back into the app, as on the old PC app.
 
@@ -200,5 +202,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - The PC keeps its own extras: the tray, media keys, Start with Windows, the mini player window, Discord, right-click menus, the visualizer and Phone remote.
 - Both apps now have Loudness check and Identify by sound (the phone hears songs with its own decoders and makes the same AcoustID fingerprint the PC does), Fix albums and artists, Folders to leave alone, Live in song names, Copy the names, the Lyrics mode setting, and the option to keep the selection open after an option.
 - On the PC, Spotify and Last.fm sign-ins finish by themselves, with nothing to copy and paste.
+- The PC gets the old app's keyboard shortcuts back, and its tag editing, Tagger, covers and lyrics work on your own FLAC files again.
+- **Identify by sound…** is now in a single song's menu too.
 - Fixed on Windows: the window could stay hidden at start while the app froze waiting on the player, and settings weren't being saved.
 - The phone keeps its own extras: Android Auto, the lock screen player, the widget, the mini player, notifications, Auto mono and casting.

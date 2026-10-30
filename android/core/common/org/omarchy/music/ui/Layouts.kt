@@ -177,7 +177,7 @@ fun FilterField(ui: Ui, title: String) {
             BasicTextField(ui.filter.orEmpty(), { ui.filter = it }, singleLine = true, textStyle = T.body, cursorBrush = SolidColor(C.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
-                modifier = Modifier.fillMaxWidth().focusRequester(ask))
+                modifier = Modifier.fillMaxWidth().focusRequester(ask).typing())
         }
         Box(Modifier.clip(R.pill).clickable { ui.filter = null; focus.clearFocus() }.padding(12.dp)) { Icon(Ico.CLOSE, C.muted, 16.dp) }
     }

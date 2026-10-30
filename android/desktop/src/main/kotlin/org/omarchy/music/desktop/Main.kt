@@ -28,6 +28,8 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
@@ -81,7 +83,8 @@ fun main(args: Array<String>) = application {
     }
     if (shown && !PcWindows.mini) Window(onCloseRequest = { shown = false }, title = "Radon Player", icon = AppIcon,
         state = rememberWindowState(width = 1100.dp, height = 800.dp),
-        onPreviewKeyEvent = { e -> e.type == KeyEventType.KeyDown && e.key == Key.Escape && Back.press() }) {
+        onPreviewKeyEvent = { e -> e.type == KeyEventType.KeyDown && e.key == Key.Escape && Back.press() },
+        onKeyEvent = { e -> shortcut(e) { quit() } }) {
         LaunchedEffect(Unit) {
             val M = Music
             if (M.folders == listOf("Music/") && Library.folders().isNotEmpty())   // the Python app's folders, at the first start
@@ -108,3 +111,38 @@ private fun MiniWindow() {
         }
     }
 }
+
+/** The Python app's keyboard shortcuts: Ctrl+Q quits, Ctrl+, Settings, F9 or Ctrl+M the ☰ menu, Ctrl+F or Ctrl+L search;
+ *  and, while you aren't typing in a box: Space play/pause, → or N next, ← or P previous, R repeat, L like, F favorite,
+ *  + and − the volume, M mute, W Wrapped, E the Equalizer, / search. */
+private var unmuted = 1f
+private fun shortcut(e: androidx.compose.ui.input.key.KeyEvent, quit: () -> Unit): Boolean {
+    if (e.type != KeyEventType.KeyDown) return false
+    val ui = org.omarchy.music.ui.Ui.current ?: return false
+    val ctrl = e.isCtrlPressed
+    when {
+        ctrl && e.key == Key.Q -> quit()
+        ctrl && e.key == Key.Comma -> ui.openSettings()
+        e.key == Key.F9 || (ctrl && e.key == Key.M) -> ui.drawer = !ui.drawer
+        ctrl && (e.key == Key.F || e.key == Key.L) -> ui.tab = "search"
+        ctrl || e.isAltPressed || org.omarchy.music.ui.Typing.now -> return false
+        e.key == Key.Spacebar -> Music.togglePause()
+        e.key == Key.DirectionRight || e.key == Key.N -> Music.next()
+        e.key == Key.DirectionLeft || e.key == Key.P -> Music.previous()
+        e.key == Key.R -> Music.cycleRepeat()
+        e.key == Key.L -> Music.toggleLike()
+        e.key == Key.F -> Music.current()?.let { Music.setFavorite(listOf(it)) }
+        e.key == Key.Plus || e.key == Key.Equals || e.key == Key.NumPadAdd ->
+            org.omarchy.music.ui.SysVolume.set((org.omarchy.music.ui.SysVolume.get() + 0.05f).coerceAtMost(1f))
+        e.key == Key.Minus || e.key == Key.NumPadSubtract ->
+            org.omarchy.music.ui.SysVolume.set((org.omarchy.music.ui.SysVolume.get() - 0.05f).coerceAtLeast(0f))
+        e.key == Key.M -> org.omarchy.music.ui.SysVolume.get().let { v ->
+            if (v > 0f) { unmuted = v; org.omarchy.music.ui.SysVolume.set(0f) } else org.omarchy.music.ui.SysVolume.set(unmuted) }
+        e.key == Key.W -> ui.sheet = "wrapped"
+        e.key == Key.E -> ui.sheet = "eq"
+        e.key == Key.Slash -> ui.tab = "search"
+        else -> return false
+    }
+    return true
+}
+

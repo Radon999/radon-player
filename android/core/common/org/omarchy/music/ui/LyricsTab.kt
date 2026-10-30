@@ -223,7 +223,7 @@ private fun LyricsSearch(t: org.omarchy.music.Track, found: (Lyrics.Got?) -> Uni
                     androidx.compose.foundation.text.BasicTextField(v, { if (i == 0) artist = it else title = it }, singleLine = true,
                         textStyle = T.body, cursorBrush = androidx.compose.ui.graphics.SolidColor(C.accent),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
-                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { go() }), modifier = Modifier.fillMaxWidth())
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { go() }), modifier = Modifier.fillMaxWidth().typing())
                 }
             }
         }

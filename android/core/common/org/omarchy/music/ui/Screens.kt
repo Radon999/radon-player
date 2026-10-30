@@ -485,7 +485,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                     keyboardActions = KeyboardActions(onSend = {
                         if (ask.isNotBlank()) { focus.clearFocus(); Music.djSwitch(ask); setAsk("") }
                     }),
-                    modifier = Modifier.fillMaxWidth())
+                    modifier = Modifier.fillMaxWidth().typing())
             }
         }
     }

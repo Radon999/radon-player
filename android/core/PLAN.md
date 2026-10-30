@@ -41,6 +41,9 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: visualizer and Now playing bars (the song decoded again by ffmpeg in step)
 - [x] PC: sign-ins: Spotify caught on 127.0.0.1:8898, Last.fm asked until approved (as the Python app); Tidal pastes the "Oops" address, as the Python app does
 - [x] PC: Add a folder… (a folder picker)
+- [x] PC: tags, Tagger, covers and lyrics into your own FLACs (the content:// gates now ask FileTags); keyboard shortcuts; Identify in the song menu
+- [ ] PC (from the audit): Edit tags for MP3/M4A (FileTags), Upgrade to FLAC and Delete for your own files, command-line verbs,
+      Cast, Downloads › Change to any folder, mini player's seek and Up next, Linux MPRIS, YouTube Music / Apple sign-in on the PC
 - [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
 - [x] PC: the Python app's data brought over on the first start (PythonImport)

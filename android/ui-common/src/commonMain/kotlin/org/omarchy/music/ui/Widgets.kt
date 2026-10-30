@@ -14,6 +14,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -117,7 +121,20 @@ fun Field(value: String, hint: String, password: Boolean = false, multiLine: Boo
         BasicTextField(value, onChange, singleLine = !multiLine, textStyle = T.body, cursorBrush = SolidColor(C.accent),
             visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation()
                 else androidx.compose.ui.text.input.VisualTransformation.None,
-            modifier = Modifier.fillMaxWidth())
+            modifier = Modifier.fillMaxWidth().typing())
     }
 }
 
+/** Whether you're typing in a box (the PC's one-key shortcuts, Space and the letters, wait while you are). */
+object Typing {
+    var boxes = 0
+        internal set
+    val now: Boolean get() = boxes > 0
+}
+
+/** A text box's modifier: counts it in Typing while it has the focus. */
+fun Modifier.typing(): Modifier = composed {
+    val was = remember { booleanArrayOf(false) }
+    DisposableEffect(Unit) { onDispose { if (was[0]) { was[0] = false; Typing.boxes-- } } }
+    Modifier.onFocusChanged { f -> if (f.isFocused != was[0]) { was[0] = f.isFocused; Typing.boxes += if (was[0]) 1 else -1 } }
+}
