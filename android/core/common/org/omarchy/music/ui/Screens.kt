@@ -256,7 +256,7 @@ fun MusicTab(ui: Ui) {
             Music.musicVersion   // read here too: the list is built apart from the screen, and must follow a scan
             Music.savedVersion
             if (!granted && ui.musicView == "all") item {
-                ActionRow("Allow access to the music on this phone  ›") { access.ask() }
+                ActionRow("Allow access to the music on this $DEVICE  ›") { access.ask() }
             } else if (ui.musicView == "all") item {
                 val from = if (Music.folders.isEmpty()) "no folders" else Music.folders.joinToString { it.trimEnd('/') }
                 ActionRow("From $from  ·  Choose folders  ›") { choosing = true }
@@ -355,7 +355,7 @@ fun MusicTab(ui: Ui) {
                                     if (!st.busy) st.refresh(force = true)
                                 }
                                 Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Chip("Only songs on this phone", Music.topMineOnly) { Music.chooseTopMineOnly(!Music.topMineOnly) }
+                                    Chip("Only songs on this $DEVICE", Music.topMineOnly) { Music.chooseTopMineOnly(!Music.topMineOnly) }
                                     if (!Music.topKind.startsWith("time")) Chip("Collage…", false) { ui.collageFor = Music.topKind }
                                     Chip("Share card…", false) { ui.cardFor = Music.topKind }
                                 }
@@ -948,7 +948,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     item {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (nr.status == null) Pill("Refresh…") {
-                ui.choices = "New releases: what the artists with songs on your phone put out in…" to listOf(
+                ui.choices = "New releases: what the artists with songs on your $DEVICE put out in…" to listOf(
                     "The last week" to { nr.scan("week") }, "The last month" to { nr.scan("month") }, "The last year" to { nr.scan("year") })
             } else Pill("Stop", quiet = true) { nr.stop = true }
             if (nr.scanned > 0 && nr.found.isNotEmpty())
@@ -967,7 +967,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         nr.status?.let { Section(it.uppercase()) }
     }
     if (nr.scanned <= 0) {
-        item { Empty("New releases", "Tap Refresh… to look at every artist with songs on your phone for what they've put out in the last " +
+        item { Empty("New releases", "Tap Refresh… to look at every artist with songs on your $DEVICE for what they've put out in the last " +
             "week, month or year. Nothing is checked on its own.") }
         return
     }

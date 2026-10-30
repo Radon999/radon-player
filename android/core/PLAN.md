@@ -22,6 +22,17 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] Music (queues, playback, stats) + Engine (ExoEngine on the phone; MpvEngine on the PC)
 - [x] Crossfade fix: the ending song's player gets the same EQ/Boost/limiter (it came in loud before)
 - [x] PC: folder scan (LocalFiles with jaudiotagger), services, PcApp start; first PC screen plays through Music
-- [ ] Screens: Library, Now playing, Lyrics, Queue, Settings, Equalizer, Wrapped, Collage, Tagger, scans …
-- [ ] PC player engine: EQ, Boost, Detail, Tilt, Balance, crossfeed, mono, clip guard, loudness, crossfade (fixed), bit-perfect
+- [x] Screens: every one of the phone's screens is shared (core/common/ui) and runs on the PC (tested on Linux: my music,
+      play, Now playing, Settings, Equalizer, Esc = back). Android bits behind ui/PlatformUi (pictures, file pickers,
+      permissions, share, clipboard, mini player, volume, visualizer) and PlatformSheets (sign-in, removing files)
+- [x] Pictures drawn the same on both (Painter: collage, share card, lyrics card)
+- [x] PC engine: EQ, Boost, Detail, Tilt, Balance, crossfeed, mono, clip guard, loudness compensation, crossfade, volume (kept)
+- [x] PC outputs: Windows' default output from the registry (Linux: wpctl), a separate EQ for each, as the Python app
+- [ ] PC: bit-perfect (WASAPI exclusive through mpv), HQ resampling setting, levelling target (replaygain-preamp)
+- [ ] PC: phone remote server (the Python app's), so the phone's Play on works with the new PC app
+- [ ] PC: tray, media keys, notifications (now playing), mini player window, run at start-up
+- [ ] PC: visualizer and Now playing bars (spectrum from mpv), sign-in pages (now: paste the address it ends on)
+- [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one
+- [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
+- [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
 - [ ] Settings descriptions rewritten; feature guide; Changelog & features tab

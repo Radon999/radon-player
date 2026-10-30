@@ -18,6 +18,7 @@ object PcApp {
         Stats.init(c)
         Pictures.init(c)
         Services.start(c)
+        MpvEngine.setLevel(Prefs.num("pc_volume", 1f), save = false)   // the volume you left it at
         Music.player = MpvEngine()
         Music.playerReady()
         return c

@@ -63,13 +63,13 @@ fun FolderBrowser(onClose: () -> Unit) {
             Column {
                 when {
                     !access.granted -> {
-                        Text("Radon Player needs permission to see the music on this phone.", style = T.sub,
+                        Text("Radon Player needs permission to see the music on this $DEVICE.", style = T.sub,
                             modifier = Modifier.padding(bottom = 10.dp))
                         Pill("Allow access") { access.ask() }
                     }
                     counts == null -> Text("Reading your music…", style = T.sub)
                     else -> {
-                        Text(if (at.isEmpty()) "This phone" else at, style = T.sub, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(if (at.isEmpty()) "This $DEVICE" else at, style = T.sub, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (at.isNotEmpty()) BackRow("Up") { at = parent(at) }
                         LazyColumn(Modifier.heightIn(max = 440.dp)) {
                             if (kids.isEmpty()) item { Text("No folders with music in here.", style = T.sub, modifier = Modifier.padding(vertical = 10.dp)) }

@@ -1,5 +1,7 @@
 package org.omarchy.music
 
+import kotlinx.coroutines.launch
+
 import java.io.File
 
 // The PC's side of what the shared code asks of the platform (the phone has its own, the same names).
@@ -78,8 +80,18 @@ fun prefsFile(ctx: Ctx, name: String) = File(ctx.filesDir, "$name.json")
 fun closeApp(activity: Any?) {}
 
 /** Outputs coming and going: the PC looks again every few seconds (Windows has no simple event for it here). */
-fun watchOutputs(ctx: Ctx, changed: () -> Unit) {}
-fun headphonesName(ctx: Ctx): String = ""
+fun watchOutputs(ctx: Ctx, changed: () -> Unit) {
+    // The PC says nothing when the default output changes: look every few seconds (as the Python app does)
+    Thread({
+        var was = Outputs.now(ctx).key
+        while (true) {
+            Thread.sleep(3000)
+            val k = runCatching { Outputs.refresh().key }.getOrDefault(was)
+            if (k != was) { was = k; Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { changed() } }
+        }
+    }, "outputs").apply { isDaemon = true }.start()
+}
+fun headphonesName(ctx: Ctx): String = Outputs.now(ctx).takeIf { it.kind != "speaker" }?.label?.substringBefore(" (") ?: ""
 
 fun xmlParser(): org.xmlpull.v1.XmlPullParser = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser()
 

@@ -40,7 +40,7 @@ object TaggerFiles {
 
     /** [(name, value)]: where it is, the format and quality, its size and length, and (a FLAC's) every tag. */
     fun info(ctx: Ctx, t: Track): List<Pair<String, String>> {
-        val u = uri(t) ?: return listOf("Source" to "Streamed: not a file on this phone")
+        val u = uri(t) ?: return listOf("Source" to "Streamed: not a file on this $DEVICE")
         val out = ArrayList<Pair<String, String>>()
         val entry = Music.lib.items[t.id]
         out += "Source" to if (entry != null) "Downloaded by the app" else "Your file"

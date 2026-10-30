@@ -101,12 +101,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                         rate = a["samplerate"]?.jsonPrimitive?.intOrNull ?: 0
                         val fmt = a["format"]?.jsonPrimitive?.content ?: ""
                         bits = when { fmt.startsWith("s16") -> 16; fmt.startsWith("s24") -> 24; fmt.startsWith("s32") || fmt.startsWith("float") -> 32; else -> 0 }
-                        if (main) Music.scope.launch(Dispatchers.Main) {
-                            Music.nowFormat = listOf((path ?: "").substringAfterLast('.').uppercase(),
-                                if (bits > 0) "$bits-bit" else "", if (rate > 0) "${"%.1f".format(rate / 1000.0).removeSuffix(".0")} kHz" else "")
-                                .filter { it.isNotEmpty() }.joinToString(" · ")
-                            Music.nowFormatOf = Music.current()?.id ?: ""
-                        }
+                        showFormat()
                     }
                 }
             }
@@ -118,8 +113,20 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                     if (Music.streaming) Music.streamBroke() else { Music.toast("Couldn't play “${Music.current()?.title}”"); Music.paused = true }
                 }
             }
-            "file-loaded" -> { eof = false
+            "file-loaded" -> { eof = false; showFormat()
                 if (main) Music.scope.launch(Dispatchers.Main) { dur.takeIf { it > 0 }?.let { Music.duration = it } } }
+        }
+    }
+
+    /** The song's format under Now playing ("FLAC · 24-bit · 96 kHz"), for the song now loaded. */
+    private fun showFormat() {
+        if (!main) return
+        Music.scope.launch(Dispatchers.Main) {
+            if (Music.player !== this@MpvEngine) return@launch
+            Music.nowFormat = listOf((path ?: "").substringAfterLast('.').uppercase(),
+                if (bits > 0) "$bits-bit" else "", if (rate > 0) "${"%.1f".format(rate / 1000.0).removeSuffix(".0")} kHz" else "")
+                .filter { it.isNotEmpty() }.joinToString(" · ")
+            Music.nowFormatOf = Music.current()?.id ?: ""
         }
     }
 
@@ -198,6 +205,10 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                 else -> "equalizer=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"
             }
         } else if (gain != 0.0) parts += "volume=volume=${"%.2f".format(java.util.Locale.US, gain)}dB:precision=double"
+        q.loudnessDb.takeIf { it >= 0.5 }?.let { d ->   // loudness compensation: bass and treble back as the volume goes down
+            parts += "lowshelf=f=90:t=q:w=0.71:g=${"%.1f".format(java.util.Locale.US, minOf(10.0, d * 0.3))}"
+            parts += "highshelf=f=9000:t=q:w=0.71:g=${"%.1f".format(java.util.Locale.US, minOf(4.0, d * 0.12))}"
+        }
         if (s.boost > 0) parts += "volume=volume=${s.boost}dB:precision=double"
         if (q.detail) parts += "volume=volume=-2.5dB,extrastereo=m=1.25:c=false,equalizer=f=3000:t=q:w=1.0:g=1.5,highshelf=f=10000:t=q:w=0.7:g=1.5"
         if (q.tilt > 0) parts += "lowshelf=f=1000:t=q:w=0.5:g=${-q.tilt}" else if (q.tilt < 0) parts += "highshelf=f=1000:t=q:w=0.5:g=${q.tilt}"
@@ -226,9 +237,11 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         /** The app's volume (0 to 1), for every player. */
         @Volatile var level = 1f
             private set
-        fun setLevel(v: Float) {
+        fun setLevel(v: Float, save: Boolean = true) {
             level = v.coerceIn(0f, 1f)
+            if (save) Prefs.setNum("pc_volume", level)
             synchronized(all) { all.toList() }.forEach { it.master = level }
+            Loudness.apply()
         }
     }
 }

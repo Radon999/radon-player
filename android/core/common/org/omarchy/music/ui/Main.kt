@@ -261,7 +261,7 @@ private fun DrawerSheet(ui: Ui) {
             Column(Modifier.fillMaxWidth().clip(R.card).background(C.bg).padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (Music.browseLocal) Ico.NOTE else Ico.CLOUD, C.accent, 22.dp)
-                    Text(if (Music.browseLocal) "Phone" else SOURCES[Music.source] ?: "", style = T.title.copy(fontSize = 17.sp),
+                    Text(if (Music.browseLocal) DEVICE_NAME else SOURCES[Music.source] ?: "", style = T.title.copy(fontSize = 17.sp),
                         modifier = Modifier.padding(start = 12.dp))
                 }
                 SourceChips(ui, Modifier.padding(top = 8.dp))
@@ -313,7 +313,7 @@ private fun DrawerItem(label: String, ico: Ico, on: Boolean, quiet: Boolean = fa
 @Composable
 private fun SourceChips(ui: Ui, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Chip("Phone", Music.browseLocal) {   // your own songs: no service library, the search looks in them
+        Chip(DEVICE_NAME, Music.browseLocal) {   // your own songs: no service library, the search looks in them
             Music.browse("local")
             if (ui.tab == "library") goTo(ui, "music", "all")
         }

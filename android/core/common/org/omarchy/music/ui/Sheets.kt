@@ -39,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
@@ -168,7 +170,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("Play on", ui) {
             // ---- play on ----
             Line("Play on", if (Remote.active) "The desktop (${Remote.name})" + if (!Remote.reachable) " · not reachable" else ""
-                else "This phone", Remote.active) {
+                else "This $DEVICE", Remote.active) {
                 if (Remote.paired) Switch(Remote.on, { Remote.setOn(it) }, colors = swColors())
             }
             if (!Remote.paired) PairDesktop()
@@ -941,7 +943,7 @@ private fun BoostFader(eq: org.omarchy.music.EqSettings) {
             Slider(b.toFloat(), { Music.setEqBoost(it.toDouble()) }, valueRange = 0f..Eq.BOOST_MAX.toFloat(),
                 colors = SliderDefaults.colors(thumbColor = if (over) red else C.accent, activeTrackColor = if (over) red else C.accent,
                     inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
-                modifier = Modifier.vertical().width(h).align(Alignment.Center))
+                modifier = Modifier.align(Alignment.Center).requiredWidth(h).graphicsLayer { rotationZ = -90f })
             // the clean line, across the fader
             val y = inset + (h - inset * 2) * (1f - (clean / Eq.BOOST_MAX).toFloat())
             Box(Modifier.offset(y = y - 1.dp).fillMaxWidth().height(2.dp).background(red.copy(alpha = 0.8f)))
@@ -968,16 +970,11 @@ private fun outIcon(kind: String) = when (kind) {
 
 @Composable
 private fun VerticalSlider(value: Float, onChange: (Float) -> Unit) {
-    Slider(value, onChange, valueRange = -12f..12f,
-        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
-        modifier = Modifier.vertical().width(160.dp))
-}
-
-/** Stands a horizontal control on its end: laid out turned a quarter, its low end at the bottom. */
-private fun Modifier.vertical() = layout { measurable, c ->
-    val p = measurable.measure(Constraints(minWidth = 0, maxWidth = c.maxHeight, minHeight = 0, maxHeight = c.maxWidth))
-    layout(p.height, p.width) {
-        p.placeWithLayer(-(p.width - p.height) / 2, (p.width - p.height) / 2) { rotationZ = -90f }
+    // A slider stood on its end: drawn and touched turned a quarter (the same on the phone and the PC)
+    Box(Modifier.width(48.dp).height(160.dp), contentAlignment = Alignment.Center) {
+        Slider(value, onChange, valueRange = -12f..12f,
+            colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+            modifier = Modifier.requiredWidth(160.dp).graphicsLayer { rotationZ = -90f })
     }
 }
 

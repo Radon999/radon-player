@@ -97,9 +97,9 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
         confirmButton = {
             Column(horizontalAlignment = Alignment.End) {
                 Row {
-                    TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this phone") }) {
+                    TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }) {
                         Text("Instagram", color = C.accent) }
-                    TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.facebook.katana")) Music.toast("Facebook isn't on this phone") }) {
+                    TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.facebook.katana")) Music.toast("Facebook isn't on this $DEVICE") }) {
                         Text("Facebook", color = C.accent) }
                 }
                 Row {
