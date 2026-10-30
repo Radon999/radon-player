@@ -1231,6 +1231,46 @@ object Music {
         musicVersion++
     }
 
+    /** Copy a service's playlist (Tidal, YouTube Music, Deezer, Apple Music, Spotify) into your playlists here, its
+     *  songs streaming as they are until you download them. A playlist of yours with the same name gets the songs it
+     *  hasn't got (importing again brings in what was added there since). */
+    fun importServicePlaylist(key: String, pl: Album, quiet: Boolean = false, done: ((Int) -> Unit)? = null) {
+        val src = sources[key] ?: run { toast("Sign in to ${SOURCES[key]} first"); return }
+        if (!quiet) toast("Importing “${pl.title}”…")
+        bg({ src.playlist(pl.id) }) { tracks, err ->
+            if (tracks == null) { if (!quiet) toast("Couldn't import “${pl.title}”: ${err?.message?.take(100)}"); done?.invoke(-1); return@bg }
+            val name = pl.title.ifBlank { "${SOURCES[key]} playlist" }
+            val mine = lists.all().firstOrNull { it.name.equals(name, ignoreCase = true) }
+            val id = mine?.id ?: lists.create(name).id
+            val n = lists.add(id, tracks)
+            musicVersion++
+            if (!quiet) toast(if (mine == null) "Imported “$name”: $n songs. Open it in your playlists to download it"
+                else "“$name” was imported already: $n new song${if (n != 1) "s" else ""} added")
+            done?.invoke(n)
+        }
+    }
+
+    /** Every playlist of yours on that service imported, one after another. */
+    fun importAllServicePlaylists(key: String, lists: List<Album>) {
+        val todo = lists
+        if (todo.isEmpty()) return
+        toast("Importing ${todo.size} ${SOURCES[key]} playlists…")
+        var i = 0; var songs = 0; var failed = 0
+        fun next() {
+            if (i >= todo.size) { toast("Imported ${todo.size - failed} playlists ($songs songs)" + if (failed > 0) ", $failed couldn't be read" else ""); return }
+            importServicePlaylist(key, todo[i++], quiet = true) { n -> if (n < 0) failed++ else songs += n; next() }
+        }
+        next()
+    }
+
+    /** Download every song of these playlists that isn't on this device yet: your song files are skipped, and so are
+     *  songs downloaded already (and Copies decides about songs you have another copy of). */
+    fun downloadPlaylists(ids: Collection<String>) {
+        val tracks = ids.flatMap { lists.get(it)?.tracks ?: emptyList() }.distinctBy { it.id }
+        if (tracks.none { !it.isFile && !lib.has(it.id) }) { toast("Every song there is downloaded or one of your files already"); return }
+        download(tracks)
+    }
+
     fun newPlaylist(name: String): String {
         val id = lists.create(name).id
         toast("Made “$name”")

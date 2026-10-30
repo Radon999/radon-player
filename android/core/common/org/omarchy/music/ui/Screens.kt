@@ -165,7 +165,8 @@ fun LibraryTab(ui: Ui) {
                 val tracks = open.second?.let { Music.sortedPlaylist(it) }
                 if (tracks == null) item { Section("LOADING…") }
                 else {
-                    item { ListActions(tracks, onDj = { ui.djFrom(Dj.From("songs", name = open.first.title, songs = tracks)) },
+                    item { ListActions(tracks, extra = listOf("Import to my playlists" to { Music.importServicePlaylist(key, open.first) }),
+                        onDj = { ui.djFrom(Dj.From("songs", name = open.first.title, songs = tracks)) },
                 pin = org.omarchy.music.Pin("service", open.first.id, open.first.title, open.first.sub, open.first.thumb, key)) }
                     if (tracks.isNotEmpty()) item { PlaylistSortChips() }
                     tracks(tracks, ui, "list")
@@ -177,6 +178,11 @@ fun LibraryTab(ui: Ui) {
                 if (LastFmOn()) item { ActionRow("✦  Your ${org.omarchy.music.Wrapped.year()} Wrapped  ›") { ui.sheet = "wrapped" } }
                 val lists = loaded.second!!
                 item { ActionRow("＋  New folder") { ui.askName = Triple("New folder", "") { n -> Music.newFolder(n) } } }
+                if (lists.isNotEmpty()) item { ActionRow("⇩  Import all ${lists.size} into my playlists") {
+                    ui.confirm = ("Import all ${lists.size} of your ${SOURCES[key]} playlists into your playlists here? Their songs stream " +
+                        "until you download them: $LONG_PRESS a playlist in Music › Playlists and pick Download. Playlists imported " +
+                        "before get just their new songs.") to { Music.importAllServicePlaylists(key, lists) }
+                } }
                 folderRows(ui)
                 if (lists.isEmpty()) item { Section("NO PLAYLISTS YET") }
                 else if (Music.playlistFolders.items.isNotEmpty()) item { Section("${SOURCES[key]?.uppercase()} PLAYLISTS") }
@@ -190,6 +196,7 @@ fun LibraryTab(ui: Ui) {
                 }
                 fun menu(pl: Album) {
                     ui.choices = pl.title to listOf(pinChoice(org.omarchy.music.Pin("service", pl.id, pl.title, pl.sub, pl.thumb, key)),
+                        "Import to my playlists" to { Music.importServicePlaylist(key, pl) },
                         "Put in a folder…" to { ui.folderFor = FolderItem.service(pl, key) })
                 }
                 laidOutItems(shown, ui, key = { "sp-" + shown[it].id + "#" + it }, row = { i ->
@@ -636,7 +643,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
         val picked = ui.albumsPicked
         fun menu(pl: org.omarchy.music.Playlist) {
             if (picking) { picked[pl.id] = pl.tracks; return }
-            ui.choices = pl.name to listOf(pinChoice(org.omarchy.music.Pin("mine", pl.id, pl.name)), "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
+            val toGet = pl.tracks.count { !it.isFile && !Music.lib.has(it.id) }
+            ui.choices = pl.name to listOfNotNull(pinChoice(org.omarchy.music.Pin("mine", pl.id, pl.name)),
+                ("Download ($toGet song${if (toGet != 1) "s" else ""} not on this $DEVICE)" to { Music.downloadPlaylists(listOf(pl.id)) }).takeIf { toGet > 0 },
+                "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
                 "Select" to { ui.startPick("playlists", pl.id, pl.tracks) })
         }
         fun tapList(pl: org.omarchy.music.Playlist) {
@@ -645,6 +655,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
         }
         item {
             if (picking) PickBar(ui, "playlists", listOf(
+                "Download" to { Music.downloadPlaylists(picked.keys.toList()) },
                 "Delete…" to {
                     val ids = picked.keys.toList()
                     ui.confirm = ("Delete ${ids.size} playlist${if (ids.size != 1) "s" else ""}? " +
