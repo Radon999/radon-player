@@ -18,8 +18,10 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] Tidal, Spotify, Apple Music services
 - [x] Song tags (Meta), Crashes
 - [x] Widgets (ui-common)
-- [ ] Prefs, Stats, Lyrics, Last.fm, Spotify/Deezer/Apple histories, Wrapped, Repeat, DJ
-- [ ] Music (queues, playback, stats) + engine
+- [x] Prefs, Stats, Lyrics, Last.fm, Spotify/Deezer/Apple histories, Wrapped, Repeat, DJ, scans, Downloader, Tagger
+- [x] Music (queues, playback, stats) + Engine (ExoEngine on the phone; MpvEngine on the PC)
+- [x] Crossfade fix: the ending song's player gets the same EQ/Boost/limiter (it came in loud before)
+- [x] PC: folder scan (LocalFiles with jaudiotagger), services, PcApp start; first PC screen plays through Music
 - [ ] Screens: Library, Now playing, Lyrics, Queue, Settings, Equalizer, Wrapped, Collage, Tagger, scans …
 - [ ] PC player engine: EQ, Boost, Detail, Tilt, Balance, crossfeed, mono, clip guard, loudness, crossfade (fixed), bit-perfect
 - [ ] Settings descriptions rewritten; feature guide; Changelog & features tab

@@ -54,22 +54,3 @@ class EqProcessor {
     fun update(s: EqSettings) { settings = s; version++ }
 }
 
-/** The songs in your folders on the PC: read from the folders (the phone's come from Android's media library). */
-class LocalFiles(private val ctx: Ctx) {
-    @Volatile var files: List<Track> = emptyList()
-    @Volatile var paths: Map<String, String> = emptyMap(); private set
-    @Volatile var genres: Map<String, String> = emptyMap(); private set
-    @Volatile var allPaths: Map<String, String> = emptyMap(); private set
-    @Volatile var scanning = false
-    var scanned = 0.0
-
-    fun folderCounts(): Map<String, Int> = emptyMap()
-    fun scan(folders: List<String>, saved: Set<String>): Boolean = false
-    fun everywhere(): Map<String, Track> = emptyMap()
-
-    companion object {
-        fun mediaId(uri: String): String? = null
-        const val DOWNLOADS = "Music/Radon Player/"
-        fun idOf(uri: String?): String? = uri?.takeIf { it.isNotEmpty() }
-    }
-}

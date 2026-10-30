@@ -1,0 +1,226 @@
+package org.omarchy.music
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import java.io.File
+import java.io.RandomAccessFile
+import java.net.StandardProtocolFamily
+import java.net.UnixDomainSocketAddress
+import java.nio.ByteBuffer
+import java.nio.channels.Channels
+import java.nio.channels.SocketChannel
+import java.util.concurrent.atomic.AtomicInteger
+
+/** The PC's engine: one mpv (the Python app's own, from its installer, or mpv on the PATH) running idle and told
+ *  what to play over its JSON pipe. The sound settings (EQ, Boost, Detail, Tilt, Balance, crossfeed, mono, Clip guard)
+ *  become mpv's audio filters, rebuilt whenever they change; the song's own volume and ReplayGain go in as a gain. */
+class MpvEngine(private val main: Boolean = true) : Engine {
+    private val windows = System.getProperty("os.name").lowercase().contains("win")
+    private val id = COUNT.incrementAndGet()
+    private val pipe = if (windows) "\\\\.\\pipe\\radon-mpv-$id-${ProcessHandle.current().pid()}"
+        else File(System.getProperty("java.io.tmpdir"), "radon-mpv-$id-${ProcessHandle.current().pid()}.sock").path
+    private var proc: Process? = null
+    private var out: java.io.OutputStream? = null
+    private val lock = Any()
+
+    @Volatile private var paused = true
+    @Volatile private var idle = true
+    @Volatile private var eof = false
+    @Volatile private var pos = 0.0
+    @Volatile private var dur = 0.0
+    @Volatile private var path: String? = null
+    @Volatile private var rate = 0
+    @Volatile private var bits = 0
+    @Volatile private var vol = 1f
+    @Volatile private var filters = ""
+    private var sounding: (() -> Unit)? = null
+
+    /** The volume you set in the app (0 to 1), on top of crossfade's. */
+    @Volatile var master = 1f
+        set(v) { field = v; send("set_property", "volume", (vol * v * 100).toDouble()) }
+
+    init { start() }
+
+    private fun mpvPath(): String = System.getenv("RADON_MPV")
+        ?: listOfNotNull(System.getenv("LOCALAPPDATA")?.let { "$it\\Programs\\Omarchy Music\\bin\\mpv.exe" })
+            .firstOrNull { File(it).exists() }
+        ?: "mpv"
+
+    private fun start() {
+        val p = ProcessBuilder(mpvPath(), "--idle=yes", "--no-video", "--really-quiet", "--audio-display=no", "--keep-open=no",
+            "--input-ipc-server=$pipe", "--volume=100", "--replaygain=no")
+            .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        proc = p
+        Thread({ connect() }, "mpv-$id").apply { isDaemon = true }.start()
+        if (main) Music.scope.launch { while (proc?.isAlive == true) { applySound(); delay(300) } }
+    }
+
+    private fun connect() {
+        var input: java.io.InputStream? = null
+        for (i in 0 until 100) {
+            try {
+                if (windows) {
+                    val f = RandomAccessFile(pipe, "rw")
+                    input = Channels.newInputStream(f.channel); out = Channels.newOutputStream(f.channel)
+                } else {
+                    val ch = SocketChannel.open(StandardProtocolFamily.UNIX).apply { connect(UnixDomainSocketAddress.of(pipe)) }
+                    input = Channels.newInputStream(ch); out = Channels.newOutputStream(ch)
+                }
+                break
+            } catch (_: Exception) { Thread.sleep(100) }
+        }
+        val ins = input ?: return
+        for ((n, prop) in listOf("time-pos", "duration", "pause", "idle-active", "eof-reached", "path", "audio-params").withIndex())
+            sendRaw("""{"command":["observe_property",${n + 1},"$prop"]}""")
+        ins.bufferedReader().forEachLine { line -> runCatching { event(JSON.parseToJsonElement(line) as JsonObject) } }
+    }
+
+    private fun event(e: JsonObject) {
+        when (e["event"]?.jsonPrimitive?.content) {
+            "property-change" -> {
+                val d = e["data"]
+                when (e["name"]?.jsonPrimitive?.content) {
+                    "time-pos" -> (d as? JsonPrimitive)?.doubleOrNull?.let { val was = pos; pos = it
+                        if (it > was && !paused) sounding?.let { s -> sounding = null; Music.scope.launch(Dispatchers.Main) { s() } } }
+                    "duration" -> dur = (d as? JsonPrimitive)?.doubleOrNull ?: 0.0
+                    "pause" -> { paused = (d as? JsonPrimitive)?.booleanOrNull ?: true
+                        if (main) Music.scope.launch(Dispatchers.Main) { if (Music.player === this@MpvEngine) Music.paused = paused } }
+                    "idle-active" -> idle = (d as? JsonPrimitive)?.booleanOrNull ?: true
+                    "eof-reached" -> eof = (d as? JsonPrimitive)?.booleanOrNull ?: false
+                    "path" -> path = (d as? JsonPrimitive)?.takeIf { it.isString }?.content
+                    "audio-params" -> (d as? JsonObject)?.let { a ->
+                        rate = a["samplerate"]?.jsonPrimitive?.intOrNull ?: 0
+                        val fmt = a["format"]?.jsonPrimitive?.content ?: ""
+                        bits = when { fmt.startsWith("s16") -> 16; fmt.startsWith("s24") -> 24; fmt.startsWith("s32") || fmt.startsWith("float") -> 32; else -> 0 }
+                        if (main) Music.scope.launch(Dispatchers.Main) {
+                            Music.nowFormat = listOf((path ?: "").substringAfterLast('.').uppercase(),
+                                if (bits > 0) "$bits-bit" else "", if (rate > 0) "${"%.1f".format(rate / 1000.0).removeSuffix(".0")} kHz" else "")
+                                .filter { it.isNotEmpty() }.joinToString(" · ")
+                            Music.nowFormatOf = Music.current()?.id ?: ""
+                        }
+                    }
+                }
+            }
+            "end-file" -> if (main && e["reason"]?.jsonPrimitive?.content == "eof") {
+                eof = true
+                Music.scope.launch(Dispatchers.Main) { if (Music.player === this@MpvEngine) Music.trackEnded() }
+            } else if (main && e["reason"]?.jsonPrimitive?.content == "error") {
+                Music.scope.launch(Dispatchers.Main) {
+                    if (Music.streaming) Music.streamBroke() else { Music.toast("Couldn't play “${Music.current()?.title}”"); Music.paused = true }
+                }
+            }
+            "file-loaded" -> { eof = false
+                if (main) Music.scope.launch(Dispatchers.Main) { dur.takeIf { it > 0 }?.let { Music.duration = it } } }
+        }
+    }
+
+    private fun sendRaw(json: String) {
+        synchronized(lock) { runCatching { out?.write((json + "\n").toByteArray()); out?.flush() } }
+    }
+
+    private fun send(vararg cmd: Any?) {
+        val arr = JsonArray(cmd.map { when (it) { null -> kotlinx.serialization.json.JsonNull; is Number -> JsonPrimitive(it)
+            is Boolean -> JsonPrimitive(it); else -> JsonPrimitive(it.toString()) } })
+        sendRaw(JsonObject(mapOf("command" to arr)).toString())
+    }
+
+    override val isPlaying get() = !paused && !idle && !eof
+    override val positionMs get() = (pos * 1000).toLong()
+    override val durationMs get() = (dur * 1000).toLong()
+    override val state get() = when { idle && path == null -> Engine.IDLE; eof -> Engine.ENDED; else -> Engine.READY }
+    override val hasItem get() = path != null && !idle
+    override val currentUri get() = path
+    override var volume: Float
+        get() = vol
+        set(v) { vol = v; send("set_property", "volume", (v * master * 100).toDouble()) }
+    override var playWhenReady: Boolean
+        get() = !paused
+        set(v) { paused = !v; send("set_property", "pause", !v) }
+
+    override fun play() { playWhenReady = true }
+    override fun pause() { playWhenReady = false }
+    override fun seekTo(ms: Long) { pos = ms / 1000.0; send("seek", ms / 1000.0, "absolute") }
+
+    override fun load(item: PlayItem, startMs: Long) {
+        eof = false; pos = startMs / 1000.0; path = item.uri
+        send("set_property", "start", if (startMs > 0) "+${startMs / 1000.0}" else "none")
+        send("loadfile", item.uri.removePrefix("file://"), "replace")
+    }
+
+    override fun setSpeed(speed: Float, pitch: Float) {
+        send("set_property", "speed", speed.toDouble())
+        send("set_property", "audio-pitch-correction", pitch == 1f)
+    }
+
+    override val audioRate get() = rate
+    override val audioBits get() = bits
+
+    override fun tail(uri: String, startMs: Long): Engine? = runCatching {
+        MpvEngine(main = false).also { x ->
+            x.filters = ""; x.applyGraph(graph())
+            x.volume = 0f; x.playWhenReady = false
+            x.load(PlayItem(uri, "", null, "", "", "", null), startMs)
+        }
+    }.getOrNull()
+
+    override fun onceSounding(run: () -> Unit) { sounding = run }
+
+    override fun release() {
+        send("quit")
+        proc?.let { p -> Thread { runCatching { if (!p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) p.destroy() } }.start() }
+        proc = null
+    }
+
+    // ---- the sound: the settings as mpv's audio filters ----
+
+    /** The filters for the settings as they are now (the same as the Python app's apply_eq). */
+    private fun graph(): String {
+        val q = Music.eqProcessor
+        if (q.bypass) return ""
+        val s = q.settings
+        val parts = ArrayList<String>()
+        val gain = 20 * kotlin.math.log10((q.songGain * q.rgGain).coerceAtLeast(1e-6))
+        if (s.on) {
+            val fs = Eq.filters(s)
+            parts += "volume=volume=${"%.2f".format(java.util.Locale.US, Eq.preamp(fs) + gain)}dB:precision=double"
+            for (f in fs) if (f.gain != 0.0) parts += when (f.kind) {
+                "ls" -> "lowshelf=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"
+                "hs" -> "highshelf=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"
+                else -> "equalizer=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"
+            }
+        } else if (gain != 0.0) parts += "volume=volume=${"%.2f".format(java.util.Locale.US, gain)}dB:precision=double"
+        if (s.boost > 0) parts += "volume=volume=${s.boost}dB:precision=double"
+        if (q.detail) parts += "volume=volume=-2.5dB,extrastereo=m=1.25:c=false,equalizer=f=3000:t=q:w=1.0:g=1.5,highshelf=f=10000:t=q:w=0.7:g=1.5"
+        if (q.tilt > 0) parts += "lowshelf=f=1000:t=q:w=0.5:g=${-q.tilt}" else if (q.tilt < 0) parts += "highshelf=f=1000:t=q:w=0.5:g=${q.tilt}"
+        if (q.balance != 0.0) {
+            val b = q.balance
+            parts += "pan=stereo|c0=${"%.3f".format(java.util.Locale.US, if (b > 0) 1 - b else 1.0)}*c0|c1=${"%.3f".format(java.util.Locale.US, if (b < 0) 1 + b else 1.0)}*c1"
+        }
+        if (q.crossfeed) parts += "crossfeed=strength=${q.crossfeedK}:range=0.5"
+        if (q.mono) parts += "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1"
+        if (q.limiter || s.boost > 0) parts += "alimiter=limit=0.97:attack=1:release=80:level=disabled"
+        return parts.joinToString(",")
+    }
+
+    private fun applyGraph(g: String) {
+        if (g == filters) return
+        filters = g
+        send("set_property", "af", if (g.isEmpty()) "" else "lavfi=[$g]")
+    }
+
+    /** The settings changed (or a new song's gain): the filters again. */
+    private fun applySound() = applyGraph(graph())
+
+    companion object {
+        private val COUNT = AtomicInteger()
+    }
+}

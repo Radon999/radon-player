@@ -41,8 +41,9 @@ import org.omarchy.music.ui.T
 /** Radon Player Next on the PC: your songs, searched as you type (the phone's own matching), played through mpv,
  *  in the phone's own look and icons (ui-common). The first screen of the one-codebase app. */
 fun main() = application {
+    remember { org.omarchy.music.PcApp.start() }
     val player = remember { Player() }
-    Window(onCloseRequest = { player.stop(); exitApplication() }, title = "Radon Player Next",
+    Window(onCloseRequest = { org.omarchy.music.Music.player?.release(); exitApplication() }, title = "Radon Player Next",
         state = rememberWindowState(width = 1100.dp, height = 760.dp)) {
         OmarchyTheme { App(player) }
     }
@@ -58,10 +59,18 @@ fun App(player: Player) {
     var lists by remember { mutableStateOf<List<Library.Playlist>>(emptyList()) }
     var open by remember { mutableStateOf<Library.Playlist?>(null) }
     var group by remember { mutableStateOf<Library.Group?>(null) }   // the album or artist open
-    LaunchedEffect(Unit) {
-        songs = withContext(Dispatchers.IO) { Library.scan() }
+    val M = org.omarchy.music.Music
+    // Your songs: the shared code's (your folders, and the songs downloaded here), again whenever they change
+    LaunchedEffect(M.musicVersion, M.savedVersion) {
+        songs = M.mySongs().filter { it.file != null }.map { t -> Song(java.io.File(t.file!!), t.title, t.artist, t.album, "", 0, t.duration.toInt()) }
         lists = withContext(Dispatchers.IO) { Library.playlists() }
     }
+    LaunchedEffect(Unit) {
+        if (M.folders == listOf("Music/") && Library.folders().isNotEmpty())   // the Python app's folders, at the first start
+            M.setFolders(Library.folders().map { it.path })
+    }
+    now = M.current()?.let { t -> Song(java.io.File(t.file ?: ""), t.title, t.artist, t.album, "", 0, t.duration.toInt()) }
+    paused = M.paused
     // What the list shows: your songs searched, or the open playlist's songs that are on this PC
     val shown = remember(songs, q, tab, open) {
         val all = songs ?: emptyList()
@@ -82,17 +91,20 @@ fun App(player: Player) {
         }.let { gs -> Library.searchGroups(gs, q) }
     }
 
+    /** Play the list shown from song i: the shared queue, played by the PC engine (mpv). */
     fun play(i: Int) {
-        val s = shown.getOrNull(i) ?: return
-        now = s; paused = false
-        player.play(s.file) { now = null }
+        if (shown.getOrNull(i) == null) return
+        val byFile = M.mySongs().associateBy { it.file }
+        val tracks = shown.mapNotNull { byFile[it.file.path] }
+        val at = tracks.indexOfFirst { it.file == shown[i].file.path }.coerceAtLeast(0)
+        M.playFrom(tracks, at, false)
     }
 
     Column(Modifier.fillMaxSize().background(C.bg).padding(horizontal = 20.dp, vertical = 14.dp)) {
         Text("Radon Player", style = T.brand)
         Text(when (val all = songs) {
             null -> "Reading your music…"
-            else -> "%,d songs · %s".format(all.size, Library.folders().joinToString { it.path }.ifEmpty { "no Music folder (set RADON_MUSIC)" })
+            else -> "%,d songs · %s".format(all.size, M.folders.joinToString())
         }, style = T.sub, modifier = Modifier.padding(bottom = 10.dp))
         Row(Modifier.fillMaxWidth().clip(R.pill).background(C.light).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -160,12 +172,11 @@ fun App(player: Player) {
                 Text(now?.title ?: "Nothing playing", style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(now?.artist ?: "Pick a song", style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Box(Modifier.clickable { player.seek(-10.0) }) { Icon(Ico.PREV, C.fg, 26.dp) }
+            Box(Modifier.clickable { M.previous() }) { Icon(Ico.PREV, C.fg, 26.dp) }
             Box(Modifier.size(44.dp).clip(R.pill).background(C.accent).clickable {
-                if (now != null) { player.togglePause(); paused = !paused } else play(0)
+                if (now != null) M.togglePause() else play(0)
             }, contentAlignment = Alignment.Center) { Icon(if (now == null || paused) Ico.PLAY else Ico.PAUSE, C.darker, 26.dp) }
-            Box(Modifier.clickable { player.seek(10.0) }) { Icon(Ico.NEXT, C.fg, 26.dp) }
-            Box(Modifier.clickable { player.stop(); now = null }) { Icon(Ico.CLOSE, C.muted, 22.dp) }
+            Box(Modifier.clickable { M.next() }) { Icon(Ico.NEXT, C.fg, 26.dp) }
         }
     }
 }
