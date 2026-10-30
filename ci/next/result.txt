@@ -1,29 +1,35 @@
-run 41064166795 · Fri Oct 30 13:38:20 UTC 2026
-PHONE OK
-PC OK
-TESTS: tests="7" failures="0" 
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/LyricsTab.kt:113:32 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:118:22 Condition is always 'false'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:605:9 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:606:9 Condition is always 'true'.
+run 41068611932 · Fri Oct 30 14:06:30 UTC 2026
+PHONE FAILED
+PC FAILED
+e: desktop/build.gradle.kts:33:22: Unresolved reference: util
+* What went wrong:
+Script compilation error:
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:flattenJars
-> Task :app:lintVitalReportRelease
+  Line 33:         val p = java.util.Properties()
+--
+BUILD FAILED in 1m 2s
+Daemon will be stopped at the end of the build 
 
-> Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
+> Configure project :desktop
+e: file:///home/runner/work/radon-player/radon-player/app/android/desktop/build.gradle.kts:33:22: Unresolved reference: util
 
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+FAILURE: Build failed with an exception.
 
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+* Where:
+Build file '/home/runner/work/radon-player/radon-player/app/android/desktop/build.gradle.kts' line: 33
 
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+* What went wrong:
+Script compilation error:
 
-For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+  Line 33:         val p = java.util.Properties()
+                                ^ Unresolved reference: util
 
-BUILD SUCCESSFUL in 4m 12s
-102 actionable tasks: 102 executed
+1 error
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 2s
