@@ -33,7 +33,7 @@ jobs:
             base64 -d "$f" | gunzip | git apply --whitespace=nowarn -
           done
           git add -A
-          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "Android: favorites, skips, a song's own volume, moods by hand, .m3u8 export, looks, visualizer and Wrapped styles, download folder, copies, Duplicates, Upgrade" || true
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "Android: favorites, skips, a song's own volume, moods by hand, .m3u8 export, looks, visualizer and Wrapped styles, download folder, copies, Duplicates, Upgrade" || true
           git log --oneline -3
       - uses: actions/setup-java@v5
         with:
@@ -74,7 +74,7 @@ jobs:
             tail -25 "$RUNNER_TEMP/build.log"; } > ci/result.txt || true
           cp ../app/android/app/build/outputs/apk/release/app-release.apk ci/VarMusic-Test.apk || true
           git add ci/result.txt ci/VarMusic-Test.apk || git add ci/result.txt
-          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "ci: result" || true
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: result" || true
           git push origin HEAD:android-work || true
       - uses: actions/upload-artifact@v6
         with:
@@ -109,7 +109,7 @@ jobs:
           cp ../shots/*.png ci/shots/ 2>/dev/null || true
           cp ../shots-log.txt ci/shots/log.txt 2>/dev/null || true
           git add -A ci/shots
-          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "ci: screenshots" || true
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: screenshots" || true
           git pull -q --rebase origin android-work || true
           git push origin HEAD:android-work || true
       - name: To desktop-features
@@ -124,7 +124,7 @@ jobs:
           if sed 1d ../work/ci/PUSH | grep -q .; then
             git fetch -q origin "$B"
             sed 1d ../work/ci/PUSH > "$RUNNER_TEMP/message"
-            C=$(git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
+            C=$(git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
             git push origin "$C:refs/heads/$B"
           else
             git push origin HEAD:"refs/heads/$B"
