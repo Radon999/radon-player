@@ -89,8 +89,38 @@ object Eq {
         }
     }
 
-    /** A preset's gains on n bands (the presets are written for 10). */
+    /** A built-in preset's gains on n bands (the presets are written for 10). */
     fun preset(key: String, n: Int): List<Double>? = PRESETS[key]?.second?.let { resample(it, BANDS, n) }
+
+    /** Every Sound preset there is to pick: the built-in ones, the ones you saved or imported ("my:…"), then Custom. */
+    fun presets(s: EqSettings): Map<String, Pair<String, List<Double>?>> =
+        PRESETS.filterKeys { it != "custom" } + s.myPresets.map { (k, p) -> "my:$k" to (p.name to p.bands) } + ("custom" to PRESETS["custom"]!!)
+
+    /** Any preset's gains (yours too) on n bands. */
+    fun presetOf(s: EqSettings, key: String, n: Int): List<Double>? = presets(s)[key]?.second?.let { resample(it, BANDS, n) }
+
+    /** What filters do at the ten bands: a correction or a parametric file as a Sound preset. */
+    fun curveToBands(filters: List<Filter>): List<Double> = BANDS.map { hz -> clamp(filters.sumOf { gainAt(it, hz.toDouble()) }) }
+
+    /** gains at freqs as a GraphicEQ line (Wavelet, Equalizer APO, AutoEq read it). */
+    fun graphicEqText(freqs: List<Int>, gains: List<Double>): String =
+        "GraphicEQ: " + freqs.zip(gains).joinToString("; ") { (f, g) -> "$f ${"%.1f".format(java.util.Locale.US, g)}" } + "\n"
+
+    /** A correction as a ParametricEQ file (AutoEq's, Equalizer APO's format), its pre-gain first. */
+    fun parametricText(filters: List<Filter>): String = buildString {
+        append("Preamp: ${"%.1f".format(java.util.Locale.US, preamp(filters))} dB\n")
+        filters.forEachIndexed { i, f ->
+            val k = when (f.kind) { "ls" -> "LSC"; "hs" -> "HSC"; else -> "PK" }
+            append("Filter ${i + 1}: ON $k Fc ${f.hz.toInt()} Hz Gain ${"%.1f".format(java.util.Locale.US, f.gain)} dB Q ${"%.2f".format(java.util.Locale.US, f.q)}\n")
+        }
+    }
+
+    /** A new device's starting Sound preset, for every kind of music: a gentle shape for its kind (you tune it after). */
+    fun deviceCurve(kind: String): List<Double> = when (kind) {
+        "speaker" -> listOf(-6.0, -4.0, -1.0, 1.0, 1.5, 1.0, 0.0, -1.5, 0.5, 1.0)
+        "car" -> listOf(0.0, 1.0, 0.5, -1.5, -0.5, 0.0, -0.5, -1.0, 0.5, 1.5)
+        else -> listOf(1.0, 0.5, 0.0, -0.5, -0.5, 0.0, 0.5, 1.0, 1.0, 0.5)   // headphones and earbuds
+    }
     const val RANGE = 12.0    // dB, either way
     val PRESETS: LinkedHashMap<String, Pair<String, List<Double>?>> = linkedMapOf(
         "flat" to ("Flat" to List(10) { 0.0 }),
@@ -187,6 +217,7 @@ data class EqSettings(
     val outputs: Map<String, OutputEq> = emptyMap(),          // each output's own EQ, by its key (see [Outputs])
     val output: String = "",                                  // the output these settings are for now
     val boost: Double = 0.0,                                  // Boost: dB louder than normal (0-12), this output's
+    val myPresets: Map<String, MyPreset> = emptyMap(),        // Sound presets you saved or imported (10 bands each)
 ) {
     /** These settings as one output keeps them. */
     fun toOutput(label: String) = OutputEq(label, on, headphones, preset, bands, custom, bass, treble, count, boost)
@@ -196,6 +227,10 @@ data class EqSettings(
         else copy(output = key, on = o.on, headphones = o.headphones, preset = o.preset, bands = o.bands, custom = o.custom,
             bass = o.bass, treble = o.treble, count = o.count, boost = o.boost)
 }
+
+/** A Sound preset of yours: its name and its ten bands' gains. */
+@Serializable
+data class MyPreset(val name: String, val bands: List<Double>)
 
 /** One output's own EQ. */
 @Serializable

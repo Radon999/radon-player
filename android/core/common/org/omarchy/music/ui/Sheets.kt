@@ -1012,9 +1012,9 @@ private fun EqSheet(ui: Ui) {
                 }
                 Box {
                     var presets by remember { mutableStateOf(false) }
-                    Chip("${Eq.PRESETS[eq.preset]?.first ?: "Custom"} ▾", false) { presets = true }
+                    Chip("${Eq.presets(eq)[eq.preset]?.first ?: "Custom"} ▾", false) { presets = true }
                     androidx.compose.material3.DropdownMenu(presets, { presets = false }, containerColor = C.light) {
-                        Eq.PRESETS.forEach { (k, v) ->
+                        Eq.presets(eq).forEach { (k, v) ->
                             androidx.compose.material3.DropdownMenuItem({ Text(v.first, style = T.body) }, { presets = false; Music.setEqPreset(k) })
                         }
                     }
@@ -1113,7 +1113,8 @@ private fun EqSheet(ui: Ui) {
             }
             BoostFader(eq)
             Text("Sound", style = T.section, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-            ChipRow(Eq.PRESETS.map { (k, v) -> k to v.first }, eq.preset) { Music.setEqPreset(it) }
+            ChipRow(Eq.presets(eq).map { (k, v) -> k to v.first }, eq.preset) { Music.setEqPreset(it) }
+            PresetTools(eq)
             // The bands: one line each (31 fit this way), the frequency, the slider, the gain.
             val freqs = Eq.bandsFor(eq.count)
             Column(Modifier.padding(top = 10.dp).clip(R.card).background(C.light.copy(alpha = if (C.isLight) 1f else 0.6f)).padding(vertical = 6.dp)) {
@@ -1254,6 +1255,34 @@ private fun FolderPicker(ui: Ui, item: org.omarchy.music.FolderItem) {
         confirmButton = { TextButton({ ui.folderFor = null }) { Text("Cancel", color = C.muted) } })
 }
 
+/** Your own Sound presets: Save as preset… (the bands as they are now), Import (a GraphicEQ or parametric file), Export
+ *  (the Sound as a GraphicEQ file), and Delete for one of yours that's picked. */
+@Composable
+private fun PresetTools(eq: org.omarchy.music.EqSettings) {
+    var naming by remember { mutableStateOf<String?>(null) }
+    val importer = rememberOpenFile { uri -> if (uri != null) Music.importPresetFile(uri) }
+    val exporter = rememberSaveFile("text/plain") { uri -> if (uri != null) Music.exportPreset(uri) }
+    val label = org.omarchy.music.Eq.presets(eq)[eq.preset]?.first ?: "Sound"
+    Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Pill("Save as preset…", quiet = true) { naming = if (eq.preset == "custom" || eq.preset.startsWith("my:")) "" else "$label (mine)" }
+        Pill("Import", quiet = true) { importer.launch(arrayOf("text/*", "application/octet-stream")) }
+        Pill("Export", quiet = true) { exporter.launch("${label.replace(Regex("[^\\w .()-]"), "")} GraphicEQ.txt") }
+        if (eq.preset.startsWith("my:")) Pill("Delete “$label”", quiet = true) { Music.deletePreset(eq.preset) }
+    }
+    naming?.let { start ->
+        var name by remember { mutableStateOf(start) }
+        AlertDialog(onDismissRequest = { naming = null }, containerColor = C.light,
+            title = { Text("Save as a Sound preset", style = T.title) },
+            text = { Column {
+                Text("The bands as they are now, kept among your Sound presets (in your backups too).", style = T.sub)
+                Spacer(Modifier.height(8.dp))
+                Field(name, "Its name") { name = it }
+            } },
+            confirmButton = { TextButton({ naming = null; Music.savePreset(name) }) { Text("Save", color = C.accent) } },
+            dismissButton = { TextButton({ naming = null }) { Text("Cancel", color = C.muted) } })
+    }
+}
+
 /** Auto EQ: find any headphones in AutoEq's results as you type, or Detect the ones connected;
  *  their correction is added to Headphones and used (and comes back whenever they connect). */
 @Composable
@@ -1271,6 +1300,20 @@ private fun AutoEqFinder() {
         }
     }
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importEqFile(uri) }
+    val exporter = rememberSaveFile("text/plain") { uri -> if (uri != null) Music.exportCorrection(uri) }
+    Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Collect: every source AutoEq has for the headphones connected (or the ones typed), all added to compare
+        Pill("Collect all sources", quiet = true) {
+            val dev = q.trim().ifEmpty { org.omarchy.music.AutoEq.output(Music.ctx) }
+            if (dev.isEmpty()) { note = "Connect your headphones, or type their name, then Collect"; return@Pill }
+            note = "Collecting every correction for $dev…"
+            Music.collectCorrections(dev) { n -> note = if (n == 0) "AutoEq has nothing for $dev" else ""; if (n > 0) q = "" }
+        }
+        Pill("Export", quiet = true) {
+            val name = org.omarchy.music.Eq.headphones(Music.eq)[Music.eq.headphones]?.first ?: "Correction"
+            exporter.launch("${name.replace(Regex("[^\\w .()-]"), "")} ParametricEQ.txt")
+        }
+    }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
         Box(Modifier.weight(1f)) { Field(q, "Auto EQ: find your headphones") { q = it } }
         Spacer(Modifier.width(6.dp))
@@ -1524,8 +1567,8 @@ private fun SongEqDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                     colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
                 Text("Sound", style = T.time, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    E.PRESETS.forEach { (k, v) ->
-                        Chip(v.first, preset == k) { preset = k; E.preset(k, count)?.let { bands = it } }
+                    E.presets(Music.eq).forEach { (k, v) ->
+                        Chip(v.first, preset == k) { preset = k; E.presetOf(Music.eq, k, count)?.let { bands = it } }
                     }
                 }
                 E.bandsFor(count).forEachIndexed { i, hz ->

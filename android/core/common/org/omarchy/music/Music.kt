@@ -2447,6 +2447,88 @@ object Music {
         return g.coerceAtMost(most.coerceIn(1.0, 2.0))
     }
 
+    // ---- Sound presets of yours: saved, imported, exported; corrections exported; every source collected ----
+
+    /** Save as preset…: the bands as they are now, as a Sound preset of yours named name (used straight away). */
+    fun savePreset(name: String, bands: List<Double> = eq.bands, count: Int = eq.count) {
+        val n = name.trim().ifEmpty { return }
+        val key = norm(n).replace(" ", "-").ifEmpty { randomHex(4) }
+        val ten = Eq.resample(bands, Eq.bandsFor(count), 10)
+        setEq { it.copy(myPresets = it.myPresets + (key to MyPreset(n, ten))) }
+        setEqPreset("my:$key")
+        toast("“$n” saved among your Sound presets")
+    }
+
+    fun deletePreset(key: String) {
+        val k = key.removePrefix("my:")
+        val name = eq.myPresets[k]?.name ?: return
+        setEq { it.copy(myPresets = it.myPresets - k, preset = if (it.preset == key) "custom" else it.preset) }
+        toast("“$name” deleted")
+    }
+
+    /** Import a Sound preset: a GraphicEQ (Wavelet, Equalizer APO, AutoEq) or a parametric file, read at the ten bands. */
+    fun importPresetFile(uri: String) {
+        bg({
+            val text = ctx.openIn(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+            val name = (ctx.displayName(uri) ?: "My preset").substringBeforeLast('.')
+                .replace(Regex("\\s*(ParametricEQ|GraphicEQ)$"), "").trim().ifEmpty { "My preset" }
+            name to Eq.curveToBands(AutoEq.parseFile(text))
+        }) { r, err ->
+            if (r != null) savePreset(r.first, r.second, 10) else toast("Couldn't import it: ${err?.message?.take(80)}")
+        }
+    }
+
+    /** Export the Sound as it is now (a GraphicEQ file other EQ apps read, and this one imports). */
+    fun exportPreset(uri: String) {
+        val text = Eq.graphicEqText(Eq.bandsFor(eq.count), eq.bands)
+        bg({ ctx.openOut(uri)!!.use { it.write(text.toByteArray()) } }) { _, err ->
+            toast(if (err != null) "Couldn't export it: ${err.message?.take(80)}" else "Sound exported")
+        }
+    }
+
+    /** Export the headphones correction in use (a ParametricEQ file: AutoEq's and Equalizer APO's format). */
+    fun exportCorrection(uri: String) {
+        val f = Eq.headphones(eq)[eq.headphones]?.second.orEmpty()
+        if (f.isEmpty()) { toast("No headphones correction is in use to export"); return }
+        val text = Eq.parametricText(f)
+        bg({ ctx.openOut(uri)!!.use { it.write(text.toByteArray()) } }) { _, err ->
+            toast(if (err != null) "Couldn't export it: ${err.message?.take(80)}" else "Correction exported")
+        }
+    }
+
+    /** Collect: every source AutoEq has for these headphones (oratory1990, Rtings, crinacle, Super Review…), each added
+     *  among your corrections so you can compare them; the closest match used unless you've picked one for them. */
+    fun collectCorrections(dev: String, quiet: Boolean = false, done: (Int) -> Unit = {}) {
+        val api = apiKeys["autoeq_api"].orEmpty()
+        bg({
+            val all = if (api.isNotEmpty()) AutoEq.apiSearch(api, dev) else AutoEq.index(ctx)
+            val best = AutoEq.matchDevice(listOf(dev), all) ?: (if (api.isEmpty()) AutoEq.search(all, dev, 1).firstOrNull() else all.firstOrNull())
+                ?: return@bg emptyList<Pair<AutoEq.Entry, List<Filter>>>()
+            val same = all.filter { norm(it.name) == norm(best.name) }.ifEmpty { listOf(best) }
+            (listOf(best) + same.filter { it != best }).mapNotNull { e -> runCatching { e to AutoEq.profile(e, api) }.getOrNull() }
+        }) { got, err ->
+            if (got.isNullOrEmpty()) {
+                if (!quiet) toast(if (err != null) "AutoEq couldn't be reached: ${err.message?.take(80)}" else "AutoEq has nothing for “$dev”")
+                done(0); return@bg
+            }
+            val keys = got.map { (e, _) -> "ae:" + norm("${e.name} ${e.source}").replace(" ", "-") }
+            setEq { s -> s.copy(profiles = s.profiles + got.zip(keys).map { (p, k) ->
+                k to AutoEq.profileOf("${p.first.name} · ${p.first.source.ifEmpty { "AutoEq" }}", p.second) }) }
+            if (eq.devices[dev] == null || eq.headphones == "off") setEqHeadphones(keys[0])
+            toast("${got[0].first.name}: ${got.size} correction${if (got.size != 1) "s" else ""} collected (" +
+                got.joinToString(", ") { it.first.source.ifEmpty { "AutoEq" } } + ")")
+            done(got.size)
+        }
+    }
+
+    /** A new output's own starting Sound preset, named after it (for every kind of music; tune it as you like). */
+    private fun addDevicePreset(o: Outputs.Out) {
+        if (o.kind == "speaker" && o.key == "speaker" || o.key == CAR) return   // these have built-in ones
+        val key = norm(o.label).replace(" ", "-")
+        if (key.isEmpty() || eq.myPresets.containsKey(key) || Eq.PRESETS.values.any { norm(it.first) == norm(o.label) }) return
+        setEq { it.copy(myPresets = it.myPresets + (key to MyPreset(o.label, Eq.deviceCurve(o.kind)))) }
+    }
+
     fun addAutoEq(e: AutoEq.Entry, filters: List<Filter>) {
         val key = "ae:" + norm("${e.name} ${e.source}").replace(" ", "-")
         setEq { it.copy(profiles = it.profiles + (key to AutoEq.profileOf("${e.name} · ${e.source.ifEmpty { "AutoEq" }}", filters))) }
@@ -2469,11 +2551,10 @@ object Music {
             if (known != eq.headphones) { setEqHeadphones(known, remember = false); toast("$dev: using ${Eq.headphones(eq)[known]?.first}") }
             return
         }
-        bg({ AutoEq.matchDevice(listOf(dev), AutoEq.index(ctx)) }) { m, _ ->
-            if (m != null) toast("AutoEq has a correction for ${m.name}: Equalizer › Auto EQ")
-        }
+        // New headphones: every correction AutoEq has for them, collected (the closest one used)
+        collectCorrections(dev, quiet = true)
     }
-    fun setEqPreset(key: String) = setEq { it.copy(preset = key, bands = Eq.preset(key, it.count) ?: it.custom.takeIf { c -> c.size == it.count }
+    fun setEqPreset(key: String) = setEq { it.copy(preset = key, bands = Eq.presetOf(it, key, it.count) ?: it.custom.takeIf { c -> c.size == it.count }
         ?: List(it.count) { 0.0 }, on = true) }
     fun setEqBand(i: Int, gain: Double) = setEq {
         if (i !in it.bands.indices) return@setEq it
@@ -2525,6 +2606,7 @@ object Music {
             e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
         }
         if (isNew && o.key == CAR) setEqPreset("colorado")   // the Chevy starts on the Colorado's tuning
+        if (isNew) addDevicePreset(o)   // its own Sound preset to start from
         if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (eq.on) "" else " (off)")
     }
     /** Boost: dB louder than normal (0-12) on everything, kept for this output. */

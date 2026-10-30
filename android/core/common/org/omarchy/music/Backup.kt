@@ -24,7 +24,8 @@ object Backup {
         ctx.openOut(uri, "w")!!.use { os ->
             ZipOutputStream(os).use { z ->
                 z.putNextEntry(ZipEntry("radon-backup.json"))
-                z.write("""{"app":"radon-player","platform":"$platformName","made":${System.currentTimeMillis() / 1000}}""".toByteArray())
+                // song_settings_from: where the songs' volumes and Custom EQs in here were made (they restore only there)
+                z.write("""{"app":"radon-player","platform":"$platformName","song_settings_from":"$platformName","made":${System.currentTimeMillis() / 1000}}""".toByteArray())
                 z.closeEntry()
                 for (name in FILES) {
                     val f = File(ctx.filesDir, name)
@@ -50,9 +51,13 @@ object Backup {
         }
         val info = got["radon-backup.json"]?.decodeToString() ?: throw IllegalArgumentException("that isn't a Radon Player backup")
         val cross = "\"$platformName\"" !in info   // made on the other device (the phone, or the PC)
+        // The songs' volumes and Custom EQs come back only onto the kind of device they were made on
+        val songsFrom = Regex("\"song_settings_from\":\"(\\w+)\"").find(info)?.groupValues?.get(1)
+            ?: Regex("\"platform\":\"(\\w+)\"").find(info)?.groupValues?.get(1)
+        val songsHere = songsFrom == platformName
         val done = ArrayList<String>()
         for (name in FILES) {
-            if (cross && name in OWN_DEVICE) continue   // songs' volumes and EQs are the phone's or the PC's own
+            if (name in OWN_DEVICE && !songsHere) continue   // songs' volumes and EQs are the phone's or the PC's own
             var data = got[name]?.decodeToString() ?: continue
             val f = File(ctx.filesDir, name)
             if (cross && name == "state.json") data = BackupMerge.mergeState(data, readText(f))
