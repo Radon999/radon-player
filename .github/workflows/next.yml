@@ -37,7 +37,7 @@ jobs:
             base64 -d "$f" | gunzip | git apply --whitespace=nowarn -
           done
           git add -A
-          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "Radon Player Next" || true
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "Radon Player Next" || true
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -67,7 +67,7 @@ jobs:
         working-directory: work
         run: |
           mkdir -p ci/next
-          git config user.name Radon999; git config user.email radon721690@gmail.com
+          git config user.name Radon999; git config user.email Radon999@users.noreply.github.com
           { echo "run ${{ github.run_id }} · $(date -u)"; \
             if [ -f ../app/android/app/build/outputs/apk/release/app-release.apk ]; then echo "PHONE OK"; else echo "PHONE FAILED"; fi; \
             if ls ../app/android/desktop/build/compose/jars/*.jar >/dev/null 2>&1; then echo "PC OK"; else echo "PC FAILED"; fi; \
@@ -78,7 +78,7 @@ jobs:
           cp ../app/android/app/build/outputs/apk/release/app-release.apk ci/next/RadonPlayer-Next.apk || true
           J=$(ls ../app/android/desktop/build/compose/jars/*.jar 2>/dev/null | head -1); if [ -n "$J" ] && [ $(stat -c%s "$J") -lt 95000000 ]; then cp "$J" ci/next/RadonPlayer-Next-linux.jar; git add ci/next/RadonPlayer-Next-linux.jar; fi
           git add ci/next/result.txt; git add ci/next/RadonPlayer-Next.apk || true
-          git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "ci: next result" || true
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: next result" || true
           git pull -q --rebase origin android-work || true
           git push origin HEAD:android-work || true
       - uses: actions/upload-artifact@v6
@@ -101,7 +101,7 @@ jobs:
           # The newest patch's own message (ci/next/N.msg beside N.patch.b64), when it has one
           LAST="$(ls ../work/ci/next/r*.patch.b64 | sort -V | tail -1)"
           [ -f "${LAST%.patch.b64}.msg" ] && cp "${LAST%.patch.b64}.msg" "$RUNNER_TEMP/message" || true
-          C=$(git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
+          C=$(git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
           git push origin "$C:refs/heads/$B"
   windows:
     runs-on: windows-latest
@@ -129,6 +129,19 @@ jobs:
         shell: bash
         working-directory: app/android
         run: ./gradlew --no-daemon :desktop:packageMsi
+      - name: Keep the installer (for testing on the PC)
+        shell: bash
+        working-directory: work
+        run: |
+          M=$(ls ../app/android/desktop/build/compose/binaries/main/msi/*.msi 2>/dev/null | head -1)
+          if [ -n "$M" ] && [ $(stat -c%s "$M") -lt 95000000 ]; then
+            for i in 1 2 3 4 5; do
+              git pull -q --rebase origin android-work || true
+              cp "$M" ci/next/RadonPlayer-Next.msi; git add ci/next/RadonPlayer-Next.msi
+              git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: next msi" || true
+              git push origin HEAD:android-work && break || sleep 15
+            done
+          fi
       - uses: actions/upload-artifact@v6
         with:
           name: RadonPlayerNext-windows
