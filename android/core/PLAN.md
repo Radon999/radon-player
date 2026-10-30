@@ -36,7 +36,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] Both: Fix albums and artists, Folders to leave alone, Empty folders (PC), Live in song names, Copy the names
 - [x] PC: Loudness check (ffmpeg), Identify by sound (AcoustID); both: Lyrics mode in Settings, «Close selection after an option» kept
 - [ ] Phone: Loudness check and Identify by sound (decode on the phone); Tagger «Scan all again»; lyrics into the files from the options menu
-- [ ] PC: visualizer and Now playing bars (spectrum from mpv), sign-in pages (now: paste the address it ends on)
+- [x] PC: visualizer and Now playing bars (the song decoded again by ffmpeg in step)
+- [ ] PC: sign-in pages (now: paste the address it ends on)
 - [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app

@@ -219,9 +219,16 @@ object SysVolume {
     fun set(v: Float) { org.omarchy.music.MpvEngine.setLevel(v) }
 }
 
-/** The music's spectrum: not read on the PC yet (the visualizer draws its idle look). */
+/** The music's spectrum: the song decoded again by ffmpeg in step with the player (PcSpectrum), while this shows. */
 @Composable
-fun rememberSpectrum(on: Boolean, failed: (String) -> Unit = {}): FloatArray? = null
+fun rememberSpectrum(on: Boolean, failed: (String) -> Unit = {}): FloatArray? {
+    if (!on) return null
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        org.omarchy.music.PcSpectrum.use()
+        onDispose { org.omarchy.music.PcSpectrum.done() }
+    }
+    return org.omarchy.music.PcSpectrum.levels
+}
 const val SPECTRUM_ASK = "The visualizer reads the music this app plays."
 
 /** A file's facts for the Tagger: size, format, length, bitrate, quality. */
