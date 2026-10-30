@@ -1,9 +1,9 @@
-run 41013874182 · Fri Oct 30 06:29:14 UTC 2026
+run 41014851662 · Fri Oct 30 06:44:11 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="5" failures="0" 
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/LyricsTab.kt:113:32 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:118:22 Condition is always 'false'.
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:594:9 Condition is always 'true'.
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:595:9 Condition is always 'true'.
 
@@ -11,11 +11,11 @@ w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/or
 > Task :desktop:classes
 > Task :desktop:jar
 > Task :desktop:flattenJars
-> Task :app:lintVitalReportRelease
 
 > Task :desktop:packageUberJarForCurrentOS
 The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
 
+> Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
 
@@ -25,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 14s
+BUILD SUCCESSFUL in 3m 49s
 102 actionable tasks: 102 executed
