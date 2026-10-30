@@ -972,8 +972,69 @@ object Music {
             if (err is SecurityException) Unit   // no permission yet: the Music tab asks
             else if (err != null) toast("Couldn't read your music: ${err.message?.take(80)}")
             if (changed == true) musicVersion++
+            adoptFiles()
             accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since
+        }
+    }
+
+    /** Whether a song file's address is one this device can play (not the other device's, from a backup). */
+    fun fileHere(t: Track): Boolean {
+        val f = t.file ?: return true
+        if (!BackupMerge.fileHere(f, platformName == "android")) return false
+        return platformName == "android" || f.startsWith("content:") || File(f).exists()
+    }
+
+    /** The same song of yours on this device (a file or a download), for one of the other device's song files. */
+    fun hereCopy(t: Track): Track? {
+        val k = looseKey(t)
+        if (k.first.isEmpty()) return null
+        return mySongs().firstOrNull { (it.isFile || lib.has(it.id)) && looseKey(it) == k && it.id != t.id }
+    }
+
+    /** After a backup from the other device: its song files in your queue, playlists and favorites become the same
+     *  songs of yours here, once this device has read its folders (until none are left to find). */
+    private fun adoptFiles() {
+        if (!Prefs.on("adopt_files") || local.files.isEmpty()) return
+        val here = HashMap<Pair<String, String>, Track>()
+        for (m in mySongs()) if (m.isFile || lib.has(m.id)) here.putIfAbsent(looseKey(m), m)
+        var found = 0
+        var left = 0
+        fun fix(t: Track): Track {
+            if (!t.isFile || BackupMerge.fileHere(t.file ?: return t, platformName == "android")) return t
+            val h = here[looseKey(t)] ?: run { left++; return t }
+            found++
+            return h.slim().copy(queued = t.queued)
+        }
+        queue = queue.map(::fix)
+        lists.remap(::fix)
+        favorites.remap(::fix)
+        if (found > 0) { saveState(); musicVersion++; toast("Matched $found song${if (found != 1) "s" else ""} from your backup to your music here") }
+        if (left == 0) Prefs.set("adopt_files", false)
+    }
+
+    /** A song file that isn't on this device (from the other one's backup, or since gone) in the queue: the same
+     *  song of yours here plays in its place, else the service's. */
+    private fun standIn(t: Track, autoplay: Boolean) {
+        val at = index
+        fun swap(n: Track) {
+            if (index != at || current()?.id != t.id) return
+            queue = queue.toMutableList().also { it[at] = n.copy(queued = false) }
+            loadCurrent(autoplay)
+        }
+        hereCopy(t)?.let { swap(it); return }
+        val key = searchIn.takeIf { it != "local" && it != "tidal" || (it == "tidal" && sources["tidal"]?.signedIn == true) } ?: "ytm"
+        val src = sources[key] ?: sources["ytm"]
+        if (src == null) { toast("“${t.title}” isn't on this ${org.omarchy.music.ui.DEVICE}: still connecting to the services"); return }
+        status = "Finding “${t.title}”…"
+        bg({ matchSong(src, t.artist, t.title, t.duration.toInt()).first }) { found, _ ->
+            if (index != at) return@bg
+            status = ""
+            if (found != null) swap(found)
+            else {
+                toast("“${t.title}” isn't on this ${org.omarchy.music.ui.DEVICE} and wasn't found to stream")
+                if (autoplay) scope.launch { delay(1500); if (index == at) next() }
+            }
         }
     }
 
@@ -2208,6 +2269,7 @@ object Music {
         val t0 = current() ?: return
         val t = t0.copy(queued = false)   // playing now, not waiting in your queue
         if (t0.queued) queue = queue.toMutableList().also { it[index] = t }
+        if (t.isFile && !fileHere(t)) { standIn(t, autoplay); return }   // the other device's song file (a backup's)
         if (autoplay) noteLeaving()
         finishing = false; goingBack = false
         restorePending = false

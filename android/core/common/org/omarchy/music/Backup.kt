@@ -6,7 +6,9 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /** Back up and restore (Settings): what's yours that can't be got back from elsewhere, in one zip. Not your songs,
- *  nor logins (those you have, and sign in again). The PC's backups are its own: each app restores its own. */
+ *  nor logins (those you have, and sign in again). A backup of the phone's restores on the PC and the other way:
+ *  then this device's folders, audio output and own switches stay as they are, and songs that were files on the
+ *  other device play from the same song of yours here (else the service's). */
 object Backup {
     private val FILES = listOf("state.json", "playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json",
         "song-speeds.json", "song-volume.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "new-releases.json")
@@ -26,8 +28,7 @@ object Backup {
                     if (!f.isFile) continue
                     z.putNextEntry(ZipEntry(name)); f.inputStream().use { it.copyTo(z) }; z.closeEntry(); n++
                 }
-                val prefs = prefsFile(ctx, PREFS)
-                if (prefs.isFile) { z.putNextEntry(ZipEntry("switches.xml")); prefs.inputStream().use { it.copyTo(z) }; z.closeEntry() }
+                z.putNextEntry(ZipEntry("switches.json")); z.write(BackupMerge.switchesToSave(Prefs.all()).toByteArray()); z.closeEntry()
             }
         }
         return n
@@ -40,21 +41,25 @@ object Backup {
             ZipInputStream(ins).use { z ->
                 while (true) {
                     val e = z.nextEntry ?: break
-                    if (e.name == "radon-backup.json" || e.name in FILES || e.name == "switches.xml") got[e.name] = z.readBytes()
+                    if (e.name == "radon-backup.json" || e.name in FILES || e.name == "switches.xml" || e.name == "switches.json") got[e.name] = z.readBytes()
                 }
             }
         }
         val info = got["radon-backup.json"]?.decodeToString() ?: throw IllegalArgumentException("that isn't a Radon Player backup")
-        if ("\"$platformName\"" !in info) throw IllegalArgumentException("that's a backup from the other app (phone or PC): restore it there")
+        val cross = "\"$platformName\"" !in info   // made on the other device (the phone, or the PC)
         val done = ArrayList<String>()
         for (name in FILES) {
-            val data = got[name] ?: continue
+            var data = got[name]?.decodeToString() ?: continue
             val f = File(ctx.filesDir, name)
+            if (cross && name == "state.json") data = BackupMerge.mergeState(data, readText(f))
             if (f.exists()) f.copyTo(File(ctx.filesDir, "$name.before-restore"), overwrite = true)
-            writeAtomic(f, data.decodeToString())
+            writeAtomic(f, data)
             done += name
         }
-        got["switches.xml"]?.let { prefsFile(ctx, PREFS).apply { parentFile?.mkdirs() }.writeBytes(it) }
+        val switches = got["switches.json"]
+        if (switches != null) Prefs.restore(BackupMerge.switchesToRestore(switches.decodeToString(), cross))
+        else if (!cross) got["switches.xml"]?.let { prefsFile(ctx, PREFS).apply { parentFile?.mkdirs() }.writeBytes(it) }   // an older backup
+        if (cross) Prefs.set("adopt_files", true)   // the other device's song files: this one's copies found once it has read its folders
         return done
     }
 

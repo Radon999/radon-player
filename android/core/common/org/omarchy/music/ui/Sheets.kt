@@ -661,8 +661,9 @@ private fun BackupLines(activity: Any?) {
     }
     val open = rememberOpenFile { uri -> asking = uri }
     Line("Back up and restore", "Saves your playlists, favorites, plays, queues, settings, equalizer and imported histories " +
-        "in one file, for moving to a new ${DEVICE} or after reinstalling. Your songs and sign-ins aren't included. Restoring " +
-        "keeps what's already here alongside the backup, just in case", false) {}
+        "in one file, for moving to a new ${DEVICE} or after reinstalling. Your songs and sign-ins aren't included. A backup of " +
+        "the phone's restores on the PC and the other way (this ${DEVICE}'s folders and sound output stay its own, and your " +
+        "songs there are matched to the same songs here). Restoring keeps what's already here alongside the backup, just in case", false) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Restore…", quiet = true) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
         Pill("Back up…") { save.launch("Radon Player backup ${java.time.LocalDate.now()}.zip") }

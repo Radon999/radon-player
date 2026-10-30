@@ -166,7 +166,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 
 - **Play on / Phone remote:** On the PC, switch on **Phone remote** (Settings › Play on) and it shows a pairing code. On the phone, go to Settings › Play on, choose the PC (it's found on your network automatically) and enter the code. The phone then plays, queues and skips music on the PC, controls its volume and the DJ, and shows what's playing, all from the sofa. Songs stored on the phone stream to the PC over your home network.
 - **Continue where you left off:** Stop on the PC and open the phone, or the other way round, and it offers the same song at the same spot. This needs the phone paired with the PC.
-- **Back up and restore:** Saves your playlists, favorites, plays, queues, settings, equalizer and imported histories in one file, for a new phone or PC or after reinstalling. Your songs and sign-ins aren't included. Restoring keeps what's already there alongside the backup, just in case.
+- **Back up and restore:** Saves your playlists, favorites, plays, queues, settings, equalizer and imported histories in one file, for a new phone or PC or after reinstalling. Your songs and sign-ins aren't included. A phone backup restores on the PC and a PC backup on the phone: that device keeps its own music folders, sound output and device switches, and the songs that were files on the other device are matched to the same songs on this one (or streamed from your service when it doesn't have them). Restoring keeps what's already there alongside the backup, just in case.
 - **Updates:** Settings shows your version and checks for a new release. On the phone, **Update** downloads it and installs it. On the PC it also looks by itself at start and every 12 hours; **Update** downloads the new installer, runs it and closes the app so it can be replaced.
 - **Problems:** If something went wrong recently, Settings shows it with a **Copy** button so you can send it on.
 - **Your own keys (Settings › More):** You can add your own keys for Google's pictures and an AutoEq server. None is needed.
@@ -212,6 +212,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - The PC keeps its own extras: the tray, media keys, Start with Windows, the mini player window, Discord, right-click menus, the visualizer and Phone remote.
 - Both apps now have Loudness check and Identify by sound (the phone hears songs with its own decoders and makes the same AcoustID fingerprint the PC does), Fix albums and artists, Folders to leave alone, Live in song names, Copy the names, the Lyrics mode setting, and the option to keep the selection open after an option.
 - On the PC, Spotify and Last.fm sign-ins finish by themselves, with nothing to copy and paste.
+- Backups move between devices: a phone backup restores on the PC and a PC backup on the phone, with your songs matched to the same songs on the new device. Backups no longer carry the PC's YouTube Music and Apple Music sign-ins.
 - The PC gets the old app's keyboard shortcuts back, and its tag editing, Tagger, covers and lyrics work on your own FLAC files again.
 - **Identify by sound…** is now in a single song's menu too.
 - The PC installer brings its own mpv and ffmpeg, and Windows' media controls (the flyout, widgets, wallpapers) now see what's playing.

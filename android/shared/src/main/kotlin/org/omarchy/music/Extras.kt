@@ -71,6 +71,13 @@ class Favorites(private val file: File) {
         writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), Fav.serializer()), items))
     }
 
+    /** Each favorite's song as f makes it (a backup's song files become this device's). */
+    @Synchronized
+    fun remap(f: (Track) -> Track) {
+        items.replaceAll { _, v -> v.copy(track = f(v.track)) }
+        writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), Fav.serializer()), items))
+    }
+
     /** Your favorites, the last one starred first. */
     fun tracks(): List<Track> = items.values.sortedByDescending { it.added }.map { it.track }
 
