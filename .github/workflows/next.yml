@@ -147,6 +147,15 @@ jobs:
           dotnet publish -c Release -o out
           mkdir -p ../resources/windows && cp out/radon-media.exe ../resources/windows/
           ls -la ../resources/windows
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Tidal's app keys
+        shell: bash
+        working-directory: app
+        run: |
+          python -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python android/tools/tidal-keys.sh
       - name: The PC installer
         shell: bash
         working-directory: app/android
