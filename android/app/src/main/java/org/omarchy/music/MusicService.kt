@@ -66,8 +66,12 @@ class MusicService : MediaLibraryService() {
                     val rate = f.sampleRate; val bits = if (f.pcmEncoding != androidx.media3.common.Format.NO_VALUE) pcmBits(f.pcmEncoding) else 0
                     if (Music.bitPerfect) Music.bg({ Music.dacNote = AudioQuality.applyBitPerfect(this@MusicService, true, rate, bits) })
                     Music.eqProcessor.rgGain = if (Music.bitPerfect || Music.replayGain == "off") 1.0 else
-                        (AudioQuality.replayGain(f.metadata, Music.replayGain == "album")
-                            ?: AudioQuality.replayGain(f.metadata, Music.replayGain != "album"))?.let { Music.rgFactor(it) } ?: 1.0
+                        run {
+                            val album = Music.replayGain == "album"
+                            val (db, peak) = AudioQuality.replayGain(f.metadata, album)?.let { it to AudioQuality.replayPeak(f.metadata, album) }
+                                ?: AudioQuality.replayGain(f.metadata, !album)?.let { it to AudioQuality.replayPeak(f.metadata, !album) } ?: (null to null)
+                            db?.let { Music.rgFactor(it, peak) } ?: 1.0
+                        }
                 }
             }
 

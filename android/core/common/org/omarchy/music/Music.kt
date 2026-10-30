@@ -2435,9 +2435,16 @@ object Music {
 
     /** ReplayGain's gain for a song (dB from its tags) at the levelling target: never louder than full scale unless
      *  Clip guard is on to limit the peaks. */
-    fun rgFactor(db: Double): Double {
+    /** ReplayGain's gain for a song tagged db (and its peak, when tagged). Making a quiet song louder stops where its
+     *  loudest moment would reach full scale (with Clip guard, a little past it: the limiter catches the odd peak), and at
+     *  +6 dB at most when the file doesn't say its peak. Before, a quiet song could get +12 dB and the limiter then
+     *  squashed it flat: loud, distorted, the bass pumping. */
+    fun rgFactor(db: Double, peak: Double? = null): Double {
         val g = Math.pow(10.0, (db + Prefs.num(Prefs.RG_TARGET, -18f) + 18) / 20)
-        return if (Prefs.on(Prefs.CLIP_GUARD)) g.coerceAtMost(4.0) else g.coerceAtMost(1.0)
+        if (g <= 1.0) return g
+        if (!Prefs.on(Prefs.CLIP_GUARD)) return 1.0
+        val most = peak?.let { 1.12 / it } ?: 2.0   // up to 1 dB over the peak, or +6 dB untagged
+        return g.coerceAtMost(most.coerceIn(1.0, 2.0))
     }
 
     fun addAutoEq(e: AutoEq.Entry, filters: List<Filter>) {
