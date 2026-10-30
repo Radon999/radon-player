@@ -48,7 +48,9 @@ fun ToolScreens(ui: Ui) {
         "live" -> LiveNamesScreen(ui)
         "empty" -> EmptyFoldersScreen(ui)
         "skip" -> SkipFoldersScreen(ui)
+        "quality" -> QualityScreen(ui)
     }
+    ui.identifyFor?.let { IdentifyDialog(ui, it) }
 }
 
 /** Fix albums and artists: albums split by featured artists, albums beside their deluxe edition, singles of songs on an
@@ -155,7 +157,7 @@ private fun LiveNamesScreen(ui: Ui) {
             Text(report ?: when {
                 f == null -> "Reading your songs' tags…"
                 f.isEmpty() -> "No song is named as a live recording"
-                else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recordings. Tick the ones to make plain; the others are kept as they are (not asked again)"
+                else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recording${if (f.size != 1) "s" else ""}. Tick the ones to make plain; the others are kept as they are (not asked again)"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
@@ -191,7 +193,7 @@ private fun EmptyFoldersScreen(ui: Ui) {
             Text(report ?: when {
                 f == null -> "Looking through your music folders…"
                 f.isEmpty() -> "No empty folders: every folder has songs in it"
-                else -> "${f.size} folder${if (f.size != 1) "s have" else " has"} no songs left in them (only pictures, lyrics and the like). Tick the ones to delete"
+                else -> "${f.size} folder${if (f.size != 1) "s have" else " has"} no songs left in ${if (f.size != 1) "them" else "it"} (only pictures, lyrics and the like). Tick the ones to delete"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
@@ -241,4 +243,61 @@ private fun SkipFoldersScreen(ui: Ui) {
             }
         }
     }
+}
+
+/** Loudness check › Show…: the songs clipped or not the hi-res they say, the worst first. */
+@Composable
+private fun QualityScreen(ui: Ui) {
+    val list = remember { org.omarchy.music.QualityCheck.flagged() }
+    FullScreen("Loudness check", { ui.tool = null }) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            items(list) { (f, r) ->
+                Column(Modifier.padding(vertical = 6.dp)) {
+                    Text(f.substringAfterLast('/').substringAfterLast('\\'), style = T.title)
+                    Text(listOfNotNull(if (r.clipped > 0) "clipped (${"%,d".format(r.clipped)} samples at full scale)" else null,
+                        r.fake.ifEmpty { null }, r.peak?.let { "peak ${it} dBFS" }).joinToString(" · "), style = T.sub)
+                    Text(f.substringBeforeLast('/'), style = T.sub)
+                }
+            }
+        }
+    }
+}
+
+/** Identify by sound…: what the song is by its sound (AcoustID); Use these tags writes them into its file. */
+@Composable
+private fun IdentifyDialog(ui: Ui, t: org.omarchy.music.Track) {
+    var got by remember { mutableStateOf<List<org.omarchy.music.QualityCheck.Identified>?>(null) }
+    var err by remember { mutableStateOf<String?>(null) }
+    val file = t.file ?: Music.lib.items[t.id]?.file
+    LaunchedEffect(t.id) {
+        if (file == null) { err = "Only a song's file can be identified"; return@LaunchedEffect }
+        Music.bg({ org.omarchy.music.QualityCheck.identify(file, t.duration.toInt()) }) { r, e -> got = r; err = e?.message?.take(160) }
+    }
+    AlertDialog(onDismissRequest = { ui.identifyFor = null }, containerColor = C.light,
+        title = { Text("Identify by sound", style = T.title) },
+        text = {
+            Column {
+                Text(err ?: when {
+                    got == null -> "Listening to “${t.title}”…"
+                    got!!.isEmpty() -> "AcoustID doesn't know this song"
+                    else -> "What it sounds like (the likeliest first): pick one to use its tags"
+                }, style = T.sub)
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(got.orEmpty()) { r ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            val f = file ?: return@clickable
+                            Music.bg({ org.omarchy.music.FileTags.write(Music.ctx, f, mapOf("title" to r.title, "artist" to r.artist) +
+                                (if (r.album.isNotEmpty()) mapOf("album" to r.album) else emptyMap())) }) { ok, _ ->
+                                Music.toast(if (ok == true) "Tagged: ${r.title} — ${r.artist}" else "Couldn't write its tags"); Music.rescan()
+                            }
+                            ui.identifyFor = null
+                        }.padding(vertical = 6.dp)) {
+                            Text("${r.title} — ${r.artist}", style = T.body)
+                            Text(listOf(r.album, r.type, "${(r.score * 100).toInt()}%").filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton({ ui.identifyFor = null }) { Text("Close", color = C.muted) } })
 }

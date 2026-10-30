@@ -227,6 +227,7 @@ object Music {
         ctx = appCtx(c)
         Prefs.init(ctx)
         MusicTools.init()
+        QualityCheck.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
         eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
         applySound()
@@ -957,6 +958,7 @@ object Music {
             else if (err != null) toast("Couldn't read your music: ${err.message?.take(80)}")
             if (changed == true) musicVersion++
             accountsVersion++
+            QualityCheck.scan()   // Loudness check: the songs new or changed since
         }
     }
 

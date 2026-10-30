@@ -74,7 +74,7 @@ class Ui {
     // Options can be used one after another on it (unless "close after an option" is on).
     val selected = androidx.compose.runtime.mutableStateMapOf<String, Track>()
     var selectPool by mutableStateOf(listOf<Track>())  // the list in front, to select from
-    var closeAfter by mutableStateOf(true)
+    var closeAfter by mutableStateOf(org.omarchy.music.Prefs.on("close_after", true))   // kept, as the PC app does
     var showOptions by mutableStateOf(false)
     var selectPlace by mutableStateOf<RowPlace?>(null)
     var query by mutableStateOf("")
@@ -97,6 +97,7 @@ class Ui {
     var albumPlays by mutableStateOf(false)   // Settings › Plays on singles and albums…
     var singleScan by mutableStateOf(false)   // Singles › Single scan…
     var duplicates by mutableStateOf(false)   // Settings › Duplicates in Most played…
+    var identifyFor by mutableStateOf<org.omarchy.music.Track?>(null)   // Identify by sound…
     var tool by mutableStateOf<String?>(null)   // Settings › Your music: "fixup", "live", "empty" or "skip"
     var cardFor by mutableStateOf<String?>(null)     // Share card…: "songs", "albums", "artists" or "time"
     var collageFor by mutableStateOf<String?>(null)   // Collage…: "songs", "albums" or "artists"   // Tagger…: tags, cover, the files' details, lyrics

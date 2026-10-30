@@ -34,7 +34,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: Discord (what you play on your profile), right-click = long-press menus, PC wording (click, Recycle Bin, …)
 - [ ] PC: now-playing notification, run at start-up, Windows media flyout (SMTC)
 - [x] Both: Fix albums and artists, Folders to leave alone, Empty folders (PC), Live in song names, Copy the names
-- [ ] Both: Loudness check, Tagger «Scan all again», Identify by sound (AcoustID), «Close selection after an option», Lyrics mode in Settings, lyrics into the files from the options menu (the Python app's tools; on the phone where Android lets it)
+- [x] PC: Loudness check (ffmpeg), Identify by sound (AcoustID); both: Lyrics mode in Settings, «Close selection after an option» kept
+- [ ] Phone: Loudness check and Identify by sound (decode on the phone); Tagger «Scan all again»; lyrics into the files from the options menu
 - [ ] PC: visualizer and Now playing bars (spectrum from mpv), sign-in pages (now: paste the address it ends on)
 - [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)

@@ -163,7 +163,7 @@ private fun AccountsSheet(ui: Ui) {
             if (onPhone) NotificationsLine(activity)
             }
             Group("Playback", ui) {
-            PlaybackLines()
+            PlaybackLines(ui)
             }
             Group("Backup", ui) {
             BackupLines(activity)
@@ -217,6 +217,12 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             ToolLines(ui)
+            Line("Lyrics", "Shown on Now playing, in the cover's place (the lyrics button): Genius's lyrics as written, or Synced, " +
+                "lines timed to the music and lit up as they're sung", false) {
+                Chip("Genius", Music.lyricsMode == "genius") { Music.setLyricsMode("genius") }
+                Spacer(Modifier.width(4.dp))
+                Chip("Synced", Music.lyricsMode == "synced") { Music.setLyricsMode("synced") }
+            }
             Line("Lyrics into files", if (!Music.lyricsToFiles) "Off: lyrics are kept in the app only"
                 else if (Music.canWriteOwnFiles()) "The lyrics found for a song go into its file's tags (FLAC, MP3) once it's done playing, so they stay with it"
                 else "Into the app's downloads. Your own files need All files access: tap Allow", Music.lyricsToFiles) {
@@ -480,6 +486,26 @@ private fun DeezerHistoryLine() {
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
 }
 
+/** Loudness check (the PC: ffmpeg looks at each song once). */
+@Composable
+private fun LoudnessCheckLine(ui: Ui) {
+    val P = org.omarchy.music.Prefs
+    val q = org.omarchy.music.QualityCheck
+    q.version
+    val on = P.on(P.LOUDNESS_CHECK)
+    val flagged = if (on) q.flagged() else emptyList()
+    val clipped = flagged.count { it.second.clipped > 0 }; val fake = flagged.count { it.second.fake.isNotEmpty() }
+    Line("Loudness check", when {
+        q.busy != null -> "Checking your songs · ${q.busy}"
+        on && q.checked > 0 -> "${"%,d".format(q.checked)} songs checked: $clipped clipped, $fake not the hi-res they say"
+        else -> "Checks your songs for clipping (distorted, too loud) and for files that aren't the hi-res they say (upsampled, " +
+            "or 16-bit in a 24-bit file), so you know which copies to replace"
+    }, on) {
+        if (flagged.isNotEmpty()) { Pill("Show…", quiet = true) { ui.tool = "quality" }; Spacer(Modifier.width(6.dp)) }
+        Switch(on, { Music.setOpt(P.LOUDNESS_CHECK, it); if (it) q.scan() }, colors = swColors())
+    }
+}
+
 /** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
 @Composable
 private fun ToolLines(ui: Ui) {
@@ -595,7 +621,7 @@ private fun NotificationsLine(activity: Any?) {
 /** 2.0's playback switches: the lock screen player, carrying on across the PC and the phone, auto mono, smart shuffle. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PlaybackLines() {
+private fun PlaybackLines(ui: Ui) {
     val ctx = Music.ctx
     val P = org.omarchy.music.Prefs
     Music.resumed
@@ -614,6 +640,7 @@ private fun PlaybackLines() {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
     }
     if (onPhone) AutoMonoLines()
+    if (org.omarchy.music.AudioTools.supported) LoudnessCheckLine(ui)
     Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
         P.on(P.SMART_SHUFFLE)) {
         Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())

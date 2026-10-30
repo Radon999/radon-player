@@ -320,6 +320,8 @@ fun OptionsSheet(ui: Ui) {
                     val ids = picked.map { it.id }.toSet()
                     Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids }) })
                 val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
+                if (org.omarchy.music.AudioTools.supported && picked.size == 1 && (picked[0].file ?: Music.lib.items[picked[0].id]?.file) != null)
+                    add(Triple(Ico.SEARCH, "Identify by sound…") { ui.identifyFor = picked[0] })
                 add(Triple(Ico.COPY, "Copy the names") {   // "Title — Artist", a line each
                     copyText("Songs", picked.joinToString("\n") { "${it.title} — ${it.artist}" }); Music.toast("Copied ${picked.size} name${if (picked.size != 1) "s" else ""}")
                 })
@@ -341,9 +343,9 @@ fun OptionsSheet(ui: Ui) {
                 }
             }
             item {
-                Row(Modifier.fillMaxWidth().clickable { ui.closeAfter = !ui.closeAfter }.padding(horizontal = 12.dp, vertical = 8.dp),
+                Row(Modifier.fillMaxWidth().clickable { ui.closeAfter = !ui.closeAfter; org.omarchy.music.Prefs.set("close_after", ui.closeAfter) }.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Checkbox(ui.closeAfter, { ui.closeAfter = it },
+                    androidx.compose.material3.Checkbox(ui.closeAfter, { ui.closeAfter = it; org.omarchy.music.Prefs.set("close_after", it) },
                         colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.light))
                     Text("Close the selection after an option (off: use several options on the same songs)", style = T.sub)
                 }
