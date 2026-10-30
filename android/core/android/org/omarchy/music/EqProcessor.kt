@@ -23,21 +23,29 @@ import kotlin.math.sqrt
 object Outputs {
     data class Out(val key: String, val label: String, val kind: String)
 
-    /** Android Auto is showing the app (its car screen connected to the player): over USB, that's the Chevy. */
+    /** Android Auto is on (wired over USB or wireless): the sound goes to the car through it, not as a Bluetooth
+     *  or USB audio device, so Android names no output for it. That's the Chevy, with its own EQ. */
     @Volatile var carProjecting = false
+
+    /** Whether Android Auto is connected now, wired or wireless: what Android Auto tells apps (androidx's CarConnection
+     *  reads the same: 2 is projection). */
+    fun projecting(ctx: android.content.Context): Boolean = runCatching {
+        ctx.contentResolver.query(android.net.Uri.parse("content://androidx.car.app.connection"), arrayOf("CarConnectionState"),
+            null, null, null)?.use { c -> c.moveToFirst() && c.getInt(0) == 2 } ?: false
+    }.getOrDefault(false)
 
     fun now(ctx: android.content.Context): Out {
         val am = ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
         val outs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
         fun name(d: android.media.AudioDeviceInfo) = d.productName?.toString()?.takeIf { it.isNotBlank() && it != android.os.Build.MODEL }
+        // Android Auto (the truck's screen, over USB or wireless after Bluetooth connects): first, as it carries the sound
+        if (carProjecting) return Out("car:Chevrolet", "Chevrolet Colorado · Android Auto", "car")
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
             it.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { d ->
             val n = name(d) ?: "Bluetooth"
-            val car = Regex("(?i)car|auto|sync|uconnect|vw|toyota|ford|honda|bmw|audi|mazda|kia|hyundai|chevy|nissan|tesla|subaru|jeep|dodge|mercedes|lexus").containsMatchIn(n)
+            val car = Regex("(?i)car|auto|sync|uconnect|vw|toyota|ford|honda|bmw|audi|mazda|kia|hyundai|chevy|chevrolet|colorado|silverado|gmc|mylink|nissan|tesla|subaru|jeep|dodge|mercedes|lexus").containsMatchIn(n)
             return Out("bt:$n", n, if (car) "car" else "bluetooth")
         }
-        // Wired Android Auto: the sound goes to the car over USB (no Bluetooth car above): the Chevrolet, with its own EQ
-        if (carProjecting) return Out("car:Chevrolet", "Chevrolet · USB", "car")
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE }?.let { d ->
             val n = name(d) ?: "USB"
             return Out("usb:$n", "$n (USB)", "usb")

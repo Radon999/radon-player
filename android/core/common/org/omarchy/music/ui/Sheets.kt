@@ -1043,7 +1043,7 @@ private fun EqSheet(ui: Ui) {
             }
             // The output these settings are for.
             val key = eq.output.ifEmpty { Music.outputNow.key }
-            val label = eq.outputs[key]?.label?.ifEmpty { null } ?: if (key == Music.outputNow.key) Music.outputNow.label else key.substringAfter(':')
+            val label = eq.outputs[key]?.label?.ifEmpty { null } ?: if (key == Music.outputNow.key) Music.outputNow.label else Music.outLabel(key)
             Box {
                 Row(Modifier.fillMaxWidth().clip(R.card).background(C.light).border(1.dp, C.line, R.card).clickable { outs = true }
                     .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1057,15 +1057,15 @@ private fun EqSheet(ui: Ui) {
                     Icon(Ico.DOWN, C.muted, 16.dp)
                 }
                 androidx.compose.material3.DropdownMenu(outs, { outs = false }, containerColor = C.light) {
-                    val known = (eq.outputs.keys + Music.outputNow.key + "speaker").distinct()
+                    val known = (eq.outputs.keys + Music.outputNow.key + "speaker" + (if (onPhone) listOf(Music.CAR) else emptyList())).distinct()
                     known.forEach { k ->
                         val l = eq.outputs[k]?.label?.ifEmpty { null } ?: if (k == Music.outputNow.key) Music.outputNow.label
-                            else if (k == "speaker") "Built-in speaker" else k.substringAfter(':')
+                            else Music.outLabel(k)
                         androidx.compose.material3.DropdownMenuItem(
                             leadingIcon = { Icon(outIcon(org.omarchy.music.Outputs.kindOf(k)), if (k == key) C.accent else C.muted, 20.dp) },
                             text = { Text(l + if (k == Music.outputNow.key) "  · now" else "", style = T.body.copy(color = if (k == key) C.accent else C.fg)) },
                             onClick = { outs = false; Music.editEqOutput(k) },
-                            trailingIcon = if (k != key && k != Music.outputNow.key && k != "speaker") ({
+                            trailingIcon = if (k != key && k != Music.outputNow.key && k != "speaker" && k != Music.CAR) ({
                                 IconButton(Ico.CLOSE, C.muted, 14.dp, 6.dp, desc = "Forget") { Music.forgetEqOutput(k) }
                             }) else null)
                     }

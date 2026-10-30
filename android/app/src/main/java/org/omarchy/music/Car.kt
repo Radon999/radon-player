@@ -96,7 +96,7 @@ object Car {
         }
 
         override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
-            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = false; Music.outputChanged() }
+            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = Outputs.projecting(Music.ctx); Music.outputChanged() }
         }
 
         override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand,

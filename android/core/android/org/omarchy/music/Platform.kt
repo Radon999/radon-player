@@ -94,10 +94,19 @@ fun closeApp(activity: Any?) { (activity as? android.app.Activity)?.finishAffini
 
 /** Outputs coming and going (headphones, Bluetooth, USB): run changed. */
 fun watchOutputs(ctx: Ctx, changed: () -> Unit) {
+    // Android Auto coming and going (wired or wireless): it says so with a broadcast, and its state is asked for
+    Outputs.carProjecting = Outputs.projecting(ctx)
+    androidx.core.content.ContextCompat.registerReceiver(ctx, object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+            val now = Outputs.projecting(ctx)
+            if (now != Outputs.carProjecting) { Outputs.carProjecting = now; changed() }
+        }
+    }, android.content.IntentFilter("androidx.car.app.connection.action.CAR_CONNECTION_UPDATED"),
+        androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
     (ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager).registerAudioDeviceCallback(
         object : android.media.AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>) = changed()
-            override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) = changed()
+            override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>) { Outputs.carProjecting = Outputs.projecting(ctx); changed() }
+            override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) { Outputs.carProjecting = Outputs.projecting(ctx); changed() }
         }, android.os.Handler(android.os.Looper.getMainLooper()))
 }
 

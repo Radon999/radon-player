@@ -2443,14 +2443,18 @@ object Music {
     /** Edit (and, if it's the one playing, hear) another output's EQ. */
     fun editEqOutput(key: String) {
         if (key == eq.output) return
+        val isNew = eq.outputs[key] == null
         setEq { e ->
             val saved = e.outputs + (e.output.ifEmpty { "speaker" } to e.toOutput(e.outputs[e.output]?.label ?: outLabel(e.output)))
             e.copy(outputs = saved).withOutput(key, saved[key])
         }
+        if (isNew && key == CAR) setEqPreset("colorado")   // the truck, set up before it's been driven with: its tuning
     }
+    /** The Chevy (Android Auto, wired or wireless): always in the Equalizer's list on the phone, to set up any time. */
+    const val CAR = "car:Chevrolet"
     fun forgetEqOutput(key: String) = setEq { it.copy(outputs = it.outputs - key) }
-    private fun outLabel(key: String) = when (key) { "speaker", "" -> "Built-in speaker"; "wired" -> "Headphones (jack)"
-        "headset" -> "Headset (jack, with mic)"; else -> key.substringAfter(':') }
+    fun outLabel(key: String) = when (key) { "speaker", "" -> "Built-in speaker"; "wired" -> "Headphones (jack)"
+        "headset" -> "Headset (jack, with mic)"; CAR -> "Chevrolet Colorado · Android Auto"; else -> key.substringAfter(':') }
     var outputNow by mutableStateOf(Outputs.Out("speaker", "Built-in speaker", "speaker"))
         private set
 
@@ -2470,7 +2474,7 @@ object Music {
             val mine = saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
             e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
         }
-        if (isNew && o.key == "car:Chevrolet") setEqPreset("colorado")   // the Chevy over USB starts on the Colorado's tuning
+        if (isNew && o.key == CAR) setEqPreset("colorado")   // the Chevy starts on the Colorado's tuning
         if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (eq.on) "" else " (off)")
     }
     /** Boost: dB louder than normal (0-12) on everything, kept for this output. */
