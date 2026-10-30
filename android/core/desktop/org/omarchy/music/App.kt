@@ -24,6 +24,7 @@ object PcApp {
         RemoteHost.init(c)   // the phone remote, if it was on
         MediaKeys.start()
         Discord.init()
+        MediaSession.start()   // Windows' media controls: the flyout, widgets and wallpapers see what's playing
         MpvEngine.setLevel(Prefs.num("pc_volume", 1f), save = false)   // the volume you left it at
         Music.player = MpvEngine()
         Music.playerReady()

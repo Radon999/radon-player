@@ -180,6 +180,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 ## PC only
 
 - **System tray:** Closing the window keeps the music playing in the tray. Its menu has Play/Pause, Next, Previous, Show Radon Player, Mini player and Quit. When a new song starts while the window is closed, a small notification shows it.
+- **Windows media controls:** What's playing shows in Windows' volume flyout and lock screen, and in widgets and wallpapers that follow your music, with play/pause, next, previous and seeking from there.
 - **Media keys:** Your keyboard's play/pause, next, previous and stop keys control Radon Player from anywhere in Windows.
 - **Start with Windows:** Radon Player starts in the tray when you sign in, ready for the media keys and the phone remote.
 - **Mini player window:** A small always-on-top window with the cover, the song, a bar to seek with, what plays next, and previous/play/next buttons.
@@ -207,6 +208,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - On the PC, Spotify and Last.fm sign-ins finish by themselves, with nothing to copy and paste.
 - The PC gets the old app's keyboard shortcuts back, and its tag editing, Tagger, covers and lyrics work on your own FLAC files again.
 - **Identify by sound…** is now in a single song's menu too.
+- The PC installer brings its own mpv and ffmpeg, and Windows' media controls (the flyout, widgets, wallpapers) now see what's playing.
 - The PC is one app at a time again, with the old app's commands (next, play-pause, show…) and song files opened with it.
 - On the PC, **Upgrade to FLAC…** works on your own songs again, and the mini player has a seek bar and shows what's up next.
 - On the PC, **Delete…** works on your own songs again (they go to the Recycle Bin), and downloads can go to any folder.

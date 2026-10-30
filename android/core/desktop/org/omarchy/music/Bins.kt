@@ -19,6 +19,12 @@ object Bins {
         return places.firstOrNull { it.isFile }?.path ?: name
     }
 
+    /** A helper program the installer brings (in its resources folder), or null. */
+    fun helper(name: String): String? {
+        val exe = if (windows) "$name.exe" else name
+        return System.getProperty("compose.application.resources.dir")?.let { File(it, exe) }?.takeIf { it.isFile }?.path
+    }
+
     val mpv: String by lazy { find("mpv", "RADON_MPV") }
     val ffmpeg: String by lazy { find("ffmpeg", "RADON_FFMPEG") }
 

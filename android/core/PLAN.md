@@ -33,7 +33,7 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: tray (close keeps playing; Play/Pause, Next, Previous, Mini player, Quit), media keys (Windows), mini player window
 - [x] PC: Discord (what you play on your profile), right-click = long-press menus, PC wording (click, Recycle Bin, …)
 - [x] PC: a note on a new song while in the tray, Start with Windows (in the tray)
-- [ ] PC: Windows media flyout (SMTC)
+- [x] PC: Windows media flyout (SMTC): desktop/smtc radon-media.exe (.NET 8, built in the Windows CI job) + MediaSession.kt
 - [x] Both: Fix albums and artists, Folders to leave alone, Empty folders (PC), Live in song names, Copy the names
 - [x] PC: Loudness check (ffmpeg), Identify by sound (AcoustID); both: Lyrics mode in Settings, «Close selection after an option» kept
 - [x] Phone: Loudness check (MediaCodec, only while charging) and Identify by sound (Chromaprint ported to Kotlin, same
