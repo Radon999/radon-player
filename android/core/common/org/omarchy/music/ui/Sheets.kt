@@ -376,7 +376,9 @@ private fun AccountsSheet(ui: Ui) {
                 "Import the data of any app you didn't use Last.fm with, then add Last.fm on top. That won't duplicate anything: " +
                 "Last.fm's scrobbles add on to whatever you import.\n\n" +
                 "If you imported an app's data by mistake (Spotify's, say, when you used Last.fm with it), Reset plays at the bottom " +
-                "of this section clears every imported play, so you can import again the right way alongside Last.fm.",
+                "of this section clears every imported play, so you can import again the right way alongside Last.fm.\n\n" +
+                "Songs you play in this app are never counted twice: while Last.fm is connected, your stats use only Last.fm's " +
+                "scrobbles. The app keeps its own count of your plays just as a fallback, used only when Last.fm isn't connected.",
                 style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
             LastFmLine(ui)
             SpotifyHistoryLine(ui)
