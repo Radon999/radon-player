@@ -205,3 +205,10 @@ object AudioTools {
     fun quality(path: String, rate: Int, bits: Int): QualityResult = QualityResult()
     fun fingerprint(path: String, secs: Int): Pair<String, Int> = error("not on the phone")
 }
+
+/** Starting with the computer is the PC's. */
+object Startup {
+    val supported = false
+    fun isOn() = false
+    fun set(on: Boolean) = false
+}

@@ -161,6 +161,7 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             if (onPhone) NotificationsLine(activity)
+            if (org.omarchy.music.Startup.supported) StartupLine()
             }
             Group("Playback", ui) {
             PlaybackLines(ui)
@@ -528,6 +529,17 @@ private fun ToolLines(ui: Ui) {
     Line("Live in song names", "Songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather have plain: " +
         "the live part taken off the name, the rest kept. You check each one", false) {
         Pill("Scan…", quiet = true) { ui.tool = "live" }
+    }
+}
+
+/** Start with Windows (the PC): in the tray when you sign in, ready for the media keys and the phone. */
+@Composable
+private fun StartupLine() {
+    var on by remember { mutableStateOf(org.omarchy.music.Startup.isOn()) }
+    Line("Start with Windows", if (on) "On: Radon Player starts in the tray when you sign in (click its icon for the window)"
+        else "Radon Player in the tray as soon as you sign in, ready for the media keys and the phone remote", on) {
+        Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
+            else Music.toast("Couldn't: only the installed app can start with Windows") }, colors = swColors())
     }
 }
 

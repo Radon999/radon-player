@@ -57,11 +57,18 @@ private object AppIcon : Painter() {
 
 /** Radon Player on the PC: the phone's own screens (the shared code), played through mpv. Esc is the phone's back.
  *  Closing the window keeps the music going in the tray (Quit there ends it), as the Python app does. */
-fun main() = application {
+fun main(args: Array<String>) = application {
     remember { org.omarchy.music.PcApp.start() }
-    var shown by remember { mutableStateOf(true) }
+    var shown by remember { mutableStateOf("--tray" !in args) }   // started with Windows: in the tray
+    val tray = androidx.compose.ui.window.rememberTrayState()
+    // A new song while the window is closed: a note by the clock, as the phone's notification
+    val cur = Music.current()
+    LaunchedEffect(cur?.id) {
+        if (cur != null && !shown && !PcWindows.mini && !Music.paused)
+            tray.sendNotification(androidx.compose.ui.window.Notification(cur.title, cur.artist))
+    }
     fun quit() { Music.player?.release(); exitApplication() }
-    Tray(icon = AppIcon, tooltip = Music.current()?.let { "${it.title} · ${it.artist}" } ?: "Radon Player",
+    Tray(icon = AppIcon, state = tray, tooltip = Music.current()?.let { "${it.title} · ${it.artist}" } ?: "Radon Player",
         onAction = { shown = true; PcWindows.mini = false }) {
         Item(if (Music.paused) "Play" else "Pause", onClick = { Music.togglePause() })
         Item("Next", onClick = { Music.next() })

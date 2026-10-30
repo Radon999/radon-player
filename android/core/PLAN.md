@@ -32,7 +32,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: phone remote server (Settings › Play on › Phone remote: code, pairing, mDNS, status, commands, handoff)
 - [x] PC: tray (close keeps playing; Play/Pause, Next, Previous, Mini player, Quit), media keys (Windows), mini player window
 - [x] PC: Discord (what you play on your profile), right-click = long-press menus, PC wording (click, Recycle Bin, …)
-- [ ] PC: now-playing notification, run at start-up, Windows media flyout (SMTC)
+- [x] PC: a note on a new song while in the tray, Start with Windows (in the tray)
+- [ ] PC: Windows media flyout (SMTC)
 - [x] Both: Fix albums and artists, Folders to leave alone, Empty folders (PC), Live in song names, Copy the names
 - [x] PC: Loudness check (ffmpeg), Identify by sound (AcoustID); both: Lyrics mode in Settings, «Close selection after an option» kept
 - [ ] Phone: Loudness check and Identify by sound (decode on the phone); Tagger «Scan all again»; lyrics into the files from the options menu
