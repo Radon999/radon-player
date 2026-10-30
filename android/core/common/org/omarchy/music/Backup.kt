@@ -11,7 +11,7 @@ import java.util.zip.ZipOutputStream
  *  other device play from the same song of yours here (else the service's). */
 object Backup {
     private val FILES = listOf("state.json", "playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json",
-        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "song-eq.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "new-releases.json")
+        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "song-eq.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "youtube-history.json", "tidal-history.json", "new-releases.json")
     /** Kept to the kind of device they were made on: the volumes and EQs you gave songs fit the headphones you use with
      *  it, so a phone's go only to a phone and a PC's only to a PC. */
     private val OWN_DEVICE = setOf("song-volume.json", "song-volume-outputs.json", "song-eq.json")

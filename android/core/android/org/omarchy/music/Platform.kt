@@ -68,7 +68,8 @@ fun Ctx.folderOf(uri: String): String {
 fun Ctx.newMusicFile(name: String, where: String, write: (java.io.OutputStream) -> Unit): String {
     val cr = contentResolver
     val values = android.content.ContentValues().apply {
-        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "audio/flac"); put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, where); put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, when (name.substringAfterLast('.').lowercase()) {
+            "mp3" -> "audio/mpeg"; "m4a" -> "audio/mp4"; "webm" -> "audio/webm"; else -> "audio/flac" }); put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, where); put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
     }
     val uri = cr.insert(android.provider.MediaStore.Audio.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY), values) ?: error("couldn't make $name in Music/")
     try {
@@ -215,3 +216,7 @@ object Startup {
     fun isOn() = false
     fun set(on: Boolean) = false
 }
+
+/** MP3 320 kbps downloads: the phone has no MP3 encoder, so it saves Tidal's own 320 kbps (AAC, in .m4a) instead. */
+const val CAN_MP3 = false
+fun flacToMp3(flac: java.io.File, mp3: java.io.File): Boolean = false

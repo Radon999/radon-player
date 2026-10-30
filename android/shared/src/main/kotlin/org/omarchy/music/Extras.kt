@@ -212,6 +212,7 @@ fun songPage(t: Track): String = when (t.source) {
     "tidal" -> "https://tidal.com/browse/track/${t.tidal ?: t.id.removePrefix("td")}"
     "spotify" -> "https://open.spotify.com/track/${t.spotify ?: t.id}"
     "apple" -> "https://music.apple.com/song/${t.apple ?: t.id}"
+    "deezer" -> "https://www.deezer.com/track/${t.id.removePrefix("dz")}"
     else -> "https://music.youtube.com/watch?v=${t.id}"
 }
 

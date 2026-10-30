@@ -296,7 +296,7 @@ object Wrapped {
 
     /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
-        val plays = (SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()).filter { it.t in start until end }
+        val plays = (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).filter { it.t in start until end }
         if (plays.isEmpty()) return rows
         return (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
     }
@@ -305,7 +305,7 @@ object Wrapped {
     fun load(ctx: Ctx, period: Period, progress: (String) -> Unit): Data {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
-        val spotify = (SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()).sortedBy { it.t }   // Spotify's, Deezer's and Apple Music's plays
+        val spotify = (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).sortedBy { it.t }   // Spotify's, Deezer's and Apple Music's plays
         if (!fm && spotify.isEmpty()) error("Connect Last.fm, or import your Spotify, Deezer or Apple Music history, in Settings (⚙).")
         val me = if (fm) { progress("Opening your Last.fm…"); LastFm.info() } else null
         val thisYear = LocalDate.now().year

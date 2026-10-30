@@ -9,7 +9,7 @@ import kotlin.random.asKotlinRandom
 // Helpers shared by every part of the app, ported from the desktop omarchy-music so
 // both agree on what counts as the same song.
 
-val SOURCES = linkedMapOf("ytm" to "YouTube Music", "tidal" to "Tidal", "apple" to "Apple Music", "spotify" to "Spotify")
+val SOURCES = linkedMapOf("ytm" to "YouTube Music", "tidal" to "Tidal", "apple" to "Apple Music", "spotify" to "Spotify", "deezer" to "Deezer")
 
 /** The keys Settings (in the accounts sheet) asks for: none is needed, each makes something better. */
 val API_KEYS = linkedMapOf(

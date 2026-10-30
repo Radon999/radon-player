@@ -232,6 +232,7 @@ object Music {
         if (::ctx.isInitialized) return
         ctx = appCtx(c)
         Prefs.init(ctx)
+        loadDownloadQuality()
         MusicTools.init()
         QualityCheck.init(ctx)
         TagScan.Done.init(ctx)
@@ -676,7 +677,7 @@ object Music {
         }
         return mostPlayedMade
     }
-    val mostPlayedFromStats get() = Stats.songs.isNotEmpty() && (LastFm.connected || SpotifyHistory.count > 0 || DeezerHistory.count > 0 || AppleHistory.count > 0)
+    val mostPlayedFromStats get() = Stats.songs.isNotEmpty() && (LastFm.connected || SpotifyHistory.count > 0 || OtherPlays.count > 0 || AppleHistory.count > 0)
 
     /** Song key to your copy of it: saved, in your folders, or played here. */
     fun songIndex(): Map<Pair<String, String>, Track> {
@@ -1291,7 +1292,6 @@ object Music {
         val waiting = downloads.map { it.id }.toSet()
         val new = tracks.filter { !it.isFile && !lib.has(it.id) && it.id !in waiting }
         if (new.isEmpty()) { toast("Those are downloaded already"); return }
-        if (!tidal.connected) { toast("Connect Tidal in Settings first: downloads come from there, in FLAC"); return }
         if (!checked && dupeAction != "keep") {
             val dupes = new.mapNotNull { t -> copiesOf(t).takeIf { it.isNotEmpty() }?.let { t to it } }
             if (dupes.isNotEmpty()) {
@@ -1300,7 +1300,7 @@ object Music {
             }
         }
         downloads = downloads + new
-        toast("Downloading ${new.size} song${if (new.size != 1) "s" else ""} in FLAC" + if (Remote.active) " to this phone" else "")
+        toast("Downloading ${new.size} song${if (new.size != 1) "s" else ""} ${downloadQualityNote()}" + if (Remote.active) " to this phone" else "")
         savedVersion++
         if (!downloading) downloadNext()
     }
@@ -1313,8 +1313,8 @@ object Music {
         if (!downloading) Tagger.pause()
         downloading = true
         val batch = downloads
-        downloadNote = "Downloading in FLAC · 0 of ${batch.size}"
-        bg({ dl.sync(batch, force = true, workers = Downloader.SONGS_AT_ONCE) { n -> scope.launch { savedVersion++; downloadNote = "Downloading in FLAC · $n of ${batch.size}" } } }) { out, err ->
+        downloadNote = "Downloading · 0 of ${batch.size}"
+        bg({ dl.sync(batch, force = true, workers = Downloader.SONGS_AT_ONCE) { n -> scope.launch { savedVersion++; downloadNote = "Downloading · $n of ${batch.size}" } } }) { out, err ->
             downloads = downloads.filter { d -> batch.none { it.id == d.id } }
             toast(out?.summary() ?: "Couldn't download: ${err?.message?.take(90)}")
             downloadNext()
@@ -1322,6 +1322,19 @@ object Music {
     }
 
     fun saveCurrent() { current()?.let { download(listOf(it)) } }
+
+    /** Settings › Downloads › Quality: "flac24", "flac16" or "mp3" (320 kbps). */
+    var downloadQuality by mutableStateOf("flac24")
+        private set
+    fun chooseDownloadQuality(q: String) { downloadQuality = q; Prefs.setText(Prefs.DL_QUALITY, q) }
+    fun loadDownloadQuality() { downloadQuality = Prefs.text(Prefs.DL_QUALITY, "flac24").ifEmpty { "flac24" } }
+
+    /** How downloads come now, for a toast: "in FLAC (hi-res where Tidal has it)", "from YouTube"… */
+    fun downloadQualityNote(): String = if (!tidal.connected) "from YouTube (Tidal isn't connected)" else when (downloadQuality) {
+        "flac16" -> "in FLAC 16-bit"
+        "mp3" -> if (CAN_MP3) "in MP3 320 kbps" else "at 320 kbps (AAC)"
+        else -> "in FLAC (hi-res where Tidal has it)"
+    }
 
     // ---- copies of a song ----
     private var copyIndex: Pair<Triple<Int, Int, Double>, Map<String, List<Track>>>? = null
@@ -2304,7 +2317,7 @@ object Music {
         streaming = !(onDisk || (keepPlayed && autoSaveOk(t)))
         status = if (onDisk) "" else if (keepPlayed) "Downloading FLAC…" else "Loading the stream…"
         val work: () -> Downloader.Ready = if (streaming || onDisk) ({ dl.stream(t) })
-            else ({ try { dl.download(t) } catch (_: Exception) {}; dl.stream(t) })   // no FLAC to keep (or saving failed): stream what there is
+            else ({ try { dl.download(t, youtubeToo = false) } catch (_: Exception) {}; dl.stream(t) })   // no FLAC to keep (or saving failed): stream what there is
         bg(work) { ready, err ->
             if (seq != loadSeq) return@bg   // you moved on while it loaded
             status = ""
@@ -2358,7 +2371,7 @@ object Music {
     private fun prefetch() {
         val nxt = queue.getOrNull(index + 1) ?: return
         if (lib.has(nxt.id) || nxt.isFile) return
-        if (keepPlayed && autoSaveOk(nxt)) bg({ dl.download(nxt) }) { _, _ -> savedVersion++ } else bg({ dl.stream(nxt) })
+        if (keepPlayed && autoSaveOk(nxt)) bg({ dl.download(nxt, youtubeToo = false) }) { _, _ -> savedVersion++ } else bg({ dl.stream(nxt) })
     }
 
     /** Tidal's stream stopped short: look it up again and carry on from the same place, once per song. */

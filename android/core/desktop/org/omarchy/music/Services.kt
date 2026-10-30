@@ -11,7 +11,7 @@ object Services {
         if (started) return
         started = true
         ctx = c
-        connect("ytm"); connect("apple"); connect("spotify")
+        connect("ytm"); connect("apple"); connect("spotify"); connect("deezer")
     }
 
     private fun connect(key: String) {
@@ -19,6 +19,7 @@ object Services {
             when (key) {
                 "ytm" -> YouTubeMusic(Prefs.text(YTM_KEY).takeIf { "__Secure-3PAPISID=" in it })
                 "apple" -> AppleMusic(ctx, Prefs.text(APPLE_KEY).takeIf { "media-user-token=" in it })
+                "deezer" -> Deezer(Prefs.text(DEEZER_KEY).removePrefix("arl=").takeIf { it.length > 40 })
                 else -> Spotify(ctx)
             } as Source
         }) { src, err -> Music.sourceReady(key, src, err) }
@@ -26,6 +27,9 @@ object Services {
 
     private const val YTM_KEY = "ytm_cookie"
     private const val APPLE_KEY = "apple_cookie"
+    private const val DEEZER_KEY = "deezer_cookie"
+    fun deezerCookiesReady() = Prefs.text(DEEZER_KEY).removePrefix("arl=").length > 40
+    fun deezerSignedIn() { connect("deezer"); Music.toast("Signed in to Deezer") }
 
     fun ytmCookiesReady() = "__Secure-3PAPISID=" in Prefs.text(YTM_KEY)
     fun appleCookiesReady() = "media-user-token=" in Prefs.text(APPLE_KEY)
@@ -34,6 +38,12 @@ object Services {
      *  they hold the sign-in. */
     fun setCookies(key: String, pasted: String): Boolean {
         var c = pasted.trim().removePrefix("Cookie:").removePrefix("cookie:").trim()
+        if (key == "deezer") {   // the arl cookie's value (or a Cookie line with it in)
+            val arl = c.split(";").map { it.trim() }.firstOrNull { it.startsWith("arl=") }?.removePrefix("arl=") ?: c.takeIf { "=" !in it && ";" !in it }
+            if (arl == null || arl.length <= 40) return false
+            Prefs.setText(DEEZER_KEY, arl)
+            return true
+        }
         if (key == "apple" && "=" !in c && c.length > 20) c = "media-user-token=$c"
         val ok = if (key == "ytm") "__Secure-3PAPISID=" in c else "media-user-token=" in c
         if (ok) Prefs.setText(if (key == "ytm") YTM_KEY else APPLE_KEY, c)
@@ -43,7 +53,7 @@ object Services {
     fun ytmSignedIn() { connect("ytm"); Music.toast("Signed in to YouTube Music") }
     fun appleSignedIn() { connect("apple"); Music.toast("Signed in to Apple Music") }
     fun signOut(key: String) {
-        Prefs.setText(if (key == "ytm") YTM_KEY else APPLE_KEY, "")
+        Prefs.setText(if (key == "ytm") YTM_KEY else if (key == "deezer") DEEZER_KEY else APPLE_KEY, "")
         connect(key)
         Music.toast("Signed out of ${SOURCES[key]}")
     }

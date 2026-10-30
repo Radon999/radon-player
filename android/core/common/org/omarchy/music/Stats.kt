@@ -73,14 +73,14 @@ object Stats {
 
     private fun inputs() = listOf("v7", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.albumPicks.toSortedMap().toString() }.getOrDefault(""),
-        runCatching { Music.songPicks.toSortedMap().toString() }.getOrDefault(""), if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, DeezerHistory.count, AppleHistory.count,
+        runCatching { Music.songPicks.toSortedMap().toString() }.getOrDefault(""), if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, OtherPlays.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")
 
     /** Where the counts come from, for the label over Most played. */
     val sources: List<String> get() {
         val top = songs.take(200)
         return listOfNotNull("Last.fm".takeIf { top.any { it.lastfm > 0 } }, "Spotify".takeIf { top.any { it.spotify > 0 } },
-            "Deezer".takeIf { top.any { it.deezer > 0 } },
+            *(if (top.any { it.deezer > 0 }) OtherPlays.names.toTypedArray() else emptyArray<String>()),
             "Apple Music".takeIf { top.any { it.apple > 0 } }, "here".takeIf { top.any { it.here > 0 } })
     }
 
@@ -110,7 +110,7 @@ object Stats {
         val here = if (fm) emptyList() else Music.plays.items.values.map { it.track to it.plays }
         // Spotify's and Apple Music's imports: every play in them (from 30 seconds, as Spotify counts a
         // stream), added to Last.fm's, even where Spotify scrobbled to Last.fm too.
-        val spotify = SpotifyHistory.plays; val apple = AppleHistory.timed(); val deezer = DeezerHistory.plays
+        val spotify = SpotifyHistory.plays; val apple = AppleHistory.timed(); val deezer = OtherPlays.all
         val (s, a) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 }, deezer)
         // This week's, month's and year's: the plays with a time (scrobbles, Spotify's, Apple Music's timed ones).
         val thumbs = s.associate { statsKey(it.title, it.artist) to it.thumb }

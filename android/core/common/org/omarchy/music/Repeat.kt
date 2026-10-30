@@ -49,7 +49,7 @@ object Repeat {
                     .map { Wrapped.Period.Month(it) }.toList()
             for (p in periods) rows += Wrapped.scrobblePlays(Music.ctx, p).filter { it.t >= since }
         } else for (e in Music.plays.items.values.toList()) for (x in e.at) if (x >= since) rows += SpotifyHistory.Play(x, e.track.artist, e.track.title, e.track.album)
-        val extra = (SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()).filter { it.t >= since }
+        val extra = (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).filter { it.t >= since }
         rows += extra   // Spotify's and Apple Music's plays, added up
         val counts = LinkedHashMap<Pair<String, String>, Pair<SpotifyHistory.Play, Int>>()
         for (r in rows) {

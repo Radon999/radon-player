@@ -42,23 +42,30 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
     val cookieKey = when {
         url.startsWith("https://accounts.google.com") -> "ytm"
         url.startsWith("https://music.apple.com") -> "apple"
+        url.startsWith("https://www.deezer.com") -> "deezer"
         else -> null
     }
     fun open() { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(if (cookieKey == "ytm") "https://music.youtube.com" else url)) } }
+    val serviceName = when (cookieKey) { "ytm" -> "YouTube Music"; "deezer" -> "Deezer"; else -> "Apple Music" }
+    val site = when (cookieKey) { "ytm" -> "music.youtube.com"; "deezer" -> "www.deezer.com"; else -> "music.apple.com" }
     if (cookieKey != null) {
         // YouTube Music and Apple Music: sign in in your browser, then paste its cookies (no web page inside the app here)
         Dialog(onDismissRequest = { done(null) }) {
             Column(Modifier.widthIn(max = 560.dp).background(C.light, R.card).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Sign in to ${if (cookieKey == "ytm") "YouTube Music" else "Apple Music"}", style = T.title)
-                Text(if (cookieKey == "ytm")
+                Text("Sign in to $serviceName", style = T.title)
+                Text(if (cookieKey == "deezer")
+                    "1. Open www.deezer.com in your browser and sign in.\n2. Press F12, open Application (Chrome, Edge) or Storage (Firefox) › Cookies › www.deezer.com.\n" +
+                        "3. Copy the value of arl.\n4. Paste it here."
+                    else if (cookieKey == "ytm")
                     "1. Open music.youtube.com in your browser and sign in.\n2. Press F12, open the Network tab and reload the page.\n" +
                         "3. Click the first request to music.youtube.com and, under Request Headers, copy the whole Cookie value.\n4. Paste it here."
                     else "1. Open music.apple.com in your browser and sign in.\n2. Press F12, open Application (Chrome, Edge) or Storage (Firefox) › Cookies › music.apple.com.\n" +
                         "3. Copy the value of media-user-token.\n4. Paste it here.", style = T.sub)
                 Text("It stays on this PC, in Radon Player's settings, and works like the sign-in on the phone. Sign out forgets it.", style = T.sub.copy(color = C.muted))
-                Pill("Open ${if (cookieKey == "ytm") "music.youtube.com" else "music.apple.com"}") { open() }
-                Field(pasted, if (cookieKey == "ytm") "The Cookie value" else "The media-user-token") { pasted = it; wrong = false }
-                if (wrong) Text(if (cookieKey == "ytm") "That doesn't hold the sign-in (it has no __Secure-3PAPISID): copy the whole Cookie value after signing in."
+                Pill("Open $site") { open() }
+                Field(pasted, when (cookieKey) { "ytm" -> "The Cookie value"; "deezer" -> "The arl value"; else -> "The media-user-token" }) { pasted = it; wrong = false }
+                if (wrong) Text(if (cookieKey == "deezer") "That isn't an arl: copy the arl cookie's value after signing in."
+                    else if (cookieKey == "ytm") "That doesn't hold the sign-in (it has no __Secure-3PAPISID): copy the whole Cookie value after signing in."
                     else "That isn't a media-user-token: copy its value after signing in.", style = T.sub.copy(color = C.red))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
                     Pill("Cancel", quiet = true) { done(null) }

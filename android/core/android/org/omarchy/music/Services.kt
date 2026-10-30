@@ -13,6 +13,7 @@ object Services {
 
     private const val YTM = "https://music.youtube.com"
     private const val APPLE = "https://music.apple.com"
+    private const val DEEZER = "https://www.deezer.com"
 
     private fun cookies(url: String): String? = runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
 
@@ -24,6 +25,7 @@ object Services {
         connect("ytm")
         connect("apple")
         connect("spotify")
+        connect("deezer")
         Remote.init(ctx)
     }
 
@@ -32,6 +34,7 @@ object Services {
             when (key) {
                 "ytm" -> YouTubeMusic(cookies(YTM)?.takeIf { "__Secure-3PAPISID=" in it })
                 "apple" -> AppleMusic(ctx, cookies(APPLE)?.takeIf { "media-user-token=" in it })
+                "deezer" -> Deezer(arlOf(cookies(DEEZER)))
                 else -> Spotify(ctx)
             } as Source
         }) { src, err -> Music.sourceReady(key, src, err) }
@@ -39,6 +42,9 @@ object Services {
 
     fun ytmCookiesReady() = cookies(YTM)?.contains("__Secure-3PAPISID=") == true
     fun appleCookiesReady() = cookies(APPLE)?.contains("media-user-token=") == true
+    fun deezerCookiesReady() = arlOf(cookies(DEEZER)) != null
+    private fun arlOf(c: String?): String? = c?.split(";")?.map { it.trim() }?.firstOrNull { it.startsWith("arl=") }?.removePrefix("arl=")?.takeIf { it.length > 40 }
+    fun deezerSignedIn() { CookieManager.getInstance().flush(); connect("deezer"); Music.toast("Signed in to Deezer") }
 
     fun ytmSignedIn() { CookieManager.getInstance().flush(); connect("ytm"); Music.toast("Signed in to YouTube Music") }
     fun appleSignedIn() { CookieManager.getInstance().flush(); connect("apple"); Music.toast("Signed in to Apple Music") }
@@ -46,6 +52,7 @@ object Services {
     /** Forget a service's login: its cookies go, and it goes back to search only. */
     fun signOut(key: String) {
         val urls = if (key == "ytm") listOf(YTM, "https://www.youtube.com", "https://accounts.google.com", "https://www.google.com")
+            else if (key == "deezer") listOf(DEEZER, "https://account.deezer.com", "https://connect.deezer.com")
             else listOf(APPLE, "https://www.apple.com", "https://idmsa.apple.com")
         val cm = CookieManager.getInstance()
         for (url in urls) {

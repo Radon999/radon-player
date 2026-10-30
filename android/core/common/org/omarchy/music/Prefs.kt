@@ -50,4 +50,5 @@ object Prefs {
     const val LOUDNESS_CHECK = "loudness_check"
     const val LOCK_SCREEN = "lock_screen_player"
     const val NOTIF_HINTED = "notif_hinted"
+    const val DL_QUALITY = "dl_quality"          // downloads: "flac24" (hi-res where Tidal has it), "flac16", "mp3" (320 kbps)
 }

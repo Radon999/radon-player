@@ -83,6 +83,9 @@ fun Sheets(ui: Ui) {
         "apple-login" -> WebLogin("https://music.apple.com/login", { Services.appleCookiesReady() }, desktop = true) { url ->
             ui.sheet = "accounts"; if (url != null) Services.appleSignedIn()
         }
+        "deezer-login" -> WebLogin("https://www.deezer.com/login", { Services.deezerCookiesReady() }, desktop = true) { url ->
+            ui.sheet = "accounts"; if (url != null) Services.deezerSignedIn()
+        }
         "spotify-login" -> WebLogin(Services.spotifyLoginUrl(), { it.startsWith(org.omarchy.music.Spotify.REDIRECT) }) { url ->
             ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
         }
@@ -193,10 +196,11 @@ private fun AccountsSheet(ui: Ui) {
             }
             Group("Accounts", ui) {
             // ---- services ----
-            for (key in listOf("ytm", "apple")) {
+            for (key in listOf("ytm", "apple", "deezer")) {
                 val src = Music.sources[key]
                 if (src?.signedIn == true) Line(SOURCES[key]!!, "Signed in: your library and playlists from here are in the app, and their songs play from Tidal in " +
-                    "FLAC where it has them. With Tidal connected, Sync downloads every song in your favorites and playlists in FLAC", true) {
+                    "FLAC where it has them (from YouTube where it hasn't, or without Tidal). With Tidal connected, Sync downloads every song in your favorites and playlists" +
+                    if (key == "deezer") ". Deezer's own audio is locked to Deezer's apps, so the songs come from Tidal or YouTube" else "", true) {
                     SyncSwitch(key); Spacer(Modifier.width(6.dp)); Pill("Sign out", quiet = true) { Services.signOut(key) }
                 } else Line(SOURCES[key]!!, "Sign in with your account to browse your own library, favorites and playlists from this service " +
                     "inside the app. Their songs play from Tidal in FLAC where it has them, so connect Tidal too", false) {
@@ -300,7 +304,8 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} in FLAC with full tags, sorted " +
+            DownloadQualityLine()
+            Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} with full tags, sorted " +
                 "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/" +
                 if (onPhone) "" else ", or any other folder on this PC", true) {
                 Box {
@@ -348,6 +353,19 @@ private fun AccountsSheet(ui: Ui) {
             SpotifyHistoryLine(ui)
             AppleHistoryLine()
             DeezerHistoryLine()
+            ImportLine(org.omarchy.music.YouTubeHistory, "https://takeout.google.com",
+                "Bring your YouTube Music listening into Most played, Artists and Wrapped, added alongside your Last.fm scrobbles " +
+                    "with each play counted once. To get the file: tap Get the file (takeout.google.com) and sign in, tap Deselect all, " +
+                    "tick \"YouTube and YouTube Music\", tap \"All YouTube data included\" and leave only history ticked, tap \"Multiple formats\" " +
+                    "and set history to JSON, then Next step › Create export. Google emails you the zip (it can take a while): Import it " +
+                    "here (or the watch-history.json inside). Only songs played in YouTube Music are counted, not videos",
+                arrayOf("application/zip", "application/json", "application/octet-stream"))
+            ImportLine(org.omarchy.music.TidalHistory, "https://tidal.com/privacy",
+                "Bring your Tidal listening into Most played, Artists and Wrapped, added alongside your Last.fm scrobbles with " +
+                    "each play counted once. To get the file: ask Tidal for a copy of your personal data (Get the file shows how: a " +
+                    "data request, from Tidal's privacy page or support). Tidal emails it to you; Import the zip here, or the streaming " +
+                    "history file in it (CSV or JSON)",
+                arrayOf("application/zip", "text/csv", "text/comma-separated-values", "application/json", "text/plain", "application/octet-stream"))
             run {
                 val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
                 Line("Similar artists", "Finds artists that look like the same one written two ways (cavetown offline and " +
@@ -514,6 +532,32 @@ private fun AppleHistoryLine() {
 }
 
 /** Your Deezer plays for Most played, Artists and Wrapped: the .xlsx from Deezer's privacy settings (My personal data). */
+/** An import of plays from a service's own data file (YouTube Music's, Tidal's): how to get it, Import, Clear. */
+@Composable
+private fun ImportLine(h: org.omarchy.music.PlaysImport, getAt: String, howTo: String, types: Array<String>) {
+    var asking by remember { mutableStateOf(false) }
+    val pick = rememberOpenFile { uri ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
+            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(200)}"
+                else "Added ${"%,d".format(n ?: 0)} ${h.label} plays" + if (n == 0) " (you had them all)" else "")
+            if (err == null) org.omarchy.music.Stats.refresh(force = true)
+        }
+    }
+    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} ${h.label} plays added alongside your Last.fm scrobbles in Most " +
+        "played, Artists and Wrapped, each play counted once. Importing again only adds plays you didn't have yet" else howTo
+    Line("${h.label} history", state, h.count > 0) {}
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+        Pill("Get the file", quiet = true) { Services.open(getAt) }
+        if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
+        Pill("Import") { if (h.busy == null) pick.launch(types) }
+    }
+    if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
+        title = { Text("Clear your ${h.label} history?", style = T.title) },
+        text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
+        confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
+        dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
 @Composable
 private fun DeezerHistoryLine() {
     val h = org.omarchy.music.DeezerHistory
@@ -649,6 +693,31 @@ private fun PhoneRemoteLines() {
     for ((tok, name) in h.phones) Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Paired: $name", style = T.sub, modifier = Modifier.weight(1f))
         Pill("Forget", quiet = true) { h.forget(tok) }
+    }
+}
+
+/** Download quality: MP3 320 kbps, FLAC 16-bit or FLAC 24-bit, for every download from then on. They come from Tidal
+ *  (it needs a Tidal subscription); a song Tidal hasn't got, or every song without Tidal, comes from YouTube instead, at
+ *  YouTube's best (it has no FLAC). */
+@Composable
+private fun DownloadQualityLine() {
+    val names = linkedMapOf("mp3" to (if (org.omarchy.music.CAN_MP3) "MP3 320 kbps" else "320 kbps (AAC)"), "flac16" to "FLAC 16-bit", "flac24" to "FLAC 24-bit")
+    Line("Download quality", "Every song you download from now on comes in this quality, from Tidal: FLAC 24-bit is hi-res " +
+        "where Tidal has it (else 16-bit), FLAC 16-bit is CD quality, " + (if (org.omarchy.music.CAN_MP3) "MP3 320 kbps is made from Tidal's FLAC. "
+        else "and 320 kbps is Tidal's own (AAC, as good as MP3 320 and as small; the phone has no MP3 maker, the PC makes MP3s). ") +
+        "Without a Tidal subscription, downloads come from YouTube instead, at YouTube's best (about 128 to 160 kbps; YouTube has " +
+        "no FLAC), whatever is picked here. Songs Tidal hasn't got come from YouTube too" +
+        (if (!Music.tidal.connected) ". Tidal isn't connected now, so downloads come from YouTube" else ""), true) {
+        Box {
+            var open by remember { mutableStateOf(false) }
+            Pill("${names[Music.downloadQuality] ?: "FLAC 24-bit"} ▾", quiet = true) { open = true }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                names.forEach { (k, l) ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(l, style = T.body.copy(color = if (k == Music.downloadQuality) C.accent else C.fg)) },
+                        { open = false; Music.chooseDownloadQuality(k) })
+                }
+            }
+        }
     }
 }
 

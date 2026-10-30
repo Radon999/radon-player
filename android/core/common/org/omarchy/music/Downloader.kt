@@ -70,48 +70,134 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         return Ready(yt.first, quality = yt.second, lossyFrom = "YouTube")
     }
 
-    /** Save t as FLAC (blocking); returns its content:// address. */
-    fun download(t: Track, root: String? = null): String {
+    /** Save t (blocking) in the download quality picked (Settings): from Tidal, or from YouTube when Tidal hasn't got
+     *  it or isn't connected (youtubeToo: Keep, which saves what you play, leaves those). Returns its address. */
+    fun download(t: Track, root: String? = null, youtubeToo: Boolean = true): String {
         lib.items[t.id]?.let { return it.file }
         synchronized(active) { if (!active.add(t.id)) error("already downloading") }
         try {
-            if (!tidal.connected) error("connect Tidal in Settings first")
-            val match = tidal.resolve(t) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal in lossless") }
-            val tid = match["id"].long ?: 0
-            lib.byTidal(tid)?.let { same ->
-                // Already saved from another service: the same file serves both.
-                lib.add(t, same.file, same.art, "flac", same.quality, tid, extra = same)
-                lib.markMissing(t.id, false)
-                return same.file
-            }
-            val st = try { tidal.stream(match) } catch (e: NoLosslessMatch) { lib.markMissing(t.id); throw e }
-            val album = runCatching { tidal.albumJson(match.path("album", "id").long ?: 0) }.getOrNull()
-            val cover = runCatching { httpBytes(Tidal.image(match.path("album", "cover").str, 1280)) }.getOrNull()
-            val raw = File(ctx.cacheDir, "${safeName(t.id)}.part")
-            try {
-                if (st.isDash) fetchDash(st.manifest, raw) else raw.outputStream().use { o ->
-                    HTTP.newCall(okhttp3.Request.Builder().url(st.uri).build()).execute().use { r ->
-                        if (!r.isSuccessful) throw HttpError(r.code, "", st.uri)
-                        r.body!!.byteStream().copyTo(o, 1 shl 16)
-                    }
-                }
-                val (bits, rate) = raw.inputStream().use { Flac.format(Flac.readHeader(it)) }
-                val (where, name) = (root ?: folder()).takeIf { it.isNotEmpty() }?.let { r ->
-                    downloadPlace(r, album.path("artist", "name").str ?: t.artist.split(",")[0], match.path("album", "title").str ?: t.album,
-                        album["type"].str, match["trackNumber"].long, Tidal.tidalTitle(match))
-                } ?: (LocalFiles.DOWNLOADS to "${safeName(t.id)}.flac")
-                val uri = saveToMusic(name, where) { out -> Flac.retag(raw, out, tags(t, match, album), cover) }
-                val art = File(lib.artDir, "${safeName(t.id)}.jpg")
-                val artPath = runCatching { art.writeBytes(cover ?: httpBytes(sizedThumb(t.thumb, 226))); art.path }.getOrNull()
-                lib.add(t, uri, artPath, "flac", "$bits-bit/${"%g".format(rate / 1000.0)} kHz", tid, match["isrc"].str)
-                lib.markMissing(t.id, false)
-                onSaved?.invoke(t.id)
-                return uri
-            } finally {
-                raw.delete()
-            }
+            if (tidal.connected) {
+                try { return fromTidal(t, root) } catch (e: NoLosslessMatch) { if (!youtubeToo) throw e }
+            } else if (!youtubeToo) error("connect Tidal in Settings first")
+            return fromYouTube(t, root) ?: throw NoLosslessMatch(if (tidal.connected) "not on Tidal or YouTube Music" else "not on YouTube Music")
         } finally {
             synchronized(active) { active.remove(t.id) }
+        }
+    }
+
+    /** The quality picked for downloads (Settings › Downloads): "flac24", "flac16" or "mp3". */
+    private val quality get() = Prefs.text(Prefs.DL_QUALITY, "flac24").ifEmpty { "flac24" }
+
+    /** Where a download goes and its file name, with ext. */
+    private fun place(t: Track, root: String?, match: JsonElement?, album: JsonElement?, ext: String): Pair<String, String> {
+        val (where, name) = (root ?: folder()).takeIf { it.isNotEmpty() }?.let { r ->
+            if (match != null) downloadPlace(r, album.path("artist", "name").str ?: t.artist.split(",")[0], match.path("album", "title").str ?: t.album,
+                album["type"].str, match["trackNumber"].long, Tidal.tidalTitle(match))
+            else downloadPlace(r, t.artist.split(",")[0].trim(), t.album, null, null, t.title)
+        } ?: (LocalFiles.DOWNLOADS to "${safeName(t.id)}.flac")
+        return where to name.substringBeforeLast('.') + "." + ext
+    }
+
+    private fun fromTidal(t: Track, root: String?): String {
+        val q = quality
+        val aac = q == "mp3" && !CAN_MP3   // the phone: Tidal's own 320 kbps (AAC) in place of MP3
+        val match = tidal.resolve(t, lossy = aac) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
+        val tid = match["id"].long ?: 0
+        if (q != "mp3") lib.byTidal(tid)?.let { same ->
+            // Already saved from another service: the same file serves both.
+            lib.add(t, same.file, same.art, "flac", same.quality, tid, extra = same)
+            lib.markMissing(t.id, false)
+            return same.file
+        }
+        val st = try { if (aac) tidal.stream(match, lossy = true, quality = "HIGH")
+            else tidal.stream(match, quality = if (q == "flac24") Tidal.QUALITY else "LOSSLESS") } catch (e: NoLosslessMatch) { lib.markMissing(t.id); throw e }
+        val album = runCatching { tidal.albumJson(match.path("album", "id").long ?: 0) }.getOrNull()
+        val cover = runCatching { httpBytes(Tidal.image(match.path("album", "cover").str, 1280)) }.getOrNull()
+        val raw = File(ctx.cacheDir, "${safeName(t.id)}.part")
+        val art = File(lib.artDir, "${safeName(t.id)}.jpg")
+        fun artPath() = runCatching { art.writeBytes(cover ?: httpBytes(sizedThumb(t.thumb, 226))); art.path }.getOrNull()
+        try {
+            if (st.isDash) { if (aac) fetchDashRaw(st.manifest, raw) else fetchDash(st.manifest, raw) } else raw.outputStream().use { o ->
+                HTTP.newCall(okhttp3.Request.Builder().url(st.uri).build()).execute().use { r ->
+                    if (!r.isSuccessful) throw HttpError(r.code, "", st.uri)
+                    r.body!!.byteStream().copyTo(o, 1 shl 16)
+                }
+            }
+            if (aac || (st.quality.isNotEmpty() && "bit" !in st.quality)) {   // lossy from Tidal: kept as it came (.m4a)
+                val (where, name) = place(t, root, match, album, "m4a")
+                val uri = saveToMusic(name, where) { out -> raw.inputStream().use { it.copyTo(out) } }
+                lib.add(t, uri, artPath(), "m4a", st.quality.ifEmpty { "AAC 320 kbps" }, tid, match["isrc"].str)
+                lib.markMissing(t.id, false)
+                return uri
+            }
+            val (bits, rate) = raw.inputStream().use { Flac.format(Flac.readHeader(it)) }
+            if (q == "mp3") {   // the PC: an MP3 made from the FLAC, its tags and cover with it
+                val tagged = File(ctx.cacheDir, "${safeName(t.id)}.flac")
+                val mp3 = File(ctx.cacheDir, "${safeName(t.id)}.mp3")
+                try {
+                    tagged.outputStream().use { out -> Flac.retag(raw, out, tags(t, match, album), cover) }
+                    if (!flacToMp3(tagged, mp3)) error("couldn't make the MP3 (ffmpeg)")
+                    val (where, name) = place(t, root, match, album, "mp3")
+                    val uri = saveToMusic(name, where) { out -> mp3.inputStream().use { it.copyTo(out) } }
+                    lib.add(t, uri, artPath(), "mp3", "MP3 320 kbps", tid, match["isrc"].str)
+                    lib.markMissing(t.id, false)
+                    return uri
+                } finally { tagged.delete(); mp3.delete() }
+            }
+            val (where, name) = place(t, root, match, album, "flac")
+            val uri = saveToMusic(name, where) { out -> Flac.retag(raw, out, tags(t, match, album), cover) }
+            lib.add(t, uri, artPath(), "flac", "$bits-bit/${"%g".format(rate / 1000.0)} kHz", tid, match["isrc"].str)
+            lib.markMissing(t.id, false)
+            onSaved?.invoke(t.id)
+            return uri
+        } finally {
+            raw.delete()
+        }
+    }
+
+    /** YouTube's audio of t, saved as it comes (AAC in .m4a, YouTube's best without a subscription); null if YouTube
+     *  Music hasn't got it. */
+    private fun fromYouTube(t: Track, root: String?): String? {
+        val (url, q, ext) = YouTubeAudio.forDownload(t) ?: return null
+        val raw = File(ctx.cacheDir, "${safeName(t.id)}.yt")
+        try {
+            var ok = false
+            repeat(20) {   // YouTube's address answers only a moment after it's made
+                if (ok) return@repeat
+                ok = runCatching {
+                    raw.outputStream().use { o ->
+                        HTTP.newCall(okhttp3.Request.Builder().url(url).header("User-Agent", DESKTOP_UA).build()).execute().use { r ->
+                            if (!r.isSuccessful) throw HttpError(r.code, "", url)
+                            r.body!!.byteStream().copyTo(o, 1 shl 16)
+                        }
+                    }
+                    raw.length() > 0
+                }.getOrDefault(false)
+                if (!ok) Thread.sleep(500)
+            }
+            if (!ok) error("YouTube wouldn't send the audio")
+            val (where, name) = place(t, root, null, null, ext)
+            val uri = saveToMusic(name, where) { out -> raw.inputStream().use { it.copyTo(out) } }
+            val art = File(lib.artDir, "${safeName(t.id)}.jpg")
+            val artPath = runCatching { art.writeBytes(httpBytes(sizedThumb(t.thumb, 544))); art.path }.getOrNull()
+            lib.add(t, uri, artPath, ext, q)
+            lib.markMissing(t.id, false)
+            return uri
+        } finally {
+            raw.delete()
+        }
+    }
+
+    /** A DASH stream as it is (the init segment, then each media segment): an MP4 file (Tidal's AAC). */
+    private fun fetchDashRaw(mpd: String, dest: File) {
+        val init = Regex("initialization=\"([^\"]+)\"").find(mpd)!!.groupValues[1].replace("&amp;", "&")
+        val media = Regex("media=\"([^\"]+)\"").find(mpd)!!.groupValues[1].replace("&amp;", "&")
+        val start = Regex("startNumber=\"(\\d+)\"").find(mpd)?.groupValues?.get(1)?.toInt() ?: 1
+        var count = 0
+        for (m in Regex("<S\\s([^>]*)/>").findAll(mpd)) count += (Regex("r=\"(\\d+)\"").find(m.groupValues[1])?.groupValues?.get(1)?.toInt() ?: 0) + 1
+        dest.outputStream().buffered().use { out ->
+            out.write(httpBytes(init))
+            for (n in start until start + count) out.write(httpBytes(media.replace("\$Number\$", n.toString())))
         }
     }
 
@@ -182,8 +268,8 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         val failed = mutableListOf<Pair<Track, String>>()     // and why
 
         fun summary(): String = buildList {
-            if (saved > 0) add("Saved $saved song${if (saved != 1) "s" else ""} in FLAC")
-            if (missing.isNotEmpty()) add("${missing.size} ${if (missing.size == 1) "isn't" else "aren't"} on Tidal in lossless (" +
+            if (saved > 0) add("Saved $saved song${if (saved != 1) "s" else ""}")
+            if (missing.isNotEmpty()) add("${missing.size} couldn't be found on Tidal or YouTube (" +
                 missing.take(2).joinToString(", ") { it.title } + if (missing.size > 2) "…)" else ")")
             if (failed.isNotEmpty()) add("${failed.size} failed: ${failed.first().second.take(90)}")
         }.joinToString(". ").ifEmpty { "Nothing new to download" }
@@ -198,7 +284,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         fun work() {
             while (true) {
                 val t = tracks.getOrNull(next.getAndIncrement()) ?: return
-                if (!(lib.isFlac(t.id) || (!force && lib.recentlyMissing(t.id)) || busy(t.id) || t.isFile)) {
+                if (!(lib.has(t.id) || (!force && lib.recentlyMissing(t.id)) || busy(t.id) || t.isFile)) {
                     try {
                         download(t)
                         synchronized(out) { out.saved++ }

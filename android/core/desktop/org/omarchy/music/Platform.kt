@@ -153,3 +153,13 @@ class PrefsStore(ctx: Ctx, name: String) {
         writeAtomic(file, o.toString())
     }
 }
+
+/** MP3 320 kbps downloads: the PC makes them from Tidal's FLAC with ffmpeg (tags and cover carried over). */
+const val CAN_MP3 = true
+fun flacToMp3(flac: File, mp3: File): Boolean = runCatching {
+    val p = ProcessBuilder(Bins.ffmpeg, "-v", "error", "-nostdin", "-y", "-i", flac.path, "-map", "0:a", "-map", "0:v?",
+        "-c:a", "libmp3lame", "-b:a", "320k", "-c:v", "copy", "-disposition:v", "attached_pic", "-id3v2_version", "3",
+        "-map_metadata", "0", mp3.path).redirectErrorStream(true).start()
+    p.inputStream.readBytes()
+    p.waitFor(10, java.util.concurrent.TimeUnit.MINUTES) && p.exitValue() == 0 && mp3.length() > 0
+}.getOrDefault(false)

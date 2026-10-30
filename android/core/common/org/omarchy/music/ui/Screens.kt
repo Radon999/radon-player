@@ -118,7 +118,7 @@ fun runSearch(ui: Ui, quiet: Boolean = false) {
     }
     val src = Music.sources[key]
     if (src == null) { if (!quiet) Music.toast("Still connecting to ${SOURCES[key]}…"); return }
-    if (!src.signedIn && key in setOf("tidal", "spotify", "apple")) { if (!quiet) Music.toast("Connect ${SOURCES[key]} in Settings first"); return }
+    if (!src.signedIn && key in setOf("tidal", "spotify", "apple", "deezer")) { if (!quiet) Music.toast("Connect ${SOURCES[key]} in Settings first"); return }
     ui.searching = true
     ui.foundIn = key
     Music.bg({ if (link != null) Found(src.search(q)) else src.find(q) }) { res, err ->
@@ -246,7 +246,7 @@ fun MusicTab(ui: Ui) {
     var ask by remember { mutableStateOf("") }
     if (choosing) FolderBrowser { choosing = false }
     LaunchedEffect(Unit) { if (granted) Music.rescanSoon() }
-    LaunchedEffect(ui.musicView, Music.accountsVersion, SpotifyHistory.count, org.omarchy.music.DeezerHistory.count) { if (ui.musicView == "top") Stats.refresh() }
+    LaunchedEffect(ui.musicView, Music.accountsVersion, SpotifyHistory.count, org.omarchy.music.OtherPlays.count, org.omarchy.music.YouTubeHistory.count, org.omarchy.music.TidalHistory.count) { if (ui.musicView == "top") Stats.refresh() }
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importPlaylist(uri) }
     Music.musicVersion
     Music.savedVersion

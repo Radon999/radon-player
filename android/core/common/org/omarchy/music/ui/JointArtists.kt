@@ -189,7 +189,7 @@ fun AlbumPlaysScreen(ui: Ui) {
         val mine = runCatching { Music.mySongs() }.getOrDefault(emptyList()); val picks = Music.albumPicks
         Music.bg({
             val plays = org.omarchy.music.SpotifyHistory.plays.map { org.omarchy.music.AlbumPlay(it.title, it.artist, it.album, 1) } +
-                org.omarchy.music.DeezerHistory.plays.map { org.omarchy.music.AlbumPlay(it.title, it.artist, it.album, 1) } +
+                org.omarchy.music.OtherPlays.all.map { org.omarchy.music.AlbumPlay(it.title, it.artist, it.album, 1) } +
                 org.omarchy.music.AppleHistory.rows.map { org.omarchy.music.AlbumPlay(it.title, it.artist, it.album, maxOf(it.count, 0)) } +
                 org.omarchy.music.Wrapped.keptScrobbles(Music.ctx).map { org.omarchy.music.AlbumPlay(it.title, it.artist, it.album, 1) }   // Last.fm's too
             org.omarchy.music.albumPlaysPlan(plays, mine, picks)

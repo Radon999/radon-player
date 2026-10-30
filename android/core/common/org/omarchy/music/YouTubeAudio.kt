@@ -52,6 +52,20 @@ object YouTubeAudio {
         error("YouTube wouldn't send the audio")
     }
 
+    /** (blocking) For a download: (address, "AAC 128 kbps", "m4a"), the M4A (AAC) kept by other players and tag
+     *  editors alike; else the best there is (Opus in WebM). Null if YouTube Music hasn't got the song. */
+    fun forDownload(t: Track): Triple<String, String, String>? {
+        val vid = if (t.source == "ytm") t.id else search(t) ?: return null
+        synchronized(this) { if (!started) { NewPipe.init(Net); started = true } }
+        val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$vid")
+        val all = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.content.isNotEmpty() }
+        val a = all.filter { it.codec?.startsWith("mp4a") == true || it.format?.suffix == "m4a" }.maxByOrNull { it.averageBitrate }
+            ?: all.maxByOrNull { it.averageBitrate } ?: return null
+        val ext = if (a.codec?.startsWith("mp4a") == true || a.format?.suffix == "m4a") "m4a" else (a.format?.suffix ?: "webm")
+        val codec = a.codec?.substringBefore('.')?.let { mapOf("opus" to "Opus", "mp4a" to "AAC")[it] ?: it } ?: ext.uppercase()
+        return Triple(a.content, "$codec ${a.averageBitrate} kbps", ext)
+    }
+
     private fun search(t: Track): String? {
         val ytm = Music.sources["ytm"] ?: return null
         val lead = t.artist.split(",")[0].trim()

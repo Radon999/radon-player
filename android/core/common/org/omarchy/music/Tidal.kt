@@ -220,9 +220,9 @@ class Tidal(ctx: Ctx) : Source {
      *  CD quality comes as one FLAC file; hi-res as FLAC in MP4 segments, listed by a
      *  DASH manifest (handed to the player inline, as a data: address). lossy: AAC will do
      *  when Tidal has no FLAC of it ("AAC 320 kbps"). */
-    fun stream(c: JsonElement, lossy: Boolean = false): Stream {
+    fun stream(c: JsonElement, lossy: Boolean = false, quality: String = QUALITY): Stream {
         val st = api("tracks/${c["id"].long}/playbackinfopostpaywall",
-            mapOf("playbackmode" to "STREAM", "audioquality" to QUALITY, "assetpresentation" to "FULL"))
+            mapOf("playbackmode" to "STREAM", "audioquality" to quality, "assetpresentation" to "FULL"))
         val manifest = String(unb64(st["manifest"].str ?: ""))
         val mime = st["manifestMimeType"].str ?: ""
         val flac = st["audioQuality"].str in LOSSLESS && (if ("dash" in mime) Regex("codecs=\"flac\"", RegexOption.IGNORE_CASE).containsMatchIn(manifest)

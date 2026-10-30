@@ -16,6 +16,8 @@ object PcApp {
         LastFm.init(c)
         SpotifyHistory.init(c)
         DeezerHistory.init(c)
+        YouTubeHistory.init(c)
+        TidalHistory.init(c)
         AppleHistory.init(c)
         NewReleases.init(c)
         Stats.init(c)
