@@ -9,7 +9,9 @@ object PcApp {
         if (started) return c
         started = true
         Crashes.init(c)
+        val imported = runCatching { PythonImport.run(c) }.getOrDefault(emptyList())   // the Python app's data, once, before anything reads its files
         Music.init(c)
+        if (imported.isNotEmpty()) Music.toast("Brought over from the old app: " + imported.joinToString(" · "))
         LastFm.init(c)
         SpotifyHistory.init(c)
         DeezerHistory.init(c)

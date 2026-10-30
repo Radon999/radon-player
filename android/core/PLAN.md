@@ -42,6 +42,7 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: Add a folder… (a folder picker)
 - [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
+- [x] PC: the Python app's data brought over on the first start (PythonImport)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
 - [x] Feature guide (core/FEATURES.md, gen-guide.py) and the Changelog & features tab
 - [ ] Settings descriptions rewritten in detail; the guide sent to the owner and put on GitHub when done
