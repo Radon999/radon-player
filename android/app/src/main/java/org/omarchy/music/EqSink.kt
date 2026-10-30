@@ -26,6 +26,16 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
 
     private fun hiRes(e: Int) = e == C.ENCODING_PCM_24BIT || e == C.ENCODING_PCM_32BIT || e == C.ENCODING_PCM_FLOAT
 
+    /** The decoders are asked for float only for bit-perfect to a USB DAC. Otherwise they give plain 16-bit (or 24-bit)
+     *  samples: the phone's FLAC decoder, asked for float, gave 16-bit FLACs unbearably loud and distorted (MP3s, whose
+     *  decoder gives 16-bit anyway, were fine). */
+    override fun getFormatSupport(format: Format): Int =
+        if (format.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && format.pcmEncoding == C.ENCODING_PCM_FLOAT &&
+            !Music.bitPerfectNow()) AudioSink.SINK_FORMAT_UNSUPPORTED
+        else super.getFormatSupport(format)
+
+    override fun supportsFormat(format: Format): Boolean = getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
+
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         pending = false
         inEncoding = inputFormat.pcmEncoding
