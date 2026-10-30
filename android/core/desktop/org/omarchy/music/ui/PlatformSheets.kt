@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,23 +27,71 @@ import java.io.File
 
 // The PC's side of the sheets that are platform-specific: the sign-in, removing files.
 
-/** A sign-in: the page opens in your browser; once you've signed in, paste the address it ended on (the
- *  services send you back to an address with the sign-in's answer in it). done(url) when isDone says that's the one. */
+/** A sign-in: the page opens in your browser. Spotify's comes back to the app by itself (it listens on 127.0.0.1 for
+ *  the address Spotify sends you on to) and Last.fm's is noticed by itself (the app asks Last.fm every few seconds),
+ *  as on the Python app; for the others (Tidal), paste the address it ended on (the services send you back to an
+ *  address with the sign-in's answer in it). done(url) when isDone says that's the one. */
 @Composable
 fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false, done: (String?) -> Unit) {
     var pasted by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
+    var problem by remember { mutableStateOf("") }
+    val spotify = url.startsWith("https://accounts.spotify.com")
+    val lastfm = url.startsWith("https://www.last.fm/api/auth")
+    val by = spotify || lastfm
+    fun open() { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) } }
+    if (spotify) DisposableEffect(url) {
+        // Spotify sends the browser on to http://127.0.0.1:8898/callback?code=…: answer it here
+        val back = java.net.URI(org.omarchy.music.Spotify.REDIRECT)
+        val server = runCatching {
+            com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", back.port), 4).apply {
+                createContext(back.path) { ex ->
+                    val q = ex.requestURI.rawQuery ?: ""
+                    val ok = "code=" in q
+                    val msg = (if (ok) "Spotify is connected to Radon Player. You can close this tab."
+                        else "Spotify didn't connect: ${Regex("error=([^&]*)").find(q)?.groupValues?.get(1) ?: "no code came back"}").toByteArray()
+                    ex.responseHeaders.add("Content-Type", "text/plain; charset=utf-8")
+                    ex.sendResponseHeaders(200, msg.size.toLong()); ex.responseBody.use { it.write(msg) }
+                    val full = "${org.omarchy.music.Spotify.REDIRECT}?$q"
+                    Music.scope.launch(Dispatchers.Main) { if (ok) done(full) else problem = String(msg) }
+                }
+                start()
+            }
+        }.onFailure { problem = "Couldn't listen for Spotify on port ${back.port} (is the old app signing in to Spotify?): close it and try again." }.getOrNull()
+        if (server != null) open()
+        onDispose { runCatching { server?.stop(0) } }
+    }
+    if (lastfm) LaunchedEffect(url) {
+        open()
+        while (true) {
+            kotlinx.coroutines.delay(3000)
+            val r = kotlinx.coroutines.withContext(Dispatchers.IO) { runCatching { org.omarchy.music.LastFm.approvedYet() } }
+            r.onSuccess { if (it) { done("approved"); return@LaunchedEffect } }
+                .onFailure { problem = "Last.fm said: ${it.message?.take(80)}"; return@LaunchedEffect }
+        }
+    }
     Dialog(onDismissRequest = { done(null) }) {
         Column(Modifier.widthIn(max = 520.dp).background(C.light, R.card).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Sign in", style = T.title)
-            Text("The sign-in page opens in your browser. Sign in there; when it's done, the page goes on to another address " +
-                "(it may say it can't be reached: that's fine). Copy that whole address from the address bar and paste it here.", style = T.sub)
-            Pill("Open the sign-in page") { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) } }
-            Field(pasted, "The address it ended on") { pasted = it; wrong = false }
-            if (wrong) Text("That isn't the address the sign-in ends on: copy the whole address after signing in.", style = T.sub.copy(color = C.red))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
-                Pill("Cancel", quiet = true) { done(null) }
-                Pill("Continue") { val u = pasted.trim(); if (isDone(u)) done(u) else wrong = true }
+            if (by) {
+                Text("The ${if (spotify) "Spotify" else "Last.fm"} page opened in your browser. ${if (spotify) "Sign in and agree" else "Approve Radon Player"} " +
+                    "there: the app notices by itself, nothing to copy.", style = T.sub)
+                Pill("Open the page again") { open() }
+                if (problem.isNotEmpty()) Text(problem, style = T.sub.copy(color = C.red))
+                else Text("Waiting for ${if (spotify) "Spotify" else "Last.fm"}…", style = T.sub.copy(color = C.muted))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
+                    Pill("Cancel", quiet = true) { done(null) }
+                }
+            } else {
+                Text("The sign-in page opens in your browser. Sign in there; when it's done, the page goes on to another address " +
+                    "(it may say it can't be reached: that's fine). Copy that whole address from the address bar and paste it here.", style = T.sub)
+                Pill("Open the sign-in page") { open() }
+                Field(pasted, "The address it ended on") { pasted = it; wrong = false }
+                if (wrong) Text("That isn't the address the sign-in ends on: copy the whole address after signing in.", style = T.sub.copy(color = C.red))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
+                    Pill("Cancel", quiet = true) { done(null) }
+                    Pill("Continue") { val u = pasted.trim(); if (isDone(u)) done(u) else wrong = true }
+                }
             }
         }
     }

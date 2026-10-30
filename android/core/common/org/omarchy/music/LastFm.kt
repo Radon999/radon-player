@@ -129,13 +129,27 @@ object LastFm {
                     "Last.fm wasn't approved: connect again" else "Couldn't connect Last.fm: ${err?.message?.take(80)}")
                 return@bg
             }
-            token = null
-            session = sk; user = s["name"].str ?: ""
-            save()
-            Music.toast("Last.fm connected: scrobbling as $user")
-            Music.accountsVersion++
-            Music.bg({ flush() }) { _, e -> result(e) }
+            connected(s)
         }
+    }
+
+    private fun connected(s: JsonElement?) {
+        token = null
+        session = s["key"].str ?: return; user = s["name"].str ?: ""
+        save()
+        Music.toast("Last.fm connected: scrobbling as $user")
+        Music.accountsVersion++
+        Music.bg({ flush() }) { _, e -> result(e) }
+    }
+
+    /** (blocking) Whether you've approved the app on Last.fm's page yet; once you have, it's connected (as the Python
+     *  app does: it asks every few seconds, nothing to paste). */
+    fun approvedYet(): Boolean {
+        val tok = token ?: return session.isNotEmpty()
+        val s = try { call("auth.getSession", signed = true, params = mapOf("token" to tok))["session"] }
+            catch (e: LastFmError) { if (e.code == 14) return false else throw e }
+        Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { connected(s) }
+        return true
     }
 
     fun disconnect() {

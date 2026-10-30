@@ -39,11 +39,13 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] Phone: Loudness check (MediaCodec, only while charging) and Identify by sound (Chromaprint ported to Kotlin, same
       fingerprint as ffmpeg's); both: Tagger «Scan all again» (the scan skips songs checked before); lyrics into files (Tagger › Lyrics)
 - [x] PC: visualizer and Now playing bars (the song decoded again by ffmpeg in step)
-- [ ] PC: sign-in pages (now: paste the address it ends on)
+- [x] PC: sign-ins: Spotify caught on 127.0.0.1:8898, Last.fm asked until approved (as the Python app); Tidal pastes the "Oops" address, as the Python app does
 - [x] PC: Add a folder… (a folder picker)
 - [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
 - [x] PC: the Python app's data brought over on the first start (PythonImport)
+- [x] Windows: mpv's pipe with overlapped I/O (the window froze), saves replace the file, log.txt + watchdog
+- [ ] PC: mpv and ffmpeg inside the installer (Bins finds them; the CI step is waiting for the owner's OK)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
 - [x] Feature guide (core/FEATURES.md, gen-guide.py) and the Changelog & features tab
 - [x] Settings descriptions rewritten in detail
