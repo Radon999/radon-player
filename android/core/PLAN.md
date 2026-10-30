@@ -30,7 +30,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC outputs: Windows' default output from the registry (Linux: wpctl), a separate EQ for each, as the Python app
 - [x] PC: bit-perfect (exclusive mode through mpv), HQ resampling, dither (swresample), levelling target (shared rgGain)
 - [x] PC: phone remote server (Settings › Play on › Phone remote: code, pairing, mDNS, status, commands, handoff)
-- [ ] PC: tray, media keys, notifications (now playing), mini player window, run at start-up
+- [x] PC: tray (close keeps playing; Play/Pause, Next, Previous, Mini player, Quit), media keys (Windows), mini player window
+- [ ] PC: now-playing notification, run at start-up, Windows media flyout (SMTC)
 - [ ] PC: visualizer and Now playing bars (spectrum from mpv), sign-in pages (now: paste the address it ends on)
 - [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)

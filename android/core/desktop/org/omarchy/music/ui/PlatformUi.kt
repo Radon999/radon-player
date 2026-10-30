@@ -203,9 +203,13 @@ fun SystemBars(light: Boolean) {}
 
 val blurAlpha: Float get() = 0.5f
 
-fun enterMiniPlayer(activity: Any?) {}
+/** The PC's windows the screens can open: the mini player (a small window, always on top). */
+object PcWindows {
+    var mini by mutableStateOf(false)
+}
+fun enterMiniPlayer(activity: Any?) { PcWindows.mini = true }
 fun updateMiniPlayer(activity: Any?) {}
-val hasMiniPlayer = false
+val hasMiniPlayer = true
 
 /** The volume you hear: the app's own on the PC (0 to 1). */
 object SysVolume {
