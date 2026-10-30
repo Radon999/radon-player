@@ -1,29 +1,3 @@
-run 41035846250 · Fri Oct 30 09:52:28 UTC 2026
-PHONE OK
-PC OK
-TESTS: tests="5" failures="0" 
-  long min;
-  long max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
-  long count;
-  double sum;
-  double min;
-  double max;
-}`
-
-> Task :app:compileReleaseArtProfile
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
-
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
-
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
-
-For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-
-BUILD SUCCESSFUL in 4m 57s
-102 actionable tasks: 102 executed
+run 41048341642 · Fri Oct 30 11:29:22 UTC 2026
+PHONE FAILED
+PC FAILED
