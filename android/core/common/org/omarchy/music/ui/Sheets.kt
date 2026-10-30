@@ -207,6 +207,9 @@ private fun AccountsSheet(ui: Ui) {
                 "your old subscription ends; with Tidal they play in FLAC, and you can download a whole playlist in one go.\n" +
                 "• Listening history: import your plays from Spotify, Apple Music, Deezer, YouTube Music or Tidal (under Last.fm & " +
                 "your stats) so Most played, Artists and Wrapped keep counting from where you were.\n" +
+                "• Songs from Spotify, Apple Music, Deezer or YouTube Music as files: DumpMedia, a paid app for your computer " +
+                "(see Downloading from Spotify, Apple Music and others, in Your music), saves them as files you can put in your " +
+                "music folders to play here as your own songs. A file can't sound better than what the service streams.\n" +
                 "Stream and download quality are in Your music.",
                 style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
             // ---- services ----
