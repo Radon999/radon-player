@@ -152,10 +152,25 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
         androidx.compose.material3.Checkbox(renameFiles, { renameFiles = it })
         Text("Rename the file${if (songs.size != 1) "s" else ""} too (the new title in the file name)", style = T.body)
     }
-    Pill("Save the tags") {
-        if (typed.isEmpty()) Music.toast("Nothing changed")
-        else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
+    var collecting by remember { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Pill("Save the tags") {
+            if (typed.isEmpty()) Music.toast("Nothing changed")
+            else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
+        }
+        Pill(if (collecting) "Collecting…" else "Auto collect", quiet = true) {
+            if (collecting) return@Pill
+            collecting = true
+            Music.bg({ org.omarchy.music.SingleScan.collect(songs) }) { lines, e ->
+                collecting = false
+                Music.toast(lines?.joinToString("\n")?.take(300) ?: "Couldn't look them up: ${e?.message}")
+                Music.musicVersion++; Music.savedVersion++; Music.rescan()
+                ui.taggerFor = null
+            }
+        }
     }
+    Text("Auto collect looks the song up (Deezer, then Apple Music) and puts it on the release it belongs to: a deluxe " +
+        "edition over the album, the album over an EP, an EP over a single, with its album, album artist, number, year and cover.", style = T.sub)
 }
 
 @Composable

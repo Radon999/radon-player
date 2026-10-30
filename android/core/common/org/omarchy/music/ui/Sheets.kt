@@ -116,7 +116,8 @@ fun Sheets(ui: Ui) {
     Music.dupePrompt?.let { (new, dupes) -> DupeDownloadDialog(new, dupes) }
     Trasher()
     Exporter(ui)
-    ui.askName?.let { (title, start, done) -> NameDialog(title, start, { ui.askName = null }) { ui.askName = null; done(it) } }
+    ui.askName?.let { ask -> androidx.compose.runtime.key(ask) { val (title, start, done) = ask
+        NameDialog(title, start, { ui.askName = null }) { ui.askName = null; done(it) } } }
     ui.confirm?.let { (text, act) ->
         AlertDialog(onDismissRequest = { ui.confirm = null }, containerColor = C.light,
             text = { Text(text, style = T.body) },
@@ -825,7 +826,10 @@ private fun SoundQuality(ui: Ui) {
         "noise, so quiet fades stay smooth instead of grainy. Hi-res music stays 32-bit and needs none", P.on(P.DITHER)) {
         Switch(P.on(P.DITHER), { Music.setOpt(P.DITHER, it) }, colors = swColors())
     }
-    if (!onPhone) Line("High-quality resampling", "When a song's sample rate doesn't match your sound card's (44.1 kHz " +
+    Line("High-quality resampling", if (onPhone) "When a CD-quality song's sample rate isn't the phone's own (44.1 kHz music on a " +
+        "48 kHz phone), the app converts it with a long, sharp filter instead of Android's quicker one: cleaner highs. Songs already at the " +
+        "phone's rate, and bit-perfect, are left untouched, so it's only used where it helps. From the next song"
+        else "When a song's sample rate doesn't match your sound card's (44.1 kHz " +
         "music on a 48 kHz card), it's converted with a longer, sharper filter. You get cleaner highs for a little more work from the PC", P.on(P.HQ_RESAMPLE)) {
         Switch(P.on(P.HQ_RESAMPLE), { Music.setOpt(P.HQ_RESAMPLE, it) }, colors = swColors())
     }
@@ -1115,6 +1119,9 @@ private fun EqSheet(ui: Ui) {
             AutoEqFinder()
             Text("Between songs, and on headphones", style = T.section, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
             TransitionSwitches()
+            // Settings › Sound quality's switches too, so every sound option is here as well (Now playing's speaker opens this)
+            Text("Sound quality", style = T.section, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            SoundQuality(ui)
             Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB: the level is lowered this much by itself, so the EQ's boosts don't clip."
                 else "The equalizer is off, so the music plays untouched. Switch it on at the top to hear your settings.",
                 style = T.sub, modifier = Modifier.padding(top = 8.dp))

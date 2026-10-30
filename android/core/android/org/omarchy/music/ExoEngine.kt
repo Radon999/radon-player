@@ -79,7 +79,7 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
         fun renderers(ctx: Ctx, eq: EqProcessor) = object : DefaultRenderersFactory(ctx) {
             override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 EqSink(DefaultAudioSink.Builder(context)
-                    .setAudioProcessors(arrayOf(eq))
+                    .setAudioProcessors(arrayOf(ResampleProcessor(context), eq))
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     .build(), eq)

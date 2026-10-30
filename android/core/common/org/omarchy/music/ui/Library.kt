@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -72,12 +73,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     val sized = if (kind != "albums") all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }
     val albums = sized.filter { fits(ui, it.first.title, it.first.sub) }
     fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
-    val picking = ui.pickingAlbums
+    val picking = ui.pickingIn(kind)
     val picked = ui.albumsPicked
     fun menu(al: Album, songs: List<Track>) {
         if (picking) { picked[al.id] = songs; ui.optionsFor(picked.values.flatten()); return }   // picking: Options for them
         ui.choices = al.title to listOf(pinChoice(pin(al)), "Options…" to { ui.optionsFor(songs) },
-            "Select" to { ui.albumsPicked.clear(); ui.albumsPicked[al.id] = songs; ui.pickingAlbums = true })
+            "Select" to { ui.startPick(kind, al.id, songs) })
     }
     fun tap(al: Album, songs: List<Track>) {
         if (picking) { if (al.id in picked) picked.remove(al.id) else picked[al.id] = songs }
@@ -85,19 +86,11 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            if (picking) {   // Select: tap albums, then Options for all their songs
-                val n = picked.values.sumOf { it.size }
-                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Chip(if (picked.isEmpty()) "Options" else "Options ($n songs)", true) {
-                        if (picked.isNotEmpty()) ui.optionsFor(picked.values.flatten()) }
-                    if (picked.isNotEmpty()) Chip("Clear", false) { picked.clear() }
-                    Chip("Done", false) { picked.clear(); ui.pickingAlbums = false }
-                }
-                Section(if (picked.isEmpty()) "PICK ALBUMS: A TAP TICKS ONE" else "${picked.size} PICKED")
-            } else {
+            if (picking) PickBar(ui, if (eps) "EPs" else if (singles) "singles" else "albums")   // Select: tap albums, then Options for all their songs
+            else {
                 Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Collage of your top ${if (eps) "EPs" else if (singles) "singles" else "albums"}…", false) { ui.collageFor = "$kind-all" }
-                    Chip("Select", false) { picked.clear(); ui.pickingAlbums = true }
+                    Chip("Select", false) { ui.startPick(kind) }
                     if (singles) Chip("Single scan…", false) { ui.singleScan = true }
                 }
                 if (kind == "albums") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -119,11 +112,27 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     }
 }
 
+/** Select on a list of groups (albums, genres, folders, artists, playlists): Options for all their songs, the extra
+ *  options the list has (playlists: Delete, Rename, Edit, Favorite), Clear, Done. */
+@Composable
+fun PickBar(ui: Ui, noun: String, extra: List<Pair<String, () -> Unit>> = emptyList()) {
+    val picked = ui.albumsPicked
+    val n = picked.values.sumOf { it.size }
+    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip(if (picked.isEmpty()) "Options" else "Options ($n songs)", true) { if (picked.isNotEmpty()) ui.optionsFor(picked.values.flatten()) }
+        if (picked.isNotEmpty()) for ((label, run) in extra) Chip(label, false) { run() }
+        if (picked.isNotEmpty()) Chip("Clear", false) { picked.clear() }
+        Chip("Done", false) { picked.clear(); ui.pickingAlbums = false }
+    }
+    Section(if (picked.isEmpty()) "PICK ${noun.uppercase()}: A TAP TICKS ONE" else "${picked.size} PICKED")
+}
+
 /** A row in Genres and Folders: an icon, a name, how many songs. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onLongClick: () -> Unit, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card).background(C.light.copy(alpha = 0.6f))
+private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onLongClick: () -> Unit, picked: Boolean = false, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card).background(if (picked) C.accent.copy(alpha = 0.22f) else C.light.copy(alpha = 0.6f))
         .pressable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(42.dp).clip(R.card).background(C.accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
@@ -141,15 +150,24 @@ private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onLongClic
 private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: String, list: List<Pair<String, List<Track>>>,
                                                                   name: (String) -> String, sub: (String, List<Track>) -> String) {
     val ico = if (kind == "genre") Ico.GENRE else Ico.FOLDER
-    fun open(id: String, songs: List<Track>) { ui.pages += Ui.Page.Songs(name(id), songs, kind, id) }
-    fun menu(id: String) { ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id)))) }
+    val picking = ui.pickingIn(kind)
+    val picked = ui.albumsPicked
+    fun open(id: String, songs: List<Track>) {
+        if (picking) { if (id in picked) picked.remove(id) else picked[id] = songs; return }
+        ui.pages += Ui.Page.Songs(name(id), songs, kind, id)
+    }
+    fun menu(id: String, songs: List<Track>) {
+        if (picking) { picked[id] = songs; ui.optionsFor(picked.values.flatten()); return }
+        ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id))), "Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick(kind, id, songs) })
+    }
+    item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick(kind) } } }
     laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
         val (id, songs) = list[i]
-        GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id) }) { open(id, songs) }
+        GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
     }) { i, mod, compact ->
         val (id, songs) = list[i]
-        Tile(artModel(songs.first(), tilePx(compact)), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico,
-            onLongClick = { menu(id) }) { open(id, songs) }
+        Tile(artModel(songs.first(), tilePx(compact)), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico, lit = picking && id in picked,
+            onLongClick = { menu(id, songs) }) { open(id, songs) }
     }
 }
 

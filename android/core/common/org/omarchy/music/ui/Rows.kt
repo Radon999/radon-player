@@ -177,6 +177,12 @@ class Ui {
 
     /** Albums: picking some (Select), for Options on all their songs. */
     var pickingAlbums by mutableStateOf(false)
+    var pickWhere by mutableStateOf("")   // the list picking: albums, eps, singles, genre, folder, artists, playlists
+    fun pickingIn(where: String) = pickingAlbums && pickWhere == where
+    fun startPick(where: String, id: String? = null, songs: List<Track>? = null) {
+        albumsPicked.clear(); pickWhere = where; pickingAlbums = true
+        if (id != null && songs != null) albumsPicked[id] = songs
+    }
     val albumsPicked = androidx.compose.runtime.mutableStateMapOf<String, List<Track>>()
 
     /** Options (the sheet) for these songs: an album's, or the albums picked. */

@@ -29,7 +29,7 @@ Open the ☰ menu to find everything. Pages can be shown as a list, a grid or a 
 
 - **Pinned:** Pin an album, artist, playlist or folder to keep it at the top of the menu, newest first. Long-press a pin to unpin it or move it up.
 - **My music:** Every song in your folders plus your downloads, with Play, Shuffle and **DJ** buttons. Sort by Title, Artist, Album or Added (newest first). Sorting by artist or album groups the songs under headings.
-- **Albums, EPs and Singles:** Your songs grouped by release, shown as cover grids. Each release is in exactly one of the three: EPs only in EPs, singles (and albums you have one song of) only in Singles, the rest only in Albums. Albums has two buttons, **Albums** (more than six songs) and **Low song count albums** (six or fewer), to keep the big ones uncluttered. **Select** lets you tick several albums and use Options on all their songs. Each tab also has a **Collage** of your top releases, and Singles has **Single scan** (see Tagging & tidying).
+- **Albums, EPs and Singles:** Your songs grouped by release, shown as cover grids. Each release is in exactly one of the three: EPs only in EPs, singles (and albums you have one song of) only in Singles, the rest only in Albums. Albums has two buttons, **Albums** (more than six songs) and **Low song count albums** (six or fewer), to keep the big ones uncluttered. **Select** lets you tick several albums and use Options on all their songs (Genres, Folders, Artists and Playlists have Select too; picked playlists can also be deleted, renamed, opened or favorited). Each tab also has a **Collage** of your top releases, and Singles has **Single scan** (see Tagging & tidying).
 - **Album pages:** If you're missing some songs from an album, you see them dimmed with **Download missing tracks…**, where you pick which to download.
 - **Artists:** The artists you listen to most, ranked by every play counted together (see Stats). An artist's page has Play, Shuffle, **Change picture…** (pictures from Google, Genius and Wikipedia, or one of your own), **Discovery playlist** and **Merge into…**. Your songs by them show as a grid (or a list), sorted by **Most played** (the default), **Least played**, **Title**, **Album** or **Newest**.
 - **Genres:** Your songs grouped by genre.
@@ -85,7 +85,7 @@ Open it from the ☰ menu or from the speaker button on Now playing.
 - **Bit-perfect:** Sends each song to your DAC exactly as it is, at its own sample rate, with no EQ, song volume or speed changes. On the phone it needs Android 14 and a USB DAC. On the PC it uses exclusive mode, so no other sound plays at the same time.
 - **Clip guard:** If a song's volume, ReplayGain or the EQ would push a peak past full scale, a limiter catches it so it doesn't crackle. It only touches peaks that would clip.
 - **Dither:** Adds a whisper of shaped noise when 16-bit music goes through the EQ, so quiet fades stay smooth instead of grainy. Hi-res music stays 32-bit and doesn't need it.
-- **High-quality resampling (PC only):** When a song's sample rate doesn't match the sound card's (44.1 kHz music on a 48 kHz card), it's converted with a longer, sharper filter. You get cleaner highs for a little more work from the PC.
+- **High-quality resampling:** When a song's sample rate doesn't match the sound card's or the phone's (44.1 kHz music on a 48 kHz card), it's converted with a longer, sharper filter: cleaner highs. Music already at the right rate, and bit-perfect, are left untouched. On the phone it works on CD-quality music, from the next song.
 - **Loudness compensation:** At low volume our ears lose bass and treble first. This lifts them back by as much as the volume is down, and does nothing at full volume.
 - **Balance:** Moves the sound left or right. Use it for in-ear monitors (IEMs) that are a little louder on one side, or if one ear hears less. **Centre** resets it.
 - **Detail:** Brings forward background sounds, bass lines and small details: the stereo gets a touch wider, presence and air lift a little, and the level drops to match so nothing clips.
@@ -144,10 +144,10 @@ Imported plays are **added alongside** your Last.fm scrobbles, not swapped for t
 
 On the phone, these tools can change the FLAC files the app downloaded. Android doesn't let the app change other apps' files. On the PC they work on all your music.
 
-- **Tagger…:** Everything about the songs you picked, in one place. **Tags** (with several songs, a field they disagree on is left alone unless you type in it), **Cover** (from Google, Genius or Wikipedia, or your own picture, for one song or the whole album), **Info** (format, quality, size, length and every tag) and **Lyrics** (in the file, found online, or typed in, and saved into the file). On the PC, changing a title can rename the file too.
+- **Tagger…:** Everything about the songs you picked, in one place. **Tags** (with several songs, a field they disagree on is left alone unless you type in it), **Cover** (from Google, Genius or Wikipedia, or your own picture, for one song or the whole album), **Info** (format, quality, size, length and every tag) and **Lyrics** (in the file, found online, or typed in, and saved into the file). On the PC, changing a title can rename the file too. **Auto collect** looks the song up and puts it on the release it belongs to (a deluxe edition over the album, the album over an EP, an EP over a single).
 - **Tag now (Settings › Tagger):** Adds genre, composer, label, lyrics and Genius's notes to downloads that don't have them yet. You see a preview of the changes first.
 - **Tag scan (Settings › Tagger › Scan…):** Checks your downloads' tags against Deezer's catalogue one album at a time. For each tag that's missing or different you choose Replace or Keep. Albums with no cover, or a small one, get up to three covers to pick from.
-- **Single scan (Singles tab):** Finds the album or EP each of your singles belongs to (from Deezer, otherwise Apple Music) and moves it there: album, album artist, track number, year and cover. You can also pick another album, type one, or leave it alone.
+- **Single scan (Singles tab):** Finds the album or EP each of your singles belongs to (from Deezer, otherwise Apple Music) and moves it there: album, album artist, track number, year and cover. You can also pick another album, type one, or leave it alone, or use **Change all**, **Leave all alone** or **Only albums on this phone/PC** (only the ones whose album you already have).
 - **Fix albums and artists:** Fixes albums split up by featured artists ("Quinn XCII & Jeremy Zucker"), albums sitting beside their deluxe, extended or anniversary edition, and singles of songs on an album you have. Changes go into the file tags; titles are never changed. You check each one first. On the PC the files can then be moved to the right folders.
 - **Folders to leave alone:** Folders that no scan ever touches or looks in (Fix albums and artists, the tag scanner, Empty folders, Live in song names), and that no songs are moved into. Good for unreleased songs and sessions.
 - **Empty folders (PC only):** Finds folders with no songs left in them, only pictures or lyrics files. You see each one's size and contents and choose which to send to the Recycle Bin.
@@ -193,7 +193,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **One app at a time:** Starting Radon Player again brings the open one to the front. Opening a song file with it plays the song, and commands like `"Radon Player Next.exe" next` (also play, pause, play-pause, previous, show, hide and quit) control the running app, for your own shortcuts and keyboard tools.
 - **Deleting your own songs:** **Delete…** works on your own files too, and they go to the Recycle Bin, as on the old PC app.
 - **Downloads anywhere:** Settings › Downloads › Change can pick any folder on the PC with **Another folder…**.
-- **PC-only sound and tools:** High-quality resampling, Empty folders, and moving fixed songs into the right folders.
+- **PC-only sound and tools:** Empty folders, and moving fixed songs into the right folders.
 - **Signing in on the PC:** Spotify and Last.fm sign in by themselves: their page opens in your browser, you agree there, and the app notices on its own. Tidal's page ends on an "Oops" address that you copy back into the app, as on the old PC app.
 
 ---
@@ -214,6 +214,9 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - The PC is one app at a time again, with the old app's commands (next, play-pause, show…) and song files opened with it.
 - Albums, EPs and Singles never show the same release twice, and Albums splits into **Albums** and **Low song count albums**.
 - Lyrics cards take up to 15 lines. Duplicates has **Not a duplicate**, remembered for next time. Duplicates in Most played leaves out marked versions (Stripped, Remix, Live…).
+- Single scan has **Change all**, **Leave all alone** and **Only albums on this phone/PC**, and finds a song's EP even when the EP has the song's name. The Tagger gets **Auto collect**.
+- Select works on Genres, Folders, Artists and Playlists too (Options for all their songs); picked playlists can be deleted, renamed, opened or favorited together.
+- The phone gets **High-quality resampling**, and the Equalizer shows every Sound quality option too.
 - New in Settings: **Soundtrack notes in names** and **Songs without covers**. Duplicates gets **Keep / Remove** for each copy. An artist's page is a grid with sorting (Most played first). On the PC, the Tagger can rename the file with the title.
 - On the PC, **Upgrade to FLAC…** works on your own songs again, and the mini player has a seek bar and shows what's up next.
 - On the PC, **Delete…** works on your own songs again (they go to the Recycle Bin), and downloads can go to any folder.

@@ -620,21 +620,49 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
                 modifier = Modifier.padding(horizontal = 12.dp))
         }
         val shown = lists.filter { fits(ui, it.name) }
+        val picking = ui.pickingIn("playlists")
+        val picked = ui.albumsPicked
         fun menu(pl: org.omarchy.music.Playlist) {
-            ui.choices = pl.name to listOf(pinChoice(org.omarchy.music.Pin("mine", pl.id, pl.name)), "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) })
+            if (picking) { picked[pl.id] = pl.tracks; return }
+            ui.choices = pl.name to listOf(pinChoice(org.omarchy.music.Pin("mine", pl.id, pl.name)), "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
+                "Select" to { ui.startPick("playlists", pl.id, pl.tracks) })
+        }
+        fun tapList(pl: org.omarchy.music.Playlist) {
+            if (picking) { if (pl.id in picked) picked.remove(pl.id) else picked[pl.id] = pl.tracks; return }
+            ui.openMine = pl.id
+        }
+        item {
+            if (picking) PickBar(ui, "playlists", listOf(
+                "Delete…" to {
+                    val ids = picked.keys.toList()
+                    ui.confirm = ("Delete ${ids.size} playlist${if (ids.size != 1) "s" else ""}? " +
+                        ids.mapNotNull { Music.lists.get(it)?.name }.joinToString(", ") { "“$it”" } + ". The songs stay in your music.") to {
+                        ids.forEach { Music.deletePlaylist(it) }; picked.clear(); ui.pickingAlbums = false }
+                },
+                "Rename…" to {
+                    fun next(ids: List<String>) {
+                        val pl = ids.firstOrNull()?.let { Music.lists.get(it) } ?: return
+                        ui.askName = Triple("Rename playlist", pl.name) { n -> Music.renamePlaylist(pl.id, n); next(ids.drop(1)) }
+                    }
+                    next(picked.keys.toList())
+                },
+                "Edit" to { picked.keys.firstOrNull()?.let { id -> picked.clear(); ui.pickingAlbums = false; ui.openMine = id } },
+                "Favorite" to { Music.setFavorite(picked.values.flatten().distinctBy { it.id }, true) },
+            ))
+            else if (lists.isNotEmpty()) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick("playlists") } }
         }
         fun lay(some: List<org.omarchy.music.Playlist>) = laidOutItems(some, ui, key = { "pl-" + some[it].id }, row = { i ->
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
             PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
-                onLongClick = { menu(pl) }) { ui.openMine = pl.id }
+                onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null) { tapList(pl) }
         }) { i, mod, compact ->
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.name, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST,
-                onLongClick = { menu(pl) }) { ui.openMine = pl.id }
+            Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.name, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
+                onLongClick = { menu(pl) }) { tapList(pl) }
         }
         lay(shown.filter { it.discovery == null })
         // The discovery playlists: folded away under one row until you open it.
@@ -758,18 +786,34 @@ fun ArtistsTab(ui: Ui) {
         return
     }
     val shown = top.filter { fits(ui, it.name) }
-    fun menu(name: String, thumb: String) = artistMenu(ui, name, thumb)
+    val picking = ui.pickingIn("artists")
+    val picked = ui.albumsPicked
+    fun menu(name: String, thumb: String) {
+        if (picking) { picked[name] = Music.artistSongs(name); ui.optionsFor(picked.values.flatten()); return }
+        artistMenu(ui, name, thumb)
+        ui.choices = ui.choices?.let { (t, l) -> t to (l + listOf("Options…" to { ui.optionsFor(Music.artistSongs(name)) },
+            "Select" to { ui.startPick("artists", name, Music.artistSongs(name)) })) }
+    }
+    fun open(name: String) {
+        if (picking) { if (name in picked) picked.remove(name) else picked[name] = Music.artistSongs(name); return }
+        ui.pages += Ui.Page.Artist(name)
+    }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Section((listOf("${top.size} ARTISTS, YOUR MOST PLAYED FIRST") + org.omarchy.music.Stats.sources.joinToString(" + ").uppercase().ifEmpty { null })
                 .filterNotNull().joinToString(" · "))
-            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Collage…", false) { ui.collageFor = "artists-all" } }
+            if (picking) PickBar(ui, "artists")
+            else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Chip("Collage…", false) { ui.collageFor = "artists-all" }
+                Chip("Select", false) { ui.startPick("artists") }
+            }
         }
         laidOutItems(shown, ui, key = { "ar-" + shown[it].name }, row = { i ->
             val a = shown[i]
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(R.card)
-                .pressable(onClick = { ui.pages += Ui.Page.Artist(a.name) }, onLongClick = { menu(a.name, a.thumb) })
+                .background(if (picking && a.name in picked) C.accent.copy(alpha = 0.22f) else androidx.compose.ui.graphics.Color.Transparent)
+                .pressable(onClick = { open(a.name) }, onLongClick = { menu(a.name, a.thumb) })
                 .padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 RoundArt(artistArt(a.name, a.thumb), 52.dp)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -779,8 +823,8 @@ fun ArtistsTab(ui: Ui) {
             }
         }) { i, mod, compact ->
             val a = shown[i]
-            Tile(artistArt(a.name, a.thumb), a.name, plays(a.plays), mod, compact, round = true, ico = Ico.PERSON,
-                onLongClick = { menu(a.name, a.thumb) }) { ui.pages += Ui.Page.Artist(a.name) }
+            Tile(artistArt(a.name, a.thumb), a.name, plays(a.plays), mod, compact, round = true, ico = Ico.PERSON, lit = picking && a.name in picked,
+                onLongClick = { menu(a.name, a.thumb) }) { open(a.name) }
         }
     }
 }

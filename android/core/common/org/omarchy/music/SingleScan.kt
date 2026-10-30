@@ -21,7 +21,10 @@ object SingleScan {
     fun pick(title: String, found: List<Home>): Home? {
         val good = found.mapNotNull { h ->
             val name = h.album.trim()
-            if (name.isEmpty() || h.kind == "single" || h.kind == "compile" || isSingle(name, title)) return@mapNotNull null
+            // A release named as the song is still its home when the service calls it an EP or album ("Bangs" on the Bangs EP).
+            val sameName = isSingle(name, title) && !Regex("\\bsingles?\\b", RegexOption.IGNORE_CASE).containsMatchIn(name)
+            if (name.isEmpty() || h.kind == "single" || h.kind == "compile" || (isSingle(name, title) && !(sameName && h.kind in setOf("ep", "album") && h.source == "Deezer")))
+                return@mapNotNull null
             if ((hasLive(name) || LIVE_ALBUM.containsMatchIn(name)) && !hasLive(title)) return@mapNotNull null
             val k = when {
                 h.kind == "ep" || isEp(name) -> 1
@@ -54,7 +57,7 @@ object SingleScan {
         for (d in res["data"].list) {
             val aid = d["album"]["id"].long ?: continue
             if (!matches(d["title"].str ?: "", d["artist"]["name"].str ?: "", title, artist) || aid in seen ||
-                isSingle(d["album"]["title"].str ?: "", title)) continue
+                Regex("\\bsingles?\\b", RegexOption.IGNORE_CASE).containsMatchIn(d["album"]["title"].str ?: "")) continue
             seen += aid
             if (seen.size > 8) break
             val al = deezer("https://api.deezer.com/album/$aid")
@@ -122,6 +125,22 @@ object SingleScan {
             rows += Row(t, u, h, rel.getOrPut(norm(artist)) { releases(artist) })
         }
         return rows to failed
+    }
+
+    /** The Tagger's Auto collect (blocking): each song put on the release it belongs to (a deluxe edition over the
+     *  album, the album over an EP, an EP over a single). A line for each. */
+    fun collect(songs: List<Track>): List<String> {
+        val todo = ArrayList<Pair<Row, String>>(); val out = ArrayList<String>()
+        for (t in songs) {
+            val uri = Tags.editableAny(t) ?: continue
+            val h = try { home(lead(t.artist), t.title) } catch (e: Exception) { out += "${t.title}: couldn't look it up (${e.message})"; continue }
+            when {
+                h == null -> out += "${t.title}: no album or EP found for it"
+                norm(h.album) == norm(t.album) -> out += "${t.title}: already on “${h.album}”"
+                else -> todo += Row(t, uri, h, emptyList()) to h.album
+            }
+        }
+        return out + apply(todo)
     }
 
     /** Put each on its album (blocking): its album, album artist, track number, year and the album's cover; a typed or

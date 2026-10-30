@@ -333,6 +333,8 @@ fun SingleScanScreen(ui: Ui) {
     val rows = loaded?.first ?: emptyList()
     val yours = remember { runCatching { Music.mySongs() }.getOrDefault(emptyList()).filter { it.album.isNotBlank() && !org.omarchy.music.isSingle(it.album, it.title) }
         .map { it.album }.distinctBy { org.omarchy.music.norm(it) } }
+    val yoursKeys = remember(yours) { yours.map { org.omarchy.music.norm(it) }.toSet() }
+    fun onDevice(r: org.omarchy.music.SingleScan.Row) = org.omarchy.music.norm(r.home.album) in yoursKeys
     val pick = remember { androidx.compose.runtime.mutableStateMapOf<Int, String>() }   // the album, or "" left alone
     var typing by remember { mutableStateOf<Int?>(null) }
     var typed by remember { mutableStateOf("") }
@@ -349,6 +351,14 @@ fun SingleScanScreen(ui: Ui) {
                     "track number and year, and the album's cover; Leave alone keeps it a single (not asked again); or pick another album." +
                     (if (failed > 0) " $failed couldn't be looked up." else "")
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null && !working && rows.isNotEmpty()) androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Pill("Change all", quiet = true) { rows.indices.forEach { pick[it] = rows[it].home.album } }
+                Pill("Leave all alone", quiet = true) { rows.indices.forEach { pick[it] = "" } }
+                Pill("Only albums on this ${if (onPhone) "phone" else "PC"}", quiet = true) {
+                    rows.indices.forEach { pick[it] = if (onDevice(rows[it])) rows[it].home.album else "" }
+                }
+            }
             if (report != null) {
                 LazyColumn(Modifier.weight(1f)) { items(report!!.drop(1)) { Text(it, style = T.body, modifier = Modifier.padding(vertical = 4.dp)) } }
             } else LazyColumn(Modifier.weight(1f)) {
@@ -357,7 +367,8 @@ fun SingleScanScreen(ui: Ui) {
                     val now = pick[i] ?: r.home.album
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Text("${r.t.title} — ${r.t.artist}", style = T.title)
-                        Text("Album: ${r.t.album.ifEmpty { "(none)" }} → ${r.home.album} (${if (r.home.kind == "ep") "EP" else "album"}, ${r.home.source})", style = T.sub)
+                        Text("Album: ${r.t.album.ifEmpty { "(none)" }} → ${r.home.album} (${if (r.home.kind == "ep") "EP" else "Album"}" +
+                            (if (onDevice(r)) ", on this ${if (onPhone) "phone" else "PC"})" else " · ${r.home.source.removePrefix("Apple ")})"), style = T.sub)
                         if (r.home.n != null) Text("Track ${r.home.n}" + (if (r.home.date.length >= 4) " · ${r.home.date.take(4)}" else ""), style = T.sub)
                         androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Chip("Change", now == r.home.album) { pick[i] = r.home.album }
