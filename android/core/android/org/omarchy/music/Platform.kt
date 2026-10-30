@@ -199,12 +199,6 @@ object Discord {
     fun setOn(v: Boolean) {}
 }
 
-/** ffmpeg's checks (Loudness check, Identify by sound) are the PC's. */
-object AudioTools {
-    val supported = false
-    fun quality(path: String, rate: Int, bits: Int): QualityResult = QualityResult()
-    fun fingerprint(path: String, secs: Int): Pair<String, Int> = error("not on the phone")
-}
 
 /** Starting with the computer is the PC's. */
 object Startup {

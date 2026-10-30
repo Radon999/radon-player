@@ -43,14 +43,14 @@ object QualityCheck {
 
     /** Check the songs not checked yet (or changed since). */
     fun scan() {
-        if (!AudioTools.supported || busy != null || !Prefs.on(Prefs.LOUDNESS_CHECK)) return
-        val files = Music.mySongs().mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.distinct().filter { File(it).isFile }
-        val todo = files.mapNotNull { f -> File(f).lastModified().let { m -> if (done[f]?.mtime != m) f to m else null } }
-        if (todo.isEmpty()) return
-        busy = "0 of ${"%,d".format(todo.size)}"
+        if (!AudioTools.supported || busy != null || !Prefs.on(Prefs.LOUDNESS_CHECK) || !AudioTools.canRunNow()) return
+        val files = Music.mySongs().mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.distinct()
+        busy = "looking…"
         Music.bg({
+            val todo = files.mapNotNull { f -> AudioTools.modified(f)?.let { m -> if (done[f]?.mtime != m) f to m else null } }
+            Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { busy = if (todo.isEmpty()) null else "0 of ${"%,d".format(todo.size)}" }
             for ((i, fm) in todo.withIndex()) {
-                if (!Prefs.on(Prefs.LOUDNESS_CHECK)) break
+                if (!Prefs.on(Prefs.LOUDNESS_CHECK) || !AudioTools.canRunNow()) break
                 val (f, m) = fm
                 val facts = org.omarchy.music.ui.fileFacts(f)
                 val q = facts.firstOrNull { it.first == "Quality" }?.second ?: ""

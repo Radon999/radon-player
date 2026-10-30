@@ -7,6 +7,12 @@ import java.io.File
  *  installer's bin folder), or ffmpeg on the PATH. */
 object AudioTools {
     val supported = true
+
+    fun canRunNow() = true
+    const val WHEN = ""
+
+    /** When a song's file last changed (null: it's gone), for checking it again when it changes. */
+    fun modified(path: String): Long? = File(path).takeIf { it.isFile }?.lastModified()
     private val windows = System.getProperty("os.name").lowercase().contains("win")
     private val noWindow = windows
 

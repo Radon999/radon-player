@@ -228,6 +228,7 @@ object Music {
         Prefs.init(ctx)
         MusicTools.init()
         QualityCheck.init(ctx)
+        TagScan.Done.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
         eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
         applySound()

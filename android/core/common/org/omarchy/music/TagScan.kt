@@ -1,11 +1,45 @@
 package org.omarchy.music
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+
 
 /** The tag scanner (Settings › Tagger › Scan…): the desktop's tag_scan_plan. Your songs' tags checked against
  *  Deezer's catalogue; what's missing or different is offered an album at a time, each Replace or Keep, and an album
  *  with no cover (or a small one) gets up to three covers to pick from, or Keep. Here only the FLACs the app
  *  downloaded can be written (Android keeps other apps' files, your own songs, to themselves). */
 object TagScan {
+    /** The songs the scanner has checked (and you went through), each as it was then: a scan again checks only the new
+     *  ones and the ones changed since. Scan all again forgets them (the desktop's TagScanDone). */
+    object Done {
+        private lateinit var file: java.io.File
+        private val files = HashMap<String, Long>()
+        var count by mutableStateOf(0)
+            private set
+
+        fun init(ctx: Ctx) {
+            file = java.io.File(ctx.filesDir, "tagscan-done.json")
+            readText(file)?.let { runCatching { JSON.decodeFromString(MapSerializer(String.serializer(), Long.serializer()), it) }.getOrNull() }
+                ?.let { files.putAll(it) }
+            count = files.size
+        }
+
+        private fun key(f: String) = fixupNormPath(f)
+        private fun save() {
+            count = files.size
+            writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), Long.serializer()), synchronized(files) { files.toMap() }))
+        }
+
+        /** Whether [f] was checked as it is now (blocking: it looks at the file). */
+        fun done(f: String): Boolean = AudioTools.modified(f)?.let { m -> synchronized(files) { files[key(f)] } == m } ?: false
+        /** Remember [fs] as they are now (blocking). */
+        fun mark(fs: Collection<String>) { for (f in fs) AudioTools.modified(f)?.let { m -> synchronized(files) { files[key(f)] = m } }; save() }
+        fun forget() { synchronized(files) { files.clear() }; save() }
+    }
+
     val ALBUM_FIELDS = listOf("album" to "Album", "albumartist" to "Album artist", "date" to "Year", "genre" to "Genre")
     val SONG_FIELDS = listOf("title" to "Title", "artist" to "Artist", "tracknumber" to "Track")
     val FIELDS = (ALBUM_FIELDS + SONG_FIELDS).toMap()

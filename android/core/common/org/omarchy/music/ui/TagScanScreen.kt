@@ -46,8 +46,14 @@ fun TagScanScreen(ui: Ui) {
     var failed by remember { mutableStateOf<String?>(null) }
     val picked = remember { mutableStateMapOf<Pair<String, String>, Boolean>() }
     val covers = remember { mutableStateMapOf<String, String?>() }
-    val songs = remember { TagScan.songs() }
+    // Folders to leave alone are never scanned; songs checked before and unchanged since are skipped (Scan all again: not)
+    val every = remember { TagScan.songs().filter { !org.omarchy.music.inFolders(it.first, org.omarchy.music.MusicTools.skip) } }
+    var songs by remember { mutableStateOf<List<Pair<String, org.omarchy.music.Track>>?>(null) }
+    val markAll = { songs?.map { it.first }?.let { fs -> Music.bg({ TagScan.Done.mark(fs) }) { _, _ -> } } }
     LaunchedEffect(Unit) {
+        val fresh = ui.tagScanFresh; ui.tagScanFresh = false
+        songs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { if (fresh) TagScan.Done.forget(); every.filter { !TagScan.Done.done(it.first) } }
+        val songs = songs ?: emptyList()
         if (songs.isEmpty()) return@LaunchedEffect
         Music.bg({
             TagScan.plan(songs, TagScan::findTrack, TagScan::albumInfo, { ar, al, found ->
@@ -64,7 +70,14 @@ fun TagScanScreen(ui: Ui) {
         val gs = groups
         val r = report
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            val songs = songs
             when {
+                songs == null -> Text("Looking at your songs…", style = T.sub)
+                songs.isEmpty() && every.isNotEmpty() -> {
+                    Text("All ${"%,d".format(every.size)} songs were checked before and haven't changed since: nothing new to scan. " +
+                        "Scan all again (Settings › Tagger) checks every one.", style = T.sub)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.End) { Pill("Done") { close() } }
+                }
                 songs.isEmpty() -> Text("Only songs the app downloaded (FLAC) can have their tags changed on the phone: Android keeps " +
                     "other apps' files (your own songs) to themselves. Scan on the PC for those.", style = T.sub)
                 r != null -> {
@@ -81,6 +94,7 @@ fun TagScanScreen(ui: Ui) {
                     Text("%,d of %,d songs".format(done.first, done.second), style = T.sub)
                 }
                 gs.isEmpty() -> {
+                    LaunchedEffect(Unit) { markAll() }
                     Text("All ${songs.size} songs' tags look right: nothing missing, nothing to change.", style = T.sub)
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.End) { Pill("Done") { close() } }
                 }
@@ -98,7 +112,7 @@ fun TagScanScreen(ui: Ui) {
                         }
                         Pill("Apply") {
                             val (tags, cv) = TagScan.changes(gs, picked.toMap(), covers.toMap())
-                            if (tags.isEmpty() && cv.isEmpty()) { report = listOf("Nothing changed: every tag and cover was kept."); return@Pill }
+                            if (tags.isEmpty() && cv.isEmpty()) { markAll(); report = listOf("Nothing changed: every tag and cover was kept."); return@Pill }
                             working = true
                             val uris = gs.associate { it.key to it.uris }
                             Music.bg({ TagScan.apply(tags, cv.mapValues { (k, u) -> u to (uris[k] ?: emptyList()) }) }) { res, err ->
@@ -106,6 +120,7 @@ fun TagScanScreen(ui: Ui) {
                                 report = res ?: listOf("Couldn't finish: ${err?.message}")
                                 Music.musicVersion++
                                 Music.savedVersion++
+                                markAll()
                             }
                         }
                     }

@@ -152,8 +152,8 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Folders to leave alone:** Folders that no scan ever touches or looks in (Fix albums and artists, the tag scanner, Empty folders, Live in song names), and that no songs are moved into. Good for unreleased songs and sessions.
 - **Empty folders (PC only):** Finds folders with no songs left in them, only pictures or lyrics files. You see each one's size and contents and choose which to send to the Recycle Bin.
 - **Live in song names:** Finds songs named as live recordings ("Song (Live)", "Song - Live at…") that you'd rather have plain. It removes the live part of the name and keeps the rest. You check each one.
-- **Loudness check (PC only):** Checks each of your songs once, in the background, for clipping (distortion from being too loud) and for files that aren't the hi-res they claim to be (upsampled, or 16-bit inside a 24-bit file). **Show…** lists the worst first, so you know which copies to replace.
-- **Identify by sound… (PC only):** Works out what a song is from its sound (AcoustID and MusicBrainz) and offers to write those tags into its file.
+- **Loudness check:** Checks each of your songs once, in the background (on the phone, only while it's charging), for clipping (distortion from being too loud) and for files that aren't the hi-res they claim to be (upsampled, or 16-bit inside a 24-bit file). **Show…** lists the worst first, so you know which copies to replace.
+- **Identify by sound…:** Works out what a song is from its sound (AcoustID and MusicBrainz) and offers to write those tags into its file. On the phone it can write them into the app's own downloads; for other songs it shows what they are.
 - **Upgrade (Settings › Your music, or Upgrade to FLAC… on songs):** Swaps your songs for Tidal's FLAC where Tidal's is better. MP3s and other lossy files are replaced with FLAC; 16-bit files are replaced only when Tidal has them in 24-bit. Playlists and the queue keep working, and the old files go to the trash so you can get them back. Afterwards it lists the songs it kept because yours were already as good, and you can replace those anyway.
 - **Duplicates:** Looks through all your songs (downloads and folders) for ones you have more than once. It shows each copy's name, artist and file, best copy first, so you can choose which to delete.
 - **Copies:** See Search & the services: decides what happens when you download a song you already have.
@@ -185,7 +185,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Mini player window:** A small always-on-top window with the cover, the song and previous/play/next buttons.
 - **Discord:** Shows what you're playing on your Discord profile, as Spotify does, and clears it when you pause. It works through the Discord app on your PC and sends nothing anywhere else.
 - **Right-click menus:** Right-click anything to get the same menus you'd get with a long-press on the phone. **Esc** goes back.
-- **PC-only sound and tools:** High-quality resampling, Loudness check, Identify by sound, Empty folders, and moving fixed songs into the right folders.
+- **PC-only sound and tools:** High-quality resampling, Empty folders, and moving fixed songs into the right folders.
 
 ---
 
@@ -196,6 +196,6 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 The phone app and the PC app are now **one app**. Every screen (My music, Now playing, Settings, the Equalizer, Stats, Wrapped, the DJ, lyrics and the tagging tools) is built from the same shared code, so features arrive on both at once and work the same way on both.
 
 - The PC gets the phone's full set of screens, with its own player engine carrying the same Equalizer, Boost, Detail, Tilt, Balance, crossfeed, mono, clip guard, loudness compensation and crossfade. It also gets bit-perfect output, high-quality resampling, dither, the levelling target, and a separate EQ for each output.
-- The PC keeps its own extras: the tray, media keys, Start with Windows, the mini player window, Discord, right-click menus, the visualizer, Phone remote, Loudness check and Identify by sound.
-- Both apps now have Fix albums and artists, Folders to leave alone, Live in song names, Copy the names, the Lyrics mode setting, and the option to keep the selection open after an option.
+- The PC keeps its own extras: the tray, media keys, Start with Windows, the mini player window, Discord, right-click menus, the visualizer and Phone remote.
+- Both apps now have Loudness check and Identify by sound (the phone hears songs with its own decoders and makes the same AcoustID fingerprint the PC does), Fix albums and artists, Folders to leave alone, Live in song names, Copy the names, the Lyrics mode setting, and the option to keep the selection open after an option.
 - The phone keeps its own extras: Android Auto, the lock screen player, the widget, the mini player, notifications, Auto mono and casting.

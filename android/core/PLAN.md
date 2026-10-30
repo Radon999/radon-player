@@ -36,7 +36,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [ ] PC: Windows media flyout (SMTC)
 - [x] Both: Fix albums and artists, Folders to leave alone, Empty folders (PC), Live in song names, Copy the names
 - [x] PC: Loudness check (ffmpeg), Identify by sound (AcoustID); both: Lyrics mode in Settings, «Close selection after an option» kept
-- [ ] Phone: Loudness check and Identify by sound (decode on the phone); Tagger «Scan all again»; lyrics into the files from the options menu
+- [x] Phone: Loudness check (MediaCodec, only while charging) and Identify by sound (Chromaprint ported to Kotlin, same
+      fingerprint as ffmpeg's); both: Tagger «Scan all again» (the scan skips songs checked before); lyrics into files (Tagger › Lyrics)
 - [x] PC: visualizer and Now playing bars (the song decoded again by ffmpeg in step)
 - [ ] PC: sign-in pages (now: paste the address it ends on)
 - [x] PC: Add a folder… (a folder picker)

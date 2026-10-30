@@ -255,13 +255,16 @@ private fun AccountsSheet(ui: Ui) {
                 Line("Tagger", tg.busy ?: if (untagged.isNotEmpty()) "${untagged.size} downloads are missing extra tags: genre, composer, label, " +
                     "lyrics and Genius's notes. Tag now… fills them in after showing you a preview of the changes" else if (saved > 0) "All $saved downloads have their extra tags. Scan… checks them " +
                     "against Deezer's catalogue, one album at a time, for missing or wrong tags and missing or small covers, and you " +
-                    "choose Replace or Keep for each"
+                    "choose Replace or Keep for each" + (if (org.omarchy.music.TagScan.Done.count > 0) ". Scan… looks only at songs that are new or changed since " +
+                    "the last scan (${"%,d".format(org.omarchy.music.TagScan.Done.count)} checked before); Scan all again checks every one" else "")
                     else "Checks the songs you've downloaded against Deezer's catalogue, one album at a time, for " +
                     "missing or wrong tags and missing or small covers. You choose Replace or Keep for each change",
                     tg.busy == null && untagged.isEmpty()) {
                     if (tg.busy == null) {
                         if (untagged.isNotEmpty()) Pill("Tag now…") { ui.tagPreview = untagged to false }
                         Pill("Scan…", quiet = untagged.isNotEmpty()) { ui.tagScan = true }
+                        // The scan skips the songs it checked before that haven't changed since: this checks every one again
+                        if (org.omarchy.music.TagScan.Done.count > 0) Pill("Scan all again", quiet = true) { ui.tagScanFresh = true; ui.tagScan = true }
                     }
                 }
             }
@@ -547,7 +550,7 @@ private fun LoudnessCheckLine(ui: Ui) {
             "aren't the hi-res they claim to be. Show… lists the worst first"
         else -> "Checks each of your songs once, quietly in the background, for clipping (distortion from " +
             "being mastered too loud) and for files that aren't the hi-res they claim (upsampled from lower quality, or 16-bit " +
-            "inside a 24-bit file). Show… then lists the worst first, so you know which copies are worth replacing"
+            "inside a 24-bit file). Show… then lists the worst first, so you know which copies are worth replacing" + org.omarchy.music.AudioTools.WHEN
     }, on) {
         if (flagged.isNotEmpty()) { Pill("Show…", quiet = true) { ui.tool = "quality" }; Spacer(Modifier.width(6.dp)) }
         Switch(on, { Music.setOpt(P.LOUDNESS_CHECK, it); if (it) q.scan() }, colors = swColors())

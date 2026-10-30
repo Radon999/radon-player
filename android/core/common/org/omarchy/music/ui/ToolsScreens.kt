@@ -280,11 +280,13 @@ private fun IdentifyDialog(ui: Ui, t: org.omarchy.music.Track) {
                 Text(err ?: when {
                     got == null -> "Listening to “${t.title}”…"
                     got!!.isEmpty() -> "AcoustID doesn't know this song"
+                    file != null && !org.omarchy.music.FileTags.canWrite(file) -> "What it sounds like (the likeliest first). The phone can " +
+                        "only change the tags of its own downloads, so this one's are shown but can't be written"
                     else -> "What it sounds like (the likeliest first): pick one to use its tags"
                 }, style = T.sub)
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(got.orEmpty()) { r ->
-                        Column(Modifier.fillMaxWidth().clickable {
+                        Column(Modifier.fillMaxWidth().clickable(enabled = file != null && org.omarchy.music.FileTags.canWrite(file)) {
                             val f = file ?: return@clickable
                             Music.bg({ org.omarchy.music.FileTags.write(Music.ctx, f, mapOf("title" to r.title, "artist" to r.artist) +
                                 (if (r.album.isNotEmpty()) mapOf("album" to r.album) else emptyMap())) }) { ok, _ ->
