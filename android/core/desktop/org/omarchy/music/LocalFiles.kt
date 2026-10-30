@@ -67,6 +67,16 @@ class LocalFiles(private val ctx: Ctx) {
         return changed
     }
 
+    /** A song file as a song (one opened with Radon Player, or named on the command line): the one in your music if
+     *  it's there, else read now. */
+    fun trackOf(path: String): Track? {
+        val f = File(path).takeIf { it.isFile && it.extension.lowercase() in AUDIO } ?: return null
+        files.firstOrNull { it.file == f.path }?.let { return it }
+        val s = read(f, f.lastModified(), now())
+        return Track(id = "f" + f.path.hashCode().toUInt().toString(16), source = "file", title = s.title, artist = s.artist,
+            album = s.album, duration = s.duration, file = f.path, added = s.added)
+    }
+
     /** A file's tags (its name when it has none: "Artist - Title"). */
     private fun read(f: File, mod: Long, added: Double): Seen {
         val (nameArtist, nameTitle) = f.nameWithoutExtension.replace(Regex("^\\d+[ .-]+"), "").split(" - ", limit = 2)

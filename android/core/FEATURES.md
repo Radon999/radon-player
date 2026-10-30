@@ -187,6 +187,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Right-click menus:** Right-click anything to get the same menus you'd get with a long-press on the phone. **Esc** goes back.
 - **Keyboard shortcuts:** **Space** plays and pauses, **→** or **N** skips, **←** or **P** goes back, **R** changes repeat, **L** likes the song, **F** makes it a favorite, **+** and **−** change the volume, **M** mutes, **W** opens Wrapped, **E** the Equalizer and **/** search. **Ctrl+,** opens Settings, **F9** or **Ctrl+M** the ☰ menu, **Ctrl+F** search and **Ctrl+Q** quits. The one-key shortcuts wait while you're typing in a box.
 - **Your own files:** Edit tags, the Tagger, covers and lyrics are written into your own FLAC files too, not only the app's downloads. The Tagger's Tags tab also edits your MP3, M4A, Ogg and other files.
+- **One app at a time:** Starting Radon Player again brings the open one to the front. Opening a song file with it plays the song, and commands like `"Radon Player Next.exe" next` (also play, pause, play-pause, previous, show, hide and quit) control the running app, for your own shortcuts and keyboard tools.
 - **Deleting your own songs:** **Delete…** works on your own files too, and they go to the Recycle Bin, as on the old PC app.
 - **Downloads anywhere:** Settings › Downloads › Change can pick any folder on the PC with **Another folder…**.
 - **PC-only sound and tools:** High-quality resampling, Empty folders, and moving fixed songs into the right folders.
@@ -206,6 +207,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - On the PC, Spotify and Last.fm sign-ins finish by themselves, with nothing to copy and paste.
 - The PC gets the old app's keyboard shortcuts back, and its tag editing, Tagger, covers and lyrics work on your own FLAC files again.
 - **Identify by sound…** is now in a single song's menu too.
+- The PC is one app at a time again, with the old app's commands (next, play-pause, show…) and song files opened with it.
 - On the PC, **Delete…** works on your own songs again (they go to the Recycle Bin), and downloads can go to any folder.
 - Fixed on Windows: the window could stay hidden at start while the app froze waiting on the player, and settings weren't being saved.
 - The phone keeps its own extras: Android Auto, the lock screen player, the widget, the mini player, notifications, Auto mono and casting.

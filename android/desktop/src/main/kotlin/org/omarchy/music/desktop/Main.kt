@@ -59,7 +59,13 @@ private object AppIcon : Painter() {
 
 /** Radon Player on the PC: the phone's own screens (the shared code), played through mpv. Esc is the phone's back.
  *  Closing the window keeps the music going in the tray (Quit there ends it), as the Python app does. */
-fun main(args: Array<String>) = application {
+fun main(args: Array<String>) {
+    // Already running: hand it what was asked (a song file, next, show…) and end here, as the Python app does
+    if (org.omarchy.music.Instance.handOff(args.ifEmpty { arrayOf("show") })) return
+    app(args)
+}
+
+private fun app(args: Array<String>) = application {
     remember { org.omarchy.music.PcApp.start() }
     var shown by remember { mutableStateOf("--tray" !in args) }   // started with Windows: in the tray
     val tray = androidx.compose.ui.window.rememberTrayState()
@@ -70,6 +76,12 @@ fun main(args: Array<String>) = application {
             tray.sendNotification(androidx.compose.ui.window.Notification(cur.title, cur.artist))
     }
     fun quit() { Music.player?.release(); exitApplication() }
+    LaunchedEffect(Unit) {
+        val act = { a: List<String> -> org.omarchy.music.Instance.act(a, show = { shown = true; PcWindows.mini = false },
+            hide = { shown = false }, quit = { quit() }) }
+        org.omarchy.music.Instance.listen(act)
+        if (args.any { !it.startsWith("--") }) act(args.toList())   // opened with a song file, or a command
+    }
     Tray(icon = AppIcon, state = tray, tooltip = Music.current()?.let { "${it.title} · ${it.artist}" } ?: "Radon Player",
         onAction = { shown = true; PcWindows.mini = false }) {
         Item(if (Music.paused) "Play" else "Pause", onClick = { Music.togglePause() })
