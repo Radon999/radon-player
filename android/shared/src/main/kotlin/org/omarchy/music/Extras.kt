@@ -43,8 +43,10 @@ fun maybeSame(a: Track, b: Track): Boolean {
     return (artist && (title >= 0.85 || ta in tb || tb in ta)) || (album && title >= 0.75)
 }
 
-/** Whether Upgrade can swap t: a file of yours on the phone (not one of the app's downloads). */
-fun upgradable(t: Track) = t.isFile && t.file?.startsWith("content://media/") == true
+/** Whether Upgrade can swap t: a file of yours (not one of the app's downloads), on the phone or a writable one on the PC. */
+fun upgradable(t: Track) = t.isFile && t.file?.let { f ->
+    f.startsWith("content://media/") || (!f.startsWith("content:") && File(f).let { it.isFile && it.canWrite() })
+} == true
 
 private fun <V> readMap(file: File, ser: kotlinx.serialization.KSerializer<V>): MutableMap<String, V> =
     readText(file)?.let { runCatching { JSON.decodeFromString(MapSerializer(String.serializer(), ser), it) }.getOrNull() }

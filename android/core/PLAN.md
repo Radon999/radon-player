@@ -44,10 +44,9 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: tags, Tagger, covers and lyrics into your own FLACs (the content:// gates now ask FileTags); keyboard shortcuts; Identify in the song menu;
       Delete your own files (Recycle Bin); downloads to any folder;
       one instance (Instance.kt, port 8896 + key) with the command-line verbs and song files
-- [ ] PC (from the audit): Upgrade to FLAC for your own files,
-      Cast, mini player's seek and Up next, Linux MPRIS, YouTube Music / Apple sign-in on the PC
-- [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
-- [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
+- [ ] PC (from the audit): Cast, Linux MPRIS, YouTube Music / Apple sign-in on the PC
+- [x] PC: the Python app's tools checked one by one (the audit: ~115 settings, menus, shortcuts, tools)
+- [x] PC: every Python setting checked against the shared Settings (the same audit)
 - [x] PC: the Python app's data brought over on the first start (PythonImport)
 - [x] Windows: mpv's pipe with overlapped I/O (the window froze), saves replace the file, log.txt + watchdog
 - [ ] PC: mpv and ffmpeg inside the installer (Bins finds them; the CI step is waiting for the owner's OK)

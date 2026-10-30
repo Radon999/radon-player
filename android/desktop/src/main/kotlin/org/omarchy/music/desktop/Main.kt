@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,7 +106,7 @@ private fun app(args: Array<String>) = application {
         OmarchyTheme { App() }
     }
     if (PcWindows.mini) Window(onCloseRequest = { PcWindows.mini = false }, title = "Radon Player", icon = AppIcon, alwaysOnTop = true,
-        resizable = true, state = rememberWindowState(size = DpSize(380.dp, 300.dp), position = WindowPosition(Alignment.BottomEnd))) {
+        resizable = true, state = rememberWindowState(size = DpSize(380.dp, 340.dp), position = WindowPosition(Alignment.BottomEnd))) {
         OmarchyTheme { MiniWindow() }
     }
 }
@@ -115,6 +116,18 @@ private fun app(args: Array<String>) = application {
 private fun MiniWindow() {
     Column(Modifier.fillMaxSize().background(C.darker)) {
         Box(Modifier.weight(1f).fillMaxWidth()) { MiniPlayer() }
+        // Where the song is (drag to seek), and what plays next, as the Python app's mini player
+        val dur = Music.duration
+        if (dur > 0) androidx.compose.material3.Slider(
+            value = Music.position.toFloat().coerceIn(0f, dur.toFloat()), onValueChange = { Music.seek(it.toDouble()) },
+            valueRange = 0f..dur.toFloat(), modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(24.dp),
+            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent))
+        Music.queue.getOrNull(Music.index + 1)?.let { n ->
+            androidx.compose.material3.Text("Up next: ${n.title} · ${n.artist}", color = C.muted, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                style = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp)),
+                modifier = Modifier.padding(horizontal = 12.dp))
+        }
         Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clickable { Music.previous() }.padding(6.dp)) { Icon(Ico.PREV, C.fg, 24.dp) }
             Box(Modifier.clickable { Music.togglePause() }.padding(6.dp)) { Icon(if (Music.paused) Ico.PLAY else Ico.PAUSE, C.fg, 28.dp) }
