@@ -1,54 +1,23 @@
-run 40990882254 · Fri Oct 30 02:22:16 UTC 2026
-PHONE FAILED
-PC FAILED
+run 40991455925 · Fri Oct 30 02:29:31 UTC 2026
+PHONE OK
+PC OK
 TESTS: tests="5" failures="0" 
-e: core/common/org/omarchy/music/ui/Drawing.kt:77:16 Unresolved reference 'drawText'.
-e: core/common/org/omarchy/music/ui/Drawing.kt:84:16 Unresolved reference 'drawText'.
-e: core/common/org/omarchy/music/ui/Main.kt:194:30 Unresolved reference 'CastPicker'.
-e: core/common/org/omarchy/music/ui/Sheets.kt:346:110 Unresolved reference 'spotifyDisconnect'.
-e: core/common/org/omarchy/music/ui/Sheets.kt:357:40 Unresolved reference 'spotifySetClient'.
-e: core/common/org/omarchy/music/ui/Sheets.kt:83:46 Unresolved reference 'spotifyLoginUrl'.
-e: core/common/org/omarchy/music/ui/Sheets.kt:84:93 Unresolved reference 'spotifyFinish'.
-e: core/desktop/org/omarchy/music/ui/PlatformUi.kt:149:24 Unresolved reference 'launch'.
-e: core/desktop/org/omarchy/music/ui/PlatformUi.kt:78:13 Argument type mismatch: actual type is 'org.jetbrains.skia.SamplingMode', but 'org.jetbrains.skia.Rect' was expected.
-> Task :app:compileReleaseKotlin FAILED
-> Task :app:mergeReleaseShaders
-> Task :app:compileReleaseShaders NO-SOURCE
-> Task :app:generateReleaseAssets UP-TO-DATE
---
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Drawing.kt:77:16 Unresolved reference 'drawText'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Drawing.kt:84:16 Unresolved reference 'drawText'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:194:30 Unresolved reference 'CastPicker'.
---
-* What went wrong:
-Execution failed for task ':app:compileReleaseKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-BUILD FAILED in 3m 27s
-85 actionable tasks: 85 executed
-> Get more help at https://help.gradle.org.
-==============================================================================
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/LyricsTab.kt:113:32 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:594:9 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:595:9 Condition is always 'true'.
 
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:flattenJars
+> Task :app:lintVitalReportRelease
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :desktop:packageUberJarForCurrentOS
+The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
+
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -56,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 27s
-85 actionable tasks: 85 executed
+BUILD SUCCESSFUL in 4m 53s
+102 actionable tasks: 102 executed
