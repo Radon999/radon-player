@@ -18,12 +18,15 @@ object Loudness {
     }
 }
 
-/** The phone serving its files to the PC or a cast device: the PC has its own files. */
+/** The phone serving its files to the PC: the PC has its own. A cast device gets the PC's files from CastShare. */
 object PhoneShare {
     fun start() {}
     fun stop() {}
     fun forDesktop(t: Track, desktop: String): Track? = null
-    fun forCast(t: Track, host: String): String? = null
+    fun forCast(t: Track, host: String): String? {
+        val f = t.file ?: Music.lib.items[t.id]?.file?.takeIf { it.isNotEmpty() } ?: return null
+        return CastShare.urlFor(java.io.File(if (f.startsWith("file:")) java.net.URI(f).path else f), host)
+    }
 }
 
 /** Bit-perfect on the PC is the engine's (exclusive mode): see the PC engine. */

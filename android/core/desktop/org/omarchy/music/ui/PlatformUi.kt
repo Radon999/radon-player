@@ -4,6 +4,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -281,10 +287,50 @@ const val canOpenFolders = true
 fun openFolder(path: String) { runCatching { java.awt.Desktop.getDesktop().open(File(path)) } }
 fun sharable(file: String) = !file.startsWith("http")
 
-/** Playing on a cast device is the phone's (Google Cast); on the PC, Play on goes to the phone. */
+/** Cast…: the Chromecasts, Google speakers and TVs on the network; tap one to play there, or "This PC" to come back.
+ *  Songs go from this PC over the network (the EQ stays on the PC's own sound). */
 @Composable
 fun CastPicker(ui: Ui) {
-    LaunchedEffect(Unit) { Music.toast("Casting is on the phone: pick a speaker or TV there"); ui.castPick = false }
+    var devices by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(org.omarchy.music.Chromecast.known()) }
+    var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { org.omarchy.music.Chromecast.discover { l -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { devices = l } } }
+    val casting = Music.cast != null
+    androidx.compose.material3.AlertDialog(onDismissRequest = { ui.castPick = false }, containerColor = C.light,
+        title = { Text("Play on", style = T.head) },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                Text(busy?.let { "Connecting to $it…" } ?: if (devices.isEmpty()) "Looking for Chromecasts, Google speakers and TVs on your network…"
+                    else "Your songs play from this PC over the network; the equalizer stays on the PC's own sound.", style = T.sub)
+                androidx.compose.foundation.layout.Row(androidx.compose.ui.Modifier.fillMaxWidth().clickable {
+                    val c = Music.cast; Music.castStopped(); runCatching { c?.release() }; ui.castPick = false
+                }.padding(vertical = 10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Ico.HEADPHONES, if (!casting) C.accent else C.fg, 22.dp)
+                    androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.width(12.dp))
+                    Text("This PC", style = T.title)
+                }
+                devices.forEach { d ->
+                    val on = casting && Music.castName == d.name
+                    androidx.compose.foundation.layout.Row(androidx.compose.ui.Modifier.fillMaxWidth().clickable {
+                        if (busy != null || on) return@clickable
+                        busy = d.name
+                        Music.bg({ org.omarchy.music.Chromecast.connect(d) }) { eng, err ->
+                            busy = null
+                            if (eng == null) { Music.toast("Couldn't connect to ${d.name}: ${err?.message?.take(80)}"); return@bg }
+                            val old = Music.cast
+                            Music.castHost = d.host
+                            Music.castStarted(eng, d.name)
+                            runCatching { old?.release() }
+                            ui.castPick = false
+                        }
+                    }.padding(vertical = 10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Icon(Ico.CAST, if (on) C.accent else C.fg, 22.dp)
+                        androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.width(12.dp))
+                        Text(d.name, style = T.title, maxLines = 1)
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton({ ui.castPick = false }) { Text("Close", style = T.body) } })
 }
 
 /** A right-click: the menu, as a long press is on the phone. */

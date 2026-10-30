@@ -188,7 +188,7 @@ private fun NowTop(ui: Ui, n: Now) {
                 else { Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear") }
             }
         }
-        if (!n.remote && onPhone) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
+        if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
     }
 }

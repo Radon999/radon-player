@@ -76,7 +76,7 @@ object Music {
         val at = position
         val wasPlaying = !paused
         cast = null; castName = ""
-        toast("Playing on this phone")
+        toast(if (platformName == "android") "Playing on this phone" else "Playing on this PC")
         if (current() != null) { resumeAt = at; loadCurrent(autoplay = wasPlaying) }
     }
     private var pendingLoad: (() -> Unit)? = null
