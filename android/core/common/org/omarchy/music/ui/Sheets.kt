@@ -136,9 +136,9 @@ private fun AccountsSheet(ui: Ui) {
             Group("General", ui) {
             val v = Updater.latest
             if (v != null) Line("Update", when (Updater.state) {
-                "" -> "Radon Player $v is out (this is ${Updater.version})"
-                "working" -> "Downloading $v…"
-                "confirm" -> "Downloaded $v: install it"
+                "" -> "A newer version, Radon Player $v, is out (you have ${Updater.version}). Tap Update to get it"
+                "working" -> "Downloading Radon Player $v…"
+                "confirm" -> "Radon Player $v is downloaded. Tap Install to put it in place of this version"
                 else -> Updater.state
             }, false) {
                 when (Updater.state) {
@@ -146,8 +146,8 @@ private fun AccountsSheet(ui: Ui) {
                     "confirm" -> Pill("Install") { Updater.askAgain(activity) }
                     else -> Pill("Update") { Updater.install() }
                 }
-            } else Line("Version", if (Updater.checking) "${Updater.version} · checking…"
-                else Updater.checkError.ifEmpty { "${Updater.version} · up to date" }.let { if (it.startsWith("couldn't")) "${Updater.version} · $it" else it }, false) {
+            } else Line("Version", if (Updater.checking) "${Updater.version} · checking for a newer version…"
+                else Updater.checkError.ifEmpty { "You have ${Updater.version}, the latest version. Tap Check to look again for a newer one" }.let { if (it.startsWith("couldn't")) "${Updater.version} · $it" else it }, false) {
                 if (!Updater.checking) Pill("Check", quiet = true) { Updater.check(quiet = false) }
             }
             // What went wrong lately (the app closing, or errors it lived through): copy it to send it on.
@@ -173,8 +173,10 @@ private fun AccountsSheet(ui: Ui) {
             Group("Play on", ui) {
             if (org.omarchy.music.RemoteHost.supported) PhoneRemoteLines()
             // ---- play on ----
-            else Line("Play on", if (Remote.active) "The desktop (${Remote.name})" + if (!Remote.reachable) " · not reachable" else ""
-                else "This $DEVICE", Remote.active) {
+            else Line("Play on", if (Remote.active) "Music plays on the desktop (${Remote.name}), and this phone is its remote" +
+                if (!Remote.reachable) " · it can't be reached right now: check the PC and the app are on, on the same network" else ""
+                else "Music plays here, on this $DEVICE. Once you've paired with the desktop app (below), switch this on to play " +
+                    "on the PC instead, with this $DEVICE as its remote", Remote.active) {
                 if (Remote.paired) Switch(Remote.on, { Remote.setOn(it) }, colors = swColors())
             }
             if (org.omarchy.music.RemoteHost.supported) Unit
@@ -189,19 +191,26 @@ private fun AccountsSheet(ui: Ui) {
             // ---- services ----
             for (key in listOf("ytm", "apple")) {
                 val src = Music.sources[key]
-                if (src?.signedIn == true) Line(SOURCES[key]!!, "Signed in", true) {
+                if (src?.signedIn == true) Line(SOURCES[key]!!, "Signed in: your library and playlists from here are in the app, and their songs play from Tidal in " +
+                    "FLAC where it has them. With Tidal connected, Sync downloads every song in your favorites and playlists in FLAC", true) {
                     SyncSwitch(key); Spacer(Modifier.width(6.dp)); Pill("Sign out", quiet = true) { Services.signOut(key) }
-                } else Line(SOURCES[key]!!, "Sign in to browse your library and playlists", false) {
+                } else Line(SOURCES[key]!!, "Sign in with your account to browse your own library, favorites and playlists from this service " +
+                    "inside the app. Their songs play from Tidal in FLAC where it has them, so connect Tidal too", false) {
                     Pill("Sign in") { ui.sheet = "$key-login" }
                 }
             }
             if (Music.tidal.connected) {
-                Line("Tidal", "Connected · songs play in FLAC (lossy only where Tidal has no FLAC)", true) {
+                Line("Tidal", "Connected. Songs play in FLAC (lossless), hi-res where Tidal has it, and fall back to " +
+                    "lossy only where Tidal has no FLAC. Turn on Sync to download every song in your Tidal favorites and playlists", true) {
                     SyncSwitch("tidal"); Spacer(Modifier.width(6.dp)); Pill("Disconnect", quiet = true) { Music.tidalDisconnect() }
                 }
-                Line("Keep", "Save every song you play, in FLAC. Off: songs stream from Tidal and download only when you pick Download",
+                Line("Keep", "On: every song you play is also saved in FLAC to your downloads folder, so it's there " +
+                    "offline next time. Off: songs stream from Tidal and are saved only when you pick Download. Songs Tidal " +
+                    "has no FLAC of are never saved, and songs you already have follow the Copies setting",
                     Music.keepPlayed) { Switch(Music.keepPlayed, { Music.setKeepPlayed(it) }, colors = swColors()) }
-            } else Line("Tidal", "Connect to play everything in FLAC (it needs a Tidal subscription)", false) {
+            } else Line("Tidal", "Connect your Tidal account (it needs a paid Tidal subscription) and songs from every " +
+                "service play in FLAC, hi-res where Tidal has it. Tidal's own favorites, playlists, search and radio show up too, and " +
+                "downloads and Upgrade come from it", false) {
                 Pill("Connect") { ui.sheet = "tidal-login" }
             }
             SpotifyLine(ui)
@@ -209,7 +218,8 @@ private fun AccountsSheet(ui: Ui) {
             Group("Your music", ui) {
             // ---- your music ----
             val n = Music.local.files.size
-            Line("Folders", if (Music.local.scanning) "Reading your music…" else "$n song${if (n != 1) "s" else ""} in your folders, in the Music tab", n > 0) {
+            Line("Folders", if (Music.local.scanning) "Reading your music folders for songs…" else "$n song${if (n != 1) "s" else ""} found in the folders below, shown in My music. " +
+                "Add the folders where your music files are kept and the app reads them in; Remove only stops reading a folder, it deletes nothing", n > 0) {
                 FolderPicker()
             }
             Music.folders.forEach { f ->
@@ -219,15 +229,19 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             ToolLines(ui)
-            Line("Lyrics", "Shown on Now playing, in the cover's place (the lyrics button): Genius's lyrics as written, or Synced, " +
-                "lines timed to the music and lit up as they're sung", false) {
+            Line("Lyrics", "Lyrics show on Now playing in place of the cover when you tap the lyrics button. Genius shows " +
+                "the words as written, with Genius's notes on the marked lines. Synced shows lines timed to the music that light up as " +
+                "they're sung; tap a line to jump to that point", false) {
                 Chip("Genius", Music.lyricsMode == "genius") { Music.setLyricsMode("genius") }
                 Spacer(Modifier.width(4.dp))
                 Chip("Synced", Music.lyricsMode == "synced") { Music.setLyricsMode("synced") }
             }
-            Line("Lyrics into files", if (!Music.lyricsToFiles) "Off: lyrics are kept in the app only"
-                else if (Music.canWriteOwnFiles()) "The lyrics found for a song go into its file's tags (FLAC, MP3) once it's done playing, so they stay with it"
-                else "Into the app's downloads. Your own files need All files access: tap Allow", Music.lyricsToFiles) {
+            Line("Lyrics into files", if (!Music.lyricsToFiles) "Off: the lyrics the app finds are kept in the app only (they still work offline), and your " +
+                "files are left as they are. Switch on to write them into the files too"
+                else if (Music.canWriteOwnFiles()) "Once a song has finished playing, the lyrics found for it are written into its " +
+                "file's tags (FLAC and MP3), so they go with the song to other players and devices"
+                else "For now, lyrics go only into the songs the app downloaded. To write them into your own " +
+                "music files too, the app needs All files access: tap Allow", Music.lyricsToFiles) {
                 if (Music.lyricsToFiles && !Music.canWriteOwnFiles()) {
                     Pill("Allow", quiet = true) { openSystemSettings("allfiles") }
                     Spacer(Modifier.width(6.dp))
@@ -238,9 +252,12 @@ private fun AccountsSheet(ui: Ui) {
                 val tg = org.omarchy.music.Tagger
                 val untagged = remember(Music.savedVersion, tg.busy) { tg.untagged() }
                 val saved = remember(Music.savedVersion) { Music.lib.items.values.count { it.format == "flac" } }
-                Line("Tagger", tg.busy ?: if (untagged.isNotEmpty()) "${untagged.size} downloads to tag: genre, composer, label, " +
-                    "lyrics and Genius's notes" else if (saved > 0) "All $saved downloads tagged. Scan them for missing or wrong tags and covers"
-                    else "Scan your downloads for missing or wrong tags and covers, and fix them",
+                Line("Tagger", tg.busy ?: if (untagged.isNotEmpty()) "${untagged.size} downloads are missing extra tags: genre, composer, label, " +
+                    "lyrics and Genius's notes. Tag now… fills them in after showing you a preview of the changes" else if (saved > 0) "All $saved downloads have their extra tags. Scan… checks them " +
+                    "against Deezer's catalogue, one album at a time, for missing or wrong tags and missing or small covers, and you " +
+                    "choose Replace or Keep for each"
+                    else "Checks the songs you've downloaded against Deezer's catalogue, one album at a time, for " +
+                    "missing or wrong tags and missing or small covers. You choose Replace or Keep for each change",
                     tg.busy == null && untagged.isEmpty()) {
                     if (tg.busy == null) {
                         if (untagged.isNotEmpty()) Pill("Tag now…") { ui.tagPreview = untagged to false }
@@ -248,9 +265,12 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            Line("Queues", "A separate queue for each folder, album, artist and playlist you play from, each kept where you left it",
+            Line("Queues", "On: each folder, album, artist and playlist you play from gets its own queue, kept where " +
+                "you left it, so you can go back to any of them later, rename them or reorder them. Off: there's one queue, and " +
+                "playing something new replaces it",
                 Music.multiQueue) { Switch(Music.multiQueue, { Music.setMultiQueue(it) }, colors = swColors()) }
-            Line("Look", "Light, Dark, or Now playing: every screen in the colours of the song that's playing, the way Now playing is", false) {
+            Line("Look", "How the app is coloured: Light, Dark, or Now playing, which colours every screen to match " +
+                "the cover of the song that's playing, the way the Now playing screen is", false) {
                 Box {
                     var open by remember { mutableStateOf(false) }
                     Pill("${Looks.ALL.firstOrNull { it.first == Music.look }?.second ?: "Light"} ▾", quiet = true) { open = true }
@@ -261,7 +281,8 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            Line("Fallback for Now playing look", "The look the Now playing look uses while nothing is playing", false) {
+            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
+                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
                 Box {
                     var open by remember { mutableStateOf(false) }
                     Pill("${Looks.FALLBACK.firstOrNull { it.first == Music.npFallback }?.second ?: "Dark"} ▾", quiet = true) { open = true }
@@ -272,7 +293,8 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            Line("Downloads", "To ${Music.downloadFolder()}, as Artist/Albums, EPs or Singles/Album", true) {
+            Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} in FLAC with full tags, sorted " +
+                "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/", true) {
                 Box {
                     var open by remember { mutableStateOf(false) }
                     Pill("Change", quiet = true) { open = true }
@@ -289,14 +311,18 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            Line("Copies", "Downloading a song you have already", false) {}
+            Line("Copies", "What happens when you download a song you already have. Ask shows you the copies you have " +
+                "and lets you choose each time; Keep both downloads it and keeps yours too; Replace downloads it and puts your old copy " +
+                "away (your own files go to $TRASH)", false) {}
             Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("ask" to "Ask", "keep" to "Keep both", "replace" to "Replace").forEach { (k, l) ->
                     Chip(l, Music.dupeAction == k) { Music.chooseDupeAction(k) }
                 }
             }
             if (Music.local.files.isNotEmpty() || Music.upgrading != null) Line("Upgrade", Music.upgrading
-                ?: "Swap your songs for Tidal's FLAC where it's better: MP3s and other lossy files, and 16-bit ones Tidal has in hi-res. The old files go to $TRASH",
+                ?: "Looks your songs up on Tidal and swaps them for its FLAC where Tidal's is " +
+                "better: MP3s and other lossy files are replaced, and 16-bit ones only when Tidal has them in 24-bit hi-res. Playlists " +
+                "and the queue keep working, and the old files go to $TRASH so you can get them back",
                 Music.upgrading != null) {
                 if (Music.upgrading != null) Pill("Stop", quiet = true) { Music.upgradeStop = true }
                 else Pill("Upgrade…") { ui.upgradeFor = emptyList() }
@@ -312,15 +338,18 @@ private fun AccountsSheet(ui: Ui) {
             DeezerHistoryLine()
             run {
                 val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
-                Line("Similar artists", "Artists that look like another of yours (cavetown offline and Cavetown): merge them, " +
-                    "their songs' plays and all", false) { Pill("Scan…", quiet = true) { ui.similarArtists = true } }
-                Line("Duplicates in Most played", "Songs counted twice under different names (\"N.P.D\" and \"NPD\"), and versions " +
-                    "of a song (acoustic, live, remix): you pick which to merge", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
-                Line("Plays on singles and albums", "Your Last.fm scrobbles and Spotify, Apple Music or Deezer imports: a song's plays on its " +
-                    "single, an EP and its album, all onto the album (its deluxe or extended edition when there is one)", false) {
+                Line("Similar artists", "Finds artists that look like the same one written two ways (cavetown offline and " +
+                    "Cavetown), which splits their plays in your stats. You choose to merge them, their songs' plays and all, or keep them apart", false) { Pill("Scan…", quiet = true) { ui.similarArtists = true } }
+                Line("Duplicates in Most played", "Finds songs counted twice in your stats under different names (\"N.P.D\" and " +
+                    "\"NPD\"), and versions of one song (acoustic, live, remix). You pick which to merge into one, their plays added " +
+                    "together, and which to leave alone", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
+                Line("Plays on singles and albums", "When a song's plays are split between its single, an EP and its album (in your Last.fm " +
+                    "scrobbles and Spotify, Apple Music or Deezer imports), this moves them all onto the album, its deluxe or extended " +
+                    "edition when there is one. You check each one, and can pick another album or leave it", false) {
                     Pill("Scan…", quiet = true) { ui.albumPlays = true } }
-                Line("Joint artists", "A pair's plays go to its main artist (Quinn XCII & Jeremy Zucker: Quinn XCII). " +
-                    if (undecided > 0) "$undecided pairs aren't clear: pick whose plays they are" else "Pick whose plays a pair's are",
+                Line("Joint artists", "A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII), " +
+                    "so your top artists aren't split up. " +
+                    if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",
                     undecided == 0) { Pill("Choose…", quiet = undecided == 0) { ui.jointArtists = true } }
             }
             }
@@ -357,14 +386,16 @@ private fun PairDesktop() {
 private fun SpotifyLine(ui: Ui) {
     val sp = Music.sources["spotify"] as? org.omarchy.music.Spotify
     if (sp?.signedIn == true) {
-        Line("Spotify", if (sp.user.isNotEmpty()) "Connected as ${sp.user}" else "Connected", true) {
+        Line("Spotify", if (sp.user.isNotEmpty()) "Connected as ${sp.user}: your liked songs, playlists and artists' albums are in the app, " +
+            "playing from Tidal in FLAC" else "Connected: your liked songs, playlists and artists' albums are in the app, playing from Tidal in FLAC", true) {
             SyncSwitch("spotify"); Spacer(Modifier.width(6.dp)); Pill("Disconnect", quiet = true) { Services.spotifyDisconnect() }
         }
         return
     }
     var cid by remember { mutableStateOf(sp?.clientId ?: "") }
-    Line("Spotify", "Spotify wants a developer app of yours (its owner needs Premium). Make one with the Web API ticked and " +
-        "this redirect URI, then paste its Client ID:", false) {}
+    Line("Spotify", "To connect, Spotify needs a free developer app of your own (the account that makes it needs " +
+        "Premium). Tap Make an app, give it any name, tick Web API and add the redirect URI below, then paste its Client ID here " +
+        "and tap Connect. You get your liked songs, playlists, search and artists' albums, playing from Tidal in FLAC. Redirect URI:", false) {}
     Text(org.omarchy.music.Spotify.REDIRECT, style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 4.dp))
     Field(cid, "Client ID") { cid = it }
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
@@ -376,14 +407,16 @@ private fun SpotifyLine(ui: Ui) {
 @Composable
 private fun LastFmLine(ui: Ui) {
     if (LastFm.connected) {
-        Line("Last.fm", "Scrobbling as ${LastFm.user}", true) { Pill("Disconnect", quiet = true) { LastFm.disconnect() } }
+        Line("Last.fm", "Connected as ${LastFm.user}: every song you play is scrobbled (logged) to your Last.fm, even " +
+            "offline ones, which send later. All your scrobbles from all time are the base of your stats and Wrapped", true) { Pill("Disconnect", quiet = true) { LastFm.disconnect() } }
         ActionRow("✦  Your ${org.omarchy.music.Wrapped.year()} Wrapped  ›") { ui.sheet = "wrapped" }
         return
     }
     var key by remember { mutableStateOf(LastFm.key) }
     var secret by remember { mutableStateOf(LastFm.secret) }
-    Line("Last.fm", "Scrobble what you play, and see your Wrapped. Last.fm wants an API account of yours: make one (free), " +
-        "then paste its key and secret.", false) {}
+    Line("Last.fm", "Connect Last.fm and every song you play is scrobbled (logged) to your account, and all your " +
+        "scrobbles from all time become the base of your stats and Wrapped. Last.fm needs a free API account of yours: tap Make an " +
+        "API account, then paste its key and shared secret below and tap Connect. Without it, the plays counted in the app are used.", false) {}
     Field(key, "API key") { key = it }
     Field(secret, "Shared secret") { secret = it }
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
@@ -405,9 +438,15 @@ private fun SpotifyHistoryLine(ui: Ui) {
                 else "Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "")
         }
     }
-    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Spotify plays in your Wrapped, each counted once with your scrobbles"
-        else "Add your Spotify listening to your Wrapped: import the zip from Spotify's privacy page" +
-            if (sp?.signedIn == true) ". Your last plays come in by themselves" else ", or connect Spotify for your last plays"
+    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Spotify plays added alongside your Last.fm scrobbles in your stats " +
+        "and Wrapped, each play counted once. Importing the zip again only adds plays you didn't have yet"
+        else "Bring back years of Spotify listening: its plays are added alongside your Last.fm scrobbles in " +
+            "your stats and Wrapped, each play counted once. The zip is the data download Spotify gives you: tap Get the zip, ask " +
+            "for your data on Spotify's privacy page (the extended streaming history goes furthest back), then Import zip when it " +
+            "comes. A play counts from 30 seconds, as Spotify counts streams; podcasts and videos are left out" +
+            if (sp?.signedIn == true) ". As Spotify is connected, your latest plays also come in each time the app starts " +
+                "(Spotify only keeps the last 50), and Sync fetches them now"
+            else ". Connect Spotify under Accounts and your latest plays come in on their own too"
     Line("History", state, h.count > 0) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://www.spotify.com/account/privacy/") }
@@ -442,9 +481,12 @@ private fun AppleHistoryLine() {
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
-    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Apple Music plays in Most played, Artists and Wrapped, each counted once with your scrobbles"
-        else "Add your Apple Music listening: import the zip from Apple's privacy page (Get a copy of your data › Apple Media Services), " +
-            "or a library exported from the Music app (File › Library › Export Library…)"
+    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Apple Music plays added alongside your Last.fm scrobbles in " +
+        "Most played, Artists and Wrapped, each play counted once. Importing again only adds plays you didn't have yet"
+        else "Bring your Apple Music listening into Most played, Artists and Wrapped, added alongside your " +
+            "Last.fm scrobbles with each play counted once. Tap Get the zip and ask Apple's privacy page for your data (Get a copy " +
+            "of your data › Apple Media Services), then Import the zip when it comes. Or import a library exported from the Music " +
+            "app on a computer (File › Library › Export Library…)"
     Line("Apple Music history", state, h.count > 0) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://privacy.apple.com/") }
@@ -471,9 +513,11 @@ private fun DeezerHistoryLine() {
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
-    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Deezer plays in Most played, Artists and Wrapped, each counted once with your scrobbles"
-        else "Add your Deezer listening: import the file from Deezer's privacy settings (My account › Privacy settings › " +
-            "My personal data: the .xlsx with your listening history)"
+    val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Deezer plays added alongside your Last.fm scrobbles in Most " +
+        "played, Artists and Wrapped, each play counted once. Importing again only adds plays you didn't have yet"
+        else "Bring your Deezer listening into Most played, Artists and Wrapped, added alongside your " +
+            "Last.fm scrobbles with each play counted once. Tap Get the file and download your data from Deezer's privacy settings " +
+            "(My account › Privacy settings › My personal data), then Import the .xlsx spreadsheet with your listening history"
     Line("Deezer history", state, h.count > 0) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open("https://www.deezer.com/account/privacy") }
@@ -499,9 +543,11 @@ private fun LoudnessCheckLine(ui: Ui) {
     val clipped = flagged.count { it.second.clipped > 0 }; val fake = flagged.count { it.second.fake.isNotEmpty() }
     Line("Loudness check", when {
         q.busy != null -> "Checking your songs · ${q.busy}"
-        on && q.checked > 0 -> "${"%,d".format(q.checked)} songs checked: $clipped clipped, $fake not the hi-res they say"
-        else -> "Checks your songs for clipping (distorted, too loud) and for files that aren't the hi-res they say (upsampled, " +
-            "or 16-bit in a 24-bit file), so you know which copies to replace"
+        on && q.checked > 0 -> "${"%,d".format(q.checked)} songs checked: $clipped clip (distort from being too loud) and $fake " +
+            "aren't the hi-res they claim to be. Show… lists the worst first"
+        else -> "Checks each of your songs once, quietly in the background, for clipping (distortion from " +
+            "being mastered too loud) and for files that aren't the hi-res they claim (upsampled from lower quality, or 16-bit " +
+            "inside a 24-bit file). Show… then lists the worst first, so you know which copies are worth replacing"
     }, on) {
         if (flagged.isNotEmpty()) { Pill("Show…", quiet = true) { ui.tool = "quality" }; Spacer(Modifier.width(6.dp)) }
         Switch(on, { Music.setOpt(P.LOUDNESS_CHECK, it); if (it) q.scan() }, colors = swColors())
@@ -511,24 +557,26 @@ private fun LoudnessCheckLine(ui: Ui) {
 /** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
 @Composable
 private fun ToolLines(ui: Ui) {
-    Line("Fix albums and artists", "Albums split by featured artists (“Quinn XCII & Jeremy Zucker”), albums beside their deluxe, " +
-        "extended or anniversary edition, and singles of songs on an album you have: fixed in the files' tags (titles are never " +
-        "changed)" + (if (org.omarchy.music.FileTags.canMove) ", then moved to the right folders if you like" else "") +
-        ". You check each one first" + (if (onPhone) ". On the phone: the songs the app downloaded" else ""), false) {
+    Line("Fix albums and artists", "Finds albums split up by featured artists (“Quinn XCII & Jeremy Zucker”), albums sitting " +
+        "beside their own deluxe, extended or anniversary edition, and singles of songs that are on an album you have. They're " +
+        "fixed in the files' tags so they group properly (song titles are never changed)" + (if (org.omarchy.music.FileTags.canMove) ", and the files can then be moved to the right folders if you like" else "") +
+        ". You check each change before it's made" + (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
         Pill("Scan…", quiet = true) { ui.tool = "fixup" }
     }
     val n = org.omarchy.music.MusicTools.skip.size
-    Line("Folders to leave alone", "Folders no scan here ever touches or looks in (Fix albums and artists, the tag scanner, " +
-        "Empty folders, Live in song names): their songs aren't retagged or moved, and no songs are moved into them. " +
-        "Unreleased songs, sessions… " + if (n > 0) "$n folder${if (n != 1) "s" else ""} now" else "None yet", false) {
+    Line("Folders to leave alone", "Folders that no scan here ever touches or even looks in (Fix albums and artists, the tag " +
+        "scanner, Empty folders, Live in song names): their songs are never retagged or moved, and no songs are moved into them. " +
+        "Handy for unreleased songs, sessions and anything you've arranged by hand. " +
+        if (n > 0) "$n folder${if (n != 1) "s" else ""} left alone now" else "None chosen yet", false) {
         Pill("Choose…", quiet = true) { ui.tool = "skip" }
     }
-    if (org.omarchy.music.FileTags.canListFolders) Line("Empty folders", "Folders in your music folders with no songs left in them " +
-        "(only pictures or lyrics files): you see each one, its size and what's in it, and pick which to delete", false) {
+    if (org.omarchy.music.FileTags.canListFolders) Line("Empty folders", "Finds folders in your music folders that have no songs left " +
+        "in them, only pictures or lyrics files, often left behind after songs are moved. You see each one, its size and what's " +
+        "in it, and pick which to delete", false) {
         Pill("Clean up…", quiet = true) { ui.tool = "empty" }
     }
-    Line("Live in song names", "Songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather have plain: " +
-        "the live part taken off the name, the rest kept. You check each one", false) {
+    Line("Live in song names", "Finds songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather " +
+        "have under their plain name. It takes the live part off the name and keeps the rest, and you check each one first", false) {
         Pill("Scan…", quiet = true) { ui.tool = "live" }
     }
 }
@@ -537,8 +585,10 @@ private fun ToolLines(ui: Ui) {
 @Composable
 private fun StartupLine() {
     var on by remember { mutableStateOf(org.omarchy.music.Startup.isOn()) }
-    Line("Start with Windows", if (on) "On: Radon Player starts in the tray when you sign in (click its icon for the window)"
-        else "Radon Player in the tray as soon as you sign in, ready for the media keys and the phone remote", on) {
+    Line("Start with Windows", if (on) "On: Radon Player starts quietly in the system tray each time you sign in to " +
+        "Windows, so the media keys and the phone remote work straight away. Click its tray icon to open the window"
+        else "Starts Radon Player in the system tray (by the clock) as soon as you sign in to Windows, " +
+        "without opening its window, ready for your keyboard's media keys and the phone remote", on) {
         Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
             else Music.toast("Couldn't: only the installed app can start with Windows") }, colors = swColors())
     }
@@ -549,9 +599,10 @@ private fun StartupLine() {
 private fun DiscordLine() {
     val d = org.omarchy.music.Discord
     Line("Discord", when {
-        !d.on -> "Show what you're playing on your Discord profile, as Spotify does (paused: nothing)"
-        d.status == "on" -> "Showing what you play (paused: nothing)"
-        d.status.isEmpty() || d.status == "Discord isn't open" -> "On · Discord isn't open"
+        !d.on -> "Shows the song you're playing on your Discord profile, as Spotify does, and clears it " +
+            "when you pause. It works through the Discord app on this PC and sends nothing anywhere else"
+        d.status == "on" -> "Showing what you play on your Discord profile; it clears while you're paused"
+        d.status.isEmpty() || d.status == "Discord isn't open" -> "On, but Discord isn't open: open the Discord app on this PC and it shows up"
         else -> "On · ${d.status}"
     }, d.on && d.status == "on") {
         Switch(d.on, { d.setOn(it) }, colors = swColors())
@@ -562,9 +613,11 @@ private fun DiscordLine() {
 @Composable
 private fun PhoneRemoteLines() {
     val h = org.omarchy.music.RemoteHost
-    Line("Phone remote", if (h.running) "On: in the phone app, Settings › Play on › pair with this PC and enter the code ${h.code}. " +
-        "The phone then plays, queues and skips here, and shows what's playing"
-        else "Let the phone app play music on this PC: its queue, skips, volume and the DJ, from the sofa", h.running) {
+    Line("Phone remote", if (h.running) "On: in the phone app, go to Settings › Play on, pick this PC and enter the code " +
+        "${h.code}. The phone can then play, queue and skip music here, set the volume, run the DJ and show what's playing. " +
+        "Songs stored on the phone stream to this PC over your home network"
+        else "Lets the Radon Player phone app control music on this PC from across the room: play, queue, " +
+        "skip, the volume and the DJ. Switch on to get a pairing code; the phone finds this PC on your home network by itself", h.running) {
         Switch(h.running, { h.setOn(it) }, colors = swColors())
     }
     if (h.running) Text(h.code, style = T.title.copy(fontSize = 28.sp, color = C.accent), modifier = Modifier.padding(bottom = 6.dp))
@@ -585,8 +638,9 @@ private fun BackupLines(activity: Any?) {
         }
     }
     val open = rememberOpenFile { uri -> asking = uri }
-    Line("Back up and restore", "Your playlists, favorites, plays, queues, settings, equalizer and imported histories in one file: " +
-        "for a new ${DEVICE}, or after reinstalling. Not your songs or sign-ins", false) {}
+    Line("Back up and restore", "Saves your playlists, favorites, plays, queues, settings, equalizer and imported histories " +
+        "in one file, for moving to a new ${DEVICE} or after reinstalling. Your songs and sign-ins aren't included. Restoring " +
+        "keeps what's already here alongside the backup, just in case", false) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Restore…", quiet = true) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
         Pill("Back up…") { save.launch("Radon Player backup ${java.time.LocalDate.now()}.zip") }
@@ -619,8 +673,10 @@ private fun NotificationsLine(activity: Any?) {
         Music.resumed++
         if (!ok) openSystemSettings("notifications")
     }
-    Line("Notifications", if (on) "On: the player is in your notifications and on the lock screen, with shuffle and repeat"
-        else "Off: the player isn't in your notifications. Switch on to allow them", on) {
+    Line("Notifications", if (on) "On: the player sits in your notifications and on the lock screen, with its " +
+        "controls and shuffle and repeat buttons, so you can control music without opening the app"
+        else "Off: the player isn't in your notifications or on the lock screen. Switch on and " +
+        "Android asks you to allow them (only Android's own settings can turn them off again)", on) {
         Switch(on, { want ->
             if (want && org.omarchy.music.sdkAtLeast(33) && activity != null &&
                 (shouldExplain(activity, Perm.NOTIFY) || !org.omarchy.music.Prefs.on("notif_asked"))) {
@@ -641,20 +697,23 @@ private fun PlaybackLines(ui: Ui) {
     val lock = P.on(P.LOCK_SCREEN)
     val allowed = org.omarchy.music.LockScreen.allowed(ctx)
     if (onPhone) Line("Lock screen player", when {
-        lock && !allowed -> "Android needs you to allow it full-screen notifications: tap Allow"
-        lock -> "When the screen turns on while music plays, Now playing shows over the lock screen; ⌄ goes on to the lock screen"
-        else -> "Now playing over the lock screen, with the queue and lyrics, when the screen turns on while music plays"
+        lock && !allowed -> "Before this can work, Android needs you to allow the app full-screen notifications: tap Allow"
+        lock -> "On: when the screen turns on while music plays, the full Now playing appears over the lock " +
+            "screen, with the queue and lyrics. Tap ⌄ to go on to the normal lock screen"
+        else -> "Shows the full Now playing, with the queue and lyrics, over the lock screen whenever the " +
+            "screen turns on while music plays, so you can see and control it without unlocking"
     }, lock && allowed) {
         if (lock && !allowed) { Pill("Allow", quiet = true) { org.omarchy.music.LockScreen.askAllowed(ctx) }; Spacer(Modifier.width(6.dp)) }
         Switch(lock, { P.set(P.LOCK_SCREEN, it); if (it && !allowed) org.omarchy.music.LockScreen.askAllowed(ctx) }, colors = swColors())
     }
-    Line("Continue where you left off", "Stop on the PC and open the phone (or the other way round): it offers the same song at the same spot. " +
-        "Needs the phone paired with the PC (Play on)", P.on(P.CONTINUE)) {
+    Line("Continue where you left off", "Stop on the PC and open the phone, or the other way round, and the app offers to carry on " +
+        "with the same song at the same spot. It needs the phone paired with the PC (Play on) and both on the same home network", P.on(P.CONTINUE)) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
     }
     if (onPhone) AutoMonoLines()
     if (org.omarchy.music.AudioTools.supported) LoudnessCheckLine(ui)
-    Line("Smart shuffle", "Shuffle leans toward songs you love (play a lot) but haven't heard in a while, instead of pure chance",
+    Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
+        "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
         Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
     }
@@ -668,10 +727,12 @@ private fun AutoMonoLines() {
     val auto = P.on(P.AUTO_MONO)
     val picked = P.text(P.AUTO_MONO_DEVICE)
     Line("Auto mono", when {
-        !auto -> "Mono on its own while your earbuds are connected (for one earbud in), off when they go. Now playing's Mono button still works by hand"
-        picked.isEmpty() -> "Connect your earbuds, then pick them below"
-        org.omarchy.music.AutoMono.active -> "$picked connected: mono is on"
-        else -> "Mono while $picked is connected"
+        !auto -> "Turns mono on by itself (both sides of the music in each ear, for when you only have one " +
+            "earbud in) while the Bluetooth earbuds you pick are connected, and off again when they disconnect. Now playing's Mono " +
+            "button still works by hand"
+        picked.isEmpty() -> "Connect your Bluetooth earbuds, then pick them below so mono turns on whenever they're connected"
+        org.omarchy.music.AutoMono.active -> "$picked is connected, so mono is on"
+        else -> "Mono turns on whenever $picked connects, and off again when it disconnects"
     }, auto) {
         Switch(auto, { Music.setOpt(P.AUTO_MONO, it) }, colors = swColors())
     }
@@ -700,15 +761,16 @@ fun TransitionSwitches() {
             Switch(P.on(key), { Music.setOpt(key, it) }, colors = swColors())
         }
     }
-    row("Headphone crossfeed", "A little of each side into the other, as from speakers across a room: easier on the ears with " +
-        "old hard-panned records", P.CROSSFEED)
+    row("Headphone crossfeed", "Feeds a little of each side into the other ear, the way you'd hear speakers across a " +
+        "room. It's easier on the ears with old records that put instruments hard left or right. Choose Light, Medium or Strong", P.CROSSFEED)
     if (P.on(P.CROSSFEED)) Row(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         val k = P.num(P.CROSSFEED_K, 0.3f)
         listOf(0.2f to "Light", 0.3f to "Medium", 0.45f to "Strong").forEach { (v, l) ->
             Chip(l, kotlin.math.abs(k - v) < 0.01f) { Music.setSoundNum(P.CROSSFEED_K, v) }
         }
     }
-    row("Song crossfade", "Each song fades into the next" + if (Music.bitPerfect) " (not in bit-perfect)" else "", P.CROSSFADE)
+    row("Song crossfade", "Each song fades out as the next fades in, with no gap, over the length you set (1 to 12 " +
+        "seconds)" + if (Music.bitPerfect) ". It can't while bit-perfect is on" else "", P.CROSSFADE)
     if (P.on(P.CROSSFADE)) {
         val secs = P.num(P.CROSSFADE_SECS, 6f)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -719,7 +781,8 @@ fun TransitionSwitches() {
             Text("${secs.roundToInt()} s", style = T.time, modifier = Modifier.width(44.dp))
         }
     }
-    row("Smart transitions", "No crossfade between songs of one album: albums that flow from song to song (live albums, mixes) stay seamless",
+    row("Smart transitions", "Skips the crossfade between songs from the same album, so albums that flow from one " +
+        "track into the next (live albums, mixes) stay seamless, while other songs still crossfade",
         P.SMART_TRANSITIONS)
 }
 
@@ -728,56 +791,61 @@ fun TransitionSwitches() {
 @Composable
 private fun SoundQuality(ui: Ui) {
     Line("Bit-perfect", Music.dacNote.ifEmpty {
-        if (onPhone) "Each song goes to your USB DAC exactly as it is, at its own rate: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC"
-        else "Each song goes to your sound card or DAC exactly as it is, at its own rate, in exclusive mode (nothing else is heard " +
-            "while it plays): no EQ, no song volume, no speed" },
+        if (onPhone) "Sends each song to your USB DAC (an external sound card) exactly as it is, at its own " +
+            "sample rate, for the purest sound. Nothing changes it: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC"
+        else "Sends each song to your sound card or DAC exactly as it is, at its own sample rate, for the " +
+            "purest sound. It uses exclusive mode, so no other sound on the PC is heard while it plays, and nothing changes the " +
+            "music: no EQ, no song volume, no speed" },
         Music.bitPerfect) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }
     val P = org.omarchy.music.Prefs
-    Line("Clip guard", "When a song's volume, ReplayGain or the EQ would push a peak past full scale, a limiter catches it " +
-        "instead of letting it crackle. It only ever touches a peak that would clip", P.on(P.CLIP_GUARD)) {
+    Line("Clip guard", "When a song's volume, ReplayGain or the EQ would push the loudest moments (peaks) past the " +
+        "maximum level, a limiter gently holds them down instead of letting them crackle. It only ever touches a peak that would " +
+        "clip. It also lets ReplayGain make quiet songs louder", P.on(P.CLIP_GUARD)) {
         Switch(P.on(P.CLIP_GUARD), { Music.setOpt(P.CLIP_GUARD, it) }, colors = swColors())
     }
-    Line("Dither", "16-bit music through the EQ is rounded with a whisper of shaped noise, so quiet fades stay smooth " +
-        "instead of grainy (hi-res music stays 32-bit and needs none)", P.on(P.DITHER)) {
+    Line("Dither", "When 16-bit (CD quality) music goes through the EQ, it's rounded off with a whisper of shaped " +
+        "noise, so quiet fades stay smooth instead of grainy. Hi-res music stays 32-bit and needs none", P.on(P.DITHER)) {
         Switch(P.on(P.DITHER), { Music.setOpt(P.DITHER, it) }, colors = swColors())
     }
-    if (!onPhone) Line("High-quality resampling", "When a song's rate isn't the sound card's (44.1 kHz music on a 48 kHz card), " +
-        "it's converted with a longer, sharper filter: cleaner highs, a little more work for the PC", P.on(P.HQ_RESAMPLE)) {
+    if (!onPhone) Line("High-quality resampling", "When a song's sample rate doesn't match your sound card's (44.1 kHz " +
+        "music on a 48 kHz card), it's converted with a longer, sharper filter. You get cleaner highs for a little more work from the PC", P.on(P.HQ_RESAMPLE)) {
         Switch(P.on(P.HQ_RESAMPLE), { Music.setOpt(P.HQ_RESAMPLE, it) }, colors = swColors())
     }
-    Line("Loudness compensation", "Turned down, music loses bass and treble to the ear first: this lifts them back as far as " +
-        "the volume is down, and not at all at full volume", P.on(P.LOUDNESS)) {
+    Line("Loudness compensation", "At low volume our ears lose bass and treble first, so music sounds thin. This lifts them " +
+        "back by as much as the volume is turned down, and does nothing at full volume", P.on(P.LOUDNESS)) {
         Switch(P.on(P.LOUDNESS), { Music.setOpt(P.LOUDNESS, it) }, colors = swColors())
     }
     val bal = P.num(P.BALANCE, 0f)
     Line("Balance", when {
-        bal < -0.005f -> "Left: the right side down ${"%.1f".format(-20 * kotlin.math.log10(1.0 + bal))} dB"
-        bal > 0.005f -> "Right: the left side down ${"%.1f".format(-20 * kotlin.math.log10(1.0 - bal))} dB"
-        else -> "Centre. For IEMs a little louder on one side, or one ear that hears less"
+        bal < -0.005f -> "Leaning left: the right side is turned down ${"%.1f".format(-20 * kotlin.math.log10(1.0 + bal))} dB. Centre evens it out again"
+        bal > 0.005f -> "Leaning right: the left side is turned down ${"%.1f".format(-20 * kotlin.math.log10(1.0 - bal))} dB. Centre evens it out again"
+        else -> "Centre. Slide to move the sound left or right: for in-ear monitors (IEMs) that are a little louder on one side, or if one ear hears less"
     }, bal != 0f) {
         if (bal != 0f) Pill("Centre", quiet = true) { Music.setSoundNum(P.BALANCE, 0f) }
     }
     Slider(bal, { Music.setSoundNum(P.BALANCE, (kotlin.math.round(it * 50) / 50f)) }, valueRange = -0.5f..0.5f,
         colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
-    Line("Detail", "Background sounds, bass lines and the little things brought forward: the stereo a touch wider, " +
-        "presence and air lifted a little, the level lowered to match so nothing clips", P.on(P.DETAIL)) {
+    Line("Detail", "Brings forward background sounds, bass lines and small details: the stereo gets a touch wider, " +
+        "presence and air (the upper mids and highs) lift a little, and the level drops to match so nothing clips", P.on(P.DETAIL)) {
         Switch(P.on(P.DETAIL), { Music.setOpt(P.DETAIL, it) }, colors = swColors())
     }
     val tilt = P.num(P.TILT, 0f)
     Line("Tilt", when {
-        tilt > 0.01f -> "Brighter: below 1 kHz down ${"%.1f".format(tilt)} dB"
-        tilt < -0.01f -> "Warmer: above 1 kHz down ${"%.1f".format(-tilt)} dB"
-        else -> "Neutral. Lean the whole sound warmer or brighter; only ever turns down, so it can't clip"
+        tilt > 0.01f -> "Brighter: everything below 1 kHz is turned down ${"%.1f".format(tilt)} dB"
+        tilt < -0.01f -> "Warmer: everything above 1 kHz is turned down ${"%.1f".format(-tilt)} dB"
+        else -> "Neutral. Slide to lean the whole sound warmer (fuller bass) or brighter (crisper treble), up to 4 dB. It only ever turns things down, so it can't clip"
     }, tilt != 0f) {
         if (tilt != 0f) Pill("Neutral", quiet = true) { Music.setSoundNum(P.TILT, 0f) }
     }
     Slider(tilt, { Music.setSoundNum(P.TILT, kotlin.math.round(it * 2) / 2f) }, valueRange = -4f..4f,
         colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
-    Line("ReplayGain", if (Music.bitPerfect) "Off in bit-perfect: it would change the sound"
-        else "Evens out loudness with the gain in your files' tags. Louder than Standard needs Clip guard on " +
-            "(it limits the peaks); without it, songs are never made louder than they are", Music.replayGain != "off") {}
+    Line("ReplayGain", if (Music.bitPerfect) "Off while bit-perfect is on, because it would change the music"
+        else "Evens out loudness so songs don't jump louder or quieter, using ReplayGain (loudness tags " +
+            "in your files). By song levels every song; By album keeps an album's quiet and loud tracks as they were meant. The " +
+            "levelling target below sets how loud: louder than Standard needs Clip guard on (it limits the peaks); without it, " +
+            "songs are never made louder than they are", Music.replayGain != "off") {}
     Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf("off" to "Off", "track" to "By song", "album" to "By album").forEach { (k, l) ->
             Chip(l, Music.replayGain == k) { if (!Music.bitPerfect) Music.chooseReplayGain(k) }
@@ -798,8 +866,9 @@ private fun SettingsLine() {
     var open by remember { mutableStateOf(false) }
     val keys = remember { androidx.compose.runtime.mutableStateMapOf<String, String>().apply { putAll(Music.apiKeys) } }
     val have = org.omarchy.music.API_KEYS.filterKeys { Music.apiKeys[it] != null }.values.map { it.first }
-    Line("Settings", if (have.isNotEmpty()) "Using your " + have.joinToString(", ")
-        else "Keys of yours for Google's pictures and an AutoEq server: none is needed", have.isNotEmpty()) {
+    Line("Settings", if (have.isNotEmpty()) "Using your own " + have.joinToString(", ")
+        else "Optional keys of your own for Google's pictures (covers and " +
+        "artist pictures) and an AutoEq server (headphone corrections). None is needed: everything works without them", have.isNotEmpty()) {
         Pill(if (open) "Close" else "Edit", quiet = true) { open = !open }
     }
     if (open) {
@@ -941,8 +1010,8 @@ private fun EqSheet(ui: Ui) {
           } else {
             if (Music.bitPerfect) Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R.card).background(C.light)
                 .border(1.dp, C.red, R.card).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Bit-perfect is on, so the equalizer and each song's volume are bypassed: the DAC gets the music untouched. " +
-                    "Switch bit-perfect off to hear these.", style = T.sub, modifier = Modifier.weight(1f))
+                Text("Bit-perfect is on, so the equalizer and each song's volume are bypassed and your DAC gets " +
+                    "the music untouched. Switch bit-perfect off to hear the settings here.", style = T.sub, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 Pill("Turn off", quiet = true) { Music.chooseBitPerfect(false) }
             }
@@ -955,8 +1024,9 @@ private fun EqSheet(ui: Ui) {
                     Icon(outIcon(org.omarchy.music.Outputs.kindOf(key)), C.accent, 22.dp)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(label, style = T.title.copy(color = C.accent), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(if (!eq.perOutput) "One equalizer for every output"
-                            else if (key == Music.outputNow.key) "Playing through it now" else "Not playing through it now", style = T.sub)
+                        Text(if (!eq.perOutput) "One equalizer for every output: these settings are used wherever the sound goes"
+                            else if (key == Music.outputNow.key) "Playing through this now: changes are heard straight away"
+                            else "Not playing through this now: these settings switch in when the sound goes here", style = T.sub)
                     }
                     Icon(Ico.DOWN, C.muted, 16.dp)
                 }
@@ -976,7 +1046,7 @@ private fun EqSheet(ui: Ui) {
                 }
             }
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("A separate equalizer for each output", style = T.sub, modifier = Modifier.weight(1f))
+                Text("A separate equalizer for each output (speaker, headphones, earbuds, car…), switched in by itself when the sound goes there", style = T.sub, modifier = Modifier.weight(1f))
                 Switch(eq.perOutput, { Music.setEqPerOutput(it) }, colors = swColors())
             }
             // How many bands, and bass & treble.
@@ -1029,7 +1099,8 @@ private fun EqSheet(ui: Ui) {
             AutoEqFinder()
             Text("Between songs, and on headphones", style = T.section, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
             TransitionSwitches()
-            Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB keeps the boosts from clipping." else "Off: the music plays untouched.",
+            Text(if (eq.on) "Pre-gain ${Eq.fmtDb(Eq.preamp(Eq.filters(eq)))} dB: the level is lowered this much by itself, so the EQ's boosts don't clip."
+                else "The equalizer is off, so the music plays untouched. Switch it on at the top to hear your settings.",
                 style = T.sub, modifier = Modifier.padding(top = 8.dp))
           }
         }
@@ -1061,12 +1132,13 @@ private fun BoostFader(eq: org.omarchy.music.EqSettings) {
             Text(if (b == 0.0) "Off: normal volume" else "+${"%.1f".format(b).removeSuffix(".0")} dB louder",
                 style = T.title.copy(color = if (over) red else C.fg))
             Text(when {
-                b == 0.0 -> "Louder than normal for quiet headphones, on everything you play, and only on this output. " +
-                    "Clean up to the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here)"
-                over -> "Past the line: the limiter is squashing the peaks to keep them from clipping. Fine for noisy places; " +
-                    "for the best sound stay at or under +${"%.1f".format(clean).removeSuffix(".0")} dB"
-                else -> "Clean: under the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here, more with the EQ " +
-                    "turning things down)"
+                b == 0.0 -> "Makes everything you play louder, up to 12 dB, for quiet headphones, and only on this " +
+                    "output. It stays clean up to the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here); past it, a " +
+                    "limiter squashes the peaks so they don't distort"
+                over -> "Past the red line: a limiter is squashing the loudest peaks so they don't distort. Fine " +
+                    "for noisy places; for the best sound stay at or under +${"%.1f".format(clean).removeSuffix(".0")} dB"
+                else -> "Clean: you're under the red line (+${"%.1f".format(clean).removeSuffix(".0")} dB here, " +
+                    "and higher when the EQ turns things down), so nothing is squashed"
             }, style = T.sub)
             if (b > 0) Pill("Off", quiet = true) { Music.setEqBoost(0.0) }
         }

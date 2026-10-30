@@ -45,4 +45,5 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: the Python app's data brought over on the first start (PythonImport)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
 - [x] Feature guide (core/FEATURES.md, gen-guide.py) and the Changelog & features tab
-- [ ] Settings descriptions rewritten in detail; the guide sent to the owner and put on GitHub when done
+- [x] Settings descriptions rewritten in detail
+- [ ] the guide sent to the owner and put on GitHub when done
