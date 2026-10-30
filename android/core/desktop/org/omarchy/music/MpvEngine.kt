@@ -35,6 +35,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     private val connected = java.util.concurrent.CountDownLatch(1)
     private val writer = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "mpv-$id-out").apply { isDaemon = true } }
 
+    @Volatile private var missing = false
     @Volatile private var paused = true
     @Volatile private var idle = true
     @Volatile private var eof = false
@@ -56,9 +57,17 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     private fun mpvPath(): String = Bins.mpv
 
     private fun start() {
-        val p = ProcessBuilder(mpvPath(), "--idle=yes", "--no-video", "--really-quiet", "--audio-display=no", "--keep-open=no",
-            "--input-ipc-server=$pipe", "--volume=${(level * 100).toInt()}", "--replaygain=no")
-            .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        val p = try {
+            ProcessBuilder(mpvPath(), "--idle=yes", "--no-video", "--really-quiet", "--audio-display=no", "--keep-open=no",
+                "--input-ipc-server=$pipe", "--volume=${(level * 100).toInt()}", "--replaygain=no")
+                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        } catch (e: java.io.IOException) {
+            // No mpv on this PC: the app stays open and says so, instead of closing
+            missing = true; connected.countDown()
+            logWarn("mpv isn't there", e)
+            if (main) Music.scope.launch { delay(1500); Music.toast(MISSING) }
+            return
+        }
         proc = p
         Thread({ connect() }, "mpv-$id").apply { isDaemon = true }.start()
         if (main) Music.scope.launch { while (proc?.isAlive == true) { applySound(); delay(300) } }
@@ -174,6 +183,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     override fun seekTo(ms: Long) { pos = ms / 1000.0; send("seek", ms / 1000.0, "absolute") }
 
     override fun load(item: PlayItem, startMs: Long) {
+        if (missing) { if (main) Music.toast(MISSING); return }
         eof = false; pos = startMs / 1000.0; path = item.uri
         send("set_property", "start", if (startMs > 0) "+${startMs / 1000.0}" else "none")
         send("loadfile", item.uri.removePrefix("file://"), "replace")
@@ -264,6 +274,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     private var exclusive = false
 
     companion object {
+        const val MISSING = "Can't play: mpv (the player) isn't on this PC. The next Radon Player installer brings its own"
         private val COUNT = AtomicInteger()
         private val all = java.util.Collections.newSetFromMap(java.util.WeakHashMap<MpvEngine, Boolean>())
         /** The app's volume (0 to 1), for every player. */
