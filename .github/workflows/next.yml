@@ -76,6 +76,7 @@ jobs:
             grep -E "What went wrong|FAILED" -A3 "$RUNNER_TEMP/build.log" | head -40; \
             tail -25 "$RUNNER_TEMP/build.log"; } > ci/next/result.txt || true
           cp ../app/android/app/build/outputs/apk/release/app-release.apk ci/next/RadonPlayer-Next.apk || true
+          J=$(ls ../app/android/desktop/build/compose/jars/*.jar 2>/dev/null | head -1); if [ -n "$J" ] && [ $(stat -c%s "$J") -lt 95000000 ]; then cp "$J" ci/next/RadonPlayer-Next-linux.jar; git add ci/next/RadonPlayer-Next-linux.jar; fi
           git add ci/next/result.txt; git add ci/next/RadonPlayer-Next.apk || true
           git -c user.name=Radon999 -c user.email=radon721690@gmail.com commit -qm "ci: next result" || true
           git pull -q --rebase origin android-work || true
