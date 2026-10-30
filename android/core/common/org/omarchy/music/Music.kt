@@ -251,6 +251,7 @@ object Music {
         local = LocalFiles(ctx)
         tidal = Tidal(ctx)
         dl = Downloader(ctx, lib, tidal)
+        dl.streamQuality = { streamQuality }
         dl.folder = { downloadFolder() }
         dl.onSaved = { id -> scope.launch { afterSaved(id); Tagger.start(listOf(id)) } }
         loadState()
@@ -1367,7 +1368,16 @@ object Music {
     var downloadQuality by mutableStateOf("flac24")
         private set
     fun chooseDownloadQuality(q: String) { downloadQuality = q; Prefs.setText(Prefs.DL_QUALITY, q) }
-    fun loadDownloadQuality() { downloadQuality = Prefs.text(Prefs.DL_QUALITY, "flac24").ifEmpty { "flac24" } }
+    fun loadDownloadQuality() {
+        downloadQuality = Prefs.text(Prefs.DL_QUALITY, "flac24").ifEmpty { "flac24" }
+        streamQuality = Prefs.text("stream_quality", "flac24").ifEmpty { "flac24" }
+    }
+
+    /** Settings › Stream quality: "flac24", "flac16" or "aac" (320 kbps): what Tidal streams in, for every service's
+     *  songs (they all play from Tidal when it's connected). YouTube's stay YouTube's best. */
+    var streamQuality by mutableStateOf("flac24")
+        private set
+    fun chooseStreamQuality(q: String) { streamQuality = q; Prefs.setText("stream_quality", q); dl.forgetStreams() }
 
     /** How downloads come now, for a toast: "in FLAC (hi-res where Tidal has it)", "from YouTube"… */
     fun downloadQualityNote(): String = if (!tidal.connected) "from YouTube (Tidal isn't connected)" else when (downloadQuality) {

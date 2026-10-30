@@ -304,6 +304,7 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
+            StreamQualityLine()
             DownloadQualityLine()
             OtherServicesLine()
             Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} with full tags, sorted " +
@@ -694,6 +695,30 @@ private fun PhoneRemoteLines() {
     for ((tok, name) in h.phones) Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Paired: $name", style = T.sub, modifier = Modifier.weight(1f))
         Pill("Forget", quiet = true) { h.forget(tok) }
+    }
+}
+
+/** Stream quality: what songs play in when they aren't on this device (FLAC 24-bit, FLAC 16-bit or 320 kbps), for
+ *  every service's songs, as they all stream from Tidal; YouTube's (without Tidal, or songs Tidal hasn't got) stay
+ *  YouTube's best. */
+@Composable
+private fun StreamQualityLine() {
+    val names = linkedMapOf("aac" to "320 kbps", "flac16" to "FLAC 16-bit", "flac24" to "FLAC 24-bit")
+    Line("Stream quality", "What songs play in when they aren't on this $DEVICE, whichever service they're from (Spotify's, " +
+        "Apple Music's, Deezer's and YouTube Music's songs all play from Tidal): FLAC 24-bit is hi-res where Tidal has it (else " +
+        "16-bit), FLAC 16-bit is CD quality, 320 kbps is Tidal's AAC (as good as MP3 320, and uses the least data). It needs " +
+        "Tidal: without it, and for songs Tidal hasn't got, songs stream from YouTube at its best (about 128 to 160 kbps), " +
+        "whatever is picked here" + (if (!Music.tidal.connected) ". Tidal isn't connected now, so songs stream from YouTube" else ""), true) {
+        Box {
+            var open by remember { mutableStateOf(false) }
+            Pill("${names[Music.streamQuality] ?: "FLAC 24-bit"} ▾", quiet = true) { open = true }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                names.forEach { (k, l) ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(l, style = T.body.copy(color = if (k == Music.streamQuality) C.accent else C.fg)) },
+                        { open = false; Music.chooseStreamQuality(k) })
+                }
+            }
+        }
     }
 }
 

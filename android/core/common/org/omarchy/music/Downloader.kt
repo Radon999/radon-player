@@ -26,6 +26,10 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     fun streamQuality(id: String) = synchronized(streams) { streams[id]?.first?.quality ?: "" }
     fun streamLossy(id: String) = synchronized(streams) { streams[id]?.first?.lossyFrom }
     fun forgetStream(id: String) = synchronized(streams) { streams.remove(id) }
+    /** The streams looked up already, forgotten (the stream quality changed: the next play looks again). */
+    fun forgetStreams() = synchronized(streams) { streams.clear() }
+    /** Settings › Stream quality: "flac24", "flac16" or "aac" (320 kbps), for Tidal's streams. */
+    var streamQuality: () -> String = { "flac24" }
 
     /** Play t without saving it (blocking): the file when it is on the phone, else Tidal's stream. */
     fun stream(t: Track): Ready {
@@ -45,10 +49,19 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         if (tidal.connected) {
             var match: kotlinx.serialization.json.JsonElement? = null
             try {
+                val q = streamQuality()
+                if (q == "aac") {   // 320 kbps picked: Tidal's AAC (its "high"), else on to YouTube
+                    val m = tidal.resolve(t, lossy = true)
+                    if (m != null) {
+                        lib.byTidal(m["id"].long ?: 0)?.let { return Ready(it.file, quality = it.quality, onDisk = true) }
+                        return tidal.stream(m, lossy = true, quality = "HIGH").let { Ready(it.uri, it.isDash, it.quality) }
+                    }
+                    throw NoLosslessMatch("not on Tidal")
+                }
                 match = tidal.resolve(t)
                 if (match != null) {
                     lib.byTidal(match["id"].long ?: 0)?.let { return Ready(it.file, quality = it.quality, onDisk = true) }   // saved from another service
-                    return tidal.stream(match).let { Ready(it.uri, it.isDash, it.quality) }
+                    return tidal.stream(match, quality = if (q == "flac16") "LOSSLESS" else Tidal.QUALITY).let { Ready(it.uri, it.isDash, it.quality) }
                 }
             } catch (_: NoLosslessMatch) {
             } catch (e: Exception) { trouble = e }
