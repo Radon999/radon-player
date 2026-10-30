@@ -61,7 +61,7 @@ jobs:
       - name: Build and test
         working-directory: app/android
         run: |
-          ./gradlew --no-daemon :shared:test :app:assembleRelease :desktop:packageUberJarForCurrentOS > "$RUNNER_TEMP/build.log" 2>&1 || true
+          ./gradlew --no-daemon --continue :shared:test :app:assembleRelease :desktop:packageUberJarForCurrentOS > "$RUNNER_TEMP/build.log" 2>&1 || true
       - name: Say how it went (ci/next/result.txt)
         if: always()
         working-directory: work
@@ -72,7 +72,8 @@ jobs:
             if [ -f ../app/android/app/build/outputs/apk/release/app-release.apk ]; then echo "PHONE OK"; else echo "PHONE FAILED"; fi; \
             if ls ../app/android/desktop/build/compose/jars/*.jar >/dev/null 2>&1; then echo "PC OK"; else echo "PC FAILED"; fi; \
             if [ -d ../app/android/shared/build/test-results/test ]; then echo "TESTS: $(grep -ho 'tests="[0-9]*"\|failures="[0-9]*"' ../app/android/shared/build/test-results/test/*.xml | tr '\n' ' ')"; fi; \
-            grep -E "^e: |error:|What went wrong|FAILED" -A3 "$RUNNER_TEMP/build.log" | head -150; \
+            grep -E "^e: " "$RUNNER_TEMP/build.log" | sed 's#file:///home/runner/work/radon-player/radon-player/app/android/##' | sort -u | head -400; \
+            grep -E "What went wrong|FAILED" -A3 "$RUNNER_TEMP/build.log" | head -40; \
             tail -25 "$RUNNER_TEMP/build.log"; } > ci/next/result.txt || true
           cp ../app/android/app/build/outputs/apk/release/app-release.apk ci/next/RadonPlayer-Next.apk || true
           git add ci/next/result.txt; git add ci/next/RadonPlayer-Next.apk || true
