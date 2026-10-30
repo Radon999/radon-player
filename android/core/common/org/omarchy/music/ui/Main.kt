@@ -141,8 +141,11 @@ fun App() {
     LaunchedEffect(ui.tab, ui.musicView, page, ui.openMine, ui.openList?.first, ui.openFolder) { ui.filter = null }
     LaunchedEffect(title, ui.query) { Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else title }
 
-    PlatformBack(enabled = ui.drawer || ui.selecting || ui.pane != "art" || page != null || ui.openMine != null ||
-        ui.openList != null || ui.openFolder != null || ui.tab != "player") {
+    // The phone's Back on Now playing opens the ☰ menu; Back with that menu open (over Now playing) leaves the app.
+    val atPlayer = ui.tab == "player" && page == null
+    val leaveNow = onPhone && atPlayer && ui.drawer && !ui.selecting && ui.pane == "art"
+    PlatformBack(enabled = !leaveNow && (ui.drawer || ui.selecting || ui.pane != "art" || page != null || ui.openMine != null ||
+        ui.openList != null || ui.openFolder != null || ui.tab != "player" || (onPhone && atPlayer))) {
         when {
             ui.drawer -> ui.drawer = false
             ui.selecting -> ui.stopSelecting()
@@ -151,6 +154,7 @@ fun App() {
             ui.openMine != null -> ui.openMine = null
             ui.openList != null -> ui.openList = null
             ui.openFolder != null -> ui.openFolder = null
+            onPhone && atPlayer -> ui.drawer = true
             else -> goTo(ui, "player")
         }
     }
