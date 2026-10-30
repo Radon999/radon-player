@@ -212,6 +212,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - The PC keeps its own extras: the tray, media keys, Start with Windows, the mini player window, Discord, right-click menus, the visualizer and Phone remote.
 - Both apps now have Loudness check and Identify by sound (the phone hears songs with its own decoders and makes the same AcoustID fingerprint the PC does), Fix albums and artists, Folders to leave alone, Live in song names, Copy the names, the Lyrics mode setting, and the option to keep the selection open after an option.
 - On the PC, Spotify and Last.fm sign-ins finish by themselves, with nothing to copy and paste.
+- Fixed on the phone: the app closing as soon as it opened. And if it ever closes while starting again, the next start shows what went wrong, with **Share**, **Copy** and **Try again**.
 - Backups move between devices: a phone backup restores on the PC and a PC backup on the phone, with your songs matched to the same songs on the new device. Backups no longer carry the PC's YouTube Music and Apple Music sign-ins.
 - The PC gets the old app's keyboard shortcuts back, and its tag editing, Tagger, covers and lyrics work on your own FLAC files again.
 - **Identify by sound…** is now in a single song's menu too.

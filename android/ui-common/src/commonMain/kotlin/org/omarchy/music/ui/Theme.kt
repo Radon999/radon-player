@@ -156,8 +156,12 @@ object T {
     val head get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = C.fg)
 }
 
-/** Corners: rounded, Poweramp-like. */
-object R {
+/** Corners: rounded, Poweramp-like. Used as R.card etc.; the object itself can't be called R, since an Android
+ *  library's build leaves out every class named R (it takes them for resource classes): the phone app then crashed
+ *  at start (NoClassDefFoundError: org.omarchy.music.ui.R). */
+typealias R = Corners
+
+object Corners {
     val small = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
     val card = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
     val big = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
