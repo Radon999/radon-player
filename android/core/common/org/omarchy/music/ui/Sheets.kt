@@ -195,6 +195,12 @@ private fun AccountsSheet(ui: Ui) {
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
             Group("Accounts", ui) {
+            Text("Tidal is the only way to stream or download in FLAC (lossless). Signing in to YouTube Music, Apple Music, " +
+                "Deezer or Spotify brings your library and playlists into the app, but those services lock their own audio to " +
+                "their apps, so their songs play and download from Tidal when it's connected. Without Tidal, or for songs Tidal " +
+                "hasn't got, they come from YouTube instead, at lower quality (about 128 to 160 kbps, never FLAC), even if you " +
+                "pay for those services. Stream and download quality are in Your music.",
+                style = T.sub.copy(color = C.accent), modifier = Modifier.padding(vertical = 6.dp))
             // ---- services ----
             for (key in listOf("ytm", "apple", "deezer")) {
                 val src = Music.sources[key]
