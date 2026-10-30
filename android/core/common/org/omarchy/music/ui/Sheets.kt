@@ -198,9 +198,10 @@ private fun AccountsSheet(ui: Ui) {
             Text("Radon Player works best with a Tidal subscription and your own song files. Tidal is the only way to stream " +
                 "or download in FLAC (lossless) here, and with it everything plays and downloads in the best quality in one place.",
                 style = T.body.copy(color = C.accent), modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
-            Text("Spotify, Apple Music, Deezer and YouTube Music lock their audio to their own apps, so signing in to them " +
-                "brings your library and playlists here but not their sound: their songs play from Tidal when it's connected, " +
-                "and without Tidal from YouTube at lower quality (about 128 to 160 kbps, never FLAC), even if you pay for them.\n\n" +
+            Text("Signing in to Spotify, Apple Music, Deezer or YouTube Music is purely for bringing your data over: your " +
+                "library, playlists, favorites and listening info. It doesn't bring their sound, which they lock to their own " +
+                "apps: their songs play from Tidal when it's connected, and without Tidal from YouTube at lower quality (about " +
+                "128 to 160 kbps, never FLAC), even if you pay for them.\n\n" +
                 "Thinking of switching to Tidal? You can bring everything with you first, safely, without losing anything:\n" +
                 "• Playlists: sign in to your old service below, open its library, and pick Import all into my playlists (or " +
                 "$LONG_PRESS one playlist and pick Import to my playlists). They become your own playlists here and stay after " +
@@ -219,8 +220,8 @@ private fun AccountsSheet(ui: Ui) {
                     "FLAC where it has them (from YouTube where it hasn't, or without Tidal). With Tidal connected, Sync downloads every song in your favorites and playlists" +
                     if (key == "deezer") ". Deezer's own audio is locked to Deezer's apps, so the songs come from Tidal or YouTube" else "", true) {
                     SyncSwitch(key); Spacer(Modifier.width(6.dp)); Pill("Sign out", quiet = true) { Services.signOut(key) }
-                } else Line(SOURCES[key]!!, "Sign in with your account to browse your own library, favorites and playlists from this service " +
-                    "inside the app. Their songs play from Tidal in FLAC where it has them, so connect Tidal too", false) {
+                } else Line(SOURCES[key]!!, "Sign in to bring over your library, favorites and playlists from this service " +
+                    "(for your data only: its songs play from Tidal in FLAC where it has them, so connect Tidal too)", false) {
                     Pill("Sign in") { ui.sheet = "$key-login" }
                 }
             }
