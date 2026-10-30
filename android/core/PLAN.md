@@ -28,8 +28,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] Pictures drawn the same on both (Painter: collage, share card, lyrics card)
 - [x] PC engine: EQ, Boost, Detail, Tilt, Balance, crossfeed, mono, clip guard, loudness compensation, crossfade, volume (kept)
 - [x] PC outputs: Windows' default output from the registry (Linux: wpctl), a separate EQ for each, as the Python app
-- [ ] PC: bit-perfect (WASAPI exclusive through mpv), HQ resampling setting, levelling target (replaygain-preamp)
-- [ ] PC: phone remote server (the Python app's), so the phone's Play on works with the new PC app
+- [x] PC: bit-perfect (exclusive mode through mpv), HQ resampling, dither (swresample), levelling target (shared rgGain)
+- [x] PC: phone remote server (Settings › Play on › Phone remote: code, pairing, mDNS, status, commands, handoff)
 - [ ] PC: tray, media keys, notifications (now playing), mini player window, run at start-up
 - [ ] PC: visualizer and Now playing bars (spectrum from mpv), sign-in pages (now: paste the address it ends on)
 - [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one

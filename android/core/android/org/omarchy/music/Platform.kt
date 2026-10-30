@@ -180,3 +180,13 @@ fun pcmBits(e: Int) = when (e) {
     androidx.media3.common.C.ENCODING_PCM_32BIT, androidx.media3.common.C.ENCODING_PCM_FLOAT -> 32
     else -> 0
 }
+
+/** The PC's phone-remote server: the phone is the remote, not the one played. */
+object RemoteHost {
+    val supported = false
+    val running = false
+    val code = ""
+    val phones = emptyMap<String, String>()
+    fun setOn(on: Boolean) {}
+    fun forget(token: String) {}
+}

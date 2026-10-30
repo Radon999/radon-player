@@ -228,8 +228,23 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         send("set_property", "af", if (g.isEmpty()) "" else "lavfi=[$g]")
     }
 
-    /** The settings changed (or a new song's gain): the filters again. */
-    private fun applySound() = applyGraph(graph())
+    /** The settings changed (or a new song's gain): the filters again, and how mpv resamples and opens the output. */
+    private fun applySound() {
+        applyGraph(graph())
+        val q = Music.eqProcessor
+        val sw = listOfNotNull(if (Prefs.on(Prefs.HQ_RESAMPLE)) "filter_size=64,phase_shift=12,cutoff=0.97" else null,
+            if (q.dither && !q.bypass) "dither_method=shibata" else null).joinToString(",")
+        if (sw != resample) { resample = sw; send("set_property", "audio-swresample-o", sw) }
+        val ex = Music.bitPerfect
+        if (ex != exclusive) {   // bit-perfect: the output to itself at the song's rate (WASAPI exclusive on Windows)
+            exclusive = ex
+            send("set_property", "audio-exclusive", ex)
+            send("set_property", "audio-samplerate", 0)
+            send("ao-reload")
+        }
+    }
+    private var resample = ""
+    private var exclusive = false
 
     companion object {
         private val COUNT = AtomicInteger()

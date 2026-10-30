@@ -168,12 +168,14 @@ private fun AccountsSheet(ui: Ui) {
             BackupLines(activity)
             }
             Group("Play on", ui) {
+            if (org.omarchy.music.RemoteHost.supported) PhoneRemoteLines()
             // ---- play on ----
-            Line("Play on", if (Remote.active) "The desktop (${Remote.name})" + if (!Remote.reachable) " · not reachable" else ""
+            else Line("Play on", if (Remote.active) "The desktop (${Remote.name})" + if (!Remote.reachable) " · not reachable" else ""
                 else "This $DEVICE", Remote.active) {
                 if (Remote.paired) Switch(Remote.on, { Remote.setOn(it) }, colors = swColors())
             }
-            if (!Remote.paired) PairDesktop()
+            if (org.omarchy.music.RemoteHost.supported) Unit
+            else if (!Remote.paired) PairDesktop()
             else Row(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Paired with ${Remote.host}", style = T.sub, modifier = Modifier.weight(1f))
                 Pill("Forget", quiet = true) { Remote.forget() }
@@ -475,6 +477,22 @@ private fun DeezerHistoryLine() {
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
 }
 
+/** The PC's Phone remote: the phone app plays music here, pairs with the code shown, finds the PC by itself. */
+@Composable
+private fun PhoneRemoteLines() {
+    val h = org.omarchy.music.RemoteHost
+    Line("Phone remote", if (h.running) "On: in the phone app, Settings › Play on › pair with this PC and enter the code ${h.code}. " +
+        "The phone then plays, queues and skips here, and shows what's playing"
+        else "Let the phone app play music on this PC: its queue, skips, volume and the DJ, from the sofa", h.running) {
+        Switch(h.running, { h.setOn(it) }, colors = swColors())
+    }
+    if (h.running) Text(h.code, style = T.title.copy(fontSize = 28.sp, color = C.accent), modifier = Modifier.padding(bottom = 6.dp))
+    for ((tok, name) in h.phones) Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Paired: $name", style = T.sub, modifier = Modifier.weight(1f))
+        Pill("Forget", quiet = true) { h.forget(tok) }
+    }
+}
+
 /** Back up… / Restore…: the app's own files (playlists, favorites, plays, settings, imports) in a zip of your choosing. */
 @Composable
 private fun BackupLines(activity: Any?) {
@@ -628,7 +646,9 @@ fun TransitionSwitches() {
 @Composable
 private fun SoundQuality(ui: Ui) {
     Line("Bit-perfect", Music.dacNote.ifEmpty {
-        "Each song goes to your USB DAC exactly as it is, at its own rate: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC" },
+        if (onPhone) "Each song goes to your USB DAC exactly as it is, at its own rate: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC"
+        else "Each song goes to your sound card or DAC exactly as it is, at its own rate, in exclusive mode (nothing else is heard " +
+            "while it plays): no EQ, no song volume, no speed" },
         Music.bitPerfect) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }
@@ -640,6 +660,10 @@ private fun SoundQuality(ui: Ui) {
     Line("Dither", "16-bit music through the EQ is rounded with a whisper of shaped noise, so quiet fades stay smooth " +
         "instead of grainy (hi-res music stays 32-bit and needs none)", P.on(P.DITHER)) {
         Switch(P.on(P.DITHER), { Music.setOpt(P.DITHER, it) }, colors = swColors())
+    }
+    if (!onPhone) Line("High-quality resampling", "When a song's rate isn't the sound card's (44.1 kHz music on a 48 kHz card), " +
+        "it's converted with a longer, sharper filter: cleaner highs, a little more work for the PC", P.on(P.HQ_RESAMPLE)) {
+        Switch(P.on(P.HQ_RESAMPLE), { Music.setOpt(P.HQ_RESAMPLE, it) }, colors = swColors())
     }
     Line("Loudness compensation", "Turned down, music loses bass and treble to the ear first: this lifts them back as far as " +
         "the volume is down, and not at all at full volume", P.on(P.LOUDNESS)) {

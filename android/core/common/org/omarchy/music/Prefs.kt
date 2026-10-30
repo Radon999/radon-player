@@ -43,6 +43,7 @@ object Prefs {
     const val TILT = "tilt"                      // dB: > 0 brighter, < 0 warmer (a number)
     const val RG_TARGET = "rg_target"            // ReplayGain's levelling target, LUFS (a number: -23, -18, -16, -14)
     const val LOUDNESS = "loudness_comp"         // loudness compensation at low volume
+    const val HQ_RESAMPLE = "hq_resample"        // the PC: a longer, sharper resampling filter when the rate has to change
     const val AUTO_MONO_DEVICE = "auto_mono_device"   // which earbuds (their Bluetooth name)
     const val CONTINUE = "continue_across"       // continue where you left off, across the PC and the phone
     const val SMART_SHUFFLE = "smart_shuffle"
