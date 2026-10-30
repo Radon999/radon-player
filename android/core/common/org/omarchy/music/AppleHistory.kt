@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -41,7 +39,7 @@ object AppleHistory {
     var busy by mutableStateOf<String?>(null)
         private set
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         file = File(c.filesDir, "apple-history.json")
         Music.bg({ stored() })
     }
@@ -157,7 +155,7 @@ object AppleHistory {
 
     /** A library the Music app exported (.xml, a plist): each song's all-time Play Count. */
     internal fun parseLibrary(input: InputStream): List<Row> {
-        val p = android.util.Xml.newPullParser()
+        val p = xmlParser()
         p.setInput(input, null)
         val out = ArrayList<Row>()
         var depth = 0; var key = ""; var song = HashMap<String, String>(); var inSong = false
@@ -202,13 +200,12 @@ object AppleHistory {
     }
 
     /** Read Apple's zip, one of its .csv files, or a library .xml at uri; how many plays were new (blocking). */
-    fun importFile(ctx: Context, uri: Uri): Int {
+    fun importFile(ctx: Ctx, uri: String): Int {
         busy = "Reading your Apple Music history…"
         try {
             val found = HashMap<String, List<Row>>()
-            val name = ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: uri.lastPathSegment.orEmpty()
-            BufferedInputStream(ctx.contentResolver.openInputStream(uri) ?: error("couldn't open that file")).use { s ->
+            val name = ctx.displayName(uri) ?: uri.substringBefore('?').substringAfterLast('/')
+            BufferedInputStream(ctx.openIn(uri) ?: error("couldn't open that file")).use { s ->
                 s.mark(4)
                 val head = ByteArray(2).let { if (s.read(it) == 2) it else ByteArray(2) }
                 s.reset()

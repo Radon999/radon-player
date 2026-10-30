@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -82,11 +81,11 @@ object Tagger {
     /** (blocking) Put plan into its file, and the library. */
     fun write(p: Plan) {
         if (p.fill.isNotEmpty()) {
-            val cr = Music.ctx.contentResolver
+            val cr = Music.ctx
             val tmp = File.createTempFile("tagging", ".flac", Music.ctx.cacheDir)
             try {
-                cr.openInputStream(Uri.parse(p.uri))!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-                cr.openOutputStream(Uri.parse(p.uri), "wt")!!.buffered().use {
+                cr.openIn(p.uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
+                cr.openOut(p.uri)!!.buffered().use {
                     Flac.retag(tmp, it, p.fill.mapKeys { (k, _) -> k.uppercase() }, null, keepOther = true)
                 }
             } finally {

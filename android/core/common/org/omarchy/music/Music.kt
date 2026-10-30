@@ -1,15 +1,9 @@
 package org.omarchy.music
 
-import android.annotation.SuppressLint
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.Player
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,9 +18,8 @@ import java.io.File
  *  The phone's counterpart of the desktop's MusicApp, with the same rules (what plays
  *  next, what counts as played, what downloads when). Lives as long as the process;
  *  everything here runs on the main thread, slow work goes to [bg]. */
-@SuppressLint("StaticFieldLeak")
 object Music {
-    lateinit var ctx: Context
+    lateinit var ctx: Ctx
         private set
     // An error in one of the app's jobs is noted (Settings › Problems) and the app keeps going, music and all.
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + kotlinx.coroutines.CoroutineExceptionHandler { _, e -> Crashes.caught(e) })
@@ -46,10 +39,10 @@ object Music {
 
     /** The player, while the playback service runs. */
     /** The player that plays: the cast device's while casting (Cast), else this phone's (ExoPlayer). */
-    var localPlayer: Player? = null
-    var cast by mutableStateOf<Player?>(null)
+    var localPlayer: Engine? = null
+    var cast by mutableStateOf<Engine?>(null)
     var castName by mutableStateOf("")
-    var player: Player?
+    var player: Engine?
         get() = cast ?: localPlayer
         set(v) {
             localPlayer = v
@@ -61,14 +54,14 @@ object Music {
     private fun castMime(t: Track, uri: String): String {
         val name = (t.file ?: lib.items[t.id]?.file ?: uri).substringBefore('?').lowercase()
         return when {
-            name.endsWith(".mp3") -> MimeTypes.AUDIO_MPEG; name.endsWith(".m4a") || name.endsWith(".aac") -> MimeTypes.AUDIO_MP4
-            name.endsWith(".ogg") || name.endsWith(".opus") -> MimeTypes.AUDIO_OGG; name.endsWith(".wav") -> MimeTypes.AUDIO_WAV
-            else -> MimeTypes.AUDIO_FLAC
+            name.endsWith(".mp3") -> "audio/mpeg"; name.endsWith(".m4a") || name.endsWith(".aac") -> "audio/mp4"
+            name.endsWith(".ogg") || name.endsWith(".opus") -> "audio/ogg"; name.endsWith(".wav") -> "audio/wav"
+            else -> "audio/flac"
         }
     }
 
     /** A cast device connected: what's playing goes there, from where it was. */
-    fun castStarted(p: Player, name: String) {
+    fun castStarted(p: Engine, name: String) {
         val at = position
         val wasPlaying = !paused
         localPlayer?.pause()
@@ -119,7 +112,7 @@ object Music {
     var resumed by mutableStateOf(0)           // bumps when the app comes back on screen (from Android's settings, say)
 
     /** Whether Android shows the app's notifications (the player in the notification shade). */
-    fun notificationsOn(): Boolean = androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled()
+    fun notificationsOn(): Boolean = notificationsOn(ctx)
     var syncSources = mutableStateMapOf<String, Boolean>()
     var keepPlayed by mutableStateOf(false)
     var artColors by mutableStateOf(true)
@@ -162,20 +155,14 @@ object Music {
         bitPerfect = on
         eqProcessor.bypass = on
         if (on) eqProcessor.rgGain = 1.0
-        current()?.let { player?.playbackParameters = playbackOf(it) }
-        val f = (player as? androidx.media3.exoplayer.ExoPlayer)?.audioFormat
-        bg({ dacNote = AudioQuality.applyBitPerfect(ctx, on, f?.sampleRate ?: 0, pcmBits(f?.pcmEncoding ?: 0)) })
+        current()?.let { t -> playbackOf(t).let { (sp, pi) -> player?.setSpeed(sp, pi) } }
+        val rate = player?.audioRate ?: 0; val bits = player?.audioBits ?: 0
+        bg({ dacNote = AudioQuality.applyBitPerfect(ctx, on, rate, bits) })
         saveState()
     }
 
     fun chooseReplayGain(mode: String) { replayGain = mode; saveState(); toast(if (mode == "off") "ReplayGain off" else "ReplayGain: by $mode, from the next song") }
 
-    fun pcmBits(e: Int) = when (e) {
-        androidx.media3.common.C.ENCODING_PCM_16BIT -> 16
-        androidx.media3.common.C.ENCODING_PCM_24BIT -> 24
-        androidx.media3.common.C.ENCODING_PCM_32BIT, androidx.media3.common.C.ENCODING_PCM_FLOAT -> 32
-        else -> 0
-    }
 
     var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": your first music folder
     /** Where downloads go: the folder you picked, else the first folder the Music tab reads. */
@@ -235,9 +222,9 @@ object Music {
                          var sent: Boolean = true, val start: Double = now())
     private var listen: Listen? = null
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         if (::ctx.isInitialized) return
-        ctx = c.applicationContext
+        ctx = appCtx(c)
         Prefs.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
         eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
@@ -261,20 +248,16 @@ object Music {
         bg({ lib.prune() }) { _, _ -> savedVersion++ }
         rescan()
         // Headphones coming and going: their correction comes with them (see outputChanged).
-        (ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager).registerAudioDeviceCallback(
-            object : android.media.AudioDeviceCallback() {
-                override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>) = outputChanged()
-                override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) = outputChanged()
-            }, android.os.Handler(android.os.Looper.getMainLooper()))
+        watchOutputs(ctx) { outputChanged() }
         scope.launch {
             while (true) {   // the position, and what counts as played
                 val p = player
                 if (p != null && p.isPlaying) {
-                    val now = p.currentPosition / 1000.0
+                    val now = p.positionMs / 1000.0
                     val step = now - position
                     position = now
                     if (step in 0.0..1.5) listened(step)
-                    p.duration.takeIf { it > 0 }?.let { duration = it / 1000.0 }
+                    p.durationMs.takeIf { it > 0 }?.let { duration = it / 1000.0 }
                     maybeCrossfade(p)
                 }
                 delay(500)
@@ -340,8 +323,6 @@ object Music {
         browseLocal = st.browse_local
         searchBeforeLocal = st.search_before_local.takeIf { it in SEARCH_IN && it != "local" } ?: "tidal"
         // The Apple Music look came with 1.3: everyone starts on it (dark if the phone is), and can pick any other after.
-        val night = (ctx.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
         // 1.4 keeps Light, Dark and Now playing: any other look becomes Light or Dark, as the phone is.
         look = st.look.takeIf { st.apple_ui && org.omarchy.music.ui.Looks.known(it) } ?: "nowplaying"   // 2.0: a first start is on Now playing
         npFallback = st.np_fallback.takeIf { it == "apple" || it == "apple-dark" } ?: "apple-dark"
@@ -510,7 +491,7 @@ object Music {
         bg({
             val url = if (source.startsWith("content://")) {
                 val f = File(File(ctx.filesDir, "artists").apply { mkdirs() }, "${randomHex(8)}.jpg")
-                ctx.contentResolver.openInputStream(android.net.Uri.parse(source))!!.use { input -> f.outputStream().use { input.copyTo(it) } }
+                ctx.openIn(source)!!.use { input -> f.outputStream().use { input.copyTo(it) } }
                 f.path
             } else source
             Pictures.chooseArtist(name, url)
@@ -869,18 +850,12 @@ object Music {
      *  Each is a file on the phone (where the playlist says, else one by the same name in the
      *  same folder), else the same song in your music, else the best match on Tidal (YouTube
      *  Music without it). */
-    fun importM3u(uri: android.net.Uri): Triple<String, List<Track>, List<Missed>> {
-        val cr = ctx.contentResolver
-        val fileName = runCatching {
-            cr.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-                if (c.moveToFirst()) c.getString(0) else null
-            }
-        }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Playlist"
-        val entries = readM3u(cr.openInputStream(uri)?.use { it.readBytes() } ?: error("couldn't open that file"))
+    fun importM3u(uri: String): Triple<String, List<Track>, List<Missed>> {
+        val fileName = ctx.displayName(uri) ?: uri.substringBefore('?').substringAfterLast('/').ifEmpty { "Playlist" }
+        val entries = readM3u(ctx.openIn(uri)?.use { it.readBytes() } ?: error("couldn't open that file"))
         if (entries.isEmpty()) error("no songs in $fileName")
         // The playlist's own folder, for the paths in it that start from there ("../Album/01.flac").
-        val docId = runCatching { android.provider.DocumentsContract.getDocumentId(uri) }.getOrNull() ?: ""
-        val here = if (uri.authority == "com.android.externalstorage.documents") docId.substringAfter(':').substringBeforeLast('/', "") else ""
+        val here = ctx.folderOf(uri)
         val phone = runCatching { local.everywhere() }.getOrDefault(emptyMap())
         val byPath = phone.mapKeys { it.key.lowercase() }
         val tails = HashMap<String, Track>()
@@ -907,7 +882,7 @@ object Music {
                     why = "its link didn't open (${x.message?.take(60)})"; null
                 }
             } else {
-                var where = (if (e.loc.startsWith("file://")) android.net.Uri.decode(e.loc.substring(7)) else e.loc).replace('\\', '/')
+                var where = (if (e.loc.startsWith("file://")) java.net.URLDecoder.decode(e.loc.substring(7).replace("+", "%2B"), "UTF-8") else e.loc).replace('\\', '/')
                 where = where.replace(Regex("^(/storage/emulated/\\d+|/sdcard|/storage/self/primary)/"), "")
                 val full = if (where.startsWith("/") || Regex("^[A-Za-z]:/").containsMatchIn(where)) where
                     else java.io.File("/$here", where).normalize().path.removePrefix("/")
@@ -953,7 +928,7 @@ object Music {
     }
 
     /** Make a playlist of yours from the .m3u8 at uri, named after the file. */
-    fun importPlaylist(uri: android.net.Uri) {
+    fun importPlaylist(uri: String) {
         if (importing != null) { toast("Still importing the last one…"); return }
         importing = "Reading the playlist…"
         bg({ importM3u(uri) }) { res, err ->
@@ -963,7 +938,7 @@ object Music {
             val id = lists.create(name).id
             lists.add(id, tracks)
             musicVersion++
-            missed.forEach { android.util.Log.i("omarchy-music", "import $name: not found: ${it.name} (${it.why})") }
+            missed.forEach { logWarn("import $name: not found: ${it.name} (${it.why})") }
             toast("Imported “$name”: ${tracks.size} songs" + if (missed.isNotEmpty()) " (${missed.size} not found)" else "")
             if (missed.isNotEmpty()) importReport = ImportReport(id, name, missed)
         }
@@ -1074,7 +1049,7 @@ object Music {
             }.take(1).takeIf { it.isNotEmpty() }?.let { single = Triple(key, null, it) }
         }
         single?.let { releaseFound[ck] = it; return it }
-        last?.let { android.util.Log.w("radon-player", "release ${r.title}", it) }
+        last?.let { logWarn("release ${r.title}", it) }
         return null
     }
 
@@ -1300,7 +1275,7 @@ object Music {
 
     /** Ask Android to put files in its trash (one ask at a time; Android 10 can't: they stay). */
     fun queueTrash(job: TrashJob) {
-        if (android.os.Build.VERSION.SDK_INT < 30) { toast("Android 10 can't put other apps' files in the trash: your old files stay"); return }
+        if (!sdkAtLeast(30)) { toast("Android 10 can't put other apps' files in the trash: your old files stay"); return }
         if (trashJob == null) trashJob = job else trashQueue.addLast(job)
     }
 
@@ -1376,14 +1351,8 @@ object Music {
         lib.items[t.id]?.let { e -> return listOf(e.format.uppercase().ifEmpty { "?" }, e.quality).filter { it.isNotEmpty() }.joinToString(" · ") }
         val f = t.file ?: return ""
         return runCatching {
-            ctx.contentResolver.query(android.net.Uri.parse(f), arrayOf(android.provider.MediaStore.Audio.Media.MIME_TYPE,
-                android.provider.MediaStore.Audio.Media.SIZE), null, null, null)?.use { c ->
-                if (!c.moveToFirst()) "" else {
-                    val mime = c.getString(0) ?: ""
-                    val mb = c.getLong(1) / 1e6
-                    listOf(mime.substringAfter('/').uppercase().replace("X-", "").replace("MPEG", "MP3"), "%.1f MB".format(mb)).joinToString(" · ")
-                }
-            } ?: ""
+            val (mime, size) = ctx.typeAndSize(f) ?: return@runCatching ""
+            listOf(mime.substringAfter('/').uppercase().replace("X-", "").replace("MPEG", "MP3"), "%.1f MB".format(size / 1e6)).joinToString(" · ")
         }.getOrDefault("")
     }
 
@@ -1432,7 +1401,7 @@ object Music {
     /** The song playing (old) was upgraded to id: play on in the new file from where you are. */
     private fun swapPlaying(old: Track, id: String) {
         val new = lib.items[id]?.track() ?: return
-        val at = player?.currentPosition?.let { it / 1000.0 } ?: position
+        val at = player?.positionMs?.let { it / 1000.0 } ?: position
         val wasPaused = paused
         retarget(listOf(old.id), new)
         queue = queue.toMutableList().also { if (index in it.indices) it[index] = new.slim() }
@@ -1487,20 +1456,17 @@ object Music {
     fun chooseDupeAction(a: String) { dupeAction = a; saveState() }
 
     /** Write tracks as an .m3u8 playlist to uri (a file you picked). */
-    fun exportM3u8(uri: android.net.Uri, tracks: List<Track>) {
+    fun exportM3u8(uri: String, tracks: List<Track>) {
         bg({
             val text = m3u8Text(tracks) { t ->
                 val f = lib.items[t.id]?.file ?: t.file
                 f?.let { a -> local.paths[a]?.let { p -> "/storage/emulated/0/$p" + (displayName(a) ?: "") } ?: if (a.startsWith("/")) a else null }
             }
-            ctx.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+            ctx.openOut(uri)!!.use { it.write(text.toByteArray()) }
         }) { _, err -> toast(if (err != null) "Couldn't save the playlist: ${err.message?.take(80)}" else "Playlist saved: ${tracks.size} songs") }
     }
 
-    private fun displayName(uri: String): String? = runCatching {
-        ctx.contentResolver.query(android.net.Uri.parse(uri), arrayOf(android.provider.MediaStore.Audio.Media.DISPLAY_NAME), null, null, null)
-            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-    }.getOrNull()
+    private fun displayName(uri: String): String? = ctx.displayName(uri)
 
     /** Make source (a picture's web address, or a content:// one you picked) the cover of tracks' album:
      *  into its downloaded FLACs (all but the playing one's), and shown for all of its songs. */
@@ -1508,7 +1474,7 @@ object Music {
         val t = tracks.firstOrNull() ?: return
         val playing = current()?.id
         bg({
-            val raw = if (source.startsWith("content://")) ctx.contentResolver.openInputStream(android.net.Uri.parse(source))!!.use { it.readBytes() }
+            val raw = if (!source.startsWith("http")) ctx.openIn(source)!!.use { it.readBytes() }
                 else httpBytes(source)
             val jpeg = Covers.jpeg(raw)
             val keys = tracks.map { Covers.albumKey(it) }.toSet()   // every album of the songs: all of each one's songs
@@ -1539,8 +1505,8 @@ object Music {
         }
     }
 
-    private fun playbackOf(t: Track) = if (bitPerfect) androidx.media3.common.PlaybackParameters.DEFAULT else speeds.get(t).let { s ->
-        androidx.media3.common.PlaybackParameters(s.speed.toFloat(), if (s.pitch) s.speed.toFloat() else 1f)
+    private fun playbackOf(t: Track): Pair<Float, Float> = if (bitPerfect) 1f to 1f else speeds.get(t).let { s ->
+        s.speed.toFloat() to (if (s.pitch) s.speed.toFloat() else 1f)
     }
 
     /** Play tracks at speed from now on (the playing one too, at once). */
@@ -1548,7 +1514,7 @@ object Music {
         if (tracks.isEmpty()) return
         speeds.set(tracks, speed, pitch)
         val cur = current()
-        if (cur != null && tracks.any { SongSpeeds.key(it) == SongSpeeds.key(cur) }) player?.playbackParameters = playbackOf(cur)
+        if (cur != null && tracks.any { SongSpeeds.key(it) == SongSpeeds.key(cur) }) playbackOf(cur).let { (sp, pi) -> player?.setSpeed(sp, pi) }
         val s = speeds.get(tracks[0]).speed
         val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
         toast(if (s == 1.0) "$what back to normal speed" else "$what at ${fmtSpeed(s)}")
@@ -1590,7 +1556,7 @@ object Music {
 
     /** A song on the phone of another app's (yours) that Android can be asked to delete: its address, or null. */
     fun phoneFile(t: Track): String? =
-        t.file?.takeIf { t.isFile && !lib.has(t.id) && it.startsWith("content://media/") && android.os.Build.VERSION.SDK_INT >= 30 }
+        t.file?.takeIf { t.isFile && !lib.has(t.id) && it.startsWith("content://media/") && sdkAtLeast(30) }
 
     fun deletable(t: Track) = lib.has(t.id) || phoneFile(t) != null
 
@@ -1746,7 +1712,7 @@ object Music {
     fun shownIndex() = if (Remote.active) Remote.status.index else index
     fun shownTrack() = if (Remote.active) Remote.status.track else current()
     fun shownRadio() = if (Remote.active) Remote.status.radio else isRadio()
-    fun livePosition(): Double = if (Remote.active) Remote.livePosition() else player?.let { it.currentPosition / 1000.0 } ?: position
+    fun livePosition(): Double = if (Remote.active) Remote.livePosition() else player?.let { it.positionMs / 1000.0 } ?: position
 
     /** Play tracks[i], then the rest of tracks; the songs you queued come first. */
     fun playFrom(tracks: List<Track>, i: Int, radio: Boolean) {
@@ -1819,7 +1785,7 @@ object Music {
     fun setLyricsToFiles(on: Boolean) { lyricsToFiles = on; saveState() }
 
     /** Whether the app may write into your own files too (Android 11 and up: All files access). */
-    fun canWriteOwnFiles() = android.os.Build.VERSION.SDK_INT < 30 || android.os.Environment.isExternalStorageManager()
+    fun canWriteOwnFiles() = canWriteOwnFiles(ctx)
 
     /** Write the lyrics found for t into its file's tags (if it has none). Your own files need All files access. */
     fun lyricsIntoFile(t: Track, force: Boolean = false) {   // force: asked for (the Tagger), whatever the setting
@@ -1990,7 +1956,7 @@ object Music {
         if (!advancing) return
         advancing = false
         val p = player ?: return
-        if (p.playbackState == Player.STATE_ENDED) p.pause()   // nothing came: it stops, and Android hears it
+        if (p.state == Engine.ENDED) p.pause()   // nothing came: it stops, and Android hears it
     }
 
     // ---- 2.0: song crossfade ----
@@ -1998,7 +1964,7 @@ object Music {
     private var fadeIn = 0.0
     private var fadeJob: kotlinx.coroutines.Job? = null
 
-    private var tail: androidx.media3.exoplayer.ExoPlayer? = null   // the song ending, ready to carry on fading in a player of its own
+    private var tail: Engine? = null   // the song ending, ready to carry on fading in a player of its own
     private var tailFor: String? = null
 
     private fun dropTail() {
@@ -2011,7 +1977,7 @@ object Music {
      *  the same moment (only once it's really playing does this one move on), so there's no gap: the ending song
      *  gets quieter while the next one comes up from quiet, both at once. Not with bit-perfect, Repeat one, streams,
      *  casting, or (Smart transitions) between songs of one album, which flow into each other. */
-    private fun maybeCrossfade(p: Player) {
+    private fun maybeCrossfade(p: Engine) {
         val t = current()
         if (t == null || !Prefs.on(Prefs.CROSSFADE) || bitPerfect || repeat == "one" || Remote.active || cast != null || streaming) {
             if (tail != null && tailFor != fadingId) dropTail()
@@ -2026,22 +1992,16 @@ object Music {
         val fadeAt = duration - n
         // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
         if (tail == null && position >= fadeAt - 5 && position < fadeAt) {
-            val uri = p.currentMediaItem?.localConfiguration?.uri ?: return
+            val uri = p.currentUri ?: return
             runCatching {
-                val x = androidx.media3.exoplayer.ExoPlayer.Builder(ctx)
-                    .setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA)
-                        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC).build(), false).build()
-                x.setMediaItem(MediaItem.fromUri(uri), (fadeAt * 1000).toLong())
-                x.volume = 0f
-                x.playWhenReady = false
-                x.prepare()
+                val x = p.tail(uri, (fadeAt * 1000).toLong()) ?: return
                 tail = x; tailFor = t.id
             }
             return
         }
         val x = tail ?: return
         if (position < fadeAt) return
-        if (x.playbackState != Player.STATE_READY) {   // not ready in time: no crossfade this once, just the usual change
+        if (x.state != Engine.READY) {   // not ready in time: no crossfade this once, just the usual change
             if (position > duration - 1) dropTail()
             return
         }
@@ -2049,17 +2009,15 @@ object Music {
         // moves on to the next song (coming up from quiet), and the ending fades out over the same seconds.
         fadingId = t.id
         val from = p.volume.coerceAtLeast(0.05f)
-        x.seekTo(p.currentPosition + 40)
+        x.seekTo(p.positionMs + 40)
         x.volume = from
-        x.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (!isPlaying || fadingId != t.id || current()?.id != t.id) return
-                x.removeListener(this)
+        x.onceSounding {
+            if (fadingId == t.id && current()?.id == t.id) {
                 player?.volume = 0f   // the second player has it now: no doubled sound while the next one loads
                 fadeIn = n
                 trackEnded()
             }
-        })
+        }
         x.play()
         tail = null; tailFor = null
         scope.launch {
@@ -2144,7 +2102,7 @@ object Music {
         val p = player ?: return
         if (current() == null) return
         if (p.isPlaying) p.pause() else {
-            if (p.playbackState == Player.STATE_IDLE || p.mediaItemCount == 0) loadCurrent() else p.play()
+            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
         }
     }
 
@@ -2223,19 +2181,15 @@ object Music {
 
     private fun play(t: Track, ready: Downloader.Ready, autoplay: Boolean, startAt: Double = 0.0) {
         val p = player ?: return
-        val art = lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && cast == null }?.let { android.net.Uri.fromFile(File(it)) }
-            ?: t.thumb.takeIf { it.isNotEmpty() }?.let { android.net.Uri.parse(sizedThumb(it, 544)) }
+        val art = lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && cast == null }
+            ?: t.thumb.takeIf { it.isNotEmpty() }?.let { sizedThumb(it, 544) }
         // Casting: the device fetches the song itself: a stream as it is, a file of the phone's from here over the network.
         val uri = if (cast != null && !ready.uri.startsWith("http")) PhoneShare.forCast(t, castHost) ?: ready.uri else ready.uri
-        val item = MediaItem.Builder().setUri(uri).setMediaId(t.id)
-            .apply { if (ready.isDash) setMimeType(MimeTypes.APPLICATION_MPD) else if (cast != null) setMimeType(castMime(t, uri)) }
-            .setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album)
-                .setArtworkUri(art).build())
-            .build()
-        p.setMediaItem(item, (startAt * 1000).toLong())
-        p.playbackParameters = playbackOf(t)
+        val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (cast != null) castMime(t, uri) else null,
+            t.title, t.artist, t.album, art)
+        p.load(item, (startAt * 1000).toLong())
+        playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         eqProcessor.songGain = gainOf(t)
-        p.prepare()
         p.playWhenReady = autoplay
         advancing = false   // buffering for real now
         fadeJob?.cancel()
@@ -2292,11 +2246,10 @@ object Music {
 
     /** Keep an AutoEq profile among your headphones and use it. */
     /** An EQ file of yours (AutoEq, Squiglink, Wavelet, Equalizer APO), picked: among your headphones, and used. */
-    fun importEqFile(uri: android.net.Uri) {
+    fun importEqFile(uri: String) {
         bg({
-            val text = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
-            val name = (ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "My EQ")
+            val text = ctx.openIn(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+            val name = (ctx.displayName(uri) ?: "My EQ")
                 .substringBeforeLast('.').replace(Regex("\\s*(ParametricEQ|GraphicEQ)$"), "").trim().ifEmpty { "My EQ" }
             name to AutoEq.parseFile(text)
         }) { r, err ->

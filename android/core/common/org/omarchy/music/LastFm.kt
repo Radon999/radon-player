@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.annotation.SuppressLint
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,7 +17,6 @@ class LastFmError(val code: Int, message: String) : RuntimeException("Last.fm: $
  *  make one (free, a minute) at last.fm/api/account/create and give the app its key and
  *  secret, then approve the app on Last.fm's site. Scrobbles wait on the phone while it's
  *  offline, for the two weeks Last.fm still takes them. */
-@SuppressLint("StaticFieldLeak")
 object LastFm {
     private const val API = "https://ws.audioscrobbler.com/2.0/"
 
@@ -30,7 +27,7 @@ object LastFm {
     data class Scrobble(val artist: String, val title: String, val album: String = "", val albumartist: String = "",
                         val duration: Int = 0, val mbid: String = "", val timestamp: Long)
 
-    private lateinit var ctx: Context
+    private lateinit var ctx: Ctx
     private lateinit var file: File
     private lateinit var queueFile: File
     var key by mutableStateOf("")
@@ -47,9 +44,9 @@ object LastFm {
 
     val connected get() = key.isNotEmpty() && secret.isNotEmpty() && session.isNotEmpty()
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         if (::ctx.isInitialized) return
-        ctx = c.applicationContext
+        ctx = appCtx(c)
         file = File(ctx.filesDir, "lastfm.json")
         queueFile = File(ctx.filesDir, "scrobbles.json")
         readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() }?.let {

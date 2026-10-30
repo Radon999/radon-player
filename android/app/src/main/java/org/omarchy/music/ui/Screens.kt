@@ -248,7 +248,7 @@ fun MusicTab(ui: Ui) {
     if (choosing) FolderBrowser { choosing = false }
     LaunchedEffect(Unit) { if (granted) Music.rescanSoon() }
     LaunchedEffect(ui.musicView, Music.accountsVersion, SpotifyHistory.count, org.omarchy.music.DeezerHistory.count) { if (ui.musicView == "top") Stats.refresh() }
-    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importPlaylist(uri) }
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importPlaylist(uri.toString()) }
     Music.musicVersion
     Music.savedVersion
     Column(Modifier.fillMaxSize()) {

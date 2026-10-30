@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.webkit.CookieManager
@@ -9,9 +7,8 @@ import android.webkit.CookieManager
 /** Signing in to the services you browse and connecting them at start. YouTube Music and
  *  Apple Music sign in on their own web pages inside the app (the desktop reads Chromium's
  *  cookies instead); the cookies those pages leave are the login. */
-@SuppressLint("StaticFieldLeak")
 object Services {
-    private lateinit var ctx: Context
+    private lateinit var ctx: Ctx
     private var started = false
 
     private const val YTM = "https://music.youtube.com"
@@ -20,10 +17,10 @@ object Services {
     private fun cookies(url: String): String? = runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
 
     /** Connect every service, each as soon as it answers; then the phone remote. */
-    fun start(c: Context) {
+    fun start(c: Ctx) {
         if (started) return
         started = true
-        ctx = c.applicationContext
+        ctx = appCtx(c)
         connect("ytm")
         connect("apple")
         connect("spotify")

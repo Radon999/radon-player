@@ -1,9 +1,9 @@
 package org.omarchy.music
 
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.LocalDate
@@ -28,10 +28,9 @@ object NewReleases {
     var kind by mutableStateOf("album")   // the tab: album, single, ep, artists
     @Volatile var stop = false
     private val ids = HashMap<String, Long>()
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private lateinit var file: File
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         file = File(c.filesDir, "new-releases.json")
         Music.bg({ readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
             if (s != null) { artists = s.artists; found = s.found; scanned = s.scanned; range = s.range; ids.putAll(s.ids) }
@@ -102,7 +101,7 @@ object NewReleases {
             for ((i, name) in names.withIndex()) {
                 if (stop) break
                 val line = "Looking at $name · ${i + 1} of ${names.size}"
-                main.post { status = line }
+                Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = line }
                 val aid = runCatching { artistId(name) }.getOrDefault(0L)
                 if (aid == 0L) continue
                 val got = runCatching { deezer("https://api.deezer.com/artist/$aid/albums?limit=100") }.getOrNull() ?: continue

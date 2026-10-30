@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import java.io.File
 
 /** Editing songs' tags by hand (Edit tags…), the desktop's TAG_FIELDS. Only the FLACs the app
@@ -29,22 +27,22 @@ object Tags {
         }
     }
 
-    fun read(ctx: Context, uris: List<String>): Map<String, String?> = common(uris.map { u ->
-        runCatching { ctx.contentResolver.openInputStream(Uri.parse(u))!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }
+    fun read(ctx: Ctx, uris: List<String>): Map<String, String?> = common(uris.map { u ->
+        runCatching { ctx.openIn(u)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }
             .getOrDefault(emptyMap())
     })
 
     /** Write changes into the FLAC at uri (blocking); returns its comments as they are now. */
-    fun write(ctx: Context, uri: String, changes: Map<String, String>): Map<String, List<String>> {
-        val cr = ctx.contentResolver
+    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Map<String, List<String>> {
+        val cr = ctx
         val tmp = File.createTempFile("tags", ".flac", ctx.cacheDir)
         try {
-            cr.openInputStream(Uri.parse(uri))!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-            cr.openOutputStream(Uri.parse(uri), "wt")!!.buffered().use { Flac.retag(tmp, it, comments(changes), null, keepOther = true) }
+            cr.openIn(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
+            cr.openOut(uri)!!.buffered().use { Flac.retag(tmp, it, comments(changes), null, keepOther = true) }
         } finally {
             tmp.delete()
         }
-        return cr.openInputStream(Uri.parse(uri))!!.buffered().use { Flac.comments(Flac.readHeader(it)) }
+        return cr.openIn(uri)!!.buffered().use { Flac.comments(Flac.readHeader(it)) }
     }
 }
 
@@ -61,17 +59,16 @@ object Covers {
     /** Picture bytes as a JPEG (FLAC covers here are JPEGs). */
     fun jpeg(b: ByteArray): ByteArray {
         if (isJpeg(b)) return b
-        val bmp = android.graphics.BitmapFactory.decodeByteArray(b, 0, b.size) ?: error("that isn't a picture")
-        return java.io.ByteArrayOutputStream().also { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }.toByteArray()
+        return toJpeg(b) ?: error("that isn't a picture")
     }
 
     /** Put jpeg in the FLAC at uri (one the app made) as its cover, keeping its tags. */
-    fun write(ctx: Context, uri: String, jpeg: ByteArray) {
-        val cr = ctx.contentResolver
+    fun write(ctx: Ctx, uri: String, jpeg: ByteArray) {
+        val cr = ctx
         val tmp = File.createTempFile("cover", ".flac", ctx.cacheDir)
         try {
-            cr.openInputStream(Uri.parse(uri))!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-            cr.openOutputStream(Uri.parse(uri), "wt")!!.buffered().use { Flac.retag(tmp, it, emptyMap(), jpeg, keepOther = true) }
+            cr.openIn(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
+            cr.openOut(uri)!!.buffered().use { Flac.retag(tmp, it, emptyMap(), jpeg, keepOther = true) }
         } finally {
             tmp.delete()
         }

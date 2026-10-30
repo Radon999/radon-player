@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.net.Uri
 
 /** The tag scanner (Settings › Tagger › Scan…): the desktop's tag_scan_plan. Your songs' tags checked against
  *  Deezer's catalogue; what's missing or different is offered an album at a time, each Replace or Keep, and an album
@@ -80,7 +79,7 @@ object TagScan {
 
     /** A FLAC's tags as the scanner reads them, and its cover (null if none). */
     fun read(uri: String): Pair<Map<String, String>, ByteArray?> = runCatching {
-        Music.ctx.contentResolver.openInputStream(Uri.parse(uri))!!.buffered().use { s ->
+        Music.ctx.openIn(uri)!!.buffered().use { s ->
             val blocks = Flac.readHeader(s)
             val c = Flac.comments(blocks)
             FIELDS.keys.associateWith { k ->
@@ -91,9 +90,7 @@ object TagScan {
     }.getOrDefault(FIELDS.keys.associateWith { "" } to null)
 
     fun width(b: ByteArray): Int {
-        val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        android.graphics.BitmapFactory.decodeByteArray(b, 0, b.size, o)
-        return minOf(o.outWidth, o.outHeight).coerceAtLeast(0)
+        return imageMinSide(b)
     }
 
     /** What the scanner offers for songs [(uri, the song)]; albums with something to offer only. */
@@ -168,7 +165,7 @@ object TagScan {
     fun apply(tags: Map<String, Map<String, String>>, covers: Map<String, Pair<String, List<String>>>): List<String> {
         val out = ArrayList<String>()
         for ((uri, ch) in tags) {
-            val name = Uri.decode(Uri.parse(uri).lastPathSegment ?: uri)
+            val name = java.net.URLDecoder.decode(uri.substringBefore('?').substringAfterLast('/').replace("+", "%2B"), "UTF-8").substringAfterLast('/').substringAfterLast(':')
             runCatching { Tags.write(Music.ctx, uri, ch) }
                 .onSuccess { out += "$name: " + ch.entries.joinToString("; ") { (k, v) -> "${FIELDS[k] ?: k} → $v" } }
                 .onFailure { out += "Couldn't change $name: ${it.message}" }

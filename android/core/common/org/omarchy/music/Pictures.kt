@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import java.io.File
@@ -41,10 +40,10 @@ object Pictures {
 
     private var picsDir: File? = null   // where artists' pictures are kept on the phone (not looked up again)
 
-    fun init(c: Context) {
-        val f = File(c.applicationContext.filesDir, "pictures.json")
+    fun init(c: Ctx) {
+        val f = File(appCtx(c).filesDir, "pictures.json")
         file = f
-        picsDir = File(c.applicationContext.filesDir, "artist-pics")
+        picsDir = File(appCtx(c).filesDir, "artist-pics")
         Music.bg({ readText(f)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
             if (s != null) synchronized(this) { s.artists.forEach { (k, v) -> artists.putIfAbsent(k, v) }; s.covers.forEach { (k, v) -> covers.putIfAbsent(k, v) } }
         }
@@ -57,7 +56,7 @@ object Pictures {
     }
 
     private fun <T> tried(what: String, work: () -> T): T? = try { work() } catch (e: Exception) {
-        runCatching { android.util.Log.w("omarchy-music", "pictures: $what: $e") }   // (not on the JVM tests' fake Android)
+        runCatching { logWarn("pictures: $what: $e") }   // (not on the JVM tests' fake Android)
         null
     }
 

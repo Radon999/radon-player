@@ -537,7 +537,7 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
     val ctx = LocalContext.current
     val allowed = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
     if (!on || !allowed || Remote.active) return null
-    val session = (Music.player as? ExoPlayer)?.audioSessionId ?: 0
+    val session = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? ExoPlayer)?.audioSessionId ?: 0
     val target = remember { FloatArray(Spectrum.BANDS) }
     val levels = remember { FloatArray(Spectrum.BANDS) }
     var frame by remember { mutableIntStateOf(0) }

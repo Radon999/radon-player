@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -61,11 +60,11 @@ object Stats {
         private set
     private var built = 0.0
     private var sig = ""
-    private lateinit var ctx: Context
+    private lateinit var ctx: Ctx
     private val file get() = File(ctx.filesDir, "stats.json")
 
-    fun init(c: Context) {
-        ctx = c.applicationContext
+    fun init(c: Ctx) {
+        ctx = appCtx(c)
         Music.bg({ readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
             if (s != null && songs.isEmpty()) { songs = s.songs; artists = s.artists; periods = s.periods; built = s.built; sig = s.sig
                 time = s.time; milestones = s.milestones }
@@ -98,7 +97,7 @@ object Stats {
             else {
                 built = now() - FOR + 120   // try again in two minutes (not straight away)
                 sig = inputs()
-                android.util.Log.w("omarchy-music", "stats", err)
+                logWarn("stats", err)
             }
             Music.musicVersion++
         }

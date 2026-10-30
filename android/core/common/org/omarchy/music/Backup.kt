@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -15,20 +13,20 @@ object Backup {
     private const val PREFS = "radon-2"   // 2.0's switches (Prefs)
 
     /** (blocking) Into the zip at uri. How many files went in. */
-    fun make(ctx: Context, uri: Uri): Int {
+    fun make(ctx: Ctx, uri: String): Int {
         Music.saveStateNow()
         var n = 0
-        ctx.contentResolver.openOutputStream(uri, "w")!!.use { os ->
+        ctx.openOut(uri, "w")!!.use { os ->
             ZipOutputStream(os).use { z ->
                 z.putNextEntry(ZipEntry("radon-backup.json"))
-                z.write("""{"app":"radon-player","platform":"android","made":${System.currentTimeMillis() / 1000}}""".toByteArray())
+                z.write("""{"app":"radon-player","platform":"$platformName","made":${System.currentTimeMillis() / 1000}}""".toByteArray())
                 z.closeEntry()
                 for (name in FILES) {
                     val f = File(ctx.filesDir, name)
                     if (!f.isFile) continue
                     z.putNextEntry(ZipEntry(name)); f.inputStream().use { it.copyTo(z) }; z.closeEntry(); n++
                 }
-                val prefs = File(ctx.applicationInfo.dataDir, "shared_prefs/$PREFS.xml")
+                val prefs = prefsFile(ctx, PREFS)
                 if (prefs.isFile) { z.putNextEntry(ZipEntry("switches.xml")); prefs.inputStream().use { it.copyTo(z) }; z.closeEntry() }
             }
         }
@@ -36,9 +34,9 @@ object Backup {
     }
 
     /** (blocking) Put a backup back: each file in its place, the one there kept as .before-restore. The names restored. */
-    fun restore(ctx: Context, uri: Uri): List<String> {
+    fun restore(ctx: Ctx, uri: String): List<String> {
         val got = HashMap<String, ByteArray>()
-        ctx.contentResolver.openInputStream(uri)!!.use { ins ->
+        ctx.openIn(uri)!!.use { ins ->
             ZipInputStream(ins).use { z ->
                 while (true) {
                     val e = z.nextEntry ?: break
@@ -47,7 +45,7 @@ object Backup {
             }
         }
         val info = got["radon-backup.json"]?.decodeToString() ?: throw IllegalArgumentException("that isn't a Radon Player backup")
-        if ("\"android\"" !in info) throw IllegalArgumentException("that's the PC's backup: restore it in the PC app")
+        if ("\"$platformName\"" !in info) throw IllegalArgumentException("that's a backup from the other app (phone or PC): restore it there")
         val done = ArrayList<String>()
         for (name in FILES) {
             val data = got[name] ?: continue
@@ -56,13 +54,13 @@ object Backup {
             writeAtomic(f, data.decodeToString())
             done += name
         }
-        got["switches.xml"]?.let { File(ctx.applicationInfo.dataDir, "shared_prefs/$PREFS.xml").writeBytes(it) }
+        got["switches.xml"]?.let { prefsFile(ctx, PREFS).apply { parentFile?.mkdirs() }.writeBytes(it) }
         return done
     }
 
     /** After a restore: the app closes (its music service too), to start afresh with the backup when you open it. */
-    fun close(activity: android.app.Activity?) {
-        activity?.finishAffinity()
+    fun close(activity: Any?) {
+        closeApp(activity)
         Runtime.getRuntime().exit(0)
     }
 }

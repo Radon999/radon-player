@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -248,7 +247,7 @@ object Wrapped {
 
     /** A period's scrobbles: kept, and only the new ones read from Last.fm. */
     /** Every scrobble kept here (Most played reads them all once): no asking Last.fm. */
-    fun keptScrobbles(ctx: Context): List<Row> {
+    fun keptScrobbles(ctx: Ctx): List<Row> {
         if (!LastFm.connected) return emptyList()
         val dir = File(ctx.filesDir, "wrapped")
         val me = safeName(LastFm.user.lowercase())
@@ -277,13 +276,13 @@ object Wrapped {
 
     /** Your scrobbles in year, as (time, title), from the cache Wrapped keeps (blocking: what's
      *  new is asked of Last.fm). For [Stats], to tell which Spotify plays Last.fm has too. */
-    fun scrobblePlays(ctx: Context, period: Period): List<SpotifyHistory.Play> =
+    fun scrobblePlays(ctx: Ctx, period: Period): List<SpotifyHistory.Play> =
         scrobbles(File(ctx.filesDir, "wrapped").apply { mkdirs() }, period) {}.map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album) }
 
     /** (blocking) Every scrobble you have on Last.fm, a year at a time (kept: after the first time only the
      *  new ones are read). From the year you joined, and further back while there are fewer than Last.fm's
      *  count (scrobbles imported from before). For [Stats]. */
-    fun allScrobbles(ctx: Context, progress: (String) -> Unit = {}): List<Row> {
+    fun allScrobbles(ctx: Ctx, progress: (String) -> Unit = {}): List<Row> {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val me = LastFm.info()
         val now = LocalDate.now().year
@@ -303,7 +302,7 @@ object Wrapped {
     }
 
     /** Everything Wrapped shows for a period. It blocks. */
-    fun load(ctx: Context, period: Period, progress: (String) -> Unit): Data {
+    fun load(ctx: Ctx, period: Period, progress: (String) -> Unit): Data {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
         val spotify = (SpotifyHistory.plays + DeezerHistory.plays + AppleHistory.timed()).sortedBy { it.t }   // Spotify's, Deezer's and Apple Music's plays
@@ -402,8 +401,7 @@ object Wrapped {
                     val uri = Music.lib.items[t.id]?.file ?: t.file
                     val out = java.io.File(dir, "mine-${safeName(uri ?: t.id).takeLast(60)}.jpg")
                     if (out.exists()) "file://${out.path}" else runCatching {
-                        val r = android.media.MediaMetadataRetriever()
-                        try { r.setDataSource(Music.ctx, android.net.Uri.parse(uri)); r.embeddedPicture } finally { r.release() }
+                        uri?.let { embeddedPicture(Music.ctx, it) }
                     }.getOrNull()?.let { out.writeBytes(it); "file://${out.path}" } ?: ""
                 }
             }

@@ -1,8 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.nsd.NsdManager
-import android.net.nsd.NsdServiceInfo
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,7 +49,7 @@ object Remote {
     val active get() = on && paired
     private var started = false
 
-    fun init(ctx: Context) {
+    fun init(ctx: Ctx) {
         if (started) return
         started = true
         file = File(ctx.filesDir, "remote.json")
@@ -93,7 +90,7 @@ object Remote {
         val h = addr.trim().removePrefix("http://").trimEnd('/').let { if (':' in it) it else "$it:$PORT" }
         Music.bg({
             httpJson("http://$h/pair", body = jsonBody(buildJsonObject {
-                put("code", code.trim()); put("name", android.os.Build.MODEL)
+                put("code", code.trim()); put("name", deviceName)
             }))
         }) { res, err ->
             val tok = res["token"].str
@@ -277,8 +274,7 @@ object Remote {
 
     /** A desktop song's art: its picture on the web, or the desktop's copy (songs from its folders). */
     fun artModel(t: Track): Any? = if (t.thumb.isNotEmpty()) sizedThumb(t.thumb, 544)
-        else coil.request.ImageRequest.Builder(Music.ctx).data("http://$host/art?id=${enc(t.id)}")
-            .addHeader("Authorization", "Bearer $token").build()
+        else imageWithAuth(Music.ctx, "http://$host/art?id=${enc(t.id)}", "Bearer $token")
 
     /** (blocking) The cover of a desktop song, for the notification and the lock screen. */
     fun artBytes(t: Track): ByteArray? = runCatching {
@@ -286,26 +282,8 @@ object Remote {
     }.getOrNull()
 
     /** Desktops on this network with the remote on (they announce _omarchy-music._tcp). */
-    private fun discover(ctx: Context) {
-        val nsd = ctx.getSystemService(NsdManager::class.java) ?: return
-        nsd.discoverServices("_omarchy-music._tcp", NsdManager.PROTOCOL_DNS_SD, object : NsdManager.DiscoveryListener {
-            override fun onServiceFound(info: NsdServiceInfo) {
-                @Suppress("DEPRECATION")
-                nsd.resolveService(info, object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(i: NsdServiceInfo, code: Int) {}
-                    override fun onServiceResolved(i: NsdServiceInfo) {
-                        @Suppress("DEPRECATION")
-                        val addr = "${i.host.hostAddress}:${i.port}"
-                        Music.scope.launch { if (found.none { it.second == addr }) found += i.serviceName to addr }
-                    }
-                })
-            }
-            override fun onServiceLost(info: NsdServiceInfo) {}
-            override fun onDiscoveryStarted(type: String) {}
-            override fun onDiscoveryStopped(type: String) {}
-            override fun onStartDiscoveryFailed(type: String, code: Int) {}
-            override fun onStopDiscoveryFailed(type: String, code: Int) {}
-        })
+    private fun discover(ctx: Ctx) = discoverDesktops(ctx) { name, addr ->
+        Music.scope.launch { if (found.none { it.second == addr }) found += name to addr }
     }
 
     const val PORT = 8897

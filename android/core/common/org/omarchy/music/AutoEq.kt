@@ -1,8 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
 import kotlinx.serialization.Serializable
 import java.io.File
 import kotlin.math.ln
@@ -35,7 +32,7 @@ object AutoEq {
         }.toList()
 
     /** (blocking) AutoEq's profiles, from the copy kept here when it's fresh enough. */
-    fun index(ctx: Context): List<Entry> {
+    fun index(ctx: Ctx): List<Entry> {
         val f = File(ctx.cacheDir, "autoeq-index.md")
         if (!f.exists() || now() - f.lastModified() / 1000.0 > INDEX_FOR) {
             try { writeAtomic(f, http(RESULTS + "INDEX.md")) } catch (e: Exception) { if (!f.exists()) throw e }
@@ -117,16 +114,6 @@ object AutoEq {
         return best
     }
 
-    private val HEADPHONE_TYPES = setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLE_HEADSET,
-        AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET,
-        AudioDeviceInfo.TYPE_USB_DEVICE)
-
     /** Where the sound goes now: the headphones connected (Bluetooth, USB, wired), else "". */
-    fun output(ctx: Context): String {
-        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val outs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter { it.type in HEADPHONE_TYPES }
-        val d = outs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET } ?: outs.firstOrNull()
-        return d?.let { it.productName?.toString()?.takeIf { n -> n.isNotBlank() && n != android.os.Build.MODEL } ?: if (
-            it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET) "Wired headphones" else "" } ?: ""
-    }
+    fun output(ctx: Ctx): String = headphonesName(ctx)
 }

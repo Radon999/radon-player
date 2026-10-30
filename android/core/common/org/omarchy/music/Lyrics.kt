@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
 import kotlinx.serialization.Serializable
 import java.io.File
 
@@ -155,7 +154,7 @@ object Lyrics {
 
     /** (blocking) Genius's annotations of the song whose lyrics are got, empty if they aren't
      *  Genius's or it has none. Kept a while, each song's in a file. */
-    fun notes(ctx: Context, got: Got): List<Noted> {
+    fun notes(ctx: Ctx, got: Got): List<Noted> {
         val url = got.url ?: return emptyList()
         if (!url.startsWith("https://genius.com/")) return emptyList()
         val dir = File(ctx.cacheDir, "genius-notes").apply { mkdirs() }
@@ -216,7 +215,7 @@ object Lyrics {
     }
 
     /** The lyrics of track, or null if nobody has them. It blocks. */
-    fun get(ctx: Context, t: Track, refresh: Boolean = false): Got? {
+    fun get(ctx: Ctx, t: Track, refresh: Boolean = false): Got? {
         val m = songMeta(ctx, Music.lib, t)
         if (m.file != null && !refresh) fromFile(m)?.let { return it }
         val dir = File(ctx.cacheDir, "lyrics").apply { mkdirs() }
@@ -229,7 +228,7 @@ object Lyrics {
     }
 
     /** Look for track's lyrics under another artist and title (a search by hand); found ones are kept for it, offline too. */
-    fun search(ctx: Context, t: Track, artist: String, title: String): Got? {
+    fun search(ctx: Ctx, t: Track, artist: String, title: String): Got? {
         val m = songMeta(ctx, Music.lib, t).copy(artist = artist.trim(), title = title.trim(), tidal = null)
         val (got, _) = fetch(m)
         if (got.has) writeAtomic(File(File(ctx.cacheDir, "lyrics").apply { mkdirs() }, "${safeName(t.id)}.json"),

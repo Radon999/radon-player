@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -45,7 +43,7 @@ object SpotifyHistory {
     var busy by mutableStateOf<String?>(null)
         private set
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         file = File(c.filesDir, "spotify-history.json")
         Music.bg({ stored() })
     }
@@ -109,11 +107,11 @@ object SpotifyHistory {
     }
 
     /** Read the zip (or one of its .json files) at uri; how many plays were new (blocking). */
-    fun importFile(ctx: Context, uri: Uri): Int {
+    fun importFile(ctx: Ctx, uri: String): Int {
         val out = ArrayList<Play>()
         busy = "Reading your Spotify history…"
         try {
-            val stream = BufferedInputStream(ctx.contentResolver.openInputStream(uri) ?: error("couldn't open that file"))
+            val stream = BufferedInputStream(ctx.openIn(uri) ?: error("couldn't open that file"))
             stream.use { s ->
                 s.mark(4)
                 val zip = ByteArray(2).let { s.read(it) == 2 && it[0] == 'P'.code.toByte() && it[1] == 'K'.code.toByte() }

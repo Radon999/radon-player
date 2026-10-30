@@ -406,7 +406,7 @@ private fun SpotifyHistoryLine(ui: Ui) {
     val sp = Music.sources["spotify"] as? org.omarchy.music.Spotify
     var asking by remember { mutableStateOf(false) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri.toString()) }) { n, err ->
             Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(140)}"
                 else "Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "")
         }
@@ -442,7 +442,7 @@ private fun AppleHistoryLine() {
     val h = org.omarchy.music.AppleHistory
     var asking by remember { mutableStateOf(false) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri.toString()) }) { n, err ->
             Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
                 else "Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "")
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
@@ -471,7 +471,7 @@ private fun DeezerHistoryLine() {
     val h = org.omarchy.music.DeezerHistory
     var asking by remember { mutableStateOf(false) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
+        if (uri != null) Music.bg({ h.importFile(Music.ctx, uri.toString()) }) { n, err ->
             Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
                 else "Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "")
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
@@ -500,7 +500,7 @@ private fun BackupLines(activity: android.app.Activity?) {
     val ctx = LocalContext.current
     var asking by remember { mutableStateOf<android.net.Uri?>(null) }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) Music.bg({ org.omarchy.music.Backup.make(ctx, uri) }) { n, err ->
+        if (uri != null) Music.bg({ org.omarchy.music.Backup.make(ctx, uri.toString()) }) { n, err ->
             Music.toast(if (err != null) "Couldn't back up: ${err.message?.take(100)}" else "Backed up ($n files)")
         }
     }
@@ -519,7 +519,7 @@ private fun BackupLines(activity: android.app.Activity?) {
             confirmButton = { TextButton({
                 asking = null
                 Music.restoring = true
-                Music.bg({ org.omarchy.music.Backup.restore(ctx, uri) }) { names, err ->
+                Music.bg({ org.omarchy.music.Backup.restore(ctx, uri.toString()) }) { names, err ->
                     if (err != null) { Music.restoring = false; Music.toast("Couldn't restore: ${err.message?.take(120)}") }
                     else { Music.toast("Restored ${names?.size ?: 0} files: open the app again"); Music.scope.launch {
                         kotlinx.coroutines.delay(1500); org.omarchy.music.Backup.close(activity) } }
@@ -1074,7 +1074,7 @@ private fun AutoEqFinder() {
             note = if (err != null) "AutoEq couldn't be reached: ${err.message?.take(80)}" else if (found.isEmpty()) "Nothing in AutoEq by that name" else ""
         }
     }
-    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importEqFile(uri) }
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) Music.importEqFile(uri.toString()) }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
         Box(Modifier.weight(1f)) { Field(q, "Auto EQ: find your headphones") { q = it } }
         Spacer(Modifier.width(6.dp))
@@ -1395,7 +1395,7 @@ private fun Exporter(ui: Ui) {
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
         val t = pending
         pending = null
-        if (uri != null && t != null) Music.exportM3u8(uri, t)
+        if (uri != null && t != null) Music.exportM3u8(uri.toString(), t)
     }
     val job = ui.exportFor
     LaunchedEffect(job) {

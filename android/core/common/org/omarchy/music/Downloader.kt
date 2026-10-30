@@ -1,8 +1,5 @@
 package org.omarchy.music
 
-import android.content.ContentValues
-import android.content.Context
-import android.provider.MediaStore
 import kotlinx.serialization.json.JsonElement
 import java.io.File
 import java.io.IOException
@@ -16,7 +13,7 @@ import kotlin.concurrent.thread
 /** Gets songs ready to play: Tidal's stream looked up (nothing saved), or the song
  *  downloaded as tagged FLAC into Music/Omarchy Music/. Songs Tidal has no lossless copy
  *  of stream in what there is (Tidal's AAC, else YouTube's audio), but are never saved lossy. */
-class Downloader(private val ctx: Context, private val lib: Library, val tidal: Tidal) {
+class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tidal) {
     data class Ready(val uri: String, val isDash: Boolean = false, val quality: String = "", val onDisk: Boolean = false,
                      val lossyFrom: String? = null)   // "Tidal" or "YouTube": no FLAC of it
 
@@ -168,10 +165,10 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
 
     /** (lossless, bits per sample) of a file on the phone: FLAC's header says, else its type. */
     fun fileQuality(uri: String): Pair<Boolean, Int> {
-        val cr = ctx.contentResolver
-        val mime = runCatching { cr.getType(android.net.Uri.parse(uri)) }.getOrNull() ?: ""
+        val cr = ctx
+        val mime = runCatching { cr.mimeOf(uri) }.getOrNull() ?: ""
         if ("flac" in mime) {
-            val bits = runCatching { cr.openInputStream(android.net.Uri.parse(uri))!!.use { Flac.format(Flac.readHeader(it)).first } }.getOrNull()
+            val bits = runCatching { cr.openIn(uri)!!.use { Flac.format(Flac.readHeader(it)).first } }.getOrNull()
             return true to (bits ?: 16)
         }
         val lossless = listOf("wav", "x-wav", "aiff", "x-aiff", "alac", "x-ape", "x-wavpack").any { mime.endsWith(it) }
@@ -209,7 +206,7 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
                         synchronized(out) { out.missing += t }
                     } catch (e: Exception) {
                         synchronized(out) { out.failed += t to (e.message ?: e.javaClass.simpleName) }
-                        android.util.Log.w("omarchy-music", "download ${t.id} (${t.artist} - ${t.title}) failed", e)
+                        logWarn("download ${t.id} (${t.artist} - ${t.title}) failed", e)
                     }
                 }
                 progress(done.incrementAndGet())
@@ -274,25 +271,7 @@ class Downloader(private val ctx: Context, private val lib: Library, val tidal: 
     }
 
     /** A new file in Music/Omarchy Music/, written by write; returns its content:// address. */
-    private fun saveToMusic(name: String, where: String, write: (java.io.OutputStream) -> Unit): String {
-        val cr = ctx.contentResolver
-        val values = ContentValues().apply {
-            put(MediaStore.Audio.Media.DISPLAY_NAME, name)
-            put(MediaStore.Audio.Media.MIME_TYPE, "audio/flac")
-            put(MediaStore.Audio.Media.RELATIVE_PATH, where)
-            put(MediaStore.Audio.Media.IS_PENDING, 1)
-        }
-        val uri = cr.insert(MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
-            ?: error("couldn't make $name in Music/")
-        try {
-            cr.openOutputStream(uri)!!.buffered().use(write)
-            cr.update(uri, ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }, null, null)
-        } catch (e: Exception) {
-            cr.delete(uri, null, null)
-            throw e
-        }
-        return uri.toString()
-    }
+    private fun saveToMusic(name: String, where: String, write: (java.io.OutputStream) -> Unit): String = ctx.newMusicFile(name, where, write)
 
     companion object {
         const val STREAM_FOR = 15 * 60   // seconds a looked-up stream address is trusted for

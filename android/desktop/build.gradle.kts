@@ -26,6 +26,8 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation("net.jthink:jaudiotagger:3.0.1")   // reading songs' tags, as mutagen does on the Python app
+    implementation("net.sf.kxml:kxml2:2.3.0")
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")   // YouTube's audio, for songs Tidal doesn't have   // XML (the history imports), as Android has it
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
     testImplementation("junit:junit:4.13.2")
 }

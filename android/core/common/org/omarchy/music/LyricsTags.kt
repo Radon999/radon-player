@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -15,9 +13,9 @@ object LyricsTags {
             ?: g.synced?.let { s -> Lyrics.parseLrc(s).joinToString("\n") { it.second }.trim().takeIf { it.isNotEmpty() } }
 
     /** Write text as the lyrics of the file at uri, if it has none (blocking). Returns whether it wrote. */
-    fun write(ctx: Context, uri: String, text: String): Boolean {
-        val cr = ctx.contentResolver
-        val head = cr.openInputStream(Uri.parse(uri))!!.use { s -> ByteArray(10).also { b -> var n = 0; while (n < 10) { val r = s.read(b, n, 10 - n); if (r < 0) break; n += r } } }
+    fun write(ctx: Ctx, uri: String, text: String): Boolean {
+        val cr = ctx
+        val head = cr.openIn(uri)!!.use { s -> ByteArray(10).also { b -> var n = 0; while (n < 10) { val r = s.read(b, n, 10 - n); if (r < 0) break; n += r } } }
         return when {
             String(head, 0, 4, Charsets.ISO_8859_1) == "fLaC" -> flac(ctx, uri)?.let { has -> if (has) false else { Tags.write(ctx, uri, mapOf("lyrics" to text)); true } } ?: false
             String(head, 0, 3, Charsets.ISO_8859_1) == "ID3" || (head[0].toInt() and 0xFF == 0xFF && head[1].toInt() and 0xE0 == 0xE0) -> mp3(ctx, uri, text)
@@ -26,8 +24,8 @@ object LyricsTags {
     }
 
     /** Whether the FLAC has lyrics already (null if unreadable). */
-    private fun flac(ctx: Context, uri: String): Boolean? = runCatching {
-        ctx.contentResolver.openInputStream(Uri.parse(uri))!!.buffered().use { val c = Flac.comments(Flac.readHeader(it))
+    private fun flac(ctx: Ctx, uri: String): Boolean? = runCatching {
+        ctx.openIn(uri)!!.buffered().use { val c = Flac.comments(Flac.readHeader(it))
             !c["LYRICS"].isNullOrEmpty() || !c["UNSYNCEDLYRICS"].isNullOrEmpty() }
     }.getOrNull()
 
@@ -39,9 +37,9 @@ object LyricsTags {
     private fun be32Bytes(n: Int) = byteArrayOf((n ushr 24).toByte(), (n ushr 16).toByte(), (n ushr 8).toByte(), n.toByte())
 
     /** An MP3: its ID3v2 tag with a USLT frame added (a new ID3v2.3 tag if it had none). */
-    private fun mp3(ctx: Context, uri: String, text: String): Boolean {
-        val cr = ctx.contentResolver
-        val all = cr.openInputStream(Uri.parse(uri))!!.use { it.readBytes() }
+    private fun mp3(ctx: Ctx, uri: String, text: String): Boolean {
+        val cr = ctx
+        val all = cr.openIn(uri)!!.use { it.readBytes() }
         var version = 3
         var frames = ByteArray(0)
         var audioFrom = 0
@@ -88,9 +86,9 @@ object LyricsTags {
         // Through a copy in the cache: a write that fails half way leaves the copy to put back.
         val tmp = File.createTempFile("lyrics", ".mp3", ctx.cacheDir).apply { writeBytes(all) }
         try {
-            cr.openOutputStream(Uri.parse(uri), "wt")!!.use { it.write(out) }
+            cr.openOut(uri)!!.use { it.write(out) }
         } catch (e: Exception) {
-            runCatching { cr.openOutputStream(Uri.parse(uri), "wt")!!.use { it.write(tmp.readBytes()) } }
+            runCatching { cr.openOut(uri)!!.use { it.write(tmp.readBytes()) } }
             throw e
         } finally {
             tmp.delete()

@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -35,7 +33,7 @@ object DeezerHistory {
     var busy by mutableStateOf<String?>(null)
         private set
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         file = File(c.filesDir, "deezer-history.json")
         Music.bg({ stored() })
     }
@@ -113,8 +111,8 @@ object DeezerHistory {
     }
 
     /** Each entry of the zip at uri, read one after another (the .xlsx is a zip). */
-    private fun eachEntry(ctx: Context, uri: Uri, use: (String, InputStream) -> Unit) {
-        val input = ctx.contentResolver.openInputStream(uri) ?: error("couldn't open that file")
+    private fun eachEntry(ctx: Ctx, uri: String, use: (String, InputStream) -> Unit) {
+        val input = ctx.openIn(uri) ?: error("couldn't open that file")
         ZipInputStream(input.buffered()).use { z ->
             while (true) {
                 val e = z.nextEntry ?: break
@@ -123,11 +121,11 @@ object DeezerHistory {
         }
     }
 
-    private fun parser(input: InputStream): XmlPullParser = android.util.Xml.newPullParser().apply {
+    private fun parser(input: InputStream): XmlPullParser = xmlParser().apply {
         setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false); setInput(input, null) }
 
     /** The .xlsx's listening history, as rows of cell texts; null if it has no such sheet. */
-    private fun xlsxRows(ctx: Context, uri: Uri): List<List<String>>? {
+    private fun xlsxRows(ctx: Ctx, uri: String): List<List<String>>? {
         // First look: the shared strings, and which file the "…_listeningHistory" sheet is.
         val shared = ArrayList<String>()
         var sheetId: String? = null
@@ -185,7 +183,7 @@ object DeezerHistory {
     }
 
     /** Read Deezer's .xlsx (or the zip it came in) at uri; how many plays were new (blocking). */
-    fun importFile(ctx: Context, uri: Uri): Int {
+    fun importFile(ctx: Ctx, uri: String): Int {
         busy = "Reading your Deezer history…"
         try {
             var rows = xlsxRows(ctx, uri)
@@ -193,7 +191,7 @@ object DeezerHistory {
                 val tmp = File(ctx.cacheDir, "deezer-import.xlsx")
                 var found = false
                 eachEntry(ctx, uri) { name, s -> if (!found && name.lowercase().endsWith(".xlsx")) { tmp.outputStream().use { s.copyTo(it) }; found = true } }
-                if (found) try { rows = xlsxRows(ctx, Uri.fromFile(tmp)) } finally { tmp.delete() }
+                if (found) try { rows = xlsxRows(ctx, tmp.path) } finally { tmp.delete() }
             }
             rows ?: error("that isn't Deezer's personal data file: it's an .xlsx with a “10_listeningHistory” sheet")
             busy = "Adding the plays…"
