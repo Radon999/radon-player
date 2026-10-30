@@ -71,7 +71,7 @@ Open it from the ☰ menu or from the speaker button on Now playing.
 - **Per-output EQ:** Each output (built-in speaker, wired headphones, Bluetooth earbuds, USB DAC, your car) has its own equalizer, which switches in automatically when the sound goes there. Pick an output to edit it even when you aren't using it. Turn **A separate equalizer for each output** off to use one EQ everywhere.
 - **Bands:** Choose 3, 5, 10, 15 or 31 bands, each ±12 dB. Tap a band's number to reset it to zero. **Compact** fits every band on one screen.
 - **Presets ("Sound"):** Flat, Bass boost, Warm, Vocal, Bright, V-shape, **Chevy Colorado 2023+ (standard)** and **Chevy Colorado 2023+ (Bose)**, tuned for that truck's stock and Bose systems, plus Custom.
-- **Headphones correction:** Built-in corrections tuned to the Harman target for the Xenns Mangird Top Pro (two measurements), Sony WH-1000XM6 (Bluetooth and cable) and Sony WF-1000XM6 earbuds (an approximation).
+- **Headphones correction:** Built-in corrections tuned to the Harman target for the Xenns Mangird Top Pro (two measurements), Sony WH-1000XM6 (Bluetooth and cable), Sony WF-1000XM6 earbuds and the Galaxy S26 Ultra's own speakers (approximations).
 - **Auto EQ:** Type your headphones' name to find their correction in AutoEq's database, tap **Detect** to look up the ones connected now, or **Import** a correction file. It's added to your list and comes back whenever those headphones connect.
 - **Bass and treble:** Two extra ±12 dB tone controls on top of the bands.
 - **Boost fader:** Makes everything up to 12 dB louder on this output only, for quiet headphones. A **red line** marks how far you can boost cleanly. Below it the sound is clean; past it, a limiter squashes the peaks so they don't distort, which is fine for noisy places. **Off** returns to normal volume.
@@ -82,7 +82,7 @@ Open it from the ☰ menu or from the speaker button on Now playing.
 
 ### Sound quality (Settings › Sound quality)
 
-- **Bit-perfect:** Sends each song to your DAC exactly as it is, at its own sample rate, with no EQ, song volume or speed changes. On the phone it needs Android 14 and a USB DAC. On the PC it uses exclusive mode, so no other sound plays at the same time.
+- **Bit-perfect:** Sends each song to your DAC exactly as it is, at its own sample rate, with no EQ, song volume or speed changes. On the phone it needs Android 14 and a USB DAC, and it only takes over while the DAC is the output: on the speaker, Bluetooth or in the car the EQ keeps working. On the PC it uses exclusive mode, so no other sound plays at the same time.
 - **Clip guard:** If a song's volume, ReplayGain or the EQ would push a peak past full scale, a limiter catches it so it doesn't crackle. It only touches peaks that would clip.
 - **Dither:** Adds a whisper of shaped noise when 16-bit music goes through the EQ, so quiet fades stay smooth instead of grainy. Hi-res music stays 32-bit and doesn't need it.
 - **High-quality resampling:** When a song's sample rate doesn't match the sound card's or the phone's (44.1 kHz music on a 48 kHz card), it's converted with a longer, sharper filter: cleaner highs. Music already at the right rate, and bit-perfect, are left untouched. On the phone it works on CD-quality music, from the next song.
@@ -153,6 +153,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Empty folders (PC only):** Finds folders with no songs left in them, only pictures or lyrics files. You see each one's size and contents and choose which to send to the Recycle Bin.
 - **Live in song names:** Finds songs named as live recordings ("Song (Live)", "Song - Live at…") that you'd rather have plain. It removes the live part of the name and keeps the rest. You check each one.
 - **Soundtrack notes in names:** Finds songs whose names carry a note like "(From the Original Motion Picture …)", "[From "Barbie"]" or "- From the Netflix Series …" and takes it off. You choose each one; the ones you leave are not asked about again.
+- **Albums, EPs and singles:** Looks each of your releases up (Deezer, then Apple Music) to learn whether it's really an album, an EP or a single, and adds " - Single" or " - EP" to its name (or takes it off an album), so it shows in just one of the three tabs. You choose for each; ones no service knows are left to you (Leave alone, Album, EP or Single).
 - **Songs without covers:** Lists the albums whose songs show no cover anywhere, with **Pick a cover** for each or **Fix them all…** one after the other.
 - **Loudness check:** Checks each of your songs once, in the background (on the phone, only while it's charging), for clipping (distortion from being too loud) and for files that aren't the hi-res they claim to be (upsampled, or 16-bit inside a 24-bit file). **Show…** lists the worst first, so you know which copies to replace.
 - **Identify by sound…:** Works out what a song is from its sound (AcoustID and MusicBrainz) and offers to write those tags into its file. On the phone it can write them into the app's own downloads; for other songs it shows what they are.
@@ -171,7 +172,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 
 ## Phone only
 
-- **Android Auto and cars:** Browse Up next, Favorites, Playlists, Recently played and your music on the car's screen, with covers. Play, pause, skip and seek, and use Favorite and Shuffle buttons right on the car's display.
+- **Android Auto and cars:** Browse Up next, Favorites, Playlists, Recently played and your music on the car's screen, with covers. Play, pause, skip and seek, and use Favorite and Shuffle buttons right on the car's display. Plugged in by USB, the car is an output of its own (**Chevrolet · USB**) with its own EQ, starting on the Colorado tuning.
 - **Lock screen player:** When the screen turns on while music plays, the full Now playing appears over the lock screen, with the queue and lyrics. ⌄ takes you on to the normal lock screen. Android asks you once to allow full-screen notifications.
 - **Notifications:** The player sits in your notifications and on the lock screen, with shuffle and repeat buttons.
 - **Home screen widget:** A small Now playing: the song and cover, with shuffle, previous, play, next and repeat, then the queue (or a big cover), in the cover's colour.
@@ -216,6 +217,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - Lyrics cards take up to 15 lines. Duplicates has **Not a duplicate**, remembered for next time. Duplicates in Most played leaves out marked versions (Stripped, Remix, Live…).
 - Single scan has **Change all**, **Leave all alone** and **Only albums on this phone/PC**, and finds a song's EP even when the EP has the song's name. The Tagger gets **Auto collect**.
 - Select works on Genres, Folders, Artists and Playlists too (Options for all their songs); picked playlists can be deleted, renamed, opened or favorited together.
+- Settings gets **Albums, EPs and singles**, a scan that names each release as what it really is. Wired Android Auto is its own output, **Chevrolet · USB**, starting on the Colorado tuning. A Galaxy S26 Ultra speaker correction joins the headphones list. Bit-perfect on the phone now only takes over while a USB DAC is the output.
 - The phone gets **High-quality resampling**, and the Equalizer shows every Sound quality option too.
 - New in Settings: **Soundtrack notes in names** and **Songs without covers**. Duplicates gets **Keep / Remove** for each copy. An artist's page is a grid with sorting (Most played first). On the PC, the Tagger can rename the file with the title.
 - On the PC, **Upgrade to FLAC…** works on your own songs again, and the mini player has a seek bar and shows what's up next.

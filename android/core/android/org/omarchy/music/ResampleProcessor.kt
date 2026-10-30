@@ -33,7 +33,7 @@ class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioPro
 
     override fun onConfigure(input: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val want = deviceRate()
-        if (!Prefs.on(Prefs.HQ_RESAMPLE) || Music.bitPerfect || input.sampleRate == want || input.sampleRate <= 0 ||
+        if (!Prefs.on(Prefs.HQ_RESAMPLE) || Music.bitPerfectNow() || input.sampleRate == want || input.sampleRate <= 0 ||
             (input.encoding != C.ENCODING_PCM_16BIT && input.encoding != C.ENCODING_PCM_FLOAT)) return AudioProcessor.AudioFormat.NOT_SET
         ch = input.channelCount
         inFloat = input.encoding == C.ENCODING_PCM_FLOAT

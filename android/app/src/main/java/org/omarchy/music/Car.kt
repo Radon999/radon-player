@@ -83,13 +83,20 @@ object Car {
                 .setDisplayName(if (fav) "Unfavorite" else "Favorite").setSessionCommand(FAVORITE).build())
     }
 
+    private const val GEARHEAD = "com.google.android.projection.gearhead"   // Android Auto
+
     val callback = object : MediaLibrarySession.Callback {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = true; Music.outputChanged() }
             val base = super.onConnect(session, controller)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).build())
                 .setAvailablePlayerCommands(base.availablePlayerCommands)
                 .setCustomLayout(buttons()).build()
+        }
+
+        override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
+            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = false; Music.outputChanged() }
         }
 
         override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand,

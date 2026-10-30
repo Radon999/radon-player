@@ -592,6 +592,11 @@ private fun ToolLines(ui: Ui) {
         "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one", false) {
         Pill("Scan…", quiet = true) { ui.tool = "movie" }
     }
+    Line("Albums, EPs and singles", "Looks each of your releases up (Deezer, then Apple Music) to learn whether it's really an album, " +
+        "an EP or a single, and gives its name “ - Single” or “ - EP” (or takes it off an album) so it shows in just one of the three " +
+        "tabs. You choose for each; the ones no service knows are left to you", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "truth" }
+    }
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }

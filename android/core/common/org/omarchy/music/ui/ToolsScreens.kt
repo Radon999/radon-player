@@ -48,6 +48,7 @@ fun ToolScreens(ui: Ui) {
         "live" -> LiveNamesScreen(ui)
         "movie" -> LiveNamesScreen(ui, movie = true)
         "nocover" -> NoCoversScreen(ui)
+        "truth" -> AlbumTruthScreen(ui)
         "empty" -> EmptyFoldersScreen(ui)
         "skip" -> SkipFoldersScreen(ui)
         "quality" -> QualityScreen(ui)
@@ -176,6 +177,68 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false) {
                 if (report == null && !f.isNullOrEmpty()) Pill("Rename") {
                     val picks = f.indices.map { if (pick[it] ?: true) FixupPick.Change else FixupPick.Leave }
                     Music.bg({ if (movie) MusicTools.movieApply(f, picks) else MusicTools.liveApply(f, picks) }) { n, e -> report = if (n != null) "Renamed $n" else "Couldn't: ${e?.message}"; Music.rescan() }
+                }
+            }
+        }
+    }
+}
+
+/** Albums, EPs and singles: each release looked up for what it really is; its name made to say so. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun AlbumTruthScreen(ui: Ui) {
+    val close = { ui.tool = null }
+    var status by remember { mutableStateOf("Looking up your releases…") }
+    var rows by remember { mutableStateOf<List<org.omarchy.music.AlbumTruth.Row>?>(null) }
+    val pick = remember { mutableStateMapOf<Int, String>() }   // the kind to make it, or "" left alone
+    var report by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        Music.bg({ org.omarchy.music.AlbumTruth.scan { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
+            rows = r ?: emptyList(); if (r == null) report = "Couldn't look them up: ${e?.message}"
+        }
+    }
+    fun label(k: String) = when (k) { "single" -> "Single"; "ep" -> "EP"; else -> "Album" }
+    FullScreen("Albums, EPs and singles", close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            val r = rows
+            Text(report ?: when {
+                r == null -> status
+                r.isEmpty() -> "Every release is named as what it is: nothing to change"
+                else -> "${r.size} release${if (r.size != 1) "s" else ""} to check. Change gives the name " +
+                    "“ - Single” or “ - EP” (or takes it off an album) so it shows in the right tab; the ones no service knows are left alone unless you pick"
+            }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null && !r.isNullOrEmpty()) androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Pill("Change all", quiet = true) { r.indices.forEach { i -> r[i].truth?.let { pick[i] = it } } }
+                Pill("Leave all alone", quiet = true) { r.indices.forEach { pick[it] = "" } }
+            }
+            LazyColumn(Modifier.weight(1f)) {
+                items(if (report == null) r?.size ?: 0 else 0) { i ->
+                    val row = r!![i]
+                    val now = pick[i] ?: row.truth ?: ""
+                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Text(row.album, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${row.artist} · ${row.songs.size} song${if (row.songs.size != 1) "s" else ""} here · now ${label(row.now)}", style = T.sub)
+                        Text(if (row.truth == null) "No service knows it: not sure. Pick what it is, or leave it"
+                            else "${row.source}: ${label(row.truth)}" + (row.tracks?.let { " of $it song${if (it != 1) "s" else ""}" } ?: "") +
+                                " → “${org.omarchy.music.AlbumTruth.named(row.album, row.truth)}”", style = T.sub)
+                        androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Chip("Leave alone", now.isEmpty()) { pick[i] = "" }
+                            for (k in listOf("album", "ep", "single")) Chip(label(k), now == k) { pick[i] = k }
+                        }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill(if (report != null) "Done" else "Cancel", quiet = true) { close() }
+                if (report == null && !r.isNullOrEmpty()) Pill("Change") {
+                    var n = 0
+                    r.forEachIndexed { i, row ->
+                        val k = pick[i] ?: row.truth ?: ""
+                        if (k.isEmpty()) return@forEachIndexed
+                        val name = org.omarchy.music.AlbumTruth.named(row.album, k)
+                        if (name != row.album) { Music.editTags(row.songs, mapOf("album" to name)); n++ }
+                    }
+                    report = if (n > 0) "Renaming $n release${if (n != 1) "s" else ""}: they move to the right tab as the tags are written" else "Nothing changed"
                 }
             }
         }

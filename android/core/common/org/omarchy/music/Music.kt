@@ -152,9 +152,13 @@ object Music {
     var replayGain by mutableStateOf("off")    // off, track or album: the files' ReplayGain tags (not in bit-perfect)
     var dacNote by mutableStateOf("")          // what bit-perfect is doing now, in words
 
+    /** Bit-perfect is in force: on the PC whenever it's on; on the phone only while a USB DAC is the output (on the
+     *  speaker, Bluetooth or in the car the EQ and the rest go on working). */
+    fun bitPerfectNow() = bitPerfect && (platformName != "android" || outputNow.kind == "usb")
+
     fun chooseBitPerfect(on: Boolean) {
         bitPerfect = on
-        eqProcessor.bypass = on
+        eqProcessor.bypass = bitPerfectNow()
         if (on) eqProcessor.rgGain = 1.0
         current()?.let { t -> playbackOf(t).let { (sp, pi) -> player?.setSpeed(sp, pi) } }
         val rate = player?.audioRate ?: 0; val bits = player?.audioBits ?: 0
@@ -349,7 +353,7 @@ object Music {
         notDupes = st.not_dupes.toSet()
         Dj.withNew = djNew
         replayGain = st.replay_gain.takeIf { it in setOf("off", "track", "album") } ?: "off"
-        eqProcessor.bypass = bitPerfect
+        eqProcessor.bypass = bitPerfectNow()
         layouts.clear(); layouts.putAll(st.layouts.filterValues { it in LAYOUTS })
         autoplay = st.autoplay
         applyLook()
@@ -2389,16 +2393,19 @@ object Music {
     private fun switchEqOutput() {
         val o = Outputs.now(ctx)
         outputNow = o
+        eqProcessor.bypass = bitPerfectNow()
         if (!eq.perOutput || o.key == eq.output) {
             if (eq.output.isEmpty()) setEq { it.copy(output = o.key, outputs = it.outputs + (o.key to it.toOutput(o.label))) }
             return
         }
         val was = eq.output
+        val isNew = eq.outputs[o.key] == null
         setEq { e ->
             val saved = (if (was.isNotEmpty()) e.outputs + (was to e.toOutput(e.outputs[was]?.label ?: outLabel(was))) else e.outputs)
             val mine = saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
             e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
         }
+        if (isNew && o.key == "car:Chevrolet") setEqPreset("colorado")   // the Chevy over USB starts on the Colorado's tuning
         if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (eq.on) "" else " (off)")
     }
     /** Boost: dB louder than normal (0-12) on everything, kept for this output. */

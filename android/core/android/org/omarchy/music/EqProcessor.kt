@@ -23,6 +23,9 @@ import kotlin.math.sqrt
 object Outputs {
     data class Out(val key: String, val label: String, val kind: String)
 
+    /** Android Auto is showing the app (its car screen connected to the player): over USB, that's the Chevy. */
+    @Volatile var carProjecting = false
+
     fun now(ctx: android.content.Context): Out {
         val am = ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
         val outs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
@@ -33,6 +36,8 @@ object Outputs {
             val car = Regex("(?i)car|auto|sync|uconnect|vw|toyota|ford|honda|bmw|audi|mazda|kia|hyundai|chevy|nissan|tesla|subaru|jeep|dodge|mercedes|lexus").containsMatchIn(n)
             return Out("bt:$n", n, if (car) "car" else "bluetooth")
         }
+        // Wired Android Auto: the sound goes to the car over USB (no Bluetooth car above): the Chevrolet, with its own EQ
+        if (carProjecting) return Out("car:Chevrolet", "Chevrolet · USB", "car")
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE }?.let { d ->
             val n = name(d) ?: "USB"
             return Out("usb:$n", "$n (USB)", "usb")
@@ -46,6 +51,7 @@ object Outputs {
         key == "speaker" -> "speaker"
         key == "wired" || key == "headset" -> "wired"
         key.startsWith("usb:") -> "usb"
+        key.startsWith("car:") -> "car"
         else -> "bluetooth"
     }
 }

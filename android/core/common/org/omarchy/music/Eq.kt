@@ -49,6 +49,11 @@ object Eq {
             Filter("pk", 4339.0, 0.9, 3.49))),
         "wf1000xm6" to ("Sony WF-1000XM6 earbuds · approximate" to listOf(
             Filter("ls", 250.0, -2.5, 0.70), Filter("pk", 6000.0, -1.5, 1.0), Filter("hs", 10000.0, 1.0, 0.70))),
+        // The Galaxy S26 Ultra's own speakers: an approximation. Bass they can't play is eased (headroom, less rattle),
+        // the honky upper mids and the sharp 3 kHz tamed, a little air added
+        "s26ultra-speaker" to ("Samsung Galaxy S26 Ultra speaker · approximate" to listOf(
+            Filter("ls", 180.0, -3.0, 0.70), Filter("pk", 900.0, -1.5, 1.2), Filter("pk", 3200.0, -2.5, 1.6),
+            Filter("hs", 9000.0, 1.5, 0.70))),
     )
     val BANDS = listOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
     const val Q = 1.41        // an octave wide, so neighbouring bands blend smoothly
