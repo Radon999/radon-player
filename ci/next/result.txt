@@ -1,23 +1,47 @@
-run 40997212714 · Fri Oct 30 03:28:52 UTC 2026
-PHONE OK
-PC OK
+run 40997866077 · Fri Oct 30 03:36:23 UTC 2026
+PHONE FAILED
+PC FAILED
 TESTS: tests="5" failures="0" 
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/LyricsTab.kt:113:32 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:594:9 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:595:9 Condition is always 'true'.
+e: core/common/org/omarchy/music/MusicTools.kt:14:9 Platform declaration clash: The following declarations have the same JVM signature (setSkip(Ljava/util/List;)V):
+e: core/common/org/omarchy/music/MusicTools.kt:23:5 Platform declaration clash: The following declarations have the same JVM signature (setSkip(Ljava/util/List;)V):
+> Task :app:compileReleaseKotlin FAILED
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+--
+> Task :desktop:compileKotlin FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/MusicTools.kt:14:9 Platform declaration clash: The following declarations have the same JVM signature (setSkip(Ljava/util/List;)V):
+    fun `<set-skip>`(`<set-?>`: List<String>): Unit defined in org.omarchy.music.MusicTools
+    fun setSkip(folders: List<String>): Unit defined in org.omarchy.music.MusicTools
+--
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+BUILD FAILED in 4m 8s
+85 actionable tasks: 85 executed
+> Get more help at https://help.gradle.org.
+==============================================================================
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:flattenJars
-> Task :app:lintVitalReportRelease
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
 
-> Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
-
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -25,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 37s
-102 actionable tasks: 102 executed
+BUILD FAILED in 4m 8s
+85 actionable tasks: 85 executed
