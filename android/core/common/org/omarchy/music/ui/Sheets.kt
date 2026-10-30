@@ -95,6 +95,7 @@ fun Sheets(ui: Ui) {
     ui.editTagsFor?.let { tracks -> TagsDialog(ui, tracks) }
     ui.taggerFor?.let { tracks -> TaggerSheet(ui, tracks) }
     if (ui.tagScan) TagScanScreen(ui)
+    ToolScreens(ui)
     if (ui.jointArtists) JointArtistsScreen(ui)
     if (ui.similarArtists) SimilarArtistsScreen(ui)
     if (ui.albumPlays) AlbumPlaysScreen(ui)
@@ -215,6 +216,7 @@ private fun AccountsSheet(ui: Ui) {
                     Pill("Remove", quiet = true) { Music.removeFolder(f) }
                 }
             }
+            ToolLines(ui)
             Line("Lyrics into files", if (!Music.lyricsToFiles) "Off: lyrics are kept in the app only"
                 else if (Music.canWriteOwnFiles()) "The lyrics found for a song go into its file's tags (FLAC, MP3) once it's done playing, so they stay with it"
                 else "Into the app's downloads. Your own files need All files access: tap Allow", Music.lyricsToFiles) {
@@ -476,6 +478,31 @@ private fun DeezerHistoryLine() {
         text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
         confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
+@Composable
+private fun ToolLines(ui: Ui) {
+    Line("Fix albums and artists", "Albums split by featured artists (“Quinn XCII & Jeremy Zucker”), albums beside their deluxe, " +
+        "extended or anniversary edition, and singles of songs on an album you have: fixed in the files' tags (titles are never " +
+        "changed)" + (if (org.omarchy.music.FileTags.canMove) ", then moved to the right folders if you like" else "") +
+        ". You check each one first" + (if (onPhone) ". On the phone: the songs the app downloaded" else ""), false) {
+        Pill("Scan…", quiet = true) { ui.tool = "fixup" }
+    }
+    val n = org.omarchy.music.MusicTools.skip.size
+    Line("Folders to leave alone", "Folders no scan here ever touches or looks in (Fix albums and artists, the tag scanner, " +
+        "Empty folders, Live in song names): their songs aren't retagged or moved, and no songs are moved into them. " +
+        "Unreleased songs, sessions… " + if (n > 0) "$n folder${if (n != 1) "s" else ""} now" else "None yet", false) {
+        Pill("Choose…", quiet = true) { ui.tool = "skip" }
+    }
+    if (org.omarchy.music.FileTags.canListFolders) Line("Empty folders", "Folders in your music folders with no songs left in them " +
+        "(only pictures or lyrics files): you see each one, its size and what's in it, and pick which to delete", false) {
+        Pill("Clean up…", quiet = true) { ui.tool = "empty" }
+    }
+    Line("Live in song names", "Songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather have plain: " +
+        "the live part taken off the name, the rest kept. You check each one", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "live" }
+    }
 }
 
 /** Discord (the PC): what you play on your Discord profile. */

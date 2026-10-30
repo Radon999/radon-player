@@ -226,6 +226,7 @@ object Music {
         if (::ctx.isInitialized) return
         ctx = appCtx(c)
         Prefs.init(ctx)
+        MusicTools.init()
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
         eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
         applySound()
@@ -957,6 +958,19 @@ object Music {
             if (changed == true) musicVersion++
             accountsVersion++
         }
+    }
+
+    /** Songs' files moved (Fix albums and artists): the queue and the playlists follow them; then a look at the folders. */
+    fun filesMoved(moved: Map<String, String>) {
+        fun fix(t: Track): Track {
+            val f = t.file?.replace('\\', '/') ?: return t
+            val to = moved[f] ?: return t
+            return t.copy(file = to, id = if (t.source == "file" && t.id.startsWith("f")) "f" + to.hashCode().toUInt().toString(16) else t.id)
+        }
+        queue = queue.map(::fix)
+        lists.remap(::fix)
+        saveState()
+        rescan()
     }
 
     fun rescanSoon() { if (now() - local.scanned > 120) rescan() }

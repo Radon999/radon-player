@@ -320,6 +320,9 @@ fun OptionsSheet(ui: Ui) {
                     val ids = picked.map { it.id }.toSet()
                     Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids }) })
                 val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
+                add(Triple(Ico.COPY, "Copy the names") {   // "Title — Artist", a line each
+                    copyText("Songs", picked.joinToString("\n") { "${it.title} — ${it.artist}" }); Music.toast("Copied ${picked.size} name${if (picked.size != 1) "s" else ""}")
+                })
                 if (files.isNotEmpty()) add(Triple(Ico.SHARE, "Share") {
                     shareFiles(files, "Share ${files.size} songs")
                 })

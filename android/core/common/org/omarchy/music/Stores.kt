@@ -253,6 +253,13 @@ class Playlists(ctx: Ctx) {
     fun all() = items.filter { it.smart == null }.sortedByDescending { it.updated }
     fun get(id: String) = items.firstOrNull { it.id == id }
 
+    /** Every playlist's songs through f (songs whose files moved). */
+    @Synchronized
+    fun remap(f: (Track) -> Track) {
+        items = items.map { p -> p.copy(tracks = p.tracks.map(f)) }.toMutableList()
+        save()
+    }
+
     @Synchronized
     fun create(name: String, discovery: Discovery? = null): Playlist {
         val pl = Playlist(randomHex(6), name, now(), now(), discovery = discovery)
