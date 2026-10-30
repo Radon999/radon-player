@@ -49,7 +49,7 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: every Python setting checked against the shared Settings (the same audit)
 - [x] PC: the Python app's data brought over on the first start (PythonImport)
 - [x] Windows: mpv's pipe with overlapped I/O (the window froze), saves replace the file, log.txt + watchdog
-- [ ] PC: mpv and ffmpeg inside the installer (Bins finds them; the CI step is waiting for the owner's OK)
+- [x] PC: mpv and ffmpeg inside the installer (the Windows CI job puts them in resources/windows; Bins finds them)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
 - [x] Feature guide (core/FEATURES.md, gen-guide.py) and the Changelog & features tab
 - [x] Settings descriptions rewritten in detail
