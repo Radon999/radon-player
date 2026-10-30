@@ -1,99 +1,23 @@
-run 40986085477 · Fri Oct 30 01:31:54 UTC 2026
-PHONE FAILED
-PC FAILED
+run 40986517177 · Fri Oct 30 01:38:31 UTC 2026
+PHONE OK
+PC OK
 TESTS: tests="5" failures="0" 
-e: core/android/org/omarchy/music/Platform.kt:70:47 Classifier 'class Media : Any, MediaStore.Audio.AudioColumns' does not have a companion object, so it cannot be used as an expression.
-e: core/android/org/omarchy/music/Platform.kt:72:103 Unresolved reference 'IS_PENDING'.
-e: core/android/org/omarchy/music/Platform.kt:72:15 Unresolved reference 'DISPLAY_NAME'.
-e: core/android/org/omarchy/music/Platform.kt:72:42 Unresolved reference 'MIME_TYPE'.
-e: core/android/org/omarchy/music/Platform.kt:72:74 Unresolved reference 'RELATIVE_PATH'.
-e: core/android/org/omarchy/music/Platform.kt:74:27 Unresolved reference 'getContentUri'.
-e: core/android/org/omarchy/music/Platform.kt:77:70 Unresolved reference 'IS_PENDING'.
-e: core/android/org/omarchy/music/Services.kt:51:24 Unresolved reference 'Uri'.
-e: core/android/org/omarchy/music/Services.kt:94:68 Unresolved reference 'Uri'.
-e: core/common/org/omarchy/music/NewReleases.kt:103:29 Unresolved reference 'launch'.
-e: core/common/org/omarchy/music/Wrapped.kt:404:52 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:10:12 Unresolved reference 'schabi'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:17:26 This type is final, so it cannot be extended.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:17:36 No value passed for parameter 'ctx'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:17:36 No value passed for parameter 'lib'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:17:36 No value passed for parameter 'tidal'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:18:43 Unresolved reference 'schabi'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:18:89 Unresolved reference 'Response'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:18:9 'execute' overrides nothing.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:19:32 Unresolved reference 'dataToSend'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:20:39 Overload resolution ambiguity between candidates:
-e: core/common/org/omarchy/music/YouTubeAudio.kt:20:51 Unresolved reference 'url'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:20:58 Unresolved reference 'method'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:20:73 Unresolved reference 'httpMethod'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:21:105 Unresolved reference 'it'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:21:33 Function 'component1()' is ambiguous for this expression: 
-e: core/common/org/omarchy/music/YouTubeAudio.kt:21:33 Function 'component2()' is ambiguous for this expression: 
-e: core/common/org/omarchy/music/YouTubeAudio.kt:21:41 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
-e: core/common/org/omarchy/music/YouTubeAudio.kt:21:41 Unresolved reference 'headers'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:21:80 Overload resolution ambiguity between candidates:
-e: core/common/org/omarchy/music/YouTubeAudio.kt:22:25 Unresolved reference 'headers'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:22:47 Unresolved reference 'it'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:24:24 Unresolved reference 'Response'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:37:46 Unresolved reference 'NewPipe'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:38:20 Unresolved reference 'StreamInfo'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:38:39 Unresolved reference 'ServiceList'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:39:100 Unresolved reference 'it'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:39:44 Unresolved reference 'it'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:39:65 Unresolved reference 'DeliveryMethod'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:40:14 Overload resolution ambiguity between candidates:
-e: core/common/org/omarchy/music/YouTubeAudio.kt:40:28 Unresolved reference 'it'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:44:48 Overload resolution ambiguity between candidates:
-e: core/common/org/omarchy/music/YouTubeAudio.kt:44:54 Unresolved reference 'content'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:44:63 Unresolved reference 'header'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:47:124 Function invocation 'format(...)' expected.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:47:132 Unresolved reference 'name'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:47:31 Unresolved reference 'codec'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:48:26 Unresolved reference 'content'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:48:49 Unresolved reference 'averageBitrate'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:5:12 Unresolved reference 'schabi'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:6:12 Unresolved reference 'schabi'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:7:12 Unresolved reference 'schabi'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:8:12 Unresolved reference 'schabi'.
-e: core/common/org/omarchy/music/YouTubeAudio.kt:9:12 Unresolved reference 'schabi'.
-> Task :app:compileReleaseKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/android/org/omarchy/music/Platform.kt:70:47 Classifier 'class Media : Any, MediaStore.Audio.AudioColumns' does not have a companion object, so it cannot be used as an expression.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/android/org/omarchy/music/Platform.kt:72:15 Unresolved reference 'DISPLAY_NAME'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/android/org/omarchy/music/Platform.kt:72:42 Unresolved reference 'MIME_TYPE'.
---
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/NewReleases.kt:103:29 Unresolved reference 'launch'.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/Wrapped.kt:404:52 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/YouTubeAudio.kt:5:12 Unresolved reference 'schabi'.
---
-* What went wrong:
-Execution failed for task ':app:compileReleaseKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-BUILD FAILED in 2m 39s
-85 actionable tasks: 85 executed
-> Get more help at https://help.gradle.org.
-==============================================================================
 
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :desktop:compileKotlin
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:flattenJars
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :desktop:packageUberJarForCurrentOS
+The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
+
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -101,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 2m 39s
-85 actionable tasks: 85 executed
+BUILD SUCCESSFUL in 4m 48s
+102 actionable tasks: 102 executed
