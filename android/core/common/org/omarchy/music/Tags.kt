@@ -19,6 +19,22 @@ object Tags {
         return t.file?.takeIf { t.isFile && it.substringAfterLast('.').equals("flac", true) && FileTags.canWrite(it) }
     }
 
+    /** Edit tags… also takes your own MP3, M4A and Ogg files on the PC (their tags through FileTags), as the Python app. */
+    fun editableAny(t: Track): String? = editable(t) ?: t.file?.takeIf {
+        t.isFile && !Music.lib.has(t.id) && !it.startsWith("content:") &&
+            it.substringAfterLast('.').lowercase() in setOf("mp3", "m4a", "mp4", "aac", "ogg", "opus", "wma", "aiff", "aif", "wav", "dsf") &&
+            FileTags.canWrite(it)
+    }
+
+    private fun isFlac(ctx: Ctx, uri: String) = runCatching {
+        ctx.openIn(uri)!!.use { val b = ByteArray(4); it.read(b) == 4 && String(b, Charsets.ISO_8859_1) == "fLaC" }
+    }.getOrDefault(false)
+
+    /** Another format's tags (FileTags) as FLAC comments: KEY -> values, artists one each. */
+    private fun asComments(m: Map<String, String>): Map<String, List<String>> = m.entries.associate { (k, v) ->
+        k.uppercase() to if (v.isEmpty()) emptyList() else if (k == "artist") v.split(", ").filter { it.isNotBlank() } else listOf(v)
+    }
+
     /** What each field says in the files' comments: null where they disagree. */
     internal fun common(all: List<Map<String, List<String>>>): Map<String, String?> = FIELDS.associate { (k, _) ->
         val each = all.map { c -> (c[k.uppercase()] ?: emptyList()).let { if (k == "artist") it.joinToString(", ") else it.firstOrNull() ?: "" } }
@@ -35,12 +51,17 @@ object Tags {
     }
 
     fun read(ctx: Ctx, uris: List<String>): Map<String, String?> = common(uris.map { u ->
-        runCatching { ctx.openIn(u)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }
+        if (!u.startsWith("content:") && !isFlac(ctx, u)) asComments(FileTags.read(ctx, u) ?: emptyMap())
+        else runCatching { ctx.openIn(u)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }
             .getOrDefault(emptyMap())
     })
 
     /** Write changes into the FLAC at uri (blocking); returns its comments as they are now. */
     fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Map<String, List<String>> {
+        if (!uri.startsWith("content:") && !isFlac(ctx, uri)) {   // an MP3, M4A… of yours on the PC
+            if (!FileTags.write(ctx, uri, changes)) error("couldn't write its tags")
+            return asComments(FileTags.read(ctx, uri) ?: emptyMap())
+        }
         val cr = ctx
         val tmp = File.createTempFile("tags", ".flac", ctx.cacheDir)
         try {

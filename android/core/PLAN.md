@@ -43,7 +43,7 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: Add a folder… (a folder picker)
 - [x] PC: tags, Tagger, covers and lyrics into your own FLACs (the content:// gates now ask FileTags); keyboard shortcuts; Identify in the song menu;
       Delete your own files (Recycle Bin); downloads to any folder
-- [ ] PC (from the audit): Edit tags for MP3/M4A (FileTags), Upgrade to FLAC for your own files, command-line verbs,
+- [ ] PC (from the audit): Upgrade to FLAC for your own files, command-line verbs,
       Cast, mini player's seek and Up next, Linux MPRIS, YouTube Music / Apple sign-in on the PC
 - [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)

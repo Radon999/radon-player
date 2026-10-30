@@ -115,18 +115,19 @@ private fun suggestNames(): Pair<List<String>, List<String>> {
 
 @Composable
 private fun TaggerTags(ui: Ui, tracks: List<Track>) {
-    val songs = remember(tracks) { tracks.filter { Tags.editable(it) != null } }
+    val songs = remember(tracks) { tracks.filter { Tags.editableAny(it) != null } }
     if (songs.isEmpty()) {
-        Text("Only songs the app downloaded (FLAC) can have their tags changed here: Android keeps other apps' files " +
-            "(your own songs) to themselves. Download them first. The cover can still be changed.", style = T.sub)
+        Text(if (onPhone) "Only songs the app downloaded (FLAC) can have their tags changed here: Android keeps other apps' files " +
+            "(your own songs) to themselves. Download them first. The cover can still be changed."
+            else "These songs' files can't be changed (they're streamed, or the files are read-only). The cover can still be changed.", style = T.sub)
         return
     }
     var have by remember { mutableStateOf<Map<String, String?>?>(null) }
     val typed = remember { mutableStateMapOf<String, String>() }
-    LaunchedEffect(songs) { Music.bg({ Tags.read(Music.ctx, songs.mapNotNull { Tags.editable(it) }) }) { h, _ -> have = h ?: emptyMap() } }
+    LaunchedEffect(songs) { Music.bg({ Tags.read(Music.ctx, songs.mapNotNull { Tags.editableAny(it) }) }) { h, _ -> have = h ?: emptyMap() } }
     val h = have
     if (h == null) { Text("Reading the tags…", style = T.sub); return }
-    if (songs.size < tracks.size) Text("${tracks.size - songs.size} of the songs aren't downloads of the app's: they're left out.", style = T.sub)
+    if (songs.size < tracks.size) Text("${tracks.size - songs.size} of the songs ${if (onPhone) "aren't downloads of the app's" else "have no file that can be changed"}: they're left out.", style = T.sub)
     val names = remember { suggestNames() }
     Tags.FIELDS.forEach { (k, label) ->
         Text(label, style = T.sub, modifier = Modifier.padding(top = 2.dp))

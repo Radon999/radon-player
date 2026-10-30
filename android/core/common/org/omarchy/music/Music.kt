@@ -1542,18 +1542,20 @@ object Music {
      *  names wherever the songs are. The playing song is left alone: its file is being read. */
     fun editTags(tracks: List<Track>, changes: Map<String, String>) {
         val playing = current()?.id
-        val todo = tracks.filter { Tags.editable(it) != null && it.id != playing }
-        if (todo.size < tracks.count { Tags.editable(it) != null }) toast("The playing song is left as it is: edit it once it's over")
+        val todo = tracks.filter { Tags.editableAny(it) != null && it.id != playing }
+        if (todo.size < tracks.count { Tags.editableAny(it) != null }) toast("The playing song is left as it is: edit it once it's over")
         if (todo.isEmpty() || changes.isEmpty()) return
         bg({
             val renamed = HashMap<String, Triple<String, String, String>>()
             val failed = ArrayList<String>()
             for (t in todo) {
-                val e = lib.items[t.id] ?: continue
-                val c = try { Tags.write(ctx, e.file, changes) } catch (x: Exception) { failed += "${t.title}: ${x.message}"; continue }
-                val title = c["TITLE"]?.firstOrNull() ?: e.title
+                val e = lib.items[t.id]
+                val file = e?.file ?: Tags.editableAny(t) ?: continue   // a download, or (PC) a file of yours
+                val c = try { Tags.write(ctx, file, changes) } catch (x: Exception) { failed += "${t.title}: ${x.message}"; continue }
+                val title = c["TITLE"]?.firstOrNull() ?: e?.title ?: t.title
                 val artist = c["ARTIST"]?.joinToString(", ")?.ifEmpty { null } ?: "Unknown artist"
                 val album = c["ALBUM"]?.firstOrNull() ?: ""
+                if (e == null) { renamed[t.id] = Triple(title, artist, album); continue }
                 lib.items.values.filter { it.file == e.file }.forEach { same ->
                     lib.update(same.id) { it.copy(title = title, artist = artist, album = album, genre = c["GENRE"]?.firstOrNull() ?: "") }
                     renamed[same.id] = Triple(title, artist, album)
@@ -1564,6 +1566,8 @@ object Music {
         }) { res, err ->
             val (renamed, failed) = res ?: (emptyMap<String, Triple<String, String, String>>() to listOf(err?.message ?: "?"))
             queue = queue.map { x -> renamed[x.id]?.let { (a, b, c) -> x.copy(title = a, artist = b, album = c) } ?: x }
+            if (renamed.keys.any { k -> local.files.any { it.id == k } })
+                local.files = local.files.map { x -> renamed[x.id]?.let { (a, b, c) -> x.copy(title = a, artist = b, album = c) } ?: x }
             if (failed.isNotEmpty()) toast("Couldn't write the tags: ${failed[0].take(100)}")
             val n = todo.size - failed.size
             if (n > 0) toast("Tags written to $n song${if (n != 1) "s" else ""}")

@@ -1612,11 +1612,11 @@ private fun DeleteDialog(ui: Ui) {
  *  as it is in each unless you type in it. */
 @Composable
 private fun TagsDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
-    val songs = remember(tracks) { tracks.filter { org.omarchy.music.Tags.editable(it) != null } }
+    val songs = remember(tracks) { tracks.filter { org.omarchy.music.Tags.editableAny(it) != null } }
     var have by remember { mutableStateOf<Map<String, String?>?>(null) }
     val typed = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
     LaunchedEffect(songs) {
-        Music.bg({ org.omarchy.music.Tags.read(Music.ctx, songs.mapNotNull { org.omarchy.music.Tags.editable(it) }) }) { h, _ -> have = h ?: emptyMap() }
+        Music.bg({ org.omarchy.music.Tags.read(Music.ctx, songs.mapNotNull { org.omarchy.music.Tags.editableAny(it) }) }) { h, _ -> have = h ?: emptyMap() }
     }
     val close = { ui.editTagsFor = null }
     AlertDialog(onDismissRequest = close, containerColor = C.light,

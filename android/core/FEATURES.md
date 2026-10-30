@@ -186,7 +186,7 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Discord:** Shows what you're playing on your Discord profile, as Spotify does, and clears it when you pause. It works through the Discord app on your PC and sends nothing anywhere else.
 - **Right-click menus:** Right-click anything to get the same menus you'd get with a long-press on the phone. **Esc** goes back.
 - **Keyboard shortcuts:** **Space** plays and pauses, **→** or **N** skips, **←** or **P** goes back, **R** changes repeat, **L** likes the song, **F** makes it a favorite, **+** and **−** change the volume, **M** mutes, **W** opens Wrapped, **E** the Equalizer and **/** search. **Ctrl+,** opens Settings, **F9** or **Ctrl+M** the ☰ menu, **Ctrl+F** search and **Ctrl+Q** quits. The one-key shortcuts wait while you're typing in a box.
-- **Your own files:** Edit tags, the Tagger, covers and lyrics are written into your own FLAC files too, not only the app's downloads.
+- **Your own files:** Edit tags, the Tagger, covers and lyrics are written into your own FLAC files too, not only the app's downloads. The Tagger's Tags tab also edits your MP3, M4A, Ogg and other files.
 - **Deleting your own songs:** **Delete…** works on your own files too, and they go to the Recycle Bin, as on the old PC app.
 - **Downloads anywhere:** Settings › Downloads › Change can pick any folder on the PC with **Another folder…**.
 - **PC-only sound and tools:** High-quality resampling, Empty folders, and moving fixed songs into the right folders.
