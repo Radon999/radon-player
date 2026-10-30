@@ -31,6 +31,7 @@ class MusicService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private var switching: Job? = null
     private var players = emptyList<Player>()
+    private var retriedFor: String? = null   // the song played again once after an audio error
 
     override fun onCreate() {
         super.onCreate()
@@ -71,6 +72,19 @@ class MusicService : MediaLibraryService() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                // The sound output refused the song (an audio error, as Android Auto's output gave on some songs): tried
+                // again at once without HQ resampling, before anything is said. Noted in Settings › Problems.
+                val id = Music.current()?.id
+                val audio = error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
+                    error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED ||
+                    (error as? androidx.media3.exoplayer.ExoPlaybackException)?.type == androidx.media3.exoplayer.ExoPlaybackException.TYPE_RENDERER
+                if (audio && id != null && retriedFor != id) {
+                    retriedFor = id
+                    Crashes.caught(error, "The sound output refused “${Music.current()?.title}” (${error.errorCodeName}): played again without HQ resampling")
+                    ResampleProcessor.plain = true
+                    exo.prepare()
+                    return
+                }
                 if (Music.streaming) Music.streamBroke()
                 else {
                     Music.toast("Couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")

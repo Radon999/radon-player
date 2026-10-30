@@ -15,6 +15,10 @@ import kotlin.math.sqrt
  *  (48 taps, Kaiser window) instead of Android's quicker one. When the rates already match, or bit-perfect is on, it
  *  isn't in the path at all, so it never touches music it can't improve. Takes effect from the next song. */
 class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioProcessor() {
+    companion object {
+        /** The sound output refused a song (MusicService tries it again): resampling stays out of the way from then on. */
+        @Volatile var plain = false
+    }
     private val half = 24            // taps on each side
     private val phases = 512         // fractional positions in the table
     private var table = Array(0) { FloatArray(0) }
@@ -33,14 +37,15 @@ class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioPro
 
     override fun onConfigure(input: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val want = deviceRate()
-        if (!Prefs.on(Prefs.HQ_RESAMPLE) || Music.bitPerfectNow() || input.sampleRate == want || input.sampleRate <= 0 ||
+        if (plain || !Prefs.on(Prefs.HQ_RESAMPLE) || Music.bitPerfectNow() || input.sampleRate == want || input.sampleRate <= 0 ||
             (input.encoding != C.ENCODING_PCM_16BIT && input.encoding != C.ENCODING_PCM_FLOAT)) return AudioProcessor.AudioFormat.NOT_SET
         ch = input.channelCount
         inFloat = input.encoding == C.ENCODING_PCM_FLOAT
         step = input.sampleRate.toDouble() / want
         table = kernel(minOf(1.0, want.toDouble() / input.sampleRate) * 0.96)
         reset0()
-        return AudioProcessor.AudioFormat(want, ch, C.ENCODING_PCM_FLOAT)
+        // Out in the encoding it came in: 16-bit stays 16-bit (Android Auto's sound output, for one, won't take float)
+        return AudioProcessor.AudioFormat(want, ch, input.encoding)
     }
 
     /** The filter at each fractional position: sinc at the cutoff (fc of the input's Nyquist), Kaiser-windowed (beta 8),
@@ -82,7 +87,7 @@ class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioPro
     private fun produce() {
         val avail = frames - half - pos   // output needs input up to floor(pos) + half
         val count = if (avail <= 0) 0 else (avail / step).toInt() + 1
-        val out = replaceOutputBuffer(count * ch * 4)
+        val out = replaceOutputBuffer(count * ch * (if (inFloat) 4 else 2))
         var made = 0
         while (made < count && floor(pos).toInt() + half < frames) {
             val i0 = floor(pos).toInt()
@@ -92,7 +97,7 @@ class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioPro
                 var acc = 0f
                 var at = base + c
                 for (k in coef.indices) { acc += hist[at] * coef[k]; at += ch }
-                out.putFloat(acc)
+                if (inFloat) out.putFloat(acc) else out.putShort((acc * 32767f).let { kotlin.math.round(it) }.coerceIn(-32768f, 32767f).toInt().toShort())
             }
             pos += step; made++
         }
