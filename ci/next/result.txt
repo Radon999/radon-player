@@ -1,8 +1,7 @@
-run 41108841863 · Fri Oct 30 18:46:07 UTC 2026
+run 41110080637 · Fri Oct 30 18:53:36 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="3" failures="0" tests="7" failures="0" tests="1" failures="0" 
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:118:22 Condition is always 'false'.
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:617:9 Condition is always 'true'.
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:618:9 Condition is always 'true'.
@@ -12,11 +11,11 @@ w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/o
 > Task :desktop:classes
 > Task :desktop:jar
 > Task :desktop:flattenJars
-> Task :app:lintVitalReportRelease
 
 > Task :desktop:packageUberJarForCurrentOS
 The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.2.jar
 
+> Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
 
@@ -26,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 2s
+BUILD SUCCESSFUL in 3m 59s
 103 actionable tasks: 103 executed
