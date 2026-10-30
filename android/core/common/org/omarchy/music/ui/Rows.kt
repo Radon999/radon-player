@@ -348,7 +348,7 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         item("Tagger…") { ui.taggerFor = listOf(t) }()
         if (org.omarchy.music.upgradable(t) && Music.upgrading == null) item("Upgrade to FLAC…") { ui.upgradeFor = listOf(t) }()
         item(if (Music.favorites.has(t)) "Unfavorite" else "Favorite") { Music.setFavorite(listOf(t)) }()
-        Music.gains.get(t).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
+        Music.gains.get(t, Music.outputNow.key).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
         Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }
         splitArtists(t.artist).firstOrNull()?.let { lead -> item("Discovery playlist for $lead") { Music.makeDiscovery(lead) }() }
         if (t.isFile || Music.lib.has(t.id)) item("File location") { showLocation(ui, t) }()

@@ -188,6 +188,12 @@ private fun NowTop(ui: Ui, n: Now) {
                 else { Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear") }
             }
         }
+        // A song with its own volume: 🔊! shown, red while that change is in effect here (this output, the switch on)
+        if (!n.remote && t != null && Music.musicVersion >= 0 && Music.gains.has(t)) {
+            val now = Music.gainNow(t) != 0.0
+            IconButton(Ico.VOLUME_ALERT, if (now) MONO_RED else C.accent,
+                desc = if (now) "Volume changed here" else "Volume changed on another output") { ui.volumeFor = listOf(t) }
+        }
         if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
     }

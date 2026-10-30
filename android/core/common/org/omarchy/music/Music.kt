@@ -244,7 +244,7 @@ object Music {
         speeds = SongSpeeds(File(ctx.filesDir, "song-speeds.json"))
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
         songStats = SongStats(File(ctx.filesDir, "skips.json"))
-        gains = SongGains(File(ctx.filesDir, "song-volume.json"))
+        gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
         local = LocalFiles(ctx)
         tidal = Tidal(ctx)
         dl = Downloader(ctx, lib, tidal)
@@ -1537,17 +1537,31 @@ object Music {
         musicVersion++
     }
 
-    fun setGain(tracks: List<Track>, db: Double) {
+    /** Volume…: db for tracks, on output (the one playing now, by default) or on every output (null). */
+    fun setGain(tracks: List<Track>, db: Double, output: String? = outputNow.key) {
         if (tracks.isEmpty()) return
-        gains.set(tracks, db)
-        current()?.let { cur -> if (tracks.any { SongSpeeds.key(it) == SongSpeeds.key(cur) }) eqProcessor.songGain = gainOf(cur) }
-        val v = gains.get(tracks[0])
+        gains.set(tracks, db, output)
+        current()?.let { eqProcessor.songGain = gainOf(it) }
+        val v = gains.saved(tracks[0], output) ?: 0.0
         val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
-        toast(if (v == 0.0) "$what back to normal volume" else "$what at ${"%+.1f".format(v)} dB")
+        val where = if (output == null) "" else " on ${outLabel(output)}"
+        toast(if (v == 0.0) "$what back to normal volume$where" else "$what at ${"%+.1f".format(v)} dB$where")
         musicVersion++
     }
 
-    private fun gainOf(t: Track) = Math.pow(10.0, gains.get(t) / 20)
+    /** Settings › Sound quality › Song volume changes: off, every song plays at its normal volume (the changes kept). */
+    val songVolumesOn get() = Prefs.on(SONG_VOLUMES, true)
+    const val SONG_VOLUMES = "song_volumes"
+    fun setSongVolumesOn(on: Boolean) {
+        Prefs.set(SONG_VOLUMES, on)
+        current()?.let { eqProcessor.songGain = gainOf(it) }
+        musicVersion++
+    }
+
+    /** The change t plays with here and now (dB): its own for this output, else its every-output one; 0 with the switch off. */
+    fun gainNow(t: Track): Double = if (!songVolumesOn) 0.0 else gains.get(t, outputNow.key)
+
+    private fun gainOf(t: Track) = Math.pow(10.0, gainNow(t) / 20)
 
 
 
@@ -2463,6 +2477,7 @@ object Music {
         val o = Outputs.now(ctx)
         outputNow = o
         eqProcessor.bypass = bitPerfectNow()
+        current()?.let { eqProcessor.songGain = gainOf(it) }   // a song's volume change for this output, if it has one
         if (!eq.perOutput || o.key == eq.output) {
             if (eq.output.isEmpty()) setEq { it.copy(output = o.key, outputs = it.outputs + (o.key to it.toOutput(o.label))) }
             return

@@ -11,7 +11,7 @@ import java.util.zip.ZipOutputStream
  *  other device play from the same song of yours here (else the service's). */
 object Backup {
     private val FILES = listOf("state.json", "playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json",
-        "song-speeds.json", "song-volume.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "new-releases.json")
+        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "new-releases.json")
     private const val PREFS = "radon-2"   // 2.0's switches (Prefs)
 
     /** (blocking) Into the zip at uri. How many files went in. */

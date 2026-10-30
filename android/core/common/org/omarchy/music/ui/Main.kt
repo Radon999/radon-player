@@ -667,7 +667,7 @@ private fun Toolbar(ui: Ui, n: Now) {
         if (!n.remote) SaveMark()
         if (t != null && !n.remote) {
             Music.speeds.get(t).speed.let { if (it != 1.0) Text("  " + org.omarchy.music.fmtSpeed(it), style = T.time) }
-            Music.gains.get(t).let { if (it != 0.0) Text("  %+.1f dB".format(it), style = T.time) }
+            Music.gainNow(t).let { if (it != 0.0) Text("  %+.1f dB".format(it), style = T.time) }
         }
         val status = if (n.remote) Remote.status.message else Music.status
         Text(status, style = T.time.copy(color = C.accent), maxLines = 1, overflow = TextOverflow.Ellipsis,

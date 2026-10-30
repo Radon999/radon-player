@@ -141,18 +141,42 @@ class SongStats(private val file: File) {
     }
 }
 
-/** The volume boost you gave songs (Volume…), in dB: quiet unreleased songs, mostly. Kept by song.
- *  The desktop's song-volume.json. */
-class SongGains(private val file: File) {
+/** The volume you gave songs (Volume…), in dB: quiet unreleased songs, mostly. Kept by song, either for every output
+ *  (the desktop's song-volume.json, as before) or for one output (song-volume-outputs.json: headphones a song is quiet
+ *  on, without it blasting in the car). A song's own one for the output it plays on comes first, else its every-output
+ *  one. */
+class SongGains(private val file: File, private val perFile: File? = null) {
     private val items = readMap(file, Double.serializer())
+    private val per: MutableMap<String, MutableMap<String, Double>> =
+        (perFile?.let { f -> readText(f)?.let { runCatching {
+            JSON.decodeFromString(MapSerializer(String.serializer(), MapSerializer(String.serializer(), Double.serializer())), it)
+        }.getOrNull() } } ?: emptyMap()).mapValues { it.value.toMutableMap() }.toMutableMap()
 
-    fun get(t: Track): Double = items[songId(t)] ?: 0.0
+    /** The change for t on output (null: the every-output one only). */
+    fun get(t: Track, output: String? = null): Double =
+        output?.let { per[it]?.get(songId(t)) } ?: items[songId(t)] ?: 0.0
 
+    /** Exactly what's saved for t at this scope (output null: every output), or null. */
+    fun saved(t: Track, output: String?): Double? = if (output == null) items[songId(t)] else per[output]?.get(songId(t))
+
+    /** Whether t has a change anywhere: for every output, or for any one. */
+    fun has(t: Track): Boolean { val id = songId(t); return id in items || per.values.any { id in it } }
+
+    /** The outputs t has its own change for, with it. */
+    fun outputsOf(t: Track): Map<String, Double> { val id = songId(t); return per.mapNotNull { (o, m) -> m[id]?.let { o to it } }.toMap() }
+
+    /** db for tracks: on output (null: every output); 0 takes the change away. */
     @Synchronized
-    fun set(tracks: List<Track>, db: Double) {
+    fun set(tracks: List<Track>, db: Double, output: String? = null) {
         val v = Math.round(db.coerceIn(LOW, HIGH) * 10) / 10.0
-        for (t in tracks) if (v == 0.0) items.remove(songId(t)) else items[songId(t)] = v
-        writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), Double.serializer()), items))
+        val m = if (output == null) items else per.getOrPut(output) { mutableMapOf() }
+        for (t in tracks) if (v == 0.0) m.remove(songId(t)) else m[songId(t)] = v
+        if (output == null) writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), Double.serializer()), items))
+        else perFile?.let { f ->
+            per.entries.removeAll { it.value.isEmpty() }
+            writeAtomic(f, JSON.encodeToString(MapSerializer(String.serializer(), MapSerializer(String.serializer(), Double.serializer())),
+                per.mapValues { it.value.toMap() }))
+        }
     }
 
     companion object {

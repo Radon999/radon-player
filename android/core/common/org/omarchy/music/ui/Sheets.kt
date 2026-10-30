@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -823,6 +824,12 @@ private fun SoundQuality(ui: Ui) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }
     val P = org.omarchy.music.Prefs
+    Line("Song volume changes", "The volumes you gave songs (Volume… in a song's menu, or on several picked songs), each kept " +
+        "for the output it was set on: louder on your headphones, normal in the car. Off: every song plays at its normal volume " +
+        "everywhere (the changes are kept for when you turn it back on). Now playing shows a speaker with ! on a song that has one, red while " +
+        "it's in effect", Music.songVolumesOn) {
+        Switch(Music.songVolumesOn, { Music.setSongVolumesOn(it) }, colors = swColors())
+    }
     Line("Clip guard", "When a song's volume, ReplayGain or the EQ would push the loudest moments (peaks) past the " +
         "maximum level, a limiter gently holds them down instead of letting them crackle. It only ever touches a peak that would " +
         "clip. It also lets ReplayGain make quiet songs louder", P.on(P.CLIP_GUARD)) {
@@ -1441,22 +1448,41 @@ private fun SpeedDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
         })
 }
 
-/** Volume…: a song's own boost (quiet unreleased songs), from -12 to +12 dB, kept for it. */
+/** Volume…: a song's own volume (quiet unreleased songs), from -12 to +12 dB, kept for it: on the output it's playing
+ *  through now (headphones a song is quiet on, so it doesn't blast in the car), or on every output. */
 @Composable
 private fun VolumeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
-    var db by remember(tracks) { mutableStateOf(Music.gains.get(tracks[0]).toFloat()) }
+    val here = Music.outputNow.key
+    val first = tracks[0]
+    // Where this change goes: this output (its own change, if it has one, or none yet) or every output
+    var scope by remember(tracks) { mutableStateOf<String?>(if (Music.gains.saved(first, here) == null && Music.gains.saved(first, null) != null) null else here) }
+    var db by remember(tracks, scope) { mutableStateOf((Music.gains.saved(first, scope) ?: 0.0).toFloat()) }
     val close = { ui.volumeFor = null }
-    val done = { v: Double -> close(); Music.setGain(tracks, v); ui.afterOption() }
+    val done = { v: Double -> close(); Music.setGain(tracks, v, scope); ui.afterOption() }
     AlertDialog(onDismissRequest = close, containerColor = C.light,
-        title = { Text(if (tracks.size == 1) "Volume of “${tracks[0].title}”" else "Volume of ${tracks.size} songs", style = T.title,
+        title = { Text(if (tracks.size == 1) "Volume of “${first.title}”" else "Volume of ${tracks.size} songs", style = T.title,
             maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Chip("On ${Music.outputNow.label}", scope == here) { scope = here }
+                    Chip("On every output", scope == null) { scope = null }
+                }
                 Text("%+.1f dB".format(db), style = T.title.copy(color = C.accent))
                 Slider(db, { db = Math.round(it * 2) / 2f }, valueRange = -12f..12f, steps = 47,
                     colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
-                Text("Plays this much louder (or quieter) from now on. +6 dB is about twice as loud; very loud songs may distort above 0.",
-                    style = T.sub)
+                Text((if (scope == null) "Plays this much louder (or quieter) everywhere, unless an output has its own change for it. "
+                    else "Plays this much louder (or quieter) only while the sound goes to ${Music.outputNow.label}: the car or the speaker keep " +
+                        "their own. ") + "+6 dB is about twice as loud; very loud songs may distort above 0.", style = T.sub)
+                if (tracks.size == 1) {   // what else this song has
+                    val others = Music.gains.outputsOf(first).filterKeys { it != scope } +
+                        (if (scope != null) Music.gains.saved(first, null)?.let { mapOf("" to it) } ?: emptyMap() else emptyMap())
+                    if (others.isNotEmpty()) Text("Also: " + others.entries.joinToString(" · ") { (k, v) ->
+                        (if (k.isEmpty()) "every output" else Music.eq.outputs[k]?.label?.ifEmpty { null } ?: Music.outLabel(k)) +
+                            " %+.1f dB".format(v) }, style = T.sub, modifier = Modifier.padding(top = 6.dp))
+                }
+                if (!Music.songVolumesOn) Text("Song volume changes are off (Settings › Sound quality): this is saved, and heard once they're on.",
+                    style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 6.dp))
             }
         },
         confirmButton = { TextButton({ done(Math.round(db * 2) / 2.0) }) { Text("Save", color = C.accent) } },
