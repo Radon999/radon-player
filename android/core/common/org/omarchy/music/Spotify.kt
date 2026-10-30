@@ -1,8 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
-import android.util.Base64
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import java.io.File
@@ -27,7 +24,7 @@ fun trackFromSpotify(t: JsonElement?, album: JsonElement? = null): Track? {
  *  Tidal in FLAC, matched by ISRC. Spotify no longer gives apps like this radios or an
  *  artist's top songs: another service fills those in. The same redirect address as the
  *  desktop's, so one developer app serves both; here the sign-in page catches it. */
-class Spotify(ctx: Context) : Source {
+class Spotify(ctx: Ctx) : Source {
     override val key = "spotify"
     override val name = "Spotify"
     override val hint = "Connect Spotify in Settings (⚙).\nIt needs a Spotify developer app of yours."
@@ -59,9 +56,8 @@ class Spotify(ctx: Context) : Source {
 
     /** Spotify's consent page (PKCE: no secret). */
     fun loginUrl(): String {
-        verifier = Base64.encodeToString(ByteArray(48).also { SecureRandom().nextBytes(it) }, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
-        val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()),
-            Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+        verifier = b64url(ByteArray(48).also { SecureRandom().nextBytes(it) })
+        val challenge = b64url(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()))
         state = randomHex(12)
         return "https://accounts.spotify.com/authorize?client_id=${enc(clientId)}&response_type=code&redirect_uri=${enc(REDIRECT)}" +
             "&state=$state&scope=${enc(SCOPES)}&code_challenge_method=S256&code_challenge=$challenge"
@@ -69,10 +65,9 @@ class Spotify(ctx: Context) : Source {
 
     /** Swap the code the consent page came back with for a login (blocking). */
     fun finishLogin(redirected: String) {
-        val u = Uri.parse(redirected)
-        u.getQueryParameter("error")?.let { error(it) }
-        if (u.getQueryParameter("state") != state) error("Spotify sent back a different sign-in")
-        val code = u.getQueryParameter("code") ?: error("Spotify didn't send a login back")
+        queryParam(redirected, "error")?.let { error(it) }
+        if (queryParam(redirected, "state") != state) error("Spotify sent back a different sign-in")
+        val code = queryParam(redirected, "code") ?: error("Spotify didn't send a login back")
         val tok = httpJson("https://accounts.spotify.com/api/token", body = form("grant_type" to "authorization_code", "code" to code,
             "redirect_uri" to REDIRECT, "client_id" to clientId, "code_verifier" to verifier))
         take(Auth(client_id = clientId), tok)

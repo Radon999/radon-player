@@ -16,6 +16,8 @@ java {
 
 kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    // The shared core (common to the phone and the PC) and the PC's side of it
+    sourceSets["main"].kotlin.srcDirs("../core/common", "../core/desktop")
 }
 
 dependencies {

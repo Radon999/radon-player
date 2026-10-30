@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
@@ -13,12 +11,7 @@ import java.io.File
 
 
 /** Whether a content:// (or file) address still opens: songs deleted by hand drop out. */
-fun uriExists(ctx: Context, uri: String): Boolean = try {
-    if (uri.startsWith("/")) File(uri).exists()
-    else ctx.contentResolver.openFileDescriptor(Uri.parse(uri), "r")?.use { true } ?: false
-} catch (_: Exception) {
-    false
-}
+fun uriExists(ctx: Ctx, uri: String): Boolean = ctx.uriExists(uri)
 
 /** A saved song: the track, where its FLAC is, and what the tagger learnt. */
 @Serializable
@@ -33,7 +26,7 @@ data class LibEntry(
         thumb = thumb, isrc = isrc, tidal = tidal, apple = apple, spotify = spotify, added = added)
 }
 
-class Library(private val ctx: Context) {
+class Library(private val ctx: Ctx) {
     private val file = File(ctx.filesDir, "library.json")
     private val missingFile = File(ctx.filesDir, "missing.json")
     val artDir = File(ctx.filesDir, "art").apply { mkdirs() }
@@ -94,7 +87,7 @@ class Library(private val ctx: Context) {
         val t = items.remove(id) ?: return
         val shared = items.values.flatMap { listOf(it.file, it.art) }.toSet()
         if (t.file !in shared) runCatching {
-            if (t.file.startsWith("/")) File(t.file).delete() else ctx.contentResolver.delete(Uri.parse(t.file), null, null)
+            ctx.deleteUri(t.file)
         }
         if (t.art.isNotEmpty() && t.art !in shared) File(t.art).delete()
         save()
@@ -123,7 +116,7 @@ const val RECENT_SHOWN = 180
 data class PlayEntry(val plays: Int = 0, val last: Double = 0.0, val track: Track, val at: List<Long> = emptyList())
 
 /** What you've played here, when last and how often: Recently played and Most played. */
-class Plays(ctx: Context) {
+class Plays(ctx: Ctx) {
     private val file = File(ctx.filesDir, "plays.json")
     private val ser = MapSerializer(String.serializer(), PlayEntry.serializer())
     val items: MutableMap<String, PlayEntry> =
@@ -248,7 +241,7 @@ class PlaylistFolders(private val file: File) {
 }
 
 /** The playlists you make here. Each song is in a playlist once; adding it again is a no-op. */
-class Playlists(ctx: Context) {
+class Playlists(ctx: Ctx) {
     private val file = File(ctx.filesDir, "playlists.json")
     private val ser = ListSerializer(Playlist.serializer())
     var items: MutableList<Playlist> =

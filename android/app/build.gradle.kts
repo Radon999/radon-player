@@ -59,6 +59,8 @@ android {
         jvmTarget = "17"
         freeCompilerArgs += listOf("-opt-in=androidx.media3.common.util.UnstableApi")
     }
+    // The shared core (common to the phone and the PC) and the phone's side of it
+    sourceSets["main"].java.srcDirs("../core/common", "../core/android")
     buildFeatures {
         compose = true
         buildConfig = true

@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.util.Base64
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import java.io.File
@@ -12,7 +10,7 @@ import kotlin.math.abs
 /** Your Tidal account: finds each song in lossless, streams and downloads it in FLAC,
  *  and works as a library (favourites, playlists, search, radio). Signing in is
  *  Tidal's browser ("PKCE") login, the only one Tidal streams lossless to. */
-class Tidal(ctx: Context) : Source {
+class Tidal(ctx: Ctx) : Source {
     override val key = "tidal"
     override val name = "Tidal"
     override val hint = "Connect Tidal in Settings\nto see your favourites and playlists."
@@ -39,20 +37,19 @@ class Tidal(ctx: Context) : Source {
     /** Step 1: the page to sign in on. The app's web view watches for [REDIRECT]. */
     fun loginUrl(): String {
         val raw = ByteArray(32).also { SecureRandom().nextBytes(it) }
-        verifier = Base64.encodeToString(raw, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
-        val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()),
-            Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+        verifier = b64url(raw)
+        val challenge = b64url(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()))
         uniqueKey = randomHex(8)
         return "https://login.tidal.com/authorize?response_type=code&redirect_uri=${enc(REDIRECT)}" +
-            "&client_id=${BuildConfig.TIDAL_CLIENT_ID}&lang=EN&appMode=android&client_unique_key=$uniqueKey" +
+            "&client_id=${Keys.tidalId}&lang=EN&appMode=android&client_unique_key=$uniqueKey" +
             "&code_challenge=$challenge&code_challenge_method=S256&restrict_signup=true"
     }
 
     /** Step 2: the address Tidal sent the web view to, with the code in it. */
     fun finishLogin(redirected: String) {
-        val code = android.net.Uri.parse(redirected).getQueryParameter("code") ?: error("Tidal sent no code back")
+        val code = queryParam(redirected, "code") ?: error("Tidal sent no code back")
         val tok = httpJson("https://auth.tidal.com/v1/oauth2/token", body = form(
-            "code" to code, "client_id" to BuildConfig.TIDAL_CLIENT_ID, "grant_type" to "authorization_code",
+            "code" to code, "client_id" to Keys.tidalId, "grant_type" to "authorization_code",
             "redirect_uri" to REDIRECT, "scope" to "r_usr+w_usr+w_sub", "code_verifier" to verifier,
             "client_unique_key" to uniqueKey))
         val access = tok["access_token"].str ?: error("Tidal didn't sign you in")
@@ -72,8 +69,8 @@ class Tidal(ctx: Context) : Source {
     private fun refresh() {
         val cur = s ?: return
         val tok = httpJson("https://auth.tidal.com/v1/oauth2/token", body = form(
-            "grant_type" to "refresh_token", "refresh_token" to cur.refresh, "client_id" to BuildConfig.TIDAL_CLIENT_ID,
-            "client_secret" to BuildConfig.TIDAL_CLIENT_SECRET))
+            "grant_type" to "refresh_token", "refresh_token" to cur.refresh, "client_id" to Keys.tidalId,
+            "client_secret" to Keys.tidalSecret))
         s = cur.copy(access = tok["access_token"].str ?: return, expiry = now() + (tok["expires_in"].dbl ?: 3600.0))
         save()
     }
@@ -226,14 +223,14 @@ class Tidal(ctx: Context) : Source {
     fun stream(c: JsonElement, lossy: Boolean = false): Stream {
         val st = api("tracks/${c["id"].long}/playbackinfopostpaywall",
             mapOf("playbackmode" to "STREAM", "audioquality" to QUALITY, "assetpresentation" to "FULL"))
-        val manifest = String(Base64.decode(st["manifest"].str ?: "", Base64.DEFAULT))
+        val manifest = String(unb64(st["manifest"].str ?: ""))
         val mime = st["manifestMimeType"].str ?: ""
         val flac = st["audioQuality"].str in LOSSLESS && (if ("dash" in mime) Regex("codecs=\"flac\"", RegexOption.IGNORE_CASE).containsMatchIn(manifest)
             else (runCatching { JSON.parseToJsonElement(manifest)["codecs"].str }.getOrNull() ?: "").uppercase().startsWith("FLAC"))
         if (!flac) {
             if (!lossy) throw NoLosslessMatch("Tidal only has it lossy")
             val quality = LOSSY[st["audioQuality"].str] ?: "lossy"
-            if ("dash" in mime) return Stream("data:application/dash+xml;base64,${Base64.encodeToString(manifest.toByteArray(), Base64.NO_WRAP)}", true, quality, manifest)
+            if ("dash" in mime) return Stream("data:application/dash+xml;base64,${b64(manifest.toByteArray())}", true, quality, manifest)
             val bts = JSON.parseToJsonElement(manifest)
             if ((bts["encryptionType"].str ?: "NONE") != "NONE") error("Tidal sent an encrypted stream")
             return Stream(bts["urls"][0].str ?: error("Tidal sent no stream"), false, quality)
@@ -245,7 +242,7 @@ class Tidal(ctx: Context) : Source {
             if (!Regex("codecs=\"flac\"", RegexOption.IGNORE_CASE).containsMatchIn(manifest)) throw NoLosslessMatch("Tidal only has it lossy")
             Regex("audioSamplingRate=\"(\\d+)\"").find(manifest)?.let { rate = it.groupValues[1].toInt() }
             if (bits == 16 && rate > 48000) bits = 24   // Tidal leaves the depth out of hi-res answers
-            val data = Base64.encodeToString(manifest.toByteArray(), Base64.NO_WRAP)
+            val data = b64(manifest.toByteArray())
             out = Stream("data:application/dash+xml;base64,$data", true, "", manifest)
         } else {
             val bts = JSON.parseToJsonElement(manifest)

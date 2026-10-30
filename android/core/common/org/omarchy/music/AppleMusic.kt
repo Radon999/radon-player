@@ -1,7 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.util.Base64
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -12,13 +10,13 @@ const val APPLE_API = "https://amp-api.music.apple.com"
 
 private fun jwtExp(token: String): Long = runCatching {
     val part = token.split(".")[1]
-    val claims = JSON.parseToJsonElement(String(Base64.decode(part, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)))
+    val claims = JSON.parseToJsonElement(String(java.util.Base64.getUrlDecoder().decode(part.trimEnd('='))))
     if (claims["iss"].str == null) 0L else claims["exp"].long ?: 0L
 }.getOrDefault(0L)
 
 /** The token music.apple.com's player sends to Apple's API. It is in the player's
  *  script and lasts a couple of months; kept until it expires. */
-fun appleWebToken(ctx: Context, refresh: Boolean = false): String {
+fun appleWebToken(ctx: Ctx, refresh: Boolean = false): String {
     val file = File(ctx.filesDir, "apple-token.json")
     val saved = readText(file)?.let { runCatching { JSON.parseToJsonElement(it) }.getOrNull() }
     val tok = saved["token"].str
@@ -55,7 +53,7 @@ fun trackFromApple(res: JsonElement): Track {
 /** Your Apple Music library: playlists, favourites and search, signed in with the cookie
  *  of the app's music.apple.com sign-in page. Without it, the catalogue still searches.
  *  Its songs play from their Tidal match (by ISRC), in FLAC. */
-class AppleMusic(private val ctx: Context, cookie: String?) : Source {
+class AppleMusic(private val ctx: Ctx, cookie: String?) : Source {
     override val key = "apple"
     override val name = "Apple Music"
     override val hint = "Sign in to Apple Music in Settings (⚙)\nto see your playlists and favourites."

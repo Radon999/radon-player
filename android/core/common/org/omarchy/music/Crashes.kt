@@ -1,6 +1,5 @@
 package org.omarchy.music
 
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,7 +17,7 @@ object Crashes {
     var last by mutableStateOf("")
         private set
 
-    fun init(c: Context) {
+    fun init(c: Ctx) {
         if (::dir.isInitialized) return
         dir = c.filesDir
         last = runCatching { File(dir, "problems.txt").readText() }.getOrDefault("")
@@ -31,7 +30,7 @@ object Crashes {
 
     /** An error the app caught (it kept going). */
     fun caught(e: Throwable, what: String = "An error the app lived through") {
-        android.util.Log.w("radon-player", what, e)
+        logWarn(what, e)
         runCatching { write(what, e) }
     }
 
@@ -42,7 +41,7 @@ object Crashes {
         if (!::dir.isInitialized) return
         val f = File(dir, "problems.txt")
         val stamp = SimpleDateFormat("d MMM yyyy, HH:mm:ss", Locale.US).format(Date())
-        val entry = "$stamp · ${runCatching { Updater.version }.getOrDefault("?")} · $what\n${e.stackTraceToString().take(4000)}\n"
+        val entry = "$stamp · ${appVersion} · $what\n${e.stackTraceToString().take(4000)}\n"
         // The newest first, and only the last few.
         val old = runCatching { f.readText() }.getOrDefault("")
         val text = (entry + "\n" + old).take(16000)

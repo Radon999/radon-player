@@ -1,16 +1,13 @@
 package org.omarchy.music
 
-import android.content.Context
-import android.net.Uri
 import java.io.File
 import java.io.InputStream
 
 /** A FLAC file's Vorbis comments (keys lowercased), from a path or a content:// address; empty if unreadable. */
-fun fileTags(ctx: Context, path: String?): Map<String, List<String>> {
+fun fileTags(ctx: Ctx, path: String?): Map<String, List<String>> {
     if (path.isNullOrEmpty()) return emptyMap()
     return runCatching {
-        val input: InputStream = if (path.startsWith("/")) File(path).inputStream()
-            else ctx.contentResolver.openInputStream(Uri.parse(path)) ?: return emptyMap()
+        val input: InputStream = ctx.openIn(path) ?: return emptyMap()
         input.buffered().use { Flac.comments(Flac.readHeader(it)) }.mapKeys { it.key.lowercase() }
     }.getOrDefault(emptyMap())
 }
@@ -24,7 +21,7 @@ data class SongMeta(val title: String, val artist: String, val artists: List<Str
                     val albumArtist: String, val duration: Double, val tidal: Long?, val mbid: String,
                     val file: String?, val tags: Map<String, List<String>>)
 
-fun songMeta(ctx: Context, lib: Library, t: Track): SongMeta {
+fun songMeta(ctx: Ctx, lib: Library, t: Track): SongMeta {
     val entry = lib.items[t.id]
     val path = if (entry?.format == "flac") entry.file else t.file
     val tags = fileTags(ctx, path)
