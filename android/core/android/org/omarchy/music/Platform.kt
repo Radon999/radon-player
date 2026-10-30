@@ -190,3 +190,11 @@ object RemoteHost {
     fun setOn(on: Boolean) {}
     fun forget(token: String) {}
 }
+
+/** Discord's Rich Presence talks to the Discord app on a computer: the PC's. */
+object Discord {
+    val supported = false
+    val on = false
+    val status = ""
+    fun setOn(v: Boolean) {}
+}

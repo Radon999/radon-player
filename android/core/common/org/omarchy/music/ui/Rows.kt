@@ -235,7 +235,7 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                 .clip(R.card)
                 .background(if (playing || checked) C.accent.copy(alpha = if (C.apple) 0.08f else 0.14f)
                     else if (C.isLight && !C.apple) C.light else Color.Transparent)
-                .combinedClickable(
+                .pressable(
                     onClick = { if (ui.selecting) ui.toggle(t) else onPlay() },
                     onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
                 )
@@ -333,7 +333,7 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
 @Composable
 fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, checked: Boolean? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(R.card)
-        .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 8.dp, vertical = 6.dp),
+        .pressable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (checked != null) Tick(checked, Modifier.padding(end = 10.dp))   // picking: a tick, and a tap ticks it
         ArtImage(art ?: p.thumb.takeIf { it.isNotEmpty() }, 52.dp)

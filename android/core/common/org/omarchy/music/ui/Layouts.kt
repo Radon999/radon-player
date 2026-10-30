@@ -128,7 +128,7 @@ fun Tile(art: Any?, title: String, sub: String, modifier: Modifier, compact: Boo
     val big = when (LocalTileLayout.current) { "huge" -> 2; "large" -> 1; else -> 0 }   // bigger covers, bigger names
     Column(modifier.padding(if (compact) 3.dp else 5.dp).clip(R.card)
         .background(if (lit) C.accent.copy(alpha = 0.10f) else Color.Transparent)
-        .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(if (compact) 3.dp else 4.dp),
+        .pressable(onClick = onClick, onLongClick = onLongClick).padding(if (compact) 3.dp else 4.dp),
         horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(shape).background(C.light), contentAlignment = Alignment.Center) {
             Icon(ico, C.muted.copy(alpha = 0.5f), if (compact) 24.dp else 34.dp)

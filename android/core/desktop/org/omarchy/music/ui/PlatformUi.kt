@@ -1,6 +1,8 @@
 package org.omarchy.music.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -277,3 +279,10 @@ fun sharable(file: String) = !file.startsWith("http")
 fun CastPicker(ui: Ui) {
     LaunchedEffect(Unit) { Music.toast("Casting is on the phone: pick a speaker or TV there"); ui.castPick = false }
 }
+
+/** A right-click: the menu, as a long press is on the phone. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+fun androidx.compose.ui.Modifier.rightClick(run: () -> Unit): androidx.compose.ui.Modifier =
+    this.onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press) { e ->
+        if (e.buttons.isSecondaryPressed) run()
+    }

@@ -180,6 +180,7 @@ private fun AccountsSheet(ui: Ui) {
                 Text("Paired with ${Remote.host}", style = T.sub, modifier = Modifier.weight(1f))
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
+            if (org.omarchy.music.Discord.supported) DiscordLine()
             }
             Group("Accounts", ui) {
             // ---- services ----
@@ -285,7 +286,7 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             if (Music.local.files.isNotEmpty() || Music.upgrading != null) Line("Upgrade", Music.upgrading
-                ?: "Swap your songs for Tidal's FLAC where it's better: MP3s and other lossy files, and 16-bit ones Tidal has in hi-res. The old files go to Android's trash",
+                ?: "Swap your songs for Tidal's FLAC where it's better: MP3s and other lossy files, and 16-bit ones Tidal has in hi-res. The old files go to $TRASH",
                 Music.upgrading != null) {
                 if (Music.upgrading != null) Pill("Stop", quiet = true) { Music.upgradeStop = true }
                 else Pill("Upgrade…") { ui.upgradeFor = emptyList() }
@@ -475,6 +476,20 @@ private fun DeezerHistoryLine() {
         text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
         confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** Discord (the PC): what you play on your Discord profile. */
+@Composable
+private fun DiscordLine() {
+    val d = org.omarchy.music.Discord
+    Line("Discord", when {
+        !d.on -> "Show what you're playing on your Discord profile, as Spotify does (paused: nothing)"
+        d.status == "on" -> "Showing what you play (paused: nothing)"
+        d.status.isEmpty() || d.status == "Discord isn't open" -> "On · Discord isn't open"
+        else -> "On · ${d.status}"
+    }, d.on && d.status == "on") {
+        Switch(d.on, { d.setOn(it) }, colors = swColors())
+    }
 }
 
 /** The PC's Phone remote: the phone app plays music here, pairs with the code shown, finds the PC by itself. */
@@ -1184,7 +1199,7 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
                 }
                 Row {
                     TextButton(next, enabled = !busy) { Text(if (albums.size > 1) "Skip" else "Cancel", color = C.muted) }
-                    TextButton({ pick.launch(arrayOf("image/*")) }, enabled = !busy) { Text("From gallery…", color = C.accent) }
+                    TextButton({ pick.launch(arrayOf("image/*")) }, enabled = !busy) { Text(if (onPhone) "From gallery…" else "From a file…", color = C.accent) }
                 }
             }
         })
@@ -1299,7 +1314,7 @@ private fun UpgradeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                     "• MP3, AAC and other lossy files: replaced with FLAC\n" +
                     "• 16-bit FLAC/WAV: replaced only when Tidal has it in 24-bit\n" +
                     "• 24-bit files, and songs Tidal doesn't have: left as they are (you're asked about the ones kept as good already, at the end)\n\n" +
-                    "The old files go to Android's trash (it asks you first), so you can get them back. The new ones go to " +
+                    "The old files go to $TRASH" + (if (onPhone) " (it asks you first)" else "") + ", so you can get them back. The new ones go to " +
                     Music.downloadFolder() + ". It takes a while: you can keep listening, and Stop it in Settings.",
                     style = T.body)
                 Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1325,7 +1340,7 @@ private fun UpgradeKeptDialog(kept: List<Pair<org.omarchy.music.Track, String>>)
                     style = T.body)
                 kept.take(8).forEach { (t, why) -> Text("• ${t.title} — ${t.artist}\n   $why", style = T.sub, modifier = Modifier.padding(top = 4.dp)) }
                 if (n > 8) Text("…and ${n - 8} more", style = T.sub)
-                Text("Replace them with Tidal's anyway? The new copies may be lower quality than yours (yours go to Android's trash).",
+                Text("Replace them with Tidal's anyway? The new copies may be lower quality than yours (yours go to $TRASH).",
                     style = T.body, modifier = Modifier.padding(top = 8.dp))
             }
         },

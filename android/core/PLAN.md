@@ -31,7 +31,9 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] PC: bit-perfect (exclusive mode through mpv), HQ resampling, dither (swresample), levelling target (shared rgGain)
 - [x] PC: phone remote server (Settings › Play on › Phone remote: code, pairing, mDNS, status, commands, handoff)
 - [x] PC: tray (close keeps playing; Play/Pause, Next, Previous, Mini player, Quit), media keys (Windows), mini player window
+- [x] PC: Discord (what you play on your profile), right-click = long-press menus, PC wording (click, Recycle Bin, …)
 - [ ] PC: now-playing notification, run at start-up, Windows media flyout (SMTC)
+- [ ] Both: Fix albums and artists, Folders to leave alone, Empty folders, Loudness check, Live in song names, Tagger «Scan all again», Identify by sound (AcoustID), Copy the names, «Close selection after an option», Lyrics mode in Settings, lyrics into the files from the options menu (the Python app's tools; on the phone where Android lets it)
 - [ ] PC: visualizer and Now playing bars (spectrum from mpv), sign-in pages (now: paste the address it ends on)
 - [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)

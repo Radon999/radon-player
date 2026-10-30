@@ -252,3 +252,6 @@ const val canOpenFolders = false
 fun openFolder(path: String) {}
 /** Whether a song file can go to another app (one of the phone's own, not a stream). */
 fun sharable(file: String) = file.startsWith("content://")
+
+/** A right-click: none on the phone (a long press is the menu). */
+fun androidx.compose.ui.Modifier.rightClick(run: () -> Unit): androidx.compose.ui.Modifier = this

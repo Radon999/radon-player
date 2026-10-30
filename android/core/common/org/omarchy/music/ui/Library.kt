@@ -113,7 +113,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
 @Composable
 private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onLongClick: () -> Unit, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card).background(C.light.copy(alpha = 0.6f))
-        .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 12.dp, vertical = 10.dp),
+        .pressable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(42.dp).clip(R.card).background(C.accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
             Icon(ico, C.accent, 22.dp)
@@ -184,7 +184,7 @@ fun QueueHeader(ui: Ui) {
         Icon(Ico.QUEUE, C.accent, 20.dp)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(Music.queueName.ifEmpty { "Queue" }, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (Music.queues.isEmpty()) "Your only queue" else "${Music.queues.size + 1} queues · tap to switch",
+            Text(if (Music.queues.isEmpty()) "Your only queue" else "${Music.queues.size + 1} queues · $TAP to switch",
                 style = T.sub)
         }
         if (org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO) || org.omarchy.music.AutoMono.active)

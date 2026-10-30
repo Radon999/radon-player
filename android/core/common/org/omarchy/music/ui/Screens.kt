@@ -291,7 +291,7 @@ fun MusicTab(ui: Ui) {
                         val (t, b) = when (ui.musicView) {
                             "all" -> "No music yet" to "Songs you download, and the music in your folders\n(${Music.folders.joinToString()}), show up here."
                             "recent" -> "Nothing played yet" to "The songs you listen to show up here, the last one first."
-                            "favorites" -> "No favorites yet" to "Long-press a song (or select a few) and pick Favorite, or tap the ☆ by the song playing."
+                            "favorites" -> "No favorites yet" to "${LONG_PRESS.cap()} a song (or select a few) and pick Favorite, or $TAP the ☆ by the song playing."
                             "unfavorited" -> "Every song is a favorite" to "Your songs you haven't starred show up here."
                             "skips" -> "No skips counted yet" to "Go on to the next song with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left and it counts as a skip; hear it to the end and it counts as heard out. Last.fm keeps no skips, so this starts now."
                             else -> "Nothing played yet" to "The songs you play most show up here."
@@ -418,7 +418,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
                                     "\n\nIt's a duplicate of:\n" + g.filter { it.id != t.id }.joinToString("\n") { o ->
                                         "• ${o.title} — ${o.artist}\n   ${Music.copyInfo(o)}\n   ${Music.whereIs(o)}" } +
                                     "\n\nYour playlists get the copy you keep in its place." +
-                                    if (Music.lib.has(t.id)) "" else " Android asks you once more, and the file goes to its trash.") to { Music.deleteDupe(g, t) }
+                                    if (Music.lib.has(t.id)) "" else if (onPhone) " Android asks you once more, and the file goes to its trash." else " The file goes to the Recycle Bin.") to { Music.deleteDupe(g, t) }
                             }
                         }
                     }
@@ -561,7 +561,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.folderView(ui: Ui, f:
         }
     }
     val items = f.playlists.filter { it.kind != "mine" || Music.lists.get(it.id) != null }   // yours deleted since: gone
-    if (items.isEmpty()) { item { Empty("Nothing in it yet", "Long-press a playlist and pick this folder.") }; return }
+    if (items.isEmpty()) { item { Empty("Nothing in it yet", "${LONG_PRESS.cap()} a playlist and pick this folder.") }; return }
     item { Section("${items.size} PLAYLIST${if (items.size != 1) "S" else ""}") }
     items(items.size, key = { "fi-${items[it].key}" }) { i ->
         val it = items[i]
@@ -605,7 +605,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
         if (lists.isNotEmpty() && Music.playlistFolders.items.isNotEmpty()) item { Section("YOUR PLAYLISTS") }
         if (lists.isEmpty()) item {
             Section("NO PLAYLISTS YET")
-            Text("Make one here, or long-press any song (or select a few) and pick Add to playlist.", style = T.sub,
+            Text("Make one here, or $LONG_PRESS any song (or select a few) and pick Add to playlist.", style = T.sub,
                 modifier = Modifier.padding(horizontal = 12.dp))
         }
         val shown = lists.filter { fits(ui, it.name) }
@@ -653,7 +653,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
             "Export" to { ui.exportFor = open.name to sorted },
         ), pin = org.omarchy.music.Pin("mine", open.id, open.name))
     }
-    if (sorted.isEmpty()) item { Empty("No songs in it yet", "Long-press a song anywhere and pick Add to playlist.") }
+    if (sorted.isEmpty()) item { Empty("No songs in it yet", "${LONG_PRESS.cap()} a song anywhere and pick Add to playlist.") }
     else { item { PlaylistSortChips() }; tracks(sorted, ui, "mine", playlistId = open.id) }
 }
 
@@ -663,7 +663,7 @@ fun QueueTab(ui: Ui) {
     val idx = Music.shownIndex()
     LazyColumn(Modifier.fillMaxSize()) {
         if (!Remote.active) item { QueueHeader(ui) }
-        if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or long-press one and pick Add to the queue.") }; return@LazyColumn }
+        if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@LazyColumn }
         item { Section("NOW PLAYING") }
         item { TrackRow(q[idx], RowPlace(q, idx, "queue", queueIndex = idx), ui) { } }
         val rest = (idx + 1 until q.size).toList()
@@ -758,7 +758,7 @@ fun ArtistsTab(ui: Ui) {
         laidOutItems(shown, ui, key = { "ar-" + shown[it].name }, row = { i ->
             val a = shown[i]
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(R.card)
-                .combinedClickable(onClick = { ui.pages += Ui.Page.Artist(a.name) }, onLongClick = { menu(a.name, a.thumb) })
+                .pressable(onClick = { ui.pages += Ui.Page.Artist(a.name) }, onLongClick = { menu(a.name, a.thumb) })
                 .padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 RoundArt(artistArt(a.name, a.thumb), 52.dp)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -967,7 +967,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         nr.status?.let { Section(it.uppercase()) }
     }
     if (nr.scanned <= 0) {
-        item { Empty("New releases", "Tap Refresh… to look at every artist with songs on your $DEVICE for what they've put out in the last " +
+        item { Empty("New releases", "${TAP.cap()} Refresh… to look at every artist with songs on your $DEVICE for what they've put out in the last " +
             "week, month or year. Nothing is checked on its own.") }
         return
     }
@@ -1035,7 +1035,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
     val pairs = Music.discoveryLists()
     if (Music.discovering.isNotEmpty()) item { Section("FINDING SONGS…") }
     if (pairs.isEmpty()) {
-        item { Empty("Discovery", "Long-press a song (or select one) and pick “Discovery playlist for…”, or open an artist and tap " +
+        item { Empty("Discovery", "${LONG_PRESS.cap()} a song (or select one) and pick “Discovery playlist for…”, or open an artist and $TAP " +
             "Discovery playlist: every song of theirs you haven't got, album by album. The ones you hear to the end go to " +
             "“… discovered”, to download or let go.") }
         return

@@ -480,7 +480,7 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
         }
         Row(Modifier.fillMaxWidth().height(60.dp).clip(R.card)
             .background(if (checked) WHITE.copy(alpha = 0.14f) else Color.Transparent)
-            .combinedClickable(onClick = { if (ui.selecting) ui.toggle(t) else Music.playIndex(j) },
+            .pressable(onClick = { if (ui.selecting) ui.toggle(t) else Music.playIndex(j) },
                 onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true }),
             verticalAlignment = Alignment.CenterVertically) {
             if (ui.selecting) androidx.compose.material3.Checkbox(checked, { ui.toggle(t) },   // picked: a checkmark, as in the lists
