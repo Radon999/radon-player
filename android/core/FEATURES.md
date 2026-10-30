@@ -119,7 +119,7 @@ Radon Player adds up every play from wherever you listened:
 - **YouTube Music history:** Import your history from Google Takeout (takeout.google.com: YouTube and YouTube Music, history as JSON). The steps are shown next to Import. Only songs played in YouTube Music count, not videos.
 - **Tidal history:** Import the streaming history from the copy of your data Tidal sends when you ask for it (a privacy request), as the zip or the CSV or JSON file in it.
 
-Imported plays are **added alongside** your Last.fm scrobbles, not swapped for them, and **each play is counted once**: importing the same file again only adds plays you didn't already have. Each history has a **Clear** button, and its plays leave your stats until you import it again.
+Imported plays are **added alongside** your Last.fm scrobbles, not swapped for them, and importing the same file again never adds a play twice. **Don't import an app's data if you used Last.fm with that app** (for instance Spotify with Last.fm scrobbling on): its plays are on Last.fm already and would count twice. A note at the top of Settings › Last.fm & your stats explains this. Each history has a **Clear** button, and **Reset plays** at the bottom of that section clears every imported play at once (Last.fm's scrobbles stay), so you can import again the right way. The Spotify import is called **Spotify history**.
 
 ### Your stats
 

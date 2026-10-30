@@ -369,20 +369,29 @@ private fun AccountsSheet(ui: Ui) {
             SoundQuality(ui)
             }
             Group("Last.fm & your stats", ui) {
+            Text("Important: don't import an app's data if you used Last.fm with that app", style = T.body.copy(color = C.red,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+            Text("For instance, if you used Spotify with Last.fm scrobbling at the same time, only connect Last.fm: importing your " +
+                "Spotify data too would count those plays twice.\n\n" +
+                "Import the data of any app you didn't use Last.fm with, then add Last.fm on top. That won't duplicate anything: " +
+                "Last.fm's scrobbles add on to whatever you import.\n\n" +
+                "If you imported an app's data by mistake (Spotify's, say, when you used Last.fm with it), Reset plays at the bottom " +
+                "of this section clears every imported play, so you can import again the right way alongside Last.fm.",
+                style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
             LastFmLine(ui)
             SpotifyHistoryLine(ui)
             AppleHistoryLine()
             DeezerHistoryLine()
             ImportLine(org.omarchy.music.YouTubeHistory, "https://takeout.google.com",
                 "Bring your YouTube Music listening into Most played, Artists and Wrapped, added alongside your Last.fm scrobbles " +
-                    "with each play counted once. To get the file: tap Get the file (takeout.google.com) and sign in, tap Deselect all, " +
+                    "(importing it again never adds a play twice). To get the file: tap Get the file (takeout.google.com) and sign in, tap Deselect all, " +
                     "tick \"YouTube and YouTube Music\", tap \"All YouTube data included\" and leave only history ticked, tap \"Multiple formats\" " +
                     "and set history to JSON, then Next step › Create export. Google emails you the zip (it can take a while): Import it " +
                     "here (or the watch-history.json inside). Only songs played in YouTube Music are counted, not videos",
                 arrayOf("application/zip", "application/json", "application/octet-stream"))
             ImportLine(org.omarchy.music.TidalHistory, "https://tidal.com/privacy",
-                "Bring your Tidal listening into Most played, Artists and Wrapped, added alongside your Last.fm scrobbles with " +
-                    "each play counted once. To get the file: ask Tidal for a copy of your personal data (Get the file shows how: a " +
+                "Bring your Tidal listening into Most played, Artists and Wrapped, added alongside your Last.fm scrobbles (importing " +
+                    "it again never adds a play twice). To get the file: ask Tidal for a copy of your personal data (Get the file shows how: a " +
                     "data request, from Tidal's privacy page or support). Tidal emails it to you; Import the zip here, or the streaming " +
                     "history file in it (CSV or JSON)",
                 arrayOf("application/zip", "text/csv", "text/comma-separated-values", "application/json", "text/plain", "application/octet-stream"))
@@ -401,6 +410,18 @@ private fun AccountsSheet(ui: Ui) {
                     "so your top artists aren't split up. " +
                     if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",
                     undecided == 0) { Pill("Choose…", quiet = undecided == 0) { ui.jointArtists = true } }
+            }
+            Line("Reset plays", "Clears every play you imported (from Spotify, Apple Music, Deezer, YouTube Music and Tidal), for " +
+                "when an import doubled your plays because you used Last.fm with that app too. Your Last.fm scrobbles stay (they're " +
+                "kept on Last.fm), and you can import again afterwards", false) {
+                Pill("Reset plays", quiet = true) {
+                    ui.confirm = ("Reset your plays? Every play imported from Spotify, Apple Music, Deezer, YouTube Music and Tidal is " +
+                        "cleared from Most played, Artists and Wrapped. Your Last.fm scrobbles stay. You can import again afterwards.") to {
+                        Music.bg({ Music.resetImportedPlays() }) { _, err ->
+                            Music.toast(if (err != null) "Couldn't reset: ${err.message?.take(80)}" else "Imported plays cleared")
+                        }
+                    }
+                }
             }
             }
             Group("More", ui) {
@@ -489,15 +510,15 @@ private fun SpotifyHistoryLine(ui: Ui) {
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Spotify plays added alongside your Last.fm scrobbles in your stats " +
-        "and Wrapped, each play counted once. Importing the zip again only adds plays you didn't have yet"
+        "and Wrapped. Importing the zip again only adds plays you didn't have yet"
         else "Bring back years of Spotify listening: its plays are added alongside your Last.fm scrobbles in " +
-            "your stats and Wrapped, each play counted once. The zip is the data download Spotify gives you: tap Get the zip, ask " +
+            "your stats and Wrapped. The zip is the data download Spotify gives you: tap Get the zip, ask " +
             "for your data on Spotify's privacy page (the extended streaming history goes furthest back), then Import zip when it " +
             "comes. A play counts from 30 seconds, as Spotify counts streams; podcasts and videos are left out" +
             if (sp?.signedIn == true) ". As Spotify is connected, your latest plays also come in each time the app starts " +
                 "(Spotify only keeps the last 50), and Sync fetches them now"
             else ". Connect Spotify under Accounts and your latest plays come in on their own too"
-    Line("History", state, h.count > 0) {}
+    Line("Spotify history", state, h.count > 0) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://www.spotify.com/account/privacy/") }
         if (sp?.signedIn == true) Pill("Sync", quiet = true) {
@@ -532,9 +553,9 @@ private fun AppleHistoryLine() {
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Apple Music plays added alongside your Last.fm scrobbles in " +
-        "Most played, Artists and Wrapped, each play counted once. Importing again only adds plays you didn't have yet"
+        "Most played, Artists and Wrapped. Importing again only adds plays you didn't have yet"
         else "Bring your Apple Music listening into Most played, Artists and Wrapped, added alongside your " +
-            "Last.fm scrobbles with each play counted once. Tap Get the zip and ask Apple's privacy page for your data (Get a copy " +
+            "Last.fm scrobbles (importing it again never adds a play twice). Tap Get the zip and ask Apple's privacy page for your data (Get a copy " +
             "of your data › Apple Media Services), then Import the zip when it comes. Or import a library exported from the Music " +
             "app on a computer (File › Library › Export Library…)"
     Line("Apple Music history", state, h.count > 0) {}
@@ -564,7 +585,7 @@ private fun ImportLine(h: org.omarchy.music.PlaysImport, getAt: String, howTo: S
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} ${h.label} plays added alongside your Last.fm scrobbles in Most " +
-        "played, Artists and Wrapped, each play counted once. Importing again only adds plays you didn't have yet" else howTo
+        "played, Artists and Wrapped. Importing again only adds plays you didn't have yet" else howTo
     Line("${h.label} history", state, h.count > 0) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open(getAt) }
@@ -590,9 +611,9 @@ private fun DeezerHistoryLine() {
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Deezer plays added alongside your Last.fm scrobbles in Most " +
-        "played, Artists and Wrapped, each play counted once. Importing again only adds plays you didn't have yet"
+        "played, Artists and Wrapped. Importing again only adds plays you didn't have yet"
         else "Bring your Deezer listening into Most played, Artists and Wrapped, added alongside your " +
-            "Last.fm scrobbles with each play counted once. Tap Get the file and download your data from Deezer's privacy settings " +
+            "Last.fm scrobbles (importing it again never adds a play twice). Tap Get the file and download your data from Deezer's privacy settings " +
             "(My account › Privacy settings › My personal data), then Import the .xlsx spreadsheet with your listening history"
     Line("Deezer history", state, h.count > 0) {}
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {

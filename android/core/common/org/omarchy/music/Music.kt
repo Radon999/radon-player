@@ -1272,6 +1272,13 @@ object Music {
         download(tracks)
     }
 
+    /** (blocking) Settings › Reset plays: every imported play cleared (Spotify's, Apple Music's, Deezer's, YouTube
+     *  Music's, Tidal's), for an import that doubled plays Last.fm had already; Last.fm's scrobbles stay. */
+    fun resetImportedPlays() {
+        SpotifyHistory.clear(); AppleHistory.clear(); DeezerHistory.clear(); YouTubeHistory.clear(); TidalHistory.clear()
+        Stats.refresh(force = true)
+    }
+
     fun newPlaylist(name: String): String {
         val id = lists.create(name).id
         toast("Made “$name”")
