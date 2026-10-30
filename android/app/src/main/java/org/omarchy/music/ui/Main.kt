@@ -233,19 +233,6 @@ private fun goTo(ui: Ui, tab: String, view: String? = null) {
     ui.drawer = false
 }
 
-/** A round icon button. */
-@Composable
-fun IconButton(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, pad: Dp = 10.dp, desc: String = DESC[ico] ?: "", onClick: () -> Unit) {
-    Box(Modifier.clip(R.pill).clickable(onClick = onClick).semantics { contentDescription = desc }.padding(pad),
-        contentAlignment = Alignment.Center) { Icon(ico, color, size) }
-}
-
-/** What an icon button says to TalkBack. */
-private val DESC = mapOf(Ico.MENU to "Menu", Ico.SEARCH to "Search", Ico.BACK to "Back", Ico.DOWN to "Close",
-    Ico.MORE to "More", Ico.PLAY to "Play", Ico.PAUSE to "Pause", Ico.NEXT to "Next", Ico.PREV to "Previous",
-    Ico.SHUFFLE to "Shuffle", Ico.REPEAT to "Repeat", Ico.REPEAT_ONE to "Repeat one", Ico.CLOSE to "Close",
-    Ico.SETTINGS to "Settings", Ico.EQ to "Equalizer")
-
 // ───────────────────────────── The ☰ menu ─────────────────────────────
 
 private class Entry(val label: String, val ico: Ico, val tab: String, val view: String? = null)

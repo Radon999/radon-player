@@ -773,18 +773,6 @@ private fun Line(name: String, state: String, ok: Boolean, actions: @Composable 
 @Composable
 private fun Divider() = HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 6.dp))
 
-@Composable
-fun Field(value: String, hint: String, password: Boolean = false, multiLine: Boolean = false, onChange: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().padding(vertical = 3.dp).border(1.dp, C.line).background(C.fg.copy(alpha = 0.04f))
-        .padding(horizontal = 10.dp, vertical = 10.dp)) {
-        if (value.isEmpty()) Text(hint, style = T.body.copy(color = C.muted))
-        BasicTextField(value, onChange, singleLine = !multiLine, textStyle = T.body, cursorBrush = SolidColor(C.accent),
-            visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation()
-                else androidx.compose.ui.text.input.VisualTransformation.None,
-            modifier = Modifier.fillMaxWidth())
-    }
-}
-
 /** A screen over everything, with ‹ and a name: Settings, the Equalizer. */
 @Composable
 fun FullScreen(title: String, close: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
