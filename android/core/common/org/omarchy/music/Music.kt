@@ -299,7 +299,7 @@ object Music {
         val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
         val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
         val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
-        val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(),
+        val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(), val not_dupes: List<String> = emptyList(),
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -345,6 +345,7 @@ object Music {
         albumPicks = st.album_picks
         songPicks = st.song_picks
         singlesKept = st.singles_kept.toSet()
+        notDupes = st.not_dupes.toSet()
         Dj.withNew = djNew
         replayGain = st.replay_gain.takeIf { it in setOf("off", "track", "album") } ?: "off"
         eqProcessor.bypass = bitPerfect
@@ -383,7 +384,7 @@ object Music {
         return State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList())
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList())
     }
 
     fun saveApiKeys(keys: Map<String, String>) {
@@ -544,6 +545,14 @@ object Music {
     var albumPicks by mutableStateOf<Map<String, String>>(emptyMap())
     /** Duplicates in Most played: a song's key -> "title\u0000artist" it counts as ("" left as it is). */
     var songPicks by mutableStateOf<Map<String, String>>(emptyMap())
+    /** Duplicates: groups you marked "Not a duplicate" (their copies' files, sorted, joined): never shown again. */
+    var notDupes: Set<String> = emptySet()
+    fun dupeKey(g: List<Track>) = g.map { lib.items[it.id]?.file ?: it.file ?: it.id }.sorted().joinToString("\u0001")
+    fun markNotDupe(g: List<Track>) {
+        notDupes = notDupes + dupeKey(g); saveState()
+        dupes = dupes?.filter { it !== g }
+        toast("“${g[0].title}”: not a duplicate, remembered")
+    }
     var singlesKept: Set<String> = emptySet()   // Singles › Single scan: songs left alone (their files)
     fun keepSingles(more: Collection<String>) { singlesKept = singlesKept + more; saveState() }
     fun addSongPicks(more: Map<String, String>) { songPicks = songPicks + more; saveState(); Stats.refresh(force = true) }
@@ -1346,7 +1355,7 @@ object Music {
         bg({
             mySongs().filter { it.isFile || lib.has(it.id) }.groupBy { looseKey(it) }.filter { (k, v) -> v.size > 1 && k.first.isNotEmpty() }
                 .values.map { g -> g.distinctBy { lib.items[it.id]?.file ?: it.file }.sortedByDescending { copyRank(it) } }
-                .filter { it.size > 1 }.sortedBy { norm(it[0].artist) + "|" + norm(it[0].title) }
+                .filter { it.size > 1 && dupeKey(it) !in notDupes }.sortedBy { norm(it[0].artist) + "|" + norm(it[0].title) }
         }) { res, err ->
             dupesBusy = false
             dupes = res ?: emptyList()

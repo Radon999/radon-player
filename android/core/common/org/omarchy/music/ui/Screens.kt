@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -401,7 +402,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
                 ActionRow("Look again  ›") { Music.findDupes() }
             }
             groups.forEach { g ->
-                item(key = "dupe-head-${g[0].id}") { Section(g[0].title.uppercase() + " · " + g[0].artist.uppercase()) }
+                item(key = "dupe-head-${g[0].id}") {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { Section(g[0].title.uppercase() + " · " + g[0].artist.uppercase()) }
+                        Pill("Not a duplicate", quiet = true) { Music.markNotDupe(g) }
+                        Spacer(Modifier.width(10.dp))
+                    }
+                }
                 g.forEachIndexed { i, t ->
                     item(key = "dupe-${g[0].id}-${t.id}") {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {

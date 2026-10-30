@@ -56,7 +56,7 @@ fun lyricsCard(lines: List<String>, t: Track): ImageBitmap {
     val th = pt.block(t.title, 44f, true, white(255), left, pad + 18f, w - left - pad, maxLines = 4)
     pt.block(t.artist, 36f, false, white(190), left, pad + 26f + th, w - left - pad, maxLines = 4)
     val body = lines.joinToString("\n")
-    val size = if (body.length < 120) 76f else if (body.length < 220) 64f else if (body.length < 380) 52f else 42f
+    val size = (if (body.length < 120) 76f else if (body.length < 220) 64f else if (body.length < 380) 52f else if (body.length < 520) 42f else 36f).let { if (lines.size > 12) minOf(it, 44f) else if (lines.size > 9) minOf(it, 56f) else it }
     val bh = pt.blockHeight(body, size, true, w - 2 * pad, spacing = 10f)
     val y = maxOf(pad + 132f + 80f, (h - bh) / 2f + 40f)
     pt.block(body, size, true, white(255), pad, y, w - 2 * pad, spacing = 10f)
@@ -64,7 +64,7 @@ fun lyricsCard(lines: List<String>, t: Track): ImageBitmap {
     return pt.img
 }
 
-/** Lyrics card…: tick up to a dozen lines, see the card, then share or save it. */
+/** Lyrics card…: tick up to 15 lines, see the card, then share or save it. */
 @Composable
 fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
     val words = remember(got) {
@@ -80,14 +80,14 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
         text = {
             Column {
                 Image(bmp, "The card", Modifier.size(208.dp, 260.dp).align(Alignment.CenterHorizontally))
-                Text("Tick the lines for the card (up to 12):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+                Text("Tick the lines for the card (up to 15):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
                 LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(words.size) { i ->
                         val wd = words[i]
                         val on = wd in picked
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(on, { if (it) { if (picked.size < 12) picked += wd } else picked -= wd },
-                                enabled = on || picked.size < 12, colors = box)
+                            Checkbox(on, { if (it) { if (picked.size < 15) picked += wd } else picked -= wd },
+                                enabled = on || picked.size < 15, colors = box)
                             Text(wd, style = T.body)
                         }
                     }

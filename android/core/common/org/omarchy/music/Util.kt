@@ -24,6 +24,9 @@ fun soloArtists(extra: Collection<String> = emptyList()): Set<String> {
 data class DuplicateSong(val title: String, val artist: String, val plays: Int, val to: Triple<String, String, Int>,
                          val others: List<String>, val version: Boolean)
 
+/** What marks a version as a song of its own in Duplicates in Most played. */
+private val OWN_VERSION = Regex("\\b(stripped|acoustic sessions?|remix(es)?|rmx|orchestra(l)?|live)\\b", RegexOption.IGNORE_CASE)
+
 /** Songs that may be one song counted twice (the same name but for what's after it, or its punctuation), or versions of
  *  one (acoustic, live, remix): each onto its group's most played one that isn't a version. The desktop's duplicate_songs_plan. */
 fun duplicateSongsPlan(songs: List<Stats.Song>, picks: Map<String, String>): List<DuplicateSong> {
@@ -33,8 +36,12 @@ fun duplicateSongsPlan(songs: List<Stats.Song>, picks: Map<String, String>): Lis
         if (lt.length >= 2 && s.artist.isNotBlank()) groups.getOrPut(lt to Stats.statsKey("", s.artist).second) { ArrayList() } += s
     }
     fun extra(t: String) = Regex("^[^(\\[\\-–—]*").replace(t, "")
+    // Versions marked in brackets or after a dash ("Song (Stripped)", "Song - Live", "Song [Remix]") are songs of their
+    // own, not the song counted twice: left out. A plain word in the name ("Live Forever") isn't a mark.
+    fun ownVersion(t: String) = OWN_VERSION.containsMatchIn(extra(t))
     val out = ArrayList<DuplicateSong>()
-    for (g in groups.values) {
+    for (g0 in groups.values) {
+        val g = g0.filter { !ownVersion(it.title) }
         if (g.size < 2) continue
         val to = g.maxWithOrNull(compareBy<Stats.Song>({ !SONG_VERSION.containsMatchIn(extra(it.title)) }, { it.plays }))!!
         for (x in g) {

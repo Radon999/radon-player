@@ -29,7 +29,7 @@ Open the ☰ menu to find everything. Pages can be shown as a list, a grid or a 
 
 - **Pinned:** Pin an album, artist, playlist or folder to keep it at the top of the menu, newest first. Long-press a pin to unpin it or move it up.
 - **My music:** Every song in your folders plus your downloads, with Play, Shuffle and **DJ** buttons. Sort by Title, Artist, Album or Added (newest first). Sorting by artist or album groups the songs under headings.
-- **Albums, EPs and Singles:** Your songs grouped by release, shown as cover grids. **Select** lets you tick several albums and use Options on all their songs. Each tab also has a **Collage** of your top releases, and Singles has **Single scan** (see Tagging & tidying).
+- **Albums, EPs and Singles:** Your songs grouped by release, shown as cover grids. Each release is in exactly one of the three: EPs only in EPs, singles (and albums you have one song of) only in Singles, the rest only in Albums. Albums has two buttons, **Albums** (more than six songs) and **Low song count albums** (six or fewer), to keep the big ones uncluttered. **Select** lets you tick several albums and use Options on all their songs. Each tab also has a **Collage** of your top releases, and Singles has **Single scan** (see Tagging & tidying).
 - **Album pages:** If you're missing some songs from an album, you see them dimmed with **Download missing tracks…**, where you pick which to download.
 - **Artists:** The artists you listen to most, ranked by every play counted together (see Stats). An artist's page has Play, Shuffle, **Change picture…** (pictures from Google, Genius and Wikipedia, or one of your own), **Discovery playlist** and **Merge into…**.
 - **Genres:** Your songs grouped by genre.
@@ -59,7 +59,7 @@ Search looks in Tidal, YouTube Music or **Your music**: pick which from the sear
 - **Lyrics mode (Settings › Your music, or the lyrics screen):** Lyrics appear on Now playing in place of the cover. **Genius** shows the lyrics as written. **Synced** shows lines timed to the music, lighting up as they're sung. Tap a line to jump to that point in the song.
 - **Genius notes:** With Genius lyrics, marked lines have Genius annotations. Tap one to read the best note, with a link to more on Genius.
 - **Lyrics search:** If Genius, Tidal and LRCLIB don't find a song, search again by a different artist or title. Lyrics that are found are kept for offline use.
-- **Lyrics card:** Tick up to 12 lines and Radon Player makes a picture with them in big type on the cover's colour, with the cover, title and artist. Save it to Pictures, or share it to Instagram, Facebook, Messages and more.
+- **Lyrics card:** Tick up to 15 lines and Radon Player makes a picture with them in big type on the cover's colour, with the cover, title and artist. Save it to Pictures, or share it to Instagram, Facebook, Messages and more.
 - **Lyrics into files:** Once a song has finished playing, the lyrics found for it are written into the file's tags (FLAC and MP3), so they stay with the song. On the phone, your own files need All files access (tap **Allow**). Without it, lyrics go only into the app's own downloads.
 
 ## Sound
@@ -116,7 +116,7 @@ Imported plays are **added alongside** your Last.fm scrobbles, not swapped for t
 - **Repeat:** What you've had on repeat: your top 50 of the last week, top 100 of the month and top 200 of the year.
 - **Joint artists:** A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII). When a pair isn't clear, you choose whose plays they are.
 - **Similar artists:** Finds artists that look like the same one written two ways ("cavetown offline" and "Cavetown") and lets you merge them, plays and all, or keep them apart.
-- **Duplicates in Most played:** Finds songs counted twice under different names ("N.P.D" and "NPD") and versions of one song (acoustic, live, remix). You pick which to merge or leave alone.
+- **Duplicates in Most played:** Finds songs counted twice under different names ("N.P.D" and "NPD"). You pick which to merge or leave alone. Versions marked in brackets or after a dash, like "(Stripped)", "(Acoustic Sessions) (Live)", "[Remix]", "- Orchestra" or "(Live)", are songs of their own and are left out; a plain "Live" in a song's name isn't a mark.
 - **Plays on singles and albums:** When a song's plays are split between its single, an EP and the album, this moves them all onto the album (its deluxe or extended edition when there is one). You can also pick another album, type one, or leave it.
 - **Merge into… (artist page):** From now on, count one artist's plays as another's.
 
@@ -210,6 +210,8 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - **Identify by sound…** is now in a single song's menu too.
 - The PC installer brings its own mpv and ffmpeg, and Windows' media controls (the flyout, widgets, wallpapers) now see what's playing.
 - The PC is one app at a time again, with the old app's commands (next, play-pause, show…) and song files opened with it.
+- Albums, EPs and Singles never show the same release twice, and Albums splits into **Albums** and **Low song count albums**.
+- Lyrics cards take up to 15 lines. Duplicates has **Not a duplicate**, remembered for next time. Duplicates in Most played leaves out marked versions (Stripped, Remix, Live…).
 - On the PC, **Upgrade to FLAC…** works on your own songs again, and the mini player has a seek bar and shows what's up next.
 - On the PC, **Delete…** works on your own songs again (they go to the Recycle Bin), and downloads can go to any folder.
 - Fixed on Windows: the window could stay hidden at start while the app froze waiting on the player, and settings weren't being saved.

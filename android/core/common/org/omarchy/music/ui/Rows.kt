@@ -60,6 +60,7 @@ class Ui {
         /** The window's Ui (the PC's keyboard shortcuts reach the screens through it). */
         var current: Ui? = null
     }
+    var albumsLow by mutableStateOf(false)             // Albums tab: the ones with six songs or fewer
     var tab by mutableStateOf("player")                // what's in front: the player, or a list (from the ☰ menu)
     var player by mutableStateOf(false)                // (kept for the screens that close it: the player is a tab now)
     var drawer by mutableStateOf(false)                // the ☰ menu is out

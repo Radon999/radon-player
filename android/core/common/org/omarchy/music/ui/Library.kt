@@ -55,15 +55,22 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
             else listOf(al to songs)
         }
         .filter { (al, songs) ->
+            // Each release is in exactly one of the three tabs: an EP is only in EPs; a single (named one, or an album
+            // of one song) only in Singles; everything else only in Albums
+            val ep = org.omarchy.music.isEp(al.title)
+            val single = !ep && (al.id.startsWith("single:") || songs.size == 1 || songs.any { org.omarchy.music.isSingle(al.title, it.title) })
             when (kind) {
-                "eps" -> org.omarchy.music.isEp(al.title)
-                "singles" -> al.id.startsWith("single:") || songs.any { org.omarchy.music.isSingle(al.title, it.title) }
-                else -> true
+                "eps" -> ep
+                "singles" -> single
+                else -> !ep && !single
             }
         }.sortedBy { org.omarchy.music.norm(it.first.title) } }
     if (all.isEmpty()) { Empty(if (eps) "No EPs yet" else if (singles) "No singles yet" else "No albums yet",
         if (eps) "Your EPs (\"EP\" in their name) show up here." else if (singles) "Your singles show up here." else "Your songs, by album, show up here."); return }
-    val albums = all.filter { fits(ui, it.first.title, it.first.sub) }
+    // Albums: the big ones (more than six songs here) or the ones you have only a few songs of
+    val bigAlbums = kind == "albums" && ui.albumsLow.not()
+    val sized = if (kind != "albums") all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }
+    val albums = sized.filter { fits(ui, it.first.title, it.first.sub) }
     fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
     val picking = ui.pickingAlbums
     val picked = ui.albumsPicked
@@ -93,8 +100,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
                     Chip("Select", false) { picked.clear(); ui.pickingAlbums = true }
                     if (singles) Chip("Single scan…", false) { ui.singleScan = true }
                 }
+                if (kind == "albums") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Chip("Albums (${all.count { it.second.size > 6 }})", !ui.albumsLow) { ui.albumsLow = false }
+                    Chip("Low song count albums (${all.count { it.second.size <= 6 }})", ui.albumsLow) { ui.albumsLow = true }
+                }
             }
-            Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
+            Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else if (!bigAlbums) "LOW SONG COUNT ALBUM" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
         }
         laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, row = { i ->
             val (al, songs) = albums[i]
