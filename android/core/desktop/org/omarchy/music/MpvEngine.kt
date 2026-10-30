@@ -31,6 +31,9 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     private var proc: Process? = null
     private var out: java.io.OutputStream? = null
     private val lock = Any()
+    /** Commands go out on mpv's own writer thread, in order, so the window never waits on mpv. */
+    private val connected = java.util.concurrent.CountDownLatch(1)
+    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "mpv-$id-out").apply { isDaemon = true } }
 
     @Volatile private var paused = true
     @Volatile private var idle = true
@@ -50,10 +53,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
 
     init { synchronized(all) { all += this }; start() }
 
-    private fun mpvPath(): String = System.getenv("RADON_MPV")
-        ?: listOfNotNull(System.getenv("LOCALAPPDATA")?.let { "$it\\Programs\\Omarchy Music\\bin\\mpv.exe" })
-            .firstOrNull { File(it).exists() }
-        ?: "mpv"
+    private fun mpvPath(): String = Bins.mpv
 
     private fun start() {
         val p = ProcessBuilder(mpvPath(), "--idle=yes", "--no-video", "--really-quiet", "--audio-display=no", "--keep-open=no",
@@ -69,8 +69,22 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         for (i in 0 until 100) {
             try {
                 if (windows) {
-                    val f = RandomAccessFile(pipe, "rw")
-                    input = Channels.newInputStream(f.channel); out = Channels.newOutputStream(f.channel)
+                    // Overlapped I/O (Java's asynchronous channel): a plain handle to a pipe can't read and write at once,
+                    // so with one thread waiting for mpv's next line, anything sent would wait forever (the window with it)
+                    val ch = java.nio.channels.AsynchronousFileChannel.open(java.nio.file.Paths.get(pipe),
+                        java.nio.file.StandardOpenOption.READ, java.nio.file.StandardOpenOption.WRITE)
+                    input = object : java.io.InputStream() {
+                        override fun read(): Int { val b = ByteArray(1); return if (read(b, 0, 1) <= 0) -1 else b[0].toInt() and 255 }
+                        override fun read(b: ByteArray, off: Int, len: Int): Int =
+                            runCatching { ch.read(ByteBuffer.wrap(b, off, len), 0).get() }.getOrDefault(-1).let { if (it == 0) read(b, off, len) else it }
+                    }
+                    out = object : java.io.OutputStream() {
+                        override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+                        override fun write(b: ByteArray, off: Int, len: Int) {
+                            val buf = ByteBuffer.wrap(b, off, len)
+                            while (buf.hasRemaining()) ch.write(buf, 0).get(3, java.util.concurrent.TimeUnit.SECONDS)
+                        }
+                    }
                 } else {
                     val ch = SocketChannel.open(StandardProtocolFamily.UNIX).apply { connect(UnixDomainSocketAddress.of(pipe)) }
                     input = Channels.newInputStream(ch); out = Channels.newOutputStream(ch)
@@ -78,6 +92,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                 break
             } catch (_: Exception) { Thread.sleep(100) }
         }
+        connected.countDown()
         val ins = input ?: return
         for ((n, prop) in listOf("time-pos", "duration", "pause", "idle-active", "eof-reached", "path", "audio-params").withIndex())
             sendRaw("""{"command":["observe_property",${n + 1},"$prop"]}""")
@@ -130,8 +145,9 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         }
     }
 
+
     private fun sendRaw(json: String) {
-        synchronized(lock) { runCatching { out?.write((json + "\n").toByteArray()); out?.flush() } }
+        runCatching { writer.execute { connected.await(10, java.util.concurrent.TimeUnit.SECONDS); synchronized(lock) { runCatching { out?.write((json + "\n").toByteArray()); out?.flush() } } } }
     }
 
     private fun send(vararg cmd: Any?) {
@@ -185,6 +201,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         send("quit")
         proc?.let { p -> Thread { runCatching { if (!p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) p.destroy() } }.start() }
         proc = null
+        writer.shutdown()
     }
 
     // ---- the sound: the settings as mpv's audio filters ----

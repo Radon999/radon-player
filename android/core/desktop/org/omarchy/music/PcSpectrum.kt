@@ -14,9 +14,7 @@ object PcSpectrum {
     private var startedPos = 0.0
     private val windows = System.getProperty("os.name").lowercase().contains("win")
 
-    private fun ffmpeg(): String = System.getenv("RADON_FFMPEG")
-        ?: listOfNotNull(System.getenv("LOCALAPPDATA")?.let { "$it\\Programs\\Omarchy Music\\bin\\ffmpeg.exe" }).firstOrNull { File(it).exists() }
-        ?: "ffmpeg"
+    private fun ffmpeg(): String = Bins.ffmpeg
 
     fun use() { synchronized(this) { if (users++ == 0) Thread({ watch() }, "spectrum").apply { isDaemon = true }.start() } }
     fun done() { synchronized(this) { users = maxOf(0, users - 1) } }

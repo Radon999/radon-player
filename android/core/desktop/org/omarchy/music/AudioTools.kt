@@ -3,8 +3,7 @@ package org.omarchy.music
 import java.io.File
 
 /** What ffmpeg tells about a song's file on the PC (the Python app's quality_check and fingerprint): clipping, a
- *  hi-res file that isn't, and the song's sound as AcoustID knows it. ffmpeg: RADON_FFMPEG, the Python app's own (its
- *  installer's bin folder), or ffmpeg on the PATH. */
+ *  hi-res file that isn't, and the song's sound as AcoustID knows it. ffmpeg: see Bins. */
 object AudioTools {
     val supported = true
 
@@ -16,9 +15,7 @@ object AudioTools {
     private val windows = System.getProperty("os.name").lowercase().contains("win")
     private val noWindow = windows
 
-    private fun ffmpeg(): String = System.getenv("RADON_FFMPEG")
-        ?: listOfNotNull(System.getenv("LOCALAPPDATA")?.let { "$it\\Programs\\Omarchy Music\\bin\\ffmpeg.exe" }).firstOrNull { File(it).exists() }
-        ?: "ffmpeg"
+    private fun ffmpeg(): String = Bins.ffmpeg
 
     private fun run(vararg args: String, timeoutS: Long = 600): Pair<String, String> {
         val p = ProcessBuilder(ffmpeg(), *args).redirectInput(ProcessBuilder.Redirect.from(File(if (windows) "NUL" else "/dev/null"))).start()
@@ -49,10 +46,36 @@ object AudioTools {
         return QualityResult(clipped, peak?.let { Math.round(it * 100) / 100.0 }, fake.joinToString(", "))
     }
 
-    /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds). */
+    /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two
+     *  minutes. ffmpeg decodes (to WAV, for its rate and channels) and the app's own Chromaprint hears it, as on the phone,
+     *  so any ffmpeg does (not only one built with chromaprint); it makes the same fingerprint ffmpeg's would. */
     fun fingerprint(path: String, secs: Int): Pair<String, Int> {
-        val fp = run("-v", "error", "-nostdin", "-i", path, "-t", "120", "-ac", "2", "-f", "chromaprint", "-fp_format", "base64", "-", timeoutS = 180).first.trim()
-        if (fp.isEmpty()) error("couldn't hear the song (this ffmpeg can't make fingerprints)")
+        val p = ProcessBuilder(ffmpeg(), "-v", "error", "-nostdin", "-i", path, "-t", "120", "-ac", "2", "-f", "wav", "-acodec", "pcm_s16le", "-")
+            .redirectInput(ProcessBuilder.Redirect.from(File(if (windows) "NUL" else "/dev/null")))
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        val fp = try {
+            val ins = java.io.DataInputStream(p.inputStream.buffered(1 shl 16))
+            fun le(b: ByteArray, o: Int, n: Int) = (0 until n).fold(0) { acc, k -> acc or ((b[o + k].toInt() and 255) shl (8 * k)) }
+            fun word(): ByteArray = ByteArray(4).also { ins.readFully(it) }
+            word(); word(); word()   // RIFF, its size, WAVE
+            var rate = 44100; var ch = 2
+            while (true) {
+                val id = String(word(), Charsets.US_ASCII); val size = le(word(), 0, 4)
+                if (id == "data") break
+                val b = ByteArray(size + (size and 1)).also { ins.readFully(it) }
+                if (id == "fmt ") { ch = le(b, 2, 2); rate = le(b, 4, 4) }
+            }
+            val cp = Chromaprint(rate, ch)
+            val bytes = ByteArray(32768); val shorts = ShortArray(16384)
+            while (true) {
+                var n = ins.read(bytes); if (n <= 0) break
+                if (n % 2 == 1) { if (ins.read(bytes, n, 1) == 1) n++ else n-- }
+                for (k in 0 until n / 2) shorts[k] = ((bytes[2 * k].toInt() and 255) or (bytes[2 * k + 1].toInt() shl 8)).toShort()
+                cp.feed(shorts, n / 2)
+            }
+            cp.finish()
+        } catch (_: java.io.EOFException) { "" } finally { p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS); p.destroy() }
+        if (fp.isEmpty()) error("couldn't hear the song")
         return fp to secs
     }
 }

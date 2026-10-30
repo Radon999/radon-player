@@ -42,9 +42,12 @@ compose.desktop {
             packageName = "Radon Player Next"
             packageVersion = "2.1.0"
             description = "Radon Player, rebuilt on one codebase with the phone"
+            // mpv and ffmpeg, which the Windows build puts in resources/windows (see Bins): the installer brings its own
+            project.layout.projectDirectory.dir("resources").takeIf { it.asFile.isDirectory }?.let { appResourcesRootDir.set(it) }
             windows {
                 menuGroup = "Radon Player"
                 upgradeUuid = "8f3b3a52-6a8e-4b8f-9a55-2f1d0d6c3a71"
+                shortcut = true; menu = true
             }
         }
     }
