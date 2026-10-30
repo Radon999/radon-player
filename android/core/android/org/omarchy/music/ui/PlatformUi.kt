@@ -234,6 +234,9 @@ private fun plainBitmap(img: ImageBitmap): android.graphics.Bitmap = img.asAndro
 }
 
 /** Whether an app is on the phone (Instagram, for its story button). */
+/** What the share button of a picture says here. */
+const val SHARE_PICTURE = "Share…"
+
 fun appInstalled(pkg: String) = runCatching { Music.ctx.packageManager.getPackageInfo(pkg, 0); true }.getOrDefault(false)
 
 /** The fonts for drawing text into a picture (Painter). */

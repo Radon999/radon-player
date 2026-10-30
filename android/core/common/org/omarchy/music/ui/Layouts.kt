@@ -158,7 +158,14 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
                 }
                 if (ui.selecting) Checkbox(checked, { ui.toggle(t) }, Modifier.align(Alignment.TopStart),
                     colors = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = Color.White))
-            }) { if (ui.selecting) ui.toggle(t) else onPlay() }
+            }) {
+                when {
+                    !ui.selecting && (HeldKeys.ctrl || HeldKeys.shift) -> ui.startSelecting(place.group, place, t)
+                    ui.selecting && HeldKeys.shift -> { ui.selected[t.id] = t; ui.selectBetween() }
+                    ui.selecting -> ui.toggle(t)
+                    else -> onPlay()
+                }
+            }
         TrackMenu(t, place, ui, menu) { menu = false }
     }
 }

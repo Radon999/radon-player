@@ -31,6 +31,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -133,7 +140,7 @@ private val SHARE_APPS = listOf("com.instagram.android" to "Instagram", "com.fac
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WrappedScreen(onClose: () -> Unit) {
-    var period by remember { mutableStateOf<Wrapped.Period>(Wrapped.Period.Year(Wrapped.year())) }
+    var period by remember { mutableStateOf<Wrapped.Period>(WrappedAsk.take() ?: Wrapped.Period.Year(Wrapped.year())) }
     var data by remember { mutableStateOf<Wrapped.Data?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var progress by remember { mutableStateOf("") }
@@ -197,7 +204,25 @@ fun WrappedScreen(onClose: () -> Unit) {
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(WS.bg)) {
+        // The keyboard (the PC, or a phone's): → Space PageDown l the next slide, ← PageUp h the one before, Home/End the
+        // first/last, s copies or shares the slide, Esc closes (the Python app's keys)
+        val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+        Box(Modifier.fillMaxSize().background(WS.bg).focusRequester(focus).focusable().onKeyEvent { e ->
+            if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
+            val n = slides.size
+            fun go(i: Int) { scope.launch { pager.animateScrollToPage(i.coerceIn(0, maxOf(0, n - 1))) } }
+            when (e.key) {
+                Key.DirectionRight, Key.Spacebar, Key.PageDown, Key.L -> go(pager.currentPage + 1)
+                Key.DirectionLeft, Key.PageUp, Key.H -> go(pager.currentPage - 1)
+                Key.MoveHome -> go(0)
+                Key.MoveEnd -> go(n - 1)
+                Key.S -> share(save = false)
+                Key.Escape -> onClose()
+                else -> return@onKeyEvent false
+            }
+            true
+        }) {
             HorizontalPager(pager, Modifier.fillMaxSize(), key = { "$label-${slides.size}-$it" }) { i ->
                 val s = slides[i]
                 BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -247,7 +272,7 @@ fun WrappedScreen(onClose: () -> Unit) {
                             apps.forEach { (pkg, name) ->
                                 DropdownMenuItem({ Text("Post to $name", style = T.body) }, { menu = false; share(save = false, pkg = pkg) })
                             }
-                            DropdownMenuItem({ Text("Share…", style = T.body) }, { menu = false; share(save = false) })
+                            DropdownMenuItem({ Text(SHARE_PICTURE, style = T.body) }, { menu = false; share(save = false) })
                         }
                     }
                     Box {
@@ -688,3 +713,9 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
 
 
 
+
+/** A period asked for from outside (the PC's command line: wrapped month): Wrapped opens on it. */
+object WrappedAsk {
+    @Volatile var period: Wrapped.Period? = null
+    fun take(): Wrapped.Period? = period.also { period = null }
+}

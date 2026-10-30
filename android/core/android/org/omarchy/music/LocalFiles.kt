@@ -21,6 +21,9 @@ class LocalFiles(private val ctx: Context) {
     data class Seen(val modified: Long, val added: Double)
 
     @Volatile var files: List<Track> = emptyList()
+
+    /** A song file of yours by its path (the PC reads any file; here: one the phone's scan knows). */
+    fun trackOf(path: String): Track? = files.firstOrNull { it.file == path }
     @Volatile var paths: Map<String, String> = emptyMap()   // a song's address: its folder, as "Music/Album/"
         private set
     /** Every song's genre on the phone, by its media library number (Android 11 and up know them). */

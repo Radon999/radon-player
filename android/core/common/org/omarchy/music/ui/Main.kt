@@ -213,7 +213,7 @@ private fun Stars() {
     }
 }
 
-private fun goTo(ui: Ui, tab: String, view: String? = null) {
+fun goTo(ui: Ui, tab: String, view: String? = null) {
     ui.pages.clear(); ui.openMine = null; ui.openList = null; ui.openFolder = null   // what you've picked stays picked
     if (view != null) ui.musicView = view
     ui.tab = tab

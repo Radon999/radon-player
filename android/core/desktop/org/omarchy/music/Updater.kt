@@ -3,9 +3,11 @@ package org.omarchy.music
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 
-/** New releases on GitHub, for the PC: Check looks (and opening Settings, if the last look is old); Update opens the
- *  release's page, where the PC's installer is. */
+/** New releases on GitHub, for the PC (as the Python app): it looks at start, every 12 hours and when Settings opens;
+ *  Update downloads the release's installer, runs it and closes the app so it can be replaced (else the release's
+ *  page opens). */
 object Updater {
     private const val REPO = "Radon999/radon-player"
     var latest by mutableStateOf<String?>(null)
@@ -17,6 +19,15 @@ object Updater {
         private set
     private var checkedAt = 0L
     private var page: String? = null
+    private var installer: String? = null   // the release's .msi
+
+    /** Look now (quietly) and every 12 hours. */
+    fun startTimer() {
+        Thread({
+            Thread.sleep(20_000)
+            while (true) { Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { check(announce = true) }; Thread.sleep(12 * 3600_000L) }
+        }, "update-check").apply { isDaemon = true }.start()
+    }
 
     val version: String get() = appVersion
 
@@ -28,7 +39,7 @@ object Updater {
         return false
     }
 
-    fun check(quiet: Boolean = true) {
+    fun check(quiet: Boolean = true, announce: Boolean = false) {
         if (checking) return
         checking = true
         Music.bg({
@@ -42,6 +53,8 @@ object Updater {
             val tag = rel["tag_name"].str ?: return@bg
             if (!newer(tag, version)) { if (!quiet) Music.toast("Radon Player $version is the newest"); return@bg }
             latest = tag.removePrefix("v"); page = rel["html_url"].str
+            installer = rel["assets"].list.firstOrNull { (it["name"].str ?: "").endsWith(".msi", true) }?.get("browser_download_url").str
+            if (announce) Music.toast("Radon Player ${latest} is out: Settings › Update")
             Music.accountsVersion++
         }
     }
@@ -49,9 +62,27 @@ object Updater {
     fun checkSoon() { if (System.currentTimeMillis() - checkedAt > 600_000) check() }
 
     fun install() {
-        val url = page ?: return
-        runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
-        Music.toast("The release's page is open: run its installer (close Radon Player first)")
+        val msi = installer
+        val windows = System.getProperty("os.name").lowercase().contains("win")
+        if (msi == null || !windows) {
+            val url = page ?: return
+            runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+            Music.toast("The release's page is open: run its installer (close Radon Player first)")
+            return
+        }
+        state = "Downloading the update…"
+        Music.bg({
+            val f = java.io.File(System.getProperty("java.io.tmpdir"), "Radon-Player-${latest ?: "update"}.msi")
+            java.net.URL(msi).openStream().use { inp -> f.outputStream().use { inp.copyTo(it) } }
+            f
+        }) { f, err ->
+            if (f == null) { state = ""; Music.toast("Couldn't download the update: ${err?.message?.take(80)}"); return@bg }
+            state = "Installing…"
+            // The installer replaces the app; Radon Player closes so it can (start it again afterwards)
+            runCatching { ProcessBuilder("msiexec", "/i", f.path, "/passive").start() }
+                .onFailure { state = ""; Music.toast("Couldn't start the installer: ${it.message?.take(80)}"); return@bg }
+            closeApp(null)
+        }
     }
 
     fun askAgain(activity: Any?) = install()

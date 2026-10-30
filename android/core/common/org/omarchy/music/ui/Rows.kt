@@ -235,6 +235,12 @@ fun ArtistLinks(text: String, ui: Ui, prefer: String?, style: androidx.compose.u
     }
 }
 
+/** The modifier keys held (the PC's window tells): Ctrl/Shift+click to pick songs. */
+object HeldKeys {
+    @Volatile var ctrl = false
+    @Volatile var shift = false
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -> Unit) {
@@ -252,7 +258,14 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                 .background(if (playing || checked) C.accent.copy(alpha = if (C.apple) 0.08f else 0.14f)
                     else if (C.isLight && !C.apple) C.light else Color.Transparent)
                 .pressable(
-                    onClick = { if (ui.selecting) ui.toggle(t) else onPlay() },
+                    onClick = {   // on the PC, Ctrl+click picks songs and Shift+click picks a run of them (as the Python app)
+                        when {
+                            !ui.selecting && (HeldKeys.ctrl || HeldKeys.shift) -> ui.startSelecting(place.group, place, t)
+                            ui.selecting && HeldKeys.shift -> { ui.selected[t.id] = t; ui.selectBetween() }
+                            ui.selecting -> ui.toggle(t)
+                            else -> onPlay()
+                        }
+                    },
                     onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
                 )
                 .padding(horizontal = 8.dp, vertical = 6.dp),

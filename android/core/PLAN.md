@@ -46,6 +46,7 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
       one instance (Instance.kt, port 8896 + key) with the command-line verbs and song files
 - [x] PC: YouTube Music / Apple sign-in (paste the browser's cookies, as the PC has no web page inside the app)
 - [x] PC: Cast (Chromecasts, Google speakers and TVs; its own Cast sender, the files served from the PC)
+- [x] Second audit (old Android app and old Python app against both new apps): Tidal keys and the version built into the PC app, restore closing the app, Copy for pictures, the old command line and keyboard shortcuts, Ctrl/Shift+click, Wrapped keys, the self-installing update, the mini player queue, the DJ folder pick, the first-close hint
 - [ ] PC: Linux MPRIS (only if it runs on Linux)
 - [x] PC: the Python app's tools checked one by one (the audit: ~115 settings, menus, shortcuts, tools)
 - [x] PC: every Python setting checked against the shared Settings (the same audit)

@@ -454,9 +454,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
             if (d.busy.isNotEmpty()) Text(d.busy, style = T.sub)
             Box {
                 var menu by remember { mutableStateOf(false) }
+                // Choose a folder… (the PC): any folder, even outside your music folders, its songs read for the DJ
+                val folderPick = rememberFolderPick { path ->
+                    if (path == null) return@rememberFolderPick
+                    Music.bg({
+                        java.io.File(path).walkTopDown().filter { it.isFile }.take(5000)
+                            .mapNotNull { f -> Music.local.trackOf(f.path) }.toList()
+                    }) { songs, _ ->
+                        if (songs.isNullOrEmpty()) Music.toast("No songs in that folder")
+                        else ui.djFrom(Dj.From("songs", name = java.io.File(path).name, songs = songs))
+                    }
+                }
                 Pill("From: ${d.from.ifEmpty { "everything" }}  ▾", quiet = true) { menu = true }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     val pick = { f: Dj.From -> menu = false; ui.djFrom(f) }
+                    if (folderPick != null) DropdownMenuItem(text = { Text("Choose a folder…", style = T.body) }, onClick = { menu = false; folderPick() })
                     val item = @Composable { label: String, f: Dj.From ->
                         DropdownMenuItem(text = { Text(label, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { pick(f) })
                     }

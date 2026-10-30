@@ -96,7 +96,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
         },
         confirmButton = {
             Column(horizontalAlignment = Alignment.End) {
-                Row {
+                if (onPhone) Row {
                     TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }) {
                         Text("Instagram", color = C.accent) }
                     TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.facebook.katana")) Music.toast("Facebook isn't on this $DEVICE") }) {
@@ -105,7 +105,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                 Row {
                     TextButton({ Music.toast(if (savePicture(bmp, "${t.title} lyrics")) "Saved to Pictures" else "Couldn't save it") }) {
                         Text("Save", color = C.muted) }
-                    TextButton({ sharePicture(bmp, "${t.title} lyrics", null) }) { Text("Messages & more…", color = C.accent) }
+                    TextButton({ sharePicture(bmp, "${t.title} lyrics", null) }) { Text(if (onPhone) "Messages & more…" else SHARE_PICTURE, color = C.accent) }
                 }
             }
         },

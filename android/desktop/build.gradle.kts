@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.util.Properties
 
 // Radon Player on the PC, in Compose like the phone's app, on the shared code. It grows screen by screen
 // until it does everything the Python app (omarchy-music) does; until then that one stays the PC app.
@@ -20,6 +21,26 @@ kotlin {
     sourceSets["main"].kotlin.srcDirs("../core/common", "../core/desktop")
 }
 
+// What the installed app needs to know about its build: its version (the update check compares it with GitHub's
+// releases) and Tidal's app keys (tools/tidal-keys.sh writes them to ../tidal.properties, as for the phone's build).
+val appVersion = "2.1.2"
+val buildInfo = layout.buildDirectory.dir("generated/build-info")
+val writeBuildInfo by tasks.registering {
+    val keys = rootProject.file("tidal.properties")
+    inputs.property("version", appVersion)
+    if (keys.exists()) inputs.file(keys)
+    outputs.dir(buildInfo)
+    doLast {
+        val p = Properties()
+        if (keys.exists()) keys.inputStream().use { p.load(it) }
+        val f = buildInfo.get().file("radon-build.properties").asFile
+        f.parentFile.mkdirs()
+        f.writeText("version=$appVersion\nclient_id=${p.getProperty("client_id", "")}\nclient_secret=${p.getProperty("client_secret", "")}\n")
+    }
+}
+sourceSets["main"].resources.srcDir(buildInfo)
+tasks.named("processResources") { dependsOn(writeBuildInfo) }
+
 dependencies {
     implementation(project(":shared"))
     implementation(project(":ui-common"))
@@ -40,7 +61,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
             packageName = "Radon Player Next"
-            packageVersion = "2.1.0"
+            packageVersion = appVersion
             description = "Radon Player, rebuilt on one codebase with the phone"
             // mpv and ffmpeg, which the Windows build puts in resources/windows (see Bins): the installer brings its own
             project.layout.projectDirectory.dir("resources").takeIf { it.asFile.isDirectory }?.let { appResourcesRootDir.set(it) }

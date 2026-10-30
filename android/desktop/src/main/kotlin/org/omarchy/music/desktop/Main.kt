@@ -31,6 +31,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
@@ -81,7 +82,7 @@ private fun app(args: Array<String>) = application {
         val act = { a: List<String> -> org.omarchy.music.Instance.act(a, show = { shown = true; PcWindows.mini = false },
             hide = { shown = false }, quit = { quit() }) }
         org.omarchy.music.Instance.listen(act)
-        if (args.any { !it.startsWith("--") }) act(args.toList())   // opened with a song file, or a command
+        if (args.any { !it.startsWith("--") || it in setOf("--tidal-login", "--lastfm-login", "--spotify-login") }) act(args.toList())   // opened with a song file, or a command
     }
     Tray(icon = AppIcon, state = tray, tooltip = Music.current()?.let { "${it.title} · ${it.artist}" } ?: "Radon Player",
         onAction = { shown = true; PcWindows.mini = false }) {
@@ -94,9 +95,21 @@ private fun app(args: Array<String>) = application {
         Separator()
         Item("Quit", onClick = { quit() })
     }
-    if (shown && !PcWindows.mini) Window(onCloseRequest = { shown = false }, title = "Radon Player", icon = AppIcon,
+    if (shown && !PcWindows.mini) Window(onCloseRequest = {
+            shown = false
+            // The first time: say where it went (the Python app's hint)
+            if (!org.omarchy.music.Prefs.on("tray_hint_shown")) {
+                org.omarchy.music.Prefs.set("tray_hint_shown", true)
+                tray.sendNotification(androidx.compose.ui.window.Notification("Radon Player is still playing",
+                    "It's in the system tray by the clock: click its icon to open it, or right-click to quit."))
+            }
+        }, title = "Radon Player", icon = AppIcon,
         state = rememberWindowState(width = 1100.dp, height = 800.dp),
-        onPreviewKeyEvent = { e -> e.type == KeyEventType.KeyDown && e.key == Key.Escape && Back.press() },
+        onPreviewKeyEvent = { e ->
+            org.omarchy.music.ui.HeldKeys.ctrl = e.isCtrlPressed; org.omarchy.music.ui.HeldKeys.shift = e.isShiftPressed
+            e.type == KeyEventType.KeyDown && e.key == Key.Escape && !org.omarchy.music.ui.Typing.now &&
+                (Back.press() || (org.omarchy.music.ui.Ui.current?.tab == "player").also { if (it) shown = false })
+        },
         onKeyEvent = { e -> shortcut(e) { quit() } }) {
         LaunchedEffect(Unit) {
             val M = Music
@@ -114,8 +127,13 @@ private fun app(args: Array<String>) = application {
 /** The mini player on the PC: the phone's picture-in-picture look, with the buttons under it, always on top. */
 @Composable
 private fun MiniWindow() {
+    var queue by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(C.darker)) {
-        Box(Modifier.weight(1f).fillMaxWidth()) { MiniPlayer() }
+        // The cover, or (the queue button) Up next in its place, with Shuffle, Repeat, Autoplay and your queue, as the Python app
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            val ui = org.omarchy.music.ui.Ui.current
+            if (queue && ui != null) org.omarchy.music.ui.QueueTab(ui) else MiniPlayer()
+        }
         // Where the song is (drag to seek), and what plays next, as the Python app's mini player
         val dur = Music.duration
         if (dur > 0) androidx.compose.material3.Slider(
@@ -132,6 +150,7 @@ private fun MiniWindow() {
             Box(Modifier.clickable { Music.previous() }.padding(6.dp)) { Icon(Ico.PREV, C.fg, 24.dp) }
             Box(Modifier.clickable { Music.togglePause() }.padding(6.dp)) { Icon(if (Music.paused) Ico.PLAY else Ico.PAUSE, C.fg, 28.dp) }
             Box(Modifier.clickable { Music.next() }.padding(6.dp)) { Icon(Ico.NEXT, C.fg, 24.dp) }
+            Box(Modifier.clickable { queue = !queue }.padding(6.dp)) { Icon(Ico.QUEUE, if (queue) C.accent else C.muted, 22.dp) }
             Box(Modifier.clickable { PcWindows.mini = false }.padding(6.dp)) { Icon(Ico.UP, C.muted, 22.dp) }
         }
     }
@@ -141,6 +160,11 @@ private fun MiniWindow() {
  *  and, while you aren't typing in a box: Space play/pause, → or N next, ← or P previous, R repeat, L like, F favorite,
  *  + and − the volume, M mute, W Wrapped, E the Equalizer, / search. */
 private var unmuted = 1f
+/** Alt+1… the places, as the Python app's tabs: Now playing, Search, My music, Albums, Artists, Playlists, Recently
+ *  played, Most played, Up next. */
+private val ALT_TABS = mapOf(Key.One to ("player" to null), Key.Two to ("search" to null), Key.Three to ("music" to "all"),
+    Key.Four to ("albums" to null), Key.Five to ("artists" to null), Key.Six to ("music" to "playlists"),
+    Key.Seven to ("music" to "recent"), Key.Eight to ("music" to "top"), Key.Nine to ("queue" to null))
 private fun shortcut(e: androidx.compose.ui.input.key.KeyEvent, quit: () -> Unit): Boolean {
     if (e.type != KeyEventType.KeyDown) return false
     val ui = org.omarchy.music.ui.Ui.current ?: return false
@@ -150,7 +174,19 @@ private fun shortcut(e: androidx.compose.ui.input.key.KeyEvent, quit: () -> Unit
         ctrl && e.key == Key.Comma -> ui.openSettings()
         e.key == Key.F9 || (ctrl && e.key == Key.M) -> ui.drawer = !ui.drawer
         ctrl && (e.key == Key.F || e.key == Key.L) -> ui.tab = "search"
+        ctrl && e.key == Key.A && ui.selecting && !org.omarchy.music.ui.Typing.now -> ui.selectAllHere()
+        e.isAltPressed && ALT_TABS.containsKey(e.key) -> ALT_TABS[e.key]!!.let { (tab, view) ->
+            org.omarchy.music.ui.goTo(ui, tab, view); if (tab == "player") ui.pane = "art" }
         ctrl || e.isAltPressed || org.omarchy.music.ui.Typing.now -> return false
+        e.key == Key.A && ui.selecting && ui.selected.isNotEmpty() ->
+            Music.enqueue(ui.selectedTracks(), if (e.isShiftPressed) "next" else "queue").also { ui.afterOption() }
+        e.key == Key.S -> {   // the next source to browse and search: your music, then each service
+            val order = listOf("local") + org.omarchy.music.SOURCES.keys
+            val now = if (Music.browseLocal) "local" else Music.source
+            val nxt = order[(order.indexOf(now) + 1) % order.size]
+            if (nxt == "local") { Music.browseLocal = true; Music.toast("Browsing your own music") }
+            else { Music.browseLocal = false; Music.setSource(nxt); Music.toast("Browsing ${org.omarchy.music.SOURCES[nxt]}") }
+        }
         e.key == Key.Spacebar -> Music.togglePause()
         e.key == Key.DirectionRight || e.key == Key.N -> Music.next()
         e.key == Key.DirectionLeft || e.key == Key.P -> Music.previous()
@@ -165,7 +201,7 @@ private fun shortcut(e: androidx.compose.ui.input.key.KeyEvent, quit: () -> Unit
             if (v > 0f) { unmuted = v; org.omarchy.music.ui.SysVolume.set(0f) } else org.omarchy.music.ui.SysVolume.set(unmuted) }
         e.key == Key.W -> ui.sheet = "wrapped"
         e.key == Key.E -> ui.sheet = "eq"
-        e.key == Key.Slash -> ui.tab = "search"
+        e.key == Key.Slash -> if (org.omarchy.music.ui.laidOut(ui) && ui.tab != "search") ui.filter = ui.filter ?: "" else ui.tab = "search"
         else -> return false
     }
     return true

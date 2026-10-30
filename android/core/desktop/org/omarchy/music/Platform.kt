@@ -27,13 +27,18 @@ fun Ctx.deleteUri(uri: String) { File(pathOf(uri)).delete() }
 
 fun logWarn(what: String, e: Throwable? = null) { System.err.println("radon-player: $what${e?.let { ": $it" } ?: ""}") }
 
-/** The keys for Tidal: from the environment (RADON_TIDAL_ID, RADON_TIDAL_SECRET) on the PC for now. */
-object Keys {
-    val tidalId: String get() = System.getenv("RADON_TIDAL_ID") ?: ""
-    val tidalSecret: String get() = System.getenv("RADON_TIDAL_SECRET") ?: ""
+/** What the build put in (desktop/build.gradle.kts): the version and Tidal's app keys. */
+private val buildInfo: java.util.Properties by lazy {
+    java.util.Properties().apply { runCatching { Keys::class.java.getResourceAsStream("/radon-build.properties")?.use { load(it) } } }
 }
 
-val appVersion: String get() = System.getProperty("radon.version") ?: "next"
+/** The keys for Tidal: the ones the build put in (as the phone's), or RADON_TIDAL_ID / RADON_TIDAL_SECRET. */
+object Keys {
+    val tidalId: String get() = System.getenv("RADON_TIDAL_ID")?.takeIf { it.isNotBlank() } ?: buildInfo.getProperty("client_id", "")
+    val tidalSecret: String get() = System.getenv("RADON_TIDAL_SECRET")?.takeIf { it.isNotBlank() } ?: buildInfo.getProperty("client_secret", "")
+}
+
+val appVersion: String get() = System.getProperty("radon.version") ?: buildInfo.getProperty("version")?.takeIf { it.isNotBlank() } ?: "next"
 
 fun appCtx(c: Ctx): Ctx = c
 
@@ -78,7 +83,10 @@ fun Ctx.newMusicFile(name: String, where: String, write: (java.io.OutputStream) 
 fun notificationsOn(ctx: Ctx) = true
 fun canWriteOwnFiles(ctx: Ctx) = true
 fun prefsFile(ctx: Ctx, name: String) = File(ctx.filesDir, "$name.json")
-fun closeApp(activity: Any?) {}
+/** Close the app for good (after a backup is restored: it starts again from the restored files). */
+fun closeApp(activity: Any?) {
+    Thread({ Thread.sleep(800); kotlin.system.exitProcess(0) }, "close").apply { isDaemon = false }.start()
+}
 
 /** Outputs coming and going: the PC looks again every few seconds (Windows has no simple event for it here). */
 fun watchOutputs(ctx: Ctx, changed: () -> Unit) {

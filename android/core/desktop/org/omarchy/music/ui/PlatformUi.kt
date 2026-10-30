@@ -263,12 +263,25 @@ fun savePicture(img: ImageBitmap, name: String): Boolean = runCatching {
     javax.imageio.ImageIO.write(img.toAwtImage(), "png", pictureFile(name))
 }.getOrDefault(false)
 
-/** A picture to another app: saved, then shown in its folder. */
+/** A picture to another app, the PC's way (as the Python app's Copy): on the clipboard, to paste anywhere, and saved
+ *  to Pictures too. */
 fun sharePicture(img: ImageBitmap, name: String, pkg: String? = null): Boolean {
-    if (!savePicture(img, name)) return false
-    shareFiles(listOf(pictureFile(name).path), name)
-    return true
+    val saved = savePicture(img, name)
+    val copied = runCatching {
+        val awt = img.toAwtImage()
+        val sel = object : java.awt.datatransfer.Transferable {
+            override fun getTransferDataFlavors() = arrayOf(java.awt.datatransfer.DataFlavor.imageFlavor)
+            override fun isDataFlavorSupported(f: java.awt.datatransfer.DataFlavor) = f == java.awt.datatransfer.DataFlavor.imageFlavor
+            override fun getTransferData(f: java.awt.datatransfer.DataFlavor): Any = awt
+        }
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, null)
+    }.isSuccess
+    if (copied) Music.toast("Copied: paste it anywhere" + if (saved) " (and saved to Pictures)" else "")
+    return copied || saved
 }
+
+/** What the share button of a picture says here. */
+const val SHARE_PICTURE = "Copy"
 
 fun appInstalled(pkg: String) = false
 
