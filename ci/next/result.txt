@@ -1,58 +1,23 @@
-run 41008550466 · Fri Oct 30 05:30:39 UTC 2026
-PHONE FAILED
-PC FAILED
+run 41008937246 · Fri Oct 30 05:37:15 UTC 2026
+PHONE OK
+PC OK
 TESTS: tests="5" failures="0" 
-e: core/common/org/omarchy/music/TagScan.kt:14:22 Type 'androidx.compose.runtime.MutableState<kotlin.Int>' has no method 'getValue(TagScan.Done, KMutableProperty1<*, *>)', so it cannot serve as a delegate.
-e: core/common/org/omarchy/music/TagScan.kt:14:22 Type 'androidx.compose.runtime.MutableState<kotlin.Int>' has no method 'setValue(TagScan.Done, KMutableProperty1<*, *>, ERROR CLASS: Unresolved name: getValue)', so it cannot serve as a delegate for var (read-write property).
-e: core/common/org/omarchy/music/TagScan.kt:19:102 Not enough information to infer type argument for 'K'.
-e: core/common/org/omarchy/music/TagScan.kt:19:102 Not enough information to infer type argument for 'V'.
-e: core/common/org/omarchy/music/TagScan.kt:19:35 Not enough information to infer type argument for 'R'.
-e: core/common/org/omarchy/music/TagScan.kt:19:54 Not enough information to infer type argument for 'T'.
-e: core/common/org/omarchy/music/TagScan.kt:20:101 Unresolved reference 'serializer'.
-e: core/common/org/omarchy/music/TagScan.kt:20:48 Unresolved reference 'serializer'.
-e: core/common/org/omarchy/music/TagScan.kt:21:19 Not enough information to infer type argument for 'R'.
-e: core/common/org/omarchy/music/TagScan.kt:21:19 Not enough information to infer type argument for 'T'.
-e: core/common/org/omarchy/music/TagScan.kt:21:23 Cannot infer type for this parameter. Please specify it explicitly.
-e: core/common/org/omarchy/music/TagScan.kt:29:101 Unresolved reference 'serializer'.
-e: core/common/org/omarchy/music/TagScan.kt:29:48 Unresolved reference 'serializer'.
-> Task :app:compileReleaseKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/TagScan.kt:14:22 Type 'androidx.compose.runtime.MutableState<kotlin.Int>' has no method 'getValue(TagScan.Done, KMutableProperty1<*, *>)', so it cannot serve as a delegate.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/TagScan.kt:14:22 Type 'androidx.compose.runtime.MutableState<kotlin.Int>' has no method 'setValue(TagScan.Done, KMutableProperty1<*, *>, ERROR CLASS: Unresolved name: getValue)', so it cannot serve as a delegate for var (read-write property).
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/TagScan.kt:19:35 Not enough information to infer type argument for 'R'.
---
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/TagScan.kt:14:22 Type 'androidx.compose.runtime.MutableState<kotlin.Int>' has no method 'getValue(TagScan.Done, KMutableProperty1<*, *>)', so it cannot serve as a delegate.
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/TagScan.kt:14:22 Type 'androidx.compose.runtime.MutableState<kotlin.Int>' has no method 'setValue(TagScan.Done, KMutableProperty1<*, *>, ERROR CLASS: Unresolved name: getValue)', so it cannot serve as a delegate for var (read-write property).
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/TagScan.kt:19:35 Not enough information to infer type argument for 'R'.
---
-* What went wrong:
-Execution failed for task ':app:compileReleaseKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-BUILD FAILED in 2m 28s
-85 actionable tasks: 85 executed
-> Get more help at https://help.gradle.org.
-==============================================================================
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/LyricsTab.kt:113:32 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:594:9 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:595:9 Condition is always 'true'.
 
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:flattenJars
+> Task :app:lintVitalReportRelease
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :desktop:packageUberJarForCurrentOS
+The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
+
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -60,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 2m 28s
-85 actionable tasks: 85 executed
+BUILD SUCCESSFUL in 4m 36s
+102 actionable tasks: 102 executed
