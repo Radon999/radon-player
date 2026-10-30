@@ -803,6 +803,9 @@ private fun SettingsLine() {
 @Composable
 private fun FolderPicker() {
     var open by remember { mutableStateOf(false) }
+    val pickFolder = rememberFolderPick { path -> if (path != null) Music.setFolders(Music.folders + path) }
+    if (pickFolder != null) Pill("Add a folder…", quiet = true) { pickFolder() }
+    Spacer(Modifier.width(6.dp))
     Pill("Choose") { open = true }
     if (open) FolderBrowser { open = false }
 }

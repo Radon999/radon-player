@@ -255,3 +255,7 @@ fun sharable(file: String) = file.startsWith("content://")
 
 /** A right-click: none on the phone (a long press is the menu). */
 fun androidx.compose.ui.Modifier.rightClick(run: () -> Unit): androidx.compose.ui.Modifier = this
+
+/** Picking a folder anywhere: the phone picks among the music it has (Choose), so none here. */
+@Composable
+fun rememberFolderPick(done: (String?) -> Unit): (() -> Unit)? = null

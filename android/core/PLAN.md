@@ -38,7 +38,8 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [ ] Phone: Loudness check and Identify by sound (decode on the phone); Tagger «Scan all again»; lyrics into the files from the options menu
 - [x] PC: visualizer and Now playing bars (the song decoded again by ffmpeg in step)
 - [ ] PC: sign-in pages (now: paste the address it ends on)
-- [ ] PC: Choose folders as a folder picker; the Python app's tools (Fix albums and artists, …) checked one by one
+- [x] PC: Add a folder… (a folder picker)
+- [ ] PC: the Python app's tools (Fix albums and artists, …) checked one by one
 - [ ] PC: every Python setting checked against the shared Settings (wording for the PC where it says Android)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
 - [ ] Settings descriptions rewritten; feature guide; Changelog & features tab

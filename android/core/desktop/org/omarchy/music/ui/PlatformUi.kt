@@ -293,3 +293,20 @@ fun androidx.compose.ui.Modifier.rightClick(run: () -> Unit): androidx.compose.u
     this.onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press) { e ->
         if (e.buttons.isSecondaryPressed) run()
     }
+
+/** Picking a folder anywhere on the PC (a folder of music to add): its path, or null. */
+@Composable
+fun rememberFolderPick(done: (String?) -> Unit): (() -> Unit)? {
+    val cb = androidx.compose.runtime.rememberUpdatedState(done)
+    return remember {
+        {
+            java.awt.EventQueue.invokeLater {
+                val c = javax.swing.JFileChooser(System.getProperty("user.home")).apply {
+                    fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY; dialogTitle = "A folder of your music"
+                }
+                val f = if (c.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) c.selectedFile.path else null
+                Music.scope.launch(Dispatchers.Main) { cb.value(f) }
+            }
+        }
+    }
+}
