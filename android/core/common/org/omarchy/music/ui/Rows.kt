@@ -113,6 +113,7 @@ class Ui {
     var volumeFor by mutableStateOf<List<Track>?>(null)     // Volume…: a song's own boost
     var upgradeFor by mutableStateOf<List<Track>?>(null)    // Upgrade…: these songs (empty: all of yours)
     var exportFor by mutableStateOf<Pair<String, List<Track>>?>(null)   // Export…: a playlist as .m3u8
+    val dupeRemove = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()   // Duplicates: Remove (true) or Keep, by copy
     var coverFor by mutableStateOf<List<List<Track>>?>(null)   // the albums still to pick a cover for
     var artistPictureFor by mutableStateOf<String?>(null)
     var mergeArtist by mutableStateOf<String?>(null)   // Merge into…: this artist

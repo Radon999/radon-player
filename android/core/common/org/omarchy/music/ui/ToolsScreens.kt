@@ -46,6 +46,8 @@ fun ToolScreens(ui: Ui) {
     when (ui.tool) {
         "fixup" -> FixupScreen(ui)
         "live" -> LiveNamesScreen(ui)
+        "movie" -> LiveNamesScreen(ui, movie = true)
+        "nocover" -> NoCoversScreen(ui)
         "empty" -> EmptyFoldersScreen(ui)
         "skip" -> SkipFoldersScreen(ui)
         "quality" -> QualityScreen(ui)
@@ -145,18 +147,19 @@ private fun FixupScreen(ui: Ui) {
 
 /** Live in song names: songs named as live recordings you'd rather have plain; the live part taken off, the rest kept. */
 @Composable
-private fun LiveNamesScreen(ui: Ui) {
+private fun LiveNamesScreen(ui: Ui, movie: Boolean = false) {
     val close = { ui.tool = null }
     var found by remember { mutableStateOf<List<LiveName>?>(null) }
     val pick = remember { mutableStateMapOf<Int, Boolean>() }
     var report by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { Music.bg({ MusicTools.liveFound(MusicTools.songs()) }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't read them: ${e?.message}" } }
-    FullScreen("Live in song names", close) {
+    LaunchedEffect(Unit) { Music.bg({ MusicTools.songs().let { if (movie) MusicTools.movieFound(it) else MusicTools.liveFound(it) } }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't read them: ${e?.message}" } }
+    FullScreen(if (movie) "Soundtrack notes in names" else "Live in song names", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
             val f = found
             Text(report ?: when {
                 f == null -> "Reading your songs' tags…"
-                f.isEmpty() -> "No song is named as a live recording"
+                f.isEmpty() -> if (movie) "No song has a soundtrack note in its name" else "No song is named as a live recording"
+                movie -> "${f.size} song${if (f.size != 1) "s have" else " has"} a note like “(From the motion picture …)” in the name. Tick the ones to take it off; the others are kept as they are (not asked again)"
                 else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recording${if (f.size != 1) "s" else ""}. Tick the ones to make plain; the others are kept as they are (not asked again)"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
             LazyColumn(Modifier.weight(1f)) {
@@ -172,8 +175,51 @@ private fun LiveNamesScreen(ui: Ui) {
                 Pill(if (report != null) "Done" else "Cancel", quiet = true) { close() }
                 if (report == null && !f.isNullOrEmpty()) Pill("Rename") {
                     val picks = f.indices.map { if (pick[it] ?: true) FixupPick.Change else FixupPick.Leave }
-                    Music.bg({ MusicTools.liveApply(f, picks) }) { n, e -> report = if (n != null) "Renamed $n" else "Couldn't: ${e?.message}"; Music.rescan() }
+                    Music.bg({ if (movie) MusicTools.movieApply(f, picks) else MusicTools.liveApply(f, picks) }) { n, e -> report = if (n != null) "Renamed $n" else "Couldn't: ${e?.message}"; Music.rescan() }
                 }
+            }
+        }
+    }
+}
+
+/** Songs without covers: each album whose songs show no cover anywhere, with Pick a cover (the Cover… dialog), one
+ *  album or all of them in turn. The list is looked at again after each pick. */
+@Composable
+private fun NoCoversScreen(ui: Ui) {
+    val close = { ui.tool = null }
+    var status by remember { mutableStateOf("Looking at your covers…") }
+    var found by remember { mutableStateOf<List<List<org.omarchy.music.Track>>?>(null) }
+    val picking = ui.coverFor != null
+    LaunchedEffect(picking) {
+        if (picking) return@LaunchedEffect
+        Music.bg({ MusicTools.noCovers { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
+            found = r ?: emptyList(); if (r == null) status = "Couldn't look: ${e?.message}"
+        }
+    }
+    FullScreen("Songs without covers", close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            val f = found
+            Text(when {
+                f == null -> status
+                f.isEmpty() -> "Every song has a cover"
+                else -> "${f.size} album${if (f.size != 1) "s" else ""} (${f.sumOf { it.size }} songs) show no cover. Pick one for each: " +
+                    "it's searched for you, or choose a picture of your own"
+            }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(f.orEmpty()) { songs ->
+                    val t = songs[0]
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(t.album.ifEmpty { t.title }, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${t.artist} · ${songs.size} song${if (songs.size != 1) "s" else ""}", style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Pill("Pick a cover", quiet = true) { ui.coverFor = listOf(songs) }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill("Done", quiet = true) { close() }
+                if (!f.isNullOrEmpty()) Pill("Fix them all…") { ui.coverFor = f }
             }
         }
     }

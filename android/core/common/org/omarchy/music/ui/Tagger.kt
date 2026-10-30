@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -146,9 +147,14 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
             }
         }
     }
+    var renameFiles by remember { mutableStateOf(true) }
+    if (org.omarchy.music.FileTags.canMove && typed["title"] != null) Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Checkbox(renameFiles, { renameFiles = it })
+        Text("Rename the file${if (songs.size != 1) "s" else ""} too (the new title in the file name)", style = T.body)
+    }
     Pill("Save the tags") {
         if (typed.isEmpty()) Music.toast("Nothing changed")
-        else { Music.editTags(songs, typed.toMap()); typed.clear() }
+        else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
     }
 }
 

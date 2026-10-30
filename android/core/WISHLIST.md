@@ -2,11 +2,11 @@
 
 Do these once core/PLAN.md is done. Each is for both apps unless it says otherwise.
 
-- [ ] Tagger: when songs are selected, change the file name too (not only the title the app shows).
-- [ ] Inside an artist: a grid view with sorting (default Most played; Most played stays one of the sorts).
+- [x] Tagger: when songs are selected, change the file name too (not only the title the app shows).
+- [x] Inside an artist: a grid view with sorting (default Most played; Most played stays one of the sorts).
 - [x] Most played's duplicate scan: ignore versions marked by brackets/dashes with "stripped", "acoustic sessions (live)",
       "remix", "orchestra" (and live versions) — only when the word is set off by special characters, not a plain "Live" in a title.
-- [ ] Settings: a scan for songs without covers, to fix them.
+- [x] Settings: a scan for songs without covers, to fix them.
 - [ ] Single scan: a fourth bulk choice beside Change all / Leave alone: change only those whose album on the device is an
       "Album", and leave alone anything labelled "Album · Music" or "Album · Deezer".
 - [ ] Single scan: a song with the same name as an album by the same artist with the same/similar cover goes into that album
@@ -20,16 +20,16 @@ Do these once core/PLAN.md is done. Each is for both apps unless it says otherwi
 - [ ] Settings: a scan of Albums / EPs / Singles using Deezer, Apple Music… to decide true album / EP / single; on Change add
       " - Single" / " - EP" to the names; ask when unsure (Leave alone / EP / Single / Album). Afterwards nothing appears in more
       than one of the three tabs; Singles never has more than one track; Albums never has one track.
-- [x] Duplicates: "Mark not a duplicate" beside Delete (remembered); [ ] the same Keep / Remove choosing as the other scans.
+- [x] Duplicates: "Mark not a duplicate" beside Delete (remembered); [x] the same Keep / Remove choosing as the other scans.
 - [ ] Phone: high-quality resampling, only applied when it really improves the sound; a switch in the Equalizer.
 - [ ] Every Equalizer-tab option also in the Equalizer sheet and Now playing.
-- [ ] Settings: a scan for "(From the original motion picture …)" and similar in song names, to take them off (choose each).
+- [x] Settings: a scan for "(From the original motion picture …)" and similar in song names, to take them off (choose each).
 - [ ] Playlists: multi-select options Delete, Rename, Edit, Favorite (favorites every song in them); multi-select with options
       on every list tab (Repeat, Not favorited, Favorites, Skips, Most played, New releases, Recently played, Folders,
       Playlists, Genres, Artists, Singles, EPs, Albums, My music, Up next, Queues, Now playing).
-- [ ] PC: the desktop doesn't see the music playing (Windows media session / SMTC for widgets and visualizer wallpapers).
+- [x] PC: the desktop doesn't see the music playing (Windows media session / SMTC for widgets and visualizer wallpapers).
 - [x] Lyrics card: up to 15 lines (now 12).
-- [ ] PC bit-perfect (exclusive mode) silences other apps: explain in the setting; offer a shared mode that doesn't.
+- [x] PC bit-perfect (exclusive mode) silences other apps: explain in the setting; offer a shared mode that doesn't. (The owner: leave it as it is.)
 - [ ] (earlier) Sound presets: Xenns Mangird Top Pro, Sony WH-1000XM6 (Bluetooth and cable), WF-1000XM6, S26 Ultra speaker.
 - [ ] (earlier) Wired Android Auto (USB) = the Chevy output: "Chevrolet · USB", the Colorado EQ.
 - [ ] (earlier) Verify the crossfade loud blip on the phone; bit-perfect only while a USB DAC is connected.

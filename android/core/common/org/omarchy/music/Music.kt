@@ -143,6 +143,7 @@ object Music {
     var visPreset by mutableStateOf("bars")    // the Visualizer tab's look
     var autoplay by mutableStateOf(true)       // ∞: when the queue runs out, songs like the last one play on
     var wrappedStyle by mutableStateOf("classic")   // Wrapped's look
+    var artistSort by mutableStateOf("most")   // an artist's page: their songs by most played, least, title, album, newest
     var skipOrder by mutableStateOf("most")    // how Skips is sorted: most, least, heard
     var topMineOnly by mutableStateOf(true)   // Most played: only the songs on the phone (plays from everywhere)
     fun chooseTopMineOnly(on: Boolean) { topMineOnly = on; mostPlayedFor = null; musicVersion++; saveState() }
@@ -981,6 +982,7 @@ object Music {
         }
         queue = queue.map(::fix)
         lists.remap(::fix)
+        lib.items.values.filter { it.file.replace('\\', '/') in moved }.forEach { e -> lib.update(e.id) { it.copy(file = moved[e.file.replace('\\', '/')]!!) } }
         saveState()
         rescan()
     }
@@ -1396,6 +1398,30 @@ object Music {
         } else queueTrash(TrashJob(listOf(t), mapOf(t.id to keep), "a copy of “${t.title}”"))
     }
 
+    /** Duplicates' Keep / Remove: in each group the copies picked go (downloads at once, files to the bin together),
+     *  the first one kept taking their place in playlists. A group with every copy picked keeps its best. */
+    fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) {
+        val playing = current()?.id
+        val files = ArrayList<Track>(); val to = HashMap<String, Track>(); val gone = HashSet<String>()
+        var skipped = false
+        for ((g, rm) in picks) {
+            val keep = g.firstOrNull { it.id !in rm } ?: g.first()
+            for (t in g) {
+                if (t.id !in rm || t.id == keep.id) continue
+                if (t.id == playing) { skipped = true; continue }
+                if (lib.has(t.id)) { lib.remove(t.id); retarget(listOf(t.id), keep); gone += t.id }
+                else { files += t; to[t.id] = keep }
+            }
+        }
+        if (gone.isNotEmpty()) {
+            dupes = dupes?.map { g -> g.filter { it.id !in gone } }?.filter { it.size > 1 }
+            savedVersion++; musicVersion++
+        }
+        if (files.isNotEmpty()) queueTrash(TrashJob(files, to, "${files.size} duplicate cop${if (files.size != 1) "ies" else "y"}"))
+        val n = gone.size + files.size
+        toast((if (n > 0) "Removing $n cop${if (n != 1) "ies" else "y"}" else "Nothing to remove") + if (skipped) " · the playing one is left: skip it first" else "")
+    }
+
     // ---- Upgrade: your files for Tidal's FLAC where it's better ----
     fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) {
         if (upgrading != null) return
@@ -1549,7 +1575,7 @@ object Music {
 
     /** Write changes {field: value} into the tags of tracks' downloaded FLACs, and show the new
      *  names wherever the songs are. The playing song is left alone: its file is being read. */
-    fun editTags(tracks: List<Track>, changes: Map<String, String>) {
+    fun editTags(tracks: List<Track>, changes: Map<String, String>, renameFiles: Boolean = false) {
         val playing = current()?.id
         val todo = tracks.filter { Tags.editableAny(it) != null && it.id != playing }
         if (todo.size < tracks.count { Tags.editableAny(it) != null }) toast("The playing song is left as it is: edit it once it's over")
@@ -1557,11 +1583,14 @@ object Music {
         bg({
             val renamed = HashMap<String, Triple<String, String, String>>()
             val failed = ArrayList<String>()
+            val moves = ArrayList<Pair<String, String>>()
             for (t in todo) {
                 val e = lib.items[t.id]
                 val file = e?.file ?: Tags.editableAny(t) ?: continue   // a download, or (PC) a file of yours
                 val c = try { Tags.write(ctx, file, changes) } catch (x: Exception) { failed += "${t.title}: ${x.message}"; continue }
                 val title = c["TITLE"]?.firstOrNull() ?: e?.title ?: t.title
+                if (renameFiles && FileTags.canMove && title != (e?.title ?: t.title))
+                    renamedFile(file, e?.title ?: t.title, title)?.let { moves += file.replace('\\', '/') to it.replace('\\', '/') }
                 val artist = c["ARTIST"]?.joinToString(", ")?.ifEmpty { null } ?: "Unknown artist"
                 val album = c["ALBUM"]?.firstOrNull() ?: ""
                 if (e == null) { renamed[t.id] = Triple(title, artist, album); continue }
@@ -1571,6 +1600,11 @@ object Music {
                 }
             }
             lists.retitle(renamed.keys) { x -> renamed[x.id]!!.let { (a, b, c) -> x.copy(title = a, artist = b, album = c) } }
+            if (moves.isNotEmpty()) {
+                val (n, bad) = MusicTools.moveFiles(moves.distinct())
+                if (bad.isNotEmpty()) failed += bad
+                else if (n > 0) scope.launch(kotlinx.coroutines.Dispatchers.Main) { toast("Renamed $n file${if (n != 1) "s" else ""}") }
+            }
             renamed to failed
         }) { res, err ->
             val (renamed, failed) = res ?: (emptyMap<String, Triple<String, String, String>>() to listOf(err?.message ?: "?"))
@@ -2405,4 +2439,4 @@ data class Pin(val kind: String, val id: String, val title: String, val sub: Str
 // The layout button goes round: a list, small covers, the covers as they were, then bigger and biggest (two, then one, across a phone).
 val LAYOUTS = listOf("list", "compact", "grid", "large", "huge")
 /** The pages that start as a grid of covers. */
-val GRID_FIRST = setOf("albums", "artists")
+val GRID_FIRST = setOf("albums", "artists", "artist-page")

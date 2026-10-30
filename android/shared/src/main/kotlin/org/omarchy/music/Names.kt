@@ -165,3 +165,39 @@ private val LIVE_PART = Regex("\\s*[(\\[][^)\\]]*\\blive\\b[^)\\]]*[)\\]]|\\s+[-
 fun stripLive(title: String): String = LIVE_PART.replace(title, "").trim().ifEmpty { title }
 
 fun hasLive(title: String): Boolean = LIVE_PART.containsMatchIn(title)
+
+/** "(From the original motion picture …)", "[From “Barbie”]", "- From the Netflix Series …", "(Original Motion Picture
+ *  Soundtrack)", "(Music from the film …)": a soundtrack's note in a song's name, not the song's own words. Brackets
+ *  starting "from" count only with a film/series/soundtrack word or a quoted title, so "(From Me to You)" stays. */
+private val MOVIE_WORDS = "(motion picture|soundtrack|film|movie|series|musical|original score|o\\.?s\\.?t\\.?|netflix|disney|pixar|video game|tv show|television|anime|the album)"
+private val MOVIE_PART = Regex(
+    "\\s*[(\\[]\\s*(?:(?:music\\s+)?from\\s+(?:[^)\\]]*?$MOVIE_WORDS[^)\\]]*|[\"“”'‘][^)\\]]+)|(?:the\\s+)?(?:original\\s+)?(?:motion picture|movie|film|series)?\\s*soundtrack[^)\\]]*)[)\\]]" +
+        "|\\s+[-–—]\\s+(?:music\\s+)?from\\s+(?:.*?$MOVIE_WORDS.*|[\"“].+)$",
+    RegexOption.IGNORE_CASE)
+
+/** A song's name with the soundtrack note taken off ("Song (From the Motion Picture “X”)" -> "Song"), or null if it
+ *  has none. */
+fun movieName(title: String?): String? {
+    val t = title ?: return null
+    val plain = MOVIE_PART.replace(t, "").trim()
+    return if (plain != t && plain.isNotEmpty()) plain else null
+}
+
+/** The file a song would have after its title changed: the old title in the file's name swapped for the new one, or
+ *  else the track number kept ("03 - ") and the new title after it. Same folder, same extension; characters Windows
+ *  won't take become "_". Null if the name wouldn't change. */
+fun renamedFile(path: String, oldTitle: String, newTitle: String): String? {
+    val cut = maxOf(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+    val dir = if (cut >= 0) path.substring(0, cut + 1) else ""
+    val name = path.substring(cut + 1)
+    val dot = name.lastIndexOf('.')
+    val base = if (dot > 0) name.substring(0, dot) else name
+    val ext = if (dot > 0) name.substring(dot) else ""
+    fun safe(t: String) = t.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().trimEnd('.')
+    val new = safe(newTitle).ifEmpty { return null }
+    val old = safe(oldTitle)
+    val at = if (old.isNotEmpty()) base.indexOf(old, ignoreCase = true) else -1
+    val nb = if (at >= 0) base.substring(0, at) + new + base.substring(at + old.length)
+        else (Regex("^\\d{1,3}(?:[ ._-]+|$)").find(base)?.value ?: "") + new
+    return if (nb == base) null else dir + nb + ext
+}

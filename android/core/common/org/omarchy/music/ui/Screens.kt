@@ -400,6 +400,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
             item {
                 Section("${groups.size} SONG${if (groups.size != 1) "S" else ""} · ${groups.sumOf { it.size - 1 }} EXTRA COPIES · THE BEST COPY FIRST")
                 ActionRow("Look again  ›") { Music.findDupes() }
+                val picks = groups.map { g -> g to g.filterIndexed { i, t -> ui.dupeRemove[t.id] ?: (i != 0) }.map { it.id }.toSet() }
+                val n = picks.sumOf { (g, rm) -> if (rm.size >= g.size) g.size - 1 else rm.size }
+                if (n > 0) ActionRow("Remove the $n cop${if (n != 1) "ies" else "y"} marked Remove  ›") {
+                    ui.confirm = ("Remove $n duplicate cop${if (n != 1) "ies" else "y"}? In each song the copies marked Keep stay, and your " +
+                        "playlists get them in place of the ones removed (a song with every copy marked keeps its best)." +
+                        if (onPhone) " Android asks you once more, and the files go to its trash." else " Files go to the Recycle Bin.") to { Music.removeDupes(picks) }
+                }
             }
             groups.forEach { g ->
                 item(key = "dupe-head-${g[0].id}") {
@@ -420,13 +427,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
                                 Text(Music.whereIs(t), style = T.time, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             Text("▶", style = T.title.copy(color = C.accent), modifier = Modifier.clickable { Music.playFrom(listOf(t), 0, false) }.padding(8.dp))
-                            Pill("Delete…", quiet = true) {
-                                ui.confirm = ("Delete this copy of “${t.title}”?\n\n• ${t.title} — ${t.artist}\n   ${Music.copyInfo(t)}\n   ${Music.whereIs(t)}" +
-                                    "\n\nIt's a duplicate of:\n" + g.filter { it.id != t.id }.joinToString("\n") { o ->
-                                        "• ${o.title} — ${o.artist}\n   ${Music.copyInfo(o)}\n   ${Music.whereIs(o)}" } +
-                                    "\n\nYour playlists get the copy you keep in its place." +
-                                    if (Music.lib.has(t.id)) "" else if (onPhone) " Android asks you once more, and the file goes to its trash." else " The file goes to the Recycle Bin.") to { Music.deleteDupe(g, t) }
-                            }
+                            val rm = ui.dupeRemove[t.id] ?: (i != 0)
+                            Chip("Keep", !rm) { ui.dupeRemove[t.id] = false }
+                            Spacer(Modifier.width(4.dp))
+                            Chip("Remove", rm) { ui.dupeRemove[t.id] = true }
                         }
                     }
                 }
@@ -785,7 +789,6 @@ fun ArtistsTab(ui: Ui) {
 private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     var info by remember(page) { mutableStateOf<ArtistInfo?>(null) }
     var failed by remember(page) { mutableStateOf<String?>(null) }
-    var down by remember(page) { mutableStateOf(true) }
     var morePics by remember(page) { mutableStateOf(false) }
     LaunchedEffect(page) {
         Music.lookUpArtists(listOf(page.name))
@@ -797,7 +800,14 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val v = Music.artistsVersion
     val pics = remember(page, v) { org.omarchy.music.Pictures.known(page.name) }
     val all = remember(page, Music.musicVersion) { Music.artistSongs(page.name) }
-    val mine = if (down) all.sortedByDescending { it.plays } else all.sortedBy { it.plays }
+    val sort = Music.artistSort
+    val mine = when (sort) {
+        "least" -> all.sortedWith(compareBy({ it.plays }, { norm(it.title) }))
+        "title" -> all.sortedBy { norm(it.title) }
+        "album" -> all.sortedWith(compareBy({ norm(it.album).ifEmpty { "~" } }, { norm(it.title) }))
+        "added" -> all.sortedByDescending { it.added }
+        else -> all.sortedWith(compareBy({ -it.plays }, { norm(it.title) }))
+    }
     val links = androidx.compose.ui.platform.LocalUriHandler.current
     LazyColumn(Modifier.fillMaxSize()) {
         item { BackRow(page.name) { ui.pages.removeAt(ui.pages.lastIndex) } }
@@ -827,7 +837,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 if (mine.isNotEmpty()) {
                     Pill("Play") { Music.playFrom(mine, 0, false) }
                     Pill("Shuffle") { Music.playFrom(org.omarchy.music.shuffleSongs(mine), 0, false) }
-                    Pill(if (down) "Most played first" else "Least played first", quiet = true) { down = !down }
                 }
                 PinPill(org.omarchy.music.Pin("artist", page.name, page.name, thumb = i?.thumb ?: "", source = page.prefer ?: ""))
                 Pill("Change picture…", quiet = true) { ui.artistPictureFor = page.name }
@@ -836,7 +845,13 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }
         }
         if (mine.isNotEmpty()) {
-            item { Section("YOUR SONGS · BY PLAYS " + if (down) "↓" else "↑") }
+            item { Section("YOUR SONGS") }
+            item {
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("most" to "Most played", "least" to "Least played", "title" to "Title", "album" to "Album", "added" to "Newest")
+                        .forEach { (k, l) -> Chip(l, sort == k) { Music.artistSort = k } }
+                }
+            }
             tracks(mine, ui, "artist") { t -> "${t.plays} play${if (t.plays != 1) "s" else ""}" }
         }
         when {

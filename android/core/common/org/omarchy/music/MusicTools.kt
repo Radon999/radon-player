@@ -14,10 +14,13 @@ object MusicTools {
         private set
     /** The live songs you chose to keep as they are. */
     private var liveKept = setOf<String>()
+    /** The soundtrack-named songs you chose to keep as they are. */
+    private var movieKept = setOf<String>()
 
     fun init() {
         skip = Prefs.text("fixup_skip").split('\n').filter { it.isNotBlank() }
         liveKept = Prefs.text("live_kept").split('\n').filter { it.isNotBlank() }.toSet()
+        movieKept = Prefs.text("movie_kept").split('\n').filter { it.isNotBlank() }.toSet()
     }
 
     fun chooseSkip(folders: List<String>) {
@@ -144,6 +147,31 @@ object MusicTools {
         liveKept = liveKept + keep
         Prefs.setText("live_kept", liveKept.joinToString("\n"))
         return done
+    }
+
+    fun movieFound(songs: List<FixupSong>) = namesFound(songs, skip, movieKept, ::movieName)
+
+    /** (blocking) The soundtrack notes picked taken off the names; the others remembered as kept. */
+    fun movieApply(found: List<LiveName>, picked: List<FixupPick>): Int {
+        val (renames, keep) = liveNamesApply(found, picked)
+        var done = 0
+        for ((f, title) in renames) if (FileTags.write(Music.ctx, f, mapOf("title" to title))) done++
+        movieKept = movieKept + keep
+        Prefs.setText("movie_kept", movieKept.joinToString("\n"))
+        return done
+    }
+
+    /** (blocking) Your songs that show no cover (no saved or picked cover, no service picture, none in the file),
+     *  by album, the artists' order. */
+    fun noCovers(progress: (String) -> Unit = {}): List<List<Track>> {
+        val songs = Music.mySongs()
+        val bare = songs.filterIndexed { i, t ->
+            if (i % 50 == 0) progress("Looking at your covers… ${i + 1} of ${songs.size}")
+            val saved = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() } != null
+            val picked = Pictures.cover(t.artist, t.album.ifEmpty { t.title }).isNotEmpty()
+            !saved && !picked && t.thumb.isEmpty() && (t.file == null || !runCatching { FileTags.hasCover(Music.ctx, t.file!!) }.getOrDefault(false))
+        }
+        return bare.groupBy { Covers.albumKey(it) }.values.sortedWith(compareBy({ norm(it[0].artist) }, { norm(it[0].album) }))
     }
 
     /** (blocking) Folders in your music folders with no songs left in them. */

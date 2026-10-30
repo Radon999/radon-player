@@ -21,14 +21,18 @@ fun liveKeptKey(file: String): String = fixupNormPath(file)
 
 /** Your songs named as live, the artist's then the name's order: each file once, none in skip (the folders left
  *  alone) and none you left alone before (kept: liveKeptKey's of them). */
-fun liveNamesFound(songs: List<FixupSong>, skip: Collection<String> = emptyList(), kept: Set<String> = emptySet()): List<LiveName> {
+fun liveNamesFound(songs: List<FixupSong>, skip: Collection<String> = emptyList(), kept: Set<String> = emptySet()): List<LiveName> =
+    namesFound(songs, skip, kept, ::liveName)
+
+/** The same for any name tidy (Live in song names, Soundtrack notes in names): songs whose plainer name isn't null. */
+fun namesFound(songs: List<FixupSong>, skip: Collection<String>, kept: Set<String>, plainer: (String?) -> String?): List<LiveName> {
     val seen = HashSet<String>()
     val found = ArrayList<LiveName>()
     for (t in songs) {
         val f = t.file
         if (f.isEmpty() || f in seen || inFolders(f, skip)) continue
         seen += f
-        val name = liveName(t.title) ?: continue
+        val name = plainer(t.title) ?: continue
         if (liveKeptKey(f) in kept) continue
         found += LiveName(f, t.title, t.artist, name)
     }

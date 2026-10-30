@@ -31,7 +31,7 @@ Open the ☰ menu to find everything. Pages can be shown as a list, a grid or a 
 - **My music:** Every song in your folders plus your downloads, with Play, Shuffle and **DJ** buttons. Sort by Title, Artist, Album or Added (newest first). Sorting by artist or album groups the songs under headings.
 - **Albums, EPs and Singles:** Your songs grouped by release, shown as cover grids. Each release is in exactly one of the three: EPs only in EPs, singles (and albums you have one song of) only in Singles, the rest only in Albums. Albums has two buttons, **Albums** (more than six songs) and **Low song count albums** (six or fewer), to keep the big ones uncluttered. **Select** lets you tick several albums and use Options on all their songs. Each tab also has a **Collage** of your top releases, and Singles has **Single scan** (see Tagging & tidying).
 - **Album pages:** If you're missing some songs from an album, you see them dimmed with **Download missing tracks…**, where you pick which to download.
-- **Artists:** The artists you listen to most, ranked by every play counted together (see Stats). An artist's page has Play, Shuffle, **Change picture…** (pictures from Google, Genius and Wikipedia, or one of your own), **Discovery playlist** and **Merge into…**.
+- **Artists:** The artists you listen to most, ranked by every play counted together (see Stats). An artist's page has Play, Shuffle, **Change picture…** (pictures from Google, Genius and Wikipedia, or one of your own), **Discovery playlist** and **Merge into…**. Your songs by them show as a grid (or a list), sorted by **Most played** (the default), **Least played**, **Title**, **Album** or **Newest**.
 - **Genres:** Your songs grouped by genre.
 - **Playlists:** Make playlists, rename them, sort their songs (Order, Title, Artist, Album, Most played, Length), **Export** them as .m3u8, and **Import a playlist (.m3u8)**. Put playlists into **folders**, including your services' playlists.
 - **Folders:** Browse your songs by the folders they're stored in.
@@ -144,7 +144,7 @@ Imported plays are **added alongside** your Last.fm scrobbles, not swapped for t
 
 On the phone, these tools can change the FLAC files the app downloaded. Android doesn't let the app change other apps' files. On the PC they work on all your music.
 
-- **Tagger…:** Everything about the songs you picked, in one place. **Tags** (with several songs, a field they disagree on is left alone unless you type in it), **Cover** (from Google, Genius or Wikipedia, or your own picture, for one song or the whole album), **Info** (format, quality, size, length and every tag) and **Lyrics** (in the file, found online, or typed in, and saved into the file).
+- **Tagger…:** Everything about the songs you picked, in one place. **Tags** (with several songs, a field they disagree on is left alone unless you type in it), **Cover** (from Google, Genius or Wikipedia, or your own picture, for one song or the whole album), **Info** (format, quality, size, length and every tag) and **Lyrics** (in the file, found online, or typed in, and saved into the file). On the PC, changing a title can rename the file too.
 - **Tag now (Settings › Tagger):** Adds genre, composer, label, lyrics and Genius's notes to downloads that don't have them yet. You see a preview of the changes first.
 - **Tag scan (Settings › Tagger › Scan…):** Checks your downloads' tags against Deezer's catalogue one album at a time. For each tag that's missing or different you choose Replace or Keep. Albums with no cover, or a small one, get up to three covers to pick from.
 - **Single scan (Singles tab):** Finds the album or EP each of your singles belongs to (from Deezer, otherwise Apple Music) and moves it there: album, album artist, track number, year and cover. You can also pick another album, type one, or leave it alone.
@@ -152,10 +152,12 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Folders to leave alone:** Folders that no scan ever touches or looks in (Fix albums and artists, the tag scanner, Empty folders, Live in song names), and that no songs are moved into. Good for unreleased songs and sessions.
 - **Empty folders (PC only):** Finds folders with no songs left in them, only pictures or lyrics files. You see each one's size and contents and choose which to send to the Recycle Bin.
 - **Live in song names:** Finds songs named as live recordings ("Song (Live)", "Song - Live at…") that you'd rather have plain. It removes the live part of the name and keeps the rest. You check each one.
+- **Soundtrack notes in names:** Finds songs whose names carry a note like "(From the Original Motion Picture …)", "[From "Barbie"]" or "- From the Netflix Series …" and takes it off. You choose each one; the ones you leave are not asked about again.
+- **Songs without covers:** Lists the albums whose songs show no cover anywhere, with **Pick a cover** for each or **Fix them all…** one after the other.
 - **Loudness check:** Checks each of your songs once, in the background (on the phone, only while it's charging), for clipping (distortion from being too loud) and for files that aren't the hi-res they claim to be (upsampled, or 16-bit inside a 24-bit file). **Show…** lists the worst first, so you know which copies to replace.
 - **Identify by sound…:** Works out what a song is from its sound (AcoustID and MusicBrainz) and offers to write those tags into its file. On the phone it can write them into the app's own downloads; for other songs it shows what they are.
 - **Upgrade (Settings › Your music, or Upgrade to FLAC… on songs):** Swaps your songs for Tidal's FLAC where Tidal's is better. MP3s and other lossy files are replaced with FLAC; 16-bit files are replaced only when Tidal has them in 24-bit. Playlists and the queue keep working, and the old files go to the trash so you can get them back. Afterwards it lists the songs it kept because yours were already as good, and you can replace those anyway.
-- **Duplicates:** Looks through all your songs (downloads and folders) for ones you have more than once. It shows each copy's name, artist and file, best copy first, so you can choose which to delete.
+- **Duplicates:** Looks through all your songs (downloads and folders) for ones you have more than once. It shows each copy's name, artist and file, best copy first. Mark each copy **Keep** or **Remove** (the best is kept, the others marked Remove to start with) and remove them all at once, or mark the song **Not a duplicate**.
 - **Copies:** See Search & the services: decides what happens when you download a song you already have.
 
 ## Phone + PC together
@@ -212,6 +214,7 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - The PC is one app at a time again, with the old app's commands (next, play-pause, show…) and song files opened with it.
 - Albums, EPs and Singles never show the same release twice, and Albums splits into **Albums** and **Low song count albums**.
 - Lyrics cards take up to 15 lines. Duplicates has **Not a duplicate**, remembered for next time. Duplicates in Most played leaves out marked versions (Stripped, Remix, Live…).
+- New in Settings: **Soundtrack notes in names** and **Songs without covers**. Duplicates gets **Keep / Remove** for each copy. An artist's page is a grid with sorting (Most played first). On the PC, the Tagger can rename the file with the title.
 - On the PC, **Upgrade to FLAC…** works on your own songs again, and the mini player has a seek bar and shows what's up next.
 - On the PC, **Delete…** works on your own songs again (they go to the Recycle Bin), and downloads can go to any folder.
 - Fixed on Windows: the window could stay hidden at start while the app froze waiting on the player, and settings weren't being saved.

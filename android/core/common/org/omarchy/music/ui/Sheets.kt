@@ -587,6 +587,14 @@ private fun ToolLines(ui: Ui) {
         "have under their plain name. It takes the live part off the name and keeps the rest, and you check each one first", false) {
         Pill("Scan…", quiet = true) { ui.tool = "live" }
     }
+    Line("Soundtrack notes in names", "Finds songs whose names carry a note like “(From the Original Motion Picture …)”, " +
+        "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "movie" }
+    }
+    Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
+        "(searched for you, or a picture of your own)", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "nocover" }
+    }
 }
 
 /** Start with Windows (the PC): in the tray when you sign in, ready for the media keys and the phone. */

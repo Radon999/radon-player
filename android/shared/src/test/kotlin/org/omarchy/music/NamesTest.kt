@@ -29,6 +29,24 @@ class NamesTest {
         assertTrue(hasLive("Song [Live]"))
     }
 
+    @Test fun movieNames() {
+        assertEquals("What Was I Made For?", movieName("What Was I Made For? [From The Motion Picture \"Barbie\"]"))
+        assertEquals("Song", movieName("Song (From the Original Motion Picture Soundtrack)"))
+        assertEquals("Song", movieName("Song - From the Netflix Series \"Arcane\""))
+        assertEquals("Song", movieName("Song (Original Motion Picture Soundtrack)"))
+        assertEquals("Song (Live)", movieName("Song (Live) [From “Wicked”]"))
+        assertEquals(null, movieName("From Me to You"))
+        assertEquals(null, movieName("Song (From Me to You)"))
+        assertEquals(null, movieName("Soundtrack 2 My Life"))
+    }
+
+    @Test fun fileRenames() {
+        assertEquals("C:/M/03 - New Song.flac", renamedFile("C:/M/03 - Old Song.flac", "Old Song", "New Song"))
+        assertEquals("C:\\M\\Artist - What_.mp3", renamedFile("C:\\M\\Artist - Who.mp3", "Who", "What?"))
+        assertEquals("/m/07 New.flac", renamedFile("/m/07 track7.flac", "Something", "New"))
+        assertEquals(null, renamedFile("/m/Same.flac", "Same", "Same"))
+    }
+
     @Test fun matching() {
         assertEquals(norm("Beyoncé"), norm("Beyonce"))
         assertTrue(similar("heavydirtysoul", "heavy dirty soul") > 0.85)
