@@ -39,7 +39,35 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
     val spotify = url.startsWith("https://accounts.spotify.com")
     val lastfm = url.startsWith("https://www.last.fm/api/auth")
     val by = spotify || lastfm
-    fun open() { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) } }
+    val cookieKey = when {
+        url.startsWith("https://accounts.google.com") -> "ytm"
+        url.startsWith("https://music.apple.com") -> "apple"
+        else -> null
+    }
+    fun open() { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(if (cookieKey == "ytm") "https://music.youtube.com" else url)) } }
+    if (cookieKey != null) {
+        // YouTube Music and Apple Music: sign in in your browser, then paste its cookies (no web page inside the app here)
+        Dialog(onDismissRequest = { done(null) }) {
+            Column(Modifier.widthIn(max = 560.dp).background(C.light, R.card).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Sign in to ${if (cookieKey == "ytm") "YouTube Music" else "Apple Music"}", style = T.title)
+                Text(if (cookieKey == "ytm")
+                    "1. Open music.youtube.com in your browser and sign in.\n2. Press F12, open the Network tab and reload the page.\n" +
+                        "3. Click the first request to music.youtube.com and, under Request Headers, copy the whole Cookie value.\n4. Paste it here."
+                    else "1. Open music.apple.com in your browser and sign in.\n2. Press F12, open Application (Chrome, Edge) or Storage (Firefox) › Cookies › music.apple.com.\n" +
+                        "3. Copy the value of media-user-token.\n4. Paste it here.", style = T.sub)
+                Text("It stays on this PC, in Radon Player's settings, and works like the sign-in on the phone. Sign out forgets it.", style = T.sub.copy(color = C.muted))
+                Pill("Open ${if (cookieKey == "ytm") "music.youtube.com" else "music.apple.com"}") { open() }
+                Field(pasted, if (cookieKey == "ytm") "The Cookie value" else "The media-user-token") { pasted = it; wrong = false }
+                if (wrong) Text(if (cookieKey == "ytm") "That doesn't hold the sign-in (it has no __Secure-3PAPISID): copy the whole Cookie value after signing in."
+                    else "That isn't a media-user-token: copy its value after signing in.", style = T.sub.copy(color = C.red))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
+                    Pill("Cancel", quiet = true) { done(null) }
+                    Pill("Sign in") { if (org.omarchy.music.Services.setCookies(cookieKey, pasted)) done("cookies") else wrong = true }
+                }
+            }
+        }
+        return
+    }
     if (spotify) DisposableEffect(url) {
         // Spotify sends the browser on to http://127.0.0.1:8898/callback?code=…: answer it here
         val back = java.net.URI(org.omarchy.music.Spotify.REDIRECT)

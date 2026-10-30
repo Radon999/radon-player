@@ -1,7 +1,8 @@
 package org.omarchy.music
 
-/** The services on the PC: YouTube Music and Apple Music to search (signing in to them comes with the PC's own
- *  sign-in pages, later), Spotify with its own login, Tidal with its keys. */
+/** The services on the PC: YouTube Music and Apple Music (signed in with the cookies you copy from your browser
+ *  after signing in there: the PC has no web page inside the app to read them from), Spotify with its own login,
+ *  Tidal with its keys. */
 object Services {
     private var started = false
     private lateinit var ctx: Ctx
@@ -16,18 +17,36 @@ object Services {
     private fun connect(key: String) {
         Music.bg({
             when (key) {
-                "ytm" -> YouTubeMusic(null)
-                "apple" -> AppleMusic(ctx, null)
+                "ytm" -> YouTubeMusic(Prefs.text(YTM_KEY).takeIf { "__Secure-3PAPISID=" in it })
+                "apple" -> AppleMusic(ctx, Prefs.text(APPLE_KEY).takeIf { "media-user-token=" in it })
                 else -> Spotify(ctx)
             } as Source
         }) { src, err -> Music.sourceReady(key, src, err) }
     }
 
-    fun ytmCookiesReady() = false
-    fun appleCookiesReady() = false
-    fun ytmSignedIn() = connect("ytm")
-    fun appleSignedIn() = connect("apple")
-    fun signOut(key: String) = connect(key)
+    private const val YTM_KEY = "ytm_cookie"
+    private const val APPLE_KEY = "apple_cookie"
+
+    fun ytmCookiesReady() = "__Secure-3PAPISID=" in Prefs.text(YTM_KEY)
+    fun appleCookiesReady() = "media-user-token=" in Prefs.text(APPLE_KEY)
+
+    /** The cookies you pasted (the Cookie line from your browser, or for Apple just the media-user-token): kept if
+     *  they hold the sign-in. */
+    fun setCookies(key: String, pasted: String): Boolean {
+        var c = pasted.trim().removePrefix("Cookie:").removePrefix("cookie:").trim()
+        if (key == "apple" && "=" !in c && c.length > 20) c = "media-user-token=$c"
+        val ok = if (key == "ytm") "__Secure-3PAPISID=" in c else "media-user-token=" in c
+        if (ok) Prefs.setText(if (key == "ytm") YTM_KEY else APPLE_KEY, c)
+        return ok
+    }
+
+    fun ytmSignedIn() { connect("ytm"); Music.toast("Signed in to YouTube Music") }
+    fun appleSignedIn() { connect("apple"); Music.toast("Signed in to Apple Music") }
+    fun signOut(key: String) {
+        Prefs.setText(if (key == "ytm") YTM_KEY else APPLE_KEY, "")
+        connect(key)
+        Music.toast("Signed out of ${SOURCES[key]}")
+    }
 
     // ---- Spotify ----
     private val spotify get() = Music.sources["spotify"] as? Spotify

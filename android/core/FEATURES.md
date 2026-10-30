@@ -51,6 +51,7 @@ Search looks in Tidal, YouTube Music or **Your music**: pick which from the sear
 - **YouTube Music:** Sign in to browse your YouTube Music library and playlists. Its songs play from Tidal in FLAC. When Tidal doesn't have a song, YouTube's own audio fills the gap.
 - **Apple Music:** Sign in to browse your Apple Music library, playlists and favorites. Search works even when you aren't signed in. Songs play from their Tidal match in FLAC.
 - **Spotify:** Connect through your own free Spotify developer app (the account that owns it needs Premium). Settings walks you through it with a **Make an app** button. You get your liked songs, playlists, search and artists' albums, and the songs play from Tidal in FLAC.
+- **Signing in on the PC:** YouTube Music and Apple Music sign in in your browser; you then paste the cookie the app needs (it shows you where to find it, step by step). It stays on the PC and Sign out forgets it.
 - **Sync switches:** Each connected service has a Sync switch that decides whether its library is synced into the app.
 - **Copies (Settings › Your music):** Decides what happens when you download a song you already have: **Ask**, **Keep both** or **Replace**. When it asks, you see the copies you have and can choose Download and replace, Download and keep both, or Only the new ones.
 
@@ -217,6 +218,8 @@ The phone app and the PC app are now **one app**. Every screen (My music, Now pl
 - Lyrics cards take up to 15 lines. Duplicates has **Not a duplicate**, remembered for next time. Duplicates in Most played leaves out marked versions (Stripped, Remix, Live…).
 - Single scan has **Change all**, **Leave all alone** and **Only albums on this phone/PC**, and finds a song's EP even when the EP has the song's name. The Tagger gets **Auto collect**.
 - Select works on Genres, Folders, Artists and Playlists too (Options for all their songs); picked playlists can be deleted, renamed, opened or favorited together.
+- On the PC you can sign in to YouTube Music and Apple Music.
+- Fixed on the phone: a short loud blip at the start of each crossfade.
 - Settings gets **Albums, EPs and singles**, a scan that names each release as what it really is. Wired Android Auto is its own output, **Chevrolet · USB**, starting on the Colorado tuning. A Galaxy S26 Ultra speaker correction joins the headphones list. Bit-perfect on the phone now only takes over while a USB DAC is the output.
 - The phone gets **High-quality resampling**, and the Equalizer shows every Sound quality option too.
 - New in Settings: **Soundtrack notes in names** and **Songs without covers**. Duplicates gets **Keep / Remove** for each copy. An artist's page is a grid with sorting (Most played first). On the PC, the Tagger can rename the file with the title.

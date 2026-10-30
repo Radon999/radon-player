@@ -2078,29 +2078,32 @@ object Music {
         // moves on to the next song (coming up from quiet), and the ending fades out over the same seconds.
         fadingId = t.id
         val from = p.volume.coerceAtLeast(0.05f)
+        val left = maxOf(1.0, minOf(n, duration - position))
         x.seekTo(p.positionMs + 40)
-        x.volume = from
+        // Silent until it's really playing, then the two swap in one go: before, both played the ending at full
+        // volume for the moment the second took to start, a doubled (6 dB louder) blip at the start of every crossfade.
+        x.volume = 0f
         x.onceSounding {
             if (fadingId == t.id && current()?.id == t.id) {
+                x.volume = from
                 player?.volume = 0f   // the second player has it now: no doubled sound while the next one loads
                 fadeIn = n
                 trackEnded()
-            }
+                scope.launch {
+                    val steps = (left * 20).toInt().coerceAtLeast(1)
+                    for (k in 1..steps) {
+                        delay(50)
+                        x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
+                    }
+                    runCatching { x.release() }
+                }
+            } else runCatching { x.release() }
         }
         x.play()
         tail = null; tailFor = null
-        scope.launch {
-            val left = maxOf(1.0, minOf(n, duration - position))
-            val steps = (left * 20).toInt().coerceAtLeast(1)
-            for (k in 1..steps) {
-                delay(50)
-                x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
-            }
-            runCatching { x.release() }
-        }
         scope.launch {   // if it never got going, move on anyway
             delay(1500)
-            if (fadingId == t.id && current()?.id == t.id && !x.isPlaying) { fadeIn = 0.0; trackEnded() }
+            if (fadingId == t.id && current()?.id == t.id && !x.isPlaying) { fadeIn = 0.0; runCatching { x.release() }; trackEnded() }
         }
     }
 

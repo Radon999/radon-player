@@ -32,4 +32,4 @@ Do these once core/PLAN.md is done. Each is for both apps unless it says otherwi
 - [x] PC bit-perfect (exclusive mode) silences other apps: explain in the setting; offer a shared mode that doesn't. (The owner: leave it as it is.)
 - [x] (earlier) Sound presets: Xenns Mangird Top Pro, Sony WH-1000XM6 (Bluetooth and cable), WF-1000XM6, S26 Ultra speaker.
 - [x] (earlier) Wired Android Auto (USB) = the Chevy output: "Chevrolet · USB", the Colorado EQ.
-- [ ] (earlier) Verify the crossfade loud blip on the phone (needs the phone); [x] bit-perfect only while a USB DAC is connected.
+- [x] (earlier) The crossfade loud blip on the phone (found: both players played the ending at once for a moment; fixed, to check on the phone); [x] bit-perfect only while a USB DAC is connected.
