@@ -195,12 +195,20 @@ private fun AccountsSheet(ui: Ui) {
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
             Group("Accounts", ui) {
-            Text("Tidal is the only way to stream or download in FLAC (lossless). Signing in to YouTube Music, Apple Music, " +
-                "Deezer or Spotify brings your library and playlists into the app, but those services lock their own audio to " +
-                "their apps, so their songs play and download from Tidal when it's connected. Without Tidal, or for songs Tidal " +
-                "hasn't got, they come from YouTube instead, at lower quality (about 128 to 160 kbps, never FLAC), even if you " +
-                "pay for those services. Stream and download quality are in Your music.",
-                style = T.sub.copy(color = C.accent), modifier = Modifier.padding(vertical = 6.dp))
+            Text("Radon Player works best with a Tidal subscription and your own song files. Tidal is the only way to stream " +
+                "or download in FLAC (lossless) here, and with it everything plays and downloads in the best quality in one place.",
+                style = T.body.copy(color = C.accent), modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+            Text("Spotify, Apple Music, Deezer and YouTube Music lock their audio to their own apps, so signing in to them " +
+                "brings your library and playlists here but not their sound: their songs play from Tidal when it's connected, " +
+                "and without Tidal from YouTube at lower quality (about 128 to 160 kbps, never FLAC), even if you pay for them.\n\n" +
+                "Thinking of switching to Tidal? You can bring everything with you first, safely, without losing anything:\n" +
+                "• Playlists: sign in to your old service below, open its library, and pick Import all into my playlists (or " +
+                "$LONG_PRESS one playlist and pick Import to my playlists). They become your own playlists here and stay after " +
+                "your old subscription ends; with Tidal they play in FLAC, and you can download a whole playlist in one go.\n" +
+                "• Listening history: import your plays from Spotify, Apple Music, Deezer, YouTube Music or Tidal (under Last.fm & " +
+                "your stats) so Most played, Artists and Wrapped keep counting from where you were.\n" +
+                "Stream and download quality are in Your music.",
+                style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
             // ---- services ----
             for (key in listOf("ytm", "apple", "deezer")) {
                 val src = Music.sources[key]
