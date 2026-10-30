@@ -1,18 +1,18 @@
-run 40980901543 · Fri Oct 30 00:43:20 UTC 2026
+run 40983401364 · Fri Oct 30 01:08:13 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="5" failures="0" 
+  long max;
+}`
+Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
+  long count;
   double sum;
   double min;
   double max;
 }`
 
-> Task :desktop:flattenJars
 > Task :app:compileReleaseArtProfile
-
-> Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-2.1.0.jar
-
+> Task :app:lintVitalAnalyzeRelease
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:lintVitalReportRelease
@@ -25,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 41s
+BUILD SUCCESSFUL in 5m 11s
 102 actionable tasks: 102 executed
