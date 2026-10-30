@@ -305,6 +305,7 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             DownloadQualityLine()
+            OtherServicesLine()
             Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} with full tags, sorted " +
                 "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/" +
                 if (onPhone) "" else ", or any other folder on this PC", true) {
@@ -718,6 +719,21 @@ private fun DownloadQualityLine() {
                 }
             }
         }
+    }
+}
+
+/** For songs from Spotify, Apple Music and the rest, which can't be downloaded here: DumpMedia, a paid app that saves
+ *  them as files, which then play here as your own songs (Folders). */
+@Composable
+private fun OtherServicesLine() {
+    Line("Downloading from Spotify, Apple Music and others", "Their songs can't be downloaded here (only Tidal's and YouTube's " +
+        "can). If downloads don't work for you, DumpMedia is an app for your computer that saves songs from Spotify, Apple " +
+        "Music, Amazon Music and others as files, FLAC included. You need your subscription to that service (you most likely " +
+        "have it already). DumpMedia itself is paid: monthly, or once for a lifetime licence, a small price for the convenience. " +
+        "Put the files it makes in one of your music folders (Folders, above) and they play here as your own songs. A file " +
+        "can't sound better than what the service streams", false) {}
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
+        Pill("Open DumpMedia's website", quiet = true) { Services.open("https://www.dumpmedia.com/") }
     }
 }
 
