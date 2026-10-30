@@ -829,7 +829,7 @@ private fun SoundQuality(ui: Ui) {
         Switch(P.on(P.CLIP_GUARD), { Music.setOpt(P.CLIP_GUARD, it) }, colors = swColors())
     }
     Line("Dither", "When 16-bit (CD quality) music goes through the EQ, it's rounded off with a whisper of shaped " +
-        "noise, so quiet fades stay smooth instead of grainy. Hi-res music stays 32-bit and needs none", P.on(P.DITHER)) {
+        "noise, so quiet fades stay smooth instead of grainy. Hi-res music is always dithered as it comes down to 16-bit (only bit-perfect to a USB DAC keeps every bit)", P.on(P.DITHER)) {
         Switch(P.on(P.DITHER), { Music.setOpt(P.DITHER, it) }, colors = swColors())
     }
     Line("High-quality resampling", if (onPhone) "When a CD-quality song's sample rate isn't the phone's own (44.1 kHz music on a " +

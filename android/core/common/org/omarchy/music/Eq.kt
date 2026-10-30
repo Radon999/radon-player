@@ -102,6 +102,19 @@ object Eq {
         // Cars, for every kind of music: the cab's boom around 250 Hz down, the dash's glare at 2-4 kHz softened, air back
         "colorado" to ("Chevy Colorado 2023+ (standard)" to listOf(0.0, 1.5, 1.0, -2.0, -1.0, 0.0, -1.0, -1.5, 1.0, 2.0)),
         "colorado-bose" to ("Chevy Colorado 2023+ (Bose)" to listOf(0.0, 0.0, 0.0, -1.5, -0.5, 0.0, -0.5, -1.0, 0.5, 1.5)),
+        // Your headphones, earbuds and the phone's speaker, for every kind of music: on top of their correction
+        // (Headphone correction), a gentle shape that suits each one. Mangird: a little more sub-bass, the low mids and
+        // the 4 kHz edge eased, air.
+        "mangird" to ("Xenns Mangird Top Pro" to listOf(1.5, 1.0, 0.5, -0.5, -0.5, 0.0, 0.0, -0.5, 0.5, 1.0)),
+        // WH-1000XM6 over Bluetooth: its thick upper bass thinned, the treble it holds back brought forward
+        "wh1000xm6-bt" to ("Sony WH-1000XM6 · Bluetooth" to listOf(0.5, 0.0, -1.0, -1.5, -0.5, 0.0, 1.0, 1.5, 1.5, 1.0)),
+        // On its cable it's leaner already: the same, gentler
+        "wh1000xm6-cable" to ("Sony WH-1000XM6 · cable" to listOf(0.5, 0.5, -0.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.0, 1.0)),
+        // WF-1000XM6 earbuds: sub-bass kept, the warm low mids cleared, detail and a touch of air
+        "wf1000xm6" to ("Sony WF-1000XM6 earbuds" to listOf(1.0, 0.5, -0.5, -1.0, 0.0, 0.0, 0.5, 1.0, 1.0, 0.5)),
+        // The S26 Ultra's speaker: bass it can't play cut (louder and cleaner without it), body and voices from 250 Hz
+        // to 1 kHz lifted, the shrill 4 kHz eased, a little sparkle
+        "s26ultra-speaker" to ("Galaxy S26 Ultra speaker" to listOf(-6.0, -4.0, -1.0, 1.0, 1.5, 1.0, 0.0, -1.5, 0.5, 1.0)),
         "custom" to ("Custom" to null),
     )
 
