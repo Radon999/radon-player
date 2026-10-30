@@ -62,7 +62,8 @@ val musicRoot: File get() = System.getenv("RADON_MUSIC")?.split(';')?.firstOrNul
 
 /** A new song file under your Music folder (where: "Music/Radon Player/…"), written by write; its path. */
 fun Ctx.newMusicFile(name: String, where: String, write: (java.io.OutputStream) -> Unit): String {
-    val dir = File(musicRoot, where.removePrefix("Music/")).apply { mkdirs() }
+    // A folder of yours anywhere (C:\\Songs, a music folder you added), else one under your Music folder
+    val dir = (File(where).takeIf { it.isAbsolute } ?: File(musicRoot, where.removePrefix("Music/"))).apply { mkdirs() }
     val f = File(dir, name)
     val tmp = File(dir, "$name.part")
     try {

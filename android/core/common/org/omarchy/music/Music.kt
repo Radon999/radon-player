@@ -1572,8 +1572,9 @@ object Music {
     }
 
     /** A song on the phone of another app's (yours) that Android can be asked to delete: its address, or null. */
-    fun phoneFile(t: Track): String? =
-        t.file?.takeIf { t.isFile && !lib.has(t.id) && it.startsWith("content://media/") && sdkAtLeast(30) }
+    fun phoneFile(t: Track): String? =   // on the PC: a file of yours it may change (it goes to the Recycle Bin)
+        t.file?.takeIf { t.isFile && !lib.has(t.id) &&
+            ((it.startsWith("content://media/") && sdkAtLeast(30)) || (!it.startsWith("content:") && FileTags.canWrite(it))) }
 
     fun deletable(t: Track) = lib.has(t.id) || phoneFile(t) != null
 

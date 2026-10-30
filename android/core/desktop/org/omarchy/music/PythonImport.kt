@@ -548,10 +548,10 @@ object PythonImport {
             val queue = tracks(st["queue"])
             val folders = strings(st["folders"]).takeIf { st["folders"] is JsonArray }
             val home = homePrefix.trimEnd('/')
-            // Downloads go into a folder under Music/ here: the Python app's, if it was one, else Music/.
+            // Downloads go to the Python app's folder: "Music/…" under your Music folder, or wherever else it was
             val dl = text(st["download_dir"])?.takeIf { it.isNotEmpty() }
-            val dlShown = shown(dl ?: folders?.firstOrNull() ?: "$home/Music")
-            val downloadDir = if (dlShown.startsWith("Music/")) (if (dl != null) dlShown else "") else "Music/"
+            val dlShown = dl?.let { shown(it) }
+            val downloadDir = when { dl == null -> ""; dlShown!!.startsWith("Music/") -> dlShown; else -> dl }
             val state = obj {
                 e("queue", arr(queue)); i("index", int(st["index"])?.coerceAtMost(queue.size - 1) ?: -1)
                 text(st["radio_from"])?.let { s("radio_from", ids[it] ?: it) }

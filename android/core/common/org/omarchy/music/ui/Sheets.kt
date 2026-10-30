@@ -297,9 +297,11 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} in FLAC with full tags, sorted " +
-                "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/", true) {
+                "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/" +
+                if (onPhone) "" else ", or any other folder on this PC", true) {
                 Box {
                     var open by remember { mutableStateOf(false) }
+                    val other = rememberFolderPick { path -> if (path != null) Music.chooseDownloadDir(path) }
                     Pill("Change", quiet = true) { open = true }
                     androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
                         Music.folders.forEach { f ->
@@ -310,6 +312,9 @@ private fun AccountsSheet(ui: Ui) {
                             ui.askName = Triple("A folder in Music/ for downloads", "") { n ->
                                 Music.chooseDownloadDir("Music/" + org.omarchy.music.pathPart(n, "Downloads") + "/")
                             }
+                        })
+                        if (other != null) androidx.compose.material3.DropdownMenuItem({ Text("Another folder…", style = T.body) }, {
+                            open = false; other()
                         })
                     }
                 }
@@ -1566,7 +1571,7 @@ private fun Exporter(ui: Ui) {
 @Composable
 private fun DeleteDialog(ui: Ui) {
     var phone by remember { mutableStateOf<List<org.omarchy.music.Track>>(emptyList()) }
-    val ask = rememberFileRemoval(trash = false) { ok ->
+    val ask = rememberFileRemoval(trash = !onPhone) { ok ->   // the PC's go to the Recycle Bin, as the Python app's
         if (ok) Music.phoneFilesDeleted(phone)
         phone = emptyList()
     }
@@ -1581,7 +1586,7 @@ private fun DeleteDialog(ui: Ui) {
         text = {
             Text(listOfNotNull(
                 if (downloads.isNotEmpty()) "${if (n == 1) "Its" else "${downloads.size}"} downloaded FLAC${if (downloads.size > 1) "s" else ""} will be deleted for good (you can download them again)." else null,
-                if (files.isNotEmpty()) "${if (n == 1) "Its file" else "${files.size} files"} on the $DEVICE will be deleted" + if (onPhone) ": Android asks you once more." else "." else null,
+                if (files.isNotEmpty()) "${if (n == 1) "Its file" else "${files.size} files"} on the $DEVICE will be deleted" + if (onPhone) ": Android asks you once more." else " (into the Recycle Bin)." else null,
                 (tracks.size - n).takeIf { it > 0 }?.let { left ->
                     if (left == 1) "1 of the songs you picked has no file here: it stays." else "$left of the songs you picked have no file here: they stay."
                 },
