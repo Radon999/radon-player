@@ -1,6 +1,7 @@
 // Radon Player's link to Windows' media controls (System Media Transport Controls).
 // stdin, one JSON object a line: {"title","artist","album","art","playing","position","duration"} (seconds); "quit" ends.
 // stdout, one word a line when a button is pressed: play, pause, toggle, next, previous, stop.
+using System;
 using System.Text.Json;
 using Windows.Media;
 using Windows.Media.Playback;
