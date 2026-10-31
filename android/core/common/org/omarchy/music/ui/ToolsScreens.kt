@@ -201,7 +201,7 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
                             val on = pick[i] ?: true
                             Chip(if (lone) "Make single" else "Change", on) { pick[i] = true }
                             Chip(if (lone) "Keep in album" else "Leave alone", !on) { pick[i] = false }
-                            Chip(if (lone) "Never show" else if (movie) "Not a soundtrack note" else "Not live", false) {
+                            Chip("Never show", false) {
                                 org.omarchy.music.ScanIgnore.add(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); pick[i] = false; hidden[i] = true }
                         }
                     }
@@ -323,7 +323,7 @@ private fun NoCoversScreen(ui: Ui) {
                         Text("No cover anywhere: not in the files, nor picked", style = T.sub)
                         androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Chip("Pick a cover", false) { ui.coverFor = listOf(songs) }
-                            Chip("No cover needed", false) { org.omarchy.music.ScanIgnore.add("nocover", key) }
+                            Chip("Never show", false) { org.omarchy.music.ScanIgnore.add("nocover", key) }
                         }
                     }
                 }
@@ -361,7 +361,7 @@ private fun EmptyFoldersScreen(ui: Ui) {
                     if (hidden[i] == true) return@items
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Checkbox(pick[i] ?: true, { pick[i] = it })
-                        Pill("Keep this folder", quiet = true) { org.omarchy.music.ScanIgnore.add("empty", d.folder); pick[i] = false; hidden[i] = true }
+                        Pill("Never show", quiet = true) { org.omarchy.music.ScanIgnore.add("empty", d.folder); pick[i] = false; hidden[i] = true }
                         Spacer(Modifier.padding(start = 6.dp))
                         Column {
                             Text(d.folder, style = T.body)

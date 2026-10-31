@@ -249,6 +249,17 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             ToolLines(ui)
+            run {   // Never show, undone for every scan at once
+                org.omarchy.music.ScanIgnore.version
+                val hid = org.omarchy.music.ScanIgnore.total()
+                Line("Reset Never show", if (hid == 0) "Nothing is hidden from the scans. What you mark Never show in a scan is kept " +
+                    "here, so that scan leaves it alone for good" else "$hid thing${if (hid != 1) "s are" else " is"} hidden from the scans (Never show). " +
+                    "Reset brings them all back, in every scan", false) {
+                    if (hid > 0) Pill("Reset", quiet = true) {
+                        ui.confirm = "Show everything you marked Never show in the scans again?" to { org.omarchy.music.ScanIgnore.clearAll(); Music.toast("Every scan shows everything again") }
+                    }
+                }
+            }
             Line("Lyrics", "Lyrics show on Now playing in place of the cover when you tap the lyrics button. Genius shows " +
                 "the words as written, with Genius's notes on the marked lines. Synced shows lines timed to the music that light up as " +
                 "they're sung; tap a line to jump to that point", false) {

@@ -30,6 +30,16 @@ object ScanIgnore {
         version++
     }
 
+    /** Every scan's hidden things: the scans' names (Fix albums and artists, Live, Soundtrack notes, songs alone in an
+     *  album, Songs without covers, Empty folders, Albums EPs and singles). */
+    val SCANS = listOf("fixup", "live", "movie", "lone", "nocover", "empty", "truth")
+
+    /** How many things are hidden across every scan. */
+    fun total(): Int = SCANS.sumOf { count(it) }
+
+    /** Settings › Reset Never show: every scan shows everything again. */
+    fun clearAll() = SCANS.forEach { clear(it) }
+
     // The keys each scan uses.
     fun fileKey(f: String) = liveKeptKey(f)
     fun fixupKey(c: FixupChange) = liveKeptKey(c.file) + "|" + c.new.toSortedMap().entries.joinToString(";") { "${it.key}=${it.value}" }
