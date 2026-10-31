@@ -42,7 +42,7 @@ object RemoteHost {
     fun init(ctx: Ctx) {
         file = File(ctx.filesDir, "remote-tokens.json")
         phones = runCatching { (JSON.parseToJsonElement(file.readText()) as JsonObject).mapValues { it.value.str ?: "Phone" } }.getOrDefault(emptyMap())
-        if (Prefs.on("phone_remote")) start()
+        if (Prefs.on("phone_remote")) runCatching { start() }
     }
 
     private fun saveTokens() = writeAtomic(file, JsonObject(phones.mapValues { JsonPrimitive(it.value) }).toString())
@@ -50,8 +50,9 @@ object RemoteHost {
     private fun newCode() { code = "%06d".format(java.security.SecureRandom().nextInt(1_000_000)); misses = 0 }
 
     fun setOn(on: Boolean) {
-        Prefs.set("phone_remote", on)
-        if (on) start() else stop()
+        val ok = runCatching { if (on) start() else stop() }
+            .onFailure { Music.toast("Couldn't ${if (on) "start" else "stop"} the phone remote: ${it.message ?: it.javaClass.simpleName}") }.isSuccess
+        Prefs.set("phone_remote", on && ok && running)
     }
 
     fun forget(token: String) { phones = phones - token; saveTokens() }
