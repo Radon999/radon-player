@@ -24,6 +24,24 @@ class EmbeddedArtTest {
 
     private fun le(n: Int) = byteArrayOf(n.toByte(), (n shr 8).toByte(), (n shr 16).toByte(), (n shr 24).toByte())
 
+    private fun be(n: Int) = byteArrayOf((n shr 24).toByte(), (n shr 16).toByte(), (n shr 8).toByte(), n.toByte())
+    private fun atom(type: String, vararg body: ByteArray): ByteArray {
+        val all = body.fold(ByteArray(0)) { a, x -> a + x }
+        return be(8 + all.size) + type.toByteArray() + all
+    }
+
+    @Test fun findsTheCoverInAnM4aAndAnAiff() {
+        val data = atom("data", be(13), be(0), jpeg)
+        val moov = atom("moov", atom("mvhd", ByteArray(20)), atom("udta", atom("meta", ByteArray(4), atom("hdlr", ByteArray(25)),
+            atom("ilst", atom("Xnam", atom("data", be(1), be(0), "Song".toByteArray())), atom("covr", data)))))
+        val m4a = atom("ftyp", "M4A ".toByteArray(), be(0)) + atom("mdat", ByteArray(300)) + moov
+        assertArrayEquals(jpeg, EmbeddedArt.picture(m4a.inputStream()))
+        val tag = id3()
+        val aiff = "FORM".toByteArray() + be(0) + "AIFF".toByteArray() + "SSND".toByteArray() + be(5) + ByteArray(6) +
+            "ID3 ".toByteArray() + be(tag.size) + tag
+        assertArrayEquals(jpeg, EmbeddedArt.picture(aiff.inputStream()))
+    }
+
     @Test fun findsTheCoverInAWav() {
         val tag = id3()
         val data = ByteArray(101)   // an odd-sized chunk, padded

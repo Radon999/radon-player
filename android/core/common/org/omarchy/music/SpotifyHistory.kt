@@ -84,7 +84,19 @@ object SpotifyHistory {
         val ts: String? = null, val ms_played: Long? = null, val master_metadata_track_name: String? = null,
         val master_metadata_album_artist_name: String? = null, val master_metadata_album_album_name: String? = null,
         val endTime: String? = null, val msPlayed: Long? = null, val trackName: String? = null, val artistName: String? = null,
+        val spotify_track_uri: String? = null,
     )
+
+    /** A local file's play keeps its names in its address when its name fields are empty:
+     *  spotify:local:Artist:Album:Title:seconds (each part URL-encoded, + for a space). (artist, album, title), or null. */
+    internal fun localNames(uri: String?): Triple<String, String, String>? {
+        if (uri == null || !uri.startsWith("spotify:local:")) return null
+        val parts = uri.removePrefix("spotify:local:").split(':')
+        if (parts.size < 3) return null
+        fun dec(x: String) = runCatching { java.net.URLDecoder.decode(x, "UTF-8") }.getOrDefault(x).trim()
+        val (artist, album, title) = Triple(dec(parts[0]), dec(parts[1]), dec(parts[2]))
+        return if (title.isEmpty() || artist.isEmpty()) null else Triple(artist, album, title)
+    }
 
     /** One history file's plays, read a play at a time: the extended history's files run to 12 MB. */
     @OptIn(ExperimentalSerializationApi::class)
@@ -93,10 +105,11 @@ object SpotifyHistory {
             val end = e.ts?.let { runCatching { Instant.parse(it).epochSecond }.getOrNull() }
                 ?: e.endTime?.let { runCatching { LocalDateTime.parse(it, BASIC_TIME).toEpochSecond(ZoneOffset.UTC) }.getOrNull() } ?: continue
             val ms = e.ms_played ?: e.msPlayed ?: 0
-            val title = e.master_metadata_track_name ?: e.trackName
-            val artist = e.master_metadata_album_artist_name ?: e.artistName
+            val local = if ((e.master_metadata_track_name ?: e.trackName).isNullOrBlank()) localNames(e.spotify_track_uri) else null
+            val title = local?.third ?: e.master_metadata_track_name ?: e.trackName
+            val artist = local?.first ?: e.master_metadata_album_artist_name ?: e.artistName
             if (ms >= 30_000 && !title.isNullOrBlank() && !artist.isNullOrBlank() && artist != "Unknown Artist")
-                out += Play(end - ms / 1000, artist, title, e.master_metadata_album_album_name ?: "", ms)
+                out += Play(end - ms / 1000, artist, title, local?.second ?: e.master_metadata_album_album_name ?: "", ms)
         }
     }
 
