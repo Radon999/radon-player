@@ -115,6 +115,8 @@ fun imageMinSide(b: ByteArray): Int = runCatching { javax.imageio.ImageIO.read(b
 
 fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? = runCatching {
     org.jaudiotagger.audio.AudioFileIO.read(File(pathOf(uri))).tag?.firstArtwork?.binaryData
+}.getOrNull() ?: runCatching {   // a WAV's ID3 chunk, or a raw AAC (.aac) file's ID3 tag, which jaudiotagger doesn't read
+    File(pathOf(uri)).takeIf { it.extension.lowercase() in setOf("wav", "aac") }?.inputStream()?.buffered()?.use { EmbeddedArt.picture(it) }
 }.getOrNull()
 
 /** The PC is the one desktops are found from: nothing to look for here. */

@@ -184,6 +184,7 @@ val FEATURE_GUIDE: String = listOf(
     "",
     "## Phone only",
     "",
+    "- **Covers everywhere:** The car's screen, the notification, the lock screen and Windows' media controls show the same cover as the app: one you picked (Tagger or Pick a cover), the download's, or the file's own. Covers are read from FLAC, MP3, M4A, AAC (.aac) and WAV files, and on the PC from a cover.jpg or folder.jpg next to the song.",
     "- **Android Auto and cars:** Browse Up next, Favorites, Playlists, Recently played and your music on the car's screen, with covers. Play, pause, skip and seek, and use Favorite and Shuffle buttons right on the car's display. With Android Auto on, wired by USB or wireless, the truck is an output of its own (**Chevrolet Colorado · Android Auto**) with its own EQ, starting on the Colorado tuning. It's always in the Equalizer's output list, so you can set it up before you drive.",
     "- **Lock screen player:** When the screen turns on while music plays, the full Now playing appears over the lock screen, with the queue and lyrics. ⌄ takes you on to the normal lock screen. Android asks you once to allow full-screen notifications.",
     "- **Notifications:** The player sits in your notifications and on the lock screen, with shuffle and repeat buttons.",

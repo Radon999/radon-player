@@ -716,7 +716,7 @@ object Music {
     /** Of your copies of a song, the one on the album asked for, then the best file (FLAC first). */
     private fun bestCopy(copies: List<Track>, album: String): Track {
         val want = norm(cleanTitle(album))
-        val rank = mapOf("flac" to 0, "wav" to 1, "alac" to 1, "m4a" to 2, "ogg" to 3, "opus" to 3, "mp3" to 4)
+        val rank = mapOf("flac" to 0, "wav" to 1, "alac" to 1, "m4a" to 2, "aac" to 2, "ogg" to 3, "opus" to 3, "mp3" to 4)
         return copies.minWith(compareBy<Track>({ !(want.isNotEmpty() && norm(cleanTitle(it.album)) == want) },
             { rank[lib.items[it.id]?.format ?: it.file?.substringAfterLast('.')?.lowercase()] ?: 5 }))
     }
@@ -2413,10 +2413,37 @@ object Music {
         }
     }
 
+    /** The cover the lock screen, the notification, Android Auto and Windows' media controls show: the same one the app
+     *  shows (the download's, one you picked in the Tagger or Pick a cover, the service's), else the file's own (FLAC, MP3,
+     *  M4A, WAV) or its folder's cover.jpg / folder.jpg, saved as a picture in the cache once per song. */
+    private fun nowArt(t: Track): String? {
+        lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() }?.let { return it }
+        val name = t.album.ifEmpty { t.title }
+        Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return it }
+        if (t.thumb.isNotEmpty()) return sizedThumb(t.thumb, 544)
+        val old = Pictures.oldCover(t.artist, name).ifEmpty { null }
+        return t.file?.let { fileArt(it) } ?: old
+    }
+    private val fileArts = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val FOLDER_COVERS = listOf("cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png", "album.jpg", "albumartsmall.jpg")
+    private fun fileArt(file: String): String? {
+        fileArts[file]?.let { return it.ifEmpty { null } }
+        val bytes = runCatching { embeddedPicture(ctx, file) }.getOrNull() ?: runCatching {
+            if (file.startsWith("content:") || file.startsWith("http")) null
+            else java.io.File(file).parentFile?.listFiles()?.filter { it.isFile }
+                ?.let { files -> FOLDER_COVERS.firstNotNullOfOrNull { n -> files.firstOrNull { it.name.equals(n, true) } } }?.readBytes()
+        }.getOrNull()
+        val out = bytes?.let { b -> runCatching {
+            val dir = java.io.File(ctx.cacheDir, "now-art").apply { mkdirs() }
+            java.io.File(dir, "${file.hashCode().toUInt().toString(16)}.jpg").apply { writeBytes(b) }.path
+        }.getOrNull() }
+        fileArts[file] = out ?: ""
+        return out
+    }
+
     private fun play(t: Track, ready: Downloader.Ready, autoplay: Boolean, startAt: Double = 0.0) {
         val p = player ?: return
-        val art = lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && cast == null }
-            ?: t.thumb.takeIf { it.isNotEmpty() }?.let { sizedThumb(it, 544) }
+        val art = if (cast == null) nowArt(t) else t.thumb.takeIf { it.isNotEmpty() }?.let { sizedThumb(it, 544) }
         // Casting: the device fetches the song itself: a stream as it is, a file of the phone's from here over the network.
         val uri = if (cast != null && !ready.uri.startsWith("http")) PhoneShare.forCast(t, castHost) ?: ready.uri else ready.uri
         val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (cast != null) castMime(t, uri) else null,

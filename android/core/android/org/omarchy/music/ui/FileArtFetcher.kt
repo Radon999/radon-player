@@ -35,10 +35,7 @@ class FileArtFetcher(private val art: FileArt, private val options: Options) : F
 
     companion object {
         fun embedded(ctx: Context, uri: String): Bitmap? = runCatching {
-            MediaMetadataRetriever().use { r ->
-                r.setDataSource(ctx, Uri.parse(uri))
-                r.embeddedPicture?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
-            }
+            org.omarchy.music.embeddedPicture(ctx, uri)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
         }.getOrNull()
     }
 }

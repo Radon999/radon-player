@@ -140,10 +140,12 @@ fun imageMinSide(b: ByteArray): Int {
     return minOf(o.outWidth, o.outHeight).coerceAtLeast(0)
 }
 
-/** A song file's own cover, or null. */
+/** A song file's own cover, or null: Android's reader (FLAC, MP3, M4A), else the ID3 tag a WAV or a raw AAC (.aac) file
+ *  carries, which it skips. */
 fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? {
     val r = android.media.MediaMetadataRetriever()
-    return try { r.setDataSource(ctx, android.net.Uri.parse(uri)); r.embeddedPicture } finally { r.release() }
+    val own = try { runCatching { r.setDataSource(ctx, android.net.Uri.parse(uri)); r.embeddedPicture }.getOrNull() } finally { r.release() }
+    return own ?: runCatching { ctx.openIn(uri)?.buffered()?.use { EmbeddedArt.picture(it) } }.getOrNull()
 }
 
 /** Desktops on this network with the remote on (they announce _omarchy-music._tcp): found(name, address). */
