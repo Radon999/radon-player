@@ -274,26 +274,6 @@ private fun AccountsSheet(ui: Ui) {
                 }
                 Switch(Music.lyricsToFiles, { Music.setLyricsToFiles(it) }, colors = swColors())
             }
-            run {
-                val tg = org.omarchy.music.Tagger
-                val untagged = remember(Music.savedVersion, tg.busy) { tg.untagged() }
-                val saved = remember(Music.savedVersion) { Music.lib.items.values.count { it.format == "flac" } }
-                Line("Tagger", tg.busy ?: if (untagged.isNotEmpty()) "${untagged.size} downloads are missing extra tags: genre, composer, label, " +
-                    "lyrics and Genius's notes. Tag now… fills them in after showing you a preview of the changes" else if (saved > 0) "All $saved downloads have their extra tags. Scan… checks them " +
-                    "against Deezer's catalogue, one album at a time, for missing or wrong tags and missing or small covers, and you " +
-                    "choose Replace or Keep for each" + (if (org.omarchy.music.TagScan.Done.count > 0) ". Scan… looks only at songs that are new or changed since " +
-                    "the last scan (${"%,d".format(org.omarchy.music.TagScan.Done.count)} checked before); Scan all again checks every one" else "")
-                    else "Checks the songs you've downloaded against Deezer's catalogue, one album at a time, for " +
-                    "missing or wrong tags and missing or small covers. You choose Replace or Keep for each change",
-                    tg.busy == null && untagged.isEmpty()) {
-                    if (tg.busy == null) {
-                        if (untagged.isNotEmpty()) Pill("Tag now…") { ui.tagPreview = untagged to false }
-                        Pill("Scan…", quiet = untagged.isNotEmpty()) { ui.tagScan = true }
-                        // The scan skips the songs it checked before that haven't changed since: this checks every one again
-                        if (org.omarchy.music.TagScan.Done.count > 0) Pill("Scan all again", quiet = true) { ui.tagScanFresh = true; ui.tagScan = true }
-                    }
-                }
-            }
             Line("Queues", "On: each folder, album, artist and playlist you play from gets its own queue, kept where " +
                 "you left it, so you can go back to any of them later, rename them or reorder them. Off: there's one queue, and " +
                 "playing something new replaces it",
@@ -657,41 +637,32 @@ private fun LoudnessCheckLine(ui: Ui) {
 /** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
 @Composable
 private fun ToolLines(ui: Ui) {
-    Line("Fix albums and artists", "Finds albums split up by featured artists (“Quinn XCII & Jeremy Zucker”), albums sitting " +
+    // The file scans are the PC's only (they didn't work well on the phone); Songs without covers is on both.
+    if (!onPhone) Line("Fix albums and artists", "Finds albums split up by featured artists (“Quinn XCII & Jeremy Zucker”), albums sitting " +
         "beside their own deluxe, extended or anniversary edition, and singles of songs that are on an album you have. They're " +
         "fixed in the files' tags so they group properly (song titles are never changed)" + (if (org.omarchy.music.FileTags.canMove) ", and the files can then be moved to the right folders if you like" else "") +
         ". You check each change before it's made" + (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
         Pill("Scan…", quiet = true) { ui.tool = "fixup" }
     }
     val n = org.omarchy.music.MusicTools.skip.size
-    Line("Folders to leave alone", "Folders that no scan here ever touches or even looks in (Fix albums and artists, the tag " +
-        "scanner, Empty folders, Live in song names): their songs are never retagged or moved, and no songs are moved into them. " +
+    if (!onPhone) Line("Folders to leave alone", "Folders that no scan here ever touches or even looks in (Fix albums and artists, Soundtrack notes in names, " +
+        "Empty folders, Live in song names): their songs are never retagged or moved, and no songs are moved into them. " +
         "Handy for unreleased songs, sessions and anything you've arranged by hand. " +
         if (n > 0) "$n folder${if (n != 1) "s" else ""} left alone now" else "None chosen yet", false) {
         Pill("Choose…", quiet = true) { ui.tool = "skip" }
     }
-    if (org.omarchy.music.FileTags.canListFolders) Line("Empty folders", "Finds folders in your music folders that have no songs left " +
+    if (!onPhone && org.omarchy.music.FileTags.canListFolders) Line("Empty folders", "Finds folders in your music folders that have no songs left " +
         "in them, only pictures or lyrics files, often left behind after songs are moved. You see each one, its size and what's " +
         "in it, and pick which to delete", false) {
         Pill("Clean up…", quiet = true) { ui.tool = "empty" }
     }
-    Line("Live in song names", "Finds songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather " +
+    if (!onPhone) Line("Live in song names", "Finds songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather " +
         "have under their plain name. It takes the live part off the name and keeps the rest, and you check each one first", false) {
         Pill("Scan…", quiet = true) { ui.tool = "live" }
     }
-    Line("Soundtrack notes in names", "Finds songs whose names carry a note like “(From the Original Motion Picture …)”, " +
+    if (!onPhone) Line("Soundtrack notes in names", "Finds songs whose names carry a note like “(From the Original Motion Picture …)”, " +
         "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one", false) {
         Pill("Scan…", quiet = true) { ui.tool = "movie" }
-    }
-    Line("Songs alone in an album", "Finds songs that are the only one you have of their album or EP (a single song " +
-        "under an album's name) and makes each a single: its album tag becomes the song's own name, so your Singles tab shows " +
-        "it as one and isn't full of one-song albums. You choose each one", false) {
-        Pill("Scan…", quiet = true) { ui.tool = "lone" }
-    }
-    Line("Albums, EPs and singles", "Looks each of your releases up (Deezer, then Apple Music) to learn whether it's really an album, " +
-        "an EP or a single, and gives its name “ - Single” or “ - EP” (or takes it off an album) so it shows in just one of the three " +
-        "tabs. You choose for each; the ones no service knows are left to you", false) {
-        Pill("Scan…", quiet = true) { ui.tool = "truth" }
     }
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {

@@ -91,7 +91,6 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
                 Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Collage of your top ${if (eps) "EPs" else if (singles) "singles" else "albums"}…", false) { ui.collageFor = "$kind-all" }
                     Chip("Select", false) { ui.startPick(kind) }
-                    if (singles) Chip("Single scan…", false) { ui.singleScan = true }
                 }
                 if (kind == "albums") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Albums (${all.count { it.second.size > 6 }})", !ui.albumsLow) { ui.albumsLow = false }
@@ -342,8 +341,6 @@ fun OptionsSheet(ui: Ui) {
                         add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
                     if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
                 }
-                picked.filter { Music.lib.items[it.id]?.let { e -> e.format == "flac" && org.omarchy.music.Tags.writable(e.file) } == true }
-                    .takeIf { it.isNotEmpty() }?.let { flacs -> add(Triple(Ico.EDIT, "Tag now…") { ui.tagPreview = flacs.map { it.id } to true }) }
                 if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
                     Music.removeFromPlaylist(place.playlistId, picked.map { it.id }.toSet()) })
                 if (place?.kind == "queue") add(Triple(Ico.CLOSE, "Remove from the queue") {
