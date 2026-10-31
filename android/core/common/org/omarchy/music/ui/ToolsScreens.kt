@@ -115,11 +115,12 @@ private fun FixupScreen(ui: Ui) {
                 } }
                 p != null && !working -> LazyColumn(Modifier.weight(1f)) {
                     items(p.first.size) { i ->
+                        val byFile = songsByFile()
                         val c = p.first[i]
                         if (hidden[i] == true) return@items
                         val now = pick[i] ?: FixupPick.Change
-                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                            Text(c.title, style = T.title)
+                        val song = byFile[c.file]
+                        ScanSong(song, c.title, c.old.get("artist").ifEmpty { song?.artist.orEmpty() }) {
                             Text(c.why, style = T.sub)
                             for ((k, v) in c.new) Text("$k: ${c.old.get(k).ifEmpty { "(none)" }} → ${v.ifEmpty { "(none)" }}", style = T.sub)
                             if (c.unsure) Text("Not sure of this one: check it", style = T.sub.copy(color = C.red))
@@ -168,6 +169,7 @@ private fun FixupScreen(ui: Ui) {
 }
 
 /** Live in song names: songs named as live recordings you'd rather have plain; the live part taken off, the rest kept. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = false) {
     val close = { ui.tool = null }
@@ -183,20 +185,24 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
             Text(report ?: when {
                 f == null -> "Reading your songs' tags…"
                 f.isEmpty() -> if (lone) "No song is alone in an album or EP" else if (movie) "No song has a soundtrack note in its name" else "No song is named as a live recording"
-                lone -> "${f.size} song${if (f.size != 1) "s are" else " is"} the only one you have of ${if (f.size != 1) "their" else "its"} album or EP. Tick the ones to make singles (the album tag becomes the song's name); the others stay in their album (not asked again)"
-                movie -> "${f.size} song${if (f.size != 1) "s have" else " has"} a note like “(From the motion picture …)” in the name. Tick the ones to take it off; the others are kept as they are (not asked again)"
-                else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recording${if (f.size != 1) "s" else ""}. Tick the ones to make plain; the others are kept as they are (not asked again)"
+                lone -> "${f.size} song${if (f.size != 1) "s are" else " is"} the only one you have of ${if (f.size != 1) "their" else "its"} album or EP. Make single turns the album tag into the song's name; Keep in album leaves it (not asked again)"
+                movie -> "${f.size} song${if (f.size != 1) "s have" else " has"} a note like “(From the motion picture …)” in the name. Change takes it off; Leave alone keeps the name as it is (not asked again)"
+                else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recording${if (f.size != 1) "s" else ""}. Change makes the name plain; Leave alone keeps it as it is (not asked again)"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
             if (report == null) HiddenLine(ui, scan)
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
                     val l = f!![i]
                     if (hidden[i] == true) return@items
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Checkbox(pick[i] ?: true, { pick[i] = it })
-                        Column(Modifier.weight(1f)) { Text("${l.title} → ${l.name}", style = T.body); Text(l.artist, style = T.sub) }
-                        Pill(if (lone) "Keep in album" else if (movie) "Not a soundtrack note" else "Not live", quiet = true) {
-                            org.omarchy.music.ScanIgnore.add(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); pick[i] = false; hidden[i] = true }
+                    ScanSong(songsByFile()[l.file], l.title, l.artist) {
+                        Text(if (lone) "Make it a single: “${l.name}”" else "Renamed to “${l.name}”", style = T.sub)
+                        androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val on = pick[i] ?: true
+                            Chip(if (lone) "Make single" else "Change", on) { pick[i] = true }
+                            Chip(if (lone) "Keep in album" else "Leave alone", !on) { pick[i] = false }
+                            Chip(if (lone) "Never show" else if (movie) "Not a soundtrack note" else "Not live", false) {
+                                org.omarchy.music.ScanIgnore.add(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); pick[i] = false; hidden[i] = true }
+                        }
                     }
                 }
             }
@@ -248,9 +254,9 @@ private fun AlbumTruthScreen(ui: Ui) {
                     val row = r!![i]
                     if (hidden[i] == true) return@items
                     val now = pick[i] ?: row.truth ?: ""
-                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                        Text(row.album, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("${row.artist} · ${row.songs.size} song${if (row.songs.size != 1) "s" else ""} here · now ${label(row.now)}", style = T.sub)
+                    ScanSong(null, row.album, "${row.artist} · ${row.songs.size} song${if (row.songs.size != 1) "s" else ""}",
+                        art = row.songs.firstOrNull()?.let { artModel(it) }) {
+                        Text("Now ${label(row.now)}", style = T.sub)
                         Text(if (row.truth == null) "No service knows it: not sure. Pick what it is, or leave it"
                             else "${row.source}: ${label(row.truth)}" + (row.tracks?.let { " of $it song${if (it != 1) "s" else ""}" } ?: "") +
                                 " → “${org.omarchy.music.AlbumTruth.named(row.album, row.truth)}”", style = T.sub)
@@ -282,6 +288,7 @@ private fun AlbumTruthScreen(ui: Ui) {
 
 /** Songs without covers: each album whose songs show no cover anywhere, with Pick a cover (the Cover… dialog), one
  *  album or all of them in turn. The list is looked at again after each pick. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun NoCoversScreen(ui: Ui) {
     val close = { ui.tool = null }
@@ -310,14 +317,13 @@ private fun NoCoversScreen(ui: Ui) {
                     val t = songs[0]
                     val key = org.omarchy.music.ScanIgnore.albumKey(t.artist, t.album.ifEmpty { t.title })
                     if (org.omarchy.music.ScanIgnore.has("nocover", key)) return@items
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(t.album.ifEmpty { t.title }, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${t.artist} · ${songs.size} song${if (songs.size != 1) "s" else ""}", style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    ScanSong(if (songs.size == 1) t else null, t.album.ifEmpty { t.title },
+                        "${t.artist} · ${songs.size} song${if (songs.size != 1) "s" else ""}", art = null) {
+                        Text("No cover anywhere: not in the files, nor picked", style = T.sub)
+                        androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Chip("Pick a cover", false) { ui.coverFor = listOf(songs) }
+                            Chip("No cover needed", false) { org.omarchy.music.ScanIgnore.add("nocover", key) }
                         }
-                        Pill("No cover needed", quiet = true) { org.omarchy.music.ScanIgnore.add("nocover", key) }
-                        Spacer(Modifier.padding(start = 6.dp))
-                        Pill("Pick a cover", quiet = true) { ui.coverFor = listOf(songs) }
                     }
                 }
             }
@@ -462,3 +468,28 @@ private fun IdentifyDialog(ui: Ui, t: org.omarchy.music.Track) {
         },
         confirmButton = { TextButton({ ui.identifyFor = null }) { Text("Close", color = C.muted) } })
 }
+
+
+/** One song in a scan's list, drawn as in My music (its cover, its name, who by, its length), with what the scan has to
+ *  say about it and its buttons underneath, lined up under the name; a thin line between songs. */
+@Composable
+private fun ScanSong(t: org.omarchy.music.Track?, title: String, sub: String, art: Any? = t?.let { artModel(it) },
+                     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            ArtImage(art, 48.dp)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(title, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (sub.isNotEmpty()) Text(sub, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (t != null && t.duration > 0) Text(org.omarchy.music.fmtTime(t.duration), style = T.time, modifier = Modifier.padding(end = 6.dp))
+        }
+        Column(Modifier.fillMaxWidth().padding(start = 62.dp, end = 4.dp, bottom = 8.dp), content = content)
+        androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = C.line, modifier = Modifier.padding(start = 62.dp))
+    }
+}
+
+/** Your songs by their file, to show a scan's songs with their covers. */
+@Composable
+private fun songsByFile(): Map<String?, org.omarchy.music.Track> =
+    remember(Music.musicVersion) { runCatching { Music.mySongs().associateBy { it.file } }.getOrDefault(emptyMap()) }
