@@ -1476,6 +1476,13 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
         else Music.setCover(songs, src, wholeAlbum) { next() }
     }
     val pick = rememberOpenFile { uri -> if (uri != null) use(uri) }
+    // Pictures of the artist too: an unreleased song with no cover anywhere can wear one of them
+    val lead = t.artist.split(",")[0].split(Regex(" & | x | feat\\.? | ft\\.? ", RegexOption.IGNORE_CASE))[0].trim()
+    var artistPics by remember(songs) { mutableStateOf<List<org.omarchy.music.Pictures.Choice>?>(null) }
+    LaunchedEffect(songs) {
+        if (lead.isEmpty()) { artistPics = emptyList(); return@LaunchedEffect }
+        Music.bg({ org.omarchy.music.Pictures.artistChoices(lead) }) { c, _ -> artistPics = c ?: emptyList() }
+    }
     LaunchedEffect(songs, asked) {
         choices = null
         val (a, al) = if (" - " in asked) asked.substringBefore(" - ").trim() to asked.substringAfter(" - ").trim() else "" to asked.trim()
@@ -1501,17 +1508,25 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
                 Text(when {
                     busy -> "Putting it on the songs…"
                     c == null -> "Looking on Google, Genius and Wikipedia…"
-                    c.isEmpty() -> "Nothing found: unreleased songs often have none. Pick a picture of yours, or skip it."
+                    c.isEmpty() -> "No cover found: unreleased songs often have none. Use a picture of $lead below, pick a picture of yours, or skip it."
                     else -> "${t.artist}${if (t.album.isNotEmpty()) " · goes on every song of the album" else ""}"
                 }, style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
-                if (!c.isNullOrEmpty() && !busy) LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items((c.size + 2) / 3) { row ->
+                val pics = artistPics
+                if (!busy && (!c.isNullOrEmpty() || !pics.isNullOrEmpty() || lead.isNotEmpty())) LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    fun grid(list: List<org.omarchy.music.Pictures.Choice>) = items((list.size + 2) / 3) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-                            for (ch in c.drop(row * 3).take(3)) Column(Modifier.clickable { use(ch.url) }) {
+                            for (ch in list.drop(row * 3).take(3)) Column(Modifier.clickable { use(ch.url) }) {
                                 ArtImage(ch.thumb, 84.dp)
                                 Text(ch.from, style = T.time)
                             }
                         }
+                    }
+                    if (!c.isNullOrEmpty()) grid(c)
+                    if (lead.isNotEmpty()) {
+                        item { Text("PICTURES OF ${lead.uppercase()}", style = T.time, modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)) }
+                        if (pics == null) item { Text("Looking for pictures of $lead…", style = T.sub) }
+                        else if (pics.isEmpty()) item { Text("No pictures of $lead found", style = T.sub) }
+                        else grid(pics)
                     }
                 }
             }
