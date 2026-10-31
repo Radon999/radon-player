@@ -47,7 +47,6 @@ Open the ☰ menu to find everything. Pages can be shown as a list, a grid or a 
 Search looks in Tidal, YouTube Music, Deezer, Apple Music, Spotify or **Your music**: pick which from the search bar's menu. Paste a link shared from another app and Radon Player searches for it on the service it came from.
 
 - **Tidal (Settings › Accounts):** Connect your Tidal subscription and songs play in FLAC, hi-res where Tidal has it. Tidal only falls back to lossy where it has no FLAC. Tidal's favorites, playlists, search and radio work as a library too.
-- **Keep:** With Keep on, every song you play is saved from Tidal in your download quality. With it off, songs stream from Tidal and only download when you pick **Download**. Keep saves only from Tidal, never from YouTube.
 - **Downloads:** Download any song, from any service: it comes from Tidal (it needs a Tidal subscription), or from YouTube when Tidal hasn't got it or isn't connected. Downloads go to the folder you choose (one of your music folders, or a new folder in Music/), sorted as Artist / Albums, EPs or Singles / Album, with full tags.
 - **What each service gives you (top of Settings › Accounts):** A note explains that Radon Player works best with a Tidal subscription and your own song files, since Tidal is the only way to stream or download in FLAC. Signing in to Spotify, Apple Music, Deezer or YouTube Music is purely for bringing over your data (library, playlists, favorites and listening info); their songs play from Tidal, or from YouTube at lower quality without it. It also explains how to switch to Tidal safely: import your playlists and listening history from your old service first, so nothing is lost, and mentions DumpMedia for turning songs from those services into files you can play as your own.
 - **Stream quality (Settings › Your music):** Pick **FLAC 24-bit** (hi-res where Tidal has it), **FLAC 16-bit** (CD quality) or **320 kbps** (Tidal's AAC, as good as MP3 320 and lightest on data) for songs that aren't on your device. It covers every service's songs, since Spotify's, Apple Music's, Deezer's and YouTube Music's all play from Tidal when it's connected. Without Tidal, or for songs Tidal hasn't got, they stream from YouTube at its best (about 128 to 160 kbps).
@@ -94,15 +93,11 @@ Open it from the ☰ menu or from the speaker button on Now playing.
 ### Sound quality (Settings › Sound quality)
 
 - **Bit-perfect:** Sends each song to your DAC exactly as it is, at its own sample rate, with no EQ, song volume or speed changes. On the phone it needs Android 14 and a USB DAC, and it only takes over while the DAC is the output: on the speaker, Bluetooth or in the car the EQ keeps working. On the PC it uses exclusive mode, so no other sound plays at the same time.
-- **Clip guard:** If a song's volume, ReplayGain or the EQ would push a peak past full scale, a limiter catches it so it doesn't crackle. It only touches peaks that would clip.
+- **Clip guard:** If a song's volume or the EQ would push a peak past full scale, a limiter catches it so it doesn't crackle. It only touches peaks that would clip.
 - **Dither:** Adds a whisper of shaped noise when 16-bit music goes through the EQ, so quiet fades stay smooth instead of grainy. Hi-res music is always dithered as it comes down to 16-bit; only bit-perfect to a USB DAC keeps every bit.
 - **High-quality resampling:** When a song's sample rate doesn't match the sound card's or the phone's (44.1 kHz music on a 48 kHz card), it's converted with a longer, sharper filter: cleaner highs. Music already at the right rate, and bit-perfect, are left untouched. On the phone it works on CD-quality music, from the next song.
 - **Loudness compensation:** At low volume our ears lose bass and treble first. This lifts them back by as much as the volume is down, and does nothing at full volume.
-- **Balance:** Moves the sound left or right. Use it for in-ear monitors (IEMs) that are a little louder on one side, or if one ear hears less. **Centre** resets it.
 - **Detail:** Brings forward background sounds, bass lines and small details: the stereo gets a touch wider, presence and air lift a little, and the level drops to match so nothing clips.
-- **Tilt:** Leans the whole sound warmer or brighter (up to 4 dB). It only ever turns things down, so it can't clip.
-- **ReplayGain:** Evens out loudness using the gain stored in your files' tags: **Off**, **By song** or **By album**. It's off in bit-perfect.
-- **Levelling target:** How loud ReplayGain levels to: Quiet −23, Standard −18, Louder −16 or Loud −14 LUFS. Louder than Standard needs Clip guard on. Without it, songs are never made louder than they are.
 - **Mono:** The Now playing button that puts both channels in each ear.
 - **Auto mono (phone only):** Turns mono on automatically while the Bluetooth earbuds you pick are connected (for one earbud in), and off when they disconnect.
 
@@ -125,12 +120,12 @@ Imported plays are **added alongside** your Last.fm scrobbles, not swapped for t
 
 - **Most played:** Your top **Songs**, **Albums** or **Artists** for **This week, This month, This year or All time**. A Refresh line shows how many songs are counted and which sources they came from. **Only songs on this phone/PC** limits the list to music you have.
 - **Listening time:** **Songs time**, **Albums time** and **Artists time** show how many hours you listened in a period, charts by hour of the day and day of the week, and your songs, albums or artists ranked by time spent.
+- **Time choice (Settings › Last.fm & your stats):** Shows listening time in Songs time, Albums time and Artists time in **Hours** (and minutes) or all in **Minutes**.
 - **Milestones:** Songs and artists that passed 100, 250, 500, 1,000… plays in the last month.
 - **Repeat:** What you've had on repeat: your top 50 of the last week, top 100 of the month and top 200 of the year.
 - **Joint artists:** A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII). When a pair isn't clear, you choose whose plays they are.
 - **Similar artists:** Finds artists that look like the same one written two ways ("cavetown offline" and "Cavetown") and lets you merge them, plays and all, or keep them apart.
 - **Duplicates in Most played:** Finds songs counted twice under different names ("N.P.D" and "NPD"). You pick which to merge or leave alone. Versions marked in brackets or after a dash, like "(Stripped)", "(Acoustic Sessions) (Live)", "[Remix]", "- Orchestra" or "(Live)", are songs of their own and are left out; a plain "Live" in a song's name isn't a mark.
-- **Plays on singles and albums:** When a song's plays are split between its single, an EP and the album, this moves them all onto the album (its deluxe or extended edition when there is one). Only albums and EPs you have on your device are used: a single whose EP or album you haven't got stays a single. You can also pick another album, type one, or leave it.
 - **Merge into… (artist page):** From now on, count one artist's plays as another's.
 
 ### Wrapped
@@ -163,9 +158,8 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Empty folders (PC only):** Finds folders with no songs left in them, only pictures or lyrics files. You see each one's size and contents and choose which to send to the Recycle Bin.
 - **Live in song names (PC only):** Finds songs named as live recordings ("Song (Live)", "Song - Live at…") that you'd rather have plain. It removes the live part of the name and keeps the rest. You check each one.
 - **Soundtrack notes in names (PC only):** Finds songs whose names carry a note like "(From the Original Motion Picture …)", "[From "Barbie"]" or "- From the Netflix Series …" and takes it off. You choose each one; the ones you leave are not asked about again.
-- **Hide things from a scan for good:** Every scan lets you mark something as not one of its kind, so that scan never shows it again, like Duplicates' Not a duplicate: **Not live** (Live in song names), **Not a soundtrack note**, **Never show** (Fix albums and artists), **No cover needed** (Songs without covers), **Keep this folder** (Empty folders) and **It's fine** (Loudness check). Each scan shows how many you've hidden, with **Show them again** to bring them back.
+- **Hide things from a scan for good:** Every scan lets you mark something as not one of its kind, so that scan never shows it again, like Duplicates' Not a duplicate: **Not live** (Live in song names), **Not a soundtrack note**, **Never show** (Fix albums and artists), **No cover needed** (Songs without covers) and **Keep this folder** (Empty folders). Each scan shows how many you've hidden, with **Show them again** to bring them back.
 - **Songs without covers:** Lists the albums whose songs show no cover anywhere, with **Pick a cover** for each or **Fix them all…** one after the other.
-- **Loudness check:** Checks each of your songs once, in the background (on the phone, only while it's charging), for clipping (distortion from being too loud) and for files that aren't the hi-res they claim to be (upsampled, or 16-bit inside a 24-bit file). **Show…** lists the worst first, so you know which copies to replace.
 - **Identify by sound…:** Works out what a song is from its sound (AcoustID and MusicBrainz) and offers to write those tags into its file. On the phone it can write them into the app's own downloads; for other songs it shows what they are.
 - **Upgrade (Settings › Your music, or Upgrade to FLAC… on songs):** Swaps your songs for Tidal's FLAC where Tidal's is better. MP3s and other lossy files are replaced with FLAC; 16-bit files are replaced only when Tidal has them in 24-bit. Playlists and the queue keep working, and the old files go to the trash so you can get them back. Afterwards it lists the songs it kept because yours were already as good, and you can replace those anyway.
 - **Duplicates:** Looks through all your songs (downloads and folders) for ones you have more than once. It shows each copy's name, artist and file, best copy first. Mark each copy **Keep** or **Remove** (the best is kept, the others marked Remove to start with) and remove them all at once, or mark the song **Not a duplicate**.
@@ -179,7 +173,6 @@ On the phone, these tools can change the FLAC files the app downloaded. Android 
 - **Updates:** Settings shows your version and checks for a new release. On the phone, **Update** downloads it and installs it. On the PC it also looks by itself at start and every 12 hours; **Update** downloads the new installer, runs it and closes the app so it can be replaced.
 - **Changelog and Features (☰ menu):** **Changelog** lists what each update adds and fixes, the newest at the top, like patch notes. **Features** (this page) describes everything the app does.
 - **Problems:** If something went wrong recently, Settings shows it with a **Copy** button so you can send it on.
-- **Your own keys (Settings › More):** You can add your own keys for Google's pictures and an AutoEq server. None is needed.
 
 ## Phone only
 

@@ -230,10 +230,6 @@ private fun AccountsSheet(ui: Ui) {
                     "lossy only where Tidal has no FLAC. Turn on Sync to download every song in your Tidal favorites and playlists", true) {
                     SyncSwitch("tidal"); Spacer(Modifier.width(6.dp)); Pill("Disconnect", quiet = true) { Music.tidalDisconnect() }
                 }
-                Line("Keep", "On: every song you play is also saved in FLAC to your downloads folder, so it's there " +
-                    "offline next time. Off: songs stream from Tidal and are saved only when you pick Download. Songs Tidal " +
-                    "has no FLAC of are never saved, and songs you already have follow the Copies setting",
-                    Music.keepPlayed) { Switch(Music.keepPlayed, { Music.setKeepPlayed(it) }, colors = swColors()) }
             } else Line("Tidal", "Connect your Tidal account (it needs a paid Tidal subscription) and songs from every " +
                 "service play in FLAC, hi-res where Tidal has it. Tidal's own favorites, playlists, search and radio show up too, and " +
                 "downloads and Upgrade come from it", false) {
@@ -361,6 +357,7 @@ private fun AccountsSheet(ui: Ui) {
                 "scrobbles. The app keeps its own count of your plays just as a fallback, used only when Last.fm isn't connected.",
                 style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
             LastFmLine(ui)
+            TimeChoiceLine()
             SpotifyHistoryLine(ui)
             AppleHistoryLine()
             DeezerHistoryLine()
@@ -384,11 +381,6 @@ private fun AccountsSheet(ui: Ui) {
                 Line("Duplicates in Most played", "Finds songs counted twice in your stats under different names (\"N.P.D\" and " +
                     "\"NPD\"), and versions of one song (acoustic, live, remix). You pick which to merge into one, their plays added " +
                     "together, and which to leave alone", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
-                Line("Plays on singles and albums", "When a song's plays are split between its single, an EP and its album (in your Last.fm " +
-                    "scrobbles and Spotify, Apple Music or Deezer imports), this moves them all onto the album, its deluxe or extended " +
-                    "edition when there is one. Only albums and EPs you have on this $DEVICE are used: a single whose EP or album you " +
-                    "haven't got stays a single. You check each one, and can pick another album or leave it", false) {
-                    Pill("Scan…", quiet = true) { ui.albumPlays = true } }
                 Line("Joint artists", "A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII), " +
                     "so your top artists aren't split up. " +
                     if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",
@@ -406,9 +398,6 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
-            }
-            Group("More", ui) {
-            SettingsLine()
             }
         }
     }
@@ -716,6 +705,25 @@ private fun PhoneRemoteLines() {
     }
 }
 
+/** Time choice: Most played's Songs time, Albums time and Artists time in hours or in minutes. */
+@Composable
+private fun TimeChoiceLine() {
+    val names = linkedMapOf("hours" to "Hours", "minutes" to "Minutes")
+    Line("Time choice", "How Most played shows listening time (Songs time, Albums time and Artists time): in hours (and " +
+        "minutes), or all in minutes", false) {
+        Box {
+            var open by remember { mutableStateOf(false) }
+            Pill("${names[TimeChoice.unit] ?: "Hours"} ▾", quiet = true) { open = true }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                names.forEach { (k, l) ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(l, style = T.body.copy(color = if (k == TimeChoice.unit) C.accent else C.fg)) },
+                        { open = false; TimeChoice.choose(k) })
+                }
+            }
+        }
+    }
+}
+
 /** Stream quality: what songs play in when they aren't on this device (FLAC 24-bit, FLAC 16-bit or 320 kbps), for
  *  every service's songs, as they all stream from Tidal; YouTube's (without Tidal, or songs Tidal hasn't got) stay
  *  YouTube's best. */
@@ -865,7 +873,6 @@ private fun PlaybackLines(ui: Ui) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
     }
     if (onPhone) AutoMonoLines()
-    if (org.omarchy.music.AudioTools.supported) LoudnessCheckLine(ui)
     Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
@@ -960,9 +967,9 @@ private fun SoundQuality(ui: Ui) {
         "it's in effect", Music.songVolumesOn) {
         Switch(Music.songVolumesOn, { Music.setSongVolumesOn(it) }, colors = swColors())
     }
-    Line("Clip guard", "When a song's volume, ReplayGain or the EQ would push the loudest moments (peaks) past the " +
+    Line("Clip guard", "When a song's volume or the EQ would push the loudest moments (peaks) past the " +
         "maximum level, a limiter gently holds them down instead of letting them crackle. It only ever touches a peak that would " +
-        "clip. It also lets ReplayGain make quiet songs louder", P.on(P.CLIP_GUARD)) {
+        "clip", P.on(P.CLIP_GUARD)) {
         Switch(P.on(P.CLIP_GUARD), { Music.setOpt(P.CLIP_GUARD, it) }, colors = swColors())
     }
     Line("Dither", "When 16-bit (CD quality) music goes through the EQ, it's rounded off with a whisper of shaped " +
@@ -980,46 +987,9 @@ private fun SoundQuality(ui: Ui) {
         "back by as much as the volume is turned down, and does nothing at full volume", P.on(P.LOUDNESS)) {
         Switch(P.on(P.LOUDNESS), { Music.setOpt(P.LOUDNESS, it) }, colors = swColors())
     }
-    val bal = P.num(P.BALANCE, 0f)
-    Line("Balance", when {
-        bal < -0.005f -> "Leaning left: the right side is turned down ${"%.1f".format(-20 * kotlin.math.log10(1.0 + bal))} dB. Centre evens it out again"
-        bal > 0.005f -> "Leaning right: the left side is turned down ${"%.1f".format(-20 * kotlin.math.log10(1.0 - bal))} dB. Centre evens it out again"
-        else -> "Centre. Slide to move the sound left or right: for in-ear monitors (IEMs) that are a little louder on one side, or if one ear hears less"
-    }, bal != 0f) {
-        if (bal != 0f) Pill("Centre", quiet = true) { Music.setSoundNum(P.BALANCE, 0f) }
-    }
-    Slider(bal, { Music.setSoundNum(P.BALANCE, (kotlin.math.round(it * 50) / 50f)) }, valueRange = -0.5f..0.5f,
-        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
     Line("Detail", "Brings forward background sounds, bass lines and small details: the stereo gets a touch wider, " +
         "presence and air (the upper mids and highs) lift a little, and the level drops to match so nothing clips", P.on(P.DETAIL)) {
         Switch(P.on(P.DETAIL), { Music.setOpt(P.DETAIL, it) }, colors = swColors())
-    }
-    val tilt = P.num(P.TILT, 0f)
-    Line("Tilt", when {
-        tilt > 0.01f -> "Brighter: everything below 1 kHz is turned down ${"%.1f".format(tilt)} dB"
-        tilt < -0.01f -> "Warmer: everything above 1 kHz is turned down ${"%.1f".format(-tilt)} dB"
-        else -> "Neutral. Slide to lean the whole sound warmer (fuller bass) or brighter (crisper treble), up to 4 dB. It only ever turns things down, so it can't clip"
-    }, tilt != 0f) {
-        if (tilt != 0f) Pill("Neutral", quiet = true) { Music.setSoundNum(P.TILT, 0f) }
-    }
-    Slider(tilt, { Music.setSoundNum(P.TILT, kotlin.math.round(it * 2) / 2f) }, valueRange = -4f..4f,
-        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)))
-    Line("ReplayGain", if (Music.bitPerfect) "Off while bit-perfect is on, because it would change the music"
-        else "Evens out loudness so songs don't jump louder or quieter, using ReplayGain (loudness tags " +
-            "in your files). By song levels every song; By album keeps an album's quiet and loud tracks as they were meant. The " +
-            "levelling target below sets how loud: louder than Standard needs Clip guard on (it limits the peaks); without it, " +
-            "songs are never made louder than they are", Music.replayGain != "off") {}
-    Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf("off" to "Off", "track" to "By song", "album" to "By album").forEach { (k, l) ->
-            Chip(l, Music.replayGain == k) { if (!Music.bitPerfect) Music.chooseReplayGain(k) }
-        }
-    }
-    val target = P.num(P.RG_TARGET, -18f)
-    Text("Levelling target", style = T.sub)
-    androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf(-23f to "Quiet −23", -18f to "Standard −18", -16f to "Louder −16", -14f to "Loud −14").forEach { (v, l) ->
-            Chip(l, target == v) { Music.setSoundNum(P.RG_TARGET, v); Music.toast("Levelling to $v LUFS, from the next song") }
-        }
     }
 }
 

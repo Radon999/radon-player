@@ -1181,8 +1181,16 @@ fun Milestones() {
 }
 
 /** "312 h", "4 h 20 min", "45 min". */
+/** Settings › Last.fm & your stats › Time choice: listening time in "hours" or "minutes". */
+object TimeChoice {
+    var unit by mutableStateOf(org.omarchy.music.Prefs.text("time_unit", "hours").ifEmpty { "hours" })
+        private set
+    fun choose(u: String) { unit = u; org.omarchy.music.Prefs.setText("time_unit", u) }
+}
+
 fun fmtHours(secs: Long): String {
     val m = (secs + 30) / 60
+    if (TimeChoice.unit == "minutes") return "%,d min".format(m)
     return if (m >= 6000) "%,d h".format(m / 60) else if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
 }
 
