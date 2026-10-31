@@ -313,7 +313,9 @@ private fun BarButton(ico: Ico, label: String, onClick: () -> Unit) {
 fun OptionsSheet(ui: Ui) {
     val picked = ui.selectedTracks()
     val place = ui.selectPlace
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = { ui.showOptions = false }, containerColor = C.light) {
+    // Always open all the way, so every option shows without dragging the sheet up.
+    val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = { ui.showOptions = false }, sheetState = sheet, containerColor = C.light) {
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
             item { Text("Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}", style = T.head,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }

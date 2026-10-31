@@ -43,7 +43,7 @@ Open the ☰ menu to find everything. Pages can be shown as a list, a grid or a 
 - **Recently played:** Your latest songs, with a Refresh button.
 - **Skips:** Which songs you skip most or least, or hear all the way through most, for this week, month, year or all time.
 - **Your service's library:** When you browse a service instead of your own music, its library (favorites, playlists) gets its own entry in the menu.
-- **Options for selected songs:** Long-press songs to pick them, then: Play, Shuffle play, Play after the current song, Add to the queue, Add to a playlist, Add to or Remove from favorites, Download, Tagger…, Volume…, Speed…, Upgrade to FLAC…, Go to album, Discovery playlist for (the artist), File location, Copy the names, Share and Delete permanently…. A checkbox decides whether the selection closes after each option or stays open so you can use several.
+- **Options for selected songs:** Long-press songs to pick them, then: Play, Shuffle play, Play after the current song, Add to the queue, Add to a playlist, Add to or Remove from favorites, Download, Tagger…, Volume…, Speed…, Upgrade to FLAC…, Go to album, Discovery playlist for (the artist), File location, Copy the names, Share and Delete permanently…. The options sheet always opens all the way, so every option shows. A checkbox decides whether the selection closes after each option or stays open so you can use several.
 
 ## Search & the services
 
