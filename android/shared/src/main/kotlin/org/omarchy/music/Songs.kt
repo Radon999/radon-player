@@ -372,8 +372,9 @@ fun albumPlayKey(title: String, artist: String, album: String): String =
 data class AlbumPlays(val title: String, val artist: String, val albums: List<Pair<String, Int>>, val to: String)
 
 /** Songs whose plays (title, artist, album, n) are on more than one album (a single, an EP, the album, its deluxe):
- *  the album over an EP and a single, a deluxe or extended edition over the album; then one you have (mine), then
- *  the most played. Decided ones (picks) aren't offered. The desktop's album_plays_plan. */
+ *  the album over an EP and a single, a deluxe or extended edition over the album, then the most played. Only albums
+ *  you have songs from on this device (mine) are picked: a single whose EP or album you haven't got stays a single.
+ *  Decided ones (picks) aren't offered. The desktop's album_plays_plan. */
 data class AlbumPlay(val title: String, val artist: String, val album: String, val n: Int)
 
 fun albumPlaysPlan(plays: List<AlbumPlay>, mine: List<Track>, picks: Map<String, String>): List<AlbumPlays> {
@@ -391,11 +392,16 @@ fun albumPlaysPlan(plays: List<AlbumPlay>, mine: List<Track>, picks: Map<String,
         val a = norm(cleanTitle(t.album))
         s.names.putIfAbsent(a, t.album.trim()); s.albums.putIfAbsent(a, 0); s.have += a
     }
+    // The albums you have songs from here (by their artist), for where plays may go.
+    val owned = HashSet<String>()
+    for (t in mine) if (t.album.isNotBlank()) owned += statsKey(t.title, t.artist).second + "|" + norm(cleanTitle(t.album))
     val out = ArrayList<AlbumPlays>()
     for ((k, s) in songs) {
         if (s.albums.size < 2 || s.albums.values.none { it > 0 }) continue
         if (s.albums.keys.any { "${k.first}|${k.second}|$it" in picks }) continue
-        val to = s.albums.keys.maxWithOrNull(compareBy<String>({ albumKind(s.names[it]!!, s.title) }, { it in s.have }, { s.albums[it]!! }))!!
+        val yours = s.albums.keys.filter { it in s.have || "${k.second}|$it" in owned }
+        if (yours.isEmpty()) continue
+        val to = yours.maxWithOrNull(compareBy<String>({ albumKind(s.names[it]!!, s.title) }, { it in s.have }, { s.albums[it]!! }))!!
         if (s.albums.all { (a, n) -> a == to || n == 0 }) continue
         out += AlbumPlays(s.title, s.artist, s.albums.entries.sortedByDescending { it.value }.map { s.names[it.key]!! to it.value }, s.names[to]!!)
     }

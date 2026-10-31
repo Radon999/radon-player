@@ -136,7 +136,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Joint artists:** A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII). When a pair isn't clear, you choose whose plays they are.",
     "- **Similar artists:** Finds artists that look like the same one written two ways (\"cavetown offline\" and \"Cavetown\") and lets you merge them, plays and all, or keep them apart.",
     "- **Duplicates in Most played:** Finds songs counted twice under different names (\"N.P.D\" and \"NPD\"). You pick which to merge or leave alone. Versions marked in brackets or after a dash, like \"(Stripped)\", \"(Acoustic Sessions) (Live)\", \"[Remix]\", \"- Orchestra\" or \"(Live)\", are songs of their own and are left out; a plain \"Live\" in a song's name isn't a mark.",
-    "- **Plays on singles and albums:** When a song's plays are split between its single, an EP and the album, this moves them all onto the album (its deluxe or extended edition when there is one). You can also pick another album, type one, or leave it.",
+    "- **Plays on singles and albums:** When a song's plays are split between its single, an EP and the album, this moves them all onto the album (its deluxe or extended edition when there is one). Only albums and EPs you have on your device are used: a single whose EP or album you haven't got stays a single. You can also pick another album, type one, or leave it.",
     "- **Merge into… (artist page):** From now on, count one artist's plays as another's.",
     "",
     "### Wrapped",

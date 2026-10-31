@@ -406,7 +406,8 @@ private fun AccountsSheet(ui: Ui) {
                     "together, and which to leave alone", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
                 Line("Plays on singles and albums", "When a song's plays are split between its single, an EP and its album (in your Last.fm " +
                     "scrobbles and Spotify, Apple Music or Deezer imports), this moves them all onto the album, its deluxe or extended " +
-                    "edition when there is one. You check each one, and can pick another album or leave it", false) {
+                    "edition when there is one. Only albums and EPs you have on this $DEVICE are used: a single whose EP or album you " +
+                    "haven't got stays a single. You check each one, and can pick another album or leave it", false) {
                     Pill("Scan…", quiet = true) { ui.albumPlays = true } }
                 Line("Joint artists", "A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII), " +
                     "so your top artists aren't split up. " +
