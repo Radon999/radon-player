@@ -65,6 +65,10 @@ fun SearchTab(ui: Ui) {
     val res = ui.found
     val where = searchName(ui.foundIn.ifEmpty { Music.searchIn })
     LazyColumn(Modifier.fillMaxSize()) {
+        // A new search on its way while the last one's results show: said at the top, so they aren't taken for the new ones
+        if (ui.searching && res != null && !res.isEmpty) item {
+            Text("Searching $where for “${ui.searched}”…", style = T.sub.copy(color = C.accent), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        }
         when {
             ui.searching && (res == null || res.isEmpty) -> item { Empty("Searching $where…") }   // else what was found stays till the new results come
             res == null -> item { Empty("Search ${searchName(Music.searchIn)}", "Songs, artists or albums: pick where with the menu by the search bar. Or paste a link to a song, an album or a playlist.") }

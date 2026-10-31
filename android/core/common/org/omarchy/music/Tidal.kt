@@ -75,8 +75,10 @@ class Tidal(ctx: Ctx) : Source {
         save()
     }
 
+    /** urgent: a search you're waiting on: it doesn't queue behind a download's pause after Tidal said "too many"
+     *  (a download of many songs could hold a search up for half a minute); it tries again a moment later on its own. */
     private fun api(path: String, params: Map<String, Any?> = emptyMap(), method: String = "GET", body: okhttp3.RequestBody? = null,
-                    base: String = V1): JsonElement {
+                    base: String = V1, urgent: Boolean = false): JsonElement {
         val cur = s ?: error("connect Tidal in Settings first")
         if (now() > cur.expiry - 60) refresh()
         val q = (mapOf("countryCode" to s!!.country, "sessionId" to s!!.session) + params).filterValues { it != null }
@@ -86,7 +88,7 @@ class Tidal(ctx: Ctx) : Source {
         var attempt = 0
         while (true) {
             val wait = quietUntil - System.currentTimeMillis()
-            if (wait > 0) Thread.sleep(wait)
+            if (wait > 0 && !urgent) Thread.sleep(wait)
             try {
                 return try {
                     httpJson(url, headers(), body, method)
@@ -98,9 +100,10 @@ class Tidal(ctx: Ctx) : Source {
             } catch (e: HttpError) {
                 // Too many at once (a Download saves several songs together): every caller
                 // pauses, longer each time, then tries again.
-                if (e.code != 429 || attempt >= 5) throw e
+                if (e.code != 429 || attempt >= (if (urgent) 3 else 5)) throw e
                 val pause = 1000L shl attempt++
-                synchronized(this) { quietUntil = maxOf(quietUntil, System.currentTimeMillis() + pause) }
+                if (urgent) Thread.sleep(600L * attempt)
+                else synchronized(this) { quietUntil = maxOf(quietUntil, System.currentTimeMillis() + pause) }
             }
         }
     }
@@ -273,7 +276,7 @@ class Tidal(ctx: Ctx) : Source {
 
     override fun search(q: String): List<Track> {
         val m = Regex("tidal\\.com/(?:browse/)?(track|playlist|album|mix)/([\\w-]+)").find(q)
-            ?: return tracks(api("search", mapOf("query" to q, "types" to "TRACKS", "limit" to 30)).path("tracks", "items").list)
+            ?: return tracks(api("search", mapOf("query" to q, "types" to "TRACKS", "limit" to 30), urgent = true).path("tracks", "items").list)
         val (kind, id) = m.destructured
         return when (kind) {
             "playlist" -> playlist(id)
@@ -285,7 +288,7 @@ class Tidal(ctx: Ctx) : Source {
 
     override fun find(q: String): Found {
         if (linkSource(q) != null) return Found(search(q))
-        val r = api("search", mapOf("query" to q, "types" to "TRACKS,ARTISTS,ALBUMS", "limit" to 30))
+        val r = api("search", mapOf("query" to q, "types" to "TRACKS,ARTISTS,ALBUMS", "limit" to 30), urgent = true)
         val artists = r.path("artists", "items").list.take(6).mapNotNull { a ->
             Album("ar-${a["id"].long}", a["name"].str ?: return@mapNotNull null, "Artist", image(a["picture"].str, 320))
         }
