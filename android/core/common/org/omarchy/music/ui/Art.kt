@@ -19,7 +19,7 @@ fun artModel(t: Track, px: Int = 226): Any? {
     fun pic(it: String): Any = if (it.startsWith("/") || (it.length > 2 && it[1] == ':')) File(it) else it
     val name = t.album.ifEmpty { t.title }
     org.omarchy.music.Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return pic(it) }   // one you picked
-    // One picked before 2.1.2 (its album's name may only look like this one's): after the song's own cover.
+    // One picked before 3.0.0 (its album's name may only look like this one's): after the song's own cover.
     val old = org.omarchy.music.Pictures.oldCover(t.artist, name)
     if (old.isNotEmpty() && t.file == null) return pic(old)
     if (t.thumb.isNotEmpty()) return sizedThumb(t.thumb, px)

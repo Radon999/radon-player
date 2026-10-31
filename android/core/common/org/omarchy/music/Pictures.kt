@@ -262,14 +262,14 @@ object Pictures {
      *  album's songs with someone featured get it too) and its name without its edition (albumBase). */
     private fun lead(artist: String) = norm(artist.split(Regex(",| & | x | feat\\.? | ft\\.? | featuring | with ", RegexOption.IGNORE_CASE))[0])
     private fun coverKey(artist: String, album: String) = "${lead(artist)}||${albumBase(album)}"
-    /** The key covers were picked under before 2.1.2: everything after " - " and in brackets left out, so "Mercury - Act 1"
+    /** The key covers were picked under before 3.0.0: everything after " - " and in brackets left out, so "Mercury - Act 1"
      *  and "Mercury - Act 2" (and any album called Mercury) shared one. */
     private fun oldKey(artist: String, album: String) = "${lead(artist)}|${norm(bareTitle(album))}"
 
     /** The cover you picked for artist's album, or "". */
     fun cover(artist: String, album: String): String = synchronized(this) { covers[coverKey(artist, album)] ?: "" }
 
-    /** A cover picked before 2.1.2 that may be this album's (or another album's with a name like it): shown only for
+    /** A cover picked before 3.0.0 that may be this album's (or another album's with a name like it): shown only for
      *  songs with no cover of their own. "" if none. */
     fun oldCover(artist: String, album: String): String = synchronized(this) {
         if (covers.containsKey(coverKey(artist, album))) "" else covers[oldKey(artist, album)] ?: "" }

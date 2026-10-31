@@ -29,7 +29,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -181,6 +180,8 @@ fun App() {
                         "singles" -> AlbumsTab(ui, kind = "singles")
                         "genres" -> GenresTab(ui)
                         "folders" -> FoldersTab(ui)
+                        "flac24" -> FlacTab(ui, 24)
+                        "flac32" -> FlacTab(ui, 32)
                         "queue" -> QueueTab(ui)
                         "lyrics" -> LyricsTab(ui)
                         "visualizer" -> VisualizerTab()
@@ -243,6 +244,8 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Genres", Ico.GENRE, "genres"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
         add(Entry("Folders", Ico.FOLDER, "folders"))
+        add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))
+        add(Entry("32-bit FLACs", Ico.NOTE, "flac32"))
         add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
         if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
         add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
@@ -394,6 +397,8 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "singles" -> "Singles"
         "genres" -> "Genres"
         "folders" -> "Folders"
+        "flac24" -> "24-bit FLACs"
+        "flac32" -> "32-bit FLACs"
         "queue" -> "Up next"
         "lyrics" -> "Lyrics"
         "visualizer" -> "Visualizer"

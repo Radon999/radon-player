@@ -326,7 +326,7 @@ object Music {
         lyricsMode = st.lyrics_mode
         folders = st.folders
         artColors = st.art_colors
-        keepPlayed = false   // Keep (Accounts) was taken out in 2.1.2: songs you play are saved only when you pick Download
+        keepPlayed = false   // Keep (Accounts) was taken out in 3.0.0: songs you play are saved only when you pick Download
         musicSort = st.music_sort
         searchIn = st.search_in.takeIf { it in SEARCH_IN } ?: "tidal"
         dj = st.dj
@@ -357,7 +357,7 @@ object Music {
         singlesKept = st.singles_kept.toSet()
         notDupes = st.not_dupes.toSet()
         Dj.withNew = djNew
-        replayGain = "off"   // ReplayGain, Balance and Tilt were taken out in 2.1.2: back to off, centre and neutral
+        replayGain = "off"   // ReplayGain, Balance and Tilt were taken out in 3.0.0: back to off, centre and neutral
         if (Prefs.num(Prefs.BALANCE, 0f) != 0f) Prefs.setNum(Prefs.BALANCE, 0f)
         if (Prefs.num(Prefs.TILT, 0f) != 0f) Prefs.setNum(Prefs.TILT, 0f)
         eqProcessor.bypass = bitPerfectNow()

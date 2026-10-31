@@ -20,7 +20,7 @@ class FileArtFetcher(private val art: FileArt, private val options: Options) : F
         val ctx = options.context
         val bmp = embedded(ctx, art.uri) ?: runCatching {
             ctx.contentResolver.loadThumbnail(Uri.parse(art.uri), Size(512, 512), null)
-        }.getOrNull() ?: art.fallback.takeIf { it.isNotEmpty() }?.let { f ->   // a cover picked before 2.1.2
+        }.getOrNull() ?: art.fallback.takeIf { it.isNotEmpty() }?.let { f ->   // a cover picked before 3.0.0
             runCatching {
                 val b = if (f.startsWith("http")) java.net.URL(f).openStream().use { it.readBytes() } else java.io.File(f).readBytes()
                 BitmapFactory.decodeByteArray(b, 0, b.size)

@@ -171,6 +171,15 @@ object Flac {
         }
     }
 
+    /** (bits, sample rate) of a FLAC from its first bytes (its STREAMINFO, always first); null if it isn't a FLAC. */
+    fun streamFormat(input: InputStream): Pair<Int, Int>? {
+        val d = DataInputStream(input)
+        val head = ByteArray(42)
+        runCatching { d.readFully(head) }.getOrElse { return null }
+        if (String(head, 0, 4, Charsets.ISO_8859_1) != "fLaC" || (head[4].toInt() and 0x7f) != 0) return null
+        return format(listOf(Block(0, head.copyOfRange(8, 42))))
+    }
+
     /** The sample format of a FLAC's STREAMINFO: (bits, sample rate). */
     fun format(blocks: List<Block>): Pair<Int, Int> {
         val si = blocks.first { it.type == 0 }.data

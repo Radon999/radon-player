@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.AlertDialog
@@ -379,5 +378,31 @@ fun OptionsSheet(ui: Ui) {
                 }
             }
         }
+    }
+}
+
+/** 24-bit FLACs or 32-bit FLACs (☰ menu): your FLAC songs of that bit depth, each with its sample rate
+ *  ("24-bit · 96 kHz"), the highest sample rate first; as a list or a grid. Songs not read yet are read on opening. */
+@Composable
+fun FlacTab(ui: Ui, bits: Int) {
+    androidx.compose.runtime.LaunchedEffect(Music.musicVersion, Music.savedVersion) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.FlacDepths.scan() } }
+    }
+    val v = org.omarchy.music.FlacDepths.version
+    val all = remember(Music.musicVersion, Music.savedVersion, v, bits) { runCatching { org.omarchy.music.FlacDepths.songs(bits) }.getOrDefault(emptyList()) }
+    val reading = org.omarchy.music.FlacDepths.reading
+    if (all.isEmpty()) {
+        Empty(if (reading != null) "Reading your FLAC files… ${reading.first} of ${reading.second}" else "No $bits-bit FLACs",
+            "Your FLAC songs recorded at $bits bits show up here, each with its sample rate.")
+        return
+    }
+    val formats = all.associate { it.first.id to it.second }
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            ListActions(all.map { it.first }, onDj = { ui.djFrom(Dj.From("songs", name = "$bits-bit FLACs", songs = all.map { it.first })) })
+            Section("${all.size} $bits-BIT FLAC${if (all.size != 1) "S" else ""}" +
+                (reading?.let { " · READING ${it.first} OF ${it.second}" } ?: ""))
+        }
+        tracks(all.map { it.first }, ui, "flac$bits") { t -> formats[t.id]?.let { org.omarchy.music.FlacDepths.label(it) } ?: "" }
     }
 }

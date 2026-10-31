@@ -215,3 +215,19 @@ fun renamedFile(path: String, oldTitle: String, newTitle: String): String? {
         else (Regex("^\\d{1,3}(?:[ ._-]+|$)").find(base)?.value ?: "") + new
     return if (nb == base) null else dir + nb + ext
 }
+
+/** The genres in a song's genre tag: "Alternative; Indie Rock" -> ["Alternative", "Indie Rock"]. */
+fun genreParts(tag: String?): List<String> =
+    (tag ?: "").split(';', '/', ',', '|', '\u0000').map { it.trim() }.filter { it.isNotEmpty() && !it.equals("Unknown genre", true) }
+
+/** Whether a genre tag is (or contains) the genre asked for: "rock" fits "Indie Rock" and "Rock"; "hip hop" fits "Hip-Hop";
+ *  whole words only ("rap" doesn't fit "Trap"). */
+fun genreFits(tag: String?, asked: String): Boolean {
+    val want = asked.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
+    if (want.isEmpty()) return false
+    return genreParts(tag).any { g ->
+        val words = g.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
+        words.joinToString("") == want.joinToString("") ||
+            (0..words.size - want.size).any { i -> words.subList(i, i + want.size) == want }
+    }
+}

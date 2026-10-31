@@ -273,6 +273,7 @@ object Dj {
     }
 
     private fun setGenre(taste: Taste): Pair<List<Track>, String>? {
+        mineGenre(taste)?.let { return it }
         if (LastFm.key.isEmpty()) return null
         val weight = HashMap<String, Int>()
         val lead = taste.artists.take(3)
@@ -294,6 +295,33 @@ object Dj {
             if (songs.size >= 3) return songs to "More like “${seed.title}” by ${names(listOf(seed))}."
         }
         return null
+    }
+
+    /** A set from your own songs' genre tags: one of the genres you've been playing most lately (as your files name
+     *  them), its songs from your music. Null when your songs have no genres or too few of that one. */
+    private fun mineGenre(taste: Taste): Pair<List<Track>, String>? {
+        val weight = HashMap<String, Int>()
+        for (t in (taste.recent + taste.all.take(100))) for (g in genreParts(genreOf(t))) weight.merge(g, 1, Int::plus)
+        if (weight.isEmpty()) return null
+        for (g in weight.entries.sortedByDescending { it.value }.take(3).shuffled().map { it.key }) {
+            val songs = genreSongs(g, taste)
+            if (songs.size >= 3) return songs to "Some ${g.lowercase()} from your music, since you've been playing a lot of it lately."
+        }
+        return null
+    }
+
+    /** A song's genre tag as its file says ("" when it has none): of your copy of it, when it's a song you have. */
+    private fun genreOf(t: Track): String {
+        val mine = t.takeIf { it.file != null } ?: (taste ?: loadTaste()).mine[songKey(t)] ?: return ""
+        return Music.genreOf(mine).takeIf { it != "Unknown genre" } ?: ""
+    }
+
+    /** Your songs whose genre tag fits genre ("rock": Rock, Indie Rock…), the ones you play less often first, so a
+     *  genre set brings back songs as well as favourites. */
+    private fun genreSongs(genre: String, taste: Taste): List<Track> {
+        val fits = runCatching { Music.mySongs() }.getOrDefault(emptyList()).filter { genreFits(Music.genreOf(it), genre) }
+        if (fits.size < 3) return emptyList()
+        return pick(ok(taste, fits).ifEmpty { fits }.shuffled(), SET, used)
     }
 
     /** Songs Last.fm files under tag, the ones by artists you play first. */
@@ -374,7 +402,7 @@ object Dj {
         val (name, pool) = scope ?: return null
         val words = WORD.findAll(text).map { it.value }.filter { it.lowercase() !in FILLER }.map { norm(it) }.filter { it.isNotEmpty() }.toList()
         if (words.isEmpty()) return null
-        val hits = pool.filter { t -> val all = norm("${t.title} ${t.artist} ${t.album}"); words.all { it in all } }
+        val hits = pool.filter { t -> val all = norm("${t.title} ${t.artist} ${t.album} ${genreOf(t)}"); words.all { it in all } }
         val songs = pick(hits.filter { songKey(it) !in used }.shuffled() + hits.shuffled(), SET, emptySet())
         if (songs.isEmpty()) return null
         return Built("ask", songs, "From $name, you asked for ${text.trim()}: “${songs[0].title}” by ${names(songs.take(1))} first.")
@@ -410,6 +438,11 @@ object Dj {
             if (songs.isNotEmpty()) return Built("ask", songs, "${info?.name?.ifEmpty { null } ?: who}, coming up: some you know, and some you might not.")
         }
         val tags = tags(asked)
+        // Your own songs' genres first ("rock": your songs tagged Rock or Indie Rock), then Last.fm's
+        for (g in (listOf(words) + tags).filter { it.isNotBlank() }.distinct()) {
+            val songs = genreSongs(g, taste)
+            if (songs.size >= 3) return Built("ask", songs, "You asked for $asked: here's ${g.lowercase()} from your music, starting with “${songs[0].title}” by ${names(songs.take(1))}.")
+        }
         for (tag in tags) {
             val songs = tagSongs(tag, taste)
             if (songs.size >= 3) return Built("ask", songs, "You asked for $asked, so here's some $tag, starting with “${songs[0].title}” by ${names(songs.take(1))}.")

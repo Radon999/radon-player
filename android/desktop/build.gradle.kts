@@ -23,7 +23,7 @@ kotlin {
 
 // What the installed app needs to know about its build: its version (the update check compares it with GitHub's
 // releases) and Tidal's app keys (tools/tidal-keys.sh writes them to ../tidal.properties, as for the phone's build).
-val appVersion = "2.1.2"
+val appVersion = "3.0.0"
 val buildInfo = layout.buildDirectory.dir("generated/build-info")
 val writeBuildInfo by tasks.registering {
     val keys = rootProject.file("tidal.properties")

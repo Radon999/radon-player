@@ -43,7 +43,7 @@ object QualityCheck {
 
     /** Check the songs not checked yet (or changed since). */
     fun scan() {
-        return   // Loudness check was taken out in 2.1.2: no songs are checked in the background
+        return   // Loudness check was taken out in 3.0.0: no songs are checked in the background
         if (!AudioTools.supported || busy != null || !Prefs.on(Prefs.LOUDNESS_CHECK) || !AudioTools.canRunNow()) return
         val files = Music.mySongs().mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.distinct()
         busy = "looking…"

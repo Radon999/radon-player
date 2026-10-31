@@ -55,6 +55,6 @@ mpv on the PC), then the screens (ui/) one by one, then the PC-only tools (folde
 - [x] Windows: mpv's pipe with overlapped I/O (the window froze), saves replace the file, log.txt + watchdog
 - [x] PC: mpv and ffmpeg inside the installer (the Windows CI job puts them in resources/windows; Bins finds them)
 - [ ] Windows installer (MSI) tested on the PC; then it replaces the Python app
-- [x] Feature guide (core/FEATURES.md, gen-guide.py), split into two tabs: Features (FEATURES.md, each feature in its section) and Changelog (CHANGELOG.md, one entry per update after 2.1.2, newest first). The notes from before are in core/HISTORY.md
+- [x] Feature guide (core/FEATURES.md, gen-guide.py), split into two tabs: Features (FEATURES.md, each feature in its section) and Changelog (CHANGELOG.md, one entry per update after 3.0.0, newest first). The notes from before are in core/HISTORY.md
 - [x] Settings descriptions rewritten in detail
 - [ ] the guide sent to the owner and put on GitHub when done
