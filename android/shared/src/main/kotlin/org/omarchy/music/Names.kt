@@ -191,8 +191,9 @@ private val MOVIE_PART = Regex(
  *  has none. */
 fun movieName(title: String?): String? {
     val t = title ?: return null
+    if (!MOVIE_PART.containsMatchIn(t)) return null   // no note: not offered (a space after the name doesn't count as one)
     val plain = MOVIE_PART.replace(t, "").trim()
-    return if (plain != t && plain.isNotEmpty()) plain else null
+    return if (plain != t.trim() && plain.isNotEmpty()) plain else null
 }
 
 /** The file a song would have after its title changed: the old title in the file's name swapped for the new one, or
