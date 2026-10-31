@@ -51,23 +51,23 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     val eps = kind == "eps"; val singles = kind == "singles"
     val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
         .flatMap { (al, songs) ->
-            if (kind == "singles" && songs.first().album.isEmpty())   // no album at all: each song is its own single
+            if (kind == "singles" && songs.first().album.isEmpty() && songs.none { org.omarchy.music.folderKind(Music.folderOf(it)) != null })   // no album at all: each song is its own single
                 songs.map { t -> Album("single:" + (t.file ?: t.id), t.title, t.artist.split(",")[0].trim(), count = "1") to listOf(t) }
             else listOf(al to songs)
         }
         .filter { (al, songs) ->
             // Each release is in exactly one of the three tabs: an EP is only in EPs; a single (named one, or an album
             // of one song) only in Singles; everything else only in Albums
-            val ep = org.omarchy.music.isEp(al.title)
-            val single = !ep && (al.id.startsWith("single:") || songs.size == 1 || songs.any { org.omarchy.music.isSingle(al.title, it.title) })
+            // (in your Artists folder, the release's folder decides: "… - EP" an EP, "… - Single" a single, else an album)
+            val k = Music.releaseKind(al.title, songs, al.id.startsWith("single:"))
             when (kind) {
-                "eps" -> ep
-                "singles" -> single
-                else -> !ep && !single
+                "eps" -> k == "ep"
+                "singles" -> k == "single"
+                else -> k == "album"
             }
         }.sortedBy { org.omarchy.music.norm(it.first.title) } }
     if (all.isEmpty()) { Empty(if (eps) "No EPs yet" else if (singles) "No singles yet" else "No albums yet",
-        if (eps) "Your EPs (\"EP\" in their name) show up here." else if (singles) "Your singles show up here." else "Your songs, by album, show up here."); return }
+        if (eps) "Your EPs (\"EP\" in their name, or in a \"Title - EP\" folder in your Artists folder) show up here." else if (singles) "Your singles show up here." else "Your songs, by album, show up here."); return }
     // Albums: the big ones (more than six songs here) or the ones you have only a few songs of
     val bigAlbums = kind == "albums" && ui.albumsLow.not()
     val sized = if (kind != "albums") all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }

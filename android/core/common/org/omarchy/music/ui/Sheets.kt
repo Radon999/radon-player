@@ -240,8 +240,12 @@ private fun AccountsSheet(ui: Ui) {
             Group("Your music", ui) {
             // ---- your music ----
             val n = Music.local.files.size
-            Line("Folders", if (Music.local.scanning) "Reading your music folders for songs…" else "$n song${if (n != 1) "s" else ""} found in the folders below, shown in My music. " +
-                "Add the folders where your music files are kept and the app reads them in; Remove only stops reading a folder, it deletes nothing", n > 0) {
+            Line("Folders", note = "Make a folder named exactly Artists (anywhere on this $DEVICE) and add it here as your main folder. " +
+                "Inside it, one folder per artist, and in each artist's folder one folder per release: the album's name for an album, " +
+                "\"Title - EP\" for an EP, \"Title - Single\" for a single. The app reads these folders to put each release in Albums, " +
+                "EPs or Singles, and every song you download goes there the same way (Artists/Artist/Album/). Without an Artists " +
+                "folder, downloads make one in your main folder", state = if (Music.local.scanning) "Reading your music folders for songs…" else "$n song${if (n != 1) "s" else ""} found in the folders below, shown in My music. " +
+                "Add the folders where your music files are kept and the app reads them in; Remove only stops reading a folder, it deletes nothing", ok = n > 0) {
                 FolderPicker()
             }
             Music.folders.forEach { f ->
@@ -1054,10 +1058,11 @@ private fun Group(title: String, ui: Ui, content: @Composable () -> Unit) {
 
 /** A row of Settings: its name and what it is (or what it's doing) on the left, its switch or buttons on the right. */
 @Composable
-private fun Line(name: String, state: String, ok: Boolean, actions: @Composable () -> Unit) {
+private fun Line(name: String, state: String, ok: Boolean, note: String = "", actions: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 10.dp)) {
             Text(name, style = T.body.copy(fontSize = 16.sp))
+            if (note.isNotEmpty()) Text(note, style = T.sub.copy(color = C.fg), modifier = Modifier.padding(top = 2.dp))
             if (state.isNotEmpty()) Text(state, style = T.sub.copy(color = if (ok) C.accent else C.muted), modifier = Modifier.padding(top = 2.dp))
         }
         Row(verticalAlignment = Alignment.CenterVertically) { actions() }

@@ -37,8 +37,8 @@ object Collage {
     fun items(kind: String): List<Item> = when (kind.removeSuffix("-all")) {
         "songs" -> Music.mostPlayed(period(kind)).map { Item(it.title, it.artist, it.plays, artModel(it, 600)) }
         "albums" -> Music.topAlbums(period(kind)).map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
-        "eps" -> Music.topAlbums(period(kind)).filter { org.omarchy.music.isEp(it.title) }.map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
-        "singles" -> Music.topAlbums(period(kind)).filter { al -> al.tracks.any { org.omarchy.music.isSingle(al.title, it.title) } }
+        "eps" -> Music.topAlbums(period(kind)).filter { Music.releaseKind(it.title, it.tracks, byCount = false) == "ep" }.map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
+        "singles" -> Music.topAlbums(period(kind)).filter { al -> Music.releaseKind(al.title, al.tracks, byCount = false) == "single" }
             .map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
         else -> Music.topArtists(period(kind)).map { Item(it.name, "", it.plays, artistArt(it.name, it.thumb)) }
     }

@@ -172,7 +172,8 @@ object Music {
 
     var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": your first music folder
     /** Where downloads go: the folder you picked, else the first folder the Music tab reads. */
-    fun downloadFolder(): String = downloadDir.ifEmpty { folders.firstOrNull() ?: "Music/" }
+    fun downloadFolder(): String = downloadDir.ifEmpty {
+        folders.firstOrNull { it.replace('\\', '/').trimEnd('/').substringAfterLast('/') == ARTISTS } ?: folders.firstOrNull() ?: "Music/" }
     var dupeAction by mutableStateOf("ask")    // a download you have already: ask, keep (both) or replace
     var dupePrompt by mutableStateOf<Pair<List<Track>, List<Pair<Track, List<Track>>>>?>(null)   // asking about copies
     var trashJob by mutableStateOf<TrashJob?>(null)   // your files Android is asked to put in its trash
@@ -425,6 +426,14 @@ object Music {
         val artist = songs.groupingBy { it.artist.split(",")[0].trim() }.eachCount().maxByOrNull { it.value }?.key ?: t.artist
         Album("album:" + Covers.albumKey(t), t.album.ifEmpty { "Unknown album" }, artist, count = songs.size.toString()) to songs
     }.sortedBy { norm(it.first.title) }
+
+    /** Which tab a release of yours is in: "album", "ep" or "single". Songs in your Artists folder go by their release
+     *  folder (Artists/<Artist>/<Album>, <Title - EP> or <Title - Single>); others by the album's name. */
+    fun releaseKind(title: String, songs: List<Track>, single: Boolean = false, byCount: Boolean = true): String {
+        songs.mapNotNull { folderKind(folderOf(it)) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.let { return it.key }
+        if (isEp(title)) return "ep"
+        return if (single || (byCount && songs.size == 1) || songs.any { isSingle(title, it.title) }) "single" else "album"
+    }
 
     /** A song's genre, as its file says (songs without one: Unknown genre). */
     fun genreOf(t: Track): String = LocalFiles.idOf(t.file ?: lib.items[t.id]?.file)?.let { local.genres[it] } ?: "Unknown genre"

@@ -189,13 +189,42 @@ class SongGains(private val file: File, private val perFile: File? = null) {
 fun pathPart(name: String?, fallback: String = "Unknown"): String =
     Regex("[<>:\"/\\\\|?*\\x00-\\x1f]").replace(name ?: "", "_").trim().trimEnd('.', ' ').ifEmpty { fallback }.take(120)
 
-/** Where a download goes in a download folder of yours (a folder under Music/, as "Music/Mine/"):
- *  (its folder, its file name) as Artist/Albums|EPs|Singles/Album/, "NN Title.flac". */
+/** Where a download goes in a download folder of yours: (its folder, its file name) as
+ *  Artists/<Artist>/<Album>/, Artists/<Artist>/<Title - EP>/ or Artists/<Artist>/<Title - Single>/, "NN Title.flac".
+ *  The folder named "Artists" is your download folder itself when it's called that, else one made inside it.
+ *  kind is the service's ("ALBUM", "EP", "SINGLE"); without one, the album's name says (an EP, a single, or an album). */
 fun downloadPlace(root: String, artist: String, album: String, kind: String?, number: Long?, title: String): Pair<String, String> {
-    val sub = when (kind?.uppercase()) { "EP" -> "EPs"; "SINGLE" -> "Singles"; else -> "Albums" }
-    val folder = root.trimEnd('/') + "/" + pathPart(artist, "Unknown artist") + "/" + sub + "/" + pathPart(album.ifEmpty { title }, "Unknown album") + "/"
+    val k = kind?.uppercase() ?: when {
+        album.isBlank() -> "SINGLE"
+        isEp(album) -> "EP"
+        norm(cleanTitle(album)) == norm(cleanTitle(title)) || Regex("\\bsingle[)\\]]?$", RegexOption.IGNORE_CASE).containsMatchIn(album.trim()) -> "SINGLE"
+        else -> "ALBUM"
+    }
+    val base = Regex("\\s*[-–]?\\s*[(\\[]?\\b(EP|Single)\\b[)\\]]?\\s*$", RegexOption.IGNORE_CASE).replace(album.ifBlank { title }.trim(), "").trim()
+        .ifEmpty { album.ifBlank { title }.trim() }
+    val release = when (k) { "EP" -> "$base - EP"; "SINGLE" -> "$base - Single"; else -> album.ifBlank { title } }
+    val r = root.replace('\\', '/').trimEnd('/')
+    val artists = if (r.substringAfterLast('/') == ARTISTS) r else "$r/$ARTISTS"
+    val folder = artists + "/" + pathPart(artist, "Unknown artist") + "/" + pathPart(release, "Unknown album") + "/"
     val name = (if (number != null && number > 0) "%02d ".format(number) else "") + pathPart(title, "Untitled") + ".flac"
     return folder to name
+}
+
+/** The main music folder's name: inside it, one folder per artist, and in each one a folder per release. */
+const val ARTISTS = "Artists"
+
+/** A release's kind from where its song is: Artists/<Artist>/<Release>/… — a release folder ending in "EP" ("Spring EP",
+ *  "South - EP") is an EP, one ending in "Single" ("Talk - Single") a single, any other an album. null outside an Artists folder. */
+fun folderKind(folder: String?): String? {
+    val parts = (folder ?: return null).replace('\\', '/').trim('/').split('/')
+    val i = parts.lastIndexOf(ARTISTS)
+    if (i < 0 || parts.size < i + 3) return null
+    val release = parts[i + 2].trim()
+    return when {
+        Regex("(?:^|[\\s(\\[-])EP[)\\]]?$").containsMatchIn(release) -> "ep"
+        Regex("(?:^|[\\s(\\[-])Single[)\\]]?$", RegexOption.IGNORE_CASE).containsMatchIn(release) -> "single"
+        else -> "album"
+    }
 }
 
 /** tracks as an .m3u8 playlist: a file path where the song is on the phone, else its page on its service. */
