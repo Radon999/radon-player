@@ -2430,10 +2430,13 @@ object Music {
         } else p.volume = 1f
     }
 
+    /** The next two songs' streams looked up while this one plays, so they start straight away. */
     private fun prefetch() {
-        val nxt = queue.getOrNull(index + 1) ?: return
-        if (lib.has(nxt.id) || nxt.isFile) return
-        if (keepPlayed && autoSaveOk(nxt)) bg({ dl.download(nxt, youtubeToo = false) }) { _, _ -> savedVersion++ } else bg({ dl.stream(nxt) })
+        for (k in 1..2) {
+            val nxt = queue.getOrNull(index + k) ?: return
+            if (lib.has(nxt.id) || nxt.isFile) continue
+            if (keepPlayed && autoSaveOk(nxt)) bg({ dl.download(nxt, youtubeToo = false) }) { _, _ -> savedVersion++ } else bg({ dl.stream(nxt) })
+        }
     }
 
     /** Tidal's stream stopped short: look it up again and carry on from the same place, once per song. */

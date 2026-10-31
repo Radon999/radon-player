@@ -1,5 +1,7 @@
 package org.omarchy.music
 
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonElement
 import java.io.File
 import java.io.IOException
@@ -18,6 +20,23 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
                      val lossyFrom: String? = null)   // "Tidal" or "YouTube": no FLAC of it
 
     private val streams = HashMap<String, Pair<Ready, Double>>()   // id -> (stream, when looked up)
+
+    /** The Tidal song each song was found as (song id -> Tidal id), kept between runs: a song played before starts
+     *  straight away, without searching Tidal for it again. */
+    private val matchFile = File(ctx.filesDir, "tidal-matches.json")
+    private val MATCHES = MapSerializer(String.serializer(), Long.serializer())
+    private val matches: HashMap<String, Long> by lazy {
+        HashMap(readText(matchFile)?.let { runCatching { JSON.decodeFromString(
+            MATCHES, it) }.getOrNull() } ?: emptyMap())
+    }
+    private fun remember(t: Track, tidalId: Long?) {
+        if (tidalId == null || tidalId <= 0 || t.tidal == tidalId) return
+        val text = synchronized(matches) { if (matches[t.id] == tidalId) return; matches[t.id] = tidalId
+            JSON.encodeToString(MATCHES, matches) }
+        runCatching { writeAtomic(matchFile, text) }
+    }
+    /** t with the Tidal song it was found as before, if any. */
+    private fun known(t: Track): Track = if (t.tidal != null) t else synchronized(matches) { matches[t.id] }?.let { t.copy(tidal = it) } ?: t
     private val active = HashSet<String>()                          // being downloaded now
     var onSaved: ((String) -> Unit)? = null                         // the tagger takes it from there
     var folder: () -> String = { "" }                               // your download folder ("Music/Mine/"), "" for the app's own
@@ -51,15 +70,17 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             try {
                 val q = streamQuality()
                 if (q == "aac") {   // 320 kbps picked: Tidal's AAC (its "high"), else on to YouTube
-                    val m = tidal.resolve(t, lossy = true)
+                    val m = tidal.resolve(known(t), lossy = true)
                     if (m != null) {
+                        remember(t, m["id"].long)
                         lib.byTidal(m["id"].long ?: 0)?.let { return Ready(it.file, quality = it.quality, onDisk = true) }
                         return tidal.stream(m, lossy = true, quality = "HIGH").let { Ready(it.uri, it.isDash, it.quality) }
                     }
                     throw NoLosslessMatch("not on Tidal")
                 }
-                match = tidal.resolve(t)
+                match = tidal.resolve(known(t))
                 if (match != null) {
+                    remember(t, match["id"].long)
                     lib.byTidal(match["id"].long ?: 0)?.let { return Ready(it.file, quality = it.quality, onDisk = true) }   // saved from another service
                     return tidal.stream(match, quality = if (q == "flac16") "LOSSLESS" else Tidal.QUALITY).let { Ready(it.uri, it.isDash, it.quality) }
                 }
