@@ -84,6 +84,9 @@ class YouTubeMusic(private val cookie: String?) : Source {
         return s.trim().split(":").fold(0.0) { acc, p -> acc * 60 + p.toInt() }
     }
 
+    /** "1.3M plays", "12K views": how many times a song was played on YouTube Music (on album pages), never an artist. */
+    private val PLAYS = Regex("^[\\d.,]+\\s*[KMB]?\\s*(plays?|views?|streams?)$", RegexOption.IGNORE_CASE)
+
     /** (artists, album) from a line of runs: "Artist, Artist • Album • 3:12". */
     private fun credits(rs: List<JsonElement>): Triple<String, String, Double> {
         val artists = rs.filter { pageType(it) == "MUSIC_PAGE_TYPE_ARTIST" || pageType(it) == "MUSIC_PAGE_TYPE_USER_CHANNEL" }
@@ -93,7 +96,7 @@ class YouTubeMusic(private val cookie: String?) : Source {
         val plain = if (artists.isEmpty()) {
             // Not linked (uploads, some album pages): the first part, before " • ".
             rs.mapNotNull { it["text"].str }.joinToString("").split(" • ").map { it.trim() }
-                .firstOrNull { it.isNotEmpty() && it !in setOf("Song", "Video", "Single", "EP", "Album") && seconds(it) == 0.0 } ?: ""
+                .firstOrNull { it.isNotEmpty() && it !in setOf("Song", "Video", "Single", "EP", "Album") && seconds(it) == 0.0 && !PLAYS.matches(it) } ?: ""
         } else artists.joinToString(", ")
         return Triple(plain, album, dur)
     }
