@@ -85,7 +85,7 @@ private object Images {
         val w = (img.width * k).toInt().coerceAtLeast(1); val h = (img.height * k).toInt().coerceAtLeast(1)
         val surface = org.jetbrains.skia.Surface.makeRasterN32Premul(w, h)
         surface.canvas.drawImageRect(img, org.jetbrains.skia.Rect.makeWH(img.width.toFloat(), img.height.toFloat()),
-            org.jetbrains.skia.Rect.makeWH(w.toFloat(), h.toFloat()), org.jetbrains.skia.SamplingMode.LINEAR, null, true)
+            org.jetbrains.skia.Rect.makeWH(w.toFloat(), h.toFloat()), org.jetbrains.skia.SamplingMode.MITCHELL, null, true)   // smooth, not jagged
         return surface.makeImageSnapshot().toComposeImageBitmap()
     }
 }
@@ -99,7 +99,9 @@ fun AsyncImage(model: Any?, contentDescription: String?, modifier: Modifier = Mo
     var img by remember(inner, px) { mutableStateOf(inner?.let { Images.cached(it, px) }) }
     LaunchedEffect(inner, px) { if (img == null) img = Images.load(inner, px) }
     val i = img
-    if (i != null) Image(i, contentDescription, modifier, contentScale = contentScale, alpha = alpha)
+    // High filtering, as the phone's pictures: a small cover drawn big (Now playing's blurred backdrop) is smooth, not blocky
+    if (i != null) Image(i, contentDescription, modifier, contentScale = contentScale, alpha = alpha,
+        filterQuality = androidx.compose.ui.graphics.FilterQuality.High)
     else Box(modifier)
 }
 

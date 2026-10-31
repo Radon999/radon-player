@@ -47,6 +47,8 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     fun forgetStream(id: String) = synchronized(streams) { streams.remove(id) }
     /** The streams looked up already, forgotten (the stream quality changed: the next play looks again). */
     fun forgetStreams() = synchronized(streams) { streams.clear() }
+    /** The player couldn't play a hi-res (DASH) stream (the PC's, once): streams are asked for in CD quality since. */
+    @Volatile var dashFailed = false
     /** Settings › Stream quality: "flac24", "flac16" or "aac" (320 kbps), for Tidal's streams. */
     var streamQuality: () -> String = { "flac24" }
 
@@ -68,7 +70,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         if (tidal.connected) {
             var match: kotlinx.serialization.json.JsonElement? = null
             try {
-                val q = streamQuality()
+                val q = streamQuality().let { if (it == "flac24" && dashFailed) "flac16" else it }
                 if (q == "aac") {   // 320 kbps picked: Tidal's AAC (its "high"), else on to YouTube
                     val m = tidal.resolve(known(t), lossy = true)
                     if (m != null) {

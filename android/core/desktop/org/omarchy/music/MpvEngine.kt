@@ -134,6 +134,8 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                 Music.scope.launch(Dispatchers.Main) { if (Music.player === this@MpvEngine) Music.trackEnded() }
             } else if (main && e["reason"]?.jsonPrimitive?.content == "error") {
                 Music.scope.launch(Dispatchers.Main) {
+                    // A hi-res (DASH) stream mpv couldn't play: CD-quality FLAC (one plain file) from then on.
+                    if (Music.streaming && path?.let { it.startsWith("data:application/dash") || it.endsWith(".mpd") } == true) Music.dl.dashFailed = true
                     if (Music.streaming) Music.streamBroke() else { Music.toast("Couldn't play “${Music.current()?.title}”"); Music.paused = true }
                 }
             }
@@ -147,7 +149,10 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         if (!main) return
         Music.scope.launch(Dispatchers.Main) {
             if (Music.player !== this@MpvEngine) return@launch
-            Music.nowFormat = listOf((path ?: "").substringAfterLast('.').uppercase(),
+            // The file's kind from its name (a Tidal hi-res stream's .mpd is FLAC; a web address with no kind shows none)
+            val ext = (path ?: "").substringBefore('?').substringAfterLast('/').substringAfterLast('.', "").uppercase()
+                .let { if (it == "MPD") "FLAC" else it }.takeIf { it.length in 2..4 && it.all { c -> c.isLetterOrDigit() } } ?: ""
+            Music.nowFormat = listOf(ext,
                 if (bits > 0) "$bits-bit" else "", if (rate > 0) "${"%.1f".format(rate / 1000.0).removeSuffix(".0")} kHz" else "")
                 .filter { it.isNotEmpty() }.joinToString(" · ")
             Music.nowFormatOf = Music.current()?.id ?: ""
@@ -186,7 +191,21 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         if (missing) { if (main) Music.toast(MISSING); return }
         eof = false; pos = startMs / 1000.0; path = item.uri
         send("set_property", "start", if (startMs > 0) "+${startMs / 1000.0}" else "none")
-        send("loadfile", item.uri.removePrefix("file://"), "replace")
+        send("loadfile", playable(item.uri), "replace")
+    }
+
+    /** What mpv is given to play: Tidal's hi-res streams come as a DASH manifest inside a data: address, which mpv
+     *  can't open (it stopped those songs with "Lost the stream", one after another): the manifest goes into a file
+     *  of its own (.mpd), which it plays. */
+    private fun playable(uri: String): String {
+        val tag = "data:application/dash+xml;base64,"
+        if (!uri.startsWith(tag)) return uri.removePrefix("file://")
+        return runCatching {
+            val f = File(System.getProperty("java.io.tmpdir"), "radon-stream-${uri.hashCode().toUInt()}.mpd")
+            if (!f.exists()) f.writeBytes(java.util.Base64.getDecoder().decode(uri.removePrefix(tag)))
+            f.deleteOnExit()
+            f.path
+        }.getOrDefault(uri)
     }
 
     override fun setSpeed(speed: Float, pitch: Float) {

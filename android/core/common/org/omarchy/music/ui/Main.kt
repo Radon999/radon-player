@@ -318,8 +318,15 @@ private fun DrawerItem(label: String, ico: Ico, on: Boolean, quiet: Boolean = fa
 
 /** Where you browse: a service, or your own music on the phone. */
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 private fun SourceChips(ui: Ui, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    // On the phone one row you swipe; on the PC (a mouse wheel doesn't scroll sideways) they wrap, so every service shows.
+    val wrap: @Composable (@Composable () -> Unit) -> Unit = { content ->
+        if (onPhone) Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { content() }
+        else androidx.compose.foundation.layout.FlowRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }
+    }
+    wrap {
         Chip(DEVICE_NAME, Music.browseLocal) {   // your own songs: no service library, the search looks in them
             Music.browse("local")
             if (ui.tab == "library") goTo(ui, "music", "all")
