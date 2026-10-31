@@ -77,7 +77,9 @@ private fun app(args: Array<String>) = application {
         if (cur != null && !shown && !PcWindows.mini && !Music.paused)
             tray.sendNotification(androidx.compose.ui.window.Notification(cur.title, cur.artist))
     }
-    fun quit() { Music.player?.release(); exitApplication() }
+    // Closing or quitting turns bit-perfect off: its exclusive hold on the sound card would keep every other app silent
+    fun bitPerfectOff(): Boolean = Music.bitPerfect.also { if (it) Music.chooseBitPerfect(false) }
+    fun quit() { bitPerfectOff(); Music.player?.release(); exitApplication() }
     LaunchedEffect(Unit) {
         val act = { a: List<String> -> org.omarchy.music.Instance.act(a, show = { shown = true; PcWindows.mini = false },
             hide = { shown = false }, quit = { quit() }) }
@@ -97,6 +99,8 @@ private fun app(args: Array<String>) = application {
     }
     if (shown && !PcWindows.mini) Window(onCloseRequest = {
             shown = false
+            if (bitPerfectOff()) tray.sendNotification(androidx.compose.ui.window.Notification("Bit-perfect turned off",
+                "So the PC's other sound is heard while Radon Player is in the tray. Turn it on again in Settings › Sound quality."))
             // The first time: say where it went (the Python app's hint)
             if (!org.omarchy.music.Prefs.on("tray_hint_shown")) {
                 org.omarchy.music.Prefs.set("tray_hint_shown", true)

@@ -958,7 +958,7 @@ private fun SoundQuality(ui: Ui) {
             "sample rate, for the purest sound. Nothing changes it: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC"
         else "Sends each song to your sound card or DAC exactly as it is, at its own sample rate, for the " +
             "purest sound. It uses exclusive mode, so no other sound on the PC is heard while it plays, and nothing changes the " +
-            "music: no EQ, no song volume, no speed" },
+            "music: no EQ, no song volume, no speed. It turns itself off when you close the window or quit, so other apps are heard again" },
         Music.bitPerfect) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }

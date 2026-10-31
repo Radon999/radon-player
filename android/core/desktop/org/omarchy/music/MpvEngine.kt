@@ -296,6 +296,12 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         const val MISSING = "Can't play: mpv (the player) isn't on this PC. The next Radon Player installer brings its own"
         private val COUNT = AtomicInteger()
         private val all = java.util.Collections.newSetFromMap(java.util.WeakHashMap<MpvEngine, Boolean>())
+        init {   // however the app ends, its players end with it (one left running would keep bit-perfect's hold on the sound card)
+            Runtime.getRuntime().addShutdownHook(Thread {
+                val players = synchronized(all) { all.toList() }
+                players.forEach { e -> runCatching { e.proc?.destroy() } }
+            })
+        }
         /** The app's volume (0 to 1), for every player. */
         @Volatile var level = 1f
             private set
