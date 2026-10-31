@@ -41,7 +41,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Artists:** The artists you listen to most, ranked by every play counted together (see Stats). An artist's page has Play, Shuffle, **Change picture…** (pictures from Google, Genius and Wikipedia, or one of your own), **Discovery playlist** and **Merge into…**. Your songs by them show as a grid (or a list), sorted by **Most played** (the default), **Least played**, **Title**, **Album** or **Newest**.",
     "- **Genres:** Your songs grouped by genre.",
     "- **Playlists:** Make playlists, rename them, sort their songs (Order, Title, Artist, Album, Most played, Length), **Export** them as .m3u8, and **Import a playlist (.m3u8)**. Put playlists into **folders**, including your services' playlists.",
-    "- **Folders:** Browse your songs by the folders they're stored in, as a list of folders with each one's location and song count (on the PC too, no album covers).",
+    "- **Folders:** Browse your songs by the folders they're stored in, each one shown as a folder (in the list and in the grid, on the phone and the PC), with its location and song count.",
     "- **Favorites and Not favorited:** All the songs you've starred, and the ones you haven't.",
     "- **Recently played:** Your latest songs, with a Refresh button.",
     "- **Skips:** Which songs you skip most or least, or hear all the way through most, for this week, month, year or all time.",

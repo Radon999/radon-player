@@ -160,20 +160,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
         ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id))), "Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick(kind, id, songs) })
     }
     item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick(kind) } } }
-    // Folders are always a list of folders (no covers), on the phone and the PC alike.
-    if (kind == "folder") {
-        items(list.size, key = { "$kind-" + list[it].first }) { i ->
-            val (id, songs) = list[i]
-            GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
-        }
-        return
-    }
     laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
         val (id, songs) = list[i]
         GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
     }) { i, mod, compact ->
         val (id, songs) = list[i]
-        Tile(artModel(songs.first(), tilePx(compact)), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico, lit = picking && id in picked,
+        // Folders show as folders in the grid too (the folder icon, not a song's cover), on the phone and the PC.
+        Tile(if (kind == "folder") null else artModel(songs.first(), tilePx(compact)), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico, lit = picking && id in picked,
             onLongClick = { menu(id, songs) }) { open(id, songs) }
     }
 }
