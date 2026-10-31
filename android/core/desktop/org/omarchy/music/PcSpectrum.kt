@@ -44,7 +44,7 @@ object PcSpectrum {
     private fun start(uri: String, pos: Double) {
         val src = if (uri.startsWith("file:")) java.net.URI(uri).path else uri
         val p = runCatching {
-            ProcessBuilder(ffmpeg(), "-v", "quiet", "-nostdin", "-re", "-ss", "%.2f".format(java.util.Locale.US, pos), "-i", src,
+            ProcessBuilder(ffmpeg(), "-v", "quiet", "-nostdin", "-ss", "%.2f".format(java.util.Locale.US, pos), "-i", src,
                 "-ac", "1", "-ar", "44100", "-f", "f32le", "-")
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start()
         }.getOrNull() ?: return
@@ -52,19 +52,33 @@ object PcSpectrum {
         Thread({ read(p) }, "spectrum-read").apply { isDaemon = true }.start()
     }
 
+    /** The decoded sound, taken at the music's own pace (ffmpeg decodes ahead and waits): every HOP samples, the last N
+     *  through the FFT, so the bars move about 86 times a second, evenly, as the phone's do. (Before, ffmpeg was held to
+     *  real time itself and handed the sound over a packet at a time, so the bars jumped about ten times a second.) */
     private fun read(p: Process) {
-        val n = 1024
-        val buf = ByteArray(n * 4)
+        val n = 1024; val hop = 512
+        val buf = ByteArray(hop * 4)
+        val ring = FloatArray(n)
         val re = DoubleArray(n); val im = DoubleArray(n)
         val window = DoubleArray(n) { 0.5 - 0.5 * kotlin.math.cos(2 * Math.PI * it / (n - 1)) }
         val fft = ByteArray(n)
-        val ins = p.inputStream
+        val ins = java.io.BufferedInputStream(p.inputStream, 1 shl 16)
+        val began = startedAt
+        var step = 0L
         try {
             while (proc === p) {
                 var got = 0
                 while (got < buf.size) { val k = ins.read(buf, got, buf.size - got); if (k < 0) return; got += k }
                 val bb = java.nio.ByteBuffer.wrap(buf).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                for (i in 0 until n) { re[i] = bb.getFloat(i * 4) * window[i] * 2; im[i] = 0.0 }
+                System.arraycopy(ring, hop, ring, 0, n - hop)
+                for (i in 0 until hop) ring[n - hop + i] = bb.getFloat(i * 4)
+                step++
+                // When this sound is heard: wait for it (decoding runs ahead), or, running late, skip drawing it.
+                val due = began + step * hop * 1000L / 44100
+                val wait = due - System.currentTimeMillis()
+                if (wait > 0) Thread.sleep(wait) else if (wait < -60) continue
+                if (step * hop < n) continue   // not a full window yet
+                for (i in 0 until n) { re[i] = ring[i] * window[i] * 2; im[i] = 0.0 }
                 transform(re, im)
                 // As Android's visualizer hands it over: DC, Nyquist, then (real, imaginary) pairs, a full-scale sine near 128
                 val k = 128.0 / (n / 2)
