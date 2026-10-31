@@ -25,6 +25,12 @@ object ScanIgnore {
         version++
     }
 
+    /** Never show taken back (Undo, right after): shown by the scan again. */
+    fun remove(scan: String, key: String) {
+        synchronized(this) { of(scan) -= key; Prefs.setText("ignore_$scan", of(scan).joinToString("\n")) }
+        version++
+    }
+
     fun clear(scan: String) {
         synchronized(this) { of(scan).clear(); Prefs.setText("ignore_$scan", "") }
         version++

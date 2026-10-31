@@ -115,9 +115,12 @@ private fun FixupScreen(ui: Ui) {
                 } }
                 p != null && !working -> LazyColumn(Modifier.weight(1f)) {
                     items(p.first.size) { i ->
+                        val names = libraryNames()
                         val byFile = songsByFile()
                         val c = p.first[i]
-                        if (hidden[i] == true) return@items
+                        if (hidden[i] == true) { HiddenUndo(c.title) {
+                            org.omarchy.music.ScanIgnore.remove("fixup", org.omarchy.music.ScanIgnore.fixupKey(c)); hidden.remove(i); pick[i] = FixupPick.Change }
+                            return@items }
                         val now = pick[i] ?: FixupPick.Change
                         val song = byFile[fileKey(c.file)]
                         ScanSong(song, c.title, c.old.get("artist").ifEmpty { song?.artist.orEmpty() }, art = song?.let { artModel(it) } ?: FileArt(c.file)) {
@@ -128,8 +131,16 @@ private fun FixupScreen(ui: Ui) {
                                 Chip("Change", now is FixupPick.Change) { pick[i] = FixupPick.Change }
                                 Chip("Leave alone", now is FixupPick.Leave) { pick[i] = FixupPick.Leave }
                                 for (o in c.others.orEmpty()) Chip(o, now is FixupPick.Other && now.name == o) { pick[i] = FixupPick.Other(o) }
+                                if (now is FixupPick.Other && now.own) Chip(now.name, true) {}
+                                val albumRow = org.omarchy.music.fixupAlbumRow(c)
+                                ChooseYourself(if (albumRow) "Type an album" else "Type an artist",
+                                    if (albumRow) names.albums else names.artists) { pick[i] = FixupPick.Other(it, own = true) }
                                 Chip("Never show", false) {
                                     org.omarchy.music.ScanIgnore.add("fixup", org.omarchy.music.ScanIgnore.fixupKey(c)); pick[i] = FixupPick.Leave; hidden[i] = true }
+                                // "Same cover as": the other album's cover beside it, to see at once if they really are one
+                                c.sameCover?.let { other ->
+                                    Box(Modifier.align(Alignment.CenterVertically)) { ArtImage(FileArt(other), 44.dp) }
+                                }
                             }
                         }
                     }
@@ -174,7 +185,7 @@ private fun FixupScreen(ui: Ui) {
 private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = false) {
     val close = { ui.tool = null }
     var found by remember { mutableStateOf<List<LiveName>?>(null) }
-    val pick = remember { mutableStateMapOf<Int, Boolean>() }
+    val pick = remember { mutableStateMapOf<Int, FixupPick>() }
     val hidden = remember { mutableStateMapOf<Int, Boolean>() }
     val scan = if (lone) "lone" else if (movie) "movie" else "live"
     var report by remember { mutableStateOf<String?>(null) }
@@ -193,16 +204,20 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
                     val l = f!![i]
-                    if (hidden[i] == true) return@items
+                    if (hidden[i] == true) { HiddenUndo(l.title) {
+                        org.omarchy.music.ScanIgnore.remove(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); hidden.remove(i); pick.remove(i) }
+                        return@items }
                     val song = songsByFile()[fileKey(l.file)]
                     ScanSong(song, l.title, l.artist, art = song?.let { artModel(it) } ?: FileArt(l.file)) {
                         Text(if (lone) "Make it a single: “${l.name}”" else "Renamed to “${l.name}”", style = T.sub)
                         androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            val on = pick[i] ?: true
-                            Chip(if (lone) "Make single" else "Change", on) { pick[i] = true }
-                            Chip(if (lone) "Keep in album" else "Leave alone", !on) { pick[i] = false }
+                            val now = pick[i] ?: FixupPick.Change
+                            Chip(if (lone) "Make single" else "Change", now is FixupPick.Change) { pick[i] = FixupPick.Change }
+                            Chip(if (lone) "Keep in album" else "Leave alone", now is FixupPick.Leave) { pick[i] = FixupPick.Leave }
+                            if (now is FixupPick.Other) Chip(now.name, true) {}
+                            ChooseYourself("Type the name", emptyList(), start = l.name) { pick[i] = FixupPick.Other(it, own = true) }
                             Chip("Never show", false) {
-                                org.omarchy.music.ScanIgnore.add(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); pick[i] = false; hidden[i] = true }
+                                org.omarchy.music.ScanIgnore.add(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); pick[i] = FixupPick.Leave; hidden[i] = true }
                         }
                     }
                 }
@@ -210,7 +225,7 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 Pill(if (report != null) "Done" else "Cancel", quiet = true) { close() }
                 if (report == null && !f.isNullOrEmpty()) Pill(if (lone) "Make singles" else "Rename") {
-                    val picks = f.indices.map { if (pick[it] ?: true) FixupPick.Change else FixupPick.Leave }
+                    val picks = f.indices.map { pick[it] ?: FixupPick.Change }
                     Music.bg({ if (lone) MusicTools.loneApply(f, picks) else if (movie) MusicTools.movieApply(f, picks) else MusicTools.liveApply(f, picks) }) { n, e ->
                         report = if (n != null) (if (lone) "Made $n single${if (n != 1) "s" else ""}" else "Renamed $n") else "Couldn't: ${e?.message}"; Music.rescan() }
                 }
@@ -296,6 +311,7 @@ private fun NoCoversScreen(ui: Ui) {
     var status by remember { mutableStateOf("Looking at your covers…") }
     var found by remember { mutableStateOf<List<List<org.omarchy.music.Track>>?>(null) }
     val picking = ui.coverFor != null
+    val justHidden = remember { androidx.compose.runtime.mutableStateListOf<String>() }   // Never show just now: Undo
     LaunchedEffect(picking) {
         if (picking) return@LaunchedEffect
         Music.bg({ MusicTools.noCovers { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
@@ -317,13 +333,16 @@ private fun NoCoversScreen(ui: Ui) {
                 items(f.orEmpty()) { songs ->
                     val t = songs[0]
                     val key = org.omarchy.music.ScanIgnore.albumKey(t.artist, t.album.ifEmpty { t.title })
-                    if (org.omarchy.music.ScanIgnore.has("nocover", key)) return@items
+                    if (org.omarchy.music.ScanIgnore.has("nocover", key)) {
+                        if (key in justHidden) HiddenUndo(t.album.ifEmpty { t.title }) { org.omarchy.music.ScanIgnore.remove("nocover", key); justHidden -= key }
+                        return@items
+                    }
                     ScanSong(if (songs.size == 1) t else null, t.album.ifEmpty { t.title },
                         "${t.artist} · ${songs.size} song${if (songs.size != 1) "s" else ""}", art = null) {
                         Text("No cover anywhere: not in the files, nor picked", style = T.sub)
                         androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Chip("Pick a cover", false) { ui.coverFor = listOf(songs) }
-                            Chip("Never show", false) { org.omarchy.music.ScanIgnore.add("nocover", key) }
+                            Chip("Never show", false) { org.omarchy.music.ScanIgnore.add("nocover", key); justHidden += key }
                         }
                     }
                 }
@@ -358,7 +377,8 @@ private fun EmptyFoldersScreen(ui: Ui) {
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
                     val d = f!![i]
-                    if (hidden[i] == true) return@items
+                    if (hidden[i] == true) { HiddenUndo(d.folder) { org.omarchy.music.ScanIgnore.remove("empty", d.folder); hidden.remove(i); pick.remove(i) }
+                        return@items }
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Checkbox(pick[i] ?: true, { pick[i] = it })
                         Pill("Never show", quiet = true) { org.omarchy.music.ScanIgnore.add("empty", d.folder); pick[i] = false; hidden[i] = true }
@@ -497,3 +517,45 @@ private fun songsByFile(): Map<String, org.omarchy.music.Track> =
 
 /** A file's address the same however it's written (C:\\Music\\x.flac, C:/Music/x.flac, file:///…, any case on Windows). */
 private fun fileKey(f: String): String = f.removePrefix("file:///").removePrefix("file://").replace('\\', '/').lowercase()
+
+
+/** Something just marked Never show: one line saying so, with Undo (in case it was the wrong one). */
+@Composable
+private fun HiddenUndo(name: String, undo: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("“$name” won't be shown again", style = T.sub, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Chip("Undo", false) { undo() }
+    }
+}
+
+/** Choose yourself…: when none of a scan's choices is right, type your own; what you type is matched as you go (your
+ *  albums or artists), and Use it (or a match) picks it. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ChooseYourself(hint: String, names: List<String>, start: String = "", picked: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Chip("Choose yourself…", open) { open = !open }
+    if (!open) return
+    var text by remember { mutableStateOf(start) }
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        androidx.compose.material3.OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(hint) },
+            modifier = Modifier.fillMaxWidth().typing())
+        val q = org.omarchy.music.norm(text)
+        val hits = remember(q, names) { if (q.isEmpty()) emptyList() else names.filter { q in org.omarchy.music.norm(it) }
+            .sortedBy { !org.omarchy.music.norm(it).startsWith(q) }.take(6) }
+        androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (h in hits) Chip(h, false) { picked(h); open = false }
+            if (text.isNotBlank()) Chip("Use “${text.trim()}”", false) { picked(text.trim()); open = false }
+        }
+    }
+}
+
+/** Your albums' and artists' names, for Choose yourself's matches. */
+private class LibraryNames(val albums: List<String>, val artists: List<String>)
+
+@Composable
+private fun libraryNames(): LibraryNames = remember(Music.musicVersion) {
+    val songs = runCatching { Music.mySongs() }.getOrDefault(emptyList())
+    LibraryNames(songs.map { it.album.trim() }.filter { it.isNotEmpty() }.distinct().sorted(),
+        songs.flatMap { org.omarchy.music.splitArtists(it.artist) }.map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted())
+}

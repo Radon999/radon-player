@@ -56,6 +56,7 @@ data class FixupChange(
     val group: Int? = null,
     val siblings: List<FixupSibling>? = null,
     val unfound: Boolean = false,
+    val sameCover: String? = null,   // "same cover as": a song (its file) of the album it would go onto, to show that cover
 )
 
 /** What you picked for a change: Change (as planned), Leave (left alone) or Other (an artist's name, or an album's
@@ -208,6 +209,7 @@ fun fixupPlan(
     val why = LinkedHashMap<String, MutableList<String>>()
     val kinds = LinkedHashMap<String, MutableSet<String>>()
     val cover = LinkedHashMap<String, String>()
+    val sameCoverOf = LinkedHashMap<String, String>()   // a "same cover as" change: a song of the album it goes onto
     fun kindsOf(f: String) = kinds.getOrPut(f) { LinkedHashSet() }
     fun whyOf(f: String) = why.getOrPut(f) { ArrayList() }
     fun has(f: String) = !kinds[f].isNullOrEmpty()
@@ -560,6 +562,7 @@ fun fixupPlan(
                         if (n != 0) cur.tracknumber = n.toString()
                         kindsOf(f) += "cover"
                         whyOf(f) += "same cover as “$to”: “$name” → “$to”"
+                        sameCoverOf[f] = byAlbum[ak to to]!![0].file
                     }
                 }
             }
@@ -624,6 +627,7 @@ fun fixupPlan(
             why = (why[f] ?: emptyList<String>()).joinToString("; "), old = old, new = new, cover = cover[f],
             unsure = f in unsure,   // a duo neither of whom is an artist of their own here: Leave alone unless you say
             others = if (grouped) others[f] else null, group = if (grouped) groupOf[f] else null,
+            sameCover = sameCoverOf[f]?.takeIf { "cover" in kinds[f]!! },
             siblings = if (grouped) siblings[f]!!.map { x -> FixupSibling(x.file, x.title.ifEmpty { fixupStem(x.file) }, tagsOf(x)) } else null,
         )
     }
