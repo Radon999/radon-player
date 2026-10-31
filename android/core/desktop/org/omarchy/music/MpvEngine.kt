@@ -103,7 +103,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         }
         connected.countDown()
         val ins = input ?: return
-        for ((n, prop) in listOf("time-pos", "duration", "pause", "idle-active", "eof-reached", "path", "audio-params").withIndex())
+        for ((n, prop) in listOf("time-pos", "duration", "pause", "idle-active", "eof-reached", "path", "audio-params", "audio-device-list").withIndex())
             sendRaw("""{"command":["observe_property",${n + 1},"$prop"]}""")
         ins.bufferedReader().forEachLine { line -> runCatching { event(JSON.parseToJsonElement(line) as JsonObject) } }
     }
@@ -127,6 +127,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                         bits = when { fmt.startsWith("s16") -> 16; fmt.startsWith("s24") -> 24; fmt.startsWith("s32") || fmt.startsWith("float") -> 32; else -> 0 }
                         showFormat()
                     }
+                    "audio-device-list" -> (d as? kotlinx.serialization.json.JsonArray)?.let { list -> devicesNow(list) }
                 }
             }
             "end-file" -> if (main && e["reason"]?.jsonPrimitive?.content == "eof") {
@@ -141,6 +142,22 @@ class MpvEngine(private val main: Boolean = true) : Engine {
             }
             "file-loaded" -> { eof = false; showFormat()
                 if (main) Music.scope.launch(Dispatchers.Main) { dur.takeIf { it > 0 }?.let { Music.duration = it } } }
+        }
+    }
+
+    private var devices: Set<String>? = null   // the sound devices last seen (mpv's names)
+
+    /** The PC's sound devices changed: one unplugged (a DAC, a deck, headphones) while bit-perfect is on turns bit-perfect
+     *  off, so its exclusive hold doesn't move to the PC's other output and silence everything else. */
+    private fun devicesNow(list: kotlinx.serialization.json.JsonArray) {
+        val now = list.mapNotNull { (it as? JsonObject)?.get("name")?.jsonPrimitive?.content }.filter { it != "auto" }.toSet()
+        val was = devices
+        devices = now
+        if (!main || was == null || (was - now).isEmpty()) return
+        Music.scope.launch(Dispatchers.Main) {
+            if (Music.player !== this@MpvEngine || !Music.bitPerfect) return@launch
+            Music.chooseBitPerfect(false)
+            Music.toast("A sound device was unplugged, so bit-perfect is off: turn it on again in Settings › Sound quality")
         }
     }
 
