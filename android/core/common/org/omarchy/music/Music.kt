@@ -273,8 +273,28 @@ object Music {
                     p.durationMs.takeIf { it > 0 }?.let { duration = it / 1000.0 }
                     maybeCrossfade(p)
                 }
+                if (p != null) endWatch(p)
                 delay(500)
             }
+        }
+    }
+
+    private var stuckMs = 0
+    private var stuckAt = -1L
+
+    /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
+     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next. Within its last
+     *  1.5 seconds, still meant to be playing, and the position hasn't moved for 2.5 seconds: it's over, on to the next. */
+    private fun endWatch(p: Engine) {
+        val d = p.durationMs; val at = p.positionMs
+        val stuck = p.playWhenReady && !advancing && !Remote.active && current() != null && d > 0 && at >= d - 1500 &&
+            (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
+        stuckAt = at
+        stuckMs = if (stuck) stuckMs + 500 else 0
+        if (stuckMs >= 2500) {
+            stuckMs = 0
+            Crashes.note("“${current()?.title}” stopped at its end without finishing: moved on to the next song")
+            trackEnded()
         }
     }
 
