@@ -119,8 +119,8 @@ private fun FixupScreen(ui: Ui) {
                         val c = p.first[i]
                         if (hidden[i] == true) return@items
                         val now = pick[i] ?: FixupPick.Change
-                        val song = byFile[c.file]
-                        ScanSong(song, c.title, c.old.get("artist").ifEmpty { song?.artist.orEmpty() }) {
+                        val song = byFile[fileKey(c.file)]
+                        ScanSong(song, c.title, c.old.get("artist").ifEmpty { song?.artist.orEmpty() }, art = song?.let { artModel(it) } ?: FileArt(c.file)) {
                             Text(c.why, style = T.sub)
                             for ((k, v) in c.new) Text("$k: ${c.old.get(k).ifEmpty { "(none)" }} → ${v.ifEmpty { "(none)" }}", style = T.sub)
                             if (c.unsure) Text("Not sure of this one: check it", style = T.sub.copy(color = C.red))
@@ -194,7 +194,8 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
                     val l = f!![i]
                     if (hidden[i] == true) return@items
-                    ScanSong(songsByFile()[l.file], l.title, l.artist) {
+                    val song = songsByFile()[fileKey(l.file)]
+                    ScanSong(song, l.title, l.artist, art = song?.let { artModel(it) } ?: FileArt(l.file)) {
                         Text(if (lone) "Make it a single: “${l.name}”" else "Renamed to “${l.name}”", style = T.sub)
                         androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             val on = pick[i] ?: true
@@ -491,5 +492,8 @@ private fun ScanSong(t: org.omarchy.music.Track?, title: String, sub: String, ar
 
 /** Your songs by their file, to show a scan's songs with their covers. */
 @Composable
-private fun songsByFile(): Map<String?, org.omarchy.music.Track> =
-    remember(Music.musicVersion) { runCatching { Music.mySongs().associateBy { it.file } }.getOrDefault(emptyMap()) }
+private fun songsByFile(): Map<String, org.omarchy.music.Track> =
+    remember(Music.musicVersion) { runCatching { Music.mySongs().filter { it.file != null }.associateBy { fileKey(it.file!!) } }.getOrDefault(emptyMap()) }
+
+/** A file's address the same however it's written (C:\\Music\\x.flac, C:/Music/x.flac, file:///…, any case on Windows). */
+private fun fileKey(f: String): String = f.removePrefix("file:///").removePrefix("file://").replace('\\', '/').lowercase()
