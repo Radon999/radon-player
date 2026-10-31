@@ -44,7 +44,8 @@ fun albumBase(s: String): String {
     var t = s.lowercase()
     t = ALBUM_EDITION_BRACKETS.replace(t, " ")
     t = ALBUM_EDITION_DASH.replace(t, " ")
-    return norm(cleanTitle(t))
+    // A name of only signs ("÷ (Deluxe)", "= (Tour Edition)", "+"): the signs themselves, so it stays one album.
+    return norm(cleanTitle(t)).ifEmpty { t.trim().replace(Regex("\\s+"), " ") }
 }
 private val ALBUM_EDITION_WORDS = "deluxe|edition|expanded|remaster(ed)?|anniversary|bonus|explicit|clean|version|extended|complete|special|collector'?s?|super|reissue"
 private val ALBUM_EDITION_BRACKETS = Regex("[(\\[][^)\\]]*\\b($ALBUM_EDITION_WORDS)\\b[^)\\]]*[)\\]]")

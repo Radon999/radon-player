@@ -95,11 +95,19 @@ object SingleScan {
     fun home(artist: String, title: String): Home? {
         val errors = ArrayList<Throwable>()
         for (look in listOf<(String, String) -> List<Home>>({ a, t -> deezerHomes(a, t) }, { a, t -> appleHomes(a, t) })) {
-            val h = try { pick(title, look(artist, title)) } catch (e: Exception) { errors += e; continue }
+            // Only the artist's own releases: never a compilation or a playlist-like album under someone else's name.
+            val h = try { pick(title, look(artist, title).filter { ownRelease(it.artist, artist) }) } catch (e: Exception) { errors += e; continue }
             if (h != null) return h
         }
         if (errors.size == 2) throw errors[0]
         return null
+    }
+
+    /** Whether a release by albumArtist is the song's artist's own (not "Various Artists" or another artist's). */
+    fun ownRelease(albumArtist: String, artist: String): Boolean {
+        val a = norm(lead(albumArtist)); val b = norm(lead(artist))
+        if (a.isEmpty() || a == "various artists" || a == "various") return false
+        return a == b || similar(a, b) > 0.9 || artistNames(listOf(albumArtist)).any { norm(it) == b }
     }
 
     /** An artist's albums and EPs on Deezer, for the dropdown. */
@@ -116,12 +124,20 @@ object SingleScan {
         .distinctBy { it.first }.filter { (u, t) -> (t.album.isEmpty() || isSingle(t.album, t.title)) && u !in Music.singlesKept }
 
     /** Look them all up (blocking): the ones on an album or EP, and how many couldn't be looked up. */
+    /** Whether h would take t down a step (an album's song onto an EP or a single): never offered. */
+    private fun lower(t: Track, h: Home): Boolean {
+        if (t.album.isBlank()) return false
+        val now = if (isEp(t.album)) 1 else albumKind(t.album, t.title)
+        val then = if (h.kind == "ep" || isEp(h.album)) 1 else albumKind(h.album, t.title)
+        return then < now
+    }
+
     fun scan(): Pair<List<Row>, Int> {
         val rows = ArrayList<Row>(); var failed = 0; val rel = HashMap<String, List<String>>()
         for ((u, t) in songs()) {
             val artist = lead(t.artist)
             val h = try { home(artist, t.title) } catch (e: Exception) { failed++; continue } ?: continue
-            if (norm(h.album) == norm(t.album)) continue
+            if (norm(h.album) == norm(t.album) || lower(t, h)) continue
             rows += Row(t, u, h, rel.getOrPut(norm(artist)) { releases(artist) })
         }
         return rows to failed
@@ -137,6 +153,7 @@ object SingleScan {
             when {
                 h == null -> out += "${t.title}: no album or EP found for it"
                 norm(h.album) == norm(t.album) -> out += "${t.title}: already on “${h.album}”"
+                lower(t, h) -> out += "${t.title}: kept on “${t.album}” (the release found, “${h.album}”, is an EP or single)"
                 else -> todo += Row(t, uri, h, emptyList()) to h.album
             }
         }

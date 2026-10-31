@@ -1176,7 +1176,10 @@ object Music {
                     t["title_short"].str ?: "", (t["duration"].long ?: 0L).toInt()) }
             }
         }
-        val have = tracks.flatMap { listOf(norm(cleanTitle(it.title)), norm(bareTitle(it.title))) }.toSet()
+        // Yours: the album's songs here, and the artist's songs under any other album name (they aren't missing).
+        val lead = norm(artist.split(",")[0])
+        val yours = tracks + mySongs().filter { norm(it.artist.split(",")[0]) == lead }
+        val have = yours.flatMap { listOf(norm(cleanTitle(it.title)), norm(bareTitle(it.title))) }.toSet()
         return all.filter { norm(cleanTitle(it.title)) !in have && norm(cleanTitle(it.short)) !in have && norm(bareTitle(it.title)) !in have }
     }
 

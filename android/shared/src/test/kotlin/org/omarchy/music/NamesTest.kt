@@ -38,6 +38,11 @@ class NamesTest {
         assertEquals(null, movieName("From Me to You"))
         assertEquals(null, movieName("Song (From Me to You)"))
         assertEquals(null, movieName("Soundtrack 2 My Life"))
+        assertEquals(albumBase("÷"), albumBase("÷ (Deluxe)"))
+        assertEquals("=", albumBase("= (Tour Edition)"))
+        assertTrue(albumBase("÷ (Deluxe)") != albumBase("= (Tour Edition)"))
+        assertEquals("mercury act 1", albumBase("Mercury - Act 1"))
+        assertEquals(albumBase("South"), albumBase("South - EP"))
         assertEquals(null, movieName("Stay Awake "))   // a space at the end isn't a soundtrack note
         assertEquals(null, movieName("is your bedroom ceiling bored "))
         assertEquals("Lose Yourself", movieName("Lose Yourself (From '8 Mile') "))

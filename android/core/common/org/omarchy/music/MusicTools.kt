@@ -16,11 +16,14 @@ object MusicTools {
     private var liveKept = setOf<String>()
     /** The soundtrack-named songs you chose to keep as they are. */
     private var movieKept = setOf<String>()
+    /** The songs alone in their album you chose to keep in it. */
+    private var loneKept = setOf<String>()
 
     fun init() {
         skip = Prefs.text("fixup_skip").split('\n').filter { it.isNotBlank() }
         liveKept = Prefs.text("live_kept").split('\n').filter { it.isNotBlank() }.toSet()
         movieKept = Prefs.text("movie_kept").split('\n').filter { it.isNotBlank() }.toSet()
+        loneKept = Prefs.text("lone_kept").split('\n').filter { it.isNotBlank() }.toSet()
     }
 
     fun chooseSkip(folders: List<String>) {
@@ -158,6 +161,32 @@ object MusicTools {
         for ((f, title) in renames) if (FileTags.write(Music.ctx, f, mapOf("title" to title))) done++
         movieKept = movieKept + keep
         Prefs.setText("movie_kept", movieKept.joinToString("\n"))
+        return done
+    }
+
+    /** Songs alone in their album or EP (the only one of it you have, the album not named for it): each as (file, album
+     *  now, "song · artist", the song's name to make the album), so it becomes a single. Kept ones aren't offered again. */
+    fun loneFound(songs: List<FixupSong>): List<LiveName> {
+        val counts = Music.mySongs().filter { it.album.isNotBlank() }.groupingBy { Covers.albumKey(it) }.eachCount()
+        val seen = HashSet<String>()
+        val out = ArrayList<LiveName>()
+        for (s in songs) {
+            if (s.file.isEmpty() || !seen.add(s.file) || inFolders(s.file, skip) || liveKeptKey(s.file) in loneKept) continue
+            if (s.album.isBlank() || isSingle(s.album, s.title) || albumBase(s.album) == albumBase(s.title)) continue
+            val n = counts[Covers.albumKey(Track("", title = s.title, artist = s.artist, album = s.album))] ?: 1
+            if (n > 1) continue
+            out += LiveName(s.file, s.album, "${s.title} · ${s.artist}", s.title.trim())
+        }
+        return out.sortedWith(compareBy({ norm(it.artist.substringAfter(" · ")) }, { norm(it.title) }))
+    }
+
+    /** (blocking) The lone songs picked get their own name as their album; the others remembered as kept. */
+    fun loneApply(found: List<LiveName>, picked: List<FixupPick>): Int {
+        val (renames, keep) = liveNamesApply(found, picked)
+        var done = 0
+        for ((f, album) in renames) if (FileTags.write(Music.ctx, f, mapOf("album" to album))) done++
+        loneKept = loneKept + keep
+        Prefs.setText("lone_kept", loneKept.joinToString("\n"))
         return done
     }
 

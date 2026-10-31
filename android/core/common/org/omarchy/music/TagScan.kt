@@ -156,7 +156,11 @@ object TagScan {
                 // A live recording found for a song that isn't one: its name without "(Live)", and not the live album's tags.
                 val live = hasLive(m.title) && !hasLive(title)
                 if (live) new["title"] = stripLive(m.title)
-                if (al != null && !live) {
+                // A song already in an album stays in it: a release found under another name (its single, an EP, a
+                // compilation) isn't offered, nor its year, genre or track number. Album tags are only filled in when empty.
+                val otherRelease = al != null && ((old["album"].orEmpty().isNotBlank() && differs("album", old["album"].orEmpty(), al.title)) ||
+                    !SingleScan.ownRelease(al.artist, artist))   // and never a compilation, or a release not under the artist's name
+                if (al != null && !live && !otherRelease) {
                     new += mapOf("album" to al.title, "albumartist" to al.artist, "date" to al.date, "genre" to al.genre,
                         "tracknumber" to (al.positions[m.id]?.toString() ?: ""))
                     if (al.cover.isNotEmpty()) g.found[al.cover] = (g.found[al.cover] ?: 0) + 1

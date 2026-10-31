@@ -683,6 +683,11 @@ private fun ToolLines(ui: Ui) {
         "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one", false) {
         Pill("Scan…", quiet = true) { ui.tool = "movie" }
     }
+    Line("Songs alone in an album", "Finds songs that are the only one you have of their album or EP (a single song " +
+        "under an album's name) and makes each a single: its album tag becomes the song's own name, so your Singles tab shows " +
+        "it as one and isn't full of one-song albums. You choose each one", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "lone" }
+    }
     Line("Albums, EPs and singles", "Looks each of your releases up (Deezer, then Apple Music) to learn whether it's really an album, " +
         "an EP or a single, and gives its name “ - Single” or “ - EP” (or takes it off an album) so it shows in just one of the three " +
         "tabs. You choose for each; the ones no service knows are left to you", false) {

@@ -47,6 +47,7 @@ fun ToolScreens(ui: Ui) {
         "fixup" -> FixupScreen(ui)
         "live" -> LiveNamesScreen(ui)
         "movie" -> LiveNamesScreen(ui, movie = true)
+        "lone" -> LiveNamesScreen(ui, lone = true)
         "nocover" -> NoCoversScreen(ui)
         "truth" -> AlbumTruthScreen(ui)
         "empty" -> EmptyFoldersScreen(ui)
@@ -148,18 +149,19 @@ private fun FixupScreen(ui: Ui) {
 
 /** Live in song names: songs named as live recordings you'd rather have plain; the live part taken off, the rest kept. */
 @Composable
-private fun LiveNamesScreen(ui: Ui, movie: Boolean = false) {
+private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = false) {
     val close = { ui.tool = null }
     var found by remember { mutableStateOf<List<LiveName>?>(null) }
     val pick = remember { mutableStateMapOf<Int, Boolean>() }
     var report by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { Music.bg({ MusicTools.songs().let { if (movie) MusicTools.movieFound(it) else MusicTools.liveFound(it) } }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't read them: ${e?.message}" } }
-    FullScreen(if (movie) "Soundtrack notes in names" else "Live in song names", close) {
+    LaunchedEffect(Unit) { Music.bg({ MusicTools.songs().let { if (lone) MusicTools.loneFound(it) else if (movie) MusicTools.movieFound(it) else MusicTools.liveFound(it) } }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't read them: ${e?.message}" } }
+    FullScreen(if (lone) "Songs alone in an album" else if (movie) "Soundtrack notes in names" else "Live in song names", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
             val f = found
             Text(report ?: when {
                 f == null -> "Reading your songs' tags…"
-                f.isEmpty() -> if (movie) "No song has a soundtrack note in its name" else "No song is named as a live recording"
+                f.isEmpty() -> if (lone) "No song is alone in an album or EP" else if (movie) "No song has a soundtrack note in its name" else "No song is named as a live recording"
+                lone -> "${f.size} song${if (f.size != 1) "s are" else " is"} the only one you have of ${if (f.size != 1) "their" else "its"} album or EP. Tick the ones to make singles (the album tag becomes the song's name); the others stay in their album (not asked again)"
                 movie -> "${f.size} song${if (f.size != 1) "s have" else " has"} a note like “(From the motion picture …)” in the name. Tick the ones to take it off; the others are kept as they are (not asked again)"
                 else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recording${if (f.size != 1) "s" else ""}. Tick the ones to make plain; the others are kept as they are (not asked again)"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
@@ -174,9 +176,10 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false) {
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 Pill(if (report != null) "Done" else "Cancel", quiet = true) { close() }
-                if (report == null && !f.isNullOrEmpty()) Pill("Rename") {
+                if (report == null && !f.isNullOrEmpty()) Pill(if (lone) "Make singles" else "Rename") {
                     val picks = f.indices.map { if (pick[it] ?: true) FixupPick.Change else FixupPick.Leave }
-                    Music.bg({ if (movie) MusicTools.movieApply(f, picks) else MusicTools.liveApply(f, picks) }) { n, e -> report = if (n != null) "Renamed $n" else "Couldn't: ${e?.message}"; Music.rescan() }
+                    Music.bg({ if (lone) MusicTools.loneApply(f, picks) else if (movie) MusicTools.movieApply(f, picks) else MusicTools.liveApply(f, picks) }) { n, e ->
+                        report = if (n != null) (if (lone) "Made $n single${if (n != 1) "s" else ""}" else "Renamed $n") else "Couldn't: ${e?.message}"; Music.rescan() }
                 }
             }
         }
