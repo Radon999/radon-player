@@ -110,7 +110,7 @@ object MusicTools {
             findAlbum = { a, t -> found.getOrPut(norm(a) to norm(t)) { progress("Looking up “$t”…"); runCatching { deezerSongAlbums(a, t) }.getOrNull() } },
             coverOf = { f -> FileTags.cover(Music.ctx, f)?.let { pictureHash(it) } })
         val (kept, skipped) = fixupKept(plan, skip)
-        return Triple(kept, songs, skipped)
+        return Triple(kept.filter { !ScanIgnore.has("fixup", ScanIgnore.fixupKey(it)) }, songs, skipped)
     }
 
     /** (blocking) Write the changes picked into the files; a single with no cover of its own gets its album's. Lines on what failed. */
@@ -140,7 +140,7 @@ object MusicTools {
         return moved.size to failed
     }
 
-    fun liveFound(songs: List<FixupSong>) = liveNamesFound(songs, skip, liveKept)
+    fun liveFound(songs: List<FixupSong>) = liveNamesFound(songs, skip, liveKept).filter { !ScanIgnore.has("live", ScanIgnore.fileKey(it.file)) }
 
     /** (blocking) The live names picked made plain; the others remembered as kept. */
     fun liveApply(found: List<LiveName>, picked: List<FixupPick>): Int {
@@ -152,7 +152,7 @@ object MusicTools {
         return done
     }
 
-    fun movieFound(songs: List<FixupSong>) = namesFound(songs, skip, movieKept, ::movieName)
+    fun movieFound(songs: List<FixupSong>) = namesFound(songs, skip, movieKept, ::movieName).filter { !ScanIgnore.has("movie", ScanIgnore.fileKey(it.file)) }
 
     /** (blocking) The soundtrack notes picked taken off the names; the others remembered as kept. */
     fun movieApply(found: List<LiveName>, picked: List<FixupPick>): Int {
@@ -171,7 +171,7 @@ object MusicTools {
         val seen = HashSet<String>()
         val out = ArrayList<LiveName>()
         for (s in songs) {
-            if (s.file.isEmpty() || !seen.add(s.file) || inFolders(s.file, skip) || liveKeptKey(s.file) in loneKept) continue
+            if (s.file.isEmpty() || !seen.add(s.file) || inFolders(s.file, skip) || liveKeptKey(s.file) in loneKept || ScanIgnore.has("lone", ScanIgnore.fileKey(s.file))) continue
             if (s.album.isBlank() || isSingle(s.album, s.title) || albumBase(s.album) == albumBase(s.title)) continue
             val n = counts[Covers.albumKey(Track("", title = s.title, artist = s.artist, album = s.album))] ?: 1
             if (n > 1) continue
@@ -201,14 +201,14 @@ object MusicTools {
                 Pictures.oldCover(t.artist, t.album.ifEmpty { t.title }).isNotEmpty()
             !saved && !picked && t.thumb.isEmpty() && (t.file == null || !runCatching { FileTags.hasCover(Music.ctx, t.file!!) }.getOrDefault(false))
         }
-        return bare.groupBy { Covers.albumKey(it) }.values.sortedWith(compareBy({ norm(it[0].artist) }, { norm(it[0].album) }))
+        return bare.groupBy { Covers.albumKey(it) }.values.filter { g -> !ScanIgnore.has("nocover", ScanIgnore.albumKey(g[0].artist, g[0].album.ifEmpty { g[0].title })) }.sortedWith(compareBy({ norm(it[0].artist) }, { norm(it[0].album) }))
     }
 
     /** (blocking) Folders in your music folders with no songs left in them. */
     fun emptyScan(): List<EmptyFolder> {
         if (!FileTags.canListFolders) return emptyList()
         val (files, dirs) = FileTags.listTree(roots())
-        return emptyFoldersOffered(emptyFolders(roots(), files, dirs), skip)
+        return emptyFoldersOffered(emptyFolders(roots(), files, dirs), skip).filter { !ScanIgnore.has("empty", it.folder) }
     }
 
     /** (blocking) The folders picked, into the Recycle Bin, if they still have no songs. How many went. */

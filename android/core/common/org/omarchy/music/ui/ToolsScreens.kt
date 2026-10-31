@@ -57,6 +57,22 @@ fun ToolScreens(ui: Ui) {
     ui.identifyFor?.let { IdentifyDialog(ui, it) }
 }
 
+/** "N hidden · Show them again": the things you marked in this scan to never show, brought back (the scan looks again). */
+@Composable
+private fun HiddenLine(ui: Ui, scan: String) {
+    org.omarchy.music.ScanIgnore.version
+    val n = org.omarchy.music.ScanIgnore.count(scan)
+    if (n == 0) return
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("$n hidden from this scan", style = T.sub, modifier = Modifier.weight(1f))
+        Pill("Show them again", quiet = true) {
+            org.omarchy.music.ScanIgnore.clear(scan)
+            val t = ui.tool; ui.tool = null
+            Music.scope.launch { kotlinx.coroutines.delay(60); ui.tool = t }
+        }
+    }
+}
+
 /** Fix albums and artists: albums split by featured artists, albums beside their deluxe edition, singles of songs on an
  *  album you have. Each: Change (as shown), Leave alone, or another album; then the files moved to the right folders. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -69,6 +85,7 @@ private fun FixupScreen(ui: Ui) {
     var moves by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     var report by remember { mutableStateOf<List<String>?>(null) }
     var working by remember { mutableStateOf(false) }
+    val hidden = remember { mutableStateMapOf<Int, Boolean>() }
     LaunchedEffect(Unit) {
         Music.bg({ MusicTools.fixupScan { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
             if (r == null) { report = listOf("Couldn't scan: ${e?.message}"); return@bg }
@@ -85,9 +102,10 @@ private fun FixupScreen(ui: Ui) {
                 p == null -> status
                 moves != null -> "${moves!!.size} file${if (moves!!.size != 1) "s" else ""} would be better in another folder: Move puts each with its album"
                 p.first.isEmpty() -> "Nothing to fix: no split albums, editions or singles" + if (p.third > 0) " (${p.third} in folders left alone)" else ""
-                else -> "${p.first.size} song${if (p.first.size != 1) "s" else ""} to fix in the files' tags (titles are never changed). " +
+                else -> "${p.first.size - hidden.size} song${if (p.first.size - hidden.size != 1) "s" else ""} to fix in the files' tags (titles are never changed). " +
                     "Change as shown, Leave alone, or pick another album" + if (p.third > 0) " · ${p.third} in folders left alone" else ""
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null && moves == null) HiddenLine(ui, "fixup")
             when {
                 report != null -> LazyColumn(Modifier.weight(1f)) { items(report!!.drop(1)) { Text(it, style = T.body, modifier = Modifier.padding(vertical = 4.dp)) } }
                 moves != null -> LazyColumn(Modifier.weight(1f)) { items(moves!!) { (a, b) ->
@@ -99,6 +117,7 @@ private fun FixupScreen(ui: Ui) {
                 p != null && !working -> LazyColumn(Modifier.weight(1f)) {
                     items(p.first.size) { i ->
                         val c = p.first[i]
+                        if (hidden[i] == true) return@items
                         val now = pick[i] ?: FixupPick.Change
                         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                             Text(c.title, style = T.title)
@@ -109,6 +128,8 @@ private fun FixupScreen(ui: Ui) {
                                 Chip("Change", now is FixupPick.Change) { pick[i] = FixupPick.Change }
                                 Chip("Leave alone", now is FixupPick.Leave) { pick[i] = FixupPick.Leave }
                                 for (o in c.others.orEmpty()) Chip(o, now is FixupPick.Other && now.name == o) { pick[i] = FixupPick.Other(o) }
+                                Chip("Never show", false) {
+                                    org.omarchy.music.ScanIgnore.add("fixup", org.omarchy.music.ScanIgnore.fixupKey(c)); pick[i] = FixupPick.Leave; hidden[i] = true }
                             }
                         }
                     }
@@ -153,6 +174,8 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
     val close = { ui.tool = null }
     var found by remember { mutableStateOf<List<LiveName>?>(null) }
     val pick = remember { mutableStateMapOf<Int, Boolean>() }
+    val hidden = remember { mutableStateMapOf<Int, Boolean>() }
+    val scan = if (lone) "lone" else if (movie) "movie" else "live"
     var report by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { Music.bg({ MusicTools.songs().let { if (lone) MusicTools.loneFound(it) else if (movie) MusicTools.movieFound(it) else MusicTools.liveFound(it) } }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't read them: ${e?.message}" } }
     FullScreen(if (lone) "Songs alone in an album" else if (movie) "Soundtrack notes in names" else "Live in song names", close) {
@@ -165,12 +188,16 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
                 movie -> "${f.size} song${if (f.size != 1) "s have" else " has"} a note like “(From the motion picture …)” in the name. Tick the ones to take it off; the others are kept as they are (not asked again)"
                 else -> "${f.size} song${if (f.size != 1) "s are" else " is"} named as live recording${if (f.size != 1) "s" else ""}. Tick the ones to make plain; the others are kept as they are (not asked again)"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null) HiddenLine(ui, scan)
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
                     val l = f!![i]
+                    if (hidden[i] == true) return@items
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Checkbox(pick[i] ?: true, { pick[i] = it })
-                        Column { Text("${l.title} → ${l.name}", style = T.body); Text(l.artist, style = T.sub) }
+                        Column(Modifier.weight(1f)) { Text("${l.title} → ${l.name}", style = T.body); Text(l.artist, style = T.sub) }
+                        Pill(if (lone) "Keep in album" else if (movie) "Not a soundtrack note" else "Not live", quiet = true) {
+                            org.omarchy.music.ScanIgnore.add(scan, org.omarchy.music.ScanIgnore.fileKey(l.file)); pick[i] = false; hidden[i] = true }
                     }
                 }
             }
@@ -195,8 +222,10 @@ private fun AlbumTruthScreen(ui: Ui) {
     var rows by remember { mutableStateOf<List<org.omarchy.music.AlbumTruth.Row>?>(null) }
     val pick = remember { mutableStateMapOf<Int, String>() }   // the kind to make it, or "" left alone
     var report by remember { mutableStateOf<String?>(null) }
+    val hidden = remember { mutableStateMapOf<Int, Boolean>() }
     LaunchedEffect(Unit) {
-        Music.bg({ org.omarchy.music.AlbumTruth.scan { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
+        Music.bg({ org.omarchy.music.AlbumTruth.scan { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } }
+            .filter { !org.omarchy.music.ScanIgnore.has("truth", org.omarchy.music.ScanIgnore.albumKey(it.artist, it.album)) } }) { r, e ->
             rows = r ?: emptyList(); if (r == null) report = "Couldn't look them up: ${e?.message}"
         }
     }
@@ -210,13 +239,15 @@ private fun AlbumTruthScreen(ui: Ui) {
                 else -> "${r.size} release${if (r.size != 1) "s" else ""} to check. Change gives the name " +
                     "“ - Single” or “ - EP” (or takes it off an album) so it shows in the right tab; the ones no service knows are left alone unless you pick"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null) HiddenLine(ui, "truth")
             if (report == null && !r.isNullOrEmpty()) androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill("Change all", quiet = true) { r.indices.forEach { i -> r[i].truth?.let { pick[i] = it } } }
+                Pill("Change all", quiet = true) { r.indices.forEach { i -> if (hidden[i] != true) r[i].truth?.let { pick[i] = it } } }
                 Pill("Leave all alone", quiet = true) { r.indices.forEach { pick[it] = "" } }
             }
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) r?.size ?: 0 else 0) { i ->
                     val row = r!![i]
+                    if (hidden[i] == true) return@items
                     val now = pick[i] ?: row.truth ?: ""
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Text(row.album, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -227,6 +258,8 @@ private fun AlbumTruthScreen(ui: Ui) {
                         androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Chip("Leave alone", now.isEmpty()) { pick[i] = "" }
                             for (k in listOf("album", "ep", "single")) Chip(label(k), now == k) { pick[i] = k }
+                            Chip("Never show", false) {
+                                org.omarchy.music.ScanIgnore.add("truth", org.omarchy.music.ScanIgnore.albumKey(row.artist, row.album)); pick[i] = ""; hidden[i] = true }
                         }
                     }
                 }
@@ -262,6 +295,7 @@ private fun NoCoversScreen(ui: Ui) {
             found = r ?: emptyList(); if (r == null) status = "Couldn't look: ${e?.message}"
         }
     }
+    org.omarchy.music.ScanIgnore.version
     FullScreen("Songs without covers", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
             val f = found
@@ -271,21 +305,27 @@ private fun NoCoversScreen(ui: Ui) {
                 else -> "${f.size} album${if (f.size != 1) "s" else ""} (${f.sumOf { it.size }} songs) show no cover. Pick one for each: " +
                     "it's searched for you, or choose a picture of your own"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            HiddenLine(ui, "nocover")
             LazyColumn(Modifier.weight(1f)) {
                 items(f.orEmpty()) { songs ->
                     val t = songs[0]
+                    val key = org.omarchy.music.ScanIgnore.albumKey(t.artist, t.album.ifEmpty { t.title })
+                    if (org.omarchy.music.ScanIgnore.has("nocover", key)) return@items
                     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(t.album.ifEmpty { t.title }, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${t.artist} · ${songs.size} song${if (songs.size != 1) "s" else ""}", style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                        Pill("No cover needed", quiet = true) { org.omarchy.music.ScanIgnore.add("nocover", key) }
+                        Spacer(Modifier.padding(start = 6.dp))
                         Pill("Pick a cover", quiet = true) { ui.coverFor = listOf(songs) }
                     }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 Pill("Done", quiet = true) { close() }
-                if (!f.isNullOrEmpty()) Pill("Fix them all…") { ui.coverFor = f }
+                if (!f.isNullOrEmpty()) Pill("Fix them all…") { ui.coverFor = f.filter { g -> !org.omarchy.music.ScanIgnore.has("nocover",
+                    org.omarchy.music.ScanIgnore.albumKey(g[0].artist, g[0].album.ifEmpty { g[0].title })) } }
             }
         }
     }
@@ -298,6 +338,7 @@ private fun EmptyFoldersScreen(ui: Ui) {
     var found by remember { mutableStateOf<List<EmptyFolder>?>(null) }
     val pick = remember { mutableStateMapOf<Int, Boolean>() }
     var report by remember { mutableStateOf<String?>(null) }
+    val hidden = remember { mutableStateMapOf<Int, Boolean>() }
     LaunchedEffect(Unit) { Music.bg({ MusicTools.emptyScan() }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't look: ${e?.message}" } }
     FullScreen("Empty folders", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
@@ -307,11 +348,15 @@ private fun EmptyFoldersScreen(ui: Ui) {
                 f.isEmpty() -> "No empty folders: every folder has songs in it"
                 else -> "${f.size} folder${if (f.size != 1) "s have" else " has"} no songs left in ${if (f.size != 1) "them" else "it"} (only pictures, lyrics and the like). Tick the ones to delete"
             }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null) HiddenLine(ui, "empty")
             LazyColumn(Modifier.weight(1f)) {
                 items(if (report == null) f?.size ?: 0 else 0) { i ->
                     val d = f!![i]
+                    if (hidden[i] == true) return@items
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Checkbox(pick[i] ?: true, { pick[i] = it })
+                        Pill("Keep this folder", quiet = true) { org.omarchy.music.ScanIgnore.add("empty", d.folder); pick[i] = false; hidden[i] = true }
+                        Spacer(Modifier.padding(start = 6.dp))
                         Column {
                             Text(d.folder, style = T.body)
                             Text("%.1f MB · %s".format(d.bytes / 1e6, d.files.take(4).joinToString().ifEmpty { "nothing in it" }), style = T.sub)
@@ -361,10 +406,13 @@ private fun SkipFoldersScreen(ui: Ui) {
 @Composable
 private fun QualityScreen(ui: Ui) {
     val list = remember { org.omarchy.music.QualityCheck.flagged() }
+    org.omarchy.music.ScanIgnore.version
     FullScreen("Loudness check", { ui.tool = null }) {
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
-            items(list) { (f, r) ->
+            item { HiddenLine(ui, "quality") }
+            items(list.filter { !org.omarchy.music.ScanIgnore.has("quality", org.omarchy.music.ScanIgnore.fileKey(it.first)) }) { (f, r) ->
                 Column(Modifier.padding(vertical = 6.dp)) {
+                    Pill("It's fine: hide it", quiet = true) { org.omarchy.music.ScanIgnore.add("quality", org.omarchy.music.ScanIgnore.fileKey(f)) }
                     Text(f.substringAfterLast('/').substringAfterLast('\\'), style = T.title)
                     Text(listOfNotNull(if (r.clipped > 0) "clipped (${"%,d".format(r.clipped)} samples at full scale)" else null,
                         r.fake.ifEmpty { null }, r.peak?.let { "peak ${it} dBFS" }).joinToString(" · "), style = T.sub)
