@@ -1,20 +1,20 @@
-run 41216656370 · Sat Oct 31 15:53:51 UTC 2026
+run 41218044887 · Sat Oct 31 16:11:15 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="2" failures="0" tests="1" failures="0" tests="1" failures="0" tests="7" failures="0" tests="1" failures="0" 
-  long max;
-}`
-Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
-  long count;
-  double sum;
-  double min;
-  double max;
-}`
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:623:9 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:624:9 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Updater.kt:76:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
-> Task :app:compileReleaseArtProfile
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalAnalyzeRelease
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:flattenJars
+
+> Task :desktop:packageUberJarForCurrentOS
+The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-3.0.0.jar
+
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
@@ -25,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 44s
+BUILD SUCCESSFUL in 3m 57s
 103 actionable tasks: 103 executed
