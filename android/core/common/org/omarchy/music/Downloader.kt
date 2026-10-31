@@ -341,7 +341,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     private fun tags(t: Track, c: JsonElement, album: JsonElement?): Map<String, List<String>> = linkedMapOf(
         "title" to listOf(Tidal.tidalTitle(c)),
         "artist" to c["artists"].list.mapNotNull { it["name"].str },
-        "album" to listOfNotNull(c.path("album", "title").str),
+        "album" to listOfNotNull(c.path("album", "title").str?.let { releaseName(it, album["type"].str) }),   // "Title - Single", as taggers
         "albumartist" to listOfNotNull(album.path("artist", "name").str),
         "tracknumber" to listOfNotNull(c["trackNumber"].long?.takeIf { it > 0 }?.toString()),
         "discnumber" to listOfNotNull(c["volumeNumber"].long?.takeIf { it > 0 }?.toString()),

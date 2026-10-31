@@ -231,3 +231,15 @@ fun genreFits(tag: String?, asked: String): Boolean {
             (0..words.size - want.size).any { i -> words.subList(i, i + want.size) == want }
     }
 }
+
+/** A single by its album tag, as taggers name them: "Talk - Single", "RUN (Single)", "Talk Single". Not "Singles
+ *  Collection", and not an album that only happens to share its song's name. */
+fun isSingleRelease(album: String): Boolean = Regex("(?:^|[\\s(\\[-])single[)\\]]?\\s*$", RegexOption.IGNORE_CASE).containsMatchIn(album.trim())
+
+/** An album's name with its kind on the end, as taggers write it: an EP "Title - EP", a single "Title - Single"
+ *  (kind as the services give it: "EP", "SINGLE", else an album, left as it is); one already marked stays as it is. */
+fun releaseName(album: String, kind: String?): String = when (kind?.uppercase()) {
+    "EP" -> if (isEp(album)) album else "$album - EP"
+    "SINGLE" -> if (isSingleRelease(album)) album else "$album - Single"
+    else -> album
+}

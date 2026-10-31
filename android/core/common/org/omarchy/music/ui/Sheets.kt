@@ -238,11 +238,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("Your music", ui) {
             // ---- your music ----
             val n = Music.local.files.size
-            Line("Folders", note = "Make a folder named exactly Artists (anywhere on this $DEVICE) and add it here as your main folder. " +
-                "Inside it, one folder per artist, and in each artist's folder one folder per release: the album's name for an album, " +
-                "\"Title - EP\" for an EP, \"Title - Single\" for a single. The app reads these folders to put each release in Albums, " +
-                "EPs or Singles, and every song you download goes there the same way (Artists/Artist/Album/). Without an Artists " +
-                "folder, downloads make one in your main folder", state = if (Music.local.scanning) "Reading your music folders for songs…" else "$n song${if (n != 1) "s" else ""} found in the folders below, shown in My music. " +
+            Line("Folders", state = if (Music.local.scanning) "Reading your music folders for songs…" else "$n song${if (n != 1) "s" else ""} found in the folders below, shown in My music. " +
                 "Add the folders where your music files are kept and the app reads them in; Remove only stops reading a folder, it deletes nothing", ok = n > 0) {
                 FolderPicker()
             }

@@ -189,25 +189,21 @@ class SongGains(private val file: File, private val perFile: File? = null) {
 fun pathPart(name: String?, fallback: String = "Unknown"): String =
     Regex("[<>:\"/\\\\|?*\\x00-\\x1f]").replace(name ?: "", "_").trim().trimEnd('.', ' ').ifEmpty { fallback }.take(120)
 
-/** Where a download goes in a download folder of yours: (its folder, its file name) as
- *  Artists/<Artist>/<Album>/, Artists/<Artist>/<Title - EP>/ or Artists/<Artist>/<Title - Single>/, "NN Title.flac".
- *  The folder named "Artists" is your download folder itself when it's called that, else one made inside it.
- *  kind is the service's ("ALBUM", "EP", "SINGLE"); without one, the album's name says (an EP, a single, or an album). */
+/** Where a download goes in a download folder of yours (a folder under Music/, as "Music/Mine/"): (its folder, its
+ *  file name) as Artist/Albums|EPs|Singles/Album/, "NN Title.flac". A single's or an EP's folder is named as taggers
+ *  name them ("Title - Single", "Title - EP"). kind is the service's ("ALBUM", "EP", "SINGLE"); without one, the
+ *  album's name says. */
 fun downloadPlace(root: String, artist: String, album: String, kind: String?, number: Long?, title: String): Pair<String, String> {
+    val name = album.ifBlank { title }.trim()
     val k = kind?.uppercase() ?: when {
-        album.isBlank() -> "SINGLE"
+        album.isBlank() || isSingleRelease(album) -> "SINGLE"
         isEp(album) -> "EP"
-        norm(cleanTitle(album)) == norm(cleanTitle(title)) || Regex("\\bsingle[)\\]]?$", RegexOption.IGNORE_CASE).containsMatchIn(album.trim()) -> "SINGLE"
         else -> "ALBUM"
     }
-    val base = Regex("\\s*[-–]?\\s*[(\\[]?\\b(EP|Single)\\b[)\\]]?\\s*$", RegexOption.IGNORE_CASE).replace(album.ifBlank { title }.trim(), "").trim()
-        .ifEmpty { album.ifBlank { title }.trim() }
-    val release = when (k) { "EP" -> "$base - EP"; "SINGLE" -> "$base - Single"; else -> album.ifBlank { title } }
-    val r = root.replace('\\', '/').trimEnd('/')
-    val artists = if (r.substringAfterLast('/') == ARTISTS) r else "$r/$ARTISTS"
-    val folder = artists + "/" + pathPart(artist, "Unknown artist") + "/" + pathPart(release, "Unknown album") + "/"
-    val name = (if (number != null && number > 0) "%02d ".format(number) else "") + pathPart(title, "Untitled") + ".flac"
-    return folder to name
+    val sub = when (k) { "EP" -> "EPs"; "SINGLE" -> "Singles"; else -> "Albums" }
+    val folder = root.trimEnd('/') + "/" + pathPart(artist, "Unknown artist") + "/" + sub + "/" + pathPart(releaseName(name, k), "Unknown album") + "/"
+    val file = (if (number != null && number > 0) "%02d ".format(number) else "") + pathPart(title, "Untitled") + ".flac"
+    return folder to file
 }
 
 /** The main music folder's name: inside it, one folder per artist, and in each one a folder per release. */
