@@ -180,6 +180,7 @@ fun App() {
                         "singles" -> AlbumsTab(ui, kind = "singles")
                         "genres" -> GenresTab(ui)
                         "folders" -> FoldersTab(ui)
+                        "downloads" -> DownloadsTab(ui)
                         "flac24" -> FlacTab(ui, 24)
                         "flac32" -> FlacTab(ui, 32)
                         "queue" -> QueueTab(ui)
@@ -244,6 +245,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Genres", Ico.GENRE, "genres"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
         add(Entry("Folders", Ico.FOLDER, "folders"))
+        add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))
         add(Entry("32-bit FLACs", Ico.NOTE, "flac32"))
         add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
@@ -397,6 +399,7 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "singles" -> "Singles"
         "genres" -> "Genres"
         "folders" -> "Folders"
+        "downloads" -> "Downloads"
         "flac24" -> "24-bit FLACs"
         "flac32" -> "32-bit FLACs"
         "queue" -> "Up next"

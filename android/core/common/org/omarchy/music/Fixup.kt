@@ -591,6 +591,22 @@ fun fixupPlan(
             cover.remove(f)
         }
     }
+    // A song on a release named as an EP or a single ("Title - EP", "Title - Single", as taggers write them) stays on
+    // it: its album tag (what says it's an EP or a single), number and album artist are never changed; artist fixes
+    // still apply.
+    for (t in songs) {
+        val f = t.file
+        val cur = now[f]!!
+        if (has(f) && cur.album != t.album && (isEp(t.album) || isSingleRelease(t.album))) {
+            cur.album = t.album
+            cur.tracknumber = t.track
+            val k = kinds[f]!!
+            if ("artist" !in k) cur.albumartist = t.albumartist
+            k.removeAll(setOf("single", "remix", "edition", "parts", "cover"))
+            why[f] = if ("artist" in k) mutableListOf("“${t.artist}” → “${cur.artist}”") else mutableListOf()
+            cover.remove(f)
+        }
+    }
 
     val out = ArrayList<FixupChange>()
     for (t in songs) {

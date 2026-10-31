@@ -56,6 +56,7 @@ import org.omarchy.music.Track
 import org.omarchy.music.fmtTotal
 import org.omarchy.music.linkSource
 import org.omarchy.music.localMatches
+import org.omarchy.music.rankSongs
 import org.omarchy.music.norm
 
 private fun searchName(key: String) = if (key == "local") "your music" else SOURCES[key] ?: ""
@@ -113,23 +114,40 @@ fun runSearch(ui: Ui, quiet: Boolean = false) {
     val seq = ++ui.searchSeq
     ui.tab = "search"
     ui.resultsAreList = Regex("/(playlist|album|mix)/|list=").containsMatchIn(q)
-    if (key == "local") {
-        ui.searching = false
+    if (key == "local") {   // your own songs: looked through off the screen's thread, so typing never stutters
         ui.foundIn = key
-        ui.found = localMatches(Music.mySongs(), q)
+        ui.searching = true
+        Music.bg({ localMatches(Music.mySongs(), q) }) { res, _ ->
+            if (seq != ui.searchSeq) return@bg
+            ui.searching = false
+            ui.found = res ?: Found(emptyList())
+        }
         return
     }
     val src = Music.sources[key]
     if (src == null) { if (!quiet) Music.toast("Still connecting to ${SOURCES[key]}…"); return }
     if (!src.signedIn && key in setOf("tidal", "spotify", "apple", "deezer")) { if (!quiet) Music.toast("Connect ${SOURCES[key]} in Settings first"); return }
-    ui.searching = true
     ui.foundIn = key
-    Music.bg({ if (link != null) Found(src.search(q)) else src.find(q) }) { res, err ->
+    // Searched a moment ago (typing on, then back): at once
+    val cacheKey = "$key|${q.lowercase()}"
+    SearchCache.get(cacheKey)?.let { ui.searching = false; ui.found = it; return }
+    ui.searching = true
+    Music.bg({ if (link != null) Found(src.search(q)) else src.find(q).let { it.copy(songs = rankSongs(it.songs, q)) } }) { res, err ->
+        if (res != null && err == null) SearchCache.put(cacheKey, res)
         if (seq != ui.searchSeq) return@bg   // a newer search is on its way
         ui.searching = false
         if (err != null) { ui.found = Found(emptyList()); Music.toast("Search failed: ${err.message?.take(100)}") }
         else ui.found = res
     }
+}
+
+/** The last searches' results (for ten minutes), so going back to something you typed shows it at once. */
+object SearchCache {
+    private val map = object : LinkedHashMap<String, Pair<Long, Found>>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, Found>>?) = size > 60
+    }
+    @Synchronized fun get(k: String): Found? = map[k]?.takeIf { System.currentTimeMillis() - it.first < 600_000 }?.second
+    @Synchronized fun put(k: String, f: Found) { map[k] = System.currentTimeMillis() to f }
 }
 
 @Composable

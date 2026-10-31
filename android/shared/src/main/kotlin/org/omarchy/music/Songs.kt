@@ -29,8 +29,8 @@ val SEARCH_IN = linkedMapOf("tidal" to "Tidal", "ytm" to "YouTube Music", "local
 fun liveSearchWait(q: String, where: String): Long? = when {
     linkSource(q.trim()) != null -> 50
     q.trim().length < 2 -> null
-    where == "local" -> 150
-    else -> 450
+    where == "local" -> 120
+    else -> 300
 }
 
 /** The service a pasted link is from, or null for words to search. */
@@ -429,3 +429,21 @@ fun songPickKey(title: String, artist: String): String = statsKey(title, artist)
 fun statsKey(title: String, artist: String): Pair<String, String> =
     norm(cleanTitle(title)) to norm(artist.lowercase().split(Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with "))[0])
         .let { n -> n.replace(Regex("[\\W_]+"), "").ifEmpty { n } }   // K.Flay = kflay
+
+/** A service's songs for a search, the best fits first: the song named just what you typed, then ones whose name and
+ *  artist hold all your words, then the rest, each in the service's own order. */
+fun rankSongs(songs: List<Track>, q: String): List<Track> {
+    val words = norm(q).split(" ").filter { it.isNotEmpty() }
+    if (words.isEmpty() || songs.size < 2) return songs
+    val whole = norm(q)
+    fun score(t: Track): Int {
+        val title = norm(cleanTitle(t.title)); val all = norm("${t.title} ${t.artist}")
+        return when {
+            title == whole || norm("${cleanTitle(t.title)} ${t.artist.split(",")[0]}") == whole || norm("${t.artist.split(",")[0]} ${cleanTitle(t.title)}") == whole -> 3
+            words.all { it in all } -> 2
+            words.any { it in title } -> 1
+            else -> 0
+        }
+    }
+    return songs.withIndex().sortedWith(compareByDescending<IndexedValue<Track>> { score(it.value) }.thenBy { it.index }).map { it.value }
+}

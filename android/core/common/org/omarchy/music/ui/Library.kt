@@ -406,3 +406,20 @@ fun FlacTab(ui: Ui, bits: Int) {
         tracks(all.map { it.first }, ui, "flac$bits") { t -> formats[t.id]?.let { org.omarchy.music.FlacDepths.label(it) } ?: "" }
     }
 }
+
+/** Downloads (☰ menu): the songs you downloaded from a service (Tidal, or YouTube where Tidal hasn't them), the newest
+ *  first, each with its quality; as a list or a grid. */
+@Composable
+fun DownloadsTab(ui: Ui) {
+    val all = remember(Music.savedVersion) { runCatching { Music.lib.items.values.sortedByDescending { it.added } }.getOrDefault(emptyList()) }
+    if (all.isEmpty()) { Empty("No downloads yet", "Songs you download from Tidal or YouTube show up here."); return }
+    val songs = remember(all) { all.map { it.track() } }
+    val quality = remember(all) { all.associate { it.track().id to it.quality } }
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "Downloads", songs = songs)) })
+            Section("${songs.size} DOWNLOADED SONG${if (songs.size != 1) "S" else ""}")
+        }
+        tracks(songs, ui, "downloads") { t -> quality[t.id].orEmpty() }
+    }
+}
