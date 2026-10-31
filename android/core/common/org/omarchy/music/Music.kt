@@ -1011,6 +1011,7 @@ object Music {
             adoptFiles()
             accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since
+            bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
         }
     }
 

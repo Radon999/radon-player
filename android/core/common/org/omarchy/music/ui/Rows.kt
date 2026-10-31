@@ -289,7 +289,11 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                 ArtistLinks(t.artist, ui, t.source, suffix = if (bits.isNotEmpty()) "  · $bits" else "")
             }
             if (C.apple && t.duration > 0) Text(fmtTime(t.duration), style = T.time, modifier = Modifier.padding(end = 6.dp))
-            if (saved != null) Badge(if (saved.format == "flac") "FLAC" else "✓")
+            // The file's format on every song of yours ("FLAC 24", "MP3"), and ⤓ on the ones downloaded from a service
+            org.omarchy.music.FlacDepths.version
+            val fmt = if (saved != null) formatBadge(saved.format, saved.quality) else org.omarchy.music.FlacDepths.badge(t.file)
+            if (fmt != null) Badge(fmt)
+            if (saved != null) Icon(Ico.DOWNLOAD, C.accent, 16.dp, Modifier.padding(start = 4.dp))
             else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)
             if (!ui.selecting) Box(Modifier.clip(R.pill).clickable { menu = true }.padding(6.dp)) { Icon(Ico.MORE, C.muted, 18.dp) }
         }
@@ -297,6 +301,13 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             modifier = Modifier.align(Alignment.BottomStart).padding(start = 78.dp, end = 12.dp))   // Apple's thin line between rows
         TrackMenu(t, place, ui, menu) { menu = false }
     }
+}
+
+/** A download's mark: its kind and, for FLAC, its bit depth from its quality ("24-bit/96 kHz"): "FLAC 24", "M4A". */
+fun formatBadge(format: String, quality: String): String? {
+    if (format.isBlank()) return null
+    val bits = Regex("(\\d+)-bit").find(quality)?.groupValues?.get(1)
+    return format.uppercase() + if (bits != null && format.lowercase() in setOf("flac", "wav")) " $bits" else ""
 }
 
 /** The album song t is on: yours (Albums) if you have it, else its page on the song's service (or Tidal's, YouTube Music's). */

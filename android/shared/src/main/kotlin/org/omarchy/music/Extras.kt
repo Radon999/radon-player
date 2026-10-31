@@ -190,8 +190,8 @@ fun pathPart(name: String?, fallback: String = "Unknown"): String =
     Regex("[<>:\"/\\\\|?*\\x00-\\x1f]").replace(name ?: "", "_").trim().trimEnd('.', ' ').ifEmpty { fallback }.take(120)
 
 /** Where a download goes in a download folder of yours (a folder under Music/, as "Music/Mine/"): (its folder, its
- *  file name) as Artist/Album/, "NN Title.flac": each release's folder right in its artist's, as taggers lay them out,
- *  a single's or an EP's named as they name them ("Title - Single", "Title - EP"). kind is the service's ("ALBUM",
+ *  file name): an album's right in its artist's folder (Artist/Album/), an EP's and a single's in Artist/EPs/ and
+ *  Artist/Singles/, named as taggers name them ("Title - EP", "Title - Single"); "NN Title.flac". kind is the service's ("ALBUM",
  *  "EP", "SINGLE"); without one, the album's name says. */
 fun downloadPlace(root: String, artist: String, album: String, kind: String?, number: Long?, title: String): Pair<String, String> {
     val name = album.ifBlank { title }.trim()
@@ -200,7 +200,8 @@ fun downloadPlace(root: String, artist: String, album: String, kind: String?, nu
         isEp(album) -> "EP"
         else -> "ALBUM"
     }
-    val folder = root.trimEnd('/') + "/" + pathPart(artist, "Unknown artist") + "/" + pathPart(releaseName(name, k), "Unknown album") + "/"
+    val sub = when (k) { "EP" -> "EPs/"; "SINGLE" -> "Singles/"; else -> "" }   // albums right in the artist's folder
+    val folder = root.trimEnd('/') + "/" + pathPart(artist, "Unknown artist") + "/" + sub + pathPart(releaseName(name, k), "Unknown album") + "/"
     val file = (if (number != null && number > 0) "%02d ".format(number) else "") + pathPart(title, "Untitled") + ".flac"
     return folder to file
 }
