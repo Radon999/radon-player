@@ -1,46 +1,23 @@
-run 41186468557 · Sat Oct 31 08:58:35 UTC 2026
-PHONE FAILED
-PC FAILED
+run 41186785267 · Sat Oct 31 09:05:49 UTC 2026
+PHONE OK
+PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="1" failures="0" tests="1" failures="0" tests="7" failures="0" tests="1" failures="0" 
-e: core/common/org/omarchy/music/FlacDepths.kt:48:82 Method 'contains' from ConcurrentHashMap might have unexpected semantics: it calls 'containsValue' instead of 'containsKey'. Use the explicit form of the call to 'containsKey'/'containsValue'/'contains' or cast the value to 'kotlin.collections.Map' instead. See https://youtrack.jetbrains.com/issue/KT-18053 for more details.
-> Task :app:compileReleaseKotlin FAILED
-> Task :app:mergeReleaseShaders
-> Task :app:compileReleaseShaders NO-SOURCE
-> Task :app:generateReleaseAssets UP-TO-DATE
---
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/FlacDepths.kt:48:82 Method 'contains' from ConcurrentHashMap might have unexpected semantics: it calls 'containsValue' instead of 'containsKey'. Use the explicit form of the call to 'containsKey'/'containsValue'/'contains' or cast the value to 'kotlin.collections.Map' instead. See https://youtrack.jetbrains.com/issue/KT-18053 for more details.
+  long min;
+  long max;
+}`
+Info: Proguard configuration rule does not match anything: `-keepclassmembers class j$.util.DoubleSummaryStatistics {
+  long count;
+  double sum;
+  double min;
+  double max;
+}`
 
-FAILURE: Build completed with 2 failures.
---
-* What went wrong:
-Execution failed for task ':app:compileReleaseKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
---
-BUILD FAILED in 3m 19s
-86 actionable tasks: 86 executed
-> Get more help at https://help.gradle.org.
-==============================================================================
-
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -48,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 19s
-86 actionable tasks: 86 executed
+BUILD SUCCESSFUL in 5m 5s
+103 actionable tasks: 103 executed
