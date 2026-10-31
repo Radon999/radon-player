@@ -38,6 +38,18 @@ fun cleanTitle(s: String): String {
 /** Just the song's name: no brackets, nothing after " - ". */
 fun bareTitle(s: String) = cleanTitle(Regex("[(\\[][^)\\]]*[)\\]]|\\s[-–]\\s.*$").replace(s, " "))
 
+/** An album's name for telling albums apart: its edition left out ("Nectar (Deluxe Edition)", "Nectar - EP" are Nectar),
+ *  but not the rest of it ("Mercury - Act 1", "Mercury - Act 2" and "Loom - Sessions" are each their own album). */
+fun albumBase(s: String): String {
+    var t = s.lowercase()
+    t = ALBUM_EDITION_BRACKETS.replace(t, " ")
+    t = ALBUM_EDITION_DASH.replace(t, " ")
+    return norm(cleanTitle(t))
+}
+private val ALBUM_EDITION_WORDS = "deluxe|edition|expanded|remaster(ed)?|anniversary|bonus|explicit|clean|version|extended|complete|special|collector'?s?|super|reissue"
+private val ALBUM_EDITION_BRACKETS = Regex("[(\\[][^)\\]]*\\b($ALBUM_EDITION_WORDS)\\b[^)\\]]*[)\\]]")
+private val ALBUM_EDITION_DASH = Regex("\\s[-–]\\s(ep|single|[^-–]*\\b($ALBUM_EDITION_WORDS)\\b[^-–]*)\\s*$")
+
 /** Artists credited in a title: "Song (feat. A & B)" -> {a, b}. */
 fun featured(title: String): Set<String> {
     val m = FEATURING.find(title) ?: return emptySet()

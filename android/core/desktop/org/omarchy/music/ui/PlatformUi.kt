@@ -56,6 +56,7 @@ private object Images {
         is FileArt -> org.omarchy.music.embeddedPicture(Music.ctx, model.uri)
             ?: File(java.net.URI(model.uri.takeIf { it.startsWith("file:") } ?: File(model.uri).toURI().toString()).path)
                 .parentFile?.listFiles()?.firstOrNull { it.name.lowercase() in COVERS }?.readBytes()
+            ?: model.fallback.takeIf { it.isNotEmpty() }?.let { bytes(it) }
         is AuthImage -> fetch(model.url, model.auth)
         is String -> when {
             model.startsWith("http://") || model.startsWith("https://") -> fetch(model, null)

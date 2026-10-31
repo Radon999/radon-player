@@ -80,7 +80,7 @@ object Tags {
 object Covers {
     /** Which album a song is from: its lead artist and album, tidied; a song without an album is one of its own. */
     internal fun albumKey(t: Track): Pair<String, String> =
-        norm(t.artist.split(",")[0]) to norm(bareTitle(t.album)).ifEmpty { "#" + t.id }
+        norm(t.artist.split(",")[0]) to albumBase(t.album).ifEmpty { "#" + t.id }
 
     internal fun isJpeg(b: ByteArray) = b.size > 3 && b[0] == 0xff.toByte() && b[1] == 0xd8.toByte() && b[2] == 0xff.toByte()
 

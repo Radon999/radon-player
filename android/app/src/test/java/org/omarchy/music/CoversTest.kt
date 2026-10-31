@@ -16,6 +16,16 @@ class CoversTest {
         val loose1 = Track("3", title = "Leak", artist = "Band")
         val loose2 = Track("4", title = "Other leak", artist = "Band")
         assertNotEquals(Covers.albumKey(loose1), Covers.albumKey(loose2))   // no album: each its own
+        // Different albums with names alike keep their own covers.
+        val act1 = Track("5", title = "Bones", artist = "Imagine Dragons", album = "Mercury - Act 1")
+        val act2 = Track("6", title = "Sharks", artist = "Imagine Dragons", album = "Mercury - Act 2")
+        val plain = Track("7", title = "Dangerous", artist = "Imagine Dragons", album = "Mercury")
+        val sessions = Track("8", title = "Feeling", artist = "Imagine Dragons", album = "Loom - Sessions")
+        val loom = Track("9", title = "Wake Up", artist = "Imagine Dragons", album = "Loom")
+        assertNotEquals(Covers.albumKey(act1), Covers.albumKey(act2))
+        assertNotEquals(Covers.albumKey(act1), Covers.albumKey(plain))
+        assertNotEquals(Covers.albumKey(sessions), Covers.albumKey(loom))
+        assertEquals(Covers.albumKey(Track("10", artist = "Band", album = "South - EP")), Covers.albumKey(Track("11", artist = "Band", album = "South")))
     }
 
     @Test fun aNewCoverKeepsTheTags() {

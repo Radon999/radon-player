@@ -9,17 +9,21 @@ import java.io.File
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** The cover inside a song file (on the phone, or Android's thumbnail of it; on the PC, the file's own picture). */
-data class FileArt(val uri: String)
+/** The cover inside a song file (on the phone, or Android's thumbnail of it; on the PC, the file's own picture, else its
+ *  folder's cover.jpg); fallback (a picture's path or address) when it has none. */
+data class FileArt(val uri: String, val fallback: String = "")
 
 /** What to draw for a song's art: the saved cover, the service's picture, or the file's own. */
 fun artModel(t: Track, px: Int = 226): Any? {
     Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && File(it).exists() }?.let { return File(it) }
-    org.omarchy.music.Pictures.cover(t.artist, t.album.ifEmpty { t.title }).takeIf { it.isNotEmpty() }?.let {   // one you picked
-        return if (it.startsWith("/") || (it.length > 2 && it[1] == ':')) File(it) else it
-    }
+    fun pic(it: String): Any = if (it.startsWith("/") || (it.length > 2 && it[1] == ':')) File(it) else it
+    val name = t.album.ifEmpty { t.title }
+    org.omarchy.music.Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return pic(it) }   // one you picked
+    // One picked before 2.1.2 (its album's name may only look like this one's): after the song's own cover.
+    val old = org.omarchy.music.Pictures.oldCover(t.artist, name)
+    if (old.isNotEmpty() && t.file == null) return pic(old)
     if (t.thumb.isNotEmpty()) return sizedThumb(t.thumb, px)
-    return t.file?.let { FileArt(it) }
+    return t.file?.let { FileArt(it, old) }
 }
 
 /** Colour sums without Android's helpers (the same maths as android.graphics.Color and ColorUtils). */

@@ -168,7 +168,8 @@ object MusicTools {
         val bare = songs.filterIndexed { i, t ->
             if (i % 50 == 0) progress("Looking at your covers… ${i + 1} of ${songs.size}")
             val saved = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() } != null
-            val picked = Pictures.cover(t.artist, t.album.ifEmpty { t.title }).isNotEmpty()
+            val picked = Pictures.cover(t.artist, t.album.ifEmpty { t.title }).isNotEmpty() ||
+                Pictures.oldCover(t.artist, t.album.ifEmpty { t.title }).isNotEmpty()
             !saved && !picked && t.thumb.isEmpty() && (t.file == null || !runCatching { FileTags.hasCover(Music.ctx, t.file!!) }.getOrDefault(false))
         }
         return bare.groupBy { Covers.albumKey(it) }.values.sortedWith(compareBy({ norm(it[0].artist) }, { norm(it[0].album) }))
