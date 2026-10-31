@@ -160,6 +160,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
         ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id))), "Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick(kind, id, songs) })
     }
     item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick(kind) } } }
+    // Folders are always a list of folders (no covers), on the phone and the PC alike.
+    if (kind == "folder") {
+        items(list.size, key = { "$kind-" + list[it].first }) { i ->
+            val (id, songs) = list[i]
+            GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
+        }
+        return
+    }
     laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
         val (id, songs) = list[i]
         GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
@@ -188,7 +196,7 @@ fun FoldersTab(ui: Ui) {
     val folders = all.filter { fits(ui, it.first) }
     LazyColumn(Modifier.fillMaxSize()) {
         item { Section("${folders.size} FOLDERS") }
-        groups(ui, "folder", folders, { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }) { f, _ -> "/storage/emulated/0/" + f.trimEnd('/') }
+        groups(ui, "folder", folders, { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }) { f, _ -> fullFolderPath(f.trimEnd('/')) }
     }
 }
 
