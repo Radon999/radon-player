@@ -712,9 +712,22 @@ private fun LyricsMoodsLines(ui: Ui) {
         Switch(on, { on = it; org.omarchy.music.Prefs.set(org.omarchy.music.Moods.AI_ON, it) }, colors = swColors())
     }
     if (on) {
+        // How to get a key, step by step (and where it goes)
+        Text("How to get your key:\n" +
+            "1. Tap Get a key below (or go to platform.claude.com) and sign up or log in. It's separate from a Claude.ai " +
+            "subscription.\n" +
+            "2. Go to Settings › Billing and add credits. The smallest amount ($5) is plenty: reading 3,000 songs costs " +
+            "about $1–3, once.\n" +
+            "3. Go to API keys and tap Create key. Name it \"Radon Player\".\n" +
+            "4. Copy the key straight away (it starts with sk-ant-). It's only shown once.\n" +
+            "5. Paste it in the box below and tap Save.\n" +
+            "6. Tap Read under Moods from lyrics (or on the Moods tab). Songs already read aren't read again.\n" +
+            "Keep the key to yourself: anyone with it can spend your credits. To stop, clear the box and tap Save, or delete " +
+            "the key at platform.claude.com.",
+            style = T.sub, modifier = Modifier.padding(vertical = 4.dp))
         Field(key, "Anthropic API key", password = true) { key = it }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            Pill("Get a key", quiet = true) { Services.open("https://console.anthropic.com/settings/keys") }
+            Pill("Get a key", quiet = true) { Services.open("https://platform.claude.com/settings/keys") }
             Pill("Save") { org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, key.trim()); Music.toast(if (key.isBlank()) "Key taken off" else "Key saved") }
         }
     }
