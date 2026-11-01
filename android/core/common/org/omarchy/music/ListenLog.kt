@@ -111,6 +111,17 @@ object ListenLog {
         } })
     }
 
+    /** (blocking, Sync) The diary as it's kept, every line. */
+    fun syncText(): String = synchronized(lock) { readText(file).orEmpty() }
+
+    /** (blocking, Sync) The other device's diary added: each stretch once, however often the two sync. */
+    fun mergeIn(other: String) = synchronized(lock) {
+        if (other.isBlank()) return@synchronized
+        val mine = readText(file).orEmpty()
+        val both = SyncMerge.mergeDiary(mine, other)
+        if (both != SyncMerge.mergeDiary(mine, "")) writeAtomic(file, both)
+    }
+
     /** (blocking) Everything written down, oldest first, with the song playing now so far. */
     fun all(): List<Entry> = synchronized(lock) {
         if (!recovered && open == null) recover()

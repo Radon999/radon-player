@@ -149,7 +149,13 @@ class Plays(ctx: Ctx) {
 
 @Serializable
 data class Playlist(val id: String, val name: String, val created: Double, val updated: Double, val tracks: List<Track> = emptyList(),
-                    val smart: Smart? = null, val discovery: Discovery? = null)
+                    val smart: Smart? = null, val discovery: Discovery? = null,
+                    /** A synced playlist (true): kept the same on the phone and the PC by Sync. false: syncing was just
+                     *  turned off (sent once more, so the other device's copy stays as a normal playlist). null: a normal one. */
+                    val synced: Boolean? = null) {
+    /** Its name as shown: a synced one with the ⇄ mark. */
+    val shown: String get() = if (synced == true) "⇄ $name" else name
+}
 
 /** A discovery playlist (role "discover": an artist's songs you haven't got) or its "discovered" one
  *  (the ones you heard to the end, to review). */
@@ -291,12 +297,16 @@ class Playlists(ctx: Ctx) {
     }
 
     @Synchronized
-    fun create(name: String, discovery: Discovery? = null): Playlist {
-        val pl = Playlist(randomHex(6), name, now(), now(), discovery = discovery)
+    fun create(name: String, discovery: Discovery? = null, synced: Boolean = false): Playlist {
+        val pl = Playlist(randomHex(6), name, now(), now(), discovery = discovery, synced = if (synced) true else null)
         items += pl
         save()
         return pl
     }
+
+    /** Synced with the other device or not (turned off: sent once more as off, then a normal playlist on both). */
+    @Synchronized
+    fun setSynced(id: String, on: Boolean) = edit(id) { it.copy(synced = if (on) true else if (it.synced == true) false else null, updated = now()) }
 
     @Synchronized
     fun rename(id: String, name: String) = edit(id) { it.copy(name = name, updated = now()) }

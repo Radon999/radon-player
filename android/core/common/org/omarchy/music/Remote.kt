@@ -99,6 +99,7 @@ object Remote {
             if (err == null && tok != null) {
                 host = h; token = tok; name = res["name"].str ?: "Desktop"; on = true
                 save()
+                Sync.paired()   // synced straight after pairing
                 refresh()
                 share()
             }

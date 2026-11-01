@@ -210,6 +210,14 @@ object Voice {
         Music.toast("The natural voice couldn't speak, so Windows' voice is used" + if (last.isNotEmpty()) ": $last" else "")
     }
 
+    /** Kokoro's English dictionary's words (lowercase), read once: a word not in it is respelt ([Pronounce]), since
+     *  Kokoro skips words it doesn't know (artists' names were left out). */
+    @Volatile private var lexWords: Set<String>? = null
+    private fun lexicon(): Set<String> = lexWords ?: runCatching {
+        java.io.File(modelDir, "lexicon-us-en.txt").useLines { lines ->
+            lines.mapNotNull { l -> l.trim().split(Regex("\\s+"), limit = 2).firstOrNull()?.lowercase()?.takeIf { it.isNotEmpty() } }.toHashSet() }
+    }.getOrDefault(emptySet()).also { if (it.isNotEmpty()) lexWords = it }
+
     /** Kokoro's speed: a touch faster than its default, like someone talking, not reading (length scale under 1). */
     private const val LENGTH_SCALE = "0.92"
 
@@ -221,7 +229,7 @@ object Voice {
             val v = DjVoices.kokoroVoice
             val m = modelDir
             // Plain letters only on the command line (é is e): the program reads it in the PC's old code page.
-            val plain = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+            val plain = java.text.Normalizer.normalize(Pronounce.sayable(text, lexicon()), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
                 .replace("\"", "").replace(Regex("[^\\x20-\\x7E]"), " ").replace(Regex("\\s+"), " ").trim()
             if (plain.isEmpty()) return@runCatching false
             var lastOut = ""

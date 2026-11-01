@@ -1597,9 +1597,9 @@ object Music {
         Stats.refresh(force = true)
     }
 
-    fun newPlaylist(name: String): String {
-        val id = lists.create(name).id
-        toast("Made “$name”")
+    fun newPlaylist(name: String, synced: Boolean = false): String {
+        val id = lists.create(name, synced = synced).id
+        toast(if (synced) "Made the synced playlist “$name”: it's on the ${if (Remote.paired) "PC" else "other device"} too after the next sync" else "Made “$name”")
         musicVersion++
         return id
     }
@@ -1618,6 +1618,12 @@ object Music {
 
     fun removeFromPlaylist(id: String, ids: Set<String>) { lists.remove(id, ids); musicVersion++ }
     fun renamePlaylist(id: String, name: String) { lists.rename(id, name); musicVersion++ }
+    /** Settings a playlist to sync with the other device (Sync), or not. */
+    fun setPlaylistSynced(id: String, on: Boolean) {
+        lists.setSynced(id, on); musicVersion++
+        toast(if (on) "Synced: it's the same on your phone and PC after each sync" else "Not synced any more: each device keeps its own copy")
+        if (on) Sync.soon()
+    }
     // ---- folders of playlists ----
     fun newFolder(name: String, item: FolderItem? = null) {
         val f = playlistFolders.create(name)

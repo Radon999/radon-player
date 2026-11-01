@@ -798,7 +798,11 @@ private fun SyncLines(ui: Ui) {
         ": " + s.lastText.removePrefix("Synced: ") else "Not synced yet"
     val note = s.busy ?: if (pc && s.waiting) "Waiting for the phone: open Radon Player on it (on the same network) and it syncs " +
         "within 20 seconds" else last
-    Line("Sync with $other", "Swaps your playlists, smart playlists and playlist folders, favorites, pins, plays and skips, moods, " +
+    Line("Sync with $other", "Syncs by itself each time the phone and PC connect (pairing, opening the app, back on the same Wi-Fi), " +
+        "and whenever you tap Sync now. The app's own stats go across so both show the same: plays, skips, songs heard out and " +
+        "the listening diary (time listened, playlists, outputs, searches), each counted once however often you sync. Imports " +
+        "and Last.fm aren't sent: import them on each device. Songs downloaded on one are downloaded on the other (each once). " +
+        "Synced playlists (⇄) are kept exactly the same on both; other playlists stay on their device. It also swaps playlist folders, favorites, pins, moods, " +
         "Sound presets, headphone corrections and each Bluetooth, USB or car output's EQ, the lists of things you said never to " +
         "show again, sorts and tabs, the DJ's and your other settings with the $other's, both ways, keeping the newest change " +
         "of each. Your music folders, download folder, queue and the settings only this $DEVICE has stay as they are",

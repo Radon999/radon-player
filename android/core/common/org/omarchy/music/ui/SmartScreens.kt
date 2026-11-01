@@ -122,13 +122,13 @@ internal fun LazyListScope.smartPlaylists(ui: Ui) {
         val pl = shown[i]
         val songs = SmartLists.songs(pl)
         val cover = songs?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-        PlaylistRow(Album(pl.id, pl.name, if (songs == null) "…" else "", "", songs?.size?.toString() ?: ""), cover?.let { artModel(it) },
+        PlaylistRow(Album(pl.id, pl.shown, if (songs == null) "…" else "", "", songs?.size?.toString() ?: ""), cover?.let { artModel(it) },
             onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null) { tapList(pl) }
     }) { i, mod, compact ->
         val pl = shown[i]
         val songs = SmartLists.songs(pl)
         val cover = songs?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-        Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.name, if (songs == null) "…" else "${songs.size} songs", mod, compact,
+        Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.shown, if (songs == null) "…" else "${songs.size} songs", mod, compact,
             ico = Ico.SPARKLE, lit = picking && pl.id in picked, onLongClick = { menu(pl) }) { tapList(pl) }
     }
     // Ready-made ones, a tap each (the ones you have already, by name, left out).
@@ -151,7 +151,7 @@ private fun settingsWords(sm: Smart) = listOf(SmartRules.ORDERS[sm.order] ?: sm.
 /** A smart playlist open: Play, Shuffle, DJ, Edit…, the rules in words, its songs. */
 private fun LazyListScope.smartOpen(ui: Ui, open: Playlist) {
     val sm = open.smart ?: return
-    item { BackRow(open.name) { ui.openMine = null } }
+    item { BackRow(open.shown) { ui.openMine = null } }
     SmartLists.version
     val songs = SmartLists.songs(open)
     val sorted = Music.sortedPlaylist(songs.orEmpty())
@@ -160,6 +160,7 @@ private fun LazyListScope.smartOpen(ui: Ui, open: Playlist) {
             "Edit" to { SmartEdit.start(open) },
             "Rename" to { ui.askName = Triple("Rename smart playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             if (!sm.live) "Refresh" to { SmartLists.takeAgain(open) } else null,
+            (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
             "Delete" to { ui.confirm = "Delete the smart playlist “${open.name}”? Your songs stay where they are." to { Music.deletePlaylist(open.id); ui.openMine = null } },
             "Export" to { ui.exportFor = open.name to sorted },
         ), pin = Pin("smart", open.id, open.name))

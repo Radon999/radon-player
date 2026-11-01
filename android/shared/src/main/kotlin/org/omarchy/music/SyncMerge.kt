@@ -140,6 +140,22 @@ object SyncMerge {
         SyncRules.SWITCHES to Rule.ByKey(),
     )
 
+    /** The listening diaries (listen-log.jsonl, one stretch of a song a line) of both devices, as one: every stretch once
+     *  (the same start and song on both is the same stretch, the longer kept), oldest first. Merging again, or merging
+     *  a diary with itself, adds nothing. */
+    fun mergeDiary(a: String, b: String): String {
+        val out = LinkedHashMap<String, JsonObject>()
+        for (line in (a.lineSequence() + b.lineSequence())) {
+            if (line.isBlank()) continue
+            val o = runCatching { org.omarchy.music.JSON.parseToJsonElement(line) as? JsonObject }.getOrNull() ?: continue
+            val t = o["t"].long ?: continue
+            val k = "$t|${norm(cleanTitle(o["title"].str ?: ""))}|${norm((o["artist"].str ?: "").split(",")[0])}|${o["out"].str ?: ""}"
+            val had = out[k]
+            if (had == null || (o["secs"].dbl ?: 0.0) > (had["secs"].dbl ?: 0.0)) out[k] = o
+        }
+        return out.values.sortedBy { it["t"].long ?: 0L }.joinToString("") { it.toString() + "\n" }
+    }
+
     /** Every file both sides sent, merged. base: the result of the last sync between these two (null: never synced, so
      *  nothing counts as deleted); preferLocal: when both changed the same thing and nothing says which is newer, this
      *  device's wins (it's the one Sync was tapped on). */

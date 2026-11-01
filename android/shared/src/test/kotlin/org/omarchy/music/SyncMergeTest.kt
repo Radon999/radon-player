@@ -121,6 +121,29 @@ class SyncMergeTest {
         assertEquals(10L, merge(sent, sent, result, preferLocal = false)["plays.json"]["t"]["plays"].long)
     }
 
+    @Test fun syncingAgainAddsNothing() {
+        // 3 plays on the phone, synced; synced again with nothing new: still the same counts on both
+        val pc = files("plays.json" to """{"t":{"plays":4,"at":[1,2,3,4]}}""", "skips.json" to """{"t":{"skips":1,"skips_at":[9]}}""")
+        val phone = files("plays.json" to """{"t":{"plays":3,"at":[11,12,13]}}""", "skips.json" to """{"t":{"skips":2,"skips_at":[20,21]}}""")
+        val first = merge(null, pc, phone)
+        assertEquals(7L, first["plays.json"]["t"]["plays"].long); assertEquals(3L, first["skips.json"]["t"]["skips"].long)
+        val again = merge(first, first, first)
+        assertEquals(7L, again["plays.json"]["t"]["plays"].long); assertEquals(3L, again["skips.json"]["t"]["skips"].long)
+        // even with no record of the last sync (undone), the same plays aren't counted twice
+        val fresh = merge(null, first, first)
+        assertEquals(7L, fresh["plays.json"]["t"]["plays"].long); assertEquals(3L, fresh["skips.json"]["t"]["skips"].long)
+    }
+
+    @Test fun diariesJoinOnce() {
+        val a = """{"t":10,"secs":30.0,"title":"Song","artist":"X"}""" + "\n" + """{"t":50,"secs":12.0,"title":"Other","artist":"Y"}""" + "\n"
+        val b = """{"t":30,"secs":40.0,"title":"Third","artist":"Z"}""" + "\n" + """{"t":10,"secs":31.5,"title":"Song","artist":"X"}""" + "\n"
+        val m = SyncMerge.mergeDiary(a, b)
+        assertEquals(3, m.lines().count { it.isNotBlank() })
+        assertTrue(m.startsWith("""{"t":10,"secs":31.5"""))
+        assertEquals(m, SyncMerge.mergeDiary(m, b))
+        assertEquals(m, SyncMerge.mergeDiary(m, m))
+    }
+
     @Test fun setsAndPins() {
         val base = files("state.json" to """{"not_dupes":["a","b"],"pins":[{"kind":"album","id":"1","title":"X"}]}""")
         val l = files("state.json" to """{"not_dupes":["a","b","c"],"pins":[{"kind":"album","id":"1","title":"X"}]}""")

@@ -711,6 +711,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
     if (open == null && folder != null) { folderView(ui, folder); return }
     if (open == null) {
         item { ActionRow("＋  New playlist") { ui.askName = Triple("New playlist", "") { n -> Music.newPlaylist(n) } } }
+        // A synced playlist (⇄): the same on the phone and the PC, songs added or taken out on either
+        item { ActionRow("⇄  New synced playlist") { ui.askName = Triple("New synced playlist", "") { n -> Music.newPlaylist(n, synced = true) } } }
         item { ActionRow("＋  New folder") { ui.askName = Triple("New folder", "") { n -> Music.newFolder(n) } } }
         item {
             val busy = Music.importing
@@ -736,6 +738,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             ui.choices = pl.name to listOfNotNull(pinChoice(org.omarchy.music.Pin("mine", pl.id, pl.name)),
                 ("Download ($toGet song${if (toGet != 1) "s" else ""} not on this $DEVICE)" to { Music.downloadPlaylists(listOf(pl.id)) }).takeIf { toGet > 0 },
                 "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
+                (if (pl.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(pl.id, pl.synced != true) },
                 "Select" to { ui.startPick("playlists", pl.id, pl.tracks) })
         }
         fun tapList(pl: org.omarchy.music.Playlist) {
@@ -770,13 +773,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
+            PlaylistRow(Album(pl.id, pl.shown, "", "", songs.size.toString()), cover?.let { artModel(it) },
                 onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null) { tapList(pl) }
         }) { i, mod, compact ->
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.name, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
+            Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.shown, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
                 onLongClick = { menu(pl) }) { tapList(pl) }
         }
         lay(shown.filter { it.discovery == null })
@@ -796,11 +799,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
 
 /** One of your playlists, open (from Playlists, Pinned or Discovery). */
 private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, open: org.omarchy.music.Playlist) {
-    item { BackRow(open.name) { ui.openMine = null } }
+    item { BackRow(open.shown) { ui.openMine = null } }
     val sorted = Music.sortedPlaylist(open.tracks)
     item {
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
+            (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
             // A discovered playlist: review just its songs (download them or let them go).
             if (open.discovery?.role == "discovered" && open.tracks.isNotEmpty()) "Review" to { ui.reviewFor = open } else null,
             "Delete" to { ui.confirm = "Delete the playlist “${open.name}”? The songs stay where they are." to { Music.deletePlaylist(open.id); ui.openMine = null } },

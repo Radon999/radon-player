@@ -45,7 +45,9 @@ object Sync {
     private const val HEAD = "sync.json"       // the zip's first entry: who sent it, how
     private const val WAIT = 5 * 60L           // seconds the PC's Sync now waits for the phone
     private const val MAX_ENTRY = 64L shl 20   // bytes one file in a sync may be
-    private val KNOWN = SyncRules.FILES + SyncRules.SONG_FILES + listOf(SyncRules.STATE, SyncRules.SWITCHES, SyncRules.MOODS)
+    private const val DIARY = "listen-log.jsonl"   // the listening diary (ListenLog): each device's stretches added to the other's
+    private const val DOWNLOADS = "downloads.json" // the songs downloaded on this device: the other downloads the ones it hasn't
+    private val KNOWN = SyncRules.FILES + SyncRules.SONG_FILES + listOf(SyncRules.STATE, SyncRules.SWITCHES, SyncRules.MOODS, DIARY, DOWNLOADS)
 
     var busy by mutableStateOf<String?>(null)   // "Syncing with …" while it runs
         private set
@@ -94,8 +96,8 @@ object Sync {
     // ---- the phone: Sync now ----
 
     /** (the phone) Sync with the paired PC. fromPc: the PC's Sync now asked, so its changes win a tie. */
-    fun now(fromPc: Boolean = false) {
-        if (!Remote.paired) { Music.toast("Pair with the PC first (Settings › Play on)"); return }
+    fun now(fromPc: Boolean = false, auto: Boolean = false) {
+        if (!Remote.paired) { if (!auto) Music.toast("Pair with the PC first (Settings › Play on)"); return }
         if (!running.compareAndSet(false, true)) return
         val with = Remote.name.ifEmpty { "the PC" }
         busy = "Syncing with $with…"
@@ -105,24 +107,39 @@ object Sync {
         Music.bg({
             val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
             val moods = runCatching { Moods.backup() }.getOrNull()
-            val (_, theirs) = post(host, headers, head(if (fromPc) "pc" else "phone", songs), mine + listOfNotNull(moods?.let { SyncRules.MOODS to it }))
+            val diary = runCatching { ListenLog.syncText() }.getOrDefault("")
+            val (_, theirs) = post(host, headers, head(if (fromPc) "pc" else "phone", songs, auto),
+                mine + listOfNotNull(moods?.let { SyncRules.MOODS to it }) + (DIARY to diary) + (DOWNLOADS to DownloadSync.mine()))
             // The PC's result, on top of what was sent: anything changed here meanwhile (a play counted) stays too.
             val sent = parse(mine)
             val here = parse(files(songs)) + mapOf(SyncRules.STATE to st, SyncRules.SWITCHES to sw)
             val result = SyncMerge.mergeAll(sent, here, parse(theirs), preferLocal = false)
             saveUndo(mine, with)
+            theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the PC's stretches (each one once)
+            val sum = SyncMerge.summary(result, here)
             Done(result.mapValues { it.value.toString() }, result.filter { (n, v) -> here[n] != v }.keys,
-                SyncMerge.summary(result, here).text(), theirs[SyncRules.MOODS])
+                sum.text(), theirs[SyncRules.MOODS], sum.changed == 0, theirs[DOWNLOADS])
         }) { d, err ->
             running.set(false); busy = null
-            if (d == null) { Music.toast(failed(err)); return@bg }
+            if (d == null) { if (!auto) Music.toast(failed(err)); return@bg }
             runCatching { putInPlace(d.files, d.changed) }.onFailure { Crashes.caught(it, "Sync"); Music.toast("Synced, but couldn't put everything in place: ${it.message?.take(80)}") }
             d.moods?.let { runCatching { Moods.restoreLater(it); Moods.auto() } }
-            finished(d.summary, with)
+            val got = d.downloads?.let { runCatching { DownloadSync.take(it, with) }.getOrDefault(0) } ?: 0
+            finished(d.summary, with, quiet = auto && d.nothing && got == 0)
         }
     }
 
-    private class Done(val files: Map<String, String>, val changed: Set<String>, val summary: String, val moods: String?)
+    /** (the phone) Synced automatically each time it meets the PC: when it's paired, and whenever the PC can be
+     *  reached again after it couldn't (the app opened, back on the same Wi-Fi, the PC woken). */
+    private var met = false
+    private fun connected() {
+        if (met) return
+        met = true
+        now(auto = true)
+    }
+
+    private class Done(val files: Map<String, String>, val changed: Set<String>, val summary: String, val moods: String?, val nothing: Boolean,
+                       val downloads: String?)
 
     private val client by lazy { HTTP.newBuilder().readTimeout(3, TimeUnit.MINUTES).writeTimeout(3, TimeUnit.MINUTES).build() }
 
@@ -151,8 +168,13 @@ object Sync {
 
     private var nextCheck = 0L
 
+    /** (the phone) Just paired with a PC: sync straight away. */
+    fun paired() { met = false; nextCheck = 0L }
+    /** Something to send soon (a playlist made synced): on the phone, a sync in a few seconds. */
+    fun soon() { if (Remote.paired) { met = false; nextCheck = 0L } }
+
     /** (the phone, every few seconds) Whether the PC's Sync now is waiting for this phone: then sync. A quick question
-     *  every 20 seconds, every 2 minutes while the PC can't be reached. */
+     *  every 20 seconds, every 30 seconds while the PC can't be reached; meeting it again syncs ([connected]). */
     fun tick() {
         if (!Remote.paired || running.get()) return
         val t = System.currentTimeMillis()
@@ -160,8 +182,9 @@ object Sync {
         nextCheck = t + 20_000
         val host = Remote.host; val h = Remote.headers()
         Music.bg({ httpJson("http://$host/sync/wanted", h) }) { s, err ->
-            if (err != null) { nextCheck = System.currentTimeMillis() + 120_000; return@bg }
-            if (s["wanted"].bool == true) now(fromPc = true)
+            if (err != null) { met = false; nextCheck = System.currentTimeMillis() + 30_000; return@bg }
+            if (s["wanted"].bool == true) now(fromPc = true) else connected()
+            met = true
         }
     }
 
@@ -194,23 +217,26 @@ object Sync {
             val (st, sw) = onMain { stateJson() to switchesJson() }
             val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
             val myMoods = runCatching { Moods.backup() }.getOrNull()
+            theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the phone's stretches (each one once)
             val local = parse(mine)
             val remote = parse(theirs).filterKeys { songs || it !in SyncRules.SONG_FILES }
             val baseFile = File(dir, "sync-base-${sha1(peer).take(12)}.zip")
             // (fresh: the phone undid a sync, so this isn't a time to take what it lacks for deleted)
             val base = if (baseFile.isFile && asked["fresh"].bool != true) runCatching { parse(FileInputStream(baseFile).use { readZip(it) }.second) }.getOrNull() else null
             val merged = SyncMerge.mergeAll(base, local, remote, preferLocal = asked["prefer"].str == "pc")
-            val summary = SyncMerge.summary(merged, local).text()
+            val sum = SyncMerge.summary(merged, local); val summary = sum.text()
             val out = merged.mapValues { it.value.toString() }
             saveUndo(mine, peerName)
             onMain {
                 runCatching { putInPlace(out, merged.filter { (n, v) -> local[n] != v }.keys) }.onFailure { Crashes.caught(it, "Sync") }
                 theirs[SyncRules.MOODS]?.let { runCatching { Moods.restoreLater(it); Moods.auto() } }
+                theirs[DOWNLOADS]?.let { runCatching { DownloadSync.take(it, peerName) } }
             }
             val back = head("pc", songs)
             writeZipFile(baseFile, back, out)   // what these two agreed on: next time, what's gone from one side is deleted
-            onMain { finished(summary, peerName) }
-            val reply = out + listOfNotNull(myMoods?.let { SyncRules.MOODS to it })
+            onMain { finished(summary, peerName, quiet = asked["auto"].bool == true && sum.changed == 0) }
+            val reply = out + listOfNotNull(myMoods?.let { SyncRules.MOODS to it }) + (DIARY to runCatching { ListenLog.syncText() }.getOrDefault("")) +
+                (DOWNLOADS to DownloadSync.mine())
             return { os -> writeZip(os, back, reply) }
         } finally {
             running.set(false)
@@ -241,18 +267,18 @@ object Sync {
     private fun saveUndo(mine: Map<String, String>, with: String) =
         writeZipFile(undoFile, buildJsonObject { put("app", "radon-player"); put("undo", true); put("with", with); put("made", secs()) }, mine)
 
-    private fun finished(text: String, with: String) {
+    private fun finished(text: String, with: String, quiet: Boolean = false) {
         val t = secs()
         lastAt = t; lastWith = with; lastText = text; undoAt = t
         Prefs.set(FRESH, false)
         Prefs.setText(LAST, "$t"); Prefs.setText(LAST_WITH, with); Prefs.setText(SUMMARY, text)
-        Music.toast(text)
+        if (!quiet) Music.toast(text)
     }
 
     // ---- this device's side ----
 
-    private fun head(prefer: String, songs: Boolean) = buildJsonObject {
-        put("app", "radon-player"); put("v", 1); put("platform", platformName); put("device", deviceName)
+    private fun head(prefer: String, songs: Boolean, auto: Boolean = false) = buildJsonObject {
+        put("app", "radon-player"); put("v", 1); put("platform", platformName); put("device", deviceName); put("auto", auto)
         put("prefer", prefer); put("songs", songs); put("made", secs()); put("fresh", Prefs.on(FRESH))
     }
 
@@ -261,11 +287,13 @@ object Sync {
         val out = LinkedHashMap<String, String>()
         for (n in SyncRules.FILES + (if (songs) SyncRules.SONG_FILES else emptyList()))
             out[n] = readText(File(dir, n))?.takeIf { it.isNotBlank() } ?: SyncRules.empty(n)
+        // Only synced playlists (⇄) go across, and ones just turned off (once more, so the other keeps its copy)
+        out["playlists.json"]?.let { t -> out["playlists.json"] = SyncPlaylists.shared(t) }
         return out
     }
 
     private fun parse(files: Map<String, String>): Map<String, JsonElement> =
-        files.filterKeys { it != SyncRules.MOODS }.mapNotNull { (n, t) -> runCatching { n to JSON.parseToJsonElement(t) }.getOrNull() }.toMap()
+        files.filterKeys { it != SyncRules.MOODS && it != DIARY && it != DOWNLOADS }.mapNotNull { (n, t) -> runCatching { n to JSON.parseToJsonElement(t) }.getOrNull() }.toMap()
 
     /** (the screen's thread) The settings of state.json that sync, from the app as it is now. The EQ playing now is
      *  kept in its output's place, so each output's EQ is whole. */
@@ -303,7 +331,12 @@ object Sync {
             val text = files[n]?.takeIf { n in changed } ?: return
             synchronized(old) { writeAtomic(f(n), text); make() }
         }
-        swap("playlists.json", m.lists) { m.lists = Playlists(m.ctx) }
+        // Playlists: the synced ones as the sync left them, this device's own (not synced) as they are
+        files["playlists.json"]?.let { got -> synchronized(m.lists) {
+            val now = readText(f("playlists.json")) ?: "[]"
+            val next = SyncPlaylists.putBack(now, got)
+            if (next != null) { writeAtomic(f("playlists.json"), next); m.lists = Playlists(m.ctx) }
+        } }
         swap("playlist-folders.json", m.playlistFolders) { m.playlistFolders = PlaylistFolders(f("playlist-folders.json")) }
         swap("favorites.json", m.favorites) { m.favorites = Favorites(f("favorites.json")) }
         swap("plays.json", m.plays) { m.plays = Plays(m.ctx) }
