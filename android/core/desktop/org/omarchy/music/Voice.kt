@@ -216,7 +216,7 @@ object Voice {
     /** (blocking) text said by Kokoro; false if it couldn't. */
     private fun sayNatural(text: String, mine: Long): Boolean = runCatching {
         val exe = exe() ?: return@runCatching false
-        val wav = java.io.File.createTempFile("dj", ".wav")
+        val wav = java.io.File.createTempFile("djvoice", ".wav")   // (Java wants 3+ letters before the random part)
         try {
             val v = DjVoices.kokoroVoice
             val m = modelDir
