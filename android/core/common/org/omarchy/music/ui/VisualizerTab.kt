@@ -76,15 +76,21 @@ object Vis {
     const val COLOR = "vis_color"     // the colour, a VIS_COLORS key
     const val NOW = "np_vis"          // Now playing's visualizer, an NP_VIS_STYLES key
     const val NOW_BG = "np_bg"        // Now playing's background: "blur" (the cover's colours, the cover blurred) or "plain" (black)
+    const val NOW_STRENGTH = "np_vis_strength"   // how strongly Now playing's visualizer shows, 0.1 … 1 (a number)
 
     /** The styles drawn around the middle of the space (the others stand on its bottom). */
     val CENTRED = setOf("circle", "ring", "particles", "pulse")
+    /** On Now playing these are drawn over the big cover (around and through it), not hidden behind it; the styles that
+     *  stand on the bottom (bars, wave, glow, terrain…) stay behind, along the bottom of the screen. */
+    val OVER_COVER = CENTRED
 
     /** The style; an old colour preset ("red"…) is Bars in that colour. */
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
     fun color(): String = Prefs.text(COLOR).ifEmpty { Music.visPreset.takeIf { Looks.NEON.containsKey(it) } ?: "auto" }
     fun nowStyle(): String = Prefs.text(NOW, "slim").let { k -> if (NP_VIS_STYLES.any { it.first == k }) k else "slim" }
     fun plainNow(): Boolean = Prefs.text(NOW_BG) == "plain"
+    /** Now playing visualizer's strength (its opacity): 0.5 is how faint it always was. */
+    fun nowStrength(): Float = Prefs.num(NOW_STRENGTH, 0.5f).coerceIn(0.1f, 1f)
 
     /** Before 3.0 the colours were styles: a saved one becomes Bars with that colour. */
     fun migrate() {
@@ -505,15 +511,16 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                         fontWeight = if (k == current) FontWeight.SemiBold else FontWeight.Normal))
                 }
                 val sw = swatch?.invoke(k)
-                if (sw != null) DropdownMenuItem(text = text, onClick = { open = false; pick(k) }, leadingIcon = { Swatch(sw.first, sw.second) })
+                if (sw != null) DropdownMenuItem(text = text, onClick = { open = false; pick(k) }, leadingIcon = { VisColorDot(sw.first, sw.second) })
                 else DropdownMenuItem(text = text, onClick = { open = false; pick(k) })
             }
         }
     }
 }
 
+/** A colour's little sample: a dot of it on a dark circle (the colour menus; Now playing's visualizer pane too). */
 @Composable
-private fun Swatch(bg: Color, dot: Brush) {
+fun VisColorDot(bg: Color, dot: Brush) {
     Box(Modifier.size(20.dp).clip(R.pill).background(bg).border(1.dp, C.line, R.pill), contentAlignment = Alignment.Center) {
         Box(Modifier.size(10.dp).clip(R.pill).background(dot))
     }
