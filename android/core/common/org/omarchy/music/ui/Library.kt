@@ -470,14 +470,22 @@ fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
     val sorts = org.omarchy.music.songSorts(true)
     val tab = "page-" + page.kind.ifEmpty { "songs" }
     val sort = sortNow(tab, sorts)
-    val songs = rememberSorted(page.tracks, sort) { d -> org.omarchy.music.sortTracks(page.tracks, sort, d) }
+    // Most played › Moods: each song carries its plays in the period (most played first, as it came), shown on its
+    // row; sorting by plays goes by those, not by all-time plays.
+    val periodPlays = page.kind == "mood-plays"
+    val songs = rememberSorted(page.tracks, sort) { d ->
+        org.omarchy.music.sortTracks(page.tracks, sort, if (periodPlays) org.omarchy.music.SortData(plays = { it.plays }, last = d.last) else d)
+    }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = page.tracks)) },
                 pin = if (page.id.isNotEmpty() && page.kind in setOf("genre", "folder")) Pin(page.kind, page.id, page.title) else null)
-            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { SortMenu(tab, sorts) }
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                SortMenu(tab, sorts, names = if (periodPlays) mapOf("order" to "Most played") else emptyMap())
+            }
         }
-        tracks(songs, ui, page.kind)
+        if (periodPlays) tracks(songs, ui, page.kind) { t -> "%,d play%s".format(t.plays, if (t.plays != 1) "s" else "") }
+        else tracks(songs, ui, page.kind)
     }
 }
 

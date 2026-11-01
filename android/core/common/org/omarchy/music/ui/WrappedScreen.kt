@@ -67,6 +67,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -131,8 +133,43 @@ private fun n(i: Int) = "%,d".format(i)
 
 private class Slide(val color: Int, val content: @Composable ColumnScope.() -> Unit)
 
-/** The space a slide has on screen (the summary card fills it). */
+/** The space a slide has on screen (the summary card fills it), in the slide's own (scaled) dp. */
 private val LocalSlideSize = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.DpSize(400.dp, 800.dp) }
+/** How many times bigger the slide is drawn (see [slideScale]). */
+private val LocalSlideScale = androidx.compose.runtime.compositionLocalOf { 1f }
+
+/** How many times bigger a slide's content is drawn in room w × h: 1 on a phone; in a big window (the PC's, a
+ *  tablet's) it grows with the room, so a slide fills the screen as it does a phone's instead of sitting small in it. */
+private fun slideScale(w: Dp, h: Dp): Float = minOf(w.value / 420f, h.value / 680f).coerceIn(1f, 2.4f)
+
+/** The widest a slide's content gets (in its scaled dp), so lines don't run across a whole wide window. */
+private val SLIDE_MAX_WIDTH = 800.dp
+
+/** content drawn scale times bigger, all of it alike (type, pictures, bars, spacing), by drawing it at a higher density;
+ *  LocalSlideSize is the room in those bigger dp. At 1 (a phone) nothing changes. */
+@Composable
+private fun SlideScaled(w: Dp, h: Dp, content: @Composable () -> Unit) {
+    val k = slideScale(w, h)
+    val d = LocalDensity.current
+    val room = androidx.compose.ui.unit.DpSize(w / k, h / k)
+    if (k <= 1f) CompositionLocalProvider(LocalSlideSize provides room, LocalSlideScale provides 1f, content = content)
+    else CompositionLocalProvider(LocalDensity provides Density(d.density * k, d.fontScale), LocalSlideSize provides room,
+        LocalSlideScale provides k, content = content)
+}
+
+/** A slide's column: centred, at most [SLIDE_MAX_WIDTH] wide, the top bar's room above it; a long slide (a top 15)
+ *  scrolls, a short one sits in the middle. In [SlideScaled]. */
+@Composable
+private fun SlideColumn(spacing: Dp, centred: Boolean, content: @Composable ColumnScope.() -> Unit) {
+    val room = LocalSlideSize.current
+    val k = LocalSlideScale.current
+    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+        Column(Modifier.widthIn(max = SLIDE_MAX_WIDTH + 56.dp).fillMaxWidth().heightIn(min = room.height)
+            .padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 40.dp),
+            verticalArrangement = if (centred) Arrangement.spacedBy(spacing, Alignment.CenterVertically) else Arrangement.spacedBy(spacing),
+            content = content)
+    }
+}
 
 /** The summary slide's Share…: opens the top's menu, and isn't in the picture. */
 private class Sharing(val open: () -> Unit, val busy: Boolean)
@@ -255,22 +292,23 @@ fun WrappedScreen(onClose: () -> Unit) {
                                 scope.launch { pager.animateScrollToPage(to) }
                             }
                         }) {
-                        CompositionLocalProvider(LocalSharing provides Sharing({ menu = true }, busy),
-                            LocalSlideSize provides androidx.compose.ui.unit.DpSize(this@BoxWithConstraints.maxWidth, this@BoxWithConstraints.maxHeight)) {
-                            // A long slide (a top 15) scrolls; a short one sits in the middle as before
-                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = this@BoxWithConstraints.maxHeight)
-                                .padding(start = 28.dp, end = 28.dp, top = 112.dp, bottom = 40.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically), content = s.content)
+                        CompositionLocalProvider(LocalSharing provides Sharing({ menu = true }, busy)) {
+                            // Bigger in a big window (the PC's): the slide fills it. A long slide (a top 15) scrolls; a
+                            // short one sits in the middle as before
+                            SlideScaled(this@BoxWithConstraints.maxWidth, this@BoxWithConstraints.maxHeight) {
+                                SlideColumn(10.dp, centred = true, content = s.content)
+                            }
                         }
                     }
                 }
             }
-            if (about) Box(Modifier.fillMaxSize().background(WS.bg).pointerInput(Unit) { detectTapGestures { } }) {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    .padding(start = 28.dp, end = 28.dp, top = 112.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WhatCounts(data?.log?.since ?: 0L)
-                    Spacer(Modifier.height(8.dp))
-                    Pill("Back to your Wrapped") { about = false }
+            if (about) BoxWithConstraints(Modifier.fillMaxSize().background(WS.bg).pointerInput(Unit) { detectTapGestures { } }) {
+                SlideScaled(maxWidth, maxHeight) {
+                    SlideColumn(8.dp, centred = false) {
+                        WhatCounts(data?.log?.since ?: 0L)
+                        Spacer(Modifier.height(8.dp))
+                        Pill("Back to your Wrapped") { about = false }
+                    }
                 }
             }
             // The top: a segment a slide and close; under them Week · Month · Year · All time, and which one.
@@ -763,8 +801,8 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
 /** The last slide: the lot on one card, to save as a picture. */
 private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     // The card fills the screen: its height is the slide's (less the top bar and Share), and the type grows with it
-    val room = LocalSlideSize.current
-    val cardH = (room.height - 112.dp - 40.dp - 70.dp).coerceAtLeast(420.dp)
+    val room = LocalSlideSize.current   // (in the slide's scaled dp: the top bar's 112dp is 112 / scale of them)
+    val cardH = (room.height - 112.dp / LocalSlideScale.current - 40.dp - 70.dp).coerceAtLeast(420.dp)
     val line = ((cardH.value * 0.56f) / 16f * 0.68f).coerceIn(11f, 30f)   // a list line's font size (16 lines fit)
     val k = line / 11f
     Column(Modifier.fillMaxWidth().height(cardH)

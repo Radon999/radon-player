@@ -69,6 +69,9 @@ fun DjVoiceLines(ui: Ui) {
                 }
             }
         }
+        // Why the natural voice didn't speak last time (stays here so it can be read, unlike the pop-up)
+        val err = Voice.lastError
+        if (err.isNotEmpty()) Text("The natural voice couldn't speak last time: $err", style = T.sub.copy(color = C.red))
         if (Voice.canSpeak) Pill("Hear the DJ", quiet = true) { Voice.say(Spoken.humanize(DjVoices.SAMPLE, 0.0)) }
     }
 }

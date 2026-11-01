@@ -11,6 +11,9 @@ import kotlinx.coroutines.launch
  *  sounds like a radio host. Kokoro, the PC's natural voice, would need a large native library on the phone, so the
  *  phone keeps the system's voices. */
 object Voice {
+    /** Why the PC's natural voice last failed (the phone has none: always ""). */
+    val lastError: String get() = ""
+
     private var tts: TextToSpeech? = null
     @Volatile private var ready = false
     private val waiting = ArrayList<Pair<String, () -> Unit>>()

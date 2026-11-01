@@ -1397,23 +1397,110 @@ fun fmtHours(secs: Long): String {
 /** A song or album of listening time: a song of yours (or one to find) for its cover and to play. */
 class TimeItem(val title: String, val artist: String, val secs: Long, val tracks: List<Track>, val key: String)
 
-/** Listening time's songs or albums, each with your songs (or one to find), longest first. The desktop's time_items. */
+/** Listening time's songs or albums, each with your songs (or one to find), longest first. The desktop's time_items.
+ *  Kept until the listening, your music or the choices change: the list redraws often, and this reads all your songs. */
 fun timeItemsOf(what: String, t: org.omarchy.music.Stats.Time): List<TimeItem> {
+    val stamp = listOf<Any>(what, Music.topPeriod, Music.musicVersion, Music.topMineOnly)
+    TimeItemsMemo.get(t, stamp)?.let { return it }
+    val out = buildTimeItems(what, t)
+    TimeItemsMemo.put(t, stamp, out)
+    return out
+}
+
+/** The last listening-time list worked out, per kind (songs, albums), and what it was worked out from. */
+private object TimeItemsMemo {
+    private class Kept(val t: org.omarchy.music.Stats.Time, val stamp: List<Any>, val items: List<TimeItem>)
+    private val kept = HashMap<String, Kept>()
+    @Synchronized fun get(t: org.omarchy.music.Stats.Time, stamp: List<Any>): List<TimeItem>? =
+        kept[stamp[0] as String]?.takeIf { it.t === t && it.stamp == stamp }?.items
+    @Synchronized fun put(t: org.omarchy.music.Stats.Time, stamp: List<Any>, items: List<TimeItem>) { kept[stamp[0] as String] = Kept(t, stamp, items) }
+}
+
+private fun buildTimeItems(what: String, t: org.omarchy.music.Stats.Time): List<TimeItem> {
     val mine = runCatching { Music.songIndex() }.getOrDefault(emptyMap())
-    if (what == "songs") return t.songs.map { s ->
-        val tr = Music.fmSong(s.title, s.artist, "", mine, s.album)
-        TimeItem(s.title, s.artist, s.secs, listOf(tr), "s-" + s.title + "|" + s.artist)
+    if (what == "songs") {
+        // A song you haven't got: the picture its plays came with (Last.fm's), as Most played › Songs shows.
+        val pics = HashMap<Pair<String, String>, String>()
+        for (s in Stats.periods[Music.topPeriod].orEmpty() + Stats.songs)
+            if (s.thumb.isNotEmpty()) pics.putIfAbsent(Stats.statsKey(s.title, s.artist), s.thumb)
+        return t.songs.map { s ->
+            val tr = Music.fmSong(s.title, s.artist, pics[Stats.statsKey(s.title, s.artist)].orEmpty(), mine, s.album)
+            TimeItem(s.title, s.artist, s.secs, listOf(tr), "s-" + s.title + "|" + s.artist)
+        }
     }
     val byKey = runCatching { Music.topAlbums(Music.topPeriod) }.getOrDefault(emptyList()).associateBy { it.key }
     return t.albums.mapIndexed { i, (al, ar, v) ->
         val key = t.albumKeys.getOrElse(i) { "" }
         val tracks = byKey[key]?.tracks?.sortedBy { it.title }
-            ?: mine.values.filter { org.omarchy.music.norm(org.omarchy.music.cleanTitle(org.omarchy.music.albumEdition(it.album).first)) ==
-                org.omarchy.music.norm(org.omarchy.music.cleanTitle(org.omarchy.music.albumEdition(al).first)) &&
-                org.omarchy.music.artistKey(it.artist) == org.omarchy.music.artistKey(ar) }.distinctBy { it.id }.take(30)
-                .ifEmpty { listOf(Music.fmSong(al, ar, "", emptyMap(), al)) }
+            ?: TopArt.myAlbumSongs(al, ar).take(30).ifEmpty { listOf(Music.fmSong(al, ar, "", emptyMap(), al)) }
         TimeItem(al, ar, v, tracks, key.ifEmpty { al })
     }
+}
+
+/** Most played's covers, your own first: your copy of the song or album (the cover in its file, else its folder's
+ *  cover.jpg; or a cover you saved or picked) when you have one; only else the online picture, which is kept on disk
+ *  once loaded (Coil's disk cache on the phone, CoverCache on the PC), so it's never downloaded again. */
+object TopArt {
+    private var ver = -1
+    private var albums: Map<String, List<Track>> = emptyMap()
+
+    /** Goes up as covers are found online, so the rows showing them redraw. */
+    var tick by mutableStateOf(0)
+        private set
+
+    private fun albumKey(name: String) = norm(org.omarchy.music.cleanTitle(org.omarchy.music.albumEdition(org.omarchy.music.Wrapped.bareRelease(name)).first))
+
+    /** A song of yours (a file, or a download). */
+    fun yours(t: Track) = t.isFile || !t.file.isNullOrEmpty() || Music.lib.has(t.id)
+
+    /** Your copy of the song (same title and artist, as Most played matches) when you have one, else the song. */
+    fun song(t: Track): Track = if (yours(t)) t else runCatching { Music.mineOf(t) }.getOrNull()?.takeIf { yours(it) } ?: t
+
+    /** Your songs on the album (its name without "- Single", "(Deluxe)"…, by one of its artists), as Wrapped matches. */
+    @Synchronized
+    fun myAlbumSongs(title: String, artist: String): List<Track> {
+        val v = Music.musicVersion
+        if (v != ver) {
+            val m = HashMap<String, MutableList<Track>>()
+            for (s in runCatching { Music.mySongs() }.getOrDefault(emptyList())) if (s.album.isNotBlank()) m.getOrPut(albumKey(s.album)) { ArrayList() } += s
+            albums = m
+            ver = v
+        }
+        val theirs = (org.omarchy.music.splitArtists(artist).map { norm(it) } + norm(artist)).filter { it.isNotEmpty() }.toSet()
+        val ak = org.omarchy.music.artistKey(artist)
+        return albums[albumKey(title)].orEmpty().filter { c ->
+            norm(c.artist) in theirs || org.omarchy.music.splitArtists(c.artist).any { norm(it) in theirs } || org.omarchy.music.artistKey(c.artist) == ak
+        }.distinctBy { it.id }
+    }
+
+    /** The song to show an album's cover from: one of yours on it, else the played song with a picture. */
+    fun album(title: String, artist: String, tracks: List<Track>): Track =
+        tracks.firstOrNull { yours(it) }
+            ?: myAlbumSongs(title, artist).firstOrNull()
+            ?: tracks.firstOrNull { it.thumb.isNotEmpty() }
+            ?: tracks.firstOrNull() ?: Track("", "lastfm", title, artist, album = title)
+
+    /** The covers of songs that aren't yours and have no picture, looked up online one by one (each shows as it's
+     *  found and is remembered, so never looked up again). Run from a list's LaunchedEffect: leaving the list stops it. */
+    suspend fun lookUp(make: () -> List<Track>) {
+        val todo = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            runCatching { make() }.getOrDefault(emptyList())
+                .filter { !yours(it) && it.thumb.isEmpty() && !org.omarchy.music.SongCovers.settled(it.title, it.artist) }
+                .distinctBy { org.omarchy.music.songPickKey(it.title, it.artist) }.take(150)
+        }
+        for (t in todo) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.look(t) } }
+            tick++
+        }
+        if (todo.isNotEmpty()) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.flush() } }
+    }
+}
+
+/** A Most played cover (see [TopArt]); drawn again as covers are found online. */
+@Composable
+fun topArt(t: Track, px: Int = 226): Any? {
+    if (TopArt.tick < 0) return null   // (read so a cover found online shows)
+    return artModel(t, px)
 }
 
 /** Most played › Songs time, Albums time, Artists time: how long you listened in the period and when, then your songs,
@@ -1442,7 +1529,12 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
         return
     }
     val list = timeItemsOf(what, t).filter { fits(ui, it.title, it.artist) }
-    item { Section("${list.size} ${if (what == "songs") "SONGS" else "ALBUMS"} · LISTENED TO LONGEST FIRST") }
+    // Each cover from your own copy of the song or album first (see TopArt); only else the online one.
+    fun cover(x: TimeItem): Track = if (what == "songs") TopArt.song(x.tracks.first()) else TopArt.album(x.title, x.artist, x.tracks)
+    item {
+        Section("${list.size} ${if (what == "songs") "SONGS" else "ALBUMS"} · LISTENED TO LONGEST FIRST")
+        LaunchedEffect(list.size, Music.topPeriod, what) { TopArt.lookUp { list.map { cover(it) } } }
+    }
     fun open(i: Int) {
         val x = list[i]
         if (what == "songs") Music.playFrom(list.map { it.tracks.first() }, i, false)
@@ -1450,10 +1542,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
     }
     laidOutItems(list, ui, key = { "tt-$what-" + list[it].key }, row = { i ->
         val x = list[i]
-        PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), artModel(x.tracks.first())) { open(i) }
+        PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), topArt(cover(x))) { open(i) }
     }) { i, mod, compact ->
         val x = list[i]
-        Tile(artModel(x.tracks.first(), tilePx(compact)), x.title, x.artist, mod, compact, extra = fmtHours(x.secs),
+        Tile(topArt(cover(x), tilePx(compact)), x.title, x.artist, mod, compact, extra = fmtHours(x.secs),
             ico = if (what == "songs") Ico.NOTE else Ico.DISC) { open(i) }
     }
 }
@@ -1493,7 +1585,9 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodPlaysItems(ui: Ui) {
     val list = rows.orEmpty().filter { fits(ui, it.mood) }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
     fun open(r: org.omarchy.music.MoodStats.Row) {
-        ui.pages += Ui.Page.Songs("${r.mood} · most played", r.songs.map { (t, n) -> t.copy(plays = n) }, "mood-plays", r.mood)
+        // Each song with its plays in the period (shown on its row), most played first.
+        val time = mapOf("week" to "this week", "month" to "this month", "year" to "this year")[period] ?: "all time"
+        ui.pages += Ui.Page.Songs("${r.mood} · most played $time", r.songs.map { (t, n) -> t.copy(plays = n) }, "mood-plays", r.mood)
     }
     laidOutItems(list, ui, key = { "mpl-" + list[it].mood }, row = { i ->
         val r = list[i]
@@ -1517,17 +1611,20 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodPlaysItems(ui: Ui) {
 /** Most played albums: Most played's songs added up by album; an album opens its songs. */
 fun androidx.compose.foundation.lazy.LazyListScope.topAlbumsItems(ui: Ui) {
     val albums = runCatching { Music.topAlbums(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.title, it.artist) }
-    item { Section(if (albums.isEmpty()) "NO ALBUMS PLAYED IN THIS TIME" else "${albums.size} ALBUMS · MOST PLAYED FIRST") }
+    item {
+        Section(if (albums.isEmpty()) "NO ALBUMS PLAYED IN THIS TIME" else "${albums.size} ALBUMS · MOST PLAYED FIRST")
+        LaunchedEffect(albums.size, Music.topPeriod) { TopArt.lookUp { albums.map { TopArt.album(it.title, it.artist, it.tracks) } } }
+    }
     fun open(al: Music.TopAlbum) {
         ui.pages += Ui.Page.AlbumPage(Album("top-" + al.key, al.title, al.artist, al.tracks.first().thumb), "local", al.tracks)
     }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
     laidOutItems(albums, ui, key = { "tal-" + albums[it].key }, row = { i ->
         val al = albums[i]
-        PlaylistRow(Album(al.key, al.title, "${al.artist} · ${plays(al.plays)}"), artModel(al.tracks.first())) { open(al) }
+        PlaylistRow(Album(al.key, al.title, "${al.artist} · ${plays(al.plays)}"), topArt(TopArt.album(al.title, al.artist, al.tracks))) { open(al) }
     }) { i, mod, compact ->
         val al = albums[i]
-        Tile(artModel(al.tracks.first(), tilePx(compact)), al.title, al.artist, mod, compact, extra = plays(al.plays), ico = Ico.DISC) { open(al) }
+        Tile(topArt(TopArt.album(al.title, al.artist, al.tracks), tilePx(compact)), al.title, al.artist, mod, compact, extra = plays(al.plays), ico = Ico.DISC) { open(al) }
     }
 }
 

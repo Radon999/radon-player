@@ -1,6 +1,8 @@
 package org.omarchy.music
 
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** The DJ's voice and voice typing on the PC. The DJ speaks with, in order:
  *  1. ElevenLabs, when you've pasted your own API key (DjVoices; it spends your ElevenLabs credits),
@@ -198,10 +200,13 @@ object Voice {
 
     /** The natural voice didn't speak: say so once per run, with its last line, so it isn't silently Windows' voice. */
     @Volatile private var toldFail = false
+    /** Why the natural voice last failed ("" when it last worked): shown in the DJ's Voice settings, so it can be read. */
+    var lastError by androidx.compose.runtime.mutableStateOf("")
     private fun naturalFailed(out: String) {
+        val last = out.lines().map { it.trim() }.lastOrNull { it.isNotEmpty() }.orEmpty().take(300)
+        lastError = last.ifEmpty { "it stopped without saying why" }
         if (toldFail) return
         toldFail = true
-        val last = out.lines().map { it.trim() }.lastOrNull { it.isNotEmpty() }.orEmpty().take(160)
         Music.toast("The natural voice couldn't speak, so Windows' voice is used" + if (last.isNotEmpty()) ": $last" else "")
     }
 
@@ -238,7 +243,14 @@ object Voice {
                 val lib = java.io.File(exe.parentFile.parentFile, "lib")
                 pb.environment()["PATH"] = listOf(exe.parentFile.path, lib.path, System.getenv("PATH") ?: "").joinToString(";")
                 wav.delete()
-                val p = pb.start()
+                // Noted before it starts, so a program Windows won't run still leaves its reason here
+                val log = java.io.File(dir, "last-run.txt")
+                runCatching { log.writeText("starting\n" + args.dropLast(1).joinToString("\n") + "\n") }
+                val p = try { pb.start() } catch (e: Exception) {
+                    runCatching { log.appendText("couldn't start: ${e.javaClass.simpleName}: ${e.message}\n") }
+                    lastOut = "couldn't start it: ${e.message}"
+                    return false
+                }
                 proc = p
                 val out = p.inputStream.readBytes(); val code = p.waitFor()
                 if (proc === p) proc = null
@@ -255,6 +267,7 @@ object Voice {
                 if (turn == mine) naturalFailed(lastOut)
                 return@runCatching turn != mine
             }
+            lastError = ""
             val ais = javax.sound.sampled.AudioSystem.getAudioInputStream(wav)
             val c = javax.sound.sampled.AudioSystem.getClip()
             c.open(ais); clip = c
