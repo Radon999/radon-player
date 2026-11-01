@@ -205,7 +205,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Share a slide:** Save any slide to Pictures, or post it straight to Instagram or Facebook.",
     "- **Collage:** Your top songs, albums, EPs, singles or artists as a square grid of covers, from 5×5 up to 25×25, with names and play counts. Save it or share it.",
     "- **Share card:** Your top 5 songs, albums or artists, or your listening time, as a phone-story-sized picture to share or save.",
-    "- **Wrapped summary card:** The last slide sums it up on one card to share or save: your top 15 artists and top 15 songs side by side, your top 5 genres, and your listening time in minutes and in hours.",
+    "- **Wrapped summary card:** The last slide sums it up on one card to share or save: your top 15 artists and top 15 songs (each with its artist) side by side, your top 5 genres, and your listening time in minutes and in hours.",
     "- **Top 15:** Every top list in Wrapped (songs, artists, albums, genres, singles, EPs…) shows your top 15.",
     "- **Genres and moods:** Your top genres (from your files' genre tags) and your top moods, each with a variety score.",
     "- **Singles and EPs:** Your most played singles and EPs, as your Singles and EPs tabs sort them.",

@@ -819,7 +819,7 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         Rule()
         // Top 15 artists and top 15 songs side by side, then the top 5 genres, then the time in minutes and hours
         Row(horizontalArrangement = Arrangement.spacedBy((16 * k).dp)) {
-            listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { it.title }).forEach { (head, items) ->
+            listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }).forEach { (head, items) ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
                     Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
                     items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = line.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
