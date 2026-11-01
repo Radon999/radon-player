@@ -1010,7 +1010,7 @@ private fun NowPlayingLookLines() {
         Chip("Plain", plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "plain") }
     }
     Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
-        "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play over the cover, bright and a little past its edges, the rest along the bottom. It takes the " +
+        "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
         ChoicePill(NP_VIS_STYLES, Vis.nowStyle()) { org.omarchy.music.Prefs.setText(Vis.NOW, it) }
     }

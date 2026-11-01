@@ -309,9 +309,10 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
                 Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
                 if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
+            // On top of the cover, in its middle and a little smaller than it; it takes no taps, so the cover's swipes and
+            // taps still work.
+            if (over != null) NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * 0.8f).graphicsLayer(translationX = dx * 0.6f))
         }
-        // On top of the cover, a little past its edges, see-through; it takes no taps, so the cover's swipes and taps still work.
-        if (over != null) NowVisOver(visStyle, over, visCol, strength, Modifier.matchParentSize().graphicsLayer(translationX = dx * 0.6f))
     }
 }
 
@@ -792,9 +793,9 @@ private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, mod
 private fun NowVisOver(style: String, s: VisState, col: Color, strength: Float, modifier: Modifier) {
     val colorKey = Vis.color()
     val fg = WHITE
-    // Clearly over the cover: a little bigger than it (past its edges), nearly opaque, and drawn twice for a bright,
+    // Clearly over the cover, in its middle: nearly opaque, and drawn twice for a bright,
     // glowing look (the strength setting still turns it down)
-    Canvas(modifier.graphicsLayer(alpha = (0.7f + strength * 0.6f).coerceIn(0.75f, 1f), scaleX = 1.12f, scaleY = 1.12f)) {
+    Canvas(modifier.graphicsLayer(alpha = (0.7f + strength * 0.6f).coerceIn(0.75f, 1f))) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
         val pal = VisPalette.of(style, colorKey, col, s.phase)
         drawVis(style, s, pal, fg, backdrop = true)
