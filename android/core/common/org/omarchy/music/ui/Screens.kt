@@ -1577,8 +1577,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodPlaysItems(ui: Ui) {
         Section(when {
             rows == null -> "ADDING UP YOUR PLAYS BY MOOD…"
             rows.isEmpty() -> "NO PLAYS OF YOUR SONGS WITH A MOOD IN THIS TIME"
-            else -> "%d MOOD%s · %,d PLAYS · MOST PLAYED FIRST".format(rows.size, if (rows.size != 1) "S" else "", rows.sumOf { it.plays })
+            else -> "%d MOOD%s · MOST PLAYED FIRST".format(rows.size, if (rows.size != 1) "S" else "")
         })
+        // A song can be in several moods: its plays count in each (so the moods' plays add up to more than the plays).
+        if (!rows.isNullOrEmpty()) Text("A song in several moods counts in each of them.", style = T.sub,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp))
         if (rows != null && rows.isEmpty()) Text("Plays count here once your songs have moods (the Moods tab). Each play is matched to " +
             "your own copy of the song, from all your play history.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
     }

@@ -706,15 +706,20 @@ private fun LyricsMoodsLines(ui: Ui) {
         Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
     }
     Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0)
-        else "Reads each song's words for its mood (sad, romantic, dark…), on this $DEVICE, and counts it with the sound: the " +
-        "words count more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and Focus. The result goes into the " +
+        else "Reads each song's words for how much they say every mood (sad, romantic, dark…), on this $DEVICE, reading whole " +
+        "lines and sayings (\"wash my blues away\" is relief, not sadness), and counts it with the sound: the words count more " +
+        "for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and Focus, and a clearly upbeat song isn't made " +
+        "sad by a hint of sad words. With an Anthropic key saved, Claude reads them instead. The result goes into the " +
         "file (a MOOD_LYRICS tag) so it's never read again. Also on the Moods tab", moods.wordsReading != null) {
         if (moods.wordsReading != null) Pill("Stop", quiet = true) { moods.stopWords() } else Pill("Read", quiet = true) { moods.readWords() }
     }
-    var on by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.Moods.AI_ON)) }
+    var on by remember { mutableStateOf(org.omarchy.music.Moods.aiSwitch()) }
     var key by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)) }
     Line("AI reading of lyrics (optional)", "With your own Anthropic API key, the words are read by Claude (claude-haiku-4-5) " +
-        "instead of on this $DEVICE: a closer reading, themes included. Each song's words are sent to Anthropic, and it costs a " +
+        "instead of on this $DEVICE (on by itself once a key is saved): it scores every mood and reads what the singer means " +
+        "(irony, a sad story told cheerfully, sayings), using the title and artist too. Songs read on this $DEVICE before can be " +
+        "read again by the AI once (the Moods tab offers it); a song the AI has read is never read again. Each song's title, " +
+        "artist and words are sent to Anthropic, and it costs a " +
         "little on your Anthropic account for each song (well under a cent). The key stays on this $DEVICE: it isn't in backups " +
         "or sync, and goes nowhere but Anthropic", on && key.isNotBlank()) {
         Switch(on, { on = it; org.omarchy.music.Prefs.set(org.omarchy.music.Moods.AI_ON, it) }, colors = swColors())
@@ -728,16 +733,30 @@ private fun LyricsMoodsLines(ui: Ui) {
             "about $1–3, once.\n" +
             "3. Go to API keys and tap Create key. Name it \"Radon Player\".\n" +
             "4. Copy the key straight away (it starts with sk-ant-). It's only shown once.\n" +
+            "Credits must be added first (step 2), or Anthropic refuses every request. \"Test the key\" below checks both.\n" +
             "5. Paste it in the box below and tap Save.\n" +
-            "6. Tap Read under Moods from lyrics (or on the Moods tab). Songs already read aren't read again.\n" +
+            "6. Tap Read under Moods from lyrics (or on the Moods tab). Songs the AI has read aren't read again; songs read " +
+            "on this $DEVICE before can be read again with the AI once (the Moods tab offers it).\n" +
             "Keep the key to yourself: anyone with it can spend your credits. To stop, clear the box and tap Save, or delete " +
             "the key at platform.claude.com.",
             style = T.sub, modifier = Modifier.padding(vertical = 4.dp))
         Field(key, "Anthropic API key", password = true) { key = it }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             Pill("Get a key", quiet = true) { Services.open("https://platform.claude.com/settings/keys") }
-            Pill("Save") { org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, key.trim()); Music.toast(if (key.isBlank()) "Key taken off" else "Key saved") }
+            Pill("Save") {
+                org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, key.trim())
+                // A key saved: the AI reading is on (the switch shows it); you can still turn it off.
+                if (key.isNotBlank()) { org.omarchy.music.Prefs.set(org.omarchy.music.Moods.AI_ON, true); on = true }
+                Music.toast(if (key.isBlank()) "Key taken off" else "Key saved: lyrics are read by the AI from now on")
+            }
+            // One tiny request (a fraction of a cent): says whether the key and the account's credits work
+            Pill("Test the key", quiet = true) {
+                Music.toast("Testing the key…")
+                org.omarchy.music.Moods.testAi { why -> Music.toast(if (why.isEmpty()) "The key works: the AI reads the lyrics" else "The key didn't work: $why") }
+            }
         }
+        val status = org.omarchy.music.Moods.aiStatus
+        if (status.isNotEmpty()) Text("Last AI problem: $status", style = T.sub.copy(color = C.red))
     }
 }
 

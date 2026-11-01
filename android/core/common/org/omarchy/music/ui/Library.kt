@@ -321,11 +321,25 @@ private fun MoodsWords(ui: Ui, counts: org.omarchy.music.Moods.Counts) {
         if (words != null) {
             Chip("Stop", false) { moods.stopWords() }
             Text("Reading the words… " + if (words.second > 0) "%,d of %,d".format(words.first, words.second) else "", style = T.sub)
-        } else Chip("Read moods from lyrics" + if (moods.aiOn()) " (AI)" else "", false) { moods.readWords() }
+        } else Chip("Read moods from lyrics" + (if (moods.aiOn()) " (AI)" else "") +
+            (if (counts.wordsOld > 0) " · %,d to update".format(counts.wordsOld) else ""), false) { moods.readWords() }
         if (found != null) {
             Chip("Stop", false) { lyrics.stop() }
             Text("Finding lyrics… " + if (found.second > 0) "%,d of %,d".format(found.first, found.second) else "", style = T.sub)
         } else Chip("Find lyrics (into the files)…", false) { ui.tool = "lyrics" }
+    }
+    // The AI reading is on and songs were read on this device before: offered once, to read those again with the AI.
+    if (words == null && moods.aiOn() && counts.wordsOnDevice > 0 && !org.omarchy.music.Prefs.on(org.omarchy.music.Moods.AI_AGAIN_DONE)) {
+        Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Chip("Read again with AI (%,d song%s)".format(counts.wordsOnDevice, if (counts.wordsOnDevice != 1) "s" else ""), false) {
+                moods.readWords(again = true)
+            }
+            Chip("Keep them as they are", false) { org.omarchy.music.Prefs.set(org.omarchy.music.Moods.AI_AGAIN_DONE, true) }
+        }
+        Text("The AI reads what the singer means (a sad story told cheerfully, sayings like “wash my blues away”). It costs " +
+            "well under a cent a song on your Anthropic account, and a song the AI has read is never read again.", style = T.sub,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp))
     }
     Column(Modifier.padding(horizontal = 14.dp)) {
         if (words != null && moods.wordsNow.isNotEmpty()) Text(moods.wordsNow, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -333,6 +347,9 @@ private fun MoodsWords(ui: Ui, counts: org.omarchy.music.Moods.Counts) {
         if (counts.total > 0) Text(("Words read for %,d of %,d songs (%,d in their files)" +
             (if (counts.noWords > 0) " · %,d with no lyrics found" else "")).format(counts.words, counts.total, counts.wordsInFiles, counts.noWords) +
             (if (moods.aiOn()) " · AI reading on" else ""), style = T.sub)
+        if (counts.wordsOld > 0 && words == null) Text(("%,d %s read by the older word reader. Read moods from lyrics reads " +
+            "them again with the new one, which reads whole lines and sayings, not only single words.").format(counts.wordsOld,
+            if (counts.wordsOld != 1) "songs were" else "song was"), style = T.sub)
         lyrics.counts?.let { c ->
             Text("Lyrics in files: %,d · kept in the app: %,d · still to find: %,d".format(c.inFiles, c.inApp, c.toFind), style = T.sub)
         }
@@ -351,15 +368,20 @@ fun MoodsTab(ui: Ui) {
     val counts = remember(Music.musicVersion, v, reading == null, org.omarchy.music.Moods.looking == null, org.omarchy.music.Moods.wordsReading == null) {
         runCatching { org.omarchy.music.Moods.counts() }.getOrDefault(org.omarchy.music.Moods.Counts(0, 0, 0))
     }
+    // Songs whose moods may well be wrong (after the moods above, so they're worked out already: cheap)
+    val check = remember(Music.musicVersion, Music.savedVersion, v, org.omarchy.music.Moods.checked) {
+        runCatching { org.omarchy.music.Moods.checkThese() }.getOrDefault(emptyList())
+    }
     // Opening the tab: a quick look at the files for moods already in them (no scan needed for those)
     androidx.compose.runtime.LaunchedEffect(Music.musicVersion) { org.omarchy.music.Moods.lookFiles() }
     if (all.isEmpty()) {
         Column {
             MoodsReading(ui, reading, counts)
-            Empty("No moods yet", "Each of your songs gets a mood (Chill, Happy, Sad, Party…) from how it sounds (its tempo, energy, " +
-                "brightness and key), its genre, its words (Read moods from lyrics), and Last.fm's tags when you have a Last.fm key. Scan moods hears a minute from the " +
+            Empty("No moods yet", "Each of your songs gets every mood that fits it (Chill, Happy, Sad, Party…; the best fit is its " +
+                "main mood) from how it sounds (its tempo, energy, brightness and key), its genre, its words (Read moods from lyrics), " +
+                "and Last.fm's tags when you have a Last.fm key. Scan moods hears a minute from the " +
                 "middle of each song; Full scan hears every song from start to end (slower, surer). A mood in a file's MOOD tag, or " +
-                "one you pick in the Tagger, is used as it is. Scan moods also runs by itself after your music is scanned" +
+                "the moods you tick in the Tagger, are used as they are. Scan moods also runs by itself after your music is scanned" +
                 (if (org.omarchy.music.platformName == "android") ", while the phone is charging." else "."))
         }
         return
@@ -383,12 +405,15 @@ fun MoodsTab(ui: Ui) {
             else Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) { Chip("Select", false) { ui.startPick("mood") }; SortMenu(sortTab, GROUPS_SORTS) }
             // Where to put a wrong mood right
-            if (!picking) Text("A mood looks wrong? Change it in the Tagger (Tagger › Tags › Mood): long-press a song " +
-                "(right-click on the PC) › Tagger…", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            if (!picking) Text("Each song is in every mood that fits it (a happy song for a party is in Happy and Party), so a song " +
+                "can be under several moods; its best fit is its main mood. A mood looks wrong? Tick the right ones in the Tagger " +
+                "(Tagger › Tags › Mood): long-press a song (right-click on the PC) › Tagger… Songs that sound like it, and the " +
+                "artist's other songs, learn a little from your fix.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             if (!picking) Text("Note: the moods won't always be spot on. From lots of testing, scanning both the sound (Full scan) and " +
                 "the lyrics (Read moods from lyrics) gives the best results: about 90% of songs land in the right moods. There " +
                 "will be a few outliers, and those can be changed in the Tagger.", style = T.sub,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            if (!picking) MoodsCheck(ui, check)
             Section("${moods.size} MOOD${if (moods.size != 1) "S" else ""}")
         }
         laidOutItems(moods, ui, key = { "mood-" + moods[it].first }, row = { i ->
@@ -419,6 +444,51 @@ fun MoodsTab(ui: Ui) {
         }
     }
 }
+
+/** Check these (the Moods tab): songs whose moods may well be wrong (their sound and words disagree, or the app isn't
+ *  sure), folded away until tapped. Each shows its moods: tick the right ones and Save (they're then yours, exactly
+ *  those), open it in the Tagger, or Looks right to leave it as it is (remembered: it isn't listed again). */
+@Composable
+private fun MoodsCheck(ui: Ui, list: List<Pair<Track, org.omarchy.music.Moods.Judged>>) {
+    if (list.isEmpty()) return
+    val moods = org.omarchy.music.Moods
+    var open by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val edits = remember { androidx.compose.runtime.mutableStateMapOf<String, List<String>>() }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(R.card).background(C.light.copy(alpha = 0.6f))
+        .clickable { open = !open }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Ico.CHECK, C.accent, 20.dp)
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text("Check these (%,d)".format(list.size), style = T.title)
+            Text("Songs whose sound and words disagree, or that the app isn't sure about", style = T.sub)
+        }
+        Icon(if (open) Ico.UP else Ico.DOWN, C.muted, 16.dp)
+    }
+    if (!open) return
+    val shown = list.take(CHECK_SHOWN)
+    for ((t, j) in shown) {
+        val now = edits[t.id] ?: j.moods.map { it.first }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
+            Text("${t.title} · ${t.artist.split(",")[0].trim()}", style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(now.joinToString(", ").ifEmpty { "No mood" } + " · " + moods.doubtWhy(j), style = T.sub, maxLines = 2,
+                overflow = TextOverflow.Ellipsis)
+            // Tick the moods it should have (Save makes them its own)
+            Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (m in moods.ALL) Chip(m, m in now) { edits[t.id] = if (m in now) now - m else now + m }
+            }
+            Row(Modifier.padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (edits[t.id] != null) Pill("Save") { val got = edits.remove(t.id).orEmpty(); moods.pick(listOf(t), got.ifEmpty { null }) }
+                Pill("Tagger…", quiet = true) { ui.taggerFor = listOf(t) }
+                Pill("Looks right", quiet = true) { edits.remove(t.id); moods.looksRight(t) }
+            }
+        }
+    }
+    if (list.size > shown.size) Text("…and %,d more: they come up here as you go through these.".format(list.size - shown.size),
+        style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+}
+
+/** How many songs Check these shows at a time. */
+private const val CHECK_SHOWN = 25
 
 /** Six songs for a mood's row: the surest first, one per artist before any artist comes twice. */
 private fun moodSix(songs: List<Track>): List<Track> {

@@ -2,14 +2,16 @@ package org.omarchy.music
 
 import kotlin.math.abs
 
-/** How a song's mood is worked out, from three clues, each adding points to the moods it suggests:
+/** How a song's moods are worked out, from its clues, each adding points to the moods it suggests:
  *  - its tags (Last.fm's, for the song and, at a bit less, its artist): words like “chill”, “sad”, “party”,
  *    and genres too (most Last.fm tags are genres). The strongest clue: people chose them.
  *  - its file's genre: “Death Metal” leans Intense, “Lo-fi” leans Chill and Focus, “House” leans Party.
  *  - its sound (see [SoundMood]): loud, fast and busy leans Energetic; slow, quiet and sparse leans Calm;
  *    a minor key leans Sad or Dark, a major one Happy; a steady danceable beat leans Party. Sound only says
  *    which moods stand out from the rest, so it can tip a choice but rarely outweighs real tags.
- *  The mood with the most points is the song's mood; up to two more that come close are its other moods. */
+ *  - its words (see [LyricsMood]), when they've been read: Sad, Romantic and Dark most.
+ *  Each mood's points become its score (0–1); the song is in every mood that scores high enough, the top one its main
+ *  mood (see [judge]). */
 object MoodRules {
     /** The moods, in the order the Moods tab shows them. */
     val ALL = listOf("Happy", "Energetic", "Party", "Hype", "Chill", "Calm", "Dreamy", "Focus", "Romantic", "Sad", "Dark", "Intense")
@@ -154,12 +156,76 @@ object MoodRules {
         "Dreamy" to 0.7, "Calm" to 0.7, "Energetic" to 0.5, "Party" to 0.5, "Chill" to 0.45, "Focus" to 0.3)
     private val SOUND_SAYS = mapOf("Energetic" to 1.2, "Party" to 1.2, "Chill" to 1.2, "Focus" to 1.2, "Sad" to 0.8, "Romantic" to 0.8, "Dark" to 0.8)
 
-    /** A song's moods, best first, each with how sure (0–1): at most three, none when nothing says anything.
-     *  sound: what its sound says (null: not heard yet); genre: its file's genre ("" none); tags: Last.fm's tags of
-     *  the song, and of its artist, each with how much it counts (0–1: Last.fm's count over 100); lyrics: what its words
-     *  say ([LyricsReading.points]; empty: none read, or an instrumental, so the sound alone decides). */
+    /** Moods on the gloomy side and the glad side (for when the sound and the words disagree). */
+    private val GLOOMY = setOf("Sad", "Dark")
+    private val GLAD = setOf("Happy", "Party", "Energetic", "Hype")
+
+    /** A mood's points turned into its score (0–1): how far it fits. 0.7 points: about half. */
+    private const val SPREAD = 0.7
+    /** How much the sound counts: how far each mood stands out from the song's average sound, times this. */
+    private const val SOUND_K = 1.1
+    /** A mood fits the song when its score is at least this… */
+    const val FITS = 0.40
+    /** …and at least this share of the song's top score (so a song with one very clear mood isn't in many weak ones). */
+    const val NEAR_TOP = 0.45
+    /** The most moods a song is in (a song in more says little about any of them). */
+    const val MOST = 5
+    /** Words that say a mood at least this much (0–1) count even against a sound that says otherwise. */
+    const val STRONG_WORDS = 0.6
+
+    /** Moods that pull against each other: a song is in both only when it plainly says both ([BOTH] for the weaker one). */
+    private val OPPOSITE: Map<String, Set<String>> = listOf("Happy" to "Sad", "Happy" to "Dark", "Party" to "Sad", "Calm" to "Intense",
+        "Calm" to "Hype", "Calm" to "Energetic", "Chill" to "Intense").flatMap { (x, y) -> listOf(x to y, y to x) }
+        .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+    /** The score the weaker of two opposite moods needs to be a mood of the song too. */
+    const val BOTH = 0.55
+
+    /** What the sound says in a few plain numbers: energy, fast, major, minor, bright (each 0–1). */
+    private class Cues(f: SoundFeatures) {
+        val e = clamp((f.loud + 28) / 18)
+        val fast = if (f.bpm <= 0) 0.5 else clamp((f.bpm - 85) / 55)
+        val up = clamp(f.major); val down = clamp(-f.major)
+        val b = clamp((f.bright - 1000) / 2500)
+        /** Clearly upbeat (loud, quick, and major or bright): 0 not at all … 1 plainly. */
+        val upbeat = clamp((minOf(e, fast) - 0.4) / 0.3) * clamp((maxOf(up, b) - 0.1) / 0.4)
+        /** Clearly downbeat (quiet, slow, and minor or dark): 0 … 1. */
+        val downbeat = clamp((minOf(1 - e, 1 - fast) - 0.35) / 0.3) * clamp((maxOf(down, 1 - b) - 0.3) / 0.4)
+        /** How glad the sound is, -1 … 1. */
+        val valence = (0.6 * f.major + 0.5 * (b - 0.5) + 0.4 * (fast - 0.5)).coerceIn(-1.0, 1.0)
+        val energy = (0.5 * e + 0.3 * fast + 0.2 * clamp(f.onsets / 5)).coerceIn(0.0, 1.0)
+    }
+
+    /** A song's moods, worked out: [scores], every mood's fit (0–1); [moods], the ones that fit, best first, each with
+     *  its score (the first is its main mood); [confidence], how sure (0–1); [conflict], how much its sound and its words
+     *  disagree (0 agree or one of them unknown … 1 plainly opposite); [clues], how many kinds of clue there were. */
+    data class Judgement(val scores: Map<String, Double>, val moods: List<Pair<String, Double>>, val confidence: Double,
+                         val conflict: Double, val clues: Int) {
+        val main: String? get() = moods.firstOrNull()?.first
+    }
+
+    private val NOTHING = Judgement(emptyMap(), emptyList(), 0.0, 0.0, 0)
+
+    /** A song's moods, best first, each with its score (0–1): every mood that fits (see [judge]); none when nothing
+     *  says anything. sound: what its sound says (null: not heard yet); genre: its file's genre ("" none); tags:
+     *  Last.fm's tags of the song, and of its artist, each with how much it counts (0–1: Last.fm's count over 100);
+     *  lyrics: what its words say ([LyricsReading.points]; empty: none read, or an instrumental). */
     fun decide(sound: SoundFeatures?, genre: String, tags: Map<String, Double> = emptyMap(), artistTags: Map<String, Double> = emptyMap(),
-               lyrics: Map<String, Double> = emptyMap()): List<Pair<String, Double>> {
+               lyrics: Map<String, Double> = emptyMap()): List<Pair<String, Double>> =
+        judge(sound, genre, tags, artistTags, lyrics = lyrics).moods
+
+    /** Works out a song's moods from what's known of it (see [decide] for the clues). Each clue adds points to the moods
+     *  it suggests; a mood's points become its score (0–1), and the song is in every mood whose score is at least
+     *  [FITS] and [NEAR_TOP] of its top one (at most [MOST]); the top one is its main mood.
+     *  words: the words' reading (its points, valence and how sure, for when the sound and the words disagree):
+     *  - a clearly upbeat sound with words only a little sad (or dark): the words' sadness doesn't count; strongly sad
+     *    words still do (both moods then), at a bit less.
+     *  - a clearly slow, quiet, minor sound with words only a little glad: the words' gladness doesn't count, likewise.
+     *  - the sound and the words agreeing makes it surer; disagreeing, less sure (see [Judgement.conflict]).
+     *  bias: what your fixes in the Tagger taught about this song (see [MoodLearn]), added to its scores; a small nudge
+     *  that can't take away a mood its own clues say strongly. */
+    fun judge(sound: SoundFeatures?, genre: String, tags: Map<String, Double> = emptyMap(), artistTags: Map<String, Double> = emptyMap(),
+              words: LyricsReading? = null, lyrics: Map<String, Double> = words?.points().orEmpty(),
+              bias: Map<String, Double> = emptyMap()): Judgement {
         val score = HashMap<String, Double>()
         var clues = 0
         // Tags: mood words count most; genre names in tags a bit less. A mood gets at most 1.5 from tags.
@@ -174,29 +240,66 @@ object MoodRules {
         if (genrePts.isNotEmpty()) clues++
         genrePts.forEach { (m, v) -> score.merge(m, 0.8 * minOf(v, 1.2), Double::plus) }
         // The sound: only how far each mood stands out from the song's average, so it tips rather than decides.
-        if (sound != null && sound.loud > -60) {
+        val cues = sound?.takeIf { it.loud > -60 }?.let { Cues(it) }
+        if (sound != null && cues != null) {
             clues++
             val s = fromSound(sound)
             val avg = s.values.average()
             // With words to go by, the sound counts a bit more for the moods you hear and a bit less for the ones you're told.
-            s.forEach { (m, v) -> score.merge(m, 1.5 * (if (lyrics.isEmpty()) 1.0 else SOUND_SAYS[m] ?: 1.0) * (v - avg), Double::plus) }
+            s.forEach { (m, v) -> score.merge(m, SOUND_K * (if (lyrics.isEmpty()) 1.0 else SOUND_SAYS[m] ?: 1.0) * (v - avg), Double::plus) }
         }
-        // The words (see [LyricsMood]): each mood by how sure the reading is, weighed by how much words say about it.
+        // The words (see [LyricsMood]): each mood by how much they say it, weighed by how much words say about it, unless
+        // the sound plainly says otherwise and the words only hint.
+        var conflict = 0.0; var agree = 0.0
         if (lyrics.isNotEmpty()) {
             clues++
-            lyrics.forEach { (m, v) -> score.merge(m, 1.3 * (WORDS_SAY[m] ?: 0.7) * v.coerceIn(0.0, 1.0), Double::plus) }
+            for ((m, raw) in lyrics) {
+                val v = raw.coerceIn(0.0, 1.0)
+                val against = when {
+                    cues == null -> 0.0
+                    m in GLOOMY -> cues.upbeat
+                    m in GLAD -> cues.downbeat
+                    else -> 0.0
+                }
+                val k = if (v >= STRONG_WORDS) 1 - 0.35 * against else 1 - against
+                score.merge(m, 1.3 * (WORDS_SAY[m] ?: 0.7) * v * k, Double::plus)
+            }
+            // Do the sound and the words agree? By how glad each is (the words' only when they say enough).
+            if (cues != null && words != null && !words.instrumental) {
+                val sure = clamp(words.confidence / 0.6)
+                val gap = kotlin.math.abs(cues.valence - words.valence) + 0.5 * kotlin.math.abs(cues.energy - words.energy)
+                conflict = clamp((gap - 0.6) / 0.9) * sure
+                agree = clamp((0.6 - gap) / 0.6) * sure
+            }
         }
-        val ranked = score.entries.filter { it.value > 0.08 }.sortedByDescending { it.value }
-        if (ranked.isEmpty()) return emptyList()
+        val raw = score.filterValues { it > 0.08 }
+        if (raw.isEmpty()) return NOTHING.copy(clues = clues)   // nothing of its own: a nudge alone gives no mood
+        // Each mood's score: its points, saturating (0.7 points: about half; 2: nearly all), then your fixes' nudge.
+        val fit = HashMap<String, Double>()
+        for (m in ALL) {
+            val p = raw[m] ?: 0.0
+            val own = if (p > 0) 1 - kotlin.math.exp(-p / SPREAD) else 0.0
+            val b = bias[m] ?: 0.0
+            // A nudge only moves a mood the song's own clues say something of, and down can't take away what they say strongly.
+            val nudge = when { b > 0 && own <= 0.0 -> 0.0; b < 0 && own >= 0.7 -> 0.3 * b; else -> b }
+            val s = clamp(own + nudge)
+            if (s > 0.01) fit[m] = Math.round(s * 100) / 100.0
+        }
+        if (fit.isEmpty()) return NOTHING.copy(clues = clues)
+        val ranked = fit.entries.sortedWith(compareByDescending<Map.Entry<String, Double>> { it.value }.thenBy { ALL.indexOf(it.key) })
         val top = ranked[0].value
-        val second = ranked.getOrNull(1)?.value ?: 0.0
-        val sure = clamp(0.25 + 0.12 * clues + 0.4 * (top - second) / top + 0.1 * minOf(top, 1.0))
-        val out = ArrayList<Pair<String, Double>>()
-        out += ranked[0].key to Math.round(sure * 100) / 100.0
+        if (top < 0.1) return NOTHING.copy(scores = fit, clues = clues)
+        val moods = ArrayList<Pair<String, Double>>()
+        moods += ranked[0].key to top
         for (e in ranked.drop(1)) {
-            if (out.size == 3 || e.value < 0.55 * top) break
-            out += e.key to Math.round(sure * e.value / top * 100) / 100.0
+            if (moods.size == MOST || e.value < FITS || e.value < NEAR_TOP * top) break
+            // The opposite of a mood it's in already (Happy and Sad): only when that's plainly said too.
+            if (e.value < BOTH && moods.any { it.first in OPPOSITE[e.key].orEmpty() }) continue
+            moods += e.key to e.value
         }
-        return out
+        val second = ranked.getOrNull(1)?.value ?: 0.0
+        val lead = (top - second) / top
+        val sure = clamp(0.2 + 0.12 * clues + 0.2 * lead + 0.25 * top + 0.15 * agree - 0.3 * conflict)
+        return Judgement(fit, moods, Math.round(sure * 100) / 100.0, Math.round(conflict * 100) / 100.0, clues)
     }
 }

@@ -167,8 +167,9 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
     }
 }
 
-/** Mood, a row of the Tags tab under Track that looks like the other fields: the songs' main mood; a tap picks one of
- *  the Moods tab's (saved straight away, no need for Save the tags), or Clear to have it worked out again. Kept in the
+/** Mood, a row of the Tags tab under Track that looks like the other fields: the songs' moods (every one that fits, the
+ *  main one first); a tap ticks the moods it should have, exactly those (saved straight away, no need for Save the
+ *  tags), or Clear to have them worked out again. Kept in the
  *  app, and written into the files' MOOD tags where the app may write them (on the PC all your files; on the phone its
  *  own downloads). Any song that's a file can have one, even where its other tags can't be changed. */
 @Composable
@@ -178,12 +179,12 @@ private fun TaggerMood(tracks: List<Track>) {
     Text("Mood", style = T.sub, modifier = Modifier.padding(top = 2.dp))
     if (mine.isEmpty()) { Text("Only songs that are files (yours or downloaded) have a mood", style = T.sub); return }
     val v = moods.version
-    val now = remember(mine, v) { mine.map { runCatching { moods.of(it) }.getOrNull() }.distinct() }
+    val now = remember(mine, v) { mine.map { runCatching { moods.all(it) }.getOrDefault(emptyList()) }.distinct() }
     val yours = remember(mine, v) { mine.map { runCatching { moods.picked(it) }.getOrDefault("") }.distinct() }
-    val one = now.singleOrNull()
-    // The moods ticked: the ones you set (all the songs the same), else the mood worked out
+    val one = now.singleOrNull()?.takeIf { it.isNotEmpty() }
+    // The moods ticked: the ones you set (all the songs the same), else the moods worked out
     val ticked = remember(mine, v) {
-        yours.singleOrNull()?.takeIf { it.isNotEmpty() }?.split(';')?.filter { it.isNotEmpty() } ?: listOfNotNull(one)
+        yours.singleOrNull()?.takeIf { it.isNotEmpty() }?.split(';')?.filter { it.isNotEmpty() } ?: one.orEmpty()
     }
     val byYou = yours.singleOrNull()?.isNotEmpty() == true
     var open by remember { mutableStateOf(false) }
@@ -193,7 +194,7 @@ private fun TaggerMood(tracks: List<Track>) {
             .clickable { open = true }.padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(when {
                 byYou -> ticked.joinToString(", ")
-                one != null -> one
+                one != null -> one.joinToString(", ")
                 now.size > 1 -> "Several (a pick gives them all the same)"
                 else -> "No mood yet: tap to pick"
             }, style = if (one != null || byYou) T.body else T.body.copy(color = C.muted), modifier = Modifier.weight(1f))

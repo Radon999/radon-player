@@ -101,11 +101,11 @@ class SoundMoodTest {
         assertEquals("Sad", MoodRules.decide(null, "", mapOf("emotional" to 1.0)).first().first)
     }
 
-    @Test fun moodsAreKnownAndAtMostThree() {
+    @Test fun moodsAreKnownAndNotTooMany() {
         val f = feat(clicks(128.0))
         assertNotNull(f)
         val got = MoodRules.decide(f, "House", mapOf("dance" to 1.0, "party" to 0.6))
-        assertTrue(got.size in 1..3)
+        assertTrue(got.size in 1..MoodRules.MOST)
         assertEquals("Party", got.first().first)
         assertTrue(got.all { it.first in MoodRules.ALL && it.second in 0.0..1.0 })
     }
