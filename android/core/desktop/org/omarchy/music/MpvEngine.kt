@@ -105,6 +105,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         val ins = input ?: return
         for ((n, prop) in listOf("time-pos", "duration", "pause", "idle-active", "eof-reached", "path", "audio-params", "audio-device-list").withIndex())
             sendRaw("""{"command":["observe_property",${n + 1},"$prop"]}""")
+        keepDevice.takeIf { it.isNotEmpty() }?.let { send("set_property", "audio-device", it) }   // Ignore Bluetooth devices
         ins.bufferedReader().forEachLine { line -> runCatching { event(JSON.parseToJsonElement(line) as JsonObject) } }
     }
 
@@ -153,6 +154,12 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         val now = list.mapNotNull { (it as? JsonObject)?.get("name")?.jsonPrimitive?.content }.filter { it != "auto" }.toSet()
         val was = devices
         devices = now
+        if (main && now != was) {   // Ignore Bluetooth devices: mpv's names for the devices, and a look at whether to keep one
+            deviceList = list.mapNotNull { d -> (d as? JsonObject)?.let { o ->
+                val n = o["name"]?.jsonPrimitive?.content ?: return@let null
+                if (n == "auto") null else n to (o["description"]?.jsonPrimitive?.content ?: n) } }
+            Music.scope.launch(Dispatchers.Main) { if (Music.player === this@MpvEngine) IgnoreBt.apply() }
+        }
         if (!main || was == null || (was - now).isEmpty()) return
         Music.scope.launch(Dispatchers.Main) {
             if (Music.player !== this@MpvEngine || !Music.bitPerfect) return@launch
@@ -318,6 +325,17 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                 val players = synchronized(all) { all.toList() }
                 players.forEach { e -> runCatching { e.proc?.destroy() } }
             })
+        }
+        /** The PC's sound devices as mpv has them: (mpv's name for it, its description: Windows' name for it). */
+        @Volatile var deviceList: List<Pair<String, String>> = emptyList()
+            private set
+        /** Ignore Bluetooth devices: the device every player keeps to ("": mpv follows the PC's default output). */
+        @Volatile var keepDevice = ""
+            private set
+        fun keepOn(device: String) {
+            if (device == keepDevice) return
+            keepDevice = device
+            synchronized(all) { all.toList() }.forEach { it.send("set_property", "audio-device", device.ifEmpty { "auto" }) }
         }
         /** The app's volume (0 to 1), for every player. */
         @Volatile var level = 1f

@@ -46,22 +46,37 @@ private object Images {
         if (model is Sized) return load(model.model, model.px)
         val key = model to px
         synchronized(cache) { cache[key]?.let { return it }; if (key in failed) return null }
-        val img = withContext(Dispatchers.IO) { runCatching { decode(bytes(model) ?: return@runCatching null, px) }.getOrNull() }
+        val img = withContext(Dispatchers.IO) { runCatching { picture(model, px) }.getOrNull() }
         synchronized(cache) { if (img != null) cache[key] = img else failed += key }
         return img
     }
 
+    /** A picture decoded. A song's own cover (FileArt): the file's picture, its folder's cover.jpg, then the fallback,
+     *  the first that decodes (a cover a tagger re-saved in a form that can't be read moves on to the next, not to nothing). */
+    private fun picture(model: Any, px: Int): ImageBitmap? {
+        if (model !is FileArt) return bytes(model)?.let { decodeAny(it, px) }
+        val tries = sequenceOf<() -> ByteArray?>(
+            { org.omarchy.music.embeddedPicture(Music.ctx, model.uri) },
+            { fileOf(model.uri).parentFile?.listFiles()?.firstOrNull { it.name.lowercase() in COVERS }?.readBytes() },
+        )
+        return tries.firstNotNullOfOrNull { get -> runCatching { get()?.takeIf { it.isNotEmpty() }?.let { decodeAny(it, px) } }.getOrNull() }
+            ?: model.fallback.takeIf { it.isNotEmpty() }?.let { f -> runCatching { bytes(f)?.let { decodeAny(it, px) } }.getOrNull() }
+    }
+
+    /** Skia's decoder, else Java's (it reads some JPEGs Skia won't), re-saved as a plain JPEG. */
+    private fun decodeAny(b: ByteArray, px: Int): ImageBitmap? =
+        runCatching { decode(b, px) }.getOrNull() ?: org.omarchy.music.toJpeg(b)?.let { runCatching { decode(it, px) }.getOrNull() }
+
+    /** A song's address as a file: a path, or a file: address (Windows' too, backslashes and all). */
+    private fun fileOf(uri: String): File = if (!uri.startsWith("file:")) File(uri)
+        else runCatching { File(java.net.URI(uri)) }.getOrNull() ?: File(uri.removePrefix("file://").removePrefix("file:"))
+
     private fun bytes(model: Any): ByteArray? = when (model) {
         is File -> model.takeIf { it.isFile }?.readBytes()
-        is FileArt -> org.omarchy.music.embeddedPicture(Music.ctx, model.uri)
-            ?: File(java.net.URI(model.uri.takeIf { it.startsWith("file:") } ?: File(model.uri).toURI().toString()).path)
-                .parentFile?.listFiles()?.firstOrNull { it.name.lowercase() in COVERS }?.readBytes()
-            ?: model.fallback.takeIf { it.isNotEmpty() }?.let { bytes(it) }
         is AuthImage -> fetch(model.url, model.auth)
         is String -> when {
             model.startsWith("http://") || model.startsWith("https://") -> fetch(model, null)
-            model.startsWith("file:") -> File(java.net.URI(model)).takeIf { it.isFile }?.readBytes()
-            else -> File(model).takeIf { it.isFile }?.readBytes()
+            else -> fileOf(model).takeIf { it.isFile }?.readBytes()
         }
         else -> null
     }

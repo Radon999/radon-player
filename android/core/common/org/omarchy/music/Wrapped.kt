@@ -161,8 +161,10 @@ object Wrapped {
         else "${MONTHS[monday.monthValue - 1]} ${monday.dayOfMonth}–${MONTHS[sunday.monthValue - 1]} ${sunday.dayOfMonth}"
     }
 
-    data class Song(val title: String, val artist: String, val plays: Int, val art: String, val first: Long? = null)
-    data class AlbumPlays(val name: String, val artist: String, val plays: Int, val art: String)
+    /** A song row. file: your own copy of it (its cover is drawn first, read from the file), "" if you haven't got it;
+     *  art: the picture when the file has none (a cover saved for it, Last.fm's or Deezer's address). */
+    data class Song(val title: String, val artist: String, val plays: Int, val art: String, val first: Long? = null, val file: String = "")
+    data class AlbumPlays(val name: String, val artist: String, val plays: Int, val art: String, val file: String = "")
     data class Data(
         val period: Period, val user: String, val years: List<Int>, val since: Int, val empty: Boolean = false,
         val scrobbles: Int = 0, val artistCount: Int = 0, val songCount: Int = 0,
@@ -482,9 +484,8 @@ object Wrapped {
         }.getOrDefault(emptyList()))
         progress("Finding your genres…")
         data = data.copy(genres = genres(dir, data.artists))
-        val mine = myCovers(dir)
         progress("Reading your songs' genres and moods…")
-        data = runCatching { mineStats(data, rows, mine) }.getOrDefault(data)
+        data = runCatching { mineStats(data, rows) }.getOrDefault(data)
         if (period != Period.All) {
             progress("Finding your discoveries…")
             data = runCatching { firsts(ctx, data, rows, epoch(period.start())) }.getOrDefault(data)
@@ -492,24 +493,44 @@ object Wrapped {
         val (from, to) = if (period == Period.All) 0L to Long.MAX_VALUE else epoch(period.start()) to epoch(period.end())
         data = data.copy(log = runCatching {
             val diary = ListenLog.all()
-            logStats(diary.filter { it.t in from until to }, diary.firstOrNull()?.t ?: 0L, mine)
+            logStats(diary.filter { it.t in from until to }, diary.firstOrNull()?.t ?: 0L)
         }.getOrDefault(LogStats()))
         progress("Working out what kind of listener you are…")
         data = data.copy(type = runCatching { listenerType(dir, data, from, to) }.getOrNull())
         progress("Looking through your library…")
         data = data.copy(library = runCatching { library() }.getOrNull())
         progress("Getting the pictures…")
+        // Every song and album row: the cover inside your own file of it first (read from the file as it is now, so a
+        // cover you re-saved shows), then a cover saved for it, Last.fm's, then Deezer's (looked up only when needed).
+        val mine = myCovers()
+        runCatching { dir.listFiles { f -> f.name.startsWith("mine-") }?.forEach { it.delete() } }   // the old copies of covers (went stale)
+        val hasOwn = HashMap<String, Boolean>()
+        fun ownCover(file: String) = file.isNotEmpty() &&
+            hasOwn.getOrPut(file) { runCatching { embeddedPicture(ctx, file) != null }.getOrDefault(false) }
+        fun song(s: Song, big: Boolean): Song {
+            val m = if (s.file.isNotEmpty()) Mine(s.file, "") else mine(s.artist, s.title, false)
+            val web = picture(s.art).let { if (big && it.isNotEmpty()) bigLastfm(it) else it }
+            val art = m.saved.ifEmpty { web }.ifEmpty {
+                if (ownCover(m.file)) "" else runCatching { Pictures.deezerPace(); deezerCover(s.artist, s.title) }.getOrNull() ?: ""
+            }
+            return s.copy(file = m.file, art = art)
+        }
+        fun album(a: AlbumPlays, big: Boolean): AlbumPlays {
+            val m = if (a.file.isNotEmpty()) Mine(a.file, mine(a.artist, a.name, true).saved) else mine(a.artist, a.name, true)
+            val web = picture(a.art).let { if (big && it.isNotEmpty()) bigLastfm(it) else it }
+            val art = m.saved.ifEmpty { web }.ifEmpty {
+                if (ownCover(m.file)) "" else runCatching { Pictures.deezerPace(); deezerAlbumCover(a.artist, bareRelease(a.name)) }.getOrNull() ?: ""
+            }
+            return a.copy(file = m.file, art = art)
+        }
         data = data.copy(
             artistImage = data.artists.firstOrNull()?.let { runCatching { deezerArtistImage(it.first) }.getOrNull() } ?: "",
-            // Your own copy's cover first (Last.fm often has none), then Last.fm's, then Deezer's.
-            songs = data.songs.mapIndexed { i, s ->
-                val img = mine(s.artist, s.title, false).ifEmpty { picture(s.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it } }
-                s.copy(art = img.ifEmpty { runCatching { Pictures.deezerPace(); deezerCover(s.artist, s.title) }.getOrNull() ?: "" })
-            },
-            albums = data.albums.mapIndexed { i, a ->
-                val img = mine(a.artist, a.name, true).ifEmpty { picture(a.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it } }
-                a.copy(art = img.ifEmpty { runCatching { Pictures.deezerPace(); deezerAlbumCover(a.artist, a.name) }.getOrNull() ?: "" })
-            },
+            songs = data.songs.mapIndexed { i, s -> runCatching { song(s, i == 0) }.getOrDefault(s) },
+            albums = data.albums.mapIndexed { i, a -> runCatching { album(a, i == 0) }.getOrDefault(a) },
+            singles = data.singles.mapIndexed { i, a -> runCatching { album(a, i == 0) }.getOrDefault(a) },
+            eps = data.eps.mapIndexed { i, a -> runCatching { album(a, i == 0) }.getOrDefault(a) },
+            discovered = data.discovered.map { s -> runCatching { song(s, false) }.getOrDefault(s) },
+            log = data.log.copy(searched = data.log.searched.mapIndexed { i, s -> runCatching { song(s, i == 0) }.getOrDefault(s) }),
         )
         return data
     }
@@ -525,7 +546,7 @@ object Wrapped {
 
     /** Plays by your songs' genre tags and moods, and your singles and EPs played most: each play matched to your own
      *  copy of the song (the plays of songs you haven't got count for none of these). */
-    private fun mineStats(d: Data, rows: List<Row>, covers: (String, String, Boolean) -> String): Data {
+    private fun mineStats(d: Data, rows: List<Row>): Data {
         if (rows.isEmpty()) return d
         val mine = HashMap<Pair<String, String>, Track>()
         for (t in Music.mySongs()) mine.putIfAbsent(Stats.statsKey(t.title, t.artist), t)
@@ -550,7 +571,7 @@ object Wrapped {
             }
         }
         fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP).map { r ->
-            AlbumPlays(r.name, r.artist, r.n, covers(r.t.artist, r.t.album.ifBlank { r.t.title }, r.t.album.isNotBlank()))
+            AlbumPlays(r.name, r.artist, r.n, "", r.t.file ?: "")   // its picture: the file's own cover (load's last step)
         }
         return d.copy(fileGenres = genres.entries.sortedByDescending { it.value }.take(TOP).map { genreName.getValue(it.key) to it.value },
             moods = moods.entries.sortedByDescending { it.value }.take(TOP).map { it.key to it.value },
@@ -591,7 +612,7 @@ object Wrapped {
     }
 
     /** What the listening diary says about a period's entries (since: when the diary began). */
-    internal fun logStats(es: List<ListenLog.Entry>, since: Long, covers: ((String, String, Boolean) -> String)? = null): LogStats {
+    internal fun logStats(es: List<ListenLog.Entry>, since: Long): LogStats {
         if (es.isEmpty()) return LogStats(since = since)
         val names = runCatching { Music.lists.all().associate { it.id to it.name } }.getOrDefault(emptyMap())
         val playlists = es.filter { it.kind == "playlist" }.groupBy { it.list.ifEmpty { it.from } }.map { (k, l) ->
@@ -602,7 +623,7 @@ object Wrapped {
             Device(k, l.groupingBy { it.outKind }.eachCount().maxByOrNull { it.value }?.key ?: "", l.sumOf { it.secs }, l.size)
         }.sortedByDescending { it.secs }
         val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.map { (_, l) ->
-            val e = l.first(); Song(e.title, e.artist, l.size, covers?.invoke(e.artist, e.title, false) ?: "", e.t)
+            val e = l.first(); Song(e.title, e.artist, l.size, "", e.t)   // pictures: load's last step
         }.sortedByDescending { it.plays }.take(TOP)
         // Shuffled or in order: listening from your playlists, albums and other lists (not the DJ, a radio or a search)
         val listed = es.filter { it.kind in setOf("playlist", "album", "artist", "other") }
@@ -685,27 +706,29 @@ object Wrapped {
     private fun deezerAlbumCover(artist: String, album: String): String? =
         httpJson("https://api.deezer.com/search/album?q=${enc("artist:\"$artist\" album:\"$album\"")}&limit=1")["data"][0]["cover_xl"].str
 
-    /** A finder of covers from your own songs: (artist, title or album, album?) -> a picture's address, or "". */
-    private fun myCovers(dir: java.io.File): (String, String, Boolean) -> String {
-        val songs = HashMap<Pair<String, String>, Track>(); val albums = HashMap<Pair<String, String>, Track>()
-        for (t in Music.mySongs()) {
-            val lead = norm(splitArtists(t.artist).firstOrNull() ?: "")
-            songs.putIfAbsent(lead to norm(cleanTitle(t.title)), t)
-            if (t.album.isNotEmpty()) albums.putIfAbsent(lead to norm(t.album), t)
+    /** Your own copy of a song or album: its file ("" if you haven't got it) and a cover saved for it ("" if none). */
+    private class Mine(val file: String, val saved: String)
+
+    /** A finder of your own copies: (artist, title or album, album?) -> [Mine]. Songs are matched as Most played matches
+     *  them (the same title and artist, an artist of it, or the same album; your best file of it); albums by name (an
+     *  album and its deluxe edition are one, "- Single"/"EP" ends ignored) and one of their artists. */
+    private fun myCovers(): (String, String, Boolean) -> Mine {
+        val index = Music.songIndex()   // also readies Music.fmSong's lookups
+        fun albumKey(name: String) = norm(cleanTitle(albumEdition(bareRelease(name)).first))
+        val albums = HashMap<String, MutableList<Track>>()
+        for (t in Music.mySongs()) if (t.file != null && t.album.isNotBlank()) albums.getOrPut(albumKey(t.album)) { ArrayList() } += t
+        fun saved(t: Track): String {
+            Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && File(it).exists() }?.let { return it }
+            val p = Pictures.cover(t.artist, t.album.ifEmpty { t.title })
+            return if (p.startsWith("/") || (p.length > 2 && p[1] == ':')) p.takeIf { File(it).exists() } ?: "" else p
         }
         return { artist, name, album ->
-            val lead = norm(splitArtists(artist).firstOrNull() ?: "")
-            val t = if (album) albums[lead to norm(name)] else songs[lead to norm(cleanTitle(name))]
-            if (t == null) "" else {
-                val art = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() }
-                if (art != null) "file://$art" else {
-                    val uri = Music.lib.items[t.id]?.file ?: t.file
-                    val out = java.io.File(dir, "mine-${safeName(uri ?: t.id).takeLast(60)}.jpg")
-                    if (out.exists()) "file://${out.path}" else runCatching {
-                        uri?.let { embeddedPicture(Music.ctx, it) }
-                    }.getOrNull()?.let { out.writeBytes(it); "file://${out.path}" } ?: ""
-                }
-            }
+            val t: Track? = if (album) {
+                val theirs = splitArtists(artist).map { norm(it) }.filter { it.isNotEmpty() }.toSet() + norm(artist)
+                albums[albumKey(name)].orEmpty().firstOrNull { c -> norm(c.artist) in theirs || splitArtists(c.artist).any { norm(it) in theirs } }
+            } else runCatching { Music.fmSong(name, artist, "", index) }.getOrNull()
+            val file = t?.file
+            if (t == null || file.isNullOrEmpty()) Mine("", "") else Mine(file, saved(t))
         }
     }
 }

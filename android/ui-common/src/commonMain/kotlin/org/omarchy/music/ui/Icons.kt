@@ -23,7 +23,8 @@ import kotlin.math.sin
 enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HEART_LINE, STAR, STAR_LINE, EQ, LYRICS, VIS,
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
-    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST, VOLUME_ALERT, MIC }
+    SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST, VOLUME_ALERT, MIC,
+    BLUETOOTH_OFF }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -174,6 +175,10 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
             dot(3.6f, 18.4f, 1.4f)
         }
         Ico.BLUETOOTH -> line(7f, 7.5f, 17f, 16.5f, 12f, 21f, 12f, 3f, 17f, 7.5f, 7f, 16.5f)
+        Ico.BLUETOOTH_OFF -> {   // the Bluetooth sign, a little to the left, and an X by its top right: Bluetooth devices ignored
+            line(3.5f, 7.5f, 13.5f, 16.5f, 8.5f, 21f, 8.5f, 3f, 13.5f, 7.5f, 3.5f, 16.5f)
+            line(16f, 3.5f, 21f, 8.5f); line(21f, 3.5f, 16f, 8.5f)
+        }
         Ico.SPEAKER -> {   // a speaker cone and two sound waves
             fill(3f, 9.5f, 7f, 9.5f, 12f, 5f, 12f, 19f, 7f, 14.5f, 3f, 14.5f)
             drawArc(color, -50f, 100f, false, p(9f, 7f), Size(10f * u, 10f * u), style = stroke)

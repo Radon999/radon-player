@@ -12,12 +12,16 @@ import kotlinx.serialization.json.putJsonObject
 import java.io.File
 import java.io.RandomAccessFile
 
-/** What you're playing on your Discord profile, as Spotify does, through the Discord app's own Rich Presence socket on
- *  this computer (nothing goes anywhere else), as the Python app does. Paused or stopped, it's cleared. With Discord
- *  closed it looks for it again every so often. */
+/** What you're playing on your Discord profile, as Spotify does ("Listening to …"), through the Discord app's own Rich
+ *  Presence socket on this computer (nothing goes anywhere else), as the Python app does. Paused or stopped, it's
+ *  cleared. With Discord closed it looks for it again every so often, and it finds Discord again after a restart.
+ *  The name Discord shows ("Listening to VarMusic") is the name of the Discord application whose ID is used: it's set
+ *  on Discord's developer portal, not here, so the ID is a setting ([setAppId]). */
 object Discord {
     val supported = true
-    private const val APP_ID = "1564098839475126292"   // the "Radon Player" app on Discord's developer portal (public)
+    /** The app's built-in Discord application: the old "VarMusic" one (public; an application ID is no secret). */
+    const val DEFAULT_APP_ID = "1564098839475126292"
+    private const val APP_ID_KEY = "discord_app_id"
     private const val ICON = "https://raw.githubusercontent.com/Radon999/radon-player/radon-player/docs/icon.png"
     private const val DOWNLOAD = "https://github.com/Radon999/radon-player/releases/latest"
     private val windows = System.getProperty("os.name").lowercase().contains("win")
@@ -31,16 +35,34 @@ object Discord {
     private var pipe: RandomAccessFile? = null
     private var sock: java.nio.channels.SocketChannel? = null
     private var sent: JsonObject? = null
-    private var sentKey = ""
+    @Volatile private var sentKey = ""
+    @Volatile private var redo = false          // reconnect (the application ID changed)
+    @Volatile private var plain = false         // Discord refused the full activity: send the basic one
+    private var logged = ""                     // the last problem written to Settings › Problems (once each)
+
+    private var idNow by mutableStateOf("")
+    /** The Discord application ID in use: yours (Settings) or the built-in one. */
+    val appId: String get() = idNow.ifEmpty { DEFAULT_APP_ID }
+    /** Whether it's one of your own (not the built-in one). */
+    val ownAppId: Boolean get() = idNow.isNotEmpty()
 
     fun init() {
         onNow = Prefs.on("discord")
+        idNow = Prefs.text(APP_ID_KEY).trim()
         Thread({ run() }, "discord").apply { isDaemon = true }.start()
     }
 
     fun setOn(v: Boolean) { onNow = v; Prefs.set("discord", v) }
 
-    private fun appId() = Music.apiKeys["discord_app_id"] ?: APP_ID
+    /** Use the Discord application with this ID ("" for the built-in one): Discord shows its name. False if it isn't
+     *  one (an application ID is a number of 17 to 20 digits). */
+    fun setAppId(v: String): Boolean {
+        val id = v.trim()
+        if (id.isNotEmpty() && !Regex("\\d{17,20}").matches(id)) return false
+        idNow = id; Prefs.setText(APP_ID_KEY, id)
+        redo = true; plain = false; status = ""
+        return true
+    }
 
     private fun paths(): List<String> = if (windows) (0 until 10).map { "\\\\.\\pipe\\discord-ipc-$it" } else {
         val bases = listOf("XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP").mapNotNull { System.getenv(it) } + "/tmp"
@@ -58,8 +80,8 @@ object Discord {
             if (pipe != null || sock != null) break
         }
         if (pipe == null && sock == null) throw java.io.IOException("Discord isn't open")
-        send(0, buildJsonObject { put("v", 1); put("client_id", appId()) })
-        reply()
+        send(0, buildJsonObject { put("v", 1); put("client_id", appId) })
+        reply()   // READY, or an error (a wrong application ID: "Invalid Client ID")
     }
 
     private fun close() {
@@ -88,10 +110,15 @@ object Discord {
         val head = java.nio.ByteBuffer.wrap(read(8)).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         val op = head.int; val n = head.int
         val data = runCatching { JSON.parseToJsonElement(String(read(n))) as JsonObject }.getOrDefault(JsonObject(emptyMap()))
-        if (op == 2 || data["evt"].str == "ERROR")
-            throw IllegalStateException((data["data"] as? JsonObject)?.get("message").str ?: data["message"].str ?: "Discord said no")
+        if (op == 2 || data["evt"].str == "ERROR") {
+            val msg = (data["data"] as? JsonObject)?.get("message").str ?: data["message"].str ?: "Discord said no"
+            throw Refused(if (op == 2) "Discord closed the connection: $msg" else msg)
+        }
         return data
     }
+
+    /** Discord said no to what was sent (not a lost connection). */
+    private class Refused(msg: String) : Exception(msg)
 
     private fun text(v: String?) = (v ?: "").trim().take(128).padEnd(2, '⠀')
 
@@ -104,51 +131,83 @@ object Discord {
         else -> null
     }
 
-    /** What to show now (null: nothing), and a key that changes only when it should be sent again. */
-    private fun wanted(): Pair<JsonObject?, String> {
+    /** What to show now (null: nothing), and a key that changes only when it should be sent again. basic: only what
+     *  every Discord takes (no buttons, links or the newer fields), for when it refused the full one. */
+    private fun wanted(basic: Boolean): Pair<JsonObject?, String> {
         val t = Music.current()
         if (!on || t == null || Music.paused) return null to ""
         val start = System.currentTimeMillis() - (Music.position * 1000).toLong()
         val dur = Music.duration.takeIf { it > 0 } ?: t.duration
         val p = page(t)
+        // A picture's address may be 256 characters at most (a longer one makes Discord refuse the whole activity)
+        val cover = t.thumb.takeIf { it.startsWith("https://") && it.length <= 256 } ?: ICON
         val act = buildJsonObject {
-            put("type", 2); put("status_display_type", 0)
+            put("type", 2)   // "Listening to …", as Spotify shows
+            if (!basic) put("status_display_type", 0)
             put("details", text(t.title)); put("state", text(t.artist))
-            putJsonObject("timestamps") { put("start", start); if (dur > 0) put("end", start + (dur * 1000).toLong()) }
-            putJsonObject("assets") {
-                put("large_image", if (t.thumb.startsWith("https://")) t.thumb else ICON)
-                put("small_image", ICON); put("small_text", "Radon Player")
-                if (t.album.isNotEmpty()) put("large_text", text(t.album))
+            putJsonObject("timestamps") {
+                put("start", start)
+                if (dur > 0) put("end", start + (dur * 1000).toLong().coerceAtLeast(1000))
             }
-            p?.let { put("details_url", it.second) }
-            put("buttons", buildJsonArray {
-                p?.let { add(buildJsonObject { put("label", "Play on ${it.first}"); put("url", it.second) }) }
-                add(buildJsonObject { put("label", "Get Radon Player"); put("url", DOWNLOAD) })
-            })
+            putJsonObject("assets") {
+                put("large_image", cover)
+                if (t.album.isNotEmpty()) put("large_text", text(t.album))
+                if (!basic) { put("small_image", ICON); put("small_text", "Radon Player") }
+            }
+            if (!basic) {
+                p?.let { if (it.second.length <= 256) put("details_url", it.second) }
+                put("buttons", buildJsonArray {
+                    p?.let { if (it.second.length <= 512) add(buildJsonObject { put("label", "Play on ${it.first}"); put("url", it.second) }) }
+                    add(buildJsonObject { put("label", "Get Radon Player"); put("url", DOWNLOAD) })
+                })
+            }
         }
         return act to "${t.id}|${start / 3000}"   // the bar a few seconds off isn't worth an update
+    }
+
+    /** A problem written to Settings › Problems (Crashes), once each, so it can be seen and sent; Discord simply not
+     *  being open isn't one. */
+    private fun log(e: Exception) {
+        val msg = e.message ?: e.javaClass.simpleName
+        if (msg == "Discord isn't open" || msg == logged) return
+        logged = msg
+        Crashes.caught(e, "Discord Rich Presence (application $appId)")
+    }
+
+    private fun setActivity(want: JsonObject?) {
+        send(1, buildJsonObject {
+            put("cmd", "SET_ACTIVITY"); put("nonce", java.util.UUID.randomUUID().toString())
+            putJsonObject("args") { put("pid", ProcessHandle.current().pid()); want?.let { put("activity", it) } }
+        })
+        reply()
     }
 
     private fun run() {
         var last = 0L
         while (true) {
             Thread.sleep(1500)
-            val (want, key) = runCatching { wanted() }.getOrElse { null to "" }
-            if (key == sentKey) continue
+            if (redo) { redo = false; close() }   // a new application ID: a new handshake
+            val (want, key) = runCatching { wanted(plain) }.getOrElse { null to "" }
+            // Sent again every half minute while playing even if nothing changed: a Discord that restarted (or a lost
+            // connection) is found and shown the song again, not only at the next song
+            val stale = want != null && System.currentTimeMillis() - last > 30_000
+            if (key == sentKey && !stale) continue
             if (System.currentTimeMillis() - last < 4000) continue   // Discord takes 5 updates in 20 s
             last = System.currentTimeMillis()
             try {
                 if (pipe == null && sock == null) { if (want == null) { sentKey = key; continue }; connect() }
-                send(1, buildJsonObject {
-                    put("cmd", "SET_ACTIVITY"); put("nonce", java.util.UUID.randomUUID().toString())
-                    putJsonObject("args") { put("pid", ProcessHandle.current().pid()); want?.let { put("activity", it) } }
-                })
-                reply()
+                try { setActivity(want) } catch (e: Refused) {
+                    if (want == null || plain) throw e
+                    // Refused the full one (a newer field, a button, a picture): the basic one, from now on
+                    log(e); plain = true
+                    setActivity(wanted(true).first)
+                }
                 sent = want; sentKey = key; status = "on"
             } catch (e: Exception) {
                 close()
                 status = (e.message ?: "Discord isn't open").take(80)
-                Thread.sleep(20_000)
+                log(e)
+                Thread.sleep(if (e is Refused) 60_000 else 15_000)
             }
         }
     }

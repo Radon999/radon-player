@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -115,9 +116,10 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
     Box(Modifier.fillMaxSize().then(if (plain) Modifier.background(Color.Black)
         else Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom))))) {
-        // The cover in the colour, faintly, slightly blurred (a small copy drawn big is soft on every phone).
-        if (art != null && !plain) AsyncImage(model = smallArt(art, 20), contentDescription = null,
-            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer(alpha = 0.28f))
+        // The cover in the colour, faintly and only a little blurred, so it's still clearly the cover: a mid-size copy
+        // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
+        if (art != null && !plain) AsyncImage(model = smallArt(art, 128), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
         if (vis != null) NowVis(visStyle, vis, cols.bars, Modifier.align(Alignment.BottomCenter))
         if (!plain) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -214,11 +216,37 @@ private fun NowTop(ui: Ui, n: Now) {
                 else { Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear") }
             }
         }
-        // A song with its own volume: 🔊! shown, red while that change is in effect here (this output, the switch on)
-        if (!n.remote && t != null && Music.musicVersion >= 0 && Music.gains.has(t)) {
-            val now = Music.gainNow(t) != 0.0
-            IconButton(Ico.VOLUME_ALERT, if (now) MONO_RED else C.accent,
-                desc = if (now) "Volume changed here" else "Volume changed on another output") { ui.volumeFor = listOf(t) }
+        // Custom volume ("C" and a speaker): always here, straight to the playing song's own volume; red while a change of it
+        // is in effect here (this output), the accent when it has one for another output.
+        if (!n.remote && t != null) {
+            Music.musicVersion
+            val has = Music.gains.has(t)
+            val now = has && Music.gainNow(t) != 0.0
+            val col = when { now -> MONO_RED; has -> C.accent; else -> SOFT }
+            Row(Modifier.clip(R.pill).clickable { ui.volumeFor = listOf(t) }.padding(horizontal = 6.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("C", style = T.tab.copy(color = col, fontWeight = FontWeight.Bold))
+                Icon(Ico.SPEAKER, col, 20.dp)
+            }
+        }
+        // Ignore Bluetooth devices: on or off at a tap, red while on; a long-press (right-click) picks the devices (Settings)
+        if (!n.remote) {
+            val ign = org.omarchy.music.IgnoreBt
+            val on = ign.on
+            val picked = ign.ignored()
+            Box(Modifier.clip(R.pill).pressable(onClick = {
+                when {
+                    picked.isEmpty() -> { ui.openSettings("Playback")
+                        Music.toast("Pick the Bluetooth devices to ignore (your car) under Ignore Bluetooth devices") }
+                    on -> { ign.setOn(false); Music.toast("Not ignoring Bluetooth devices: the music goes wherever your $DEVICE sends it") }
+                    else -> { ign.setOn(true); Music.toast("Ignoring ${picked.joinToString(", ")}: the music stays where it is when " +
+                        "${if (picked.size == 1) "it connects" else "they connect"}. ${LONG_PRESS.cap()} to change which") }
+                }
+            }, onLongClick = { ui.openSettings("Playback") })
+                .semantics { contentDescription = if (on) "Ignoring Bluetooth devices" else "Not ignoring Bluetooth devices" }
+                .padding(10.dp), contentAlignment = Alignment.Center) {
+                Icon(Ico.BLUETOOTH_OFF, if (on) MONO_RED else SOFT, 24.dp)
+            }
         }
         if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }

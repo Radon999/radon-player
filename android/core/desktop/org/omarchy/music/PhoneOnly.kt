@@ -46,7 +46,10 @@ object Outputs {
     @Volatile private var lastAt = 0L
 
     /** The output now (asking Windows takes a moment: the watcher asks, every few seconds, off the screen's thread). */
-    fun now(ctx: Ctx): Out = if (lastAt == 0L) refresh() else last
+    fun now(ctx: Ctx): Out = BtRoute.routed ?: system(ctx)
+
+    /** The PC's own default output, even while Ignore Bluetooth devices keeps the music elsewhere ([now] is where it plays). */
+    fun system(ctx: Ctx): Out = if (lastAt == 0L) refresh() else last
 
     /** (blocking) Ask the PC again. */
     fun refresh(): Out {

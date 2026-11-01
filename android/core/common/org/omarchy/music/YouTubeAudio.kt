@@ -6,11 +6,12 @@ import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Response
+import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamInfo
 
 /** A song's audio on YouTube Music, for when Tidal has no FLAC of it (NewPipe's extractor
- *  finds the address). A song from another service is found by a search first. */
+ *  finds the address): the best YouTube has (see [best]). A song from another service is found by a search first. */
 object YouTubeAudio {
     private var started = false
 
@@ -32,38 +33,55 @@ object YouTubeAudio {
         return audio(vid)
     }
 
-    /** (blocking) The audio of YouTube video vid: (address, "Opus 160 kbps"), or null. */
-    fun audio(vid: String): Pair<String, String>? {
+    /** YouTube's audio-only streams of a video, the best first: the highest bitrate (Opus ~160 kbps, itag 251; AAC
+     *  256 kbps, itag 141, where YouTube offers it; else AAC 128 kbps, itag 140). Only the song's own sound: not a dubbed
+     *  or described language track, nor the quieter "stable volume" (DRC) copy YouTube also offers. */
+    private fun best(vid: String): List<AudioStream> {
         synchronized(this) { if (!started) { NewPipe.init(Net); started = true } }
         val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$vid")
-        val a = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.content.isNotEmpty() }
-            .maxByOrNull { it.averageBitrate } ?: return null
+        val all = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.content.isNotEmpty() }
+        val original = all.filter { it.audioTrackType?.name.let { n -> n == null || n == "ORIGINAL" } }.ifEmpty { all }
+        val plain = original.filterNot { isDrc(it) }.ifEmpty { original }
+        return plain.sortedWith(compareByDescending<AudioStream> { it.averageBitrate }.thenByDescending { isOpus(it) })
+    }
+
+    private fun isDrc(a: AudioStream) = a.content.contains("drc%3D1") || a.content.contains("drc=1")
+    private fun isOpus(a: AudioStream) = a.codec?.startsWith("opus") == true || a.format?.suffix == "opus"
+    private fun isAac(a: AudioStream) = a.codec?.startsWith("mp4a") == true || a.format?.suffix == "m4a"
+    /** "Opus 160 kbps", "AAC 256 kbps". */
+    private fun label(a: AudioStream): String {
+        val codec = a.codec?.substringBefore('.')?.let { mapOf("opus" to "Opus", "mp4a" to "AAC")[it] ?: it }
+            ?: if (isAac(a)) "AAC" else a.format?.name ?: ""
+        return (if (a.averageBitrate > 0) "$codec ${a.averageBitrate} kbps" else codec).trim()
+    }
+
+    /** (blocking) The audio of YouTube video vid: (address, "Opus 160 kbps"), or null. */
+    fun audio(vid: String): Pair<String, String>? {
+        val a = best(vid).firstOrNull() ?: return null
         // YouTube's address answers only a moment after it's made.
         repeat(20) {
             val ok = runCatching {
                 HTTP.newCall(Request.Builder().url(a.content).header("Range", "bytes=0-1").build()).execute().use { it.code in 200..206 }
             }.getOrDefault(false)
-            if (ok) {
-                val codec = a.codec?.substringBefore('.')?.let { mapOf("opus" to "Opus", "mp4a" to "AAC")[it] ?: it } ?: a.format?.name ?: ""
-                return a.content to "$codec ${a.averageBitrate} kbps".trim()
-            }
+            if (ok) return a.content to label(a)
             Thread.sleep(500)
         }
         error("YouTube wouldn't send the audio")
     }
 
-    /** (blocking) For a download: (address, "AAC 128 kbps", "m4a"), the M4A (AAC) kept by other players and tag
-     *  editors alike; else the best there is (Opus in WebM). Null if YouTube Music hasn't got the song. */
-    fun forDownload(t: Track): Triple<String, String, String>? {
-        val vid = if (t.source == "ytm") t.id else search(t) ?: return null
-        synchronized(this) { if (!started) { NewPipe.init(Net); started = true } }
-        val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$vid")
-        val all = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.content.isNotEmpty() }
-        val a = all.filter { it.codec?.startsWith("mp4a") == true || it.format?.suffix == "m4a" }.maxByOrNull { it.averageBitrate }
-            ?: all.maxByOrNull { it.averageBitrate } ?: return null
-        val ext = if (a.codec?.startsWith("mp4a") == true || a.format?.suffix == "m4a") "m4a" else (a.format?.suffix ?: "webm")
-        val codec = a.codec?.substringBefore('.')?.let { mapOf("opus" to "Opus", "mp4a" to "AAC")[it] ?: it } ?: ext.uppercase()
-        return Triple(a.content, "$codec ${a.averageBitrate} kbps", ext)
+    /** A YouTube stream to save: its address, what it is ("Opus 160 kbps") and how it comes: "webm" (Opus, made an
+     *  .opus file as it is, no re-encoding) or "m4a" (AAC, kept as it comes). */
+    class Pick(val url: String, val label: String, val ext: String)
+
+    /** (blocking) For a download: YouTube's audio, the best first (see [best]), each Opus (WebM) or AAC (M4A) stream
+     *  the app can save as it is, so a later one stands in if the first fails. Empty if YouTube Music hasn't got it.
+     *  YouTube has no lossless audio: this is the most it has, saved without converting (which would only lose). */
+    fun forDownload(t: Track): List<Pick> {
+        val vid = if (t.source == "ytm") t.id else search(t) ?: return emptyList()
+        val all = best(vid)
+        return (all.filter { isOpus(it) || isAac(it) }.take(1) + all.filter { isAac(it) }.take(1)).distinct().map { a ->
+            Pick(a.content, label(a), if (isAac(a)) "m4a" else "webm")
+        }
     }
 
     private fun search(t: Track): String? {

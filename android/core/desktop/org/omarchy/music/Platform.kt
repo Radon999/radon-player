@@ -92,11 +92,13 @@ fun closeApp(activity: Any?) {
 fun watchOutputs(ctx: Ctx, changed: () -> Unit) {
     // The PC says nothing when the default output changes: look every few seconds (as the Python app does)
     Thread({
-        var was = Outputs.now(ctx).key
+        var was = Outputs.system(ctx).key
+        // Ignore Bluetooth devices looks first, so the EQ that follows sees where the music really plays
+        Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { runCatching { BtRoute.check() } }
         while (true) {
             Thread.sleep(3000)
             val k = runCatching { Outputs.refresh().key }.getOrDefault(was)
-            if (k != was) { was = k; Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { changed() } }
+            if (k != was) { was = k; Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { runCatching { BtRoute.check() }; changed() } }
         }
     }, "outputs").apply { isDaemon = true }.start()
 }
@@ -114,9 +116,9 @@ fun toJpeg(b: ByteArray): ByteArray? {
 fun imageMinSide(b: ByteArray): Int = runCatching { javax.imageio.ImageIO.read(b.inputStream())?.let { minOf(it.width, it.height) } }.getOrNull() ?: 0
 
 fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? = runCatching {
-    org.jaudiotagger.audio.AudioFileIO.read(File(pathOf(uri))).tag?.firstArtwork?.binaryData
-}.getOrNull() ?: runCatching {   // our own reader: WAV and AIFF ID3 chunks, M4A covr atoms, raw AAC (.aac) ID3 tags
-    File(pathOf(uri)).takeIf { it.extension.lowercase() in setOf("wav", "aac", "m4a", "mp4", "aiff", "aif", "mp3") }?.inputStream()?.buffered()?.use { EmbeddedArt.picture(it) }
+    org.jaudiotagger.audio.AudioFileIO.read(File(pathOf(uri))).tag?.firstArtwork?.binaryData?.takeIf { it.isNotEmpty() }
+}.getOrNull() ?: runCatching {   // our own reader: WAV and AIFF ID3 chunks, M4A covr atoms, raw AAC (.aac) ID3 tags, FLAC pictures
+    File(pathOf(uri)).takeIf { it.extension.lowercase() in setOf("wav", "aac", "m4a", "mp4", "aiff", "aif", "mp3", "flac") }?.inputStream()?.buffered()?.use { EmbeddedArt.picture(it) }
 }.getOrNull()
 
 /** The PC is the one desktops are found from: nothing to look for here. */

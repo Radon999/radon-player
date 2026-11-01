@@ -13,6 +13,9 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 
 /** The phone's engine: an ExoPlayer (or the cast device's player) under the app. */
 class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
+    // Ignore Bluetooth devices: this player plays where the music's kept too (not the cast device's: it has no output here)
+    init { (p as? ExoPlayer)?.let { BtRoute.attach(it) } }
+
     override val isPlaying get() = p.isPlaying
     override val positionMs get() = p.currentPosition
     override val durationMs get() = p.duration.coerceAtLeast(0)
@@ -72,7 +75,10 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
         })
     }
 
-    override fun release() = p.release()
+    override fun release() {
+        (p as? ExoPlayer)?.let { BtRoute.detach(it) }
+        p.release()
+    }
 
     companion object {
         /** The phone's renderers: the EQ in the audio path, for 16-bit music and (EqSink) hi-res too. */

@@ -55,4 +55,49 @@ class EmbeddedArtTest {
         assertArrayEquals(jpeg, EmbeddedArt.picture((tag + ByteArray(50)).inputStream()))   // a raw .aac with its ID3 tag first
         assertNull(EmbeddedArt.wavPicture("fLaC and nothing else at all".toByteArray().inputStream()))
     }
+
+    private fun ss(n: Int) = byteArrayOf(((n shr 21) and 0x7f).toByte(), ((n shr 14) and 0x7f).toByte(), ((n shr 7) and 0x7f).toByte(), (n and 0x7f).toByte())
+    private val ffJpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 1, 0xFF.toByte(), 0, 3, 0xFF.toByte(), 0xD9.toByte())
+    private fun apic(type: Int, pic: ByteArray) = ByteArrayOutputStream().apply {
+        write(0); write("image/jpeg".toByteArray()); write(0); write(type); write("c".toByteArray()); write(0); write(pic)
+    }.toByteArray()
+    /** ID3's unsynchronisation: a 00 after each FF that a false sync (FF Ex) or a 00 follows, and after a last FF. */
+    private fun unsync(b: ByteArray): ByteArray {
+        val o = ByteArrayOutputStream()
+        for (i in b.indices) {
+            o.write(b[i].toInt())
+            if (b[i] == 0xFF.toByte() && (i + 1 == b.size || (b[i + 1].toInt() and 0xE0) == 0xE0 || b[i + 1].toInt() == 0)) o.write(0)
+        }
+        return o.toByteArray()
+    }
+
+    @Test fun readsV24FramesWithALengthFirstAndUnsynchronised() {
+        val body = apic(3, ffJpeg)
+        val data = ss(body.size) + unsync(body)
+        val frame = "APIC".toByteArray() + ss(data.size) + byteArrayOf(0, 0x03) + data
+        val tag = "ID3".toByteArray() + byteArrayOf(4, 0, 0) + ss(frame.size + 20) + frame + ByteArray(20)
+        assertArrayEquals(ffJpeg, EmbeddedArt.id3Picture(tag))
+        assertArrayEquals(ffJpeg, EmbeddedArt.picture(tag.inputStream()))
+    }
+
+    @Test fun readsAWholeV23TagUnsynchronised() {
+        val body = apic(3, ffJpeg)
+        val frames = unsync("APIC".toByteArray() + be(body.size) + byteArrayOf(0, 0) + body)
+        val tag = "ID3".toByteArray() + byteArrayOf(3, 0, 0x80.toByte()) + ss(frames.size) + frames
+        assertArrayEquals(ffJpeg, EmbeddedArt.id3Picture(tag))
+    }
+
+    @Test fun findsTheFrontCoverInAFlac() {
+        fun pic(kind: Int, data: ByteArray) = be(kind) + be(10) + "image/jpeg".toByteArray() + be(0) + ByteArray(16) + be(data.size) + data
+        val back = byteArrayOf(9, 9)
+        val p1 = pic(4, back); val p2 = pic(3, ffJpeg)
+        val flac = "fLaC".toByteArray() + byteArrayOf(0, 0, 0, 34) + ByteArray(34) +
+            byteArrayOf(6) + be(p1.size).copyOfRange(1, 4) + p1 + byteArrayOf(0x86.toByte()) + be(p2.size).copyOfRange(1, 4) + p2 + ByteArray(100)
+        assertArrayEquals(ffJpeg, EmbeddedArt.picture(flac.inputStream()))
+        val onlyBack = "fLaC".toByteArray() + byteArrayOf(0x86.toByte()) + be(p1.size).copyOfRange(1, 4) + p1
+        assertArrayEquals(back, EmbeddedArt.picture(onlyBack.inputStream()))
+        val emptyId3 = "ID3".toByteArray() + byteArrayOf(3, 0, 0) + ss(10) + ByteArray(10)   // a tag without a picture before it
+        assertArrayEquals(ffJpeg, EmbeddedArt.picture((emptyId3 + flac).inputStream()))
+        assertNull(EmbeddedArt.picture("fLaC".toByteArray().inputStream()))
+    }
 }

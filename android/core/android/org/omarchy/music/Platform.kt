@@ -69,7 +69,7 @@ fun Ctx.newMusicFile(name: String, where: String, write: (java.io.OutputStream) 
     val cr = contentResolver
     val values = android.content.ContentValues().apply {
         put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, when (name.substringAfterLast('.').lowercase()) {
-            "mp3" -> "audio/mpeg"; "m4a" -> "audio/mp4"; "webm" -> "audio/webm"; else -> "audio/flac" }); put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, where); put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+            "mp3" -> "audio/mpeg"; "m4a" -> "audio/mp4"; "webm" -> "audio/webm"; "opus", "ogg" -> "audio/ogg"; else -> "audio/flac" }); put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, where); put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
     }
     val uri = cr.insert(android.provider.MediaStore.Audio.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY), values) ?: error("couldn't make $name in Music/")
     try {
@@ -94,9 +94,12 @@ fun prefsFile(ctx: Ctx, name: String) = java.io.File(ctx.applicationInfo.dataDir
 fun closeApp(activity: Any?) { (activity as? android.app.Activity)?.finishAffinity() }
 
 /** Outputs coming and going (headphones, Bluetooth, USB): run changed. */
-fun watchOutputs(ctx: Ctx, changed: () -> Unit) {
+fun watchOutputs(ctx: Ctx, changed0: () -> Unit) {
+    // Ignore Bluetooth devices looks first, so the EQ that follows sees where the music really plays
+    val changed = { runCatching { BtRoute.check() }; changed0() }
     // Android Auto coming and going (wired or wireless): it says so with a broadcast, and its state is asked for
     Outputs.carProjecting = Outputs.projecting(ctx)
+    runCatching { BtRoute.check() }
     androidx.core.content.ContextCompat.registerReceiver(ctx, object : android.content.BroadcastReceiver() {
         override fun onReceive(c: android.content.Context, i: android.content.Intent) {
             val now = Outputs.projecting(ctx)
@@ -209,6 +212,10 @@ object Discord {
     val on = false
     val status = ""
     fun setOn(v: Boolean) {}
+    const val DEFAULT_APP_ID = ""
+    val appId = ""
+    val ownAppId = false
+    fun setAppId(v: String) = false
 }
 
 

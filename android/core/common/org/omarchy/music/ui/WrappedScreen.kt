@@ -337,21 +337,39 @@ fun WrappedScreen(onClose: () -> Unit) {
     }
 }
 
+/** A picture for a row: an address (a web picture's, or a picture file's path, made a File so both platforms' loaders
+ *  read it, Windows paths too), or the model itself (a song file's own cover, FileArt). */
+private fun picModel(art: Any?): Any? = when {
+    art !is String -> art
+    art.isEmpty() -> null
+    art.startsWith("file:") -> runCatching { java.io.File(java.net.URI(art)) }.getOrNull() ?: java.io.File(art.removePrefix("file://"))
+    art.startsWith("/") || (art.length > 2 && art[1] == ':') -> java.io.File(art)
+    else -> art
+}
+
+/** A Wrapped row's picture: the cover inside your own file of it first, then its other picture (saved, Last.fm, Deezer). */
+private fun rowPic(file: String, art: String): Any? = if (file.isNotEmpty()) FileArt(file, art) else picModel(art)
+private val Wrapped.Song.pic: Any? get() = rowPic(file, art)
+private val Wrapped.AlbumPlays.pic: Any? get() = rowPic(file, art)
+/** A song the app counted (skips, heard out): its own file's cover first, else what the app draws for it. */
+private fun trackPic(t: org.omarchy.music.Track): Any? = t.file?.let { FileArt(it, t.thumb) } ?: artModel(t)
+
 @Composable
-private fun Pic(url: String, size: Dp, round: Boolean = false) {
+private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
+    val model = picModel(art)
     Box(Modifier.size(size).clip(if (round) CircleShape else RoundedCornerShape(4.dp)).background(C.light)) {
-        if (url.isNotEmpty()) AsyncImage(url, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
     }
 }
 
 @Composable
-private fun Ranked(items: List<Triple<String, String, Int>>, art: List<String>? = null, start: Int = 1, meter: Boolean = false) {
+private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = null, start: Int = 1, meter: Boolean = false) {
     val top = (items.maxOfOrNull { it.third } ?: 0).coerceAtLeast(1)
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items.forEachIndexed { i, (name, sub, plays) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${i + start}", style = W.rank, modifier = Modifier.widthIn(min = 26.dp))
-                art?.let { Pic(it.getOrElse(i) { "" }, if (items.size > 6) 38.dp else 44.dp) }
+                art?.let { Pic(it.getOrNull(i), if (items.size > 6) 38.dp else 44.dp) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(name, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (sub.isNotEmpty()) Text(sub, style = W.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -491,7 +509,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
     d.songs.firstOrNull()?.let { s ->
         out += Slide(5) {
             Text("YOUR TOP SONG", style = W.kicker)
-            Pic(s.art, 220.dp)
+            Pic(s.pic, 220.dp)
             Text(s.title, style = W.big)
             Text(s.artist, style = W.sub)
             Text("${n(s.plays)} plays" + (s.first?.let { " · first played on ${day(it, "MMMM d")}" } ?: ""), style = W.small)
@@ -499,18 +517,18 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
     }
     out += Slide(6) {
         Text("YOUR TOP SONGS", style = W.kicker)
-        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.art }, meter = true)
+        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.pic }, meter = true)
     }
     d.albums.firstOrNull()?.let { a ->
         out += Slide(7) {
             Text("YOUR TOP ALBUM", style = W.kicker)
-            Pic(a.art, 200.dp)
+            Pic(a.pic, 200.dp)
             Text(a.name, style = W.big)
             Text("${a.artist} · ${n(a.plays)} plays", style = W.sub)
         }
         if (d.albums.size > 1) out += Slide(0) {
             Text("YOUR TOP ALBUMS", style = W.kicker)
-            Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.art }, meter = true)
+            Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.pic }, meter = true)
         }
     }
     out += releaseSlides(d)
@@ -621,11 +639,11 @@ private fun allTime(d: Wrapped.Data): List<Slide> {
     }
     out += Slide(5) {
         Text("YOUR SONGS OF ALL TIME", style = W.kicker)
-        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.art }, meter = true)
+        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.pic }, meter = true)
     }
     if (d.albums.isNotEmpty()) out += Slide(7) {
         Text("YOUR ALBUMS OF ALL TIME", style = W.kicker)
-        Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.art }, meter = true)
+        Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.pic }, meter = true)
     }
     out += releaseSlides(d)
     val counts = d.yearsCount
@@ -695,7 +713,7 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
         Text(t.title, style = W.big)
         Text("${t.artist} · heard to the end $f times, not skipped once", style = W.sub)
         Rule()
-        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, meter = true)
+        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { trackPic(it.first) }, meter = true)
         Text("Times heard to the end", style = W.small)
     }
     if (h.mostSkipped.isNotEmpty()) out += Slide(4) {
@@ -703,7 +721,7 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
         Text("MOST SKIPPED", style = W.kicker)
         Text(t.title, style = W.big)
         Text("${t.artist} · skipped $k time${if (k != 1) "s" else ""}", style = W.sub)
-        Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, meter = true)
+        Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, h.mostSkipped.map { trackPic(it.first) }, meter = true)
         Text("Skips: gone with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left", style = W.small)
     }
     if (h.favsAdded.isNotEmpty()) out += Slide(7) {
@@ -802,10 +820,10 @@ private fun releaseSlides(d: Wrapped.Data): List<Slide> {
     listOf(Triple("YOUR TOP SINGLES", d.singles, 3), Triple("YOUR TOP EPS", d.eps, 5)).forEach { (head, list, color) ->
         if (list.isNotEmpty()) out += Slide(color) {
             Text(head, style = W.kicker)
-            Pic(list[0].art, 150.dp)
+            Pic(list[0].pic, 150.dp)
             Text(list[0].name, style = W.big)
             Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
-            if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.art }, start = 2, meter = true)
+            if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)
         }
     }
     return out
@@ -820,7 +838,7 @@ private fun discoverySlides(d: Wrapped.Data): List<Slide> {
         Text(n(d.discoveredCount), style = W.huge.copy(color = WS.accent, shadow = WS.shadow))
         Text(if (d.discoveredCount == 1) "song new to you" else "songs new to you", style = W.big)
         Text("Played for the very first time in ${d.period.of}. The ones you played most:", style = W.sub)
-        Ranked(d.discovered.map { Triple(it.title, it.artist, it.plays) }, meter = true)
+        Ranked(d.discovered.map { Triple(it.title, it.artist, it.plays) }, d.discovered.map { it.pic }, meter = true)
     }
     if (d.newArtists.isNotEmpty()) out += Slide(1) {
         Text("NEW ARTISTS", style = W.kicker)
@@ -915,11 +933,11 @@ private fun diarySlides(d: Wrapped.Data): List<Slide> {
             Text("The songs you start from search results show up here.", style = W.sub)
         } else {
             val s = log.searched[0]
-            Pic(s.art, 150.dp)
+            Pic(s.pic, 150.dp)
             Text(s.title, style = W.big)
             Text("${s.artist} · started from search ${s.plays} time${if (s.plays != 1) "s" else ""}", style = W.sub)
             if (log.searched.size > 1) Ranked(log.searched.drop(1).map { Triple(it.title, it.artist, it.plays) },
-                log.searched.drop(1).map { it.art }, start = 2, meter = true)
+                log.searched.drop(1).map { it.pic }, start = 2, meter = true)
         }
     }
     return out

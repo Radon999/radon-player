@@ -191,10 +191,24 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         }
     }
 
-    /** YouTube's audio of t, saved as it comes (AAC in .m4a, YouTube's best without a subscription); null if YouTube
-     *  Music hasn't got it. */
+    /** YouTube's audio of t: the best it has (Opus ~160 kbps, or AAC 256 kbps where it's offered), saved without
+     *  re-encoding: Opus moved from YouTube's WebM into an .opus file with the song's name, artist, album and cover;
+     *  AAC kept as it comes (.m4a). YouTube has no lossless audio, so a FLAC made from it would only be bigger. If the
+     *  first stream fails, the next (AAC) is tried. Null if YouTube Music hasn't got it. */
     private fun fromYouTube(t: Track, root: String?): String? {
-        val (url, q, ext) = YouTubeAudio.forDownload(t) ?: return null
+        val picks = YouTubeAudio.forDownload(t)
+        if (picks.isEmpty()) return null
+        var last: Exception? = null
+        for (pick in picks) {
+            try { return fromYouTube(t, root, pick) } catch (e: Exception) {
+                last = e
+                Crashes.caught(e, "YouTube download (${pick.label}) of ${t.artist} – ${t.title}")
+            }
+        }
+        throw last ?: IllegalStateException("YouTube wouldn't send the audio")
+    }
+
+    private fun fromYouTube(t: Track, root: String?, pick: YouTubeAudio.Pick): String {
         val raw = File(ctx.cacheDir, "${safeName(t.id)}.yt")
         try {
             var ok = false
@@ -202,8 +216,8 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
                 if (ok) return@repeat
                 ok = runCatching {
                     raw.outputStream().use { o ->
-                        HTTP.newCall(okhttp3.Request.Builder().url(url).header("User-Agent", DESKTOP_UA).build()).execute().use { r ->
-                            if (!r.isSuccessful) throw HttpError(r.code, "", url)
+                        HTTP.newCall(okhttp3.Request.Builder().url(pick.url).header("User-Agent", DESKTOP_UA).build()).execute().use { r ->
+                            if (!r.isSuccessful) throw HttpError(r.code, "", pick.url)
                             r.body!!.byteStream().copyTo(o, 1 shl 16)
                         }
                     }
@@ -212,11 +226,18 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
                 if (!ok) Thread.sleep(500)
             }
             if (!ok) error("YouTube wouldn't send the audio")
+            val cover = runCatching { httpBytes(sizedThumb(t.thumb, 544)) }.getOrNull()
+            val ext = if (pick.ext == "webm") "opus" else pick.ext
             val (where, name) = place(t, root, null, null, ext)
-            val uri = saveToMusic(name, where) { out -> raw.inputStream().use { it.copyTo(out) } }
+            val uri = if (ext == "opus") {
+                // The Opus audio as it is, in the Ogg file players and tag editors read (checked before anything is saved)
+                val audio = OggOpus.readWebm(raw.readBytes())
+                val tags = OggOpus.Tags(t.title, t.artist, t.album, cover)
+                saveToMusic(name, where) { out -> OggOpus.write(audio, out, tags) }
+            } else saveToMusic(name, where) { out -> raw.inputStream().use { it.copyTo(out) } }
             val art = File(lib.artDir, "${safeName(t.id)}.jpg")
-            val artPath = runCatching { art.writeBytes(httpBytes(sizedThumb(t.thumb, 544))); art.path }.getOrNull()
-            lib.add(t, uri, artPath, ext, q)
+            val artPath = runCatching { art.writeBytes(cover ?: httpBytes(sizedThumb(t.thumb, 544))); art.path }.getOrNull()
+            lib.add(t, uri, artPath, ext, "YouTube · ${pick.label}")
             lib.markMissing(t.id, false)
             return uri
         } finally {

@@ -169,6 +169,28 @@ private fun AccountsSheet(ui: Ui) {
             if (onPhone) NotificationsLine(activity)
             if (org.omarchy.music.Startup.supported) StartupLine()
             }
+            Group("Personalization", ui) {
+            // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
+            Text("The Now playing look: the background is the song's album cover, blurred, with the cover's colours over the whole " +
+                "app, and they change with each song. The other looks keep their own colours.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+            Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
+                "that's playing, the way the Now playing screen is), or one of the themes, from Midnight to High contrast", false) {
+                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
+            }
+            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
+                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
+                Box {
+                    var open by remember { mutableStateOf(false) }
+                    Pill("${Looks.FALLBACK.firstOrNull { it.first == Music.npFallback }?.second ?: "Dark"} ▾", quiet = true) { open = true }
+                    androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                        Looks.FALLBACK.forEach { (k, name) ->
+                            androidx.compose.material3.DropdownMenuItem({ Text(name, style = T.body) }, { open = false; Music.chooseNpFallback(k) })
+                        }
+                    }
+                }
+            }
+            NowPlayingLookLines()
+            }
             Group("Playback", ui) {
             PlaybackLines(ui)
             }
@@ -271,23 +293,6 @@ private fun AccountsSheet(ui: Ui) {
                 "you left it, so you can go back to any of them later, rename them or reorder them. Off: there's one queue, and " +
                 "playing something new replaces it",
                 Music.multiQueue) { Switch(Music.multiQueue, { Music.setMultiQueue(it) }, colors = swColors()) }
-            Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
-                "that's playing, the way the Now playing screen is), or one of the themes, from Midnight to High contrast", false) {
-                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
-            }
-            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
-                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
-                Box {
-                    var open by remember { mutableStateOf(false) }
-                    Pill("${Looks.FALLBACK.firstOrNull { it.first == Music.npFallback }?.second ?: "Dark"} ▾", quiet = true) { open = true }
-                    androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
-                        Looks.FALLBACK.forEach { (k, name) ->
-                            androidx.compose.material3.DropdownMenuItem({ Text(name, style = T.body) }, { open = false; Music.chooseNpFallback(k) })
-                        }
-                    }
-                }
-            }
-            NowPlayingLookLines()
             StreamQualityLine()
             DownloadQualityLine()
             OtherServicesLine()
@@ -700,6 +705,7 @@ private fun DiscordLine() {
     }, d.on && d.status == "on") {
         Switch(d.on, { d.setOn(it) }, colors = swColors())
     }
+    if (d.on) DiscordAppId()
 }
 
 /** The PC's Phone remote: the phone app plays music here, pairs with the code shown, finds the PC by itself. */
@@ -748,7 +754,7 @@ private fun StreamQualityLine() {
     Line("Stream quality", "What songs play in when they aren't on this $DEVICE, whichever service they're from (Spotify's, " +
         "Apple Music's, Deezer's and YouTube Music's songs all play from Tidal): FLAC 24-bit is hi-res where Tidal has it (else " +
         "16-bit), FLAC 16-bit is CD quality, 320 kbps is Tidal's AAC (as good as MP3 320, and uses the least data). It needs " +
-        "Tidal: without it, and for songs Tidal hasn't got, songs stream from YouTube at its best (about 128 to 160 kbps), " +
+        "Tidal: without it, and for songs Tidal hasn't got, songs stream from YouTube at its best (Opus 160 kbps, or AAC 256 kbps where YouTube offers it), " +
         "whatever is picked here" + (if (!Music.tidal.connected) ". Tidal isn't connected now, so songs stream from YouTube" else ""), true) {
         Box {
             var open by remember { mutableStateOf(false) }
@@ -772,7 +778,7 @@ private fun DownloadQualityLine() {
     Line("Download quality", "Every song you download from now on comes in this quality, from Tidal: FLAC 24-bit is hi-res " +
         "where Tidal has it (else 16-bit), FLAC 16-bit is CD quality, " + (if (org.omarchy.music.CAN_MP3) "MP3 320 kbps is made from Tidal's FLAC. "
         else "and 320 kbps is Tidal's own (AAC, as good as MP3 320 and as small; the phone has no MP3 maker, the PC makes MP3s). ") +
-        "Without a Tidal subscription, downloads come from YouTube instead, at YouTube's best (about 128 to 160 kbps; YouTube has " +
+        "Without a Tidal subscription, downloads come from YouTube instead, at YouTube's best (Opus 160 kbps, or AAC 256 kbps where YouTube offers it; YouTube has " +
         "no FLAC), whatever is picked here. Songs Tidal hasn't got come from YouTube too" +
         (if (!Music.tidal.connected) ". Tidal isn't connected now, so downloads come from YouTube" else ""), true) {
         Box {
@@ -888,6 +894,7 @@ private fun PlaybackLines(ui: Ui) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
     }
     if (onPhone) AutoMonoLines()
+    IgnoreBtLines(ui)
     Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
@@ -939,6 +946,46 @@ private fun AutoMonoLines() {
             if (now.isEmpty() && picked.isEmpty()) Text("No Bluetooth earbuds connected right now", style = T.sub)
         }
     }
+}
+
+/** Ignore Bluetooth devices: the switch (also Now playing's Bluetooth-with-an-X button), and the devices seen before to
+ *  pick from (tap one to ignore it or not, × to take it off the list). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IgnoreBtLines(ui: Ui) {
+    val ign = org.omarchy.music.IgnoreBt
+    val on = ign.on
+    val picked = ign.ignored()
+    val names = (ign.seen() + picked).distinct()
+    Line("Ignore Bluetooth devices", when {
+        !on -> "When a Bluetooth device you pick (your car) connects, the music stays where it was (your headphones) instead " +
+            "of going to it. The device still connects for everything else" + if (onPhone) " (calls, Android Auto's maps)" else ""
+        picked.isEmpty() -> "Pick the devices to ignore below"
+        ign.here.isNotEmpty() && ign.keptOn.isNotEmpty() -> "${ign.here} is connected: the music is kept on ${ign.keptOn}"
+        ign.here.isNotEmpty() && ign.why.isNotEmpty() -> "${ign.here} is connected and has the music: ${ign.why}"
+        else -> "On: the music stays where it is when ${picked.joinToString(", ")} connect" + if (picked.size == 1) "s" else ""
+    }, on && picked.isNotEmpty()) {
+        Switch(on, { ign.setOn(it) }, colors = swColors())
+    }
+    androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        names.forEach { name ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Chip(name, name in picked) { ign.pick(name, name !in picked) }
+                Text("×", style = T.sub, modifier = Modifier.clip(R.pill)
+                    .clickable { ui.confirm = "Take “$name” off the list of Bluetooth devices?" to { ign.forget(name) } }
+                    .padding(horizontal = 6.dp, vertical = 4.dp))
+            }
+        }
+        if (names.isEmpty()) Text("No Bluetooth devices seen yet: connect one (your car) once and it shows up here to pick", style = T.sub)
+    }
+    Text(if (onPhone) "Phones decide how Bluetooth works, so this may not work on every phone. Many play to only one Bluetooth " +
+        "device at a time: once the car takes over, your headphones drop out and there's nowhere else to keep the music, so it's " +
+        "left as it is. It never moves the music to the phone's own speaker. When the car is connected through Android Auto, " +
+        "Android Auto's own sound can't be moved"
+        else "The PC decides its default output; the app looks every few seconds, so the device may have the sound for a moment " +
+        "first. The music goes back to the output it was on, as long as that's still there",
+        style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
 }
 
 /** The Equalizer's crossfeed, crossfade (and its length) and smart transitions: each off until you turn it on. */

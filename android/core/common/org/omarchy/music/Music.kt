@@ -1515,7 +1515,7 @@ object Music {
     fun chooseStreamQuality(q: String) { streamQuality = q; Prefs.setText("stream_quality", q); dl.forgetStreams() }
 
     /** How downloads come now, for a toast: "in FLAC (hi-res where Tidal has it)", "from YouTube"… */
-    fun downloadQualityNote(): String = if (!tidal.connected) "from YouTube (Tidal isn't connected)" else when (downloadQuality) {
+    fun downloadQualityNote(): String = if (!tidal.connected) "from YouTube, its best (Opus 160 kbps; Tidal isn't connected)" else when (downloadQuality) {
         "flac16" -> "in FLAC 16-bit"
         "mp3" -> if (CAN_MP3) "in MP3 320 kbps" else "at 320 kbps (AAC)"
         else -> "in FLAC (hi-res where Tidal has it)"
