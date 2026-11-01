@@ -482,6 +482,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
 }
 
 /** The DJ: what it said last, Start or Switch it up, a box to ask it for something, and its songs to come. */
+/** The natural voice's download, while it runs ("Getting the voice… 40%"). */
+private var naturalStatus by androidx.compose.runtime.mutableStateOf<String?>(null)
+
 private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: String, setAsk: (String) -> Unit) {
     val d = Music.shownDj()
     item(key = "dj") {
@@ -554,6 +557,22 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                 Chip(if (Music.djVoice) "Voice on: the DJ talks between sets" else "Voice off: the DJ's lines show only", Music.djVoice) {
                     Music.chooseDjVoice(!Music.djVoice) }
                 if (Music.djTalking) Chip("Skip the talk", false) { Music.djHush(); Music.togglePause() }
+            }
+            // The PC: a natural (neural) voice for the DJ, fetched once on request; Windows' own voices sound robotic.
+            if (org.omarchy.music.Voice.needsNatural || naturalStatus != null) Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val st = naturalStatus
+                if (st != null) Text(st, style = T.sub)
+                else Pill("Get the natural voice (about 140 MB)", quiet = true) {
+                    ui.confirm = "Download the DJ's natural voice? It's Piper, a free voice that runs on your PC and sounds like a person " +
+                        "(about 140 MB, once)." to {
+                        naturalStatus = "Starting…"
+                        Music.bg({ org.omarchy.music.Voice.getNatural { naturalStatus = it } }) { _, err ->
+                            naturalStatus = null
+                            Music.toast(if (err != null) "Couldn't get the voice: ${err.message?.take(100)}" else "The DJ has its natural voice now")
+                        }
+                    }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (d.on) {

@@ -16,6 +16,10 @@ object Voice {
 
     val canSpeak get() = true
 
+    /** The PC can fetch a natural (neural) voice; the phone uses Google's natural voices already. */
+    val needsNatural get() = false
+    fun getNatural(progress: (String) -> Unit) {}
+
     private fun start() {
         if (tts != null) return
         tts = TextToSpeech(Music.ctx) { status ->
@@ -23,14 +27,24 @@ object Voice {
             val t = tts ?: return@TextToSpeech
             if (ready) {
                 runCatching {
-                    val best = t.voices?.filter { it.locale.language == "en" && !it.isNetworkConnectionRequired &&
-                        "notInstalled" !in (it.features ?: emptySet()) }
-                        ?.sortedWith(compareByDescending<android.speech.tts.Voice> { it.quality }
-                            .thenByDescending { it.locale.country == Locale.getDefault().country || it.locale.country == "US" })
+                    // The most natural English voice: Google's neural ("network") voices sound like a person, so they come
+                    // first when there's internet (a male one, like Spotify's DJ, before others); else the best one on the phone.
+                    val online = runCatching {
+                        val cm = Music.ctx.getSystemService(android.net.ConnectivityManager::class.java)
+                        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                    }.getOrDefault(false)
+                    val male = listOf("iom", "tpd", "iol", "ism", "male")
+                    val best = t.voices?.filter { it.locale.language == "en" && "notInstalled" !in (it.features ?: emptySet()) &&
+                            (online || !it.isNetworkConnectionRequired) }
+                        ?.sortedWith(compareByDescending<android.speech.tts.Voice> { it.quality >= android.speech.tts.Voice.QUALITY_HIGH }
+                            .thenByDescending { it.isNetworkConnectionRequired }   // the neural ones
+                            .thenByDescending { v -> male.any { it in v.name.lowercase() } }
+                            .thenByDescending { it.locale.country == "US" }
+                            .thenByDescending { it.quality })
                         ?.firstOrNull()
                     if (best != null) t.voice = best else t.language = Locale.US
                 }
-                t.setSpeechRate(1.02f); t.setPitch(0.92f)
+                t.setSpeechRate(1.0f); t.setPitch(0.97f)
             }
             val w = synchronized(waiting) { waiting.toList().also { waiting.clear() } }
             if (ready) w.forEach { (s, d) -> say(s, d) } else w.forEach { it.second() }

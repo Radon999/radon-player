@@ -884,13 +884,19 @@ object Music {
     var djTalking by mutableStateOf(false)
         private set
 
+    private var djVolume = 1f
+
+    /** The DJ talks between sets, never over a song: the new set's first song waits at its very start, silent, until
+     *  the DJ is done, then plays from the beginning. */
     private fun djSay(text: String) {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
         val p = player ?: return
         p.pause()
+        if (!djTalking) djVolume = p.volume.takeIf { it > 0.05f } ?: 1f
+        p.volume = 0f   // nothing of the song while the DJ talks (it may have begun loading already)
         djTalking = true
         Voice.say(text.replace("“", "").replace("”", "")) {
-            if (djTalking) { djTalking = false; if (player?.isPlaying == false) player?.play() }
+            if (djTalking) { djTalking = false; player?.let { it.seekTo(0); it.volume = djVolume; it.play() } }
         }
     }
 
@@ -898,6 +904,7 @@ object Music {
     fun djHush() {
         if (!djTalking) return
         djTalking = false
+        player?.volume = djVolume
         Voice.hush()
     }
 
@@ -1263,8 +1270,30 @@ object Music {
         // Yours: the album's songs here, and the artist's songs under any other album name (they aren't missing).
         val lead = norm(artist.split(",")[0])
         val yours = tracks + mySongs().filter { norm(it.artist.split(",")[0]) == lead }
-        val have = yours.flatMap { listOf(norm(cleanTitle(it.title)), norm(bareTitle(it.title))) }.toSet()
-        return all.filter { norm(cleanTitle(it.title)) !in have && norm(cleanTitle(it.short)) !in have && norm(bareTitle(it.title)) !in have }
+        return missingFrom(all, tracks, yours)
+    }
+
+    /** The album songs (all) not among yours: matched by name, forgivingly (versions, "feat.", punctuation and spelling
+     *  left out; one name a near-whole part of the other), then any left over by length against the album's own songs
+     *  nothing matched yet (within 2 s), so a song you have under another name isn't called missing. */
+    internal fun missingFrom(all: List<Missing>, album: List<Track>, yours: List<Track>): List<Missing> {
+        fun key(s: String) = norm(bareTitle(cleanTitle(s))).replace("&", "and").replace(Regex("[^\\p{L}\\p{N}]"), "")
+        fun same(a: String, b: String): Boolean {
+            if (a.isEmpty() || b.isEmpty()) return false
+            if (a == b) return true
+            val (short, long) = if (a.length <= b.length) a to b else b to a
+            return short.length >= 4 && short.length * 10 >= long.length * 6 && short in long
+        }
+        val unmatched = album.toMutableList()
+        val left = all.filter { m ->
+            val ks = listOf(key(m.title), key(m.short), norm(cleanTitle(m.title)).replace(Regex("[^\\p{L}\\p{N}]"), ""))
+            val hit = yours.firstOrNull { y -> val yk = key(y.title); ks.any { same(it, yk) } }
+            if (hit != null) { unmatched.remove(hit); false } else true
+        }
+        return left.filter { m ->
+            val byLength = unmatched.firstOrNull { m.secs > 0 && it.duration > 0 && kotlin.math.abs(it.duration - m.secs) <= 2.0 }
+            if (byLength != null) { unmatched.remove(byLength); false } else true
+        }
     }
 
     /** Download missing tracks…: the ones picked, found on Tidal (or YouTube Music) and saved. */
@@ -2296,6 +2325,7 @@ object Music {
         if (duration < n * 3) return
         val nxt = queue.getOrNull(index + 1) ?: return
         if (Prefs.on(Prefs.SMART_TRANSITIONS) && sameAlbum(t, nxt)) return
+        if (dj.on && djVoice && nxt.dj > 0 && nxt.dj != t.dj) return   // a new DJ set next: the DJ talks between them, no fade
         val fadeAt = duration - n
         // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
         if (tail == null && position >= fadeAt - 5 && position < fadeAt) {
