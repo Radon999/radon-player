@@ -28,6 +28,7 @@ The Android app and the Windows PC app are now **one app built from the same cod
 ## Personalization & looks
 
 - **Where to find it:** Settings › **Personalization** holds every theme and look (the Visualizer's own styles stay on the Visualizer). Each look has a short description of how it looks.
+- **Personalization on Now playing:** A palette button to the right of ⋯ on Now playing opens Personalization in a card like the lyrics (Look, Theme, Fallback for Now playing look, Now playing background and visualizer), so you see each change on the screen it changes without going back and forth to Settings.
 - **Look (Settings › Personalization):** Choose Light, Dark or **Now playing**, which colours every screen to match the song that's playing. **Fallback for Now playing look** picks the look used while nothing is playing.
 - **Themes:** 20 more looks in Settings › Personalization › Look: Midnight, Sunset, Forest, Ocean, Paper, Mono, Synthwave, Coffee, Rose, Nord, Vampire, Solar, Matrix, Sakura, Arctic, Ember, Lavender, Slate, Gold and black, and High contrast, each easy to read.
 - **Looks keep their own colours:** Only the Now playing look blurs the album cover behind the player and takes the cover's colours; every other look shows Now playing in its own colours, with the cover sharp. **Fallback for Now playing look** can be any look from the Look menu.

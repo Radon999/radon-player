@@ -3,6 +3,7 @@ package org.omarchy.music.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -160,6 +161,19 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                             !cover -> C.light.copy(alpha = 0.6f)
                             else -> Color.Black.copy(alpha = 0.25f)
                         })) { LyricsTab(ui) }
+                    // Personalization in a card like the lyrics', over the screen it changes
+                    "looks" -> Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).clip(R.big)
+                        .background(if (C.isLight) C.light.copy(alpha = 0.94f) else C.bg.copy(alpha = 0.82f))) {
+                        Column(Modifier.fillMaxSize()) {
+                            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Personalization", style = T.title.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+                                IconButton(Ico.CLOSE, C.muted, 20.dp, desc = "Close") { ui.pane = "art" }
+                            }
+                            Column(Modifier.weight(1f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp)) {
+                                PersonalizationLines()
+                            }
+                        }
+                    }
                     "nowvis" -> NowVisPane(ui, vis, visCol, micOk, { askMic.launch(Perm.MIC) },
                         if (lock == null) ({ ui.pane = "art"; goTo(ui, "visualizer") }) else null)   // the lock screen has no Visualizer tab
                     else -> Column(Modifier.fillMaxSize()) {
@@ -339,6 +353,9 @@ private fun SongLine(ui: Ui, n: Now) {
                 Glass(Ico.MORE, "More") { menu = true }
                 TrackMenu(t, RowPlace(listOf(t), 0), ui, menu) { menu = false }
             }
+            Spacer(Modifier.width(10.dp))
+            // Personalization right here (look, theme, background), so each change shows on this screen as it's made
+            Glass(Ico.PALETTE, "Personalization") { ui.pane = if (ui.pane == "looks") "art" else "looks" }
         }
     }
 }

@@ -24,7 +24,7 @@ enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HE
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
     SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST, VOLUME_ALERT, MIC,
-    BLUETOOTH_OFF }
+    BLUETOOTH_OFF, PALETTE }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -204,6 +204,9 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
             drawPath(path, color, style = stroke)
         }
         Ico.GRIP -> { line(5f, 9f, 19f, 9f); line(5f, 12f, 19f, 12f); line(5f, 15f, 19f, 15f) }
+        Ico.PALETTE -> {   // a painter's palette: its outline, four paint dots and the thumb hole (Personalization)
+            ring(12f, 12f, 8.5f); dot(8f, 9.5f, 1.4f); dot(11.5f, 6.8f, 1.4f); dot(15.5f, 8.5f, 1.4f); dot(7.8f, 13.8f, 1.4f); ring(15f, 15.2f, 1.9f)
+        }
         Ico.ART -> { drawRoundRect(color, p(3.5f, 3.5f), Size(17f * u, 17f * u), CornerRadius(3f * u), style = stroke); ring(12f, 12f, 4f); dot(12f, 12f, 1.2f) }
     }
 }

@@ -170,29 +170,7 @@ private fun AccountsSheet(ui: Ui) {
             if (org.omarchy.music.Startup.supported) StartupLine()
             }
             Group("Personalization", ui) {
-            // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
-            Text("The Now playing look: the background is the song's album cover, blurred, with the cover's colours over the whole " +
-                "app, and they change with each song. The other looks keep their own colours. Look picks the colours and Theme " +
-                "the style (corners, type, spacing), and any theme goes with any look.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
-            Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
-                "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
-                false, note = Looks.describe(Music.look)) {
-                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
-            }
-            // The app's style, apart from its colours: kept with the other settings (so backups and Sync carry it too).
-            val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
-            Line("Theme", "How the app is drawn, whatever its colours: its corners, type, spacing, cards and lines",
-                false, note = Themes.ALL[theme]?.desc.orEmpty()) {
-                ChoicePill(Themes.MENU, theme) { org.omarchy.music.Prefs.setText(Themes.PREF, it) }
-            }
-            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
-                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
-                // Every look the Look menu has (but Now playing itself), with the same swatches.
-                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) {
-                    Music.chooseNpFallback(it)
-                }
-            }
-            NowPlayingLookLines()
+            PersonalizationLines()
             }
             Group("Playback", ui) {
             PlaybackLines(ui)
@@ -1015,6 +993,36 @@ private fun PlaybackLines(ui: Ui) {
         P.on(P.SMART_SHUFFLE)) {
         Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
     }
+}
+
+
+/** Settings › Personalization (also the Now playing look pane): Look, Theme, the Now playing look's fallback, and Now
+ *  playing's background and visualizer. */
+@Composable
+fun PersonalizationLines() {
+            // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
+            Text("The Now playing look: the background is the song's album cover, blurred, with the cover's colours over the whole " +
+                "app, and they change with each song. The other looks keep their own colours. Look picks the colours and Theme " +
+                "the style (corners, type, spacing), and any theme goes with any look.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+            Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
+                "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
+                false, note = Looks.describe(Music.look)) {
+                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
+            }
+            // The app's style, apart from its colours: kept with the other settings (so backups and Sync carry it too).
+            val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
+            Line("Theme", "How the app is drawn, whatever its colours: its corners, type, spacing, cards and lines",
+                false, note = Themes.ALL[theme]?.desc.orEmpty()) {
+                ChoicePill(Themes.MENU, theme) { org.omarchy.music.Prefs.setText(Themes.PREF, it) }
+            }
+            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
+                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
+                // Every look the Look menu has (but Now playing itself), with the same swatches.
+                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) {
+                    Music.chooseNpFallback(it)
+                }
+            }
+            NowPlayingLookLines()
 }
 
 /** Settings › Look for Now playing: its background, and the visualizer behind it. */
