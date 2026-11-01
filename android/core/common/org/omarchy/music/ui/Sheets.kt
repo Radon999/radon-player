@@ -163,7 +163,7 @@ private fun AccountsSheet(ui: Ui) {
                         copyText("Radon Player problems", problems)
                         Music.toast("Copied what went wrong")
                     }
-                    Pill("Clear", quiet = true) { org.omarchy.music.Crashes.clear() }
+                    Pill("Clear", quiet = true) { ui.confirm = "Clear the crash reports?" to { org.omarchy.music.Crashes.clear() } }
                 }
             }
             if (onPhone) NotificationsLine(activity)
@@ -245,7 +245,7 @@ private fun AccountsSheet(ui: Ui) {
             Music.folders.forEach { f ->
                 Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(f, style = T.sub, modifier = Modifier.weight(1f))
-                    Pill("Remove", quiet = true) { Music.removeFolder(f) }
+                    Pill("Remove", quiet = true) { ui.confirm = "Stop reading “$f”? Its songs leave My music; the files stay where they are." to { Music.removeFolder(f) } }
                 }
             }
             Line("Lyrics", "Lyrics show on Now playing in place of the cover when you tap the lyrics button. Genius shows " +
@@ -1250,7 +1250,7 @@ private fun EqSheet(ui: Ui) {
             BoostFader(eq)
             Text("Sound", style = T.section, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
             ChipRow(Eq.presets(eq).map { (k, v) -> k to v.first }, eq.preset) { Music.setEqPreset(it) }
-            PresetTools(eq)
+            PresetTools(ui, eq)
             // The bands: one line each (31 fit this way), the frequency, the slider, the gain.
             val freqs = Eq.bandsFor(eq.count)
             Column(Modifier.padding(top = 10.dp).clip(R.card).background(C.light.copy(alpha = if (C.isLight) 1f else 0.6f)).padding(vertical = 6.dp)) {
@@ -1394,7 +1394,7 @@ private fun FolderPicker(ui: Ui, item: org.omarchy.music.FolderItem) {
 /** Your own Sound presets: Save as preset… (the bands as they are now), Import (a GraphicEQ or parametric file), Export
  *  (the Sound as a GraphicEQ file), and Delete for one of yours that's picked. */
 @Composable
-private fun PresetTools(eq: org.omarchy.music.EqSettings) {
+private fun PresetTools(ui: Ui, eq: org.omarchy.music.EqSettings) {
     var naming by remember { mutableStateOf<String?>(null) }
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importPresetFile(uri) }
     val exporter = rememberSaveFile("text/plain") { uri -> if (uri != null) Music.exportPreset(uri) }
@@ -1403,7 +1403,7 @@ private fun PresetTools(eq: org.omarchy.music.EqSettings) {
         Pill("Save as preset…", quiet = true) { naming = if (eq.preset == "custom" || eq.preset.startsWith("my:")) "" else "$label (mine)" }
         Pill("Import", quiet = true) { importer.launch(arrayOf("text/*", "application/octet-stream")) }
         Pill("Export", quiet = true) { exporter.launch("${label.replace(Regex("[^\\w .()-]"), "")} GraphicEQ.txt") }
-        if (eq.preset.startsWith("my:")) Pill("Delete “$label”", quiet = true) { Music.deletePreset(eq.preset) }
+        if (eq.preset.startsWith("my:")) Pill("Delete “$label”", quiet = true) { ui.confirm = "Delete your preset “$label”?" to { Music.deletePreset(eq.preset) } }
     }
     naming?.let { start ->
         var name by remember { mutableStateOf(start) }
@@ -1746,7 +1746,7 @@ private fun SongEqDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
         dismissButton = {
             Row {
                 if (tracks.any { Music.songEqs.get(it, Music.outputNow.key) != null })
-                    TextButton({ close(); Music.setSongEq(tracks, null); ui.afterOption() }) { Text("Remove", color = C.red) }
+                    TextButton({ ui.confirm = "Remove the volume you set for ${if (tracks.size == 1) "this song" else "these songs"}?" to { close(); Music.setSongEq(tracks, null); ui.afterOption() } }) { Text("Remove", color = C.red) }
                 TextButton(close) { Text("Cancel", color = C.muted) }
             }
         })

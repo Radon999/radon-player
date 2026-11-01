@@ -427,7 +427,7 @@ private fun QueuePane(ui: Ui, n: Now) {
         val list = rememberLazyListState()
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
             if (queued.isNotEmpty()) {
-                item("qh") { QHead("Queue", null, "Clear") { Music.clearQueued() } }
+                item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
                 itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             }
             item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music", null) {} }
@@ -437,7 +437,7 @@ private fun QueuePane(ui: Ui, n: Now) {
             }
             itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             if (!n.remote && Music.queues.isNotEmpty()) {
-                item("yh") { QHead("Your queues", null, "Remove all others") { Music.removeOtherQueues() } }
+                item("yh") { QHead("Your queues", null, "Remove all others") { ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } } }
                 itemsIndexed(Music.queues, key = { _, s -> "s" + s.id }) { _, s ->
                     Row(Modifier.fillMaxWidth().clip(R.card).clickable { Music.switchQueue(s.id) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -452,7 +452,7 @@ private fun QueuePane(ui: Ui, n: Now) {
                         IconButton(Ico.EDIT, SOFT, 18.dp, 8.dp) {
                             ui.askName = Triple("Rename the queue", s.name) { nm -> Music.renameQueue(s.id, nm) }
                         }
-                        IconButton(Ico.TRASH, SOFT, 18.dp, 8.dp) { Music.deleteQueue(s.id) }
+                        IconButton(Ico.TRASH, SOFT, 18.dp, 8.dp) { ui.confirm = "Delete this queue?" to { Music.deleteQueue(s.id) } }
                     }
                 }
             }

@@ -48,6 +48,7 @@ Open the ☰ menu to find everything. Pages can be shown as a list, a grid or a 
 - **Which tab a song is in:** Search results show next to each of your own songs which tab of My music it's in: **In Albums**, **In EPs** or **In Singles**.
 - **Voice typing:** Every search bar has a microphone button: say what you want instead of typing it. The main search, each page's own search, Ask the DJ, the lyrics and cover searches, and Choose yourself in the scans. The phone uses its speech recognizer, the PC uses Windows' dictation.
 - **Options for selected songs:** Long-press songs to pick them, then: Play, Shuffle play, Play after the current song, Add to the queue, Add to a playlist, Add to or Remove from favorites, Download, Tagger…, Volume…, Speed…, Upgrade to FLAC…, Go to album, Discovery playlist for (the artist), File location, Copy the names, Share and Delete permanently…. The options sheet always opens all the way, so every option shows. A checkbox decides whether the selection closes after each option or stays open so you can use several.
+- **Nothing is deleted without asking:** Anything that deletes or removes something (songs, downloads, playlists, folders, queues, presets, songs from a playlist) asks "Are you sure?" first, and only does it when you say yes.
 
 ## Search & the services
 
@@ -94,7 +95,7 @@ Open it from the ☰ menu or from the speaker button on Now playing.
 - **Boost fader:** Makes everything up to 12 dB louder on this output only, for quiet headphones. A **red line** marks how far you can boost cleanly. Below it the sound is clean; past it, a limiter squashes the peaks so they don't distort, which is fine for noisy places. **Off** returns to normal volume.
 - **Pre-gain:** When the EQ boosts something, the app lowers the level automatically so the boosts don't clip.
 - **Headphone crossfeed:** Feeds a little of each side into the other, like speakers across a room. It's easier on the ears with old hard-panned records. Choose Light, Medium or Strong.
-- **Song crossfade:** Each song fades into the next, over 1 to 12 seconds (not in bit-perfect).
+- **Song crossfade:** Each song fades into the next, over 1 to 12 seconds, with no cut or gap before the fade (not in bit-perfect).
 - **Smart transitions:** Turns crossfade off between songs from the same album, so albums that flow from track to track (live albums, mixes) stay seamless.
 
 ### Sound quality (Settings › Sound quality)

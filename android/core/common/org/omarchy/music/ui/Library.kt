@@ -301,7 +301,7 @@ fun QueuesDialog(ui: Ui) {
         },
         confirmButton = { TextButton({ ui.showQueues = false }) { Text("Done", color = C.accent) } },
         dismissButton = {
-            if (Music.queues.isNotEmpty()) TextButton({ Music.removeOtherQueues() }) { Text("Remove all other queues", color = C.red) }
+            if (Music.queues.isNotEmpty()) TextButton({ ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } }) { Text("Remove all other queues", color = C.red) }
         })
 }
 
@@ -323,7 +323,7 @@ private fun QueueLine(ui: Ui, id: String, name: String, tracks: List<Track>, ind
         IconButton(Ico.EDIT, C.muted, 18.dp, 6.dp, desc = "Rename") {
             ui.askName = Triple("Rename the queue", name) { n -> Music.renameQueue(id, n) }
         }
-        if (!current) IconButton(Ico.CLOSE, C.muted, 16.dp, 6.dp, desc = "Remove") { Music.deleteQueue(id) }
+        if (!current) IconButton(Ico.CLOSE, C.muted, 16.dp, 6.dp, desc = "Remove") { ui.confirm = "Delete this queue?" to { Music.deleteQueue(id) } }
     }
 }
 
@@ -399,7 +399,9 @@ fun OptionsSheet(ui: Ui) {
                     if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
                 }
                 if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
-                    Music.removeFromPlaylist(place.playlistId, picked.map { it.id }.toSet()) })
+                    val ids = picked.map { it.id }.toSet()
+                    ui.confirm = "Take ${ids.size} song${if (ids.size != 1) "s" else ""} out of this playlist? They stay in your music." to {
+                        Music.removeFromPlaylist(place.playlistId, ids) } })
                 if (place?.kind == "queue") add(Triple(Ico.CLOSE, "Remove from the queue") {
                     val ids = picked.map { it.id }.toSet()
                     Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids }) })

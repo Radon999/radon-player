@@ -2319,25 +2319,37 @@ object Music {
         // volume for the moment the second took to start, a doubled (6 dB louder) blip at the start of every crossfade.
         x.volume = 0f
         x.onceSounding {
-            if (fadingId == t.id && current()?.id == t.id) {
+            if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@onceSounding }
+            scope.launch {
+                // Its sound takes a moment to reach the speakers after it says it's playing: wait for that, then hand
+                // over gently, this one going down as the second comes up (an equal-power blend over a third of a
+                // second), so there's never a moment of silence (the old instant swap left a short cut) nor both at once.
+                delay(200)
+                if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@launch }
+                val swap = 7
+                for (k in 1..swap) {
+                    delay(45)
+                    val a = (Math.PI / 2 * k / swap)
+                    x.volume = from * kotlin.math.sin(a).toFloat()
+                    player?.volume = from * kotlin.math.cos(a).toFloat()
+                }
                 x.volume = from
-                player?.volume = 0f   // the second player has it now: no doubled sound while the next one loads
+                player?.volume = 0f   // the second player has it now
                 fadeIn = n
                 trackEnded()
-                scope.launch {
-                    val steps = (left * 20).toInt().coerceAtLeast(1)
-                    for (k in 1..steps) {
-                        delay(50)
-                        x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
-                    }
-                    runCatching { x.release() }
+                val rest = maxOf(0.8, left - 0.5)
+                val steps = (rest * 20).toInt().coerceAtLeast(1)
+                for (k in 1..steps) {
+                    delay(50)
+                    x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
                 }
-            } else runCatching { x.release() }
+                runCatching { x.release() }
+            }
         }
         x.play()
         tail = null; tailFor = null
         scope.launch {   // if it never got going, move on anyway
-            delay(1500)
+            delay(1800)
             if (fadingId == t.id && current()?.id == t.id && !x.isPlaying) { fadeIn = 0.0; runCatching { x.release() }; trackEnded() }
         }
     }

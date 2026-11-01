@@ -465,7 +465,9 @@ private fun EmptyFoldersScreen(ui: Ui) {
                 Pill(if (report != null) "Done" else "Cancel", quiet = true) { close() }
                 if (report == null && !f.isNullOrEmpty()) Pill("Delete") {
                     val chosen = f.filterIndexed { i, _ -> pick[i] ?: true }
-                    Music.bg({ MusicTools.emptyRemove(chosen) }) { n, e -> report = if (n != null) "$n folder${if (n != 1) "s" else ""} to $TRASH" else "Couldn't: ${e?.message}" }
+                    ui.confirm = "Delete ${chosen.size} empty folder${if (chosen.size != 1) "s" else ""}? They go to $TRASH." to {
+                        Music.bg({ MusicTools.emptyRemove(chosen) }) { n, e -> report = if (n != null) "$n folder${if (n != 1) "s" else ""} to $TRASH" else "Couldn't: ${e?.message}" }
+                    }
                 }
             }
         }

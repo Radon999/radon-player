@@ -359,7 +359,7 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
         item("Add to playlist…") { ui.pickPlaylistFor = listOf(t) }()
         splitArtists(t.artist).take(3).forEach { n -> item("Go to $n") { ui.pages += Ui.Page.Artist(n, t.source) }() }
         if (t.album.isNotBlank()) item("Go to album “${t.album.trim()}”") { goToAlbum(ui, t) }()
-        if (place.playlistId != null) item("Remove from this playlist") { Music.removeFromPlaylist(place.playlistId, setOf(t.id)) }()
+        if (place.playlistId != null) item("Remove from this playlist") { ui.confirm = "Take “${t.title}” out of this playlist? It stays in your music." to { Music.removeFromPlaylist(place.playlistId, setOf(t.id)) } }()
         if (!t.isFile && !Music.lib.has(t.id)) item("Download") { Music.download(listOf(t)) }()
         if (Music.lib.has(t.id)) item("Remove download") {
             ui.confirm = "Delete the downloaded FLAC of “${t.title}”?" to { Music.removeDownload(t.id) }

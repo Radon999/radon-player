@@ -64,8 +64,10 @@ fun ReviewDialog(ui: Ui, pl: Playlist) {
         },
         confirmButton = {
             TextButton({
-                Music.reviewDiscovered(pl.id, get.filterValues { it }.keys, drop.filterValues { it }.keys)
-                ui.reviewFor = null
+                val g = get.filterValues { it }.keys; val d = drop.filterValues { it }.keys
+                val apply = { Music.reviewDiscovered(pl.id, g, d); ui.reviewFor = null }
+                if (d.isEmpty()) apply()
+                else ui.confirm = "Remove ${d.size} song${if (d.size != 1) "s" else ""} from “${pl.name}”?" to apply
             }) { Text("Apply", color = C.accent) }
         },
         dismissButton = { TextButton({ ui.reviewFor = null }) { Text("Cancel", color = C.muted) } })
