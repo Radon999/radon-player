@@ -166,7 +166,7 @@ private fun LockTop(n: Now, lock: () -> Unit) {
 @Composable
 private fun NowTop(ui: Ui, n: Now) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(Ico.MENU, WHITE) { ui.drawer = true }
+        IconButton(Ico.MENU, WHITE) { ui.openDrawer() }
         val t = n.t
         val from = when {
             n.remote -> "Playing on the desktop"

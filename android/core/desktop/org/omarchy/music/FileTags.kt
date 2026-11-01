@@ -19,13 +19,18 @@ object FileTags {
     fun canWrite(uri: String) = file(uri).let { it.isFile && it.canWrite() }
 
     /** The file's tags (title, artist, albumartist, album, tracknumber, date), or null if unreadable. */
-    fun read(ctx: Ctx, uri: String): Map<String, String>? = runCatching {
+    fun read(ctx: Ctx, uri: String): Map<String, String>? = (if (isWav(uri)) WavTags.read(file(uri)) else null) ?: runCatching {
         val tag = AudioFileIO.read(file(uri)).tag ?: return@runCatching emptyMap()
         KEYS.mapValues { (_, k) -> runCatching { tag.getAll(k).filter { it.isNotBlank() }.joinToString(", ") }.getOrDefault("") }
     }.getOrNull()
 
+    /** WAVs are tagged by WavTags (their ID3 and LIST INFO chunks), which keeps the studio chunks some have
+     *  (bext, regn, DGDA…) that the tag library chokes on. */
+    private fun isWav(uri: String) = uri.substringAfterLast('.').equals("wav", true)
+
     /** Write changes ("" clears a field); true if it worked. */
-    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean = runCatching {
+    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean =
+        (isWav(uri) && runCatching { WavTags.write(file(uri), changes); true }.getOrDefault(false)) || runCatching {
         val af = AudioFileIO.read(file(uri))
         val tag = af.tagOrCreateAndSetDefault
         for ((k, v) in changes) {
@@ -39,7 +44,8 @@ object FileTags {
 
     fun hasCover(ctx: Ctx, uri: String) = cover(ctx, uri) != null
 
-    fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean = runCatching {
+    fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean =
+        (isWav(uri) && runCatching { WavTags.write(file(uri), emptyMap(), jpeg); true }.getOrDefault(false)) || runCatching {
         val af = AudioFileIO.read(file(uri))
         val tag = af.tagOrCreateAndSetDefault
         val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }

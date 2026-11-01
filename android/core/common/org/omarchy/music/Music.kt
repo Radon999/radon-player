@@ -124,6 +124,7 @@ object Music {
     var searchIn by mutableStateOf("tidal")    // where the search bar searches: tidal, ytm, local
     var apiKeys by mutableStateOf(mapOf<String, String>())   // Settings: keys of yours (see API_KEYS)
     var shuffled = false   // the queue was shuffled: repeat-all shuffles it again
+    val tabSorts = androidx.compose.runtime.mutableStateMapOf<String, String>()   // each tab's sort (sortOf)
     var playlistSort by mutableStateOf("order")   // how a playlist's songs are listed (PLAYLIST_SORTS)
     var browseLocal by mutableStateOf(false)   // Local picked in the source bar: your own songs, no Library tab
     var look by mutableStateOf("nowplaying")   // the app's colours: Light ("apple"), Dark ("apple-dark") or Now playing ("nowplaying")
@@ -329,6 +330,7 @@ object Music {
         val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
         val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
         val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(), val not_dupes: List<String> = emptyList(),
+        val tab_sorts: Map<String, String> = emptyMap(),
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -352,6 +354,7 @@ object Music {
         apiKeys = st.api_keys.filterKeys { it in API_KEYS }
         shuffled = st.shuffled
         playlistSort = st.playlist_sort.takeIf { it in PLAYLIST_SORTS } ?: "order"
+        tabSorts.clear(); tabSorts.putAll(st.tab_sorts.filterValues { it in SORT_NAMES })
         browseLocal = st.browse_local
         searchBeforeLocal = st.search_before_local.takeIf { it in SEARCH_IN && it != "local" } ?: "tidal"
         // The Apple Music look came with 1.3: everyone starts on it (dark if the phone is), and can pick any other after.
@@ -415,7 +418,7 @@ object Music {
         return State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList())
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList(), tabSorts.toMap())
     }
 
     fun saveApiKeys(keys: Map<String, String>) {
@@ -2759,6 +2762,18 @@ object Music {
     @JvmName("chooseMusicSort")
     fun setMusicSort(sort: String) { musicSort = sort; saveState() }
     fun pickPlaylistSort(sort: String) { playlistSort = sort; saveState() }
+
+    /** Each tab's sort (its Sort menu), kept: tab -> a key of SORT_NAMES. */
+    fun sortOf(tab: String, default: String, allowed: List<String>) = tabSorts[tab]?.takeIf { it in allowed } ?: default
+    fun setSort(tab: String, sort: String) { tabSorts[tab] = sort; saveState() }
+
+    /** (blocking) What sorting by plays needs: how often you played each song, and when last. */
+    fun sortData(sort: String): SortData {
+        if (!sortNeedsPlays(sort)) return SortData.NONE
+        val counts = runCatching { playCounts() }.getOrDefault(emptyMap())
+        val last = if (sort.startsWith("played")) runCatching { Dj.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
+        return SortData(plays = { counts[songKey(it)] ?: it.plays }, last = { last[Stats.statsKey(it.title, it.artist)] ?: 0L })
+    }
 
     /** song key -> how often you played it: the stats (Last.fm and Spotify too), else the plays here. */
     fun playCounts(): Map<Pair<String, String>, Int> {

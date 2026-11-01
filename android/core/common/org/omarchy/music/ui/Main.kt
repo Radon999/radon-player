@@ -130,7 +130,8 @@ fun App() {
 
     // The ☰ menu: out only when you tap ☰ (a swipe on the player is for the cover).
     val drawer = rememberDrawerState(DrawerValue.Closed)
-    LaunchedEffect(ui.drawer) { if (ui.drawer) drawer.open() else drawer.close() }
+    // ☰ asks again each tap (drawerAsk), so the menu still opens if a half-done open or close left the two out of step.
+    LaunchedEffect(ui.drawer, ui.drawerAsk) { if (ui.drawer) drawer.open() else drawer.close() }
     LaunchedEffect(drawer.currentValue) { ui.drawer = drawer.currentValue == DrawerValue.Open }
 
     // A new queue takes the name of the list its songs came from.
@@ -138,22 +139,25 @@ fun App() {
     val title = titleOf(ui, page)
     // The page's own search closes as you go to another page.
     LaunchedEffect(ui.tab, ui.musicView, page, ui.openMine, ui.openList?.first, ui.openFolder) { ui.filter = null }
+    // Picking albums, artists… ends as you go to another tab (it's for the list it started on).
+    LaunchedEffect(ui.tab, ui.musicView) { if (ui.pickingAlbums) { ui.albumsPicked.clear(); ui.pickingAlbums = false } }
     LaunchedEffect(title, ui.query) { Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else title }
 
     // The phone's Back on Now playing opens the ☰ menu; Back with that menu open (over Now playing) leaves the app.
     val atPlayer = ui.tab == "player" && page == null
     val leaveNow = onPhone && atPlayer && ui.drawer && !ui.selecting && ui.pane == "art"
-    PlatformBack(enabled = !leaveNow && (ui.drawer || ui.selecting || ui.pane != "art" || page != null || ui.openMine != null ||
+    PlatformBack(enabled = !leaveNow && (ui.drawer || ui.selecting || ui.pickingAlbums || ui.pane != "art" || page != null || ui.openMine != null ||
         ui.openList != null || ui.openFolder != null || ui.tab != "player" || (onPhone && atPlayer))) {
         when {
             ui.drawer -> ui.drawer = false
             ui.selecting -> ui.stopSelecting()
+            ui.pickingAlbums -> { ui.albumsPicked.clear(); ui.pickingAlbums = false }
             ui.tab == "player" && ui.pane != "art" -> ui.pane = "art"
             ui.pages.isNotEmpty() -> ui.pages.removeAt(ui.pages.lastIndex)
             ui.openMine != null -> ui.openMine = null
             ui.openList != null -> ui.openList = null
             ui.openFolder != null -> ui.openFolder = null
-            onPhone && atPlayer -> ui.drawer = true
+            onPhone && atPlayer -> ui.openDrawer()
             else -> goTo(ui, "player")
         }
     }
@@ -188,7 +192,13 @@ fun App() {
                         "visualizer" -> VisualizerTab()
                     }
                 }
-                Box(Modifier.navigationBarsPadding()) { if (ui.selecting) SelectBar(ui) else MiniPlayer(ui) }
+                Box(Modifier.navigationBarsPadding()) {
+                    when {
+                        ui.selecting -> SelectBar(ui)
+                        ui.pickingAlbums && page == null -> PickDock(ui)
+                        else -> MiniPlayer(ui)
+                    }
+                }
             }
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp))
             DesktopVolume(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
@@ -362,7 +372,7 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
                     ui.openList != null -> ui.openList = null
                     else -> ui.openFolder = null
                 }
-            } else IconButton(Ico.MENU) { ui.drawer = true }
+            } else IconButton(Ico.MENU) { ui.openDrawer() }
             Text(title, style = T.head.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 4.dp))
             if (laidOut(ui)) {
@@ -544,7 +554,7 @@ private fun PaneBox(content: @Composable () -> Unit) {
 private fun PlayerTop(ui: Ui, n: Now) {
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(Ico.MENU) { ui.drawer = true }
+        IconButton(Ico.MENU) { ui.openDrawer() }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             val q = Music.shownQueue(); val i = Music.shownIndex()
             if (n.remote) Text("PLAYING ON THE DESKTOP", style = T.section.copy(color = C.accent))

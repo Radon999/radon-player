@@ -137,6 +137,9 @@ object Dj {
         return out
     }
 
+    /** (blocking) When you last played each song (seconds), by Stats.statsKey: for Sort › Recently played. */
+    fun lastHeard(): Map<Pair<String, String>, Long> = loadTaste().last
+
     /** (blocking) What you play, read again every ten minutes. */
     @Synchronized private fun loadTaste(): Taste {
         taste?.let { if (now() - tasteAt < 600) return it }

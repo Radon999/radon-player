@@ -186,6 +186,13 @@ class Ui {
         if (id != null && songs != null) albumsPicked[id] = songs
     }
     val albumsPicked = androidx.compose.runtime.mutableStateMapOf<String, List<Track>>()
+    /** What the list picking calls them ("albums"), and its own options for them (PickDock). */
+    var pickNoun by mutableStateOf("")
+    var pickExtra by mutableStateOf<List<Pair<String, () -> Unit>>>(emptyList())
+
+    /** ☰: asks for the menu even if the app thinks it's out already (so a tap always opens it). */
+    var drawerAsk by mutableStateOf(0)
+    fun openDrawer() { drawer = true; drawerAsk++ }
 
     /** Options (the sheet) for these songs: an album's, or the albums picked. */
     fun optionsFor(songs: List<Track>) {

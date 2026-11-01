@@ -278,6 +278,18 @@ fun MusicTab(ui: Ui) {
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importPlaylist(uri) }
     Music.musicVersion
     Music.savedVersion
+    // My music, Favorites, Not favorited and Recently played: songs, as their Sort menu says.
+    val songView = ui.musicView in setOf("all", "favorites", "unfavorited", "recent")
+    val songTab = "music-" + ui.musicView
+    val songOpts = org.omarchy.music.songSorts(withOrder = ui.musicView != "all")
+    val songSort = sortNow(songTab, songOpts, if (ui.musicView == "all") Music.musicSort.takeIf { it in songOpts } ?: "title" else "order")
+    val songBase = if (!songView) emptyList() else runCatching { when (ui.musicView) {
+        "all" -> Music.mySongs()
+        "recent" -> Music.plays.recent()
+        "favorites" -> Music.favorites.tracks()
+        else -> Music.mySongs().filter { !Music.favorites.has(it) }.sortedBy { norm(it.title) }
+    } }.getOrDefault(emptyList())
+    val songSorted = rememberSorted(songBase, songSort) { d -> org.omarchy.music.sortTracks(songBase, songSort, d) }
     Column(Modifier.fillMaxSize()) {
         // Which of these is shown is picked from the library's list (Main.kt's categories).
         val state = rememberLazyListState()
@@ -302,10 +314,7 @@ fun MusicTab(ui: Ui) {
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince()) else emptyList()
                     val skipInfo = skipRows.associate { (t, k, f) -> org.omarchy.music.songKey(t) to (k to f) }
                     val tracks = when (ui.musicView) {
-                        "all" -> sorted(Music.mySongs(), Music.musicSort)
-                        "recent" -> Music.plays.recent()
-                        "favorites" -> Music.favorites.tracks()
-                        "unfavorited" -> Music.mySongs().filter { !Music.favorites.has(it) }.sortedBy { norm(it.title) }
+                        "all", "recent", "favorites", "unfavorited" -> songSorted
                         "skips" -> {
                             val r = { a: Int, b: Int -> org.omarchy.music.SongStats.rate(a, b) }
                             when (Music.skipOrder) {
@@ -339,10 +348,7 @@ fun MusicTab(ui: Ui) {
                                 Section("${tracks.size} SONGS · $dl DOWNLOADED · ${fmtTotal(tracks).uppercase()}")
                                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("SORT", style = T.section, modifier = Modifier.padding(end = 2.dp))
-                                    listOf("title" to "Title", "artist" to "Artist", "album" to "Album", "added" to "Added").forEach { (k, l) ->
-                                        Chip(l, Music.musicSort == k) { Music.setMusicSort(k) }
-                                    }
+                                    SortMenu(songTab, songOpts, songSort)
                                 }
                             } else if (ui.musicView == "skips") {
                                 Section("${tracks.size} SONGS · SKIPPED OR HEARD OUT")
@@ -364,8 +370,13 @@ fun MusicTab(ui: Ui) {
                                 "unfavorited" -> "${tracks.size} SONGS NOT FAVORITED"
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
-                            if (ui.musicView == "recent") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                            if (ui.musicView == "recent") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
                                 Pill("Refresh", quiet = true) { Music.musicVersion++; Music.toast("Recently played is up to date") }
+                                SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "Last played first"))
+                            }
+                            if (ui.musicView == "favorites" || ui.musicView == "unfavorited") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                                SortMenu(songTab, songOpts, songSort, names = mapOf("order" to if (ui.musicView == "favorites") "Newest favorite first" else "Title (A–Z)"))
                             }
                             if (ui.musicView == "top" && (org.omarchy.music.LastFm.connected || Music.mostPlayedFromStats)) {
                                 val st = org.omarchy.music.Stats
@@ -394,7 +405,7 @@ fun MusicTab(ui: Ui) {
                         if (ui.musicView == "top" && Music.topKind.startsWith("time")) timeItems(ui, Music.topKind.removePrefix("time_"))   // listening time
                         else if (ui.musicView == "top" && Music.topKind == "albums") topAlbumsItems(ui)   // the songs above, added up by album
                         else if (ui.musicView == "top" && Music.topKind == "artists") topArtistsItems(ui)   // every play of theirs
-                        else if (ui.musicView == "all" && Music.musicSort in setOf("artist", "album") && layoutNow(ui) == "list" && ui.filter.isNullOrBlank()) grouped(tracks, ui, Music.musicSort == "artist")
+                        else if (ui.musicView == "all" && songSort in setOf("artist", "album") && layoutNow(ui) == "list" && ui.filter.isNullOrBlank()) grouped(tracks, ui, songSort == "artist")
                         else tracks(tracks, ui, ui.musicView) { t ->
                             when (ui.musicView) {
                                 "top" -> "${t.plays} play${if (t.plays != 1) "s" else ""}"
@@ -553,14 +564,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
 
 private fun leadArtist(t: Track) = t.artist.split(",")[0].trim().ifEmpty { "Unknown artist" }
 
-/** Your songs, sorted as the Music tab's chips say: by title, artist, album, or newest first. */
-private fun sorted(songs: List<Track>, sort: String): List<Track> = when (sort) {
-    "artist" -> songs.sortedWith(compareBy({ norm(leadArtist(it)).ifEmpty { "~" } }, { norm(it.album) }, { norm(it.title) }))
-    "album" -> songs.sortedWith(compareBy({ norm(it.album).ifEmpty { "~" } }, { norm(leadArtist(it)) }, { norm(it.title) }))
-    "added" -> songs.sortedByDescending { it.added }
-    else -> songs.sortedWith(compareBy({ norm(it.title) }, { norm(it.artist) }))
-}
-
 /** The songs under a heading per artist (tap it for their page) or per album. */
 private fun androidx.compose.foundation.lazy.LazyListScope.grouped(list: List<Track>, ui: Ui, byArtist: Boolean) {
     var start = 0
@@ -628,6 +631,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.folderView(ui: Ui, f:
     }
 }
 
+/** Your playlists' sorts (none by plays: the list is built apart from the screen). */
+private val PLAYLISTS_SORTS = listOf("order", "name", "name-desc", "created", "created-old", "updated", "songs", "songs-least", "length", "length-short")
+
+/** Artists' sorts: your most played first, or any of these. */
+private val ARTIST_SORTS = listOf("plays", "plays-least", "name", "name-desc", "played", "played-old", "added", "added-old",
+    "songs", "songs-least", "length", "length-short", "random")
+
 /** Chips to sort a playlist's songs by (PLAYLIST_SORTS), the same for every playlist. */
 @Composable
 private fun PlaylistSortChips() {
@@ -659,7 +669,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             Text("Make one here, or $LONG_PRESS any song (or select a few) and pick Add to playlist.", style = T.sub,
                 modifier = Modifier.padding(horizontal = 12.dp))
         }
-        val shown = lists.filter { fits(ui, it.name) }
+        val plSort = sortNow("playlists", PLAYLISTS_SORTS)
+        val shown = org.omarchy.music.sortGroups(lists.filter { fits(ui, it.name) }, plSort) { pl ->
+            org.omarchy.music.GroupFacts(pl.name, songs = pl.tracks, created = pl.created, updated = pl.updated, added = pl.created) }
         val picking = ui.pickingIn("playlists")
         val picked = ui.albumsPicked
         fun menu(pl: org.omarchy.music.Playlist) {
@@ -693,7 +705,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
                 "Edit" to { picked.keys.firstOrNull()?.let { id -> picked.clear(); ui.pickingAlbums = false; ui.openMine = id } },
                 "Favorite" to { Music.setFavorite(picked.values.flatten().distinctBy { it.id }, true) },
             ))
-            else if (lists.isNotEmpty()) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick("playlists") } }
+            else if (lists.isNotEmpty()) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Chip("Select", false) { ui.startPick("playlists") }
+                SortMenu("playlists", PLAYLISTS_SORTS, names = mapOf("order" to "Your order"))
+            }
         }
         fun lay(some: List<org.omarchy.music.Playlist>) = laidOutItems(some, ui, key = { "pl-" + some[it].id }, row = { i ->
             val pl = some[i]
@@ -829,7 +844,14 @@ fun ArtistsTab(ui: Ui) {
             "Connect Last.fm, import your Spotify history, or play a few songs: your most played artists show here.")
         return
     }
-    val shown = top.filter { fits(ui, it.name) }
+    val sort = sortNow("artists", ARTIST_SORTS)
+    val fitting = top.filter { fits(ui, it.name) }
+    val shown = rememberSorted(fitting, sort) { d ->
+        val own = HashMap<String, MutableList<Track>>()   // each artist's songs here
+        if (sort !in setOf("name", "name-desc", "plays", "plays-least", "random"))
+            for (t in Music.mySongs()) for (a in org.omarchy.music.ownArtists(t.artist)) own.getOrPut(norm(a)) { ArrayList() }.add(t)
+        org.omarchy.music.sortGroups(fitting, sort, d) { a -> org.omarchy.music.GroupFacts(a.name, songs = own[norm(a.name)].orEmpty(), plays = a.plays) }
+    }
     val picking = ui.pickingIn("artists")
     val picked = ui.albumsPicked
     fun menu(name: String, thumb: String) {
@@ -845,12 +867,13 @@ fun ArtistsTab(ui: Ui) {
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            Section((listOf("${top.size} ARTISTS, YOUR MOST PLAYED FIRST") + org.omarchy.music.Stats.sources.joinToString(" + ").uppercase().ifEmpty { null })
+            Section((listOf("${top.size} ARTISTS" + if (sort == "plays") ", YOUR MOST PLAYED FIRST" else "") + org.omarchy.music.Stats.sources.joinToString(" + ").uppercase().ifEmpty { null })
                 .filterNotNull().joinToString(" · "))
             if (picking) PickBar(ui, "artists")
             else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("Collage…", false) { ui.collageFor = "artists-all" }
                 Chip("Select", false) { ui.startPick("artists") }
+                SortMenu("artists", ARTIST_SORTS)
             }
         }
         laidOutItems(shown, ui, key = { "ar-" + shown[it].name }, row = { i ->

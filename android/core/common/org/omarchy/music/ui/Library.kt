@@ -70,7 +70,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     // Albums: the big ones (more than six songs here) or the ones you have only a few songs of
     val bigAlbums = kind == "albums" && ui.albumsLow.not()
     val sized = if (kind != "albums") all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }
-    val albums = sized.filter { fits(ui, it.first.title, it.first.sub) }
+    val sorts = if (singles) org.omarchy.music.GROUP_SORTS - setOf("songs", "songs-least") else org.omarchy.music.GROUP_SORTS
+    val sort = sortNow(kind, sorts)
+    val fitting = sized.filter { fits(ui, it.first.title, it.first.sub) }
+    val albums = rememberSorted(fitting, sort) { d ->
+        org.omarchy.music.sortGroups(fitting, sort, d) { (al, songs) ->
+            org.omarchy.music.GroupFacts(al.title, al.sub, songs) } }
     fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
     val picking = ui.pickingIn(kind)
     val picked = ui.albumsPicked
@@ -87,9 +92,10 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         item {
             if (picking) PickBar(ui, if (eps) "EPs" else if (singles) "singles" else "albums")   // Select: tap albums, then Options for all their songs
             else {
-                Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Collage of your top ${if (eps) "EPs" else if (singles) "singles" else "albums"}…", false) { ui.collageFor = "$kind-all" }
                     Chip("Select", false) { ui.startPick(kind) }
+                    SortMenu(kind, sorts)
                 }
                 if (kind == "albums") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Albums (${all.count { it.second.size > 6 }})", !ui.albumsLow) { ui.albumsLow = false }
@@ -110,20 +116,32 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     }
 }
 
-/** Select on a list of groups (albums, genres, folders, artists, playlists): Options for all their songs, the extra
- *  options the list has (playlists: Delete, Rename, Edit, Favorite), Clear, Done. */
+/** Select on a list of groups (albums, genres, folders, artists, playlists): the list's line on what to do; the bar
+ *  itself (Options for all their songs, the list's extra options, Clear, Cancel) stays at the bottom (PickDock),
+ *  so it's there wherever you've scrolled to. */
 @Composable
 fun PickBar(ui: Ui, noun: String, extra: List<Pair<String, () -> Unit>> = emptyList()) {
+    androidx.compose.runtime.SideEffect { ui.pickNoun = noun; ui.pickExtra = extra }
+    val picked = ui.albumsPicked
+    Section(if (picked.isEmpty()) "PICK ${noun.uppercase()}: A TAP TICKS ONE" else "${picked.size} PICKED")
+}
+
+/** The bar at the bottom while you pick albums, artists, playlists…: how many, Options, the list's own options, Clear, Cancel. */
+@Composable
+fun PickDock(ui: Ui) {
     val picked = ui.albumsPicked
     val n = picked.values.sumOf { it.size }
-    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Chip(if (picked.isEmpty()) "Options" else "Options ($n songs)", true) { if (picked.isNotEmpty()) ui.optionsFor(picked.values.flatten()) }
-        if (picked.isNotEmpty()) for ((label, run) in extra) Chip(label, false) { run() }
-        if (picked.isNotEmpty()) Chip("Clear", false) { picked.clear() }
-        Chip("Done", false) { picked.clear(); ui.pickingAlbums = false }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp).shadow(10.dp, R.big).clip(R.big).background(C.light)) {
+        Text(if (picked.isEmpty()) "Tap ${ui.pickNoun} to pick them" else "${picked.size} ${ui.pickNoun} picked · %,d song%s".format(n, if (n != 1) "s" else ""),
+            style = T.sub, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp))
+        Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 6.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            BarButton(Ico.MORE, "Options") { if (picked.isNotEmpty()) ui.optionsFor(picked.values.flatten()) }
+            if (picked.isNotEmpty()) for ((label, run) in ui.pickExtra) Chip(label, false) { run() }
+            if (picked.isNotEmpty()) BarButton(Ico.SELECT, "Clear") { picked.clear() }
+            BarButton(Ico.CLOSE, "Cancel") { picked.clear(); ui.pickingAlbums = false }
+        }
     }
-    Section(if (picked.isEmpty()) "PICK ${noun.uppercase()}: A TAP TICKS ONE" else "${picked.size} PICKED")
 }
 
 /** A row in Genres and Folders: an icon, a name, how many songs. */
@@ -158,7 +176,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
         if (picking) { picked[id] = songs; ui.optionsFor(picked.values.flatten()); return }
         ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id))), "Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick(kind, id, songs) })
     }
-    item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick(kind) } } }
+    item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) { Chip("Select", false) { ui.startPick(kind) }; SortMenu(kind + "s", GROUPS_SORTS) } }
     laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
         val (id, songs) = list[i]
         GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
@@ -174,18 +193,28 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
 fun GenresTab(ui: Ui) {
     val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.genres() }.getOrDefault(emptyList()) }
     if (all.isEmpty()) { Empty("No genres yet", "Your songs, by the genre their files give, show up here."); return }
-    val genres = all.filter { fits(ui, it.first) }
+    val genres = sortedGroups("genres", all.filter { fits(ui, it.first) }) { it }
     LazyColumn(Modifier.fillMaxSize()) {
         item { Section("${genres.size} GENRES") }
         groups(ui, "genre", genres, { it }) { _, songs -> songs.take(3).joinToString { it.artist.split(",")[0] } }
     }
 }
 
+/** Genres' and Folders' sorts: as they come (Default), or any of these. */
+private val GROUPS_SORTS = listOf("order") + (org.omarchy.music.GROUP_SORTS - setOf("artist", "artist-desc"))
+
+/** Genres or Folders, as their Sort menu says. */
+@Composable
+private fun sortedGroups(tab: String, list: List<Pair<String, List<Track>>>, name: (String) -> String): List<Pair<String, List<Track>>> {
+    val sort = sortNow(tab, GROUPS_SORTS)
+    return rememberSorted(list, sort) { d -> org.omarchy.music.sortGroups(list, sort, d) { (id, songs) -> org.omarchy.music.GroupFacts(name(id), songs = songs) } }
+}
+
 @Composable
 fun FoldersTab(ui: Ui) {
     val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.folderSongs() }.getOrDefault(emptyList()) }
     if (all.isEmpty()) { Empty("No folders yet", "The folders your songs are in show up here."); return }
-    val folders = all.filter { fits(ui, it.first) }
+    val folders = sortedGroups("folders", all.filter { fits(ui, it.first) }) { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }
     LazyColumn(Modifier.fillMaxSize()) {
         item { Section("${folders.size} FOLDERS") }
         groups(ui, "folder", folders, { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }) { f, _ -> fullFolderPath(f.trimEnd('/')) }
@@ -195,12 +224,17 @@ fun FoldersTab(ui: Ui) {
 /** A genre's or a folder's songs. */
 @Composable
 fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
+    val sorts = org.omarchy.music.songSorts(true)
+    val tab = "page-" + page.kind.ifEmpty { "songs" }
+    val sort = sortNow(tab, sorts)
+    val songs = rememberSorted(page.tracks, sort) { d -> org.omarchy.music.sortTracks(page.tracks, sort, d) }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            ListActions(page.tracks, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = page.tracks)) },
+            ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = page.tracks)) },
                 pin = if (page.id.isNotEmpty() && page.kind in setOf("genre", "folder")) Pin(page.kind, page.id, page.title) else null)
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { SortMenu(tab, sorts) }
         }
-        tracks(page.tracks, ui, page.kind)
+        tracks(songs, ui, page.kind)
     }
 }
 
@@ -398,14 +432,19 @@ fun FlacTab(ui: Ui, bits: Int) {
             "Your FLAC songs recorded at $bits bits show up here, each with its sample rate.")
         return
     }
-    val formats = all.associate { it.first.id to it.second }
+    val formats = remember(all) { all.associate { it.first.id to it.second } }
+    val sorts = org.omarchy.music.songSorts(true, extra = listOf("rate", "rate-low"))
+    val sort = sortNow("flac$bits", sorts)
+    val plain = remember(all) { all.map { it.first } }
+    val songs = rememberSorted(plain, sort) { d -> org.omarchy.music.sortTracks(plain, sort, d) { t -> formats[t.id]?.rate ?: 0 } }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            ListActions(all.map { it.first }, onDj = { ui.djFrom(Dj.From("songs", name = "$bits-bit FLACs", songs = all.map { it.first })) })
+            ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "$bits-bit FLACs", songs = songs)) })
             Section("${all.size} $bits-BIT FLAC${if (all.size != 1) "S" else ""}" +
                 (reading?.let { " · READING ${it.first} OF ${it.second}" } ?: ""))
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { SortMenu("flac$bits", sorts) }
         }
-        tracks(all.map { it.first }, ui, "flac$bits") { t -> formats[t.id]?.let { org.omarchy.music.FlacDepths.label(it) } ?: "" }
+        tracks(songs, ui, "flac$bits") { t -> formats[t.id]?.let { org.omarchy.music.FlacDepths.label(it) } ?: "" }
     }
 }
 
@@ -415,12 +454,16 @@ fun FlacTab(ui: Ui, bits: Int) {
 fun DownloadsTab(ui: Ui) {
     val all = remember(Music.savedVersion) { runCatching { Music.lib.items.values.sortedByDescending { it.added } }.getOrDefault(emptyList()) }
     if (all.isEmpty()) { Empty("No downloads yet", "Songs you download from Tidal or YouTube show up here."); return }
-    val songs = remember(all) { all.map { it.track() } }
+    val got = remember(all) { all.map { it.track() } }
     val quality = remember(all) { all.associate { it.track().id to it.quality } }
+    val sorts = org.omarchy.music.songSorts(true)
+    val sort = sortNow("downloads", sorts)
+    val songs = rememberSorted(got, sort) { d -> org.omarchy.music.sortTracks(got, sort, d) }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "Downloads", songs = songs)) })
             Section("${songs.size} DOWNLOADED SONG${if (songs.size != 1) "S" else ""}")
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { SortMenu("downloads", sorts, names = mapOf("order" to "Newest download first")) }
         }
         tracks(songs, ui, "downloads") { t -> quality[t.id].orEmpty() }
     }
