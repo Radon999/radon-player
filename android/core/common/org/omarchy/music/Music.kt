@@ -513,11 +513,16 @@ object Music {
         val seen = HashSet<Pair<String, String>>()
         val out = ArrayList<Track>()
         for (s in Stats.artistSongs(name)) {
-            val t = fmSong(s.title, s.artist, s.thumb, mine, s.album).copy(plays = s.plays)
+            val t = fmSong(s.title, s.artist, s.thumb, mine, s.album, sameArtistOnly = true).copy(plays = s.plays)
             if (seen.add(songKey(t))) out += t
         }
         val here = plays.items.values.associate { songKey(it.track) to it.plays }
-        for (t in songsBy(name)) if (seen.add(songKey(t))) out += t.copy(plays = here[songKey(t)] ?: 0)
+        for (t0 in songsBy(name)) {
+            // A playlist's or a played stream's copy of a song you have: yours instead (its file plays, its cover shows).
+            val t = if (t0.isFile || t0.file != null || lib.has(t0.id)) t0
+                else fmSong(t0.title, t0.artist, t0.thumb, mine, t0.album, sameArtistOnly = true).takeIf { it.isFile || it.file != null || lib.has(it.id) } ?: t0
+            if (seen.add(songKey(t))) out += t.copy(plays = here[songKey(t0)] ?: here[songKey(t)] ?: 0)
+        }
         return out
     }
 
@@ -769,8 +774,10 @@ object Music {
 
     /** A song Last.fm (or Spotify, or Apple Music) named: your file of it when you have one (the same song name
      *  and artist; the one on the same album first), else one played here, else one to be found on Tidal or
-     *  YouTube Music when it plays. Call [songIndex] first: it reads your files. */
-    fun fmSong(name: String, artist: String, image: String, mine: Map<Pair<String, String>, Track>, album: String = ""): Track {
+     *  YouTube Music when it plays. Call [songIndex] first: it reads your files. sameArtistOnly (an artist's page): never
+     *  a file of the same song name on the same album by someone else (its cover and name would show on their page). */
+    fun fmSong(name: String, artist: String, image: String, mine: Map<Pair<String, String>, Track>, album: String = "",
+               sameArtistOnly: Boolean = false): Track {
         val k = Stats.statsKey(name, artist)
         var copies = localCopies[k].orEmpty()
         if (copies.isEmpty()) {   // the artist written differently: one of the song's artists is one of your file's
@@ -779,13 +786,25 @@ object Music {
         }
         if (copies.isEmpty() && album.isNotBlank()) {   // the artist tagged another way still: the same song name on the same album
             val want = norm(cleanTitle(album))
-            copies = localByTitle[k.first].orEmpty().filter { norm(cleanTitle(it.album)) == want }
+            copies = localByTitle[k.first].orEmpty().filter { norm(cleanTitle(it.album)) == want && (!sameArtistOnly || sameArtist(it.artist, artist)) }
         }
         if (copies.isNotEmpty()) return bestCopy(copies, album)
         return mine[songKey(Track("", title = name, artist = artist))] ?: mine[k] ?: run {
             val sha = java.security.MessageDigest.getInstance("SHA-1").digest("${norm(artist)}|${norm(name)}".toByteArray())
             Track("lfm-" + sha.joinToString("") { "%02x".format(it) }.take(16), "lastfm", name, artist,
-                album = album, thumb = image.takeIf { LASTFM_BLANK !in it } ?: "")
+                album = album, thumb = image.takeIf { it.isNotEmpty() && LASTFM_BLANK !in it } ?: SongCovers.known(name, artist))   // one looked up before
+        }
+    }
+
+    /** Songs a service listed (an artist's top songs): your own copy of each where you have one (its file plays,
+     *  its cover shows), matched as Most played matches; the service's song only where you have none. */
+    fun yourCopies(tracks: List<Track>): List<Track> {
+        if (tracks.isEmpty()) return tracks
+        val mine = songIndex()
+        fun yours(t: Track) = t.isFile || t.file != null || lib.has(t.id)
+        return tracks.map { t ->
+            if (yours(t)) t
+            else fmSong(t.title, t.artist, t.thumb, mine, t.album, sameArtistOnly = true).takeIf { yours(it) }?.copy(plays = t.plays) ?: t
         }
     }
 
@@ -2553,10 +2572,13 @@ object Music {
     private fun nowArt(t: Track): String? {
         lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() }?.let { return it }
         val name = t.album.ifEmpty { t.title }
-        Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return it }
-        if (t.thumb.isNotEmpty()) return sizedThumb(t.thumb, 544)
+        // A cover from the web: its copy on disk once it's been loaded (kept the first time), not downloaded again.
+        fun web(u: String): String = if (!u.startsWith("http")) u else CoverCache.local(u)?.path ?: u.also { CoverCache.keepLater(it) }
+        Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return web(it) }
+        if (t.thumb.isNotEmpty()) return web(sizedThumb(t.thumb, 544))
+        if (t.file == null) SongCovers.shown(t.title, t.artist).takeIf { it.isNotEmpty() }?.let { return web(sizedThumb(it, 544)) }
         val old = Pictures.oldCover(t.artist, name).ifEmpty { null }
-        return t.file?.let { fileArt(it) } ?: old
+        return t.file?.let { fileArt(it) } ?: old?.let { web(it) }
     }
     private val fileArts = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val FOLDER_COVERS = listOf("cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png", "album.jpg", "albumartsmall.jpg")
@@ -2569,7 +2591,9 @@ object Music {
         }.getOrNull()
         val out = bytes?.let { b -> runCatching {
             val dir = java.io.File(ctx.cacheDir, "now-art").apply { mkdirs() }
-            java.io.File(dir, "${file.hashCode().toUInt().toString(16)}.jpg").apply { writeBytes(b) }.path
+            // Named by the whole path (SHA-1), not its hashCode: two songs whose paths share one would share a cover.
+            val name = java.security.MessageDigest.getInstance("SHA-1").digest(file.toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
+            java.io.File(dir, "$name.jpg").apply { writeBytes(b) }.path
         }.getOrNull() }
         fileArts[file] = out ?: ""
         return out

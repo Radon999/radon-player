@@ -46,7 +46,10 @@ class MusicApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .components { add(FileArtFetcher.Factory()) }
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.2).build() }
-        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("art")).maxSizeBytes(200L * 1024 * 1024).build() }
+        // Every cover from the web kept on the phone after its first load (512 MB, the oldest go first), whatever the
+        // server says about caching: shown from there after, never downloaded again.
+        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("art")).maxSizeBytes(512L * 1024 * 1024).build() }
+        .respectCacheHeaders(false)
         .crossfade(true)
         .build()
 }

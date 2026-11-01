@@ -36,6 +36,7 @@ object Pictures {
     internal var fetch: (String, Map<String, String>) -> JsonElement = { url, h -> httpJson(url, h) }   // tests swap it
     private val artists = HashMap<String, Artist>()
     private val covers = HashMap<String, String>()
+    private var untrusted: Set<String>? = null   // covers that can't be believed (untrustedCovers): worked out again after a change
     private var file: File? = null
 
     private var picsDir: File? = null   // where artists' pictures are kept on the phone (not looked up again)
@@ -44,8 +45,10 @@ object Pictures {
         val f = File(appCtx(c).filesDir, "pictures.json")
         file = f
         picsDir = File(appCtx(c).filesDir, "artist-pics")
+        SongCovers.init(c)
+        CoverCache.init(c)
         Music.bg({ readText(f)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
-            if (s != null) synchronized(this) { s.artists.forEach { (k, v) -> artists.putIfAbsent(k, v) }; s.covers.forEach { (k, v) -> covers.putIfAbsent(k, v) } }
+            if (s != null) synchronized(this) { s.artists.forEach { (k, v) -> artists.putIfAbsent(k, v) }; s.covers.forEach { (k, v) -> covers.putIfAbsent(k, v) }; untrusted = null }
         }
     }
 
@@ -266,16 +269,218 @@ object Pictures {
      *  and "Mercury - Act 2" (and any album called Mercury) shared one. */
     private fun oldKey(artist: String, album: String) = "${lead(artist)}|${norm(bareTitle(album))}"
 
+    /** The picture kept under key, unless it can't be believed: a file that's also the cover of another artist's other
+     *  album (the PC app before this one kept every picked cover in one scratch file, so an album showed another artist's).
+     *  A picture from one of your files is only shown for that artist's songs. Call it holding the lock. */
+    private fun believed(key: String): String? {
+        val url = covers[key] ?: return null
+        val bad = untrusted ?: untrustedCovers(covers).also { untrusted = it }
+        return url.takeIf { key !in bad }
+    }
+
     /** The cover you picked for artist's album, or "". */
-    fun cover(artist: String, album: String): String = synchronized(this) { covers[coverKey(artist, album)] ?: "" }
+    fun cover(artist: String, album: String): String = synchronized(this) { believed(coverKey(artist, album)) ?: "" }
 
     /** A cover picked before 3.0.0 that may be this album's (or another album's with a name like it): shown only for
      *  songs with no cover of their own. "" if none. */
     fun oldCover(artist: String, album: String): String = synchronized(this) {
-        if (covers.containsKey(coverKey(artist, album))) "" else covers[oldKey(artist, album)] ?: "" }
+        if (covers.containsKey(coverKey(artist, album))) "" else believed(oldKey(artist, album)) ?: "" }
 
     fun chooseCover(artist: String, album: String, url: String) {
-        synchronized(this) { covers[coverKey(artist, album)] = url; covers.remove(oldKey(artist, album)) }
+        synchronized(this) { covers[coverKey(artist, album)] = url; covers.remove(oldKey(artist, album)); untrusted = null }
         save()
+    }
+}
+
+/** Covers for songs that aren't yours (Most played, an artist's page: ones only Last.fm or your history knows, demos):
+ *  looked for once on the service the song came from (else the one you use), then Deezer, Last.fm and iTunes, and the
+ *  address found remembered in song-covers.json, so it's never looked up again. Nothing found: the artist's picture
+ *  stands in ([fallback]). Everything here but [known], [settled] and [fallback] blocks: call it off the main thread. */
+object SongCovers {
+    @Serializable
+    private data class Found(val url: String = "", val t: Double = 0.0, val failed: Boolean = false)
+    @Serializable
+    private data class Saved(val songs: Map<String, Found> = emptyMap())
+
+    private const val RETRY = 14 * 86400   // nothing found: looked for again after this long
+    private const val RETRY_FAILED = 3600   // …or after this long, when a service couldn't be reached
+    private val found = HashMap<String, Found>()
+    private var file: File? = null
+    private var dirty = 0
+
+    internal var fetch: (String, Map<String, String>) -> JsonElement = { url, h -> httpJson(url, h) }   // tests swap it
+    /** The song's cover from a service of yours (the one it came from, else the one you use), or null. Tests swap it. */
+    internal var fromService: (Track) -> String? = { t -> serviceCover(t) }
+    /** Last.fm's track.getInfo for the song (null without a Last.fm key). Tests swap it. */
+    internal var lastFmInfo: (String, String) -> JsonElement? = { artist, title ->
+        if (LastFm.key.isEmpty()) null
+        else try { LastFm.call("track.getInfo", params = mapOf("artist" to artist, "track" to title, "autocorrect" to 1)) }
+        catch (e: LastFmError) { if (e.code == 6) null else throw e }   // 6: Last.fm doesn't know the song
+    }
+
+    fun init(c: Ctx) {
+        val f = File(appCtx(c).filesDir, "song-covers.json")
+        file = f
+        Music.bg({ readText(f)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
+            if (s != null) synchronized(this) { s.songs.forEach { (k, v) -> found.putIfAbsent(k, v) } }
+        }
+    }
+
+    private fun save() {
+        val f = file ?: return
+        val text = synchronized(this) { dirty = 0; JSON.encodeToString(Saved.serializer(), Saved(found.toMap())) }
+        writeAtomic(f, text)
+    }
+
+    private fun key(title: String, artist: String) = songPickKey(title, artist)
+
+    /** The cover found for the song before ("" if none yet): no network. */
+    fun known(title: String, artist: String): String = synchronized(this) { found[key(title, artist)]?.url ?: "" }
+
+    /** Whether the song needn't be looked up (again): found, or nothing found lately. */
+    fun settled(title: String, artist: String): Boolean = synchronized(this) {
+        val f = found[key(title, artist)] ?: return false
+        f.url.isNotEmpty() || now() - f.t < (if (f.failed) RETRY_FAILED else RETRY)
+    }
+
+    /** What stands in for a song nothing was found for (a demo, an unreleased song): its artist's picture, the
+     *  lead artist's when the pair has none; "" if there's none, or the song hasn't been looked up yet. */
+    fun fallback(title: String, artist: String): String {
+        if (!settled(title, artist) || known(title, artist).isNotEmpty()) return ""
+        for (n in listOf(artist) + ownArtists(artist)) {
+            val a = Pictures.known(n) ?: continue
+            a.saved.takeIf { it.isNotEmpty() && File(it).exists() }?.let { return it }
+            if (a.image.isNotEmpty()) return a.image
+        }
+        return ""
+    }
+
+    /** The song's cover: the one found, else the artist's picture standing in, else "". No network. */
+    fun shown(title: String, artist: String): String = known(title, artist).ifEmpty { fallback(title, artist) }
+
+    /** (blocking) Look the song's cover up, once: its address, or "" if nothing has one. */
+    fun look(t: Track): String {
+        if (settled(t.title, t.artist)) return known(t.title, t.artist)
+        var failed = false
+        fun <T> ask(what: String, work: () -> T?): T? = try { work() } catch (e: Exception) {
+            failed = true
+            runCatching { logWarn("song covers: $what: $e") }
+            null
+        }
+        val url = ask("service") { fromService(t) }?.takeIf { it.isNotEmpty() }
+            ?: ask("deezer") { deezer(t) }?.takeIf { it.isNotEmpty() }
+            ?: ask("last.fm") { lastFm(t) }?.takeIf { it.isNotEmpty() }
+            ?: ask("itunes") { itunes(t) }?.takeIf { it.isNotEmpty() }
+            ?: ""
+        val n = synchronized(this) {
+            found[key(t.title, t.artist)] = Found(url, now(), failed = url.isEmpty() && failed)
+            ++dirty
+        }
+        // Saved when one's found, else every few (an artist's page looks up dozens at once), and by [flush].
+        if (url.isNotEmpty() || n >= 5) save()
+        return url
+    }
+
+    /** (blocking) Save what's been looked up and not saved yet. */
+    fun flush() { if (synchronized(this) { dirty } > 0) save() }
+
+    private fun lead(artist: String) = ownArtists(artist).firstOrNull() ?: artist
+
+    /** Deezer's search (no key needed): the song's album's cover. */
+    internal fun deezer(t: Track): String {
+        val who = lead(t.artist)
+        for (q in listOf("artist:\"$who\" track:\"${t.title}\"", "$who ${bareTitle(t.title)}")) {
+            Pictures.deezerPace()
+            val res = fetch("https://api.deezer.com/search/track?q=${enc(q)}&limit=10", emptyMap())
+            if (res["error"] is kotlinx.serialization.json.JsonObject && res["data"] == null)
+                throw java.io.IOException("Deezer: ${res["error"]["message"].str ?: "busy"}")
+            val hit = bestCover(t.title, t.artist, t.album, res["data"].list.map { d ->
+                listOf(d["title"].str, d.path("artist", "name").str, d.path("album", "title").str,
+                    d.path("album", "cover_xl").str ?: d.path("album", "cover_big").str)
+            })
+            if (hit.isNotEmpty()) return hit
+        }
+        return ""
+    }
+
+    /** Last.fm's track.getInfo: the biggest picture of the song's album (not its grey star). */
+    internal fun lastFm(t: Track): String {
+        val res = lastFmInfo(lead(t.artist), t.title) ?: return ""
+        val tr = res["track"]
+        if (coverFit(t.title, t.artist, tr["name"].str, tr.path("artist", "name").str) == 0) return ""
+        return tr.path("album", "image").list.mapNotNull { it["#text"].str }
+            .lastOrNull { it.isNotEmpty() && LASTFM_BLANK !in it } ?: ""
+    }
+
+    /** Apple's iTunes search (no key needed): the song's cover, made 600×600. */
+    internal fun itunes(t: Track): String {
+        val res = fetch("https://itunes.apple.com/search?term=${enc("${lead(t.artist)} ${bareTitle(t.title)}")}" +
+            "&media=music&entity=song&limit=10", emptyMap())
+        return bestCover(t.title, t.artist, t.album, res["results"].list.map { r ->
+            listOf(r["trackName"].str, r["artistName"].str, r["collectionName"].str, r["artworkUrl100"].str)
+        }).let { if (it.isEmpty()) it else itunesBig(it) }
+    }
+
+    /** The song on the service it came from (else the one you use): its cover, the one on the same album first. */
+    private fun serviceCover(t: Track): String? {
+        val keys = listOf(t.source, Music.source).filter { it != "file" && it != "lastfm" }.distinct()
+        for (k in keys) {
+            val src = Music.sources[k] ?: continue
+            if (k in setOf("tidal", "spotify") && !src.signedIn) continue
+            val hits = src.search("${lead(t.artist)} ${t.title}")
+            val hit = bestCover(t.title, t.artist, t.album, hits.map { listOf(it.title, it.artist, it.album, it.thumb) })
+            if (hit.isNotEmpty()) return sizedThumb(hit, 640)
+        }
+        return null
+    }
+}
+
+/** Pictures from the web kept on disk after their first load (the PC's covers and artists' pictures, the lock screen's
+ *  cover on both), so they're shown from there and never downloaded again. The phone's screens have Coil's own disk cache. */
+object CoverCache {
+    private const val MAX = 512L * 1024 * 1024   // the oldest ones go past this
+    @Volatile private var dir: File? = null
+
+    fun init(c: Ctx) {
+        dir = File(appCtx(c).cacheDir, "cover-cache")
+        Music.bg({ trim() })
+    }
+
+    private fun fileFor(url: String): File? = dir?.let { d ->
+        File(d, java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) } + ".img")
+    }
+
+    /** The kept copy of url, or null (not loaded yet). */
+    fun local(url: String): File? = fileFor(url)?.takeIf { it.isFile && it.length() > 0 }
+
+    /** (blocking) url's picture: the kept copy, else fetched with get (and kept). */
+    fun bytes(url: String, get: (String) -> ByteArray?): ByteArray? {
+        local(url)?.let { f -> runCatching { f.readBytes() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it } }
+        val b = get(url)?.takeIf { it.size > 100 } ?: return null
+        fileFor(url)?.let { f -> runCatching {
+            f.parentFile?.mkdirs()
+            val tmp = File(f.path + "." + Thread.currentThread().id + ".part")
+            tmp.writeBytes(b)
+            if (!tmp.renameTo(f)) tmp.delete()
+        } }
+        return b
+    }
+
+    /** Keep url's picture on disk in the background (a web address only; already kept: nothing to do). */
+    fun keepLater(url: String) {
+        if (!url.startsWith("http") || dir == null || local(url) != null) return
+        Music.bg({ bytes(url) { u -> httpBytes(u) } })
+    }
+
+    /** The oldest pictures deleted while there are more than [MAX] bytes of them. */
+    fun trim() {
+        val files = dir?.listFiles()?.filter { it.isFile } ?: return
+        var total = files.sumOf { it.length() }
+        if (total <= MAX) return
+        for (f in files.sortedBy { it.lastModified() }) {
+            if (total <= MAX * 9 / 10) break
+            total -= f.length()
+            f.delete()
+        }
     }
 }

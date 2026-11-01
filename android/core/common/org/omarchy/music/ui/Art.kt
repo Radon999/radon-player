@@ -22,7 +22,10 @@ fun artModel(t: Track, px: Int = 226): Any? {
     // One picked before 3.0.0 (its album's name may only look like this one's): after the song's own cover.
     val old = org.omarchy.music.Pictures.oldCover(t.artist, name)
     if (old.isNotEmpty() && t.file == null) return pic(old)
-    if (t.thumb.isNotEmpty()) return sizedThumb(t.thumb, px)
+    if (t.thumb.isNotEmpty()) return pic(sizedThumb(t.thumb, px))
+    // A song that isn't yours with no picture of its own (Last.fm's, a demo's): the cover looked up for it, else
+    // its artist's picture (SongCovers), not the blank note.
+    if (t.file == null) org.omarchy.music.SongCovers.shown(t.title, t.artist).takeIf { it.isNotEmpty() }?.let { return pic(sizedThumb(it, px)) }
     return t.file?.let { FileArt(it, old) }
 }
 

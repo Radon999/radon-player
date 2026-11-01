@@ -974,14 +974,32 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     var morePics by remember(page) { mutableStateOf(false) }
     LaunchedEffect(page) {
         Music.lookUpArtists(listOf(page.name))
-        Music.bg({ Music.artistInfo(page.name, page.prefer) }) { res, err ->
+        // Their top songs: your own copy of each you have (it plays your file, shows its cover), the service's otherwise.
+        Music.bg({ Music.artistInfo(page.name, page.prefer)?.let { it.copy(top = Music.yourCopies(it.top)) } }) { res, err ->
             info = res
             failed = err?.message ?: if (res == null) "No service knows ${page.name}" else null
         }
     }
     val v = Music.artistsVersion
     val pics = remember(page, v) { org.omarchy.music.Pictures.known(page.name) }
-    val all = remember(page, Music.musicVersion) { Music.artistSongs(page.name) }
+    val songs = remember(page, Music.musicVersion) { Music.artistSongs(page.name) }
+    // Songs that aren't yours and have no picture (ones only Last.fm or your history knows, demos): their covers looked
+    // up one by one (each found shows at once; remembered, never looked up again), else the artist's picture.
+    var coverTick by remember(page) { mutableStateOf(0) }
+    fun needsCover(t: Track) = t.file == null && !t.isFile && t.thumb.isEmpty() && !Music.lib.has(t.id)
+    fun withCover(t: Track): Track = if (!needsCover(t)) t
+        else org.omarchy.music.SongCovers.shown(t.title, t.artist).let { if (it.isEmpty()) t else t.copy(thumb = it) }
+    LaunchedEffect(songs, info) {
+        val todo = (songs + info?.top.orEmpty()).filter { needsCover(it) && !org.omarchy.music.SongCovers.settled(it.title, it.artist) }
+            .distinctBy { org.omarchy.music.songPickKey(it.title, it.artist) }.take(200)
+        for (t in todo) {   // leaving the page stops it (what was found is kept)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.look(t) } }
+            coverTick++
+        }
+        if (todo.isNotEmpty()) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.flush() } }
+    }
+    val all = remember(songs, coverTick, v) { songs.map { withCover(it) } }
+    val top = remember(info, coverTick, v) { info?.top.orEmpty().map { withCover(it) } }
     val sort = Music.artistSort
     val mine = when (sort) {
         "least" -> all.sortedWith(compareBy({ it.plays }, { norm(it.title) }))
@@ -1040,9 +1058,9 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             i == null && failed == null -> item { Section("LOADING…") }
             i == null -> if (mine.isEmpty()) item { Empty("Couldn't find them", failed!!) }
             else -> {
-                if (i.top.isNotEmpty()) {
+                if (top.isNotEmpty()) {
                     item { Section("TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
-                    tracks(i.top, ui, "artist", radio = true)
+                    tracks(top, ui, "artist", radio = true)
                 }
                 if (i.albums.isNotEmpty()) {
                     item { Section("ALBUMS AND SINGLES") }

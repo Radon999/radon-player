@@ -75,7 +75,8 @@ private object Images {
         is File -> model.takeIf { it.isFile }?.readBytes()
         is AuthImage -> fetch(model.url, model.auth)
         is String -> when {
-            model.startsWith("http://") || model.startsWith("https://") -> fetch(model, null)
+            // From the web: kept on disk the first time (CoverCache), shown from there after, never downloaded again.
+            model.startsWith("http://") || model.startsWith("https://") -> org.omarchy.music.CoverCache.bytes(model) { fetch(it, null) }
             else -> fileOf(model).takeIf { it.isFile }?.readBytes()
         }
         else -> null

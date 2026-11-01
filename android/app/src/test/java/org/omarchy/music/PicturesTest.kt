@@ -97,6 +97,19 @@ class PicturesTest {
         assertEquals("https://images.genius.com/nectar.png", Pictures.cover("joji", "Nectar (Deluxe Edition)"))
     }
 
+    @Test fun aFileThatIsAnotherArtistsCoverIsNotShown() {
+        // One scratch file picked for two artists' albums (the old PC app's): shown for neither.
+        val scratch = "file:///C:/omarchy-music/cache/single-cover.jpg"
+        Pictures.chooseCover("Trust Sigrid", "Their Album", scratch)
+        Pictures.chooseCover("Trust AJR", "The Maybe Man", scratch)
+        assertEquals("", Pictures.cover("Trust Sigrid", "Their Album"))
+        assertEquals("", Pictures.cover("Trust AJR", "The Maybe Man"))
+        // Its own picture again: shown, and the other's file is only its own now.
+        Pictures.chooseCover("Trust Sigrid", "Their Album", "/covers/sigrid.jpg")
+        assertEquals("/covers/sigrid.jpg", Pictures.cover("Trust Sigrid", "Their Album"))
+        assertEquals(scratch, Pictures.cover("Trust AJR", "The Maybe Man"))
+    }
+
     @Test fun biosLosePronunciationGuides() {
         assertEquals("Björk is a singer.\nMore.", Pictures.wikiText("Björk  ( BYURK, Icelandic: [pjœr̥k]; born 1965) is a singer.\nMore."))
         assertEquals("Tame Impala is a project.", Pictures.wikiText("Tame Impala ( TAYM im-PAHL-ə) is a project."))
