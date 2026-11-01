@@ -234,6 +234,8 @@ object Music {
         if (::ctx.isInitialized) return
         ctx = appCtx(c)
         Prefs.init(ctx)
+        // The theme (Settings › Personalization › Theme) is read from the settings, as Compose state, so a change redraws
+        org.omarchy.music.ui.Themes.source = { Prefs.text(org.omarchy.music.ui.Themes.PREF, org.omarchy.music.ui.Themes.STANDARD) }
         loadDownloadQuality()
         MusicTools.init()
         QualityCheck.init(ctx)

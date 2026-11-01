@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
@@ -51,7 +52,20 @@ fun Badge(text: String, on: Boolean = true) {
 
 @Composable
 fun Section(text: String) {
-    Text(text, style = T.section, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
+    Text(text, style = T.section, modifier = Modifier.padding(start = Themes.gap(16.dp), top = Themes.gap(16.dp), bottom = Themes.gap(6.dp)))
+}
+
+/** The line between two rows, as the theme draws it: thin, dashed (Retro) or none (Minimal). */
+@Composable
+fun RowLine(modifier: Modifier = Modifier) {
+    val th = Themes.current
+    if (th.line <= 0f) return
+    if (th.dashed) androidx.compose.foundation.Canvas(modifier.fillMaxWidth().height(th.lineWidth)) {
+        val y = size.height / 2f
+        drawLine(C.line, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y),
+            strokeWidth = size.height.coerceAtLeast(1f),
+            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+    } else androidx.compose.material3.HorizontalDivider(thickness = th.lineWidth, color = C.line, modifier = modifier)
 }
 
 @Composable
@@ -84,8 +98,8 @@ fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(R.pill)
             .background(if (on) C.accent.copy(alpha = 0.16f) else C.fg.copy(alpha = 0.05f))
-            .border(1.dp, if (on) C.accent.copy(alpha = 0.5f) else Color.Transparent, R.pill)
-            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp))
+            .themeBorder(1.dp, if (on) C.accent.copy(alpha = 0.5f) else Color.Transparent, R.pill)
+            .clickable(onClick = onClick).padding(horizontal = Themes.pad(12.dp), vertical = Themes.pad(6.dp)))
 }
 
 @Composable
@@ -94,8 +108,8 @@ fun Pill(text: String, quiet: Boolean = false, onClick: () -> Unit) {
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
         modifier = Modifier.clip(R.pill)
             .background(if (quiet) C.fg.copy(alpha = 0.07f) else C.accent)
-            .border(1.dp, if (quiet) C.line else C.accent, R.pill)
-            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 7.dp))
+            .themeBorder(1.dp, if (quiet) C.line else C.accent, R.pill)
+            .clickable(onClick = onClick).padding(horizontal = Themes.pad(14.dp), vertical = Themes.pad(7.dp)))
 }
 
 
@@ -103,7 +117,7 @@ fun Pill(text: String, quiet: Boolean = false, onClick: () -> Unit) {
 @Composable
 fun IconButton(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, pad: Dp = 10.dp, desc: String = DESC[ico] ?: "", onClick: () -> Unit) {
     Box(Modifier.clip(R.pill).clickable(onClick = onClick).semantics { contentDescription = desc }.padding(pad),
-        contentAlignment = Alignment.Center) { Icon(ico, color, size) }
+        contentAlignment = Alignment.Center) { Icon(ico, color, Themes.icon(size)) }   // Playful's are bigger
 }
 
 /** What an icon button says to TalkBack. */

@@ -792,9 +792,13 @@ private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, mod
 private fun NowVisOver(style: String, s: VisState, col: Color, strength: Float, modifier: Modifier) {
     val colorKey = Vis.color()
     val fg = WHITE
-    Canvas(modifier.graphicsLayer(alpha = (strength * 1.3f).coerceIn(0.1f, 1f))) {
+    // Clearly over the cover: a little bigger than it (past its edges), nearly opaque, and drawn twice for a bright,
+    // glowing look (the strength setting still turns it down)
+    Canvas(modifier.graphicsLayer(alpha = (0.7f + strength * 0.6f).coerceIn(0.75f, 1f), scaleX = 1.12f, scaleY = 1.12f)) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
-        drawVis(style, s, VisPalette.of(style, colorKey, col, s.phase), fg, backdrop = true)
+        val pal = VisPalette.of(style, colorKey, col, s.phase)
+        drawVis(style, s, pal, fg, backdrop = true)
+        if (strength >= 0.35f) drawVis(style, s, pal, fg, backdrop = true)
     }
 }
 

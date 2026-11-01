@@ -1,5 +1,8 @@
 package org.omarchy.music.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -8,12 +11,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -35,7 +43,8 @@ object C {
     var gradient by mutableStateOf<List<Color>?>(null)   // a colourful look: the window is this gradient
     var stars by mutableStateOf(false)                   // the galaxy looks: a few stars over it
     var apple by mutableStateOf(false)                   // the Apple Music looks: plain pages, thin lines between rows
-    val line get() = selection.copy(alpha = 0.45f)
+    /** Lines between rows and quiet borders (a theme can make them fainter, or take them away). */
+    val line get() = selection.copy(alpha = 0.45f * Themes.current.line)
     /** A soft glow under accent text, in a neon look. */
     val shadow get() = if (glow) Shadow(accent.copy(alpha = 0.8f), blurRadius = 14f) else null
 }
@@ -94,11 +103,81 @@ object Looks {
         "slate" to ("Slate" to P(0xFF60A5FA, 0xFF1E293B, 0xFF273449, 0xFFE2E8F0, 0xFF94A3B8, 0xFF334155, false, apple = true)),
         "goldblack" to ("Gold and black" to P(0xFFE6B84C, 0xFF000000, 0xFF141210, 0xFFF5EBD2, 0xFFA39577, 0xFF3A3020, false, apple = true)),
         "contrast" to ("High contrast" to P(0xFFFFE600, 0xFF000000, 0xFF111111, 0xFFFFFFFF, 0xFFD0D0D0, 0xFF444444, false, apple = true)),
+        // 3.0's second batch: 15 more, each its own hue family. Text, quiet text and the accent keep 4.5:1 or more against
+        // the background, the cards and every part of the gradient.
+        "cyberpunk" to ("Cyberpunk" to P(0xFFFCEE0A, 0xFF0A0A12, 0xFF1A1424, 0xFFF4F0FF, 0xFFC79BC2, 0xFF52154A, false,
+            listOf(0xFF0A0A12, 0xFF1E0A26, 0xFF3A0A3A, 0xFF0A0A12), apple = true)),
+        "vaporwave" to ("Vaporwave" to P(0xFF5FF2E6, 0xFF2B1B4A, 0xFF3A2560, 0xFFFFF0FA, 0xFFD3B4E0, 0xFF5A3C86, false,
+            listOf(0xFF2B1B4A, 0xFF4A2466, 0xFF6B2E78, 0xFF2B1B4A), apple = true)),
+        "royal" to ("Royal" to P(0xFFF2C14E, 0xFF160A33, 0xFF241446, 0xFFF3ECFF, 0xFFB3A3D6, 0xFF3A2470, false,
+            listOf(0xFF160A33, 0xFF2A1258, 0xFF160A33), apple = true)),
+        "olive" to ("Olive" to P(0xFFD8C27A, 0xFF1E2214, 0xFF2A2F1D, 0xFFEEF0DF, 0xFFA3A88A, 0xFF3C4328, false, apple = true)),
+        "lime" to ("Neon lime" to P(0xFFC6FF3D, 0xFF1B1D20, 0xFF25282C, 0xFFEDEFF2, 0xFF9AA0A8, 0xFF383D44, false, apple = true)),
+        "crimson" to ("Crimson" to P(0xFFFF3355, 0xFF0A0405, 0xFF1A0B0E, 0xFFFFE9EC, 0xFFC0959C, 0xFF4A121C, false,
+            listOf(0xFF0A0405, 0xFF22070C, 0xFF0A0405), apple = true)),
+        "deepsea" to ("Deep sea" to P(0xFF2FE6C8, 0xFF021616, 0xFF0A2626, 0xFFDDFBF5, 0xFF7FB3AA, 0xFF0F3E3B, false,
+            listOf(0xFF021616, 0xFF03262A, 0xFF052F3A, 0xFF021616), stars = true, apple = true)),
+        "cobalt" to ("Cobalt" to P(0xFFFFD23F, 0xFF0D2B6B, 0xFF163B85, 0xFFF2F6FF, 0xFFB4C4EA, 0xFF2A50A0, false, apple = true)),
+        "terracotta" to ("Terracotta" to P(0xFFFFD7A3, 0xFF4A1C12, 0xFF5C251A, 0xFFFFF1E8, 0xFFE0B4A2, 0xFF7A3424, false,
+            listOf(0xFF4A1C12, 0xFF6A2A18, 0xFF4A1C12), apple = true)),
+        "chalkboard" to ("Chalkboard" to P(0xFFF7E37A, 0xFF233A31, 0xFF2C463B, 0xFFF2F5EF, 0xFFA9BDB2, 0xFF3E5C4F, false, apple = true)),
+        "mint" to ("Mint" to P(0xFF0A7A4A, 0xFFE9F8F0, 0xFFFFFFFF, 0xFF10332A, 0xFF4E6F63, 0xFFC4EBD8, true, apple = true)),
+        "lemonade" to ("Lemonade" to P(0xFF3B3BB3, 0xFFFFF9D9, 0xFFFFFDF0, 0xFF2A2614, 0xFF6B6440, 0xFFF2E7A6, true, apple = true)),
+        "peach" to ("Peach" to P(0xFF00796B, 0xFFFFEDE3, 0xFFFFF8F3, 0xFF3A2218, 0xFF7A5A4C, 0xFFF7D2C0, true, apple = true)),
+        "newsprint" to ("Newsprint" to P(0xFFC8102E, 0xFFEDEDEA, 0xFFFAFAF8, 0xFF111111, 0xFF5E5E5A, 0xFFD6D6D0, true, apple = true)),
+        "bubblegum" to ("Bubblegum" to P(0xFF8A1FB0, 0xFFFFD9EE, 0xFFFFEEF7, 0xFF3A0E2E, 0xFF7E4A6A, 0xFFF7B8DA, true,
+            listOf(0xFFFFE3F2, 0xFFFFD0EA, 0xFFFFE6F6), apple = true)),
     )
 
     /** The themes in the Look menu after Light, Dark and Now playing, in this order. */
     private val THEMES = listOf("midnight", "sunset", "forest", "ocean", "paper", "mono", "synthwave", "coffee", "rose", "nord",
-        "dracula", "solarized", "matrix", "sakura", "arctic", "ember", "lavender", "slate", "goldblack", "contrast")
+        "dracula", "solarized", "matrix", "sakura", "arctic", "ember", "lavender", "slate", "goldblack", "contrast",
+        "cyberpunk", "vaporwave", "royal", "olive", "lime", "crimson", "deepsea", "cobalt", "terracotta", "chalkboard",
+        "mint", "lemonade", "peach", "newsprint", "bubblegum")
+
+    /** What each look in the Look menu is, in a line (shown under Look in Settings). */
+    private val DESC = mapOf(
+        "apple" to "Clean and bright: white pages, thin lines between rows, a red accent",
+        "apple-dark" to "Clean and dark: black pages, thin lines between rows, a red accent",
+        "nowplaying" to "Every screen takes the colours of the cover of the song that's playing, and changes with each song",
+        "midnight" to "Deep night blue with a soft blue accent and a few stars",
+        "sunset" to "Warm plum fading to dusky red, with a peach accent",
+        "forest" to "Dark pine green with a fresh leaf-green accent",
+        "ocean" to "Deep sea blue with a bright cyan accent",
+        "paper" to "Warm cream pages and dark ink, with a rust accent",
+        "mono" to "Black, white and greys only: nothing but the music",
+        "synthwave" to "Eighties neon: hot pink on deep purple, with stars",
+        "coffee" to "Dark roast brown with a caramel accent",
+        "rose" to "Soft blush pink pages with a deep raspberry accent",
+        "nord" to "Cool arctic greys with an icy blue accent",
+        "dracula" to "Dark grey with a vivid violet accent",
+        "solarized" to "Light warm cream with a calm blue accent",
+        "matrix" to "Green code on black",
+        "sakura" to "Dark plum with a cherry-blossom pink accent",
+        "arctic" to "Icy white and pale blue with a deep blue accent",
+        "ember" to "Charcoal black with a glowing orange accent",
+        "lavender" to "Light lilac pages with a rich purple accent",
+        "slate" to "Blue-grey slate with a sky-blue accent",
+        "goldblack" to "Pure black with a gold accent",
+        "contrast" to "Black, white and bright yellow: the easiest to read",
+        "cyberpunk" to "Black with electric yellow and a magenta glow",
+        "vaporwave" to "Pastel purple and pink with an aqua accent",
+        "royal" to "Deep royal purple with a gold accent",
+        "olive" to "Muted olive drab with a khaki accent",
+        "lime" to "Neutral charcoal grey with a neon lime accent",
+        "crimson" to "Near-black with a bold crimson red accent",
+        "deepsea" to "The dark of the deep sea: a teal glow and specks of light",
+        "cobalt" to "Bright cobalt blue with a sunny yellow accent",
+        "terracotta" to "Warm baked-clay red with a soft sand accent",
+        "chalkboard" to "School-board green with chalk-white text and a yellow accent",
+        "mint" to "Light fresh mint with a deep green accent",
+        "lemonade" to "Pale lemon yellow with an indigo accent",
+        "peach" to "Soft peach pages with a teal accent",
+        "newsprint" to "Grey newspaper and black ink, with a red headline accent",
+        "bubblegum" to "Sweet candy pink with a grape-purple accent",
+    )
+    /** A look's one-line description ("" for one that has none). */
+    fun describe(look: String): String = DESC[look].orEmpty()
 
     /** The Look menu: Light, Dark, Now playing (every screen in the colours of the song playing, the way Now playing
      *  is; Light or Dark while nothing is), then the themes. The other looks stay for the Visualizer and Wrapped. */
@@ -175,34 +254,142 @@ object Looks {
 }
 
 val Mono = FontFamily.Monospace
-/** The type: a clean sans-serif, like Poweramp's (the looks' colours are the same as ever). */
-val Sans = FontFamily.SansSerif
+/** The type: a clean sans-serif, like Poweramp's, or the theme's own (Retro's monospace…). */
+val Sans: FontFamily get() = Themes.current.font
 
 object T {
-    val title get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = C.fg)
-    val sub get() = TextStyle(fontFamily = Sans, fontSize = 13.sp, color = C.muted)
-    val body get() = TextStyle(fontFamily = Sans, fontSize = 14.sp, color = C.fg)
-    val section get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.2.sp, color = C.muted)
-    val brand get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = C.fg)
-    val tab get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-    val time get() = TextStyle(fontFamily = Sans, fontSize = 12.sp, color = C.muted)
+    /** A text style in the theme's type: its font (titles can have their own), weight and size. */
+    private fun style(size: Float, weight: Int = 400, color: Color = Color.Unspecified, title: Boolean = false,
+                      spacing: TextUnit = TextUnit.Unspecified): TextStyle {
+        val th = Themes.current
+        return TextStyle(fontFamily = if (title) th.titleFont else th.font, fontWeight = th.weight(weight),
+            fontSize = (size * if (title) th.titleScale else th.textScale).sp, letterSpacing = spacing, color = color)
+    }
+    /** Quiet text: the look's muted colour, fainter still in a theme that wants it (Minimal). */
+    private val quiet: Color get() = Themes.current.quiet.let { q -> if (q >= 1f) C.muted else C.muted.copy(alpha = C.muted.alpha * q) }
+
+    val title get() = style(15f, 600, C.fg, title = true)
+    val sub get() = style(13f, color = quiet)
+    val body get() = style(14f, color = C.fg)
+    val section get() = style(11f, 700, C.muted, spacing = 1.2.sp)
+    val brand get() = style(22f, 800, C.fg, title = true)
+    val tab get() = style(13f, 500)
+    val time get() = style(12f, color = quiet)
     /** The player's song title. */
-    val big get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = C.fg)
+    val big get() = style(22f, 700, C.fg, title = true)
     /** A screen's name in its header. */
-    val head get() = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = C.fg)
+    val head get() = style(20f, 700, C.fg, title = true)
 }
 
-/** Corners: rounded, Poweramp-like. Used as R.card etc.; the object itself can't be called R, since an Android
- *  library's build leaves out every class named R (it takes them for resource classes): the phone app then crashed
- *  at start (NoClassDefFoundError: org.omarchy.music.ui.R). */
+/** Corners: rounded, Poweramp-like, or the theme's (Sharp's square ones, Playful's round ones). Used as R.card etc.;
+ *  the object itself can't be called R, since an Android library's build leaves out every class named R (it takes them
+ *  for resource classes): the phone app then crashed at start (NoClassDefFoundError: org.omarchy.music.ui.R). */
 typealias R = Corners
 
 object Corners {
-    val small = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
-    val card = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
-    val big = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
-    val pill = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    val small: RoundedCornerShape get() = Themes.current.smallShape
+    val card: RoundedCornerShape get() = Themes.current.cardShape
+    val big: RoundedCornerShape get() = Themes.current.bigShape
+    val pill: RoundedCornerShape get() = Themes.current.pillShape
 }
+
+/** How a theme draws a row or a tile: nothing behind it, a soft fill, frosted glass, an outline, or a raised card. */
+enum class CardStyle { NONE, SOFT, GLASS, OUTLINE, RAISED }
+
+/** A theme: the app's style (corners, type, spacing, cards and lines), not its colours, so it goes with any look.
+ *  The numbers scale the standard ones: space the gaps around rows and tiles, art the covers, icon the icon buttons;
+ *  weight is added to every font weight; border scales the frames of chips and pills (0: none), line the lines
+ *  between rows (0: none); quiet fades the quiet text. */
+class AppStyle(
+    val name: String, val desc: String,
+    small: Dp = 6.dp, card: Dp = 14.dp, big: Dp = 22.dp, pill: Dp? = null,
+    val font: FontFamily = FontFamily.SansSerif, val titleFont: FontFamily = font,
+    val weightShift: Int = 0, val textScale: Float = 1f, val titleScale: Float = 1f,
+    val space: Float = 1f, val art: Float = 1f, val icon: Float = 1f,
+    val cards: CardStyle = CardStyle.NONE, val border: Float = 1f, val line: Float = 1f, val lineWidth: Dp = 0.5.dp,
+    val dashed: Boolean = false, val quiet: Float = 1f,
+) {
+    val smallShape = RoundedCornerShape(small)
+    val cardShape = RoundedCornerShape(card)
+    val bigShape = RoundedCornerShape(big)
+    val pillShape = if (pill == null) RoundedCornerShape(50) else RoundedCornerShape(pill)
+    /** A font weight moved by the theme (kept between light and black, so text never gets too thin to read). */
+    fun weight(base: Int): FontWeight = FontWeight((base + weightShift).coerceIn(300, 900))
+}
+
+/** The themes (Settings › Personalization › Theme). The app tells source where the chosen one is kept (its settings,
+ *  read as Compose state, so picking one redraws everything that uses R, T, C.line or the helpers below). */
+object Themes {
+    const val PREF = "ui_theme"
+    const val STANDARD = "standard"
+    var source: () -> String = { STANDARD }
+
+    val ALL: Map<String, AppStyle> = linkedMapOf(
+        STANDARD to AppStyle("Standard", "The app as it comes: soft corners, clean sans-serif type, even spacing"),
+        "rounded" to AppStyle("Rounded", "Big soft corners, and every row and tile on a soft pill-shaped card",
+            small = 12.dp, card = 24.dp, big = 32.dp, space = 1.08f, cards = CardStyle.SOFT),
+        "sharp" to AppStyle("Sharp", "Square corners and thin, crisp lines",
+            small = 0.dp, card = 2.dp, big = 2.dp, pill = 2.dp, border = 0.75f, lineWidth = 0.5.dp),
+        "compact" to AppStyle("Compact", "Tighter spacing, smaller covers and type: more fits on the screen",
+            small = 4.dp, card = 10.dp, big = 16.dp, textScale = 0.92f, titleScale = 0.92f, space = 0.65f, art = 0.8f, icon = 0.9f),
+        "roomy" to AppStyle("Roomy", "More space around everything, bigger covers and type",
+            small = 8.dp, card = 18.dp, big = 26.dp, textScale = 1.06f, titleScale = 1.08f, space = 1.45f, art = 1.25f, icon = 1.1f),
+        "glass" to AppStyle("Glass", "See-through frosted cards with fine light borders",
+            small = 10.dp, card = 18.dp, big = 26.dp, cards = CardStyle.GLASS, border = 1.2f, space = 1.1f),
+        "outline" to AppStyle("Outline", "No fills: every row, tile, chip and button is drawn as an outline",
+            cards = CardStyle.OUTLINE, border = 1.5f, space = 1.08f),
+        "flat" to AppStyle("Flat", "Plain and flat: no borders, no shadows, small corners",
+            small = 3.dp, card = 6.dp, big = 10.dp, border = 0f, line = 0.6f),
+        "bold" to AppStyle("Bold", "Heavier type and bigger titles that stand out",
+            weightShift = 200, titleScale = 1.12f, textScale = 1.03f),
+        "lighttype" to AppStyle("Light type", "Thin, airy type throughout",
+            weightShift = -200, textScale = 1.02f, titleScale = 1.04f),
+        "retro" to AppStyle("Retro", "A typewriter's monospace type, square corners and dashed lines, like an old terminal",
+            small = 0.dp, card = 0.dp, big = 0.dp, pill = 0.dp, font = FontFamily.Monospace, textScale = 0.94f,
+            titleScale = 0.96f, dashed = true, line = 1.6f, lineWidth = 1.dp),
+        "elegant" to AppStyle("Elegant", "Serif titles, like a magazine, with a little more air",
+            small = 4.dp, card = 10.dp, big = 16.dp, titleFont = FontFamily.Serif, titleScale = 1.08f, space = 1.12f),
+        "playful" to AppStyle("Playful", "Extra-round corners, bigger icons and covers, a bit of bounce",
+            small = 16.dp, card = 28.dp, big = 36.dp, weightShift = 100, titleScale = 1.05f, art = 1.1f, icon = 1.25f,
+            space = 1.12f, cards = CardStyle.SOFT),
+        "minimal" to AppStyle("Minimal", "No lines or frames, quieter small text and lots of space",
+            border = 0f, line = 0f, quiet = 0.75f, space = 1.35f),
+        "cards" to AppStyle("Cards", "Every row and tile is its own raised card",
+            small = 8.dp, card = 16.dp, big = 22.dp, cards = CardStyle.RAISED, space = 1.15f),
+    )
+    /** The Theme menu: key to name. */
+    val MENU: List<Pair<String, String>> = ALL.map { (k, v) -> k to v.name }
+    fun known(key: String) = key in ALL
+    /** The theme in use (Standard for one that's not known). */
+    val current: AppStyle get() = ALL[source()] ?: ALL.getValue(STANDARD)
+
+    /** A gap (padding around a row or tile) in the theme's spacing. */
+    fun gap(d: Dp): Dp = d * current.space
+    /** A button's or chip's padding: follows the spacing, but less, so they stay easy to tap. */
+    fun pad(d: Dp): Dp = d * current.space.coerceIn(0.8f, 1.25f)
+    /** A cover's size in the theme's. */
+    fun art(d: Dp): Dp = d * current.art
+    /** An icon button's icon in the theme's size. */
+    fun icon(d: Dp): Dp = d * current.icon
+    /** A font size (for text that sets its own) in the theme's type scale. */
+    fun sp(size: Float, title: Boolean = false): TextUnit = (size * if (title) current.titleScale else current.textScale).sp
+    /** The theme draws lines between rows (not when it has none, or puts each row on its own card). */
+    val rowLines: Boolean get() = current.let { it.line > 0f && it.cards == CardStyle.NONE }
+}
+
+/** A row's or tile's card as the theme draws it. Put it before the row's clip, so a raised card's shadow shows. */
+fun Modifier.themeCard(shape: Shape): Modifier = when (Themes.current.cards) {
+    CardStyle.NONE -> this
+    CardStyle.SOFT -> this.background(C.fg.copy(alpha = 0.05f), shape)
+    CardStyle.GLASS -> this.background(C.light.copy(alpha = 0.45f), shape).border(1.dp, C.fg.copy(alpha = 0.18f), shape)
+    CardStyle.OUTLINE -> this.border(1.dp, C.fg.copy(alpha = 0.3f), shape)
+    CardStyle.RAISED -> this.shadow(4.dp, shape, clip = false).background(C.light, shape)
+        .then(if (C.isLight) Modifier else Modifier.border(1.dp, C.fg.copy(alpha = 0.08f), shape))   // shadows hardly show on dark
+}
+
+/** A frame the theme can thicken, thin or take away (a 0 width would still draw a hairline, so then none is drawn). */
+fun Modifier.themeBorder(width: Dp, color: Color, shape: Shape): Modifier =
+    Themes.current.border.let { b -> if (b <= 0f) this else this.border(width * b, color, shape) }
 
 @Composable
 fun OmarchyTheme(content: @Composable () -> Unit) {

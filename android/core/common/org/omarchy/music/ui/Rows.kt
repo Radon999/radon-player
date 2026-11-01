@@ -268,10 +268,14 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
     val saved = Music.lib.items[t.id]
     val checked = t.id in ui.selected
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
+    // The theme's spacing and cover size (Compact, Roomy…), and its card behind each row (Cards, Glass, Outline…)
+    val art = Themes.art(48.dp)
+    val carded = Themes.current.cards != CardStyle.NONE
     Box {
         Row(
             Modifier.fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 1.dp)
+                .padding(horizontal = Themes.gap(6.dp), vertical = Themes.gap(if (carded) 3.dp else 1.dp))
+                .themeCard(R.card)
                 .clip(R.card)
                 .background(if (playing || checked) C.accent.copy(alpha = if (C.apple) 0.08f else 0.14f)
                     else if (C.isLight && !C.apple) C.light else Color.Transparent)
@@ -286,14 +290,14 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                     },
                     onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
                 )
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = Themes.gap(8.dp), vertical = Themes.gap(6.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (ui.selecting) Checkbox(checked = checked, onCheckedChange = { ui.toggle(t) },
                 colors = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = C.muted))
             Box(contentAlignment = Alignment.Center) {
-                ArtImage(if (place.kind == "queue" && Remote.active) Remote.artModel(t) else artModel(t), 48.dp, Modifier.padding(start = 2.dp))
-                if (playing) Box(Modifier.padding(start = 2.dp).size(48.dp).clip(R.small).background(Color.Black.copy(alpha = 0.45f)),
+                ArtImage(if (place.kind == "queue" && Remote.active) Remote.artModel(t) else artModel(t), art, Modifier.padding(start = 2.dp))
+                if (playing) Box(Modifier.padding(start = 2.dp).size(art).clip(R.small).background(Color.Black.copy(alpha = 0.45f)),
                     contentAlignment = Alignment.Center) { Icon(if (Music.paused) Ico.PAUSE else Ico.PLAY, C.accent, 20.dp) }
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -313,8 +317,8 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)
             if (!ui.selecting) Box(Modifier.clip(R.pill).clickable { menu = true }.padding(6.dp)) { Icon(Ico.MORE, C.muted, 18.dp) }
         }
-        if (C.apple && !playing && !checked) androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = C.line,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 78.dp, end = 12.dp))   // Apple's thin line between rows
+        if (C.apple && !playing && !checked && Themes.rowLines) RowLine(
+            Modifier.align(Alignment.BottomStart).padding(start = Themes.gap(14.dp) + art + 16.dp, end = 12.dp))   // Apple's thin line between rows
         TrackMenu(t, place, ui, menu) { menu = false }
     }
 }

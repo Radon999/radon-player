@@ -75,11 +75,14 @@ fun laidOut(ui: Ui) = layoutKey(ui) in LAID_OUT
 fun layoutNow(ui: Ui): String = layoutKey(ui).let { if (it in LAID_OUT) Music.layoutOf(it) else "list" }
 
 /** How many covers fit across, for a grid: small, as they were, bigger (two across a phone), biggest (one). */
-private fun columns(ui: Ui, layout: String): Int = when (layout) {
-    "compact" -> maxOf(3, ((ui.width - 16f) / 94f).toInt())
-    "large" -> maxOf(2, ((ui.width - 16f) / 170f).toInt())
-    "huge" -> maxOf(1, ((ui.width - 16f) / 300f).toInt())
-    else -> maxOf(2, ((ui.width - 16f) / 128f).toInt())
+private fun columns(ui: Ui, layout: String): Int {
+    val a = Themes.current.art   // the theme's cover size: Compact fits more across, Roomy fewer
+    return when (layout) {
+        "compact" -> maxOf(3, ((ui.width - 16f) / (94f * a)).toInt())
+        "large" -> maxOf(2, ((ui.width - 16f) / (170f * a)).toInt())
+        "huge" -> maxOf(1, ((ui.width - 16f) / (300f * a)).toInt())
+        else -> maxOf(2, ((ui.width - 16f) / (128f * a)).toInt())
+    }
 }
 
 /** The grid being drawn (for the size of its covers and names). */
@@ -108,7 +111,7 @@ fun <T> LazyListScope.laidOutItems(list: List<T>, ui: Ui, key: (Int) -> String,
     val k = columns(ui, layout)
     val n = list.size
     items((n + k - 1) / k, key = { "$layout$k|" + key(it * k) }) { r ->
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = Themes.gap(8.dp))) {
             for (j in 0 until k) {
                 val i = r * k + j
                 if (i < n) androidx.compose.runtime.CompositionLocalProvider(LocalTileLayout provides layout) {
@@ -127,19 +130,20 @@ fun Tile(art: Any?, title: String, sub: String, modifier: Modifier, compact: Boo
          onClick: () -> Unit) {
     val shape = if (round) CircleShape else R.card
     val big = when (LocalTileLayout.current) { "huge" -> 2; "large" -> 1; else -> 0 }   // bigger covers, bigger names
-    Column(modifier.padding(if (compact) 3.dp else 5.dp).clip(R.card)
+    Column(modifier.padding(Themes.gap(if (compact) 3.dp else 5.dp)).themeCard(R.card).clip(R.card)
         .background(if (lit) C.accent.copy(alpha = 0.10f) else Color.Transparent)
-        .pressable(onClick = onClick, onLongClick = onLongClick).padding(if (compact) 3.dp else 4.dp),
+        .pressable(onClick = onClick, onLongClick = onLongClick)
+        .padding(Themes.gap(if (compact) 3.dp else 4.dp) + if (Themes.current.cards != CardStyle.NONE) 3.dp else 0.dp),
         horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(shape).background(C.light), contentAlignment = Alignment.Center) {
             Icon(ico, C.muted.copy(alpha = 0.5f), if (compact) 24.dp else 34.dp)
             if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             over()
         }
-        Text(title, style = T.title.copy(fontSize = if (compact) 12.sp else (13.5f + big * 1.5f).sp, color = if (lit) C.accent else C.fg), maxLines = 1,
+        Text(title, style = T.title.copy(fontSize = Themes.sp(if (compact) 12f else 13.5f + big * 1.5f, title = true), color = if (lit) C.accent else C.fg), maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-        if (sub.isNotEmpty()) Text(sub, style = T.sub.copy(fontSize = if (compact) 11.sp else (12f + big).sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (extra.isNotEmpty()) Text(extra, style = T.time.copy(fontSize = if (compact) 10.sp else 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (sub.isNotEmpty()) Text(sub, style = T.sub.copy(fontSize = Themes.sp(if (compact) 11f else 12f + big)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (extra.isNotEmpty()) Text(extra, style = T.time.copy(fontSize = Themes.sp(if (compact) 10f else 11f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
