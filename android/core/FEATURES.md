@@ -162,6 +162,7 @@ Imported plays are **added alongside** your Last.fm scrobbles, not swapped for t
 
 - **Your own DJ:** Like Spotify's DJ, it plays sets of a few songs at a time, each introduced with a line from the DJ. Sets are built from your listening: what you've had on repeat, what you usually play at this time of day, your favorites, throwbacks to a year you played something to death, songs you loved but haven't heard in months, and new songs like yours from Tidal's and YouTube Music's radios. Songs you keep skipping are left out.
 - **Switch it up:** Starts a different kind of set.
+- **Next set:** While a DJ set plays, a ⏭ set button on Now playing goes straight to the DJ's next set (its next category), skipping the rest of this one.
 - **Ask for something:** Type an artist, a genre, a decade ("80s") or a vibe ("chill", "workout") and the DJ builds a set for it. A genre plays your own songs tagged with it first (asking for "rock" finds songs tagged Rock or Indie Rock), then Last.fm's.
 - **Your genres:** The DJ knows the genre of every song from its file's tags. Now and then it plays a set of a genre you've been playing a lot lately, from your own music, so it works even without Last.fm.
 - **From:** Lets the DJ play from everything, from all your songs, or only from a playlist, folder or album you choose. The DJ button on My music and playlists starts it there. On the PC, **Choose a folder…** plays from any folder, even outside your music folders.

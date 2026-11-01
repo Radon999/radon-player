@@ -927,6 +927,18 @@ object Music {
 
     private fun djKind() = dj.sets[current()?.dj.toString()]?.kind
 
+    /** Now playing's ⏭ set button: on to the DJ's next set now (the first song of the next set queued; with none queued
+     *  yet, a new one), skipping the rest of this one. The DJ introduces it as usual. */
+    fun djNextSet() {
+        if (Remote.active) { Remote.cmd("dj", "do" to "switch"); return }
+        val now = current()?.dj ?: 0
+        val at = (index + 1 until queue.size).firstOrNull { queue[it].dj > 0 && queue[it].dj != now }
+        if (at == null) { djSwitch(); return }
+        djHush()
+        index = at
+        loadCurrent()
+    }
+
     /** Switch it up (or play what you asked for): a new set now, in place of the rest of this one. */
     fun djSwitch(ask: String? = null) {
         if (Remote.active) { if (ask != null) Remote.cmd("dj", "do" to "ask", "text" to ask) else Remote.cmd("dj", "do" to "switch"); return }

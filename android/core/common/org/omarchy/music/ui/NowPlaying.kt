@@ -191,6 +191,9 @@ private fun NowTop(ui: Ui, n: Now) {
         Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
+        // Playing a DJ set: straight to the DJ's next set (its next category), skipping the rest of this one.
+        if (t != null && t.dj > 0 && Music.shownDj().on)
+            IconButton(Ico.SKIP, C.accent, desc = "Next DJ set") { Music.djNextSet() }
         // The song's own EQ (Custom EQ…): always here to set one up; red while the song's is in effect here (on this
         // output), the accent when it has one for another output. Left of Mono (on the PC, where Auto mono's button was).
         if (!n.remote && t != null) {
