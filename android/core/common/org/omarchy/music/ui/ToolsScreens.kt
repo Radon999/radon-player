@@ -37,6 +37,9 @@ import org.omarchy.music.MusicTools
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 
 // The Python app's tools on your songs' files (MusicTools): each a full-screen list you check before anything changes.
 
@@ -52,6 +55,7 @@ fun ToolScreens(ui: Ui) {
         "empty" -> EmptyFoldersScreen(ui)
         "skip" -> SkipFoldersScreen(ui)
         "quality" -> QualityScreen(ui)
+        "genres" -> GenreNamesScreen(ui)
     }
     ui.identifyFor?.let { IdentifyDialog(ui, it) }
 }
@@ -228,6 +232,73 @@ private fun LiveNamesScreen(ui: Ui, movie: Boolean = false, lone: Boolean = fals
                     val picks = f.indices.map { pick[it] ?: FixupPick.Change }
                     Music.bg({ if (lone) MusicTools.loneApply(f, picks) else if (movie) MusicTools.movieApply(f, picks) else MusicTools.liveApply(f, picks) }) { n, e ->
                         report = if (n != null) (if (lone) "Made $n single${if (n != 1) "s" else ""}" else "Renamed $n") else "Couldn't: ${e?.message}"; Music.rescan() }
+                }
+            }
+        }
+    }
+}
+
+/** Fix genre names: one genre spelt more than one way ("Hip-Hop/Rap", "Hip-Hop-Rap") put under one name. Each group:
+ *  any of its names (the one most songs have to start with), one you type, Leave alone, or Never show. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun GenreNamesScreen(ui: Ui) {
+    val close = { ui.tool = null }
+    var found by remember { mutableStateOf<List<MusicTools.GenreGroup>?>(null) }
+    val pick = remember { mutableStateMapOf<Int, String?>() }   // absent: the group's keep; null: leave alone
+    val hidden = remember { mutableStateMapOf<Int, Boolean>() }
+    var report by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { Music.bg({ MusicTools.genreFound() }) { r, e -> found = r ?: emptyList(); if (r == null) report = "Couldn't read them: ${e?.message}" } }
+    val allGenres = remember(Music.musicVersion) { runCatching { Music.genres().map { it.first }.filter { it != "Unknown genre" } }.getOrDefault(emptyList()) }
+    FullScreen("Fix genre names", close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            val f = found
+            Text(report ?: when {
+                f == null -> "Reading your songs' genres…"
+                f.isEmpty() -> "Every genre has one name: nothing to fix"
+                else -> "${f.size} genre${if (f.size != 1) "s are" else " is"} spelt more than one way. Pick the name to keep and " +
+                    "every song in ${if (f.size != 1) "each" else "it"} gets it, in its file's tags" + (if (onPhone) " (on the phone, the songs the app downloaded)" else "")
+            }, style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            if (report == null) HiddenLine(ui, "genres")
+            LazyColumn(Modifier.weight(1f)) {
+                items(if (report == null) f?.size ?: 0 else 0) { i ->
+                    val g = f!![i]
+                    if (hidden[i] == true) { HiddenUndo(g.names.joinToString(" / ")) {
+                        org.omarchy.music.ScanIgnore.remove("genres", org.omarchy.music.genreKey(g.keep)); hidden.remove(i); pick.remove(i) }
+                        return@items }
+                    val total = g.names.sumOf { g.count(it) }
+                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(42.dp).clip(R.card).background(C.accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                Icon(Ico.GENRE, C.accent, 22.dp)
+                            }
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                Text(g.names.joinToString("  ·  "), style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(g.names.joinToString(", ") { "“$it” " + "%,d".format(g.count(it)) } + " · %,d songs".format(total), style = T.sub)
+                            }
+                        }
+                        val now = if (i in pick) pick[i] else g.keep
+                        Text(if (now == null) "Left as they are" else "All " + "%,d".format(total) + " songs become “$now”", style = T.sub,
+                            modifier = Modifier.padding(start = 54.dp, top = 4.dp))
+                        androidx.compose.foundation.layout.FlowRow(Modifier.padding(start = 54.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            for (n in g.names) Chip(n, now == n) { pick[i] = n }
+                            if (now != null && now !in g.names) Chip(now, true) {}
+                            Chip("Leave alone", now == null) { pick[i] = null }
+                            ChooseYourself("Type the genre", allGenres, start = now ?: g.keep) { pick[i] = it }
+                            Chip("Never show", false) {
+                                org.omarchy.music.ScanIgnore.add("genres", org.omarchy.music.genreKey(g.keep)); pick[i] = null; hidden[i] = true }
+                        }
+                        androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = C.line, modifier = Modifier.padding(start = 54.dp, top = 8.dp))
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill(if (report != null) "Done" else "Cancel", quiet = true) { close() }
+                if (report == null && !f.isNullOrEmpty()) Pill("Fix genres") {
+                    val picks = f.indices.map { if (it in pick) pick[it] else f[it].keep }
+                    report = "Writing the genres…"
+                    Music.bg({ MusicTools.genreApply(f, picks) }) { n, e ->
+                        report = if (n != null) "Changed the genre of %,d song%s".format(n, if (n != 1) "s" else "") else "Couldn't: ${e?.message}"; Music.rescan() }
                 }
             }
         }

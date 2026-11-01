@@ -152,6 +152,34 @@ object MusicTools {
         return done
     }
 
+    /** Fix genre names: one genre spelt more than one way. keep: the name most of its songs have; songs: name -> its songs' files. */
+    class GenreGroup(val keep: String, val others: List<String>, val songs: Map<String, List<String>>) {
+        val names get() = listOf(keep) + others
+        fun count(name: String) = songs[name]?.size ?: 0
+    }
+
+    /** (blocking) The genres spelt more than one way among the songs the tools may change (none in Folders to leave alone). */
+    fun genreFound(): List<GenreGroup> {
+        val files = HashMap<String, MutableList<String>>()
+        for (t in Music.mySongs()) {
+            val f = t.file ?: Music.lib.items[t.id]?.file ?: continue
+            if (!FileTags.canWrite(f) || inFolders(n(f), skip)) continue
+            files.getOrPut(Music.genreOf(t)) { ArrayList() } += f
+        }
+        return genreDupes(files.mapValues { it.value.distinct().size }).filter { !ScanIgnore.has("genres", genreKey(it.first)) }
+            .map { (keep, others) -> GenreGroup(keep, others, (listOf(keep) + others).associateWith { files[it].orEmpty().distinct() }) }
+    }
+
+    /** (blocking) Each group's songs given the name picked for it (null: left as they are); how many songs changed. */
+    fun genreApply(found: List<GenreGroup>, picked: List<String?>): Int {
+        var done = 0
+        for ((g, name) in found.zip(picked)) {
+            if (name.isNullOrBlank()) continue
+            for (n in g.names) if (n != name) for (f in g.songs[n].orEmpty()) if (FileTags.write(Music.ctx, f, mapOf("genre" to name))) done++
+        }
+        return done
+    }
+
     fun movieFound(songs: List<FixupSong>) = namesFound(songs, skip, movieKept, ::movieName).filter { !ScanIgnore.has("movie", ScanIgnore.fileKey(it.file)) }
 
     /** (blocking) The soundtrack notes picked taken off the names; the others remembered as kept. */

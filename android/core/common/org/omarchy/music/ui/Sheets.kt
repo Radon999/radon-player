@@ -662,6 +662,11 @@ private fun ToolLines(ui: Ui) {
         "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one", false) {
         Pill("Scan…", quiet = true) { ui.tool = "movie" }
     }
+    Line("Fix genre names", "Finds genres spelt more than one way (“Hip-Hop/Rap” and “Hip-Hop-Rap”, “R&B” and “R and B”) " +
+        "and puts their songs under one name, written into the files' tags. You pick the name for each, or type your own" +
+        (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
+        Pill("Scan…", quiet = true) { ui.tool = "genres" }
+    }
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }
