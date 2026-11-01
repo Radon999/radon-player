@@ -181,23 +181,34 @@ private fun TaggerMood(tracks: List<Track>) {
     val now = remember(mine, v) { mine.map { runCatching { moods.of(it) }.getOrNull() }.distinct() }
     val yours = remember(mine, v) { mine.map { runCatching { moods.picked(it) }.getOrDefault("") }.distinct() }
     val one = now.singleOrNull()
-    val byYou = one != null && yours.singleOrNull()?.isNotEmpty() == true
+    // The moods ticked: the ones you set (all the songs the same), else the mood worked out
+    val ticked = remember(mine, v) {
+        yours.singleOrNull()?.takeIf { it.isNotEmpty() }?.split(';')?.filter { it.isNotEmpty() } ?: listOfNotNull(one)
+    }
+    val byYou = yours.singleOrNull()?.isNotEmpty() == true
     var open by remember { mutableStateOf(false) }
     Box {
         // Drawn like Field (the same border and background), but a tap opens the list of moods
         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).border(1.dp, C.line).background(C.fg.copy(alpha = 0.04f))
             .clickable { open = true }.padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(when {
+                byYou -> ticked.joinToString(", ")
                 one != null -> one
-                now.size > 1 -> "Several (a pick gives them all the same one)"
-                else -> "No mood yet: tap to pick one"
-            }, style = if (one != null) T.body else T.body.copy(color = C.muted), modifier = Modifier.weight(1f))
+                now.size > 1 -> "Several (a pick gives them all the same)"
+                else -> "No mood yet: tap to pick"
+            }, style = if (one != null || byYou) T.body else T.body.copy(color = C.muted), modifier = Modifier.weight(1f))
             Text(if (byYou) "picked by you  ▾" else if (one != null) "worked out  ▾" else "▾", style = T.sub)
         }
+        // Tick as many moods as fit the song; each tick is saved straight away (the list stays open for more)
         DropdownMenu(open, { open = false }, containerColor = C.light) {
-            for (m in moods.ALL) DropdownMenuItem({ Text((if (m == one) "✓  " else "     ") + m, style = T.body) }, { open = false; moods.pick(mine, m) })
-            if (yours.any { it.isNotEmpty() })
-                DropdownMenuItem({ Text("     Clear (work it out again)", style = T.body) }, { open = false; moods.pick(mine, null) })
+            Text("Tick every mood that fits", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            for (m in moods.ALL) DropdownMenuItem({ Text((if (m in ticked) "✓  " else "     ") + m, style = T.body) }, {
+                val next = if (m in ticked) ticked - m else ticked + m
+                moods.pick(mine, next.ifEmpty { null })
+            })
+            if (byYou)
+                DropdownMenuItem({ Text("     Clear (work it out again)", style = T.body) }, { open = false; moods.pick(mine, null as String?) })
+            DropdownMenuItem({ Text("     Done", style = T.body.copy(color = C.accent)) }, { open = false })
         }
     }
 }

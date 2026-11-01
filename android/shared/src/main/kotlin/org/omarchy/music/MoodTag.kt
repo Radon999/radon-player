@@ -24,6 +24,19 @@ object MoodTag {
         return null
     }
 
+    /** Every mood a MOOD tag holds, ours, in its order ("Happy; Party" -> Happy, Party), as one text "Happy;Party"
+     *  ("" none). A song can have several moods of its own (set in the Tagger). */
+    fun pickAll(text: String?): String {
+        val parts = text?.split(Regex("[;,/|\\u0000]"))?.map { it.trim() }?.filter { it.isNotEmpty() } ?: return ""
+        val out = LinkedHashSet<String>()
+        for (p in parts) {
+            if (p.lowercase().startsWith("not ")) continue
+            (MoodRules.ALL.firstOrNull { it.equals(p, true) } ?: MoodRules.decide(null, "", mapOf(p to 1.0)).firstOrNull()?.first)
+                ?.let { out += it }
+        }
+        return out.joinToString(";")
+    }
+
     const val MOOD = "MOOD"
     /** The lyrics' mood (see [LyricsMood]): its own tag, read as MOOD is. */
     const val MOOD_LYRICS = "MOOD_LYRICS"

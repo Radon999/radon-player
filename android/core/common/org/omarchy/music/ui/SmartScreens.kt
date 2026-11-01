@@ -233,10 +233,28 @@ private fun RuleCard(i: Int, r: SmartRule) {
                 val ops = SmartRules.ops(r.field)
                 if (ops.size > 1) PickMenu(ops.firstOrNull { it.first == r.op }?.second ?: r.op, ops, r.op) { o -> setRule(i) { it.copy(op = o) } }
                 else ops.firstOrNull()?.second?.takeIf { it.isNotEmpty() }?.let { Text(it, style = T.sub, modifier = Modifier.padding(6.dp)) }
+                // Moods ▾ beside them: the playlist's mood (a Mood rule of its own, kept with this one), or any mood
+                if (r.field != "mood") MoodMenu()
             }
             IconButton(Ico.CLOSE, C.muted, 18.dp, desc = "Remove this rule") { setSmart { s -> s.copy(rules = s.rules.filterIndexed { j, _ -> j != i }) } }
         }
         RuleValue(i, r)
+    }
+}
+
+/** Moods ▾ (next to a rule's field and how it matches): picks the playlist's mood. It's a Mood rule of its own in the
+ *  playlist (added, changed or taken off here; it also shows as its own rule card for picking several). */
+@Composable
+private fun MoodMenu() {
+    val d = SmartEdit.draft ?: return
+    val at = d.smart.rules.indexOfFirst { it.field == "mood" }
+    val now = if (at >= 0) d.smart.rules[at].targets else emptyList()
+    val label = when (now.size) { 0 -> "Moods: any"; 1 -> "Mood: ${now[0]}"; else -> "Moods: ${now.size}" }
+    PickMenu(label, listOf("" to "Any mood") + Moods.ALL.map { it to it }, now.singleOrNull() ?: "") { m ->
+        setSmart { s ->
+            val rules = s.rules.filter { it.field != "mood" }
+            s.copy(rules = if (m.isEmpty()) rules else rules + SmartRules.fresh("mood").copy(value = "", values = listOf(m)))
+        }
     }
 }
 

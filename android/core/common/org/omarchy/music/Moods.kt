@@ -136,7 +136,10 @@ object Moods {
             val sure = e?.confirmed.orEmpty().ifEmpty {
                 if (e != null && e.inFile.isNotEmpty() && !e.heard && words == null) e.inFile else ""
             }
+            val sures = sure.split(';').map { it.trim() }.filter { it.isNotEmpty() }
             when {
+                // Several of yours (or in the file): exactly those, in that order.
+                sures.size > 1 -> sures.map { it to 1.0 }
                 // Yours, or the file's: that's its mood, for sure; the others as worked out.
                 sure.isNotEmpty() -> listOf(sure to 1.0) + worked.filter { it.first != sure }.take(2)
                 // From a backup, until it's heard here.
@@ -289,7 +292,7 @@ object Moods {
      *  Read straight from the file (no tag library), so it works for every file the app can open, on the phone too. */
     private fun fileMoods(path: String): Pair<String, String> {
         val tags = runCatching { Music.ctx.openIn(path)?.buffered()?.use { MoodTag.readTags(it, setOf(MoodTag.MOOD, MoodTag.MOOD_LYRICS)) } }.getOrNull().orEmpty()
-        return MoodTag.pick(tags[MoodTag.MOOD]).orEmpty() to tags[MoodTag.MOOD_LYRICS]?.takeIf { LyricsReading.parse(it) != null }.orEmpty()
+        return MoodTag.pickAll(tags[MoodTag.MOOD]) to tags[MoodTag.MOOD_LYRICS]?.takeIf { LyricsReading.parse(it) != null }.orEmpty()
     }
 
     /** The entry for a file as it is now ([m]: its mtime): its MOOD tag looked at again when it's changed, its sound
@@ -576,6 +579,9 @@ object Moods {
 
     /** Give songs a mood of your own (null: take it off, so it's worked out again): kept in the app, and written into
      *  the files that can be written (on the PC all of yours; on the phone the app's own downloads). */
+    fun pick(tracks: List<Track>, moods: List<String>?) = pick(tracks, moods?.distinct()?.filter { it.isNotBlank() }?.ifEmpty { null }?.joinToString(";"))
+
+    /** mood: one mood, or several joined with ";" ("Happy;Party"). */
     fun pick(tracks: List<Track>, mood: String?) {
         load()
         val paths = tracks.mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
@@ -607,7 +613,7 @@ object Moods {
         }) { r, _ ->
             version++
             val (wrote, skipped) = r ?: (0 to 0)
-            Music.toast((if (mood == null) "Mood taken off" else "Mood: $mood") +
+            Music.toast((if (mood == null) "Mood taken off" else if (';' in mood) "Moods: ${mood.replace(";", ", ")}" else "Mood: $mood") +
                 (if (wrote > 0) " (written into ${"%,d".format(wrote)} file${if (wrote != 1) "s" else ""})" else "") +
                 (if (skipped > 0) ". The playing song's file is left as it is" else ""))
         }
@@ -643,7 +649,8 @@ object Moods {
             val p = pathOf(t) ?: continue
             val e = synchronized(lock) { known[p] } ?: continue
             if (!e.looked || !(e.heard || e.picked.isNotEmpty() || e.kept.isNotEmpty())) continue
-            val m = scored(t).firstOrNull()?.first ?: continue
+            // Yours (one or several) as you picked them, else the mood worked out
+            val m = e.picked.ifEmpty { scored(t).firstOrNull()?.first.orEmpty() }.ifEmpty { null } ?: continue
             if (m == e.inFile || !seen.add(p)) continue
             if (canWrite(p)) out += p to m
         }

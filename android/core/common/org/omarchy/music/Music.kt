@@ -1014,7 +1014,8 @@ object Music {
         p.volume = 0f   // nothing of the song while the DJ talks (it may have begun loading already)
         djTalking = true
         Voice.say(text.replace("“", "").replace("”", "")) {
-            if (djTalking) { djTalking = false; player?.let { it.seekTo(0); it.volume = djVolume; it.play() } }
+            // Done talking: the set's first song from its very start (if it's still loading, it starts by itself when ready)
+            if (djTalking) { djTalking = false; player?.let { it.seekTo(0); it.volume = djVolume; it.playWhenReady = true; it.play() } }
         }
     }
 
@@ -1022,7 +1023,7 @@ object Music {
     fun djHush() {
         if (!djTalking) return
         djTalking = false
-        player?.volume = djVolume
+        player?.let { it.volume = djVolume; it.playWhenReady = true }
         Voice.hush()
     }
 
@@ -2740,10 +2741,13 @@ object Music {
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         eqProcessor.songGain = gainOf(t)
         applyEq()   // the song's own EQ on this output, or the usual one
-        p.playWhenReady = autoplay
+        // The DJ is still talking (a new set): the song waits, loaded and silent, at its start until the DJ is done
+        val hold = djTalking && autoplay
+        p.playWhenReady = autoplay && !hold
         advancing = false   // buffering for real now
         fadeJob?.cancel()
-        if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
+        if (hold) { fadeIn = 0.0; p.volume = 0f }
+        else if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
             val n = fadeIn; fadeIn = 0.0
             p.volume = 0f
             fadeJob = scope.launch {
