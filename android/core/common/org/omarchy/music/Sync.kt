@@ -317,7 +317,7 @@ object Sync {
         swap("song-eq.json", m.songEqs) { m.songEqs = SongEqs(f("song-eq.json")) }
         if (SyncRules.SWITCHES in changed) files[SyncRules.SWITCHES]?.let { applySwitches(it) }
         if (SyncRules.STATE in changed) files[SyncRules.STATE]?.let { applyState(JSON.parseToJsonElement(it) as JsonObject) }
-        m.setSongVolumesOn(m.songVolumesOn)   // the playing song's own volume, as it is now
+        m.refreshSongVolume()   // the playing song's own volume, as it is now
         m.setEq { it }                         // and its own EQ
         m.musicVersion++
         Stats.refresh(force = true)

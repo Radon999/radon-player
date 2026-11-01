@@ -56,9 +56,11 @@ object Looks {
         "gold" to ("Gold" to Color(0xFFFFC21A)), "orange" to ("Orange" to Color(0xFFFF7A1A)), "pink" to ("Pink" to Color(0xFFFF2FA8)),
         "purple" to ("Purple" to Color(0xFFA24DFF)), "white" to ("White" to Color(0xFFF4F4FF)))
     /** A look by its colours: accent, background, cards, text, quiet text, selection; light or not; a gradient; stars;
-     *  apple: laid out as the Light and Dark looks are (plain pages, thin lines between rows), only in other colours. */
+     *  apple: laid out as the Light and Dark looks are (plain pages, thin lines between rows), only in other colours;
+ *  glow: a neon look (what's on glows). */
     private class P(val accent: Long, val bg: Long, val light: Long, val fg: Long, val muted: Long, val sel: Long,
-                    val isLight: Boolean, val grad: List<Long>? = null, val stars: Boolean = false, val apple: Boolean = false)
+                    val isLight: Boolean, val grad: List<Long>? = null, val stars: Boolean = false, val apple: Boolean = false,
+                    val glow: Boolean = false)
 
     /** Stellio's own (light and dark), and colourful ones that still keep it simple. */
     private val STYLED = linkedMapOf(
@@ -127,13 +129,76 @@ object Looks {
         "newsprint" to ("Newsprint" to P(0xFFC8102E, 0xFFEDEDEA, 0xFFFAFAF8, 0xFF111111, 0xFF5E5E5A, 0xFFD6D6D0, true, apple = true)),
         "bubblegum" to ("Bubblegum" to P(0xFF8A1FB0, 0xFFFFD9EE, 0xFFFFEEF7, 0xFF3A0E2E, 0xFF7E4A6A, 0xFFF7B8DA, true,
             listOf(0xFFFFE3F2, 0xFFFFD0EA, 0xFFFFE6F6), apple = true)),
+        // 3.0's neon looks: 30 dark ones, each a neon colour glowing on its own dark hue. The accent, text and quiet text
+        // keep 4.5:1 or more against the background, the cards and the gradient.
+        "neon-tokyo" to ("Neon Tokyo nights" to P(0xFFFF2E88, 0xFF060614, 0xFF0E0E25, 0xFFFAEBF1, 0xFFC299AB, 0xFF4F172F, false,
+            listOf(0xFF060614, 0xFF220B2D, 0xFF060614), stars = true, apple = true, glow = true)),
+        "neon-miami" to ("Neon Miami" to P(0xFF00F0FF, 0xFF140614, 0xFF250E25, 0xFFEBF9FA, 0xFF99BFC2, 0xFF174C4F, false,
+            listOf(0xFF140614, 0xFF2D0B1C, 0xFF140614), apple = true, glow = true)),
+        "neon-acid" to ("Neon acid" to P(0xFFC8FF00, 0xFF0C1406, 0xFF18250E, 0xFFF7FAEB, 0xFFB9C299, 0xFF434F17, false,
+            listOf(0xFF0C1406, 0xFF0B2D16, 0xFF0C1406), apple = true, glow = true)),
+        "neon-laser" to ("Neon laser" to P(0xFFFF00E6, 0xFF0A0614, 0xFF160E25, 0xFFFAEBF8, 0xFFC299BE, 0xFF4F174A, false,
+            listOf(0xFF0A0614, 0xFF0B112D, 0xFF0A0614), apple = true, glow = true)),
+        "neon-arcade" to ("Neon arcade" to P(0xFFFFE600, 0xFF060814, 0xFF0E1225, 0xFFFAF8EB, 0xFFC2BE99, 0xFF4F4A17, false,
+            listOf(0xFF060814, 0xFF160B2D, 0xFF060814), apple = true, glow = true)),
+        "neon-ultraviolet" to ("Neon ultraviolet" to P(0xFFBD4BFF, 0xFF0D0614, 0xFF190E25, 0xFFF4EBFA, 0xFFB399C2, 0xFF3B174F, false,
+            listOf(0xFF0D0614, 0xFF2D0B2D, 0xFF0D0614), apple = true, glow = true)),
+        "neon-toxic" to ("Neon toxic" to P(0xFF39FF14, 0xFF061406, 0xFF0E250E, 0xFFEDFAEB, 0xFF9FC299, 0xFF204F17, false,
+            listOf(0xFF061406, 0xFF1C2D0B, 0xFF061406), apple = true, glow = true)),
+        "neon-plasma" to ("Neon plasma" to P(0xFFFF6A00, 0xFF0F0614, 0xFF1D0E25, 0xFFFAF1EB, 0xFFC2AA99, 0xFF4F2E17, false,
+            listOf(0xFF0F0614, 0xFF2D0B22, 0xFF0F0614), apple = true, glow = true)),
+        "neon-electric" to ("Neon electric blue" to P(0xFF00A2FF, 0xFF060C14, 0xFF0E1825, 0xFFEBF4FA, 0xFF99B3C2, 0xFF173B4F, false,
+            listOf(0xFF060C14, 0xFF0B0B2D, 0xFF060C14), apple = true, glow = true)),
+        "neon-ruby" to ("Neon ruby" to P(0xFFFF1744, 0xFF140608, 0xFF250E12, 0xFFFAEBEE, 0xFFC299A1, 0xFF4F1722, false,
+            listOf(0xFF140608, 0xFF2D0B22, 0xFF140608), apple = true, glow = true)),
+        "neon-grid" to ("Neon grid runner" to P(0xFF00E5FF, 0xFF060F14, 0xFF0E1D25, 0xFFEBF8FA, 0xFF99BEC2, 0xFF17494F, false,
+            listOf(0xFF060F14, 0xFF0B142D, 0xFF060F14), stars = true, apple = true, glow = true)),
+        "neon-jungle" to ("Neon jungle" to P(0xFF00FF9C, 0xFF06140F, 0xFF0E251D, 0xFFEBFAF4, 0xFF99C2B2, 0xFF174F39, false,
+            listOf(0xFF06140F, 0xFF0B2D11, 0xFF06140F), apple = true, glow = true)),
+        "neon-hologram" to ("Neon hologram" to P(0xFF7DF9FF, 0xFF061114, 0xFF0E2125, 0xFFEBF9FA, 0xFF99C0C2, 0xFF174C4F, false,
+            listOf(0xFF061114, 0xFF1C0B2D, 0xFF061114), apple = true, glow = true)),
+        "neon-sunrise" to ("Neon sunrise" to P(0xFFFF9E1F, 0xFF14060D, 0xFF250E1A, 0xFFFAF3EB, 0xFFC2B099, 0xFF4F3717, false,
+            listOf(0xFF14060D, 0xFF2D160B, 0xFF14060D), apple = true, glow = true)),
+        "neon-magma" to ("Neon magma" to P(0xFFFF3D00, 0xFF140806, 0xFF25120E, 0xFFFAEEEB, 0xFFC2A399, 0xFF4F2417, false,
+            listOf(0xFF140806, 0xFF2D0B11, 0xFF140806), apple = true, glow = true)),
+        "neon-orchid" to ("Neon orchid" to P(0xFFFF6BFF, 0xFF110614, 0xFF210E25, 0xFFFAEBFA, 0xFFC299C2, 0xFF4F174F, false,
+            listOf(0xFF110614, 0xFF160B2D, 0xFF110614), apple = true, glow = true)),
+        "neon-ice" to ("Neon ice glow" to P(0xFFA0F0FF, 0xFF060E14, 0xFF0E1B25, 0xFFEBF7FA, 0xFF99BBC2, 0xFF17464F, false,
+            listOf(0xFF060E14, 0xFF0B272D, 0xFF060E14), apple = true, glow = true)),
+        "neon-lagoon" to ("Neon lagoon" to P(0xFF1DE9B6, 0xFF061414, 0xFF0E2525, 0xFFEBFAF6, 0xFF99C2B8, 0xFF174F41, false,
+            listOf(0xFF061414, 0xFF0B222D, 0xFF061414), apple = true, glow = true)),
+        "neon-voltage" to ("Neon voltage" to P(0xFFE6FF00, 0xFF080614, 0xFF120E25, 0xFFF8FAEB, 0xFFBEC299, 0xFF4A4F17, false,
+            listOf(0xFF080614, 0xFF220B2D, 0xFF080614), apple = true, glow = true)),
+        "neon-bloodmoon" to ("Neon blood moon" to P(0xFFFF2D2D, 0xFF140606, 0xFF250E0E, 0xFFFAEBEB, 0xFFC29999, 0xFF4F1717, false,
+            listOf(0xFF140606, 0xFF2D140B, 0xFF140606), apple = true, glow = true)),
+        "neon-retrowave" to ("Neon retrowave" to P(0xFFFF71CE, 0xFF080614, 0xFF120E25, 0xFFFAEBF5, 0xFFC299B4, 0xFF4F173C, false,
+            listOf(0xFF080614, 0xFF2D0B2D, 0xFF080614), stars = true, apple = true, glow = true)),
+        "neon-nebula" to ("Neon nebula" to P(0xFF9366FF, 0xFF090614, 0xFF140E25, 0xFFEFEBFA, 0xFFA599C2, 0xFF27174F, false,
+            listOf(0xFF090614, 0xFF270B2D, 0xFF090614), stars = true, apple = true, glow = true)),
+        "neon-cherry" to ("Neon cherry cola" to P(0xFFFF3B8D, 0xFF14060A, 0xFF250E16, 0xFFFAEBF1, 0xFFC299AA, 0xFF4F172E, false,
+            listOf(0xFF14060A, 0xFF2D110B, 0xFF14060A), apple = true, glow = true)),
+        "neon-citrus" to ("Neon citrus" to P(0xFFFFB300, 0xFF140F06, 0xFF251D0E, 0xFFFAF5EB, 0xFFC2B699, 0xFF4F3E17, false,
+            listOf(0xFF140F06, 0xFF2D160B, 0xFF140F06), apple = true, glow = true)),
+        "neon-mintpurple" to ("Neon mint glow" to P(0xFF3DFFB8, 0xFF0D0614, 0xFF190E25, 0xFFEBFAF4, 0xFF99C2B3, 0xFF174F3B, false,
+            listOf(0xFF0D0614, 0xFF110B2D, 0xFF0D0614), apple = true, glow = true)),
+        "neon-blueflame" to ("Neon blue flame" to P(0xFF4289FF, 0xFF060914, 0xFF0E1425, 0xFFEBF0FA, 0xFF99A8C2, 0xFF172C4F, false,
+            listOf(0xFF060914, 0xFF0B222D, 0xFF060914), apple = true, glow = true)),
+        "neon-rave" to ("Neon rave" to P(0xFFFF2BB0, 0xFF061411, 0xFF0E2521, 0xFFFAEBF4, 0xFFC299B3, 0xFF4F173A, false,
+            listOf(0xFF061411, 0xFF0B272D, 0xFF061411), apple = true, glow = true)),
+        "neon-radioactive" to ("Neon radioactive" to P(0xFFAEFF00, 0xFF140614, 0xFF250E25, 0xFFF5FAEB, 0xFFB5C299, 0xFF3D4F17, false,
+            listOf(0xFF140614, 0xFF220B2D, 0xFF140614), apple = true, glow = true)),
+        "neon-afterhours" to ("Neon after hours" to P(0xFF00FFD0, 0xFF14060D, 0xFF250E1A, 0xFFEBFAF7, 0xFF99C2BA, 0xFF174F45, false,
+            listOf(0xFF14060D, 0xFF2D0B2D, 0xFF14060D), apple = true, glow = true)),
+        "neon-sodium" to ("Neon sodium lights" to P(0xFFFF8A00, 0xFF060D14, 0xFF0E1925, 0xFFFAF3EB, 0xFFC2AF99, 0xFF4F3517, false,
+            listOf(0xFF060D14, 0xFF0B112D, 0xFF060D14), apple = true, glow = true)),
     )
 
     /** The themes in the Look menu after Light, Dark and Now playing, in this order. */
     private val THEMES = listOf("midnight", "sunset", "forest", "ocean", "paper", "mono", "synthwave", "coffee", "rose", "nord",
         "dracula", "solarized", "matrix", "sakura", "arctic", "ember", "lavender", "slate", "goldblack", "contrast",
         "cyberpunk", "vaporwave", "royal", "olive", "lime", "crimson", "deepsea", "cobalt", "terracotta", "chalkboard",
-        "mint", "lemonade", "peach", "newsprint", "bubblegum")
+        "mint", "lemonade", "peach", "newsprint", "bubblegum",
+        "neon-tokyo", "neon-miami", "neon-acid", "neon-laser", "neon-arcade", "neon-ultraviolet", "neon-toxic", "neon-plasma", "neon-electric", "neon-ruby", "neon-grid", "neon-jungle", "neon-hologram", "neon-sunrise", "neon-magma", "neon-orchid", "neon-ice", "neon-lagoon", "neon-voltage", "neon-bloodmoon", "neon-retrowave", "neon-nebula", "neon-cherry", "neon-citrus", "neon-mintpurple", "neon-blueflame", "neon-rave", "neon-radioactive", "neon-afterhours", "neon-sodium")
 
     /** What each look in the Look menu is, in a line (shown under Look in Settings). */
     private val DESC = mapOf(
@@ -175,7 +240,41 @@ object Looks {
         "peach" to "Soft peach pages with a teal accent",
         "newsprint" to "Grey newspaper and black ink, with a red headline accent",
         "bubblegum" to "Sweet candy pink with a grape-purple accent",
+        "neon-tokyo" to "Hot pink neon over a midnight-blue city",
+        "neon-miami" to "Cyan neon on deep purple fading to dark pink",
+        "neon-acid" to "Acid yellow-green on a near-black green",
+        "neon-laser" to "Magenta laser light on dark indigo",
+        "neon-arcade" to "Arcade yellow on a dark blue cabinet",
+        "neon-ultraviolet" to "Blacklight violet glowing on black-purple",
+        "neon-toxic" to "Radioactive green on a dark green-black",
+        "neon-plasma" to "Plasma orange on dark violet",
+        "neon-electric" to "Electric blue on deep navy",
+        "neon-ruby" to "Ruby red neon on dark wine",
+        "neon-grid" to "Cyan light lines on a blue-black grid",
+        "neon-jungle" to "Emerald neon in a dark jungle green",
+        "neon-hologram" to "Pale holographic cyan shifting to violet",
+        "neon-sunrise" to "Amber neon on dark magenta, like a sign at dawn",
+        "neon-magma" to "Molten orange-red on a black-red",
+        "neon-orchid" to "Orchid pink neon on dark plum",
+        "neon-ice" to "Icy blue glow on dark steel blue",
+        "neon-lagoon" to "Turquoise neon on a dark lagoon",
+        "neon-voltage" to "High-voltage yellow on dark indigo",
+        "neon-bloodmoon" to "Red neon on almost black",
+        "neon-retrowave" to "Soft pink neon on a starry eighties night",
+        "neon-nebula" to "Violet neon among dark, starry space",
+        "neon-cherry" to "Cherry pink on dark cola brown-red",
+        "neon-citrus" to "Tangerine neon on a dark amber-black",
+        "neon-mintpurple" to "Mint green neon on dark purple",
+        "neon-blueflame" to "Gas-flame blue on blue-black",
+        "neon-rave" to "Rave pink on dark teal",
+        "neon-radioactive" to "Lime neon on dark purple",
+        "neon-afterhours" to "Aqua neon on a dark wine bar",
+        "neon-sodium" to "Orange street-light glow on a navy night",
     )
+    /** The 30 neon looks (key, name, its neon accent, its gradient's middle shade): the Visualizer's colours too. */
+    val NEON_LOOKS: List<Triple<String, String, Pair<Color, Color>>> get() = STYLED.filter { it.value.second.glow }.map { (k, v) ->
+        Triple(k, v.first, Color(v.second.accent) to Color(v.second.grad?.getOrNull(1) ?: v.second.bg)) }
+
     /** A look's one-line description ("" for one that has none). */
     fun describe(look: String): String = DESC[look].orEmpty()
 
@@ -215,7 +314,7 @@ object Looks {
         val neon = NEON[look]?.second
         val styled = STYLED[look]?.second
         C.isLight = look == "light" || styled?.isLight == true
-        C.glow = neon != null
+        C.glow = neon != null || styled?.glow == true
         C.gradient = styled?.grad?.map { Color(it) }
         C.stars = styled?.stars == true
         C.apple = styled?.apple ?: look.startsWith("apple")

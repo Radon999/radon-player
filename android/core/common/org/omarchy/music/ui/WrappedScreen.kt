@@ -140,7 +140,7 @@ private val LocalSlideScale = androidx.compose.runtime.compositionLocalOf { 1f }
 
 /** How many times bigger a slide's content is drawn in room w × h: 1 on a phone; in a big window (the PC's, a
  *  tablet's) it grows with the room, so a slide fills the screen as it does a phone's instead of sitting small in it. */
-private fun slideScale(w: Dp, h: Dp): Float = minOf(w.value / 420f, h.value / 680f).coerceIn(1f, 2.4f)
+private fun slideScale(w: Dp, h: Dp): Float = minOf(w.value / 520f, h.value / 900f).coerceIn(1f, 1.5f)
 
 /** The widest a slide's content gets (in its scaled dp), so lines don't run across a whole wide window. */
 private val SLIDE_MAX_WIDTH = 800.dp
@@ -163,11 +163,29 @@ private fun SlideScaled(w: Dp, h: Dp, content: @Composable () -> Unit) {
 private fun SlideColumn(spacing: Dp, centred: Boolean, content: @Composable ColumnScope.() -> Unit) {
     val room = LocalSlideSize.current
     val k = LocalSlideScale.current
-    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+    FitHeight {
         Column(Modifier.widthIn(max = SLIDE_MAX_WIDTH + 56.dp).fillMaxWidth().heightIn(min = room.height)
-            .padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 40.dp),
+            .padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 24.dp),
             verticalArrangement = if (centred) Arrangement.spacedBy(spacing, Alignment.CenterVertically) else Arrangement.spacedBy(spacing),
             content = content)
+    }
+}
+
+/** Its content all on screen at once: measured at its full height, then shrunk (from the top middle) when that's
+ *  taller than the room, so a long slide (a top 15) never needs scrolling. */
+@Composable
+private fun FitHeight(content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.Layout(content, Modifier.fillMaxSize()) { ms, c ->
+        val p = ms.first().measure(c.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
+        val s = if (c.hasBoundedHeight && p.height > c.maxHeight) c.maxHeight.toFloat() / p.height else 1f
+        val w = if (c.hasBoundedWidth) c.maxWidth else p.width
+        val h = if (c.hasBoundedHeight) c.maxHeight else p.height
+        layout(w, h) {
+            p.placeWithLayer((w - p.width) / 2, 0) {
+                scaleX = s; scaleY = s
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+            }
+        }
     }
 }
 
@@ -390,8 +408,16 @@ private fun picModel(art: Any?): Any? = when {
 }
 
 /** A Wrapped row's picture: the cover inside your own file of it first, then its other picture (saved, Last.fm, Deezer). */
-private fun rowPic(file: String, art: String): Any? = if (file.isNotEmpty()) FileArt(file, art) else picModel(art)
-private val Wrapped.Song.pic: Any? get() = rowPic(file, art)
+private fun rowPic(file: String, art: String): Any? = if (file.isNotEmpty()) FileArt(file, art.ifEmpty { MyCopies.savedArt(file) }) else picModel(art)
+private val Wrapped.Song.pic: Any? get() {
+    // Your copy now (found by title and artist, as plays are counted): its own cover, then what the rest of the app shows
+    val mine = runCatching { MyCopies.of(org.omarchy.music.Track(id = "", source = "mine", title = title, artist = artist)) }.getOrNull()
+    if (mine?.file != null && (file.isEmpty() || !java.io.File(picPath(file)).exists()))
+        return FileArt(mine.file!!, art.ifEmpty { MyCopies.savedArt(mine.file!!) })
+    return rowPic(file, art)
+}
+/** A file: address or path, as a path. */
+private fun picPath(f: String): String = if (f.startsWith("file:")) runCatching { java.io.File(java.net.URI(f)).path }.getOrDefault(f.removePrefix("file://")) else f
 private val Wrapped.AlbumPlays.pic: Any? get() = rowPic(file, art)
 /** A song the app counted (skips, heard out): its own file's cover first, else what the app draws for it. */
 private fun trackPic(t: org.omarchy.music.Track): Any? {
@@ -417,6 +443,20 @@ private object MyCopies {
         }
         return map[org.omarchy.music.Stats.statsKey(t.title, t.artist)] ?: loose[looseKey(t)]
     }
+
+    /** The cover the rest of the app shows for your file (the one saved when it was scanned), as a path: Wrapped's
+     *  fallback when the file's own picture can't be read here (some M4A/AAC covers), so the row isn't left blank. */
+    fun savedArt(file: String): String {
+        val v = Music.musicVersion
+        if (v != byFileVer) {
+            byFile = runCatching { Music.mySongs().filter { !it.file.isNullOrEmpty() }.associateBy { it.file!! } }.getOrDefault(emptyMap())
+            byFileVer = v
+        }
+        val t = byFile[file] ?: return ""
+        return (runCatching { artModel(t) }.getOrNull() as? java.io.File)?.path ?: ""
+    }
+    private var byFileVer = -1
+    private var byFile: Map<String, org.omarchy.music.Track> = emptyMap()
 }
 
 @Composable
@@ -803,17 +843,19 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     // The card fills the screen: its height is the slide's (less the top bar and Share), and the type grows with it
     val room = LocalSlideSize.current   // (in the slide's scaled dp: the top bar's 112dp is 112 / scale of them)
     val cardH = (room.height - 112.dp / LocalSlideScale.current - 40.dp - 70.dp).coerceAtLeast(420.dp)
-    val line = ((cardH.value * 0.56f) / 16f * 0.68f).coerceIn(11f, 30f)   // a list line's font size (16 lines fit)
+    // a list line's font size: 16 lines fit the height, and about 34 letters a column fit the width
+    val colW = ((minOf(room.width, SLIDE_MAX_WIDTH + 56.dp) - 56.dp).value / 2f)
+    val line = minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / 34f / 0.55f).coerceIn(10f, 20f)
     val k = line / 11f
     Column(Modifier.fillMaxWidth().height(cardH)
         .background(WS.card).background(Brush.linearGradient(listOf(WS.accent.copy(alpha = 0.20f), Color.Transparent)))
-        .border(1.dp, WS.line, RoundedCornerShape(4.dp)).padding(horizontal = (18 * k).coerceAtMost(48f).dp, vertical = (20 * k).coerceAtMost(44f).dp),
+        .border(1.dp, WS.line, RoundedCornerShape(4.dp)).padding(horizontal = (16 * k).coerceAtMost(32f).dp, vertical = (16 * k).coerceAtMost(28f).dp),
         verticalArrangement = Arrangement.SpaceBetween) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Pic(d.artistImage, (56 * k).coerceAtMost(120f).dp, round = true)
+            Pic(d.artistImage, (48 * k).coerceAtMost(80f).dp, round = true)
             Column(Modifier.weight(1f)) {
-                Text("$title WRAPPED", style = W.kicker.copy(fontSize = W.kicker.fontSize * k.coerceAtMost(1.8f)))
-                Text(d.user, style = W.mid.copy(fontSize = W.mid.fontSize * k.coerceAtMost(1.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$title WRAPPED", style = W.kicker.copy(fontSize = W.kicker.fontSize * k.coerceAtMost(1.4f)))
+                Text(d.user, style = W.mid.copy(fontSize = W.mid.fontSize * k.coerceAtMost(1.4f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Rule()
@@ -821,20 +863,20 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         Row(horizontalArrangement = Arrangement.spacedBy((16 * k).dp)) {
             listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }).forEach { (head, items) ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
-                    Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
+                    Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
                     items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = line.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
         }
         val genres = d.fileGenres.map { it.first }.ifEmpty { d.genres }.take(5)
         if (genres.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("TOP GENRES", style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
+            Text("TOP GENRES", style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
             Text(genres.mapIndexed { i, g -> "${i + 1}  $g" }.joinToString("   "), style = W.name.copy(fontSize = line.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             listOf("MINUTES" to n(d.minutes), "HOURS" to n(((d.minutes + 30) / 60).toInt()), "SCROBBLES" to n(d.scrobbles)).forEach { (head, value) ->
                 Column(Modifier.weight(1f)) {
-                    Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
+                    Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
                     Text(value, style = W.mid.copy(color = WS.accent, shadow = WS.shadow, fontSize = W.mid.fontSize * k.coerceAtMost(2f)),
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

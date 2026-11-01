@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -75,7 +76,19 @@ val VIS_COLORS: List<Pair<String, String>> = listOf("auto" to "Look's colour", "
     "fire" to "Fire", "ice" to "Ice", "ocean" to "Ocean", "sunset" to "Sunset", "aurora" to "Aurora", "neonpop" to "Neon pop",
     "forest" to "Forest", "magma" to "Magma", "candy" to "Candy", "goldleaf" to "Gold leaf", "synthwave" to "Synthwave",
     "mint" to "Mint", "galaxy" to "Galaxy", "pastel" to "Pastel", "bloodmoon" to "Blood moon", "acid" to "Acid",
-    "silver" to "Silver") + Looks.NEON.map { (k, v) -> k to v.first }
+    "silver" to "Silver") + Looks.NEON.map { (k, v) -> k to v.first } + Looks.NEON_LOOKS.map { it.first to it.second }
+
+/** The neon looks' colours (Neon Tokyo nights…): each look's neon, blended from its second hue (its background's,
+ *  made bright) through the neon to a white-hot top on the loud parts. */
+private val NEON_LOOK_GRADS: Map<String, VisGrad> by lazy {
+    Looks.NEON_LOOKS.associate { (k, _, c) ->
+        val (neon, shade) = c
+        val hsl = FloatArray(3); colorToHsl(shade.toArgb(), hsl)
+        val second = Color(hslToColor(hsl[0], 0.9f, 0.55f))
+        k to VisGrad(VisGrad.LOUD, second.toArgb().toLong() and 0xFFFFFFFFL, neon.toArgb().toLong() and 0xFFFFFFFFL,
+            lerp(neon, Color.White, 0.55f).toArgb().toLong() and 0xFFFFFFFFL)
+    }
+}
 
 /** Now playing's own visualizer, behind the cover: the slim bars it always had, none, or any of the styles. */
 val NP_VIS_STYLES: List<Pair<String, String>> = listOf("slim" to "Slim bars", "off" to "Off") + VIS_STYLES
@@ -150,7 +163,7 @@ private val VIS_GRADS: Map<String, VisGrad> = mapOf(
 /** A colour for a spot in the picture: t is where along the spectrum (0 the bass … 1 the treble), lv how loud. */
 class VisPalette(val key: String, private val base: Color, private val shift: Float) {
     private val neon = Looks.NEON[key]?.second
-    private val grad = VIS_GRADS[key]
+    private val grad = VIS_GRADS[key] ?: NEON_LOOK_GRADS[key]
     /** One colour all over (the look's own or a plain one), not a blend. */
     val single = neon != null || (grad == null && key !in setOf("rainbow", "twilight", "fire", "ice", "pastel"))
 

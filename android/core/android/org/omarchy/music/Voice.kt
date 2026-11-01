@@ -72,17 +72,17 @@ object Voice {
             if (ready) {
                 runCatching {
                     // The most natural English voice: Google's neural ("network") voices sound like a person, so they come
-                    // first when there's internet (a male one, like Spotify's DJ, before others); else the best one on the phone.
+                    // first when there's internet (a female one before others: it sounds most like a person); else the best one on the phone.
                     val online = runCatching {
                         val cm = Music.ctx.getSystemService(android.net.ConnectivityManager::class.java)
                         cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
                     }.getOrDefault(false)
-                    val male = listOf("iom", "tpd", "iol", "ism", "male")
+                    val female = listOf("sfg", "tpc", "iob", "iog", "tpf", "female")
                     val best = t.voices?.filter { it.locale.language == "en" && "notInstalled" !in (it.features ?: emptySet()) &&
                             (online || !it.isNetworkConnectionRequired) }
                         ?.sortedWith(compareByDescending<android.speech.tts.Voice> { it.quality >= android.speech.tts.Voice.QUALITY_HIGH }
                             .thenByDescending { it.isNetworkConnectionRequired }   // the neural ones
-                            .thenByDescending { v -> male.any { it in v.name.lowercase() } }
+                            .thenByDescending { v -> female.any { it in v.name.lowercase() } }
                             .thenByDescending { it.locale.country == "US" }
                             .thenByDescending { it.quality })
                         ?.firstOrNull()

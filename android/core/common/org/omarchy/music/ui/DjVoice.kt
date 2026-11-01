@@ -55,20 +55,6 @@ fun DjVoiceLines(ui: Ui) {
     Pill(if (open) "Voice settings  ▴" else "Voice settings  ▾", quiet = true) { open = !open }
     if (!open) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (Voice.hasNatural) {
-            Text("The DJ's voice on this PC", style = T.sub)
-            // Male (Adam) or Female (Heart): a dropdown; picking one plays a sample
-            Box {
-                var pick by remember { mutableStateOf(false) }
-                var cur by remember { mutableStateOf(DjVoices.kokoroVoice) }
-                Pill("${cur.label} ▾", quiet = true) { pick = true }
-                androidx.compose.material3.DropdownMenu(pick, { pick = false }) {
-                    for (v in DjVoices.KOKORO_VOICES) androidx.compose.material3.DropdownMenuItem(
-                        { Text(v.label, style = T.body.copy(color = if (v.id == cur.id) C.accent else C.fg)) },
-                        { pick = false; cur = v; DjVoices.setKokoroVoice(v.id); Voice.say(Spoken.humanize(DjVoices.SAMPLE, 0.0)) })
-                }
-            }
-        }
         // Why the natural voice didn't speak last time (stays here so it can be read, unlike the pop-up)
         val err = Voice.lastError
         if (err.isNotEmpty()) Text("The natural voice couldn't speak last time: $err", style = T.sub.copy(color = C.red))

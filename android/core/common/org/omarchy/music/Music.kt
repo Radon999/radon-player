@@ -1940,17 +1940,14 @@ object Music {
         musicVersion++
     }
 
-    /** Settings › Sound quality › Song volume changes: off, every song plays at its normal volume (the changes kept). */
-    val songVolumesOn get() = Prefs.on(SONG_VOLUMES, true)
-    const val SONG_VOLUMES = "song_volumes"
-    fun setSongVolumesOn(on: Boolean) {
-        Prefs.set(SONG_VOLUMES, on)
+    /** Songs' own volumes always apply (the old Song volume changes switch is gone): this re-applies the playing song's. */
+    fun refreshSongVolume() {
         current()?.let { eqProcessor.songGain = gainOf(it) }
         musicVersion++
     }
 
-    /** The change t plays with here and now (dB): its own for this output, else its every-output one; 0 with the switch off. */
-    fun gainNow(t: Track): Double = if (!songVolumesOn) 0.0 else gains.get(t, outputNow.key)
+    /** The change t plays with here and now (dB): its own for this output, else its every-output one (0: none). */
+    fun gainNow(t: Track): Double = gains.get(t, outputNow.key)
 
     private fun gainOf(t: Track) = Math.pow(10.0, gainNow(t) / 20)
 

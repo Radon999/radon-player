@@ -291,9 +291,9 @@ object Voice {
         val said = text.replace("'", "''")
         val p = runCatching {
             ps("Add-Type -AssemblyName System.Speech; \$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; " +
-                // The best English voice installed: a newer one (Mark, Aria, Guy…) over the old David and Zira
+                // The best English voice installed: a newer female one (Aria, Jenny…) first, then any female voice
                 "\$v = \$s.GetInstalledVoices() | ? { \$_.Enabled -and \$_.VoiceInfo.Culture.Name -like 'en*' } | " +
-                "Sort-Object { if (\$_.VoiceInfo.Name -match 'Mark|Guy|Aria|Jenny|Natural') { 0 } elseif (\$_.VoiceInfo.Gender -eq 'Male') { 1 } else { 2 } } | Select-Object -First 1; " +
+                "Sort-Object { if (\$_.VoiceInfo.Name -match 'Aria|Jenny|Natural') { 0 } elseif (\$_.VoiceInfo.Gender -eq 'Female') { 1 } else { 2 } } | Select-Object -First 1; " +
                 "if (\$v) { \$s.SelectVoice(\$v.VoiceInfo.Name) }; \$s.Rate = 1; \$s.Speak('$said')")
         }.getOrNull() ?: return
         proc = p

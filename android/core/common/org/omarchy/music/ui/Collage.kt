@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -129,38 +130,51 @@ fun CollageSheet(ui: Ui, kind: String) {
     }
 }
 
-/** Share card…: your top 5 (songs, albums or artists) or your listening time as a picture the size of a phone story
- *  (1080×1920), to share or save. The desktop's card_png. */
+/** Share card…: your top 15 (songs, albums or artists, or by listening time) on one wide card like Wrapped's summary
+ *  (1600×1000): the period and what it is at the top, the 15 in two columns (each with its cover, name, artist and
+ *  plays or time), and the total time at the foot. To share or save. */
 object Card {
     data class Row(val title: String, val sub: String, val value: String, val model: Any?)
 
+    const val W = 1600
+    const val H = 1000
+
     fun draw(title: String, whenText: String, rows: List<Row>, lead: String?): ImageBitmap {
-        val w = 1080; val h = 1920
+        val w = W; val h = H
         val pt = Painter(w, h)
-        val pics = rows.take(5).map { runCatching { Collage.cover(it.model, 700) }.getOrNull() }
-        val rgb = pics.firstOrNull()?.let { runCatching { Tint.artColor(it) }.getOrNull() } ?: 0xFF5A3C8C.toInt()
+        val list = rows.take(15)
+        val pics = list.map { runCatching { Collage.cover(it.model, 160) }.getOrNull() }
+        val head = runCatching { Collage.cover(list.firstOrNull()?.model, 300) }.getOrNull()
+        // Wrapped's card colours: a dark card, lit a little in the top song's colour
+        val rgb = (head ?: pics.firstOrNull())?.let { runCatching { Tint.artColor(it) }.getOrNull() } ?: 0xFF5A3C8C.toInt()
         val hsl = FloatArray(3); Rgb.toHsl(rgb, hsl)
-        val s = hsl[1].coerceIn(0.3f, 0.8f)
-        val top = Rgb.fromHsl(floatArrayOf(hsl[0], s, 0.42f))
-        val bottom = Rgb.fromHsl(floatArrayOf(hsl[0], s, 0.12f))
-        pt.gradient(0f, 0f, w.toFloat(), h.toFloat(), top, bottom)
+        val s = hsl[1].coerceIn(0.25f, 0.6f)
+        pt.gradient(0f, 0f, w.toFloat(), h.toFloat(), Rgb.fromHsl(floatArrayOf(hsl[0], s, 0.30f)), Rgb.fromHsl(floatArrayOf(hsl[0], s * 0.6f, 0.11f)))
         fun text(t: String, size: Float, bold: Boolean, alpha: Int, x: Float, y: Float, width: Float, right: Boolean = false) =
             pt.text(t, size, bold, Rgb.argb(alpha, 255, 255, 255), x, y + size, width, right)
-        fun picture(b: ImageBitmap?, x: Float, y: Float, side: Float, r: Float) = pt.picture(b, x, y, side, r, empty = 0x1FFFFFFF)
-        text(title, 64f, true, 255, 80f, 110f, w - 160f)
-        text(whenText, 40f, false, 190, 80f, 200f, w - 160f)
-        var y = 300f
-        if (lead != null) { text(lead, 150f, true, 255, 80f, y, w - 160f); y += 260f }
-        else if (rows.isNotEmpty()) { picture(pics[0], 190f, y, 700f, 36f); y += 760f }
-        rows.take(5).forEachIndexed { i, r ->
-            text("${i + 1}", 52f, true, 150, 80f, y + 20f, 70f)
-            picture(pics.getOrNull(i), 160f, y, 120f, 16f)
-            text(r.title, 46f, true, 255, 310f, y + 8f, 430f)
-            text(r.sub, 34f, false, 190, 310f, y + 70f, 430f)
-            text(r.value, 36f, true, 230, 740f, y + 36f, 260f, right = true)
-            y += 160f
+        // The top: the first one's picture in a circle, the period and what this is
+        pt.picture(head, 60f, 50f, 120f, 60f, empty = 0x1FFFFFFF)
+        text(whenText.uppercase() + " · MOST PLAYED", 30f, true, 200, 205f, 62f, w - 280f)
+        text(title, 58f, true, 255, 205f, 104f, w - 280f)
+        pt.rect(60f, 196f, 160f, 202f, Rgb.argb(220, 255, 255, 255))
+        // The 15, in two columns (1–8 and 9–15)
+        val top = 230f; val rowH = 80f; val colW = (w - 120f - 60f) / 2f
+        list.forEachIndexed { i, r ->
+            val col = if (i < 8) 0 else 1
+            val x = 60f + col * (colW + 60f)
+            val y = top + (if (col == 0) i else i - 8) * rowH
+            text("${i + 1}", 30f, true, 170, x, y + 16f, 52f)
+            pt.picture(pics.getOrNull(i), x + 58f, y + 4f, 62f, 8f, empty = 0x1FFFFFFF)
+            val name = if (r.sub.isNotEmpty()) "${r.title} - ${r.sub}" else r.title
+            text(name, 30f, true, 255, x + 136f, y + 16f, colW - 136f - 170f)
+            text(r.value, 28f, true, 220, x + colW - 160f, y + 18f, 160f, right = true)
         }
-        text("Radon Player", 32f, true, 128, 80f, h - 110f, w - 160f)
+        // The foot: the total listening time (for the time cards), and the app
+        if (lead != null) {
+            text("TOTAL", 24f, false, 170, 60f, h - 120f, 300f)
+            text(lead, 44f, true, 255, 60f, h - 90f, 600f)
+        }
+        text("Radon Player", 26f, true, 128, w - 460f, h - 60f, 400f, right = true)
         return pt.img
     }
 }
@@ -170,17 +184,18 @@ fun CardSheet(ui: Ui, kind: String) {
     var bmp by remember { mutableStateOf<ImageBitmap?>(null) }
     var status by remember { mutableStateOf("Making it…") }
     val period = mapOf("week" to "This week", "month" to "This month", "year" to "This year")[Music.topPeriod] ?: "All time"
-    val title = mapOf("songs" to "My top songs", "albums" to "My top albums", "artists" to "My top artists")[kind] ?: "My listening time"
+    val title = mapOf("songs" to "My top songs", "albums" to "My top albums", "artists" to "My top artists",
+        "time_songs" to "My songs by time", "time_albums" to "My albums by time")[kind] ?: "My artists by time"
     LaunchedEffect(kind) {
         Music.bg({
             var lead: String? = null
             val rows = when (kind) {
-                "time", "time_artists" -> Stats.time[Music.topPeriod]?.let { t -> lead = fmtHours(t.secs); t.artists.take(5).map { (n, v) -> Card.Row(n, "", fmtHours(v), artistArt(n, "")) } }.orEmpty()
+                "time", "time_artists" -> Stats.time[Music.topPeriod]?.let { t -> lead = fmtHours(t.secs); t.artists.take(15).map { (n, v) -> Card.Row(n, "", fmtHours(v), artistArt(n, "")) } }.orEmpty()
                 "time_songs", "time_albums" -> Stats.time[Music.topPeriod]?.let { t -> lead = fmtHours(t.secs)
-                    timeItemsOf(kind.removePrefix("time_"), t).take(5).map { Card.Row(it.title, it.artist, fmtHours(it.secs), artModel(it.tracks.first(), 600)) } }.orEmpty()
-                "songs" -> Music.mostPlayed(Music.topPeriod).take(5).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it, 600)) }
-                "albums" -> Music.topAlbums(Music.topPeriod).take(5).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it.tracks.first(), 600)) }
-                else -> Music.topArtists(Music.topPeriod).take(5).map { Card.Row(it.name, "", "%,d".format(it.plays), artistArt(it.name, it.thumb)) }
+                    timeItemsOf(kind.removePrefix("time_"), t).take(15).map { Card.Row(it.title, it.artist, fmtHours(it.secs), artModel(it.tracks.first(), 600)) } }.orEmpty()
+                "songs" -> Music.mostPlayed(Music.topPeriod).take(15).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it, 600)) }
+                "albums" -> Music.topAlbums(Music.topPeriod).take(15).map { Card.Row(it.title, it.artist, "%,d".format(it.plays), artModel(it.tracks.first(), 600)) }
+                else -> Music.topArtists(Music.topPeriod).take(15).map { Card.Row(it.name, "", "%,d".format(it.plays), artistArt(it.name, it.thumb)) }
             }
             if (rows.isEmpty()) null else Card.draw(title, period, rows, lead)
         }) { b, err -> bmp = b; status = if (b != null) "Share it to a story or a chat, or save it" else err?.message?.take(100) ?: "Nothing played in this time yet" }
@@ -190,7 +205,12 @@ fun CardSheet(ui: Ui, kind: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(status, style = T.sub)
             bmp?.let { b ->
-                Image(b, contentDescription = "The card", modifier = Modifier.fillMaxWidth().aspectRatio(1080f / 1920f))
+                // The whole card on screen at once: as wide as fits, never taller than the window
+                androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val ratio = Card.W.toFloat() / Card.H
+                    val wide = if (maxWidth / ratio > 460.dp) 460.dp * ratio else maxWidth
+                    Image(b, contentDescription = "The card", modifier = Modifier.width(wide).aspectRatio(ratio))
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val file = "$title $period".replace(' ', '-')
                     Pill(SHARE_PICTURE) { if (!sharePicture(b, file, null)) Music.toast("Couldn't share it") }

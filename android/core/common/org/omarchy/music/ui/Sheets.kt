@@ -1165,12 +1165,6 @@ private fun SoundQuality(ui: Ui) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }
     val P = org.omarchy.music.Prefs
-    Line("Song volume changes", "The volumes you gave songs (Volume… in a song's menu, or on several picked songs), each kept " +
-        "for the output it was set on: louder on your headphones, normal in the car. Off: every song plays at its normal volume " +
-        "everywhere (the changes are kept for when you turn it back on). Now playing shows a speaker with ! on a song that has one, red while " +
-        "it's in effect", Music.songVolumesOn) {
-        Switch(Music.songVolumesOn, { Music.setSongVolumesOn(it) }, colors = swColors())
-    }
     Line("Clip guard", "When a song's volume or the EQ would push the loudest moments (peaks) past the " +
         "maximum level, a limiter gently holds them down instead of letting them crackle. It only ever touches a peak that would " +
         "clip", P.on(P.CLIP_GUARD)) {
@@ -1867,8 +1861,6 @@ private fun VolumeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                         (if (k.isEmpty()) "every output" else Music.eq.outputs[k]?.label?.ifEmpty { null } ?: Music.outLabel(k)) +
                             " %+.1f dB".format(v) }, style = T.sub, modifier = Modifier.padding(top = 6.dp))
                 }
-                if (!Music.songVolumesOn) Text("Song volume changes are off (Settings › Sound quality): this is saved, and heard once they're on.",
-                    style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 6.dp))
             }
         },
         confirmButton = { TextButton({ done(Math.round(db * 2) / 2.0) }) { Text("Save", color = C.accent) } },

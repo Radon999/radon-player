@@ -67,12 +67,10 @@ object DjVoices {
     /** Kokoro's voices offered (name in the model, its speaker number in kokoro-multi-lang-v1_0, what it sounds like). */
     data class KokoroVoice(val id: String, val sid: Int, val label: String)
 
-    val KOKORO_VOICES = listOf(
-        KokoroVoice("am_adam", 11, "Male"),     // the default
-        KokoroVoice("af_heart", 3, "Female"),
-    )
+    /** The DJ's one voice: Heart, a female voice that sounds like a person. */
+    val KOKORO_VOICES = listOf(KokoroVoice("af_heart", 3, "Female"))
 
-    val kokoroVoice: KokoroVoice get() = Prefs.text(KOKORO_VOICE).let { v -> KOKORO_VOICES.firstOrNull { it.id == v } } ?: KOKORO_VOICES[0]
+    val kokoroVoice: KokoroVoice get() = KOKORO_VOICES[0]
     fun setKokoroVoice(id: String) = Prefs.setText(KOKORO_VOICE, id)
 
     /** What the DJ says to try a voice. */
