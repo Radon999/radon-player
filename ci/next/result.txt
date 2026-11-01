@@ -1,23 +1,56 @@
-run 41256684489 · Sun Nov  1 00:32:22 UTC 2026
-PHONE OK
-PC OK
+run 41258303682 · Sun Nov  1 00:51:29 UTC 2026
+PHONE FAILED
+PC FAILED
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="2" failures="0" tests="1" failures="0" tests="2" failures="0" tests="1" failures="0" tests="7" failures="0" tests="1" failures="0" tests="2" failures="0" tests="1" failures="0" 
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:655:9 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:656:9 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Updater.kt:76:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+e: core/common/org/omarchy/music/ui/Library.kt:201:37 No value passed for parameter 'sub'.
+e: core/common/org/omarchy/music/ui/Library.kt:201:45 Argument type mismatch: actual type is 'androidx.compose.runtime.internal.ComposableFunction2<ERROR CLASS: Cannot infer type for parameter <unused var>, ERROR CLASS: Cannot infer type for parameter songs, kotlin.Unit>', but '@Composable() androidx.compose.runtime.internal.ComposableFunction0<kotlin.Unit>' was expected.
+e: core/common/org/omarchy/music/ui/Library.kt:201:47 Cannot infer type for this parameter. Please specify it explicitly.
+e: core/common/org/omarchy/music/ui/Library.kt:201:50 Cannot infer type for this parameter. Please specify it explicitly.
+e: core/common/org/omarchy/music/ui/Library.kt:201:65 Overload resolution ambiguity between candidates:
+e: core/common/org/omarchy/music/ui/Library.kt:201:73 Overload resolution ambiguity between candidates:
+e: core/common/org/omarchy/music/ui/Library.kt:201:88 Unresolved reference 'it'.
+e: core/common/org/omarchy/music/ui/Library.kt:242:102 Argument type mismatch: actual type is 'androidx.compose.runtime.internal.ComposableFunction2<ERROR CLASS: Cannot infer type for parameter f, ERROR CLASS: Cannot infer type for parameter <unused var>, kotlin.Unit>', but '@Composable() androidx.compose.runtime.internal.ComposableFunction0<kotlin.Unit>' was expected.
+e: core/common/org/omarchy/music/ui/Library.kt:242:104 Cannot infer type for this parameter. Please specify it explicitly.
+e: core/common/org/omarchy/music/ui/Library.kt:242:107 Cannot infer type for this parameter. Please specify it explicitly.
+e: core/common/org/omarchy/music/ui/Library.kt:242:39 No value passed for parameter 'sub'.
+> Task :app:compileReleaseKotlin FAILED
+> Task :ui-common:lintVitalAnalyzeRelease
+> Task :app:mergeExtDexRelease
+> Task :app:mergeReleaseShaders
+--
+> Task :desktop:compileKotlin FAILED
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:flattenJars
+FAILURE: Build completed with 2 failures.
 
-> Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-3.0.0.jar
+--
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+BUILD FAILED in 2m 44s
+86 actionable tasks: 86 executed
+> Get more help at https://help.gradle.org.
+==============================================================================
 
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -25,5 +58,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 40s
-103 actionable tasks: 103 executed
+BUILD FAILED in 2m 44s
+86 actionable tasks: 86 executed
