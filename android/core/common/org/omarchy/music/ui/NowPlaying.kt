@@ -144,7 +144,8 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
         if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
-        if (vis != null && visStyle != "off" && !onCover) NowVis(visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
+        if (vis != null && visStyle != "off" && !onCover && !visPane) NowVis(   // not behind the visualizer settings (it hid the choices)
+            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
         if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if (lock != null) LockTop(n, lock) else NowTop(ui, n)
