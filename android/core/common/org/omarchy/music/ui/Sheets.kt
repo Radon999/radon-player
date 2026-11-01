@@ -271,17 +271,9 @@ private fun AccountsSheet(ui: Ui) {
                 "you left it, so you can go back to any of them later, rename them or reorder them. Off: there's one queue, and " +
                 "playing something new replaces it",
                 Music.multiQueue) { Switch(Music.multiQueue, { Music.setMultiQueue(it) }, colors = swColors()) }
-            Line("Look", "How the app is coloured: Light, Dark, or Now playing, which colours every screen to match " +
-                "the cover of the song that's playing, the way the Now playing screen is", false) {
-                Box {
-                    var open by remember { mutableStateOf(false) }
-                    Pill("${Looks.ALL.firstOrNull { it.first == Music.look }?.second ?: "Light"} ▾", quiet = true) { open = true }
-                    androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
-                        Looks.ALL.forEach { (k, name) ->
-                            androidx.compose.material3.DropdownMenuItem({ Text(name, style = T.body) }, { open = false; Music.chooseLook(k) })
-                        }
-                    }
-                }
+            Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
+                "that's playing, the way the Now playing screen is), or one of the themes, from Midnight to High contrast", false) {
+                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
             }
             Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
                 "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
@@ -295,6 +287,7 @@ private fun AccountsSheet(ui: Ui) {
                     }
                 }
             }
+            NowPlayingLookLines()
             StreamQualityLine()
             DownloadQualityLine()
             OtherServicesLine()
@@ -899,6 +892,24 @@ private fun PlaybackLines(ui: Ui) {
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
         Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
+    }
+}
+
+/** Settings › Look for Now playing: its background, and the visualizer behind it. */
+@Composable
+private fun NowPlayingLookLines() {
+    val plain = Vis.plainNow()
+    Line("Now playing background", if (plain) "Plain: a still black background with the cover shown as it is, no blur. The queue " +
+        "and lyrics sit on it too"
+        else "Cover blur: the colours of the song's cover, with the cover itself faintly blurred behind everything, the queue " +
+        "and lyrics too", false) {
+        Chip("Cover blur", !plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "blur") }
+        Spacer(Modifier.width(4.dp))
+        Chip("Plain", plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "plain") }
+    }
+    Line("Now playing visualizer", "What moves with the music behind Now playing: the slim bars, nothing, or any of the " +
+        "Visualizer's styles, faintly. It takes the colour picked in the Visualizer (Look's colour is the cover's here)", false) {
+        ChoicePill(NP_VIS_STYLES, Vis.nowStyle()) { org.omarchy.music.Prefs.setText(Vis.NOW, it) }
     }
 }
 

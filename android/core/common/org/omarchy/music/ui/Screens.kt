@@ -489,10 +489,22 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("DJ" + (Dj.KINDS[d.kind]?.let { " · ${it.uppercase()}" } ?: ""), style = T.section)
             Text(d.line.ifEmpty {
-                "Your own DJ: a mix of the songs you love, ones you haven't heard in a while and new ones from " +
-                    "Tidal and YouTube Music, a few at a time. Switch it up for something else, or ask for an artist, " +
-                    "a genre, a decade or a vibe."
+                "Your own DJ, made from everything you've played: Last.fm, your Spotify, Apple Music, Deezer, YouTube Music " +
+                    "and Tidal imports, and the plays here. Sets of a few songs at a time: what you've had on repeat, what " +
+                    "you play at this hour, the mood you've been in, throwbacks, favourites, songs you haven't heard in a while, deep cuts, artists " +
+                    "like yours and new songs from Tidal and YouTube Music, leaving out the ones you keep skipping. Switch " +
+                    "it up for something else, or ask for an artist, a mood, a genre, a decade or a vibe."
             }, style = if (d.line.isNotEmpty()) T.title else T.body)
+            // What the DJ knows: every source and stat it uses (Wrapped.DJ_KNOWS), folded away till asked for
+            var knows by remember { mutableStateOf(false) }
+            Text((if (knows) "▾  " else "▸  ") + "What the DJ knows", style = T.sub.copy(color = C.accent),
+                modifier = Modifier.clickable { knows = !knows }.padding(vertical = 2.dp))
+            if (knows) Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                org.omarchy.music.Wrapped.DJ_KNOWS.forEach { (head, what) ->
+                    Text(head, style = T.title, modifier = Modifier.padding(top = 6.dp))
+                    Text(what, style = T.sub)
+                }
+            }
             if (d.fact.isNotEmpty()) Text(d.fact, style = T.sub.copy(color = C.accent))
             if (d.busy.isNotEmpty()) Text(d.busy, style = T.sub)
             Box {

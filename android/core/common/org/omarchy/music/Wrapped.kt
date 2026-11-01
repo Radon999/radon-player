@@ -15,8 +15,8 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /** Wrapped: your week, month or year in music (or all of it) from your Last.fm history, the desktop's
- *  numbers worked out the same way, with the Spotify plays you imported (SpotifyHistory)
- *  that Last.fm hasn't got. A big year takes a minute the first time (Last.fm hands out
+ *  numbers worked out the same way, with the plays you imported (Spotify, Apple Music, Deezer, YouTube Music, Tidal),
+ *  your own songs' genre tags and moods, and the listening diary ([ListenLog]: playlists, outputs, searches). A big year takes a minute the first time (Last.fm hands out
  *  200 scrobbles a request); then it's kept and only the new ones are read. */
 object Wrapped {
     private val NOT_GENRES = setOf("seen live", "favorites", "favourites", "favorite", "favourite", "my favorites", "albums i own",
@@ -30,6 +30,71 @@ object Wrapped {
         "hip-hop" to "Hip-hop", "hip hop" to "Hip-hop", "uk drill" to "UK Drill")
     val MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ")
     val MONTH_NAMES = "January February March April May June July August September October November December".split(" ")
+    /** How many each top list shows (songs, albums, artists, genres…). */
+    const val TOP = 15
+
+    /** "What Wrapped counts", at the top of Wrapped: every source and stat it uses, in plain words (heading, what). */
+    val COUNTS: List<Pair<String, String>> = listOf(
+        "Your plays" to "Every scrobble on your Last.fm, plus every play in the histories you imported from Spotify, Apple Music, " +
+            "Deezer, YouTube Music and Tidal, each with its date and time. Without Last.fm, the app's own diary of what you " +
+            "played here counts instead (with Last.fm on, those plays are scrobbled already). The same song from different " +
+            "places is one song.",
+        "Minutes" to "How long Spotify and the other imports say each song played; for the rest, the length of your own copy, " +
+            "else Last.fm's, else about three and a half minutes a song.",
+        "Top songs, artists and albums" to "Your plays added up: the $TOP you played most. An album and its deluxe edition count as one.",
+        "Top genres" to "The genre tag in your own music files, for every play of a song you have (\"Pop; Rock\" counts for both). " +
+            "Without genre tags, your top artists' tags on Last.fm.",
+        "Top moods" to "The mood the app finds for each of your own songs (from its sound, its genre tag and Last.fm's tags), " +
+            "for every play of it.",
+        "Singles and EPs" to "Plays of your songs that sit in Singles or EPs: by their album tag, their folder, or where you put " +
+            "them with Tagger › Tab.",
+        "When you listen" to "The time of every play: your top hour and weekday, your biggest day and month, your longest run of " +
+            "days in a row, your first song of the period, the song you replayed most in one day, and each month's top artist.",
+        "Discoveries" to "Songs and artists whose very first play in all your history (Last.fm, imports and plays here) falls " +
+            "in the period. Shown when your history goes back further than the period.",
+        "Skips and heard out" to "Counted by the app since it started counting: a skip is moving on with more than " +
+            "${SongStats.SKIP_LEFT} seconds of a song left; heard out is playing it to the end. Plus the songs you starred.",
+        "Milestones" to "Songs and artists that reached 100, 250, 500, 1,000… plays, dated by the play that got them there.",
+        "Playlists, devices and searches" to "Counted from version 3.0 on, on this device: how long you listened to each song, " +
+            "the playlist, album, artist, search, DJ or radio it was played from, whether that list was shuffled, which output " +
+            "the sound went to (the car, earbuds, a speaker, the PC), and the songs you started from search results.",
+        "Listener type" to "Mainstream or underground: how many fans your top artists have on Deezer. Shuffler or in order: " +
+            "the listening diary above. Loyal or explorer: the share of your plays on your top 10 artists, and how many " +
+            "artists were new to you. Night owl or early bird: the hours you play. Skipper or finisher: your skips.",
+        "Your library" to "Every song you have (downloads and your music folders): songs, albums, EPs, singles and artists, how " +
+            "long it would take to play it all, and how varied its genres and moods are. The variety score (0 to 100) is " +
+            "how evenly your songs spread across them: 100 if every genre had as many songs, near 0 if one has nearly all.",
+        "Pictures" to "Covers from your own files first, then Last.fm's, then Deezer's; artist photos from Deezer.",
+    )
+
+    /** "What the DJ knows", on the DJ view: what the DJ (Dj.kt) uses to pick its sets and lines (heading, what). */
+    val DJ_KNOWS: List<Pair<String, String>> = listOf(
+        "Your history" to "Every scrobble on your Last.fm, your Spotify, Apple Music, Deezer, YouTube Music and Tidal imports " +
+            "(with their dates and times), and the app's own diary of what you played here (only the plays Last.fm hasn't " +
+            "got, so nothing counts twice). Read again every ten minutes.",
+        "On repeat" to "Your most played songs of the last 30 days.",
+        "This time of day" to "What you've played within an hour of now, over the last year.",
+        "Throwbacks" to "Each past year's most played songs (years with 30 plays or more), the ones you haven't played in two months.",
+        "Rediscover" to "Songs you've played a lot over all time, but not in three months.",
+        "Your favourites" to "The songs you starred; the ones you play most come up more often.",
+        "Your genre" to "The genre tags in your own music files; without them, your top artists' tags on Last.fm.",
+        "Your mood" to "The moods of your own songs (from their sound, genre tags and Last.fm's tags) that you've played in the " +
+            "last 30 days, and the ones you play around this hour counted double: songs of yours in that mood.",
+        "New for you and More like this" to "Tidal's and YouTube Music's radio of songs you've been playing (or of the song " +
+            "playing now), leaving out songs you already know.",
+        "Deep cuts" to "The best known songs of your artists of the last 90 days that you haven't played yet.",
+        "Artists for you" to "Similar artists from Last.fm (else Deezer's related artists) of the artists you play most, all " +
+            "time and this month, leaving out the ones you already play.",
+        "Skips" to "Songs you've skipped three times or more, and more often than you heard them out, are kept out of its sets.",
+        "What it tells you" to "How many times (and hours) you've played a song, when you first played it, that you never (or " +
+            "always) skip it, the mood you've been in this month, your artist of the month and of all time, the hour you " +
+            "listen most, your plays in all, and a past year's number one.",
+        "When you ask" to "An artist, a mood (your songs with it), a genre (your files' tags first, then Last.fm's), a decade " +
+            "or a vibe like chill or workout; else a Tidal or YouTube Music mix of it.",
+        "Playing from a list" to "From a playlist, folder or album: its songs you play most, haven't played yet, haven't played " +
+            "in a while, or play at this hour, the ones in the mood you've been in, or a few by one of its artists.",
+        "Not used" to "The listening diary (devices, playlists, searches) is for Wrapped only.",
+    )
     val WEEKDAYS = "Mondays Tuesdays Wednesdays Thursdays Fridays Saturdays Sundays".split(" ")
 
     /** The year Wrapped opens on: this one, or last year until March, while this one has hardly begun. */
@@ -110,7 +175,35 @@ object Wrapped {
         // still going, and how many scrobbles the same stretch before it had (to compare with)
         val daily: List<Int> = emptyList(), val spanDays: Int = 0, val partial: Boolean = false, val prevCount: Int? = null,
         val milestones: List<Stats.Milestone> = emptyList(),   // songs and artists that reached 100, 250, 500, 1,000… plays in it
+        // From your own songs' files: plays by genre tag and by mood, and your singles and EPs played most
+        val fileGenres: List<Pair<String, Int>> = emptyList(), val moods: List<Pair<String, Int>> = emptyList(),
+        val genreScore: Double = 0.0, val moodScore: Double = 0.0,
+        val singles: List<AlbumPlays> = emptyList(), val eps: List<AlbumPlays> = emptyList(),
+        // Firsts: songs and artists first played in it (known: there's history from before it to tell by)
+        val discovered: List<Song> = emptyList(), val discoveredCount: Int = 0,
+        val newArtists: List<Pair<String, Int>> = emptyList(), val newArtistCount: Int = 0, val firstsKnown: Boolean = false,
+        val dayRepeat: Repeat? = null,                            // the song played most times in one day
+        val monthTops: List<Pair<Int, String>> = emptyList(),     // a year's months (0–11) and each one's top artist
+        val log: LogStats = LogStats(),                           // from the listening diary (ListenLog)
+        val type: Listening.Kind? = null,                         // the listener type
+        val library: LibraryStats? = null,                        // your music as it is now
     )
+
+    /** A song played n times in one day. */
+    data class Repeat(val song: Song, val day: LocalDate)
+
+    /** Time from one list (a playlist): seconds, songs, and seconds of it shuffled. */
+    data class ListTime(val name: String, val secs: Double, val plays: Int, val shuffledSecs: Double)
+    /** Time on one output (the car, earbuds, a speaker, the PC). */
+    data class Device(val name: String, val kind: String, val secs: Double, val plays: Int)
+    /** What the listening diary says about a period: time in it, the playlists, where songs were played from, the
+     *  outputs, the songs started from search results, and the share of list time shuffled (null: too little to say). */
+    data class LogStats(val since: Long = 0, val secs: Double = 0.0, val playlists: List<ListTime> = emptyList(),
+                        val kinds: List<Pair<String, Double>> = emptyList(), val devices: List<Device> = emptyList(),
+                        val searched: List<Song> = emptyList(), val shuffle: Double? = null, val session: Double = 0.0)
+    /** Your music now: how many songs, releases and artists, how long it all plays, its genres and moods (song counts). */
+    data class LibraryStats(val songs: Int, val albums: Int, val eps: Int, val singles: Int, val artists: Int, val secs: Double,
+                            val genres: List<Pair<String, Int>>, val genreScore: Double, val moods: List<Pair<String, Int>>, val moodScore: Double)
 
     @Serializable
     data class Row(val t: Long, val artist: String, val title: String, val album: String, val image: String,
@@ -154,6 +247,8 @@ object Wrapped {
         val art = HashMap<Pair<String, String>, String>(); val albumArt = HashMap<Pair<String, String>, String>()
         val firstPlay = HashMap<Pair<String, String>, Long>()
         val months = IntArray(12); val hours = IntArray(24); val weekdays = IntArray(7); val days = LinkedHashMap<LocalDate, Int>()
+        val monthArtists = Array(12) { HashMap<String, Int>() }   // each month's artists, for its top one
+        val daySongs = HashMap<Pair<LocalDate, Pair<String, String>>, Int>()   // a song's plays in one day
         for (r in rows) {
             // The same song from Last.fm, Spotify and Apple Music counts as one (as in Most played).
             val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
@@ -175,6 +270,8 @@ object Wrapped {
             val d = local(r.t)
             months[d.monthValue - 1]++; hours[d.hour]++; weekdays[d.dayOfWeek.value - 1]++
             days.merge(d.toLocalDate(), 1, Int::plus)
+            monthArtists[d.monthValue - 1].merge(ka, 1, Int::plus)
+            daySongs.merge(d.toLocalDate() to ks, 1, Int::plus)
         }
         var streak = 0; var run = 0; var prev: LocalDate? = null
         for (day in days.keys.sorted()) {
@@ -187,11 +284,16 @@ object Wrapped {
         val topArtist = common(artists).first().key
         val byTop = common(songs).firstOrNull { it.key.second == topArtist }
         val t0 = rows.first()
-        return base.copy(
+        val rep = daySongs.entries.maxByOrNull { it.value }?.takeIf { it.value >= 3 }?.let { (k, n) ->
+            val (title, artist) = songName[k.second]!!
+            Repeat(Song(title, artist, n, art[k.second] ?: ""), k.first)
+        }
+        val monthTops = (0 until 12).mapNotNull { m -> common(monthArtists[m]).firstOrNull()?.let { m to artistName[it.key]!! } }
+        return base.copy(dayRepeat = rep, monthTops = monthTops,
             scrobbles = rows.size, artistCount = artists.size, songCount = songs.size,
             artists = common(artists).take(30).map { artistName[it.key]!! to it.value },
-            songs = common(songs).take(10).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k]) },
-            albums = common(albums).take(5).map { (k, n) -> AlbumPlays(albumName[k]!!.first, albumName[k]!!.second, n, albumArt[k] ?: "") },
+            songs = common(songs).take(TOP).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k]) },
+            albums = common(albums).take(TOP).map { (k, n) -> AlbumPlays(albumName[k]!!.first, albumName[k]!!.second, n, albumArt[k] ?: "") },
             topArtistSong = byTop?.let { songName[it.key]!!.first to it.value },
             months = months.toList(), hours = hours.toList(), weekdays = weekdays.toList(), streak = streak, days = days.size,
             busiest = busiest.key, busiestN = busiest.value, first = LastFm.Played(t0.t, t0.artist, t0.title, t0.album, t0.image),
@@ -294,9 +396,18 @@ object Wrapped {
         return rows
     }
 
+    /** The plays here (the app's own diary) when Last.fm isn't connected: with it, they're scrobbled to Last.fm already. */
+    private fun herePlays(): List<SpotifyHistory.Play> = if (LastFm.connected) emptyList() else
+        runCatching { Music.plays.items.values.toList().flatMap { e -> e.at.map { SpotifyHistory.Play(it, e.track.artist, e.track.title, e.track.album) } } }
+            .getOrDefault(emptyList())
+
+    /** Every play with a time from your imports (Spotify, Deezer, YouTube Music, Tidal, Apple Music), and without
+     *  Last.fm the plays here. */
+    private fun imported(): List<SpotifyHistory.Play> = SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed() + herePlays()
+
     /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
-        val plays = (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).filter { it.t in start until end }
+        val plays = imported().filter { it.t in start until end }
         if (plays.isEmpty()) return rows
         return (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
     }
@@ -305,8 +416,8 @@ object Wrapped {
     fun load(ctx: Ctx, period: Period, progress: (String) -> Unit): Data {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
-        val spotify = (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).sortedBy { it.t }   // Spotify's, Deezer's and Apple Music's plays
-        if (!fm && spotify.isEmpty()) error("Connect Last.fm, or import your Spotify, Deezer or Apple Music history, in Settings (⚙).")
+        val spotify = imported().sortedBy { it.t }   // Spotify's, Deezer's, YouTube Music's, Tidal's and Apple Music's plays (and here's)
+        if (!fm && spotify.isEmpty()) error("Connect Last.fm or import your Spotify, Apple Music, Deezer, YouTube Music or Tidal history in Settings (⚙), or play some music here first.")
         val me = if (fm) { progress("Opening your Last.fm…"); LastFm.info() } else null
         val thisYear = LocalDate.now().year
         var firstYear = me?.registered?.takeIf { it > 0 }?.let { local(it).year } ?: thisYear
@@ -315,6 +426,7 @@ object Wrapped {
         val user = me?.name ?: (Music.sources["spotify"] as? Spotify)?.user?.ifEmpty { null } ?: "You"
         val base = Data(period, user, years, firstYear)
         var data: Data
+        var rows: List<Row>
         if (period == Period.All && spotify.isEmpty()) {   // Last.fm adds it all up: no need to read every scrobble
             val counts = years.reversed().map { y ->
                 progress("Counting your scrobbles · $y")
@@ -324,11 +436,17 @@ object Wrapped {
             if (me!!.playcount == 0) return base.copy(empty = true)
             data = base.copy(scrobbles = me.playcount, yearsCount = counts,
                 artists = LastFm.top("artist", 30).map { it.name to it.plays },
-                songs = LastFm.top("track", 10).map { Song(it.name, it.artist, it.plays, it.image) },
-                albums = LastFm.top("album", 5).map { AlbumPlays(it.name, it.artist, it.plays, it.image) },
+                songs = LastFm.top("track", TOP).map { Song(it.name, it.artist, it.plays, it.image) },
+                albums = LastFm.top("album", TOP).map { AlbumPlays(it.name, it.artist, it.plays, it.image) },
                 minutes = Math.round(me.playcount * 3.5).toInt())   // about three and a half minutes a song
+            rows = keptScrobbles(ctx).sortedBy { it.t }   // what's kept here already, for the pages worked out from plays
+            if (rows.isNotEmpty()) {
+                val y = yearStats(base, rows)
+                data = data.copy(hours = y.hours, weekdays = y.weekdays, streak = y.streak, days = y.days, busiest = y.busiest,
+                    busiestN = y.busiestN, first = y.first, dayRepeat = y.dayRepeat, artistCount = y.artistCount, songCount = y.songCount)
+            }
         } else {
-            val rows = if (period == Period.All)
+            rows = if (period == Period.All)
                 withSpotify(if (fm) years.reversed().flatMap { scrobbles(dir, Period.Year(it), progress) } else emptyList(), Long.MIN_VALUE, Long.MAX_VALUE)
             else withSpotify(if (fm) scrobbles(dir, period, progress) else emptyList(), epoch(period.start()), epoch(period.end()))
             if (rows.isEmpty()) return base.copy(empty = true)
@@ -364,21 +482,204 @@ object Wrapped {
         }.getOrDefault(emptyList()))
         progress("Finding your genres…")
         data = data.copy(genres = genres(dir, data.artists))
-        progress("Getting the pictures…")
         val mine = myCovers(dir)
+        progress("Reading your songs' genres and moods…")
+        data = runCatching { mineStats(data, rows, mine) }.getOrDefault(data)
+        if (period != Period.All) {
+            progress("Finding your discoveries…")
+            data = runCatching { firsts(ctx, data, rows, epoch(period.start())) }.getOrDefault(data)
+        }
+        val (from, to) = if (period == Period.All) 0L to Long.MAX_VALUE else epoch(period.start()) to epoch(period.end())
+        data = data.copy(log = runCatching {
+            val diary = ListenLog.all()
+            logStats(diary.filter { it.t in from until to }, diary.firstOrNull()?.t ?: 0L, mine)
+        }.getOrDefault(LogStats()))
+        progress("Working out what kind of listener you are…")
+        data = data.copy(type = runCatching { listenerType(dir, data, from, to) }.getOrNull())
+        progress("Looking through your library…")
+        data = data.copy(library = runCatching { library() }.getOrNull())
+        progress("Getting the pictures…")
         data = data.copy(
             artistImage = data.artists.firstOrNull()?.let { runCatching { deezerArtistImage(it.first) }.getOrNull() } ?: "",
             // Your own copy's cover first (Last.fm often has none), then Last.fm's, then Deezer's.
             songs = data.songs.mapIndexed { i, s ->
                 val img = mine(s.artist, s.title, false).ifEmpty { picture(s.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it } }
-                s.copy(art = img.ifEmpty { runCatching { deezerCover(s.artist, s.title) }.getOrNull() ?: "" })
+                s.copy(art = img.ifEmpty { runCatching { Pictures.deezerPace(); deezerCover(s.artist, s.title) }.getOrNull() ?: "" })
             },
             albums = data.albums.mapIndexed { i, a ->
                 val img = mine(a.artist, a.name, true).ifEmpty { picture(a.art).let { if (i == 0 && it.isNotEmpty()) bigLastfm(it) else it } }
-                a.copy(art = img.ifEmpty { runCatching { deezerAlbumCover(a.artist, a.name) }.getOrNull() ?: "" })
+                a.copy(art = img.ifEmpty { runCatching { Pictures.deezerPace(); deezerAlbumCover(a.artist, a.name) }.getOrNull() ?: "" })
             },
         )
         return data
+    }
+
+    // ---- the pages worked out from your own songs, your whole history and the listening diary ----
+
+    /** A release's name without its kind on the end: "Talk - Single" -> "Talk", "Hold On (EP)" -> "Hold On". */
+    internal fun bareRelease(name: String): String =
+        name.replace(Regex("(?:\\s+[-–]\\s+|\\s*[(\\[]|\\s+)(?:single|ep)[)\\]]?\\s*$", RegexOption.IGNORE_CASE), "").trim().ifEmpty { name }
+
+    /** A song's mood (Moods), or null. */
+    private fun moodOf(t: Track): String? = runCatching { Moods.of(t) }.getOrNull()?.takeIf { it.isNotBlank() }
+
+    /** Plays by your songs' genre tags and moods, and your singles and EPs played most: each play matched to your own
+     *  copy of the song (the plays of songs you haven't got count for none of these). */
+    private fun mineStats(d: Data, rows: List<Row>, covers: (String, String, Boolean) -> String): Data {
+        if (rows.isEmpty()) return d
+        val mine = HashMap<Pair<String, String>, Track>()
+        for (t in Music.mySongs()) mine.putIfAbsent(Stats.statsKey(t.title, t.artist), t)
+        if (mine.isEmpty()) return d
+        val genres = HashMap<String, Int>(); val genreName = HashMap<String, String>()
+        val moods = HashMap<String, Int>()
+        class Rel(val name: String, val artist: String, val t: Track) { var n = 0 }
+        val singles = LinkedHashMap<String, Rel>(); val eps = LinkedHashMap<String, Rel>()
+        val genreCache = HashMap<String, List<String>>(); val moodCache = HashMap<String, String>(); val tabCache = HashMap<String, String>()
+        for (r in rows) {
+            val t = mine[Stats.statsKey(r.title, r.artist)] ?: continue
+            for (g in genreCache.getOrPut(t.id) { genreParts(Music.genreOf(t)) }) {
+                val k = g.lowercase(); genres.merge(k, 1, Int::plus); genreName.putIfAbsent(k, g)
+            }
+            moodCache.getOrPut(t.id) { moodOf(t) ?: "" }.takeIf { it.isNotEmpty() }?.let { moods.merge(it, 1, Int::plus) }
+            val kind = tabCache.getOrPut(t.id) { runCatching { Music.tabOf(t) }.getOrNull() ?: "" }
+            if (kind == "single" || kind == "ep") {
+                val lead = splitArtists(t.artist).firstOrNull()?.ifEmpty { null } ?: t.artist
+                val name = bareRelease(if (kind == "single") t.album.ifBlank { t.title } else t.album.ifBlank { t.title })
+                val key = norm(cleanTitle(name)) + "|" + norm(lead)
+                (if (kind == "single") singles else eps).getOrPut(key) { Rel(name, lead, t) }.n++
+            }
+        }
+        fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP).map { r ->
+            AlbumPlays(r.name, r.artist, r.n, covers(r.t.artist, r.t.album.ifBlank { r.t.title }, r.t.album.isNotBlank()))
+        }
+        return d.copy(fileGenres = genres.entries.sortedByDescending { it.value }.take(TOP).map { genreName.getValue(it.key) to it.value },
+            moods = moods.entries.sortedByDescending { it.value }.take(TOP).map { it.key to it.value },
+            genreScore = Listening.diversity(genres.values), moodScore = Listening.diversity(moods.values),
+            singles = top(singles), eps = top(eps))
+    }
+
+    /** Songs and artists first played in the period (from start): every play in your history (Last.fm's kept here,
+     *  your imports, the plays here) tells when you first played each. Only when that history goes back further. */
+    private fun firsts(ctx: Ctx, d: Data, rows: List<Row>, start: Long): Data {
+        val firstSong = HashMap<Pair<String, String>, Long>(); val firstArtist = HashMap<String, Long>()
+        fun see(t: Long, title: String, artist: String) {
+            if (t <= 0) return
+            val ks = Stats.statsKey(title, artist); val ka = ks.second.ifEmpty { artist.lowercase() }
+            if (t < (firstSong[ks] ?: Long.MAX_VALUE)) firstSong[ks] = t
+            if (t < (firstArtist[ka] ?: Long.MAX_VALUE)) firstArtist[ka] = t
+        }
+        keptScrobbles(ctx).forEach { see(it.t, it.title, it.artist) }
+        (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).forEach { see(it.t, it.title, it.artist) }
+        runCatching { Music.plays.items.values.toList() }.getOrDefault(emptyList()).forEach { e -> e.at.forEach { see(it, e.track.title, e.track.artist) } }
+        rows.forEach { see(it.t, it.title, it.artist) }
+        val earliest = firstSong.values.minOrNull() ?: return d
+        if (earliest > start - 30 * 86_400L) return d   // no history from before it: everything would look new
+        val songPlays = LinkedHashMap<Pair<String, String>, Int>(); val names = HashMap<Pair<String, String>, Pair<String, String>>()
+        val artistPlays = LinkedHashMap<String, Int>(); val artistName = HashMap<String, String>()
+        for (r in rows) {
+            val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
+            if ((firstSong[ks] ?: 0L) >= start) { songPlays.merge(ks, 1, Int::plus); names.putIfAbsent(ks, r.title to r.artist) }
+            if ((firstArtist[ka] ?: 0L) >= start) {
+                artistPlays.merge(ka, 1, Int::plus)
+                artistName.putIfAbsent(ka, splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist)
+            }
+        }
+        return d.copy(firstsKnown = true, discoveredCount = songPlays.size, newArtistCount = artistPlays.size,
+            discovered = songPlays.entries.sortedByDescending { it.value }.take(TOP).map { (k, n) ->
+                Song(names.getValue(k).first, names.getValue(k).second, n, "", firstSong[k]) },
+            newArtists = artistPlays.entries.sortedByDescending { it.value }.take(TOP).map { artistName.getValue(it.key) to it.value })
+    }
+
+    /** What the listening diary says about a period's entries (since: when the diary began). */
+    internal fun logStats(es: List<ListenLog.Entry>, since: Long, covers: ((String, String, Boolean) -> String)? = null): LogStats {
+        if (es.isEmpty()) return LogStats(since = since)
+        val names = runCatching { Music.lists.all().associate { it.id to it.name } }.getOrDefault(emptyMap())
+        val playlists = es.filter { it.kind == "playlist" }.groupBy { it.list.ifEmpty { it.from } }.map { (k, l) ->
+            ListTime(names[k] ?: l.last().from, l.sumOf { it.secs }, l.size, l.filter { it.shuffled }.sumOf { it.secs })
+        }.sortedByDescending { it.secs }.take(TOP)
+        val kinds = es.groupBy { it.kind.ifEmpty { "other" } }.map { (k, l) -> k to l.sumOf { it.secs } }.sortedByDescending { it.second }
+        val devices = es.groupBy { it.out.ifEmpty { "Unknown output" } }.map { (k, l) ->
+            Device(k, l.groupingBy { it.outKind }.eachCount().maxByOrNull { it.value }?.key ?: "", l.sumOf { it.secs }, l.size)
+        }.sortedByDescending { it.secs }
+        val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.map { (_, l) ->
+            val e = l.first(); Song(e.title, e.artist, l.size, covers?.invoke(e.artist, e.title, false) ?: "", e.t)
+        }.sortedByDescending { it.plays }.take(TOP)
+        // Shuffled or in order: listening from your playlists, albums and other lists (not the DJ, a radio or a search)
+        val listed = es.filter { it.kind in setOf("playlist", "album", "artist", "other") }
+        val listedSecs = listed.sumOf { it.secs }
+        val shuffle = if (listedSecs >= 1800) listed.filter { it.shuffled }.sumOf { it.secs } / listedSecs else null
+        // The longest session: songs one after another, less than five minutes between them
+        var session = 0.0; var runStart = es.first().t; var runEnd = es.first().t + es.first().secs
+        for (e in es.drop(1)) {
+            if (e.t - runEnd > 300) { session = maxOf(session, runEnd - runStart); runStart = e.t }
+            runEnd = maxOf(runEnd, e.t + e.secs)
+        }
+        session = maxOf(session, runEnd - runStart)
+        return LogStats(since, es.sumOf { it.secs }, playlists, kinds, devices, searched, shuffle, session)
+    }
+
+    @Serializable
+    private data class Fans(val n: Long, val at: Long)
+    private val fanSer = MapSerializer(String.serializer(), Fans.serializer())
+
+    /** (blocking) How many fans each artist has on Deezer (nb_fan), kept for three months in artist-fans.json. */
+    private fun fans(dir: File, names: List<String>): Map<String, Long> {
+        val file = File(dir, "artist-fans.json")
+        val cache = readText(file)?.let { runCatching { JSON.decodeFromString(fanSer, it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf()
+        val nowS = now().toLong()
+        val out = HashMap<String, Long>()
+        var asked = false
+        for (name in names) {
+            val k = norm(name)
+            val kept = cache[k]?.takeIf { nowS - it.at < 90 * 86_400L }
+            val n = kept?.n ?: runCatching {
+                Pictures.deezerPace()
+                asked = true
+                val best = httpJson("https://api.deezer.com/search/artist?q=${enc(name)}&limit=5")["data"].list
+                    .maxByOrNull { similar(norm(it["name"].str), k) }
+                if (best != null && similar(norm(best["name"].str), k) > 0.85) best["nb_fan"].long ?: 0L else 0L
+            }.getOrNull()?.also { cache[k] = Fans(it, nowS) }
+            if (n != null && n > 0) out[name] = n
+        }
+        if (asked) runCatching { writeAtomic(file, JSON.encodeToString(fanSer, cache)) }
+        return out
+    }
+
+    /** The listener type, from the period's plays, its skips, the diary and Deezer's fan counts. */
+    private fun listenerType(dir: File, d: Data, from: Long, to: Long): Listening.Kind {
+        val top = d.artists.take(30)
+        val fans = runCatching { fans(dir, top.map { it.first }) }.getOrDefault(emptyMap())
+        val plays = d.scrobbles.coerceAtLeast(1).toDouble()
+        val hoursKnown = d.hours.sum() > 0
+        val h = runCatching { Music.songStats.habits(from.toDouble(), minOf(to, Long.MAX_VALUE / 2).toDouble(), null) }.getOrNull()
+        return Listening.type(Listening.Traits(
+            fans = Listening.weightedMedian(top.mapNotNull { (a, n) -> fans[a]?.let { it to n } }),
+            shuffle = d.log.shuffle,
+            top10 = if (d.scrobbles >= 50) d.artists.take(10).sumOf { it.second } / plays else null,
+            newArtists = if (d.firstsKnown && d.artistCount > 0) d.newArtistCount.toDouble() / d.artistCount else null,
+            night = if (hoursKnown) listOf(22, 23, 0, 1, 2, 3).sumOf { d.hours[it] } / d.hours.sum().toDouble() else 0.0,
+            morning = if (hoursKnown) (5 until 10).sumOf { d.hours[it] } / d.hours.sum().toDouble() else 0.0,
+            skips = h?.takeIf { it.skips + it.full >= 20 }?.let { it.skips.toDouble() / (it.skips + it.full) },
+        ))
+    }
+
+    /** (blocking) Your music as it is now: songs, albums, EPs, singles, artists, how long it all plays, and how varied. */
+    fun library(): LibraryStats {
+        val songs = Music.mySongs()
+        var albums = 0; var eps = 0; var singles = 0
+        for ((a, ts) in Music.albums()) {
+            if (ts.all { it.album.isBlank() }) { singles += ts.size; continue }   // no album at all: each one a single
+            when (runCatching { Music.releaseKind(a.title, ts) }.getOrDefault("album")) { "ep" -> eps++; "single" -> singles++; else -> albums++ }
+        }
+        val artists = songs.map { norm(splitArtists(it.artist).firstOrNull() ?: it.artist) }.filter { it.isNotEmpty() }.toSet().size
+        val genres = HashMap<String, Int>(); val genreName = HashMap<String, String>(); val moods = HashMap<String, Int>()
+        for (t in songs) {
+            for (g in genreParts(Music.genreOf(t))) { val k = g.lowercase(); genres.merge(k, 1, Int::plus); genreName.putIfAbsent(k, g) }
+            moodOf(t)?.let { moods.merge(it, 1, Int::plus) }
+        }
+        return LibraryStats(songs.size, albums, eps, singles, artists, songs.sumOf { it.duration.coerceAtLeast(0.0) },
+            genres.entries.sortedByDescending { it.value }.map { genreName.getValue(it.key) to it.value }, Listening.diversity(genres.values),
+            moods.entries.sortedByDescending { it.value }.map { it.key to it.value }, Listening.diversity(moods.values))
     }
 
     private fun deezerAlbumCover(artist: String, album: String): String? =

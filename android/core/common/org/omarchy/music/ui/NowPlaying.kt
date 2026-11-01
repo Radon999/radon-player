@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -107,20 +108,30 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     var micOk by remember { mutableStateOf(hasPermission(Perm.MIC)) }
     val askMic = rememberPermission { micOk = it }
     LaunchedEffect(Unit) { if (!micOk && !Music.micAsked) { Music.micAsked = true; Music.saveState(); askMic.launch(Perm.MIC) } }
-    val levels = if (micOk) rememberLevels(on = true) else null
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))) {
+    // Settings › Look: the background (the cover's colours and the cover blurred, or plain black) and the visualizer behind.
+    val plain = Vis.plainNow()
+    val visStyle = Vis.nowStyle()
+    val vis = if (micOk && visStyle != "off") rememberVis(on = true) else null
+    var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
+    Box(Modifier.fillMaxSize().then(if (plain) Modifier.background(Color.Black)
+        else Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom))))) {
         // The cover in the colour, faintly, slightly blurred (a small copy drawn big is soft on every phone).
-        if (art != null) AsyncImage(model = smallArt(art, 20), contentDescription = null,
+        if (art != null && !plain) AsyncImage(model = smallArt(art, 20), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer(alpha = 0.28f))
-        if (levels != null) NowBars(levels.first, levels.second, cols.bars, Modifier.align(Alignment.BottomCenter))
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
+        if (vis != null) NowVis(visStyle, vis, cols.bars, Modifier.align(Alignment.BottomCenter))
+        if (!plain) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if (lock != null) LockTop(n, lock) else NowTop(ui, n)
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (ui.pane) {
                     "queue" -> QueuePane(ui, n)
+                    // The lyrics are in the look's colours: on a light look's card, so they read on any background
                     "lyrics" -> Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).clip(R.big)
-                        .background(Color.Black.copy(alpha = 0.25f))) { LyricsTab(ui) }
+                        .background(when {
+                            C.isLight -> C.light.copy(alpha = 0.94f)
+                            plain -> WHITE.copy(alpha = 0.07f)
+                            else -> Color.Black.copy(alpha = 0.25f)
+                        })) { LyricsTab(ui) }
                     else -> Column(Modifier.fillMaxSize()) {
                         BigCover(ui, art, t != null, Modifier.weight(1f))
                         SongLine(ui, n)
@@ -128,8 +139,9 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                 }
             }
             Seek(n)
-            Transport(n)
-            VolumeLine()
+            Transport(n, volumeShown, { volumeShown = !volumeShown },
+                if (lock == null) ({ goTo(ui, "visualizer") }) else null)   // the lock screen has no Visualizer to go to
+            if (volumeShown) VolumeLine()
             ToolPill(ui)
             Spacer(Modifier.height(14.dp))   // where the sound goes shows in the Equalizer only (1.4)
         }
@@ -179,8 +191,20 @@ private fun NowTop(ui: Ui, n: Now) {
         Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
+        // The song's own EQ (Custom EQ…): always here to set one up; red while the song's is in effect here (on this
+        // output), the accent when it has one for another output. Left of Mono (on the PC, where Auto mono's button was).
+        if (!n.remote && t != null) {
+            Music.musicVersion
+            val has = Music.songEqs.has(t)
+            val now = has && Music.songEqActive
+            Box(Modifier.clip(R.pill).clickable { ui.songEqFor = listOf(t) }
+                .semantics { contentDescription = when { now -> "Custom EQ on"; has -> "Custom EQ on another output"; else -> "Custom EQ for this song" } }
+                .padding(horizontal = 6.dp, vertical = 10.dp)) {
+                Text("C EQ", style = T.tab.copy(color = when { now -> MONO_RED; has -> C.accent; else -> SOFT }, fontWeight = FontWeight.Bold))
+            }
+        }
         if (!n.remote) {   // Mono: both sides in each ear (one earbud in); red while it's on, the cover's colour while it's off
-            val auto = org.omarchy.music.AutoMono.active
+            val auto = onPhone && org.omarchy.music.AutoMono.active   // Auto mono is the phone's only
             val mono = org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO) || auto
             IconButton(Ico.HEADPHONES, if (mono) MONO_RED else C.accent, desc = if (mono) "Mono on" else "Mono off") {
                 if (auto) Music.toast("Auto mono has mono on while your earbuds are connected (Settings › Playback)")
@@ -192,14 +216,6 @@ private fun NowTop(ui: Ui, n: Now) {
             val now = Music.gainNow(t) != 0.0
             IconButton(Ico.VOLUME_ALERT, if (now) MONO_RED else C.accent,
                 desc = if (now) "Volume changed here" else "Volume changed on another output") { ui.volumeFor = listOf(t) }
-        }
-        // A song with its own EQ (Custom EQ…): C EQ, red while it's in effect here (on this output)
-        if (!n.remote && t != null && Music.musicVersion >= 0 && Music.songEqs.has(t)) {
-            val now = Music.songEqActive
-            Box(Modifier.clip(R.pill).clickable { ui.songEqFor = listOf(t) }
-                .semantics { contentDescription = if (now) "Custom EQ on" else "Custom EQ on another output" }.padding(horizontal = 6.dp, vertical = 10.dp)) {
-                Text("C EQ", style = T.tab.copy(color = if (now) MONO_RED else C.accent, fontWeight = FontWeight.Bold))
-            }
         }
         if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
@@ -334,14 +350,20 @@ private fun QualityMark() {
             .padding(horizontal = 6.dp, vertical = 2.dp))
 }
 
-/** Previous, play/pause, next: plain and white, Apple's way. */
+/** Previous, play/pause, next together in the middle, plain and white; the volume at the far left (it shows or hides the
+ *  volume bar) and the big Visualizer at the far right (none: on the lock screen). */
 @Composable
-private fun Transport(n: Now) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween) {
-        IconButton(Ico.PREV, WHITE, 34.dp, 12.dp) { Music.previous() }
-        IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 48.dp, 12.dp) { Music.togglePause() }
-        IconButton(Ico.NEXT, WHITE, 34.dp, 12.dp) { Music.next() }
+private fun Transport(n: Now, volumeShown: Boolean, onVolume: () -> Unit, onVisualizer: (() -> Unit)?) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(Ico.SPEAKER, if (volumeShown) WHITE else SOFT, 24.dp, 12.dp, desc = if (volumeShown) "Hide the volume" else "Volume") { onVolume() }
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically) {
+            IconButton(Ico.PREV, WHITE, 34.dp, 10.dp) { Music.previous() }
+            IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 48.dp, 12.dp) { Music.togglePause() }
+            IconButton(Ico.NEXT, WHITE, 34.dp, 10.dp) { Music.next() }
+        }
+        if (onVisualizer != null) IconButton(Ico.VIS, SOFT, 24.dp, 12.dp, desc = "Visualizer") { onVisualizer() }
+        else Spacer(Modifier.size(48.dp))
     }
 }
 
@@ -546,6 +568,20 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
         }
     }
     return levels to frame
+}
+
+/** Now playing's visualizer, faint behind everything: the slim bars, or a Visualizer style (in the Visualizer's colour;
+ *  its Look's colour here is the cover's light shade). The styles around a middle get the whole screen, the others the bottom. */
+@Composable
+private fun NowVis(style: String, s: VisState, bars: Color, modifier: Modifier) {
+    if (style == "slim") { NowBars(s.levels, s.frame, bars, modifier); return }
+    val colorKey = Vis.color()
+    Canvas(modifier.fillMaxWidth().then(if (style in Vis.CENTRED) Modifier.fillMaxHeight() else Modifier.fillMaxHeight(0.32f))
+        .graphicsLayer(alpha = 0.5f)) {
+        if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
+        val pal = VisPalette.of(style, colorKey, bars, s.phase)
+        clipRect { drawVis(style, s, pal, WHITE, backdrop = true) }
+    }
 }
 
 /** Twice as many slim bars as bands (each between two is their mix), spread out along the bottom. */

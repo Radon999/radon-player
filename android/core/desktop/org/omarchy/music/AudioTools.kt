@@ -46,6 +46,24 @@ object AudioTools {
         return QualityResult(clipped, peak?.let { Math.round(it * 100) / 100.0 }, fake.joinToString(", "))
     }
 
+    /** (blocking) [secs] seconds from the middle of a song (of [songSecs]; 0: ffmpeg says how long), in one channel at
+     *  [rate] samples a second, for Moods. ffmpeg jumps straight there (-ss before -i) and does the mixing down. */
+    fun moodPcm(path: String, songSecs: Double, secs: Int, rate: Int): Pcm {
+        val length = songSecs.takeIf { it > 0 } ?: Regex("Duration:\\s*(\\d+):(\\d+):([\\d.]+)").find(run("-hide_banner", "-i", path, timeoutS = 30).second)
+            ?.groupValues?.let { (it[1].toDouble() * 3600 + it[2].toDouble() * 60 + it[3].toDouble()) } ?: 0.0
+        val from = maxOf(0.0, length / 2 - secs / 2.0)
+        val p = ProcessBuilder(ffmpeg(), "-v", "error", "-nostdin", "-ss", "%.2f".format(java.util.Locale.ROOT, from), "-i", path,
+            "-t", secs.toString(), "-vn", "-ac", "1", "-ar", rate.toString(), "-f", "f32le", "-acodec", "pcm_f32le", "-")
+            .redirectInput(ProcessBuilder.Redirect.from(File(if (windows) "NUL" else "/dev/null")))
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        val bytes = try { p.inputStream.use { it.readNBytes(secs * rate * 4) } } finally { p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS); p.destroy() }
+        val n = bytes.size / 4
+        if (n == 0) error("couldn't hear the song")
+        val bb = java.nio.ByteBuffer.wrap(bytes, 0, n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        val out = FloatArray(n).also { bb.get(it) }
+        return Pcm(out, rate)
+    }
+
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two
      *  minutes. ffmpeg decodes (to WAV, for its rate and channels) and the app's own Chromaprint hears it, as on the phone,
      *  so any ffmpeg does (not only one built with chromaprint); it makes the same fingerprint ffmpeg's would. */

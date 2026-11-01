@@ -201,6 +201,100 @@ fun GenresTab(ui: Ui) {
     }
 }
 
+/** Each mood's colour, for its tile and row. */
+private fun moodColor(mood: String): androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color(when (mood) {
+    "Happy" -> 0xFFF6C343; "Energetic" -> 0xFFFF7A30; "Party" -> 0xFFD94BF0; "Hype" -> 0xFFFF3D5A
+    "Chill" -> 0xFF26C6DA; "Calm" -> 0xFF66BB6A; "Dreamy" -> 0xFF9575CD; "Focus" -> 0xFF42A5F5
+    "Romantic" -> 0xFFF06292; "Sad" -> 0xFF5C7AA8; "Dark" -> 0xFF5E5470; "Intense" -> 0xFFD32F2F
+    else -> 0xFF8A8A8A
+})
+
+/** A mood's square: its colour, fading, with the mood icon. */
+@Composable
+private fun MoodSwatch(mood: String, modifier: Modifier, iconSize: androidx.compose.ui.unit.Dp) {
+    val c = moodColor(mood)
+    Box(modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(c, c.copy(alpha = 0.45f)))), contentAlignment = Alignment.Center) {
+        Icon(Ico.MOOD, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f), iconSize)
+    }
+}
+
+/** Find moods / Stop on the Moods tab, and how far it's got. */
+@Composable
+private fun MoodsReading(reading: Pair<Int, Int>?, counts: Pair<Int, Int>) {
+    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (reading != null) {
+            Chip("Stop", false) { org.omarchy.music.Moods.stop() }
+            Text("Reading moods… %,d of %,d".format(reading.first, reading.second), style = T.sub)
+        } else {
+            if (counts.first < counts.second) Chip("Find moods", false) { org.omarchy.music.Moods.find() }
+            if (counts.second > 0) Text("Sound read for %,d of %,d songs".format(counts.first, counts.second), style = T.sub)
+        }
+    }
+}
+
+/** Moods: your songs by mood (Chill, Happy, Sad…), found from their sound, genres and tags (see Moods). A tap opens a
+ *  mood's songs; Find moods reads the songs not read yet, showing how far it's got, with Stop. */
+@Composable
+fun MoodsTab(ui: Ui) {
+    val reading = org.omarchy.music.Moods.reading
+    val v = org.omarchy.music.Moods.version
+    val all = remember(Music.musicVersion, Music.savedVersion, v) {
+        runCatching { org.omarchy.music.Moods.ALL.map { it to org.omarchy.music.Moods.songs(it) }.filter { it.second.isNotEmpty() } }.getOrDefault(emptyList())
+    }
+    val counts = remember(Music.musicVersion, v, reading == null) { runCatching { org.omarchy.music.Moods.counts() }.getOrDefault(0 to 0) }
+    if (all.isEmpty()) {
+        Column {
+            MoodsReading(reading, counts)
+            Empty("No moods yet", "Each of your songs gets a mood (Chill, Happy, Sad, Party…) from how it sounds (its tempo, energy, " +
+                "brightness and key, heard from half a minute in its middle), its genre, and Last.fm's tags when you have a Last.fm key. " +
+                "Tap Find moods to read your songs now. It also runs by itself after your music is scanned" +
+                (if (org.omarchy.music.platformName == "android") ", while the phone is charging." else "."))
+        }
+        return
+    }
+    val sortTab = "moods"
+    val moods = sortedGroups(sortTab, all.filter { fits(ui, it.first) }) { it }
+    val picking = ui.pickingIn("mood")
+    val picked = ui.albumsPicked
+    fun open(mood: String, songs: List<Track>) {
+        if (picking) { if (mood in picked) picked.remove(mood) else picked[mood] = songs; return }
+        ui.pages += Ui.Page.Songs(mood, songs, "mood", mood)
+    }
+    fun menu(mood: String, songs: List<Track>) {
+        if (picking) { picked[mood] = songs; ui.optionsFor(picked.values.flatten()); return }
+        ui.choices = mood to listOf("Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick("mood", mood, songs) })
+    }
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            MoodsReading(reading, counts)
+            if (picking) PickBar(ui, "moods")
+            else Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) { Chip("Select", false) { ui.startPick("mood") }; SortMenu(sortTab, GROUPS_SORTS) }
+            Section("${moods.size} MOOD${if (moods.size != 1) "S" else ""}")
+        }
+        laidOutItems(moods, ui, key = { "mood-" + moods[it].first }, row = { i ->
+            val (mood, songs) = moods[i]
+            val lit = picking && mood in picked
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card)
+                .background(if (lit) C.accent.copy(alpha = 0.22f) else C.light.copy(alpha = 0.6f))
+                .pressable(onClick = { open(mood, songs) }, onLongClick = { menu(mood, songs) }).padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                MoodSwatch(mood, Modifier.size(42.dp).clip(R.card), 22.dp)
+                Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    Text(mood, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(songs.take(3).joinToString { it.artist.split(",")[0] }, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text("%,d".format(songs.size), style = T.sub)
+            }
+        }) { i, mod, compact ->
+            val (mood, songs) = moods[i]
+            Tile(null, mood, "%,d songs".format(songs.size), mod, compact, ico = Ico.MOOD, lit = picking && mood in picked,
+                onLongClick = { menu(mood, songs) }, over = { MoodSwatch(mood, Modifier.fillMaxSize(), if (compact) 26.dp else 40.dp) }) { open(mood, songs) }
+        }
+    }
+}
+
 /** Artists › Folders: your artist folders (Artists/<Artist>), each with every song under it, as folders. */
 @Composable
 fun ArtistFoldersView(ui: Ui, viewMenu: @Composable () -> Unit) {

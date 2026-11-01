@@ -270,7 +270,7 @@ object Music {
                     val now = p.positionMs / 1000.0
                     val step = now - position
                     position = now
-                    if (step in 0.0..1.5) listened(step)
+                    if (step in 0.0..1.5) { listened(step); ListenLog.heard(step) }   // (Wrapped's diary of listening time)
                     p.durationMs.takeIf { it > 0 }?.let { duration = it / 1000.0 }
                     maybeCrossfade(p)
                 }
@@ -1062,6 +1062,7 @@ object Music {
             accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since
             bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
+            runCatching { Moods.auto() }   // Moods: read the songs new or changed since, in the background
         }
     }
 
@@ -1982,6 +1983,7 @@ object Music {
     // ---- what counts as played ----
     private fun beginListen(t: Track) {
         listen = Listen(t.id, t, sent = !LastFm.connected)
+        ListenLog.begin(t)   // Wrapped: where it's played from, shuffled or not, on which output
         if (LastFm.connected) bg({ LastFm.nowPlaying(t) })
     }
 
@@ -2019,6 +2021,7 @@ object Music {
     /** Play tracks[i], then the rest of tracks; the songs you queued come first. */
     fun playFrom(tracks: List<Track>, i: Int, radio: Boolean) {
         if (Remote.active) { Remote.playFrom(tracks, i, radio); return }
+        ListenLog.picked(tracks.getOrNull(i), listName)   // Wrapped's Most searched: a song tapped in search results
         val newQueue = multiQueue && listName.isNotEmpty() && listName != queueName
         if (multiQueue) startQueue(listName)
         val queued = if (newQueue) emptyList() else queue.drop(index + 1).filter { it.queued }

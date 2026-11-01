@@ -27,8 +27,9 @@ object AudioTools {
     }.getOrNull() else java.io.File(path).takeIf { it.isFile }?.lastModified()
 
     /** Decode [path] to floats (-1..1), interleaved, a block at a time; stop after [maxSecs] (0: the whole song).
-     *  [block] gets (samples, count, sampleRate, channels). */
-    private fun decode(path: String, maxSecs: Int, block: (FloatArray, Int, Int, Int) -> Unit) {
+     *  [block] gets (samples, count, sampleRate, channels). [middle]: the [maxSecs] around the song's middle instead of
+     *  its start (for Moods), when the file says how long it is. */
+    private fun decode(path: String, maxSecs: Int, middle: Boolean = false, block: (FloatArray, Int, Int, Int) -> Unit) {
         val ex = MediaExtractor()
         try {
             ex.setDataSource(Music.ctx, android.net.Uri.parse(path), null)
@@ -36,6 +37,10 @@ object AudioTools {
                 ?: error("no sound in the file")
             ex.selectTrack(track)
             val inFmt = ex.getTrackFormat(track)
+            if (middle && maxSecs > 0 && inFmt.containsKey(MediaFormat.KEY_DURATION)) {
+                val from = inFmt.getLong(MediaFormat.KEY_DURATION) / 2 - maxSecs * 500_000L
+                if (from > 0) ex.seekTo(from, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            }
             inFmt.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT)
             val codec = MediaCodec.createDecoderByType(inFmt.getString(MediaFormat.KEY_MIME)!!)
             try {
@@ -119,6 +124,18 @@ object AudioTools {
             if (top - rmsDb < -80) fake += "upsampled: nothing above 21 kHz in a ${"%.1f".format(rate / 1000.0).removeSuffix(".0")} kHz file"
         }
         return QualityResult(clipped, peakDb?.let { Math.round(it * 100) / 100.0 }, fake.joinToString(", "))
+    }
+
+    /** (blocking) [secs] seconds from the middle of a song, in one channel at about [rate] samples a second, for
+     *  Moods. Decoded a block at a time and averaged down as it goes, so only the small result is kept in memory.
+     *  songSecs isn't needed here: the file says how long it is. */
+    fun moodPcm(path: String, songSecs: Double, secs: Int, rate: Int): Pcm {
+        var down: MonoDown? = null
+        decode(path, secs, middle = true) { buf, count, r, ch ->
+            val d = down ?: MonoDown(r, ch, rate, secs).also { down = it }
+            if (!d.full) d.feed(buf, count)
+        }
+        return down?.result() ?: error("couldn't hear the song")
     }
 
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two minutes. */

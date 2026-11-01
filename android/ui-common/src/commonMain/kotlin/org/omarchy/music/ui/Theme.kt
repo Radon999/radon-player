@@ -40,45 +40,76 @@ object C {
     val shadow get() = if (glow) Shadow(accent.copy(alpha = 0.8f), blurRadius = 14f) else null
 }
 
-/** The looks: Default, Dark, Light, and a neon one per colour. */
+/** The looks: Light, Dark, Now playing, the themes, and a neon one per colour (for Wrapped). */
 object Looks {
     val NEON = linkedMapOf("red" to ("Red" to Color(0xFFFF1F3D)), "blue" to ("Blue" to Color(0xFF2F7BFF)),
         "cyan" to ("Cyan" to Color(0xFF14E4FF)), "green" to ("Green" to Color(0xFF1FFF6E)), "lime" to ("Lime" to Color(0xFFB6FF1A)),
         "gold" to ("Gold" to Color(0xFFFFC21A)), "orange" to ("Orange" to Color(0xFFFF7A1A)), "pink" to ("Pink" to Color(0xFFFF2FA8)),
         "purple" to ("Purple" to Color(0xFFA24DFF)), "white" to ("White" to Color(0xFFF4F4FF)))
-    /** A look by its colours: accent, background, cards, text, quiet text, selection; light or not; a gradient; stars. */
+    /** A look by its colours: accent, background, cards, text, quiet text, selection; light or not; a gradient; stars;
+     *  apple: laid out as the Light and Dark looks are (plain pages, thin lines between rows), only in other colours. */
     private class P(val accent: Long, val bg: Long, val light: Long, val fg: Long, val muted: Long, val sel: Long,
-                    val isLight: Boolean, val grad: List<Long>? = null, val stars: Boolean = false)
+                    val isLight: Boolean, val grad: List<Long>? = null, val stars: Boolean = false, val apple: Boolean = false)
 
     /** Stellio's own (light and dark), and colourful ones that still keep it simple. */
     private val STYLED = linkedMapOf(
-        "apple" to ("Apple Music" to P(0xFFFA2D48, 0xFFFFFFFF, 0xFFF2F2F7, 0xFF1D1D1F, 0xFF86868B, 0xFFE5E5EA, true)),
-        "apple-dark" to ("Apple Music dark" to P(0xFFFA2D48, 0xFF000000, 0xFF1C1C1E, 0xFFF5F5F7, 0xFF98989D, 0xFF38383A, false)),
+        "apple" to ("Apple Music" to P(0xFFFA2D48, 0xFFFFFFFF, 0xFFF2F2F7, 0xFF1D1D1F, 0xFF86868B, 0xFFE5E5EA, true, apple = true)),
+        "apple-dark" to ("Apple Music dark" to P(0xFFFA2D48, 0xFF000000, 0xFF1C1C1E, 0xFFF5F5F7, 0xFF98989D, 0xFF38383A, false, apple = true)),
         "stellio" to ("Stellio" to P(0xFF4A86F7, 0xFFEEF0F6, 0xFFFFFFFF, 0xFF2B3141, 0xFF8A90A6, 0xFFC9D3EA, true)),
         "stellio-dark" to ("Stellio dark" to P(0xFF5B8DEF, 0xFF1C2030, 0xFF262B3D, 0xFFE6E9F5, 0xFF8A90A8, 0xFF343B54, false)),
         "galaxy" to ("Galaxy" to P(0xFFB57BFF, 0xFF0B0820, 0xFF1C1544, 0xFFEDE7FF, 0xFF9A8FC4, 0xFF3A2C70, false,
             listOf(0xFF0B0820, 0xFF1E0F4A, 0xFF3A1260, 0xFF0B1A3F), stars = true)),
         "aurora" to ("Aurora" to P(0xFF3CF0B0, 0xFF07141A, 0xFF10292F, 0xFFE6FFF6, 0xFF7FB5A8, 0xFF1E4A48, false,
             listOf(0xFF061A1F, 0xFF0B3B3A, 0xFF2A1E5C, 0xFF07141A), stars = true)),
-        "sunset" to ("Sunset" to P(0xFFFF8A5B, 0xFF2A0E2E, 0xFF3D1636, 0xFFFFEDE6, 0xFFC99AA5, 0xFF5A2440, false,
-            listOf(0xFF2A0E2E, 0xFF5A1840, 0xFF8A2A40, 0xFFB5523A))),
-        "ocean" to ("Ocean" to P(0xFF38C6F4, 0xFF06182B, 0xFF0E2A45, 0xFFE3F6FF, 0xFF7FA8C4, 0xFF15405F, false,
-            listOf(0xFF041526, 0xFF073056, 0xFF0A4C6E, 0xFF06263F))),
-        "midnight" to ("Midnight gold" to P(0xFFF2C14E, 0xFF0D1220, 0xFF18203A, 0xFFF3EFE2, 0xFF9AA0B5, 0xFF2A3350, false,
-            listOf(0xFF0D1220, 0xFF141B33, 0xFF0D1220), stars = true)),
-        "forest" to ("Forest" to P(0xFF7BD389, 0xFF0E1A14, 0xFF18291F, 0xFFE8F5EC, 0xFF8FAE98, 0xFF24402F, false,
-            listOf(0xFF0E1A14, 0xFF15301F, 0xFF0E1A14))),
-        "sakura" to ("Sakura" to P(0xFFE85A8B, 0xFFFFF3F7, 0xFFFFFFFF, 0xFF3A2430, 0xFFA07F8E, 0xFFF4C9D9, true,
-            listOf(0xFFFFF5F8, 0xFFFFE3EE, 0xFFF7E8FF))),
         "candy" to ("Candy" to P(0xFF7C5CFF, 0xFFF5F2FF, 0xFFFFFFFF, 0xFF2A2440, 0xFF8E88A8, 0xFFDCD3FF, true,
             listOf(0xFFFDE2F3, 0xFFE9E4FF, 0xFFDDF5FF))),
+        // 3.0's themes (Settings › Look): the Light and Dark looks' layout in other colours. Each pair of text and
+        // background keeps at least 4.5:1 contrast (quiet text and the accent too, on every part of a gradient).
+        "midnight" to ("Midnight" to P(0xFF8AB4FF, 0xFF0A0F1F, 0xFF141B2E, 0xFFE6ECFF, 0xFF8D97B5, 0xFF26304D, false,
+            listOf(0xFF0A0F1F, 0xFF101A35, 0xFF0A0F1F), stars = true, apple = true)),
+        "sunset" to ("Sunset" to P(0xFFFF9A70, 0xFF2A0E2E, 0xFF3D1636, 0xFFFFEDE6, 0xFFDDB4BE, 0xFF5A2440, false,
+            listOf(0xFF2A0E2E, 0xFF4A1640, 0xFF6E2440, 0xFF7A3430), apple = true)),
+        "forest" to ("Forest" to P(0xFF7BD389, 0xFF0E1A14, 0xFF18291F, 0xFFE8F5EC, 0xFF8FAE98, 0xFF24402F, false,
+            listOf(0xFF0E1A14, 0xFF15301F, 0xFF0E1A14), apple = true)),
+        "ocean" to ("Ocean" to P(0xFF4FD0F8, 0xFF06182B, 0xFF0E2A45, 0xFFE3F6FF, 0xFF93BCD6, 0xFF15405F, false,
+            listOf(0xFF041526, 0xFF073056, 0xFF0A4C6E, 0xFF06263F), apple = true)),
+        "paper" to ("Paper" to P(0xFFA8431F, 0xFFF5F0E6, 0xFFFFFCF5, 0xFF2B2620, 0xFF6F665A, 0xFFE3D9C6, true, apple = true)),
+        "mono" to ("Mono" to P(0xFFFFFFFF, 0xFF121212, 0xFF1E1E1E, 0xFFEDEDED, 0xFF9A9A9A, 0xFF333333, false, apple = true)),
+        "synthwave" to ("Synthwave" to P(0xFFFF4FD8, 0xFF1A0B2E, 0xFF2A1248, 0xFFF5E6FF, 0xFFB08FD0, 0xFF4A1F70, false,
+            listOf(0xFF1A0B2E, 0xFF2D0B4A, 0xFF4A0E4E, 0xFF1A0B2E), stars = true, apple = true)),
+        "coffee" to ("Coffee" to P(0xFFD9A066, 0xFF1F1611, 0xFF2C211A, 0xFFF2E6D8, 0xFFA8927E, 0xFF4A3628, false, apple = true)),
+        "rose" to ("Rose" to P(0xFFB0154F, 0xFFFFF5F7, 0xFFFFFFFF, 0xFF3B1F2B, 0xFF86606F, 0xFFF5CCD8, true,
+            listOf(0xFFFFF5F7, 0xFFFFE6EE), apple = true)),
+        "nord" to ("Nord" to P(0xFF88C0D0, 0xFF2E3440, 0xFF3B4252, 0xFFECEFF4, 0xFFA3ACBD, 0xFF434C5E, false, apple = true)),
+        "dracula" to ("Vampire" to P(0xFFBD93F9, 0xFF282A36, 0xFF343746, 0xFFF8F8F2, 0xFFA2ABCB, 0xFF44475A, false, apple = true)),
+        "solarized" to ("Solar" to P(0xFF1F77B4, 0xFFFDF6E3, 0xFFFFFBEF, 0xFF073642, 0xFF586E75, 0xFFEEE8D5, true, apple = true)),
+        "matrix" to ("Matrix" to P(0xFF00FF66, 0xFF000A04, 0xFF06180D, 0xFFB8FFD0, 0xFF4FA86E, 0xFF0F3A1E, false, apple = true)),
+        "sakura" to ("Sakura" to P(0xFFFF8FB8, 0xFF24141E, 0xFF33202C, 0xFFFFE8F0, 0xFFC096AA, 0xFF4D2B3E, false,
+            listOf(0xFF24141E, 0xFF3A1A2E, 0xFF24141E), apple = true)),
+        "arctic" to ("Arctic" to P(0xFF006AA3, 0xFFF0F7FB, 0xFFFFFFFF, 0xFF0D2B3E, 0xFF557286, 0xFFCDE5F2, true,
+            listOf(0xFFF5FBFF, 0xFFE3F1FA, 0xFFEEF2FF), apple = true)),
+        "ember" to ("Ember" to P(0xFFFF6A2B, 0xFF140A08, 0xFF22120E, 0xFFFFE9DF, 0xFFB48A7C, 0xFF4A1E14, false,
+            listOf(0xFF140A08, 0xFF2A0F08, 0xFF140A08), apple = true)),
+        "lavender" to ("Lavender" to P(0xFF6E3FD0, 0xFFF6F2FD, 0xFFFFFFFF, 0xFF2A2140, 0xFF726890, 0xFFE2D8F7, true, apple = true)),
+        "slate" to ("Slate" to P(0xFF60A5FA, 0xFF1E293B, 0xFF273449, 0xFFE2E8F0, 0xFF94A3B8, 0xFF334155, false, apple = true)),
+        "goldblack" to ("Gold and black" to P(0xFFE6B84C, 0xFF000000, 0xFF141210, 0xFFF5EBD2, 0xFFA39577, 0xFF3A3020, false, apple = true)),
+        "contrast" to ("High contrast" to P(0xFFFFE600, 0xFF000000, 0xFF111111, 0xFFFFFFFF, 0xFFD0D0D0, 0xFF444444, false, apple = true)),
     )
 
-    /** The Look menu: Light, Dark, and Now playing (every screen in the colours of the song playing, the
-     *  way Now playing is; Light or Dark while nothing is). The other looks stay for the Visualizer and Wrapped. */
-    val ALL: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark", "nowplaying" to "Now playing")
+    /** The themes in the Look menu after Light, Dark and Now playing, in this order. */
+    private val THEMES = listOf("midnight", "sunset", "forest", "ocean", "paper", "mono", "synthwave", "coffee", "rose", "nord",
+        "dracula", "solarized", "matrix", "sakura", "arctic", "ember", "lavender", "slate", "goldblack", "contrast")
+
+    /** The Look menu: Light, Dark, Now playing (every screen in the colours of the song playing, the way Now playing
+     *  is; Light or Dark while nothing is), then the themes. The other looks stay for the Visualizer and Wrapped. */
+    val ALL: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark", "nowplaying" to "Now playing") +
+        THEMES.map { it to (STYLED[it]?.first ?: it) }
     val FALLBACK: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark")
     fun known(look: String) = ALL.any { it.first == look }
+
+    /** A look's background and accent, for the little swatch beside its name in the menu (Now playing: a sample). */
+    fun swatch(look: String): Pair<Color, Color> = STYLED[look]?.second?.let { Color(it.grad?.getOrNull(1) ?: it.bg) to Color(it.accent) }
+        ?: (Color(0xFF6B2E5A) to Color(0xFFFFB46B))
 
     /** The Now playing look: from a cover's main colour (null: none), else the fallback look. */
     fun applyCover(rgb: Int?, fallback: String) {
@@ -103,7 +134,7 @@ object Looks {
         C.glow = neon != null
         C.gradient = styled?.grad?.map { Color(it) }
         C.stars = styled?.stars == true
-        C.apple = look.startsWith("apple")
+        C.apple = styled?.apple ?: look.startsWith("apple")
         when {
             styled != null -> {
                 val p = styled
