@@ -707,10 +707,11 @@ private fun LyricsMoodsLines(ui: Ui) {
     }
     Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0)
         else "Reads each song's words for how much they say every mood (sad, romantic, dark…), on this $DEVICE, reading whole " +
-        "lines and sayings (\"wash my blues away\" is relief, not sadness), and counts it with the sound: the words count more " +
-        "for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and Focus, and a clearly upbeat song isn't made " +
-        "sad by a hint of sad words. With an Anthropic key saved, Claude reads them instead. The result goes into the " +
-        "file (a MOOD_LYRICS tag) so it's never read again. Also on the Moods tab", moods.wordsReading != null) {
+        "lines and sayings (\"wash my blues away\" is relief, not sadness), and counts it together with the sound. Both always " +
+        "count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and " +
+        "Focus, and a hint of sad words counts for less in a clearly upbeat song. With an Anthropic key saved, Claude reads them " +
+        "instead. The result goes into the file (a MOOD_LYRICS tag, nothing else in the file changes) so it's never read again. " +
+        "Also on the Moods tab", moods.wordsReading != null) {
         if (moods.wordsReading != null) Pill("Stop", quiet = true) { moods.stopWords() } else Pill("Read", quiet = true) { moods.readWords() }
     }
     var on by remember { mutableStateOf(org.omarchy.music.Moods.aiSwitch()) }

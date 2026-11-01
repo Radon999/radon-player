@@ -159,16 +159,79 @@ object Flac {
         return bb.array()
     }
 
-    /** Copy the FLAC at src to out with these tags (replacing its own) and cover. */
+    /** Copy the FLAC at src to out with these tags (replacing its own) and cover. keepOther: change only the comments
+     *  named in tags (and the cover, if one is given); everything else stays exactly as it was (see [edited]). */
     fun retag(src: File, out: OutputStream, tags: Map<String, List<String>>, cover: ByteArray?, keepOther: Boolean = false) {
         src.inputStream().buffered().use { input ->
             val blocks = readHeader(input)
-            val merged = if (keepOther) comments(blocks).toMutableMap().apply { putAll(tags) } else tags
-            val keep = blocks.filter { it.type == 0 || it.type == 3 || it.type == 2 }   // STREAMINFO, SEEKTABLE, APPLICATION
-            val pic = cover ?: if (keepOther) picture(blocks) else null
-            writeHeader(out, keep + Block(4, vorbisComment(merged)) + listOfNotNull(pic?.let { Block(6, pictureBlock(it)) }))
+            if (keepOther) writeHeader(out, edited(blocks, tags, cover))
+            else {
+                val keep = blocks.filter { it.type == 0 || it.type == 3 || it.type == 2 }   // STREAMINFO, SEEKTABLE, APPLICATION
+                writeHeader(out, keep + Block(4, vorbisComment(tags)) + listOfNotNull(cover?.let { Block(6, pictureBlock(it)) }))
+            }
             input.copyTo(out, 1 shl 16)
         }
+    }
+
+    /** A Vorbis comment block's vendor and its comments, each as written ("KEY=value" bytes). Throws if it's cut short,
+     *  so a damaged block is never written back with comments missing. */
+    private fun rawComments(vc: ByteArray): Pair<ByteArray, List<ByteArray>> {
+        val bb = ByteBuffer.wrap(vc).order(ByteOrder.LITTLE_ENDIAN)
+        val vlen = bb.int
+        require(vlen in 0..bb.remaining()) { "damaged tags" }
+        val vendor = vc.copyOfRange(bb.position(), bb.position() + vlen)
+        bb.position(bb.position() + vlen)
+        val n = bb.int
+        val out = ArrayList<ByteArray>()
+        repeat(n) {
+            val len = bb.int
+            require(len in 0..bb.remaining()) { "damaged tags" }
+            out += vc.copyOfRange(bb.position(), bb.position() + len)
+            bb.position(bb.position() + len)
+        }
+        return vendor to out
+    }
+
+    private fun vcBytes(vendor: ByteArray, entries: List<ByteArray>): ByteArray {
+        val o = ByteArrayOutputStream()
+        val le = { n: Int -> o.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(n).array()) }
+        le(vendor.size); o.write(vendor)
+        le(entries.size)
+        entries.forEach { le(it.size); o.write(it) }
+        return o.toByteArray()
+    }
+
+    /** The blocks with only the comments named in tags changed (KEY -> its values; an empty list takes it off), each
+     *  where the old one was, and (when cover isn't null) the pictures swapped for that cover. Every other comment is
+     *  kept byte for byte in its place, and so are the vendor, the other blocks (other pictures, padding, cue sheets…)
+     *  and their order: a mood or lyrics write never touches a song's title, artist, album or album artist. */
+    fun edited(blocks: List<Block>, tags: Map<String, List<String>>, cover: ByteArray?): List<Block> {
+        val vc = blocks.firstOrNull { it.type == 4 }
+        val (vendor, raw) = if (vc != null) rawComments(vc.data) else "Radon Player".toByteArray() to emptyList()
+        val want = LinkedHashMap<String, List<String>>()
+        for ((k, v) in tags) want[k.uppercase()] = v.filter { it.isNotEmpty() }
+        fun entry(k: String, v: String) = "$k=$v".toByteArray(Charsets.UTF_8)
+        val entries = ArrayList<ByteArray>()
+        val placed = HashSet<String>()
+        for (e in raw) {
+            val eq = e.indexOf('='.code.toByte())
+            val k = String(e, 0, if (eq < 0) e.size else eq, Charsets.UTF_8).uppercase()
+            val new = want[k]
+            if (new == null) { entries += e; continue }   // not one we change: as it was
+            if (placed.add(k)) new.forEach { entries += entry(k, it) }
+        }
+        for ((k, vs) in want) if (k !in placed) vs.forEach { entries += entry(k, it) }
+        val comments = Block(4, vcBytes(vendor, entries))
+        val out = ArrayList<Block>()
+        var put = false
+        for (b in blocks) when {
+            b.type == 4 -> if (!put) { out += comments; put = true }   // (a second comment block: dropped, as before)
+            b.type == 6 && cover != null -> {}
+            else -> out += b
+        }
+        if (!put) out.add(if (out.isNotEmpty() && out[0].type == 0) 1 else 0, comments)
+        if (cover != null) out.add(out.indexOfFirst { it === comments } + 1,Block(6, pictureBlock(cover)))
+        return out
     }
 
     /** (bits, sample rate) of a FLAC from its first bytes (its STREAMINFO, always first); null if it isn't a FLAC. */

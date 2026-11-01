@@ -52,7 +52,9 @@ object WavTags {
     private fun syncsafe(n: Int) = byteArrayOf(((n shr 21) and 0x7f).toByte(), ((n shr 14) and 0x7f).toByte(), ((n shr 7) and 0x7f).toByte(), (n and 0x7f).toByte())
     private fun be32(n: Int) = byteArrayOf((n shr 24).toByte(), (n shr 16).toByte(), (n shr 8).toByte(), n.toByte())
 
-    private fun parseId3(b: ByteArray): Id3? {
+    /** whole: null unless every frame could be read (for writing: a tag written back from only some of its frames
+     *  would lose the rest, its artist or album among them). */
+    private fun parseId3(b: ByteArray, whole: Boolean = false): Id3? {
         if (b.size < 10 || String(b, 0, 3, Charsets.ISO_8859_1) != "ID3") return null
         val major = b[3].toInt()
         if (major !in 3..4 || b[5].toInt() and 0x80 != 0) return null   // v2.2, or unsynchronised: left alone
@@ -63,10 +65,11 @@ object WavTags {
         while (i + 10 <= end && b[i] != 0.toByte()) {
             val id = String(b, i, 4, Charsets.ISO_8859_1)
             val size = if (major == 4) syncsafe(b, i + 4) else be32(b, i + 4)
-            if (size < 0 || i + 10 + size > end) break
+            if (size < 0 || i + 10 + size > end) { if (whole) return null; break }
             frames += Triple(id, b.copyOfRange(i + 8, i + 10), b.copyOfRange(i + 10, i + 10 + size))
             i += 10 + size
         }
+        if (whole && (i until end).any { b[it] != 0.toByte() }) return null
         return Id3(major, frames)
     }
 
@@ -158,9 +161,19 @@ object WavTags {
         RandomAccessFile(file, "r").use { f ->
             val cs = chunks(f)
             val id3Id = cs.firstOrNull { it.id.equals("id3 ", true) }?.id ?: "id3 "
-            val id3 = cs.firstOrNull { it.id.equals("id3 ", true) }?.let { parseId3(bytes(f, it)) } ?: Id3(3, ArrayList())
             val infoChunk = cs.firstOrNull { it.id == "LIST" && parseInfo(bytes(f, it)) != null }
             val info = infoChunk?.let { parseInfo(bytes(f, it)) } ?: ArrayList()
+            // An ID3 chunk we can't read whole is never replaced (that would lose its title, artist, album…): the
+            // caller falls back to the tag library. No ID3 chunk: a new one starts with what LIST INFO says, since
+            // players read the ID3 chunk in its place.
+            val id3 = cs.firstOrNull { it.id.equals("id3 ", true) }?.let { parseId3(bytes(f, it), whole = true) ?: error("its ID3 tag can't be read") }
+                ?: Id3(3, ArrayList()).also { t ->
+                    for ((k, id) in INFO) {
+                        val s = info.firstOrNull { it.first == id }?.let { infoText(it.second) }.orEmpty()
+                        val frame = if (k == "date") "TYER" else FRAMES[k] ?: continue
+                        if (s.isNotEmpty()) t.frames += Triple(frame, byteArrayOf(0, 0), textFrame(3, s))
+                    }
+                }
             for ((k, v0) in changes) {
                 val v = v0.trim()
                 val ids = if (k == "date") listOf("TDRC", "TYER") else listOfNotNull(FRAMES[k])

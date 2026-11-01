@@ -765,7 +765,7 @@ object Moods {
                 }
                 if (change != null && canWrite(p)) {
                     if (p == playing) skipped++
-                    else if (runCatching { Tags.write(Music.ctx, p, mapOf("mood" to change)) }.isSuccess) {
+                    else if (runCatching { LyricsTags.writeMood(Music.ctx, p, change) }.getOrDefault(false)) {   // only the mood changes
                         wrote++
                         now = now.copy(mtime = AudioTools.modified(p) ?: m, inFile = change, wrote = if (mood == null) "" else now.wrote)
                     }
@@ -835,7 +835,7 @@ object Moods {
             for ((p, m) in list) {
                 if (p == playing) continue
                 if ((done + failed) % 10 == 0) { val d = done + failed; Music.scope.launch { writeProgress = d to list.size } }
-                if (runCatching { Tags.write(Music.ctx, p, mapOf("mood" to m)) }.isSuccess) {
+                if (runCatching { LyricsTags.writeMood(Music.ctx, p, m) }.getOrDefault(false)) {   // only the mood changes, never the album or artist
                     done++
                     // The file changed because of us: remember its new time, so it isn't read again for it.
                     val mt = runCatching { AudioTools.modified(p) }.getOrNull()

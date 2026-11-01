@@ -25,24 +25,74 @@ object TagWrite {
     private fun le32(n: Long) = byteArrayOf(n.toByte(), (n shr 8).toByte(), (n shr 16).toByte(), (n shr 24).toByte())
 
     /** The ID3 tag at the start of b and its whole size (header and footer counted), or null when it's one we leave
-     *  alone: ID3v2.2, unsynchronised, or with an extended header. */
+     *  alone: ID3v2.2, unsynchronised, with an extended header, or with frames we can't walk to the end (then writing
+     *  it back would lose every frame after the odd one: the artist, the album…). */
     fun parseId3(b: ByteArray): Pair<Id3, Int>? {
         if (b.size < 10 || String(b, 0, 3, Charsets.ISO_8859_1) != "ID3") return null
         val major = b[3].toInt()
         val flags = b[5].toInt() and 0xff
         if (major !in 3..4 || flags and 0xC0 != 0) return null
         val size = 10 + syncsafe(b, 6) + (if (flags and 0x10 != 0) 10 else 0)
-        val end = minOf(b.size, 10 + syncsafe(b, 6))
-        val frames = ArrayList<Triple<String, ByteArray, ByteArray>>()
+        val end = 10 + syncsafe(b, 6)
+        if (end > b.size) return null   // cut short
+        // ID3v2.4 frame sizes are syncsafe, but some taggers (old iTunes) wrote them plain: the way that reads every frame.
+        val frames = frames(b, end, major == 4) ?: (if (major == 4) frames(b, end, false) else null) ?: return null
+        return Id3(major, frames) to size
+    }
+
+    /** The frames from b[10] to end, or null unless they run whole up to the end or to padding (zeros only). */
+    private fun frames(b: ByteArray, end: Int, syncsafeSizes: Boolean): MutableList<Triple<String, ByteArray, ByteArray>>? {
+        val out = ArrayList<Triple<String, ByteArray, ByteArray>>()
         var i = 10
         while (i + 10 <= end && b[i] != 0.toByte()) {
             val id = String(b, i, 4, Charsets.ISO_8859_1)
-            val fs = if (major == 4) syncsafe(b, i + 4) else be32(b, i + 4)
-            if (fs < 0 || i + 10 + fs > end) break
-            frames += Triple(id, b.copyOfRange(i + 8, i + 10), b.copyOfRange(i + 10, i + 10 + fs))
+            if (id.any { !(it in 'A'..'Z' || it in '0'..'9') }) return null
+            val fs = if (syncsafeSizes) syncsafe(b, i + 4) else be32(b, i + 4)
+            if (fs < 0 || i + 10 + fs > end) return null
+            out += Triple(id, b.copyOfRange(i + 8, i + 10), b.copyOfRange(i + 10, i + 10 + fs))
             i += 10 + fs
         }
-        return Id3(major, frames) to size
+        for (j in i until end) if (b[j] != 0.toByte()) return null   // something after the frames that isn't padding
+        return out
+    }
+
+    /** A text frame (TIT2, TPE1…) with s in it, in the tag's encoding. */
+    private fun textFrame(major: Int, id: String, s: String) = Triple(id, byteArrayOf(0, 0), byteArrayOf(enc(major)) + str(major, s, false))
+
+    /** A new tag for an MP3 that has none, with what its ID3v1 tag (the 128 bytes at the end, "TAG") says: players
+     *  read an ID3v2 tag in place of the ID3v1 one, so a new tag with only lyrics in it would hide its title, artist
+     *  and album. */
+    fun fromId3v1(all: ByteArray): Id3 {
+        val t = Id3(3, ArrayList())
+        if (all.size < 128) return t
+        val v1 = all.copyOfRange(all.size - 128, all.size)
+        if (String(v1, 0, 3, Charsets.ISO_8859_1) != "TAG") return t
+        fun field(from: Int, len: Int) = String(v1, from, len, Charsets.ISO_8859_1).substringBefore('\u0000').trim()
+        listOf("TIT2" to field(3, 30), "TPE1" to field(33, 30), "TALB" to field(63, 30), "TYER" to field(93, 4))
+            .filter { it.second.isNotEmpty() }.forEach { (id, s) -> t.frames += textFrame(3, id, s) }
+        if (v1[125] == 0.toByte() && v1[126] != 0.toByte()) t.frames += textFrame(3, "TRCK", (v1[126].toInt() and 0xff).toString())
+        val genre = v1[127].toInt() and 0xff
+        if (genre != 255) t.frames += textFrame(3, "TCON", "($genre)")
+        return t
+    }
+
+    /** A new tag for a WAV with no ID3 chunk, with what its LIST INFO chunk says (players that read the ID3 chunk
+     *  read it in place of LIST INFO, so a tag with only lyrics in it would hide the title, artist and album). */
+    private fun fromInfo(info: ByteArray?): Id3 {
+        val t = Id3(3, ArrayList())
+        if (info == null || info.size < 4 || String(info, 0, 4, Charsets.ISO_8859_1) != "INFO") return t
+        val ids = mapOf("INAM" to "TIT2", "IART" to "TPE1", "IPRD" to "TALB", "ICRD" to "TYER", "IGNR" to "TCON", "ITRK" to "TRCK")
+        var i = 4
+        while (i + 8 <= info.size) {
+            val id = String(info, i, 4, Charsets.ISO_8859_1)
+            val size = le32(info, i + 4).toInt()
+            if (size < 0 || i + 8 + size > info.size) break
+            val s = String(info, i + 8, size, Charsets.UTF_8).trimEnd('\u0000').trim()
+            val frame = ids[id]
+            if (frame != null && s.isNotEmpty() && t.frames.none { it.first == frame }) t.frames += textFrame(3, frame, s)
+            i += 8 + size + (size and 1)
+        }
+        return t
     }
 
     /** The tag as bytes, with some padding (for tags added later). */
@@ -78,8 +128,21 @@ object TagWrite {
         return s.substringBefore('\u0000').removePrefix("﻿").trim()
     }
 
-    /** Set the lyrics (null: leave them; "": take them off) and named tags ("" takes one off) in the tag. */
-    fun set(t: Id3, lyrics: String?, named: Map<String, String>) {
+    /** Set the lyrics (null: leave them; "": take them off), named tags ("" takes one off) and the mood (null: leave
+     *  it; "": take it off) in the tag. Only those frames change; every other one is kept as it is, in its place. */
+    fun set(t: Id3, lyrics: String?, named: Map<String, String>, mood: String? = null) {
+        if (mood != null) {
+            // The mood as the tag library writes it (and players read it): TMOO in ID3v2.4, a TXXX "MOOD" in 2.3.
+            // Both kinds taken off first, so an old one can't hide the new one.
+            fun isMood(f: Triple<String, ByteArray, ByteArray>) = f.first == "TMOO" || (f.first == "TXXX" && txxxName(f.third).equals("MOOD", true))
+            val at = t.frames.indexOfFirst { isMood(it) }.takeIf { it >= 0 } ?: t.frames.size
+            t.frames.removeAll { isMood(it) }
+            if (mood.isNotBlank()) {
+                val f = if (t.major == 4) textFrame(4, "TMOO", mood.trim())
+                    else Triple("TXXX", byteArrayOf(0, 0), byteArrayOf(enc(t.major)) + str(t.major, "MOOD", true) + str(t.major, mood.trim(), false))
+                t.frames.add(minOf(at, t.frames.size), f)
+            }
+        }
         if (lyrics != null) {
             val at = t.frames.indexOfFirst { it.first == "USLT" }.takeIf { it >= 0 } ?: t.frames.size
             t.frames.removeAll { it.first == "USLT" }
@@ -98,19 +161,20 @@ object TagWrite {
         }
     }
 
-    /** An MP3's bytes with the lyrics and named tags set (a new ID3v2.3 tag in front when it has none), or null when its
-     *  tag is one we leave alone. */
-    fun mp3(all: ByteArray, lyrics: String?, named: Map<String, String>): ByteArray? {
+    /** An MP3's bytes with the lyrics, named tags and mood set (a new ID3v2.3 tag in front when it has none, with its
+     *  ID3v1 tag's title, artist, album… in it), or null when its tag is one we leave alone. */
+    fun mp3(all: ByteArray, lyrics: String?, named: Map<String, String>, mood: String? = null): ByteArray? {
         val (tag, from) = if (all.size >= 3 && String(all, 0, 3, Charsets.ISO_8859_1) == "ID3") (parseId3(all) ?: return null)
-            else Id3(3, ArrayList()) to 0
+            else fromId3v1(all) to 0
         if (from > all.size) return null
-        set(tag, lyrics, named)
+        set(tag, lyrics, named, mood)
         return buildId3(tag) + all.copyOfRange(from, all.size)
     }
 
-    /** A WAV with the lyrics and named tags set in its ID3 chunk (made if it has none), written through a copy put in
-     *  its place; every other chunk kept as it is. False if it isn't a WAV we can read, or its tag is one we leave alone. */
-    fun wav(file: File, lyrics: String?, named: Map<String, String>): Boolean {
+    /** A WAV with the lyrics, named tags and mood set in its ID3 chunk (made if it has none, with its LIST INFO's
+     *  title, artist, album… in it), written through a copy put in its place; every other chunk kept as it is. False if
+     *  it isn't a WAV we can read, or its tag is one we leave alone. */
+    fun wav(file: File, lyrics: String?, named: Map<String, String>, mood: String? = null): Boolean {
         val tmp = File(file.parentFile, ".${file.name}.retag")
         try {
         RandomAccessFile(file, "r").use { f ->
@@ -131,11 +195,16 @@ object TagWrite {
             }
             if (chunks.none { it.first == "fmt " }) return false
             val old = chunks.firstOrNull { it.first.equals("id3 ", true) }
-            val tag = if (old == null) Id3(3, ArrayList()) else {
+            val tag = if (old == null) {
+                val info = chunks.firstOrNull { (id, at, size) ->
+                    id == "LIST" && size >= 4 && String(ByteArray(4).also { f.seek(at); f.readFully(it) }, Charsets.ISO_8859_1) == "INFO"
+                }?.let { (_, at, size) -> ByteArray(size.toInt()).also { f.seek(at); f.readFully(it) } }
+                fromInfo(info)
+            } else {
                 val b = ByteArray(old.third.toInt()); f.seek(old.second); f.readFully(b)
                 parseId3(b)?.first ?: return false
             }
-            set(tag, lyrics, named)
+            set(tag, lyrics, named, mood)
             val id3 = buildId3(tag, padding = 0)
             RandomAccessFile(tmp, "rw").use { o ->
                 o.setLength(0)

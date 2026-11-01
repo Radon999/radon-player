@@ -379,7 +379,8 @@ fun MoodsTab(ui: Ui) {
             MoodsReading(ui, reading, counts)
             Empty("No moods yet", "Each of your songs gets every mood that fits it (Chill, Happy, Sad, Party…; the best fit is its " +
                 "main mood) from how it sounds (its tempo, energy, brightness and key), its genre, its words (Read moods from lyrics), " +
-                "and Last.fm's tags when you have a Last.fm key. Scan moods hears a minute from the " +
+                "and Last.fm's tags when you have a Last.fm key. The sound and the words both always count for every mood: the words " +
+                "weigh more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and Focus. Scan moods hears a minute from the " +
                 "middle of each song; Full scan hears every song from start to end (slower, surer). A mood in a file's MOOD tag, or " +
                 "the moods you tick in the Tagger, are used as they are. Scan moods also runs by itself after your music is scanned" +
                 (if (org.omarchy.music.platformName == "android") ", while the phone is charging." else "."))

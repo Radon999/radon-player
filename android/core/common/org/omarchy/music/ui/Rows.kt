@@ -262,10 +262,15 @@ object HeldKeys {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -> Unit) {
-    val playing = Music.shownTrack()?.id == t.id && (place.kind != "queue" || place.queueIndex == Music.shownIndex())
+    // What the row shows: your own copy of the song (file or download: its cover, tags, format) when you have one, from
+    // the first draw. t itself stays the row's song for its menu, picking and removing (a playlist's own entry).
+    val remoteQueue = place.kind == "queue" && Remote.active   // the desktop's queue: its songs as they are
+    val own = remember(t, remoteQueue, Music.musicVersion, Music.savedVersion) { if (remoteQueue) t else Music.localOf(t) }
+    val nowId = Music.shownTrack()?.id
+    val playing = nowId != null && (nowId == t.id || nowId == own.id) && (place.kind != "queue" || place.queueIndex == Music.shownIndex())
     var menu by remember { mutableStateOf(false) }
     Music.savedVersion   // redraw when downloads change
-    val saved = Music.lib.items[t.id]
+    val saved = Music.lib.items[own.id]
     val checked = t.id in ui.selected
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     // The theme's spacing and cover size (Compact, Roomy…), and its card behind each row (Cards, Glass, Outline…)
@@ -296,22 +301,22 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             if (ui.selecting) Checkbox(checked = checked, onCheckedChange = { ui.toggle(t) },
                 colors = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = C.muted))
             Box(contentAlignment = Alignment.Center) {
-                ArtImage(if (place.kind == "queue" && Remote.active) Remote.artModel(t) else artModel(t), art, Modifier.padding(start = 2.dp))
+                ArtImage(if (remoteQueue) Remote.artModel(t) else artModel(own), art, Modifier.padding(start = 2.dp))
                 if (playing) Box(Modifier.padding(start = 2.dp).size(art).clip(R.small).background(Color.Black.copy(alpha = 0.45f)),
                     contentAlignment = Alignment.Center) { Icon(if (Music.paused) Ico.PAUSE else Ico.PLAY, C.accent, 20.dp) }
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(t.title, style = T.title.copy(color = if (playing) C.accent else C.fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(own.title, style = T.title.copy(color = if (playing) C.accent else C.fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val bits = buildList {
-                    if (t.duration > 0 && !C.apple) add(fmtTime(t.duration))   // Apple Music's: the length at the end of the row
+                    if (own.duration > 0 && !C.apple) add(fmtTime(own.duration))   // Apple Music's: the length at the end of the row
                     if (extra.isNotEmpty()) add(extra)
                 }.joinToString(" · ")
-                ArtistLinks(t.artist, ui, t.source, suffix = if (bits.isNotEmpty()) "  · $bits" else "")
+                ArtistLinks(own.artist, ui, own.source, suffix = if (bits.isNotEmpty()) "  · $bits" else "")
             }
-            if (C.apple && t.duration > 0) Text(fmtTime(t.duration), style = T.time, modifier = Modifier.padding(end = 6.dp))
+            if (C.apple && own.duration > 0) Text(fmtTime(own.duration), style = T.time, modifier = Modifier.padding(end = 6.dp))
             // The file's format on every song of yours ("FLAC 24", "MP3"), and ⤓ on the ones downloaded from a service
             org.omarchy.music.FlacDepths.version
-            val fmt = if (saved != null) formatBadge(saved.format, saved.quality) else org.omarchy.music.FlacDepths.badge(t.file)
+            val fmt = if (saved != null) formatBadge(saved.format, saved.quality) else org.omarchy.music.FlacDepths.badge(own.file)
             if (fmt != null) Badge(fmt)
             if (saved != null) Icon(Ico.DOWNLOAD, C.accent, 16.dp, Modifier.padding(start = 4.dp))
             else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)

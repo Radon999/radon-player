@@ -218,7 +218,8 @@ object Dj {
 
     /** Play only songs (named name: a playlist, a folder), or with null everything. */
     fun playFrom(name: String?, songs: List<Track>?) {
-        scope = if (name != null && !songs.isNullOrEmpty()) name to songs else null
+        // A playlist's songs from a service that you have yourself: your copies (file, tags, cover) from the start
+        scope = if (name != null && !songs.isNullOrEmpty()) name to Music.localsOf(songs) else null
         dead.clear()   // other songs: every kind may work again
     }
 
@@ -1084,7 +1085,9 @@ object Dj {
 
     /** (blocking) A set for what you asked: an artist, a genre, a decade or a vibe; null if nothing fits.
      *  Playing from songs you picked: the ones of them that match, else from everywhere. */
-    fun ask(text: String): Built? {
+    fun ask(text: String): Built? = askAny(text)?.let { it.copy(songs = Music.localsOf(it.songs)) }   // your own copies
+
+    private fun askAny(text: String): Built? {
         val sc = scope ?: return askAll(text)
         askFrom(text)?.let { return it }
         return askAll(text)?.let { it.copy(line = "There's nothing like that in ${sc.first}, so from everywhere: ${it.line}") }
@@ -1182,7 +1185,8 @@ object Dj {
             val line = if (first) hello() + " " + got.second else got.second
             // Now and then (and never on the first set: that has its hello) something the DJ knows about you
             val fact = if (!first && Random.nextInt(5) < 2) fact(got.first) ?: "" else ""
-            return Built(k, got.first, line, fact)
+            // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
+            return Built(k, Music.localsOf(got.first), line, fact)
         }
         return null
     }

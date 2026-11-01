@@ -150,11 +150,19 @@ object MoodRules {
         )
     }
 
-    /** How much a song's words say about each mood (Sad, Romantic, Dark: a lot; Energetic, Party, Chill, Focus: little,
-     *  the sound says those), and how much the sound counts when there are words too. */
+    /** How much a song's words count for each mood, and how much its sound counts when there are words too. Both
+     *  always count for every mood, only weighed differently: the words more for Sad, Romantic and Dark, the sound more
+     *  for Energetic, Party, Chill and Focus. Neither is ever left out (no weight below [LEAST_SAY]). */
     private val WORDS_SAY = mapOf("Sad" to 1.3, "Romantic" to 1.3, "Dark" to 1.2, "Happy" to 1.0, "Intense" to 0.9, "Hype" to 0.8,
-        "Dreamy" to 0.7, "Calm" to 0.7, "Energetic" to 0.5, "Party" to 0.5, "Chill" to 0.45, "Focus" to 0.3)
-    private val SOUND_SAYS = mapOf("Energetic" to 1.2, "Party" to 1.2, "Chill" to 1.2, "Focus" to 1.2, "Sad" to 0.8, "Romantic" to 0.8, "Dark" to 0.8)
+        "Dreamy" to 0.7, "Calm" to 0.7, "Energetic" to 0.55, "Party" to 0.55, "Chill" to 0.5, "Focus" to 0.5)
+    private val SOUND_SAYS = mapOf("Energetic" to 1.2, "Party" to 1.2, "Chill" to 1.2, "Focus" to 1.2, "Sad" to 0.7, "Romantic" to 0.7, "Dark" to 0.7)
+    /** The least either the words or the sound ever counts for a mood (as a share of its full weight). */
+    const val LEAST_SAY = 0.25
+
+    /** How much the words count for mood m (1.3: a lot … never under [LEAST_SAY] of the most). */
+    fun wordsWeight(m: String): Double = maxOf(WORDS_SAY[m] ?: 0.7, LEAST_SAY * 1.3)
+    /** How much the sound counts for mood m when there are words too (1.0: as much as with no words). */
+    fun soundWeight(m: String): Double = maxOf(SOUND_SAYS[m] ?: 1.0, LEAST_SAY)
 
     /** Moods on the gloomy side and the glad side (for when the sound and the words disagree). */
     private val GLOOMY = setOf("Sad", "Dark")
@@ -246,7 +254,7 @@ object MoodRules {
             val s = fromSound(sound)
             val avg = s.values.average()
             // With words to go by, the sound counts a bit more for the moods you hear and a bit less for the ones you're told.
-            s.forEach { (m, v) -> score.merge(m, SOUND_K * (if (lyrics.isEmpty()) 1.0 else SOUND_SAYS[m] ?: 1.0) * (v - avg), Double::plus) }
+            s.forEach { (m, v) -> score.merge(m, SOUND_K * (if (lyrics.isEmpty()) 1.0 else soundWeight(m)) * (v - avg), Double::plus) }
         }
         // The words (see [LyricsMood]): each mood by how much they say it, weighed by how much words say about it, unless
         // the sound plainly says otherwise and the words only hint.
@@ -261,8 +269,9 @@ object MoodRules {
                     m in GLAD -> cues.downbeat
                     else -> 0.0
                 }
-                val k = if (v >= STRONG_WORDS) 1 - 0.35 * against else 1 - against
-                score.merge(m, 1.3 * (WORDS_SAY[m] ?: 0.7) * v * k, Double::plus)
+                // Against a sound that plainly says otherwise, a hint counts for less, but never for nothing.
+                val k = maxOf(LEAST_SAY, if (v >= STRONG_WORDS) 1 - 0.35 * against else 1 - against)
+                score.merge(m, 1.3 * wordsWeight(m) * v * k, Double::plus)
             }
             // Do the sound and the words agree? By how glad each is (the words' only when they say enough).
             if (cues != null && words != null && !words.instrumental) {

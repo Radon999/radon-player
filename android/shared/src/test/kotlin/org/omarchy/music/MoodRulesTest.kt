@@ -37,6 +37,18 @@ class MoodRulesTest {
         assertTrue("Sad" in plain)
     }
 
+    @Test fun theSoundAndTheWordsBothAlwaysCount() {
+        // A hint of sad words in an upbeat song (Last.fm calls it sad too) counts for less, but not for nothing.
+        val without = MoodRules.judge(upbeat, "", mapOf("sad" to 0.6), lyrics = mapOf("Happy" to 0.3)).scores["Sad"] ?: 0.0
+        val with = MoodRules.judge(upbeat, "", mapOf("sad" to 0.6), lyrics = mapOf("Happy" to 0.3, "Sad" to 0.4)).scores["Sad"] ?: 0.0
+        assertTrue(with > without)
+        // Every mood weighs both: the words more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill
+        // and Focus, and neither is ever 0.
+        for (m in listOf("Sad", "Romantic", "Dark")) assertTrue(MoodRules.wordsWeight(m) > MoodRules.wordsWeight("Energetic") && MoodRules.soundWeight(m) < 1.0)
+        for (m in listOf("Energetic", "Party", "Chill", "Focus")) assertTrue(MoodRules.soundWeight(m) > 1.0 && MoodRules.wordsWeight(m) < MoodRules.wordsWeight("Sad"))
+        for (m in MoodRules.ALL) assertTrue(MoodRules.wordsWeight(m) > 0.3 && MoodRules.soundWeight(m) > 0.3)
+    }
+
     @Test fun aSlowMinorSoundIsntMadeHappyByAHint() {
         assertFalse("Happy" in MoodRules.decide(slowMinor, "", lyrics = mapOf("Happy" to 0.4, "Sad" to 0.5)).map { it.first })
         assertEquals("Sad", MoodRules.decide(slowMinor, "", lyrics = mapOf("Happy" to 0.4, "Sad" to 0.5)).first().first)

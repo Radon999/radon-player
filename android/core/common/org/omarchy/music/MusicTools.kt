@@ -117,7 +117,15 @@ object MusicTools {
     fun fixupApply(changes: List<FixupChange>): Pair<Int, List<String>> {
         var done = 0; val failed = ArrayList<String>()
         for (c in changes) {
-            if (FileTags.write(Music.ctx, c.file, c.new)) done++ else failed += "${c.file.substringAfterLast('/')}: couldn't write its tags"
+            if (FileTags.write(Music.ctx, c.file, c.new)) {
+                done++
+                // A download of the app's shows what its library entry says (not its file's tags): the fix goes there
+                // too, so it shows, and stays after a rescan and a restart.
+                if ("artist" in c.new || "album" in c.new) Music.lib.items.values.filter { n(it.file) == c.file }.forEach { e ->
+                    Music.lib.update(e.id) { it.copy(artist = c.new["artist"] ?: it.artist, album = c.new["album"] ?: it.album) }
+                    Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { Music.savedVersion++ }
+                }
+            } else failed += "${c.file.substringAfterLast('/')}: couldn't write its tags"
             c.cover?.let { from ->
                 if (!FileTags.hasCover(Music.ctx, c.file)) FileTags.cover(Music.ctx, from)?.let { FileTags.writeCover(Music.ctx, c.file, Covers.jpeg(it)) }
             }

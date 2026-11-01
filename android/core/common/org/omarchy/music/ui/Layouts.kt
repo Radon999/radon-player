@@ -150,12 +150,15 @@ fun Tile(art: Any?, title: String, sub: String, modifier: Modifier, compact: Boo
 /** A song as a cover: a tap plays it, a long-press has its options; the count (plays, skips) stays under it. */
 @Composable
 fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifier, compact: Boolean, onPlay: () -> Unit) {
-    val playing = Music.shownTrack()?.id == t.id
+    // Your own copy's cover and tags when you have the song (t stays the tile's song for its menu and picking)
+    val own = remember(t, Music.musicVersion, Music.savedVersion) { Music.localOf(t) }
+    val nowId = Music.shownTrack()?.id
+    val playing = nowId != null && (nowId == t.id || nowId == own.id)
     val checked = t.id in ui.selected
     var menu by remember { mutableStateOf(false) }
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     Box(modifier) {
-        Tile(artModel(t, tilePx(compact)), t.title, t.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
+        Tile(artModel(own, tilePx(compact)), own.title, own.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
             onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
             over = {
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {

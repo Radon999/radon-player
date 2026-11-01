@@ -768,16 +768,56 @@ object Music {
     fun mineOf(t: Track): Track {
         val v = musicVersion
         if (v != mineOfVer) {
+            // Built once per change to your music (each song's key worked out once), then one lookup per song;
+            // safe from any thread (the DJ builds its sets in the background).
             val all = runCatching { mySongs() }.getOrDefault(emptyList())
-            mineOfKey = all.groupBy { Stats.statsKey(it.title, it.artist) }
-            mineOfLoose = all.groupBy { looseTitle(it.title) to Stats.statsKey(it.title, it.artist).second }
+            val byKey = HashMap<Pair<String, String>, MutableList<Track>>()
+            val byLoose = HashMap<Pair<String, String>, MutableList<Track>>()
+            for (s in all) {
+                val (k, loose) = mineKeys(s)
+                byKey.getOrPut(k) { ArrayList() } += s
+                byLoose.getOrPut(loose to k.second) { ArrayList() } += s
+            }
+            mineOfKey = byKey
+            mineOfLoose = byLoose
             mineOfVer = v
         }
-        val k = Stats.statsKey(t.title, t.artist)
-        val copies = mineOfKey[k] ?: mineOfLoose[looseTitle(t.title) to k.second] ?: return t
+        val byKey = mineOfKey
+        if (byKey.isEmpty()) return t   // no songs of your own (yet)
+        val (k, loose) = mineKeys(t)
+        val copies = byKey[k] ?: mineOfLoose[loose to k.second] ?: return t
         if (!t.file.isNullOrEmpty() && copies.any { it.file == t.file }) return t   // already your file (as it is now)
         return bestCopy(copies, t.album)
     }
+
+    /** The copy of a song to play and show: the song itself when it's yours (a file or a download), else your own copy
+     *  of it when you have one ([mineOf]: the same name and artist; never another version, so a live or remixed one
+     *  stays the service's), else the song as it is. Its marks in the queue (queued, the DJ's set, plays) go with it.
+     *  One lookup per song once [mineOf] has read your music. */
+    fun localOf(t: Track): Track {
+        if (t.isFile || lib.has(t.id)) return t
+        val m = runCatching { mineOf(t) }.getOrNull() ?: return t
+        if (m === t || m.id == t.id || !(m.isFile || lib.has(m.id))) return t
+        if (versionWords(m.title) != versionWords(t.title)) return t   // "Song (Live)" isn't your "Song"
+        return m.copy(queued = t.queued, dj = t.dj, plays = t.plays)
+    }
+
+    /** [localOf] for each song of a list (the queue, a DJ set, a radio). */
+    fun localsOf(tracks: List<Track>): List<Track> = if (tracks.isEmpty()) tracks else tracks.map { localOf(it) }
+
+    private fun versionWords(title: String): Set<String> = SONG_VERSION.findAll(title).map { it.value.lowercase() }.toSet()
+
+    /** A song's Stats key and loose title, worked out once per name and artist (they take a few regexes each, and
+     *  [mineOf] reads thousands of songs again whenever your music changes). */
+    private fun mineKeys(t: Track): Pair<Pair<String, String>, String> {
+        val id = t.title + "\u0000" + t.artist
+        mineKeyMemo[id]?.let { return it }
+        if (mineKeyMemo.size > 50_000) mineKeyMemo.clear()
+        val made = Stats.statsKey(t.title, t.artist) to looseTitle(t.title)
+        mineKeyMemo[id] = made
+        return made
+    }
+    private val mineKeyMemo = java.util.concurrent.ConcurrentHashMap<String, Pair<Pair<String, String>, String>>()
     @Volatile private var mineOfVer = -1
     @Volatile private var mineOfKey: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfLoose: Map<Pair<String, String>, List<Track>> = emptyMap()
@@ -980,8 +1020,9 @@ object Music {
         var sets = dj.sets + (n.toString() to Dj.Info(b.kind, b.line, b.fact))
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
         dj = dj.copy(sets = sets)
-        Dj.used += b.songs.map { songKey(it) }
-        return b.songs.map { it.copy(dj = n) }
+        val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
+        Dj.used += (b.songs + songs).map { songKey(it) }
+        return songs.map { it.copy(dj = n) }
     }
 
     /** A set begins: its line, where you see it. */
@@ -2217,14 +2258,15 @@ object Music {
         val newQueue = multiQueue && listName.isNotEmpty() && listName != queueName
         if (multiQueue) startQueue(listName)
         val queued = if (newQueue) emptyList() else queue.drop(index + 1).filter { it.queued }
-        queue = tracks.take(i + 1) + queued + tracks.drop(i + 1)
+        val mine = localsOf(tracks)   // a service's song you have yourself plays from your file or download
+        queue = mine.take(i + 1) + queued + mine.drop(i + 1)
         index = i
         radioFrom = null
         shuffled = false
         if (dj.on) dj = dj.copy(on = false)   // you picked other songs: the DJ stops
         context++
         loadCurrent()
-        if (radio) extendRadio(queue[i], keepUntil = i)
+        if (radio) extendRadio(tracks[i], keepUntil = i)   // the service's song: its own radio
     }
 
     /** Songs are played from the list called name: if it isn't the queue you're in, that one is kept to come back to. */
@@ -2310,7 +2352,7 @@ object Music {
     /** "next" plays the songs right after this one, "queue" after the songs you queued before. */
     fun enqueue(tracks: List<Track>, how: String = "queue") {
         if (Remote.active) { Remote.enqueue(tracks, how); return }
-        val ts = tracks.map { it.copy(queued = true) }
+        val ts = localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
         if (current() == null) { playFrom(ts, 0, false); return }
         var pos = index + 1
@@ -2347,7 +2389,7 @@ object Music {
     private fun extendRadio(t: Track, keepUntil: Int? = null) {
         radioFrom = t.id
         val ctxNow = context
-        bg({ radioTracks(t) }) { res, err ->
+        bg({ localsOf(radioTracks(t)) }) { res, err ->   // the radio's songs you have play from your copies
             if (ctxNow != context || err != null || res.isNullOrEmpty()) { if (ended) doneAdvancing(); return@bg }
             var q = queue
             if (keepUntil != null) {
@@ -2650,7 +2692,14 @@ object Music {
     }
 
     fun loadCurrent(autoplay: Boolean = true) {
-        val t0 = current() ?: return
+        val c = current() ?: return
+        // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
+        // kept from before you had it too): never the service's stream of it.
+        val t0 = if (Remote.active) c else localOf(c)
+        if (t0 !== c) {
+            queue = queue.toMutableList().also { it[index] = t0 }
+            if (radioFrom == c.id) radioFrom = t0.id
+        }
         val t = t0.copy(queued = false)   // playing now, not waiting in your queue
         if (t0.queued) queue = queue.toMutableList().also { it[index] = t }
         if (t.isFile && !fileHere(t)) { standIn(t, autoplay); return }   // the other device's song file (a backup's)
