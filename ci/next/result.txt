@@ -1,23 +1,49 @@
-run 41360274847 · Sun Nov  1 23:12:01 UTC 2026
-PHONE OK
-PC OK
-TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="10" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:1103:13 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Updater.kt:76:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Voice.kt:80:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Voice.kt:103:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+run 41363225925 · Sun Nov  1 23:43:47 UTC 2026
+PHONE FAILED
+PC FAILED
+TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="2" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="12" failures="0" tests="2" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
+e: core/common/org/omarchy/music/Music.kt:1623:15 Unresolved reference 'setSynced'.
+e: core/common/org/omarchy/music/Stores.kt:240:46 Unresolved reference 'edit'.
+e: core/common/org/omarchy/music/Stores.kt:240:57 Unresolved reference 'it'.
+e: core/common/org/omarchy/music/Stores.kt:240:96 Unresolved reference 'it'.
+> Task :app:compileReleaseKotlin FAILED
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+--
+> Task :desktop:compileKotlin FAILED
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:flattenJars
+FAILURE: Build completed with 2 failures.
 
-> Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-3.0.0.jar
+--
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+BUILD FAILED in 2m 37s
+86 actionable tasks: 86 executed
+> Get more help at https://help.gradle.org.
+==============================================================================
 
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -25,5 +51,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m 20s
-103 actionable tasks: 103 executed
+BUILD FAILED in 2m 37s
+86 actionable tasks: 86 executed
