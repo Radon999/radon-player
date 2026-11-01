@@ -285,6 +285,12 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
         Text(if (org.omarchy.music.platformName == "android") "The songs the app downloaded get a MOOD tag; Android keeps your other files to " +
             "themselves, so their moods stay in the app (and in backups)." else "Your songs' files get a MOOD tag, so other apps and " +
             "the files' next home keep their moods.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp))
+        // A heads-up: the first time takes long, but it's only ever done once
+        Text("Please wait until the moods are done writing before you close the app. The scans and the writing take a " +
+            "long time the first time, but once the moods are written into your files you never need to do it again. " +
+            "When the writing is done, a message pops up in white at the bottom of the screen.",
+            style = T.sub.copy(color = if (moods.writing) C.accent else C.fg),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
         val n = moods.toWrite
         val wp = moods.writeProgress
         // How far writing has got: files that have their mood, and files still waiting for theirs

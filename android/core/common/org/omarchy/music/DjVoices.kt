@@ -68,11 +68,8 @@ object DjVoices {
     data class KokoroVoice(val id: String, val sid: Int, val label: String)
 
     val KOKORO_VOICES = listOf(
-        KokoroVoice("am_michael", 16, "Michael: warm, a radio host (default)"),
-        KokoroVoice("am_fenrir", 14, "Fenrir: deep and punchy"),
-        KokoroVoice("am_puck", 18, "Puck: bright and upbeat"),
-        KokoroVoice("bm_george", 26, "George: British, laid back"),
-        KokoroVoice("af_heart", 3, "Heart: warm, a woman's voice"),
+        KokoroVoice("am_adam", 11, "Male"),     // the default
+        KokoroVoice("af_heart", 3, "Female"),
     )
 
     val kokoroVoice: KokoroVoice get() = Prefs.text(KOKORO_VOICE).let { v -> KOKORO_VOICES.firstOrNull { it.id == v } } ?: KOKORO_VOICES[0]

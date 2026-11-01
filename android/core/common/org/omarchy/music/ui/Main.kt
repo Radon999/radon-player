@@ -259,6 +259,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Moods", Ico.MOOD, "moods"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
         add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
+        add(Entry("Mood lists", Ico.MOOD, "music", "moodlists"))
         add(Entry("Folders", Ico.FOLDER, "folders"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))

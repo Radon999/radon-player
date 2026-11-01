@@ -281,6 +281,8 @@ fun MusicTab(ui: Ui) {
     // Smart playlists: their songs worked out again (in the background) as your music, moods and formats change.
     LaunchedEffect(ui.musicView, Music.musicVersion, org.omarchy.music.Moods.version, org.omarchy.music.FlacDepths.version) {
         if (ui.musicView == "smartlists") org.omarchy.music.SmartLists.refresh() }
+    // Mood lists: the ones never made are made once, as the tab opens (a mood with no songs yet is tried again next time).
+    LaunchedEffect(ui.musicView) { if (ui.musicView == "moodlists") org.omarchy.music.MoodLists.makeMissing() }
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importPlaylist(uri) }
     Music.musicVersion
     Music.savedVersion
@@ -311,6 +313,7 @@ fun MusicTab(ui: Ui) {
             when (ui.musicView) {
                 "playlists" -> myPlaylists(ui) { importer.launch(arrayOf("*/*")) }
                 "smartlists" -> smartPlaylists(ui)
+                "moodlists" -> moodLists(ui)
                 "dj" -> djView(ui, ask) { ask = it }
                 "dupes" -> dupesView(ui)
                 "pinned" -> pinnedView(ui)

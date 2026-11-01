@@ -52,7 +52,7 @@ import org.omarchy.music.norm
 // 1.4: list, grid and compact grid layouts, searching the page you're on, and Pinned.
 
 /** The pages that can be a list, a grid or a compact grid (and searched on their own). */
-private val LAID_OUT = setOf("all", "recent", "favorites", "unfavorited", "top", "skips", "playlists", "smartlists", "playlist", "pinned",
+private val LAID_OUT = setOf("all", "recent", "favorites", "unfavorited", "top", "skips", "playlists", "smartlists", "moodlists", "playlist", "pinned",
     "library", "albums", "eps", "singles", "artists", "genres", "moods", "folders", "downloads", "flac24", "flac32", "artist-page", "album-page", "songs-page", "repeat", "newreleases")
 
 /** Which page is in front, for its layout. */
@@ -218,7 +218,7 @@ fun PinPill(p: Pin) {
     Pill(if (Music.pinned(p)) "Unpin" else "Pin", quiet = true) { Music.togglePin(p) }
 }
 
-private val PIN_KINDS = mapOf("artist" to "Artist", "album" to "Album", "mine" to "Playlist", "service" to "Playlist", "smart" to "Smart playlist",
+private val PIN_KINDS = mapOf("artist" to "Artist", "album" to "Album", "mine" to "Playlist", "service" to "Playlist", "smart" to "Smart playlist", "mood" to "Mood list",
     "genre" to "Genre", "folder" to "Folder", "listfolder" to "Folder of playlists")
 
 /** Open what was pinned, where it lives. */
@@ -237,6 +237,8 @@ fun openPin(ui: Ui, p: Pin) {
             else { ui.pages.clear(); ui.tab = "music"; ui.musicView = "playlists"; ui.openFolder = null; ui.openMine = p.id }
         "smart" -> if (Music.lists.get(p.id)?.smart == null) Music.toast("“${p.title}” was deleted")
             else { ui.pages.clear(); ui.tab = "music"; ui.musicView = "smartlists"; ui.openFolder = null; ui.openMine = p.id }
+        "mood" -> if (p.id !in org.omarchy.music.Moods.ALL) Music.toast("“${p.title}” isn't a mood list any more")
+            else { ui.pages.clear(); ui.tab = "music"; ui.musicView = "moodlists"; ui.openFolder = null; ui.openMine = p.id }
         "listfolder" -> if (Music.playlistFolders.get(p.id) == null) Music.toast("“${p.title}” was deleted")
             else { ui.pages.clear(); ui.tab = "music"; ui.musicView = "playlists"; ui.openMine = null; ui.openFolder = p.id }
         "service" -> openServicePlaylist(ui, p.id, p.title, p.thumb, p.source)
@@ -259,11 +261,12 @@ fun openServicePlaylist(ui: Ui, id: String, title: String, thumb: String, source
 
 /** A pin's picture: the artist's, the album's cover, the first song's. */
 @Composable
-private fun pinArt(p: Pin): Any? = remember(p.key, Music.musicVersion, Music.artistsVersion, org.omarchy.music.SmartLists.version) {
+private fun pinArt(p: Pin): Any? = remember(p.key, Music.musicVersion, Music.artistsVersion, org.omarchy.music.SmartLists.version, org.omarchy.music.MoodLists.version) {
     when (p.kind) {
         "artist" -> artistArt(p.id, p.thumb)
         "mine" -> Music.lists.get(p.id)?.tracks?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }?.let { artModel(it) }
         "smart" -> Music.lists.get(p.id)?.let { org.omarchy.music.SmartLists.songs(it) }?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }?.let { artModel(it) }
+        "mood" -> org.omarchy.music.MoodLists.songs(p.id).firstOrNull { it.thumb.isNotEmpty() || it.isFile }?.let { artModel(it) }
         "album" -> if (p.source == "local") runCatching { Music.albums() }.getOrNull()?.firstOrNull { it.first.id == p.id }?.second?.firstOrNull()?.let { artModel(it) }
             else p.thumb.ifEmpty { null }
         "genre" -> runCatching { Music.genres() }.getOrNull()?.firstOrNull { it.first == p.id }?.second?.firstOrNull()?.let { artModel(it) }
@@ -273,7 +276,7 @@ private fun pinArt(p: Pin): Any? = remember(p.key, Music.musicVersion, Music.art
 }
 
 private fun pinIco(p: Pin) = when (p.kind) {
-    "artist" -> Ico.PERSON; "album" -> Ico.DISC; "genre" -> Ico.GENRE; "folder", "listfolder" -> Ico.FOLDER; else -> Ico.PLAYLIST
+    "artist" -> Ico.PERSON; "album" -> Ico.DISC; "genre" -> Ico.GENRE; "folder", "listfolder" -> Ico.FOLDER; "mood" -> Ico.MOOD; else -> Ico.PLAYLIST
 }
 
 /** Pinned: what you pinned, the newest first; a tap opens it, a long-press unpins it or moves it up. */
