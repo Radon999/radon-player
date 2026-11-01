@@ -196,6 +196,15 @@ object Voice {
     }
     @Volatile private var elevenToldAt = 0.0
 
+    /** The natural voice didn't speak: say so once per run, with its last line, so it isn't silently Windows' voice. */
+    @Volatile private var toldFail = false
+    private fun naturalFailed(out: String) {
+        if (toldFail) return
+        toldFail = true
+        val last = out.lines().map { it.trim() }.lastOrNull { it.isNotEmpty() }.orEmpty().take(160)
+        Music.toast("The natural voice couldn't speak, so Windows' voice is used" + if (last.isNotEmpty()) ": $last" else "")
+    }
+
     /** Kokoro's speed: a touch faster than its default, like someone talking, not reading (length scale under 1). */
     private const val LENGTH_SCALE = "0.92"
 
@@ -210,6 +219,7 @@ object Voice {
             val plain = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
                 .replace("\"", "").replace(Regex("[^\\x20-\\x7E]"), " ").replace(Regex("\\s+"), " ").trim()
             if (plain.isEmpty()) return@runCatching false
+            var lastOut = ""
             val threads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
             fun synth(withSpeed: Boolean): Boolean {
                 val args = mutableListOf(exe.path,
@@ -217,7 +227,9 @@ object Voice {
                     "--kokoro-voices=${java.io.File(m, "voices.bin").path}",
                     "--kokoro-tokens=${java.io.File(m, "tokens.txt").path}",
                     "--kokoro-data-dir=${java.io.File(m, "espeak-ng-data").path}",
-                    "--kokoro-lexicon=${java.io.File(m, "lexicon-us-en.txt").path}",
+                    // As sherpa-onnx's own example for this model: its dictionary folder and both lexicons
+                    "--kokoro-dict-dir=${java.io.File(m, "dict").path}",
+                    "--kokoro-lexicon=${java.io.File(m, "lexicon-us-en.txt").path},${java.io.File(m, "lexicon-zh.txt").path}",
                     "--num-threads=$threads", "--sid=${v.sid}", "--output-filename=${wav.path}")
                 if (withSpeed) args += "--kokoro-length-scale=$LENGTH_SCALE"
                 args += plain
@@ -228,12 +240,21 @@ object Voice {
                 wav.delete()
                 val p = pb.start()
                 proc = p
-                p.inputStream.readBytes(); p.waitFor()
+                val out = p.inputStream.readBytes(); val code = p.waitFor()
                 if (proc === p) proc = null
+                // What it said, kept for finding out why the natural voice didn't speak (dj-voice-kokoro/last-run.txt)
+                runCatching {
+                    java.io.File(dir, "last-run.txt").writeText("exit $code, wav ${wav.length()} bytes\n" +
+                        args.dropLast(1).joinToString("\n") + "\n---\n" + String(out).takeLast(6000))
+                }
+                lastOut = String(out)
                 return turn == mine && wav.isFile && wav.length() > 1000
             }
             // The speed flag is newer than some builds: without it if it's not known
-            if (!synth(true) && (turn != mine || !synth(false))) return@runCatching turn != mine
+            if (!synth(true) && (turn != mine || !synth(false))) {
+                if (turn == mine) naturalFailed(lastOut)
+                return@runCatching turn != mine
+            }
             val ais = javax.sound.sampled.AudioSystem.getAudioInputStream(wav)
             val c = javax.sound.sampled.AudioSystem.getClip()
             c.open(ais); clip = c
@@ -244,7 +265,7 @@ object Voice {
             } finally { runCatching { c.stop(); c.close() }; clip = null }
             true
         } finally { wav.delete() }
-    }.getOrDefault(false)
+    }.onFailure { naturalFailed("${it.javaClass.simpleName}: ${it.message ?: ""}") }.getOrDefault(false)
 
     private fun ps(script: String): Process {
         val enc = java.util.Base64.getEncoder().encodeToString(script.toByteArray(Charsets.UTF_16LE))
