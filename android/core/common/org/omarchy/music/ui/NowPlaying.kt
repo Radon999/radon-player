@@ -144,7 +144,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
         if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
-        if (vis != null && visStyle != "off" && !onCover && !visPane) NowVis(   // not behind the visualizer settings (it hid the choices)
+        if (vis != null && visStyle != "off" && !onCover && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
             visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
         if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -638,6 +638,9 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
 private var strengthDrag by mutableStateOf<Float?>(null)
 /** Now playing visualizer's strength now: the one being dragged, else the saved one. */
 private val nowStrength: Float get() = strengthDrag ?: Vis.nowStrength()
+/** Moving the strength bar: the styles hide so only the visualizer shows, back a second after the bar last moved. */
+private var strengthPeek by mutableStateOf(false)
+private var strengthMoves by mutableStateOf(0)
 
 /** Now playing's visualizer, changed right here: every style with a small live preview, its colour, its strength. Saved to
  *  the same settings as Settings › Look › Now playing visualizer, and it shows straight away behind or over the cover.
@@ -647,8 +650,12 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
     val style = Vis.nowStyle()
     val colorKey = Vis.color()
     val levels = s ?: remember { VisState() }
+    // A second after the strength bar last moved, the styles come back
+    LaunchedEffect(strengthMoves) { if (strengthPeek) { kotlinx.coroutines.delay(1000); strengthPeek = false } }
+    DisposableEffect(Unit) { onDispose { strengthPeek = false } }
+    val hide = Modifier.graphicsLayer(alpha = if (strengthPeek) 0f else 1f)   // hidden but kept in place (the bar mustn't move)
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Visualizer", style = T.title.copy(color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
                 Text("What moves with the music on this screen", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -662,13 +669,13 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
         val rows = NP_VIS_STYLES.chunked(3)
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             itemsIndexed(rows, key = { i, _ -> "r$i" }) { _, row ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { (k, label) -> VisTile(k, label, k == style, levels, col, colorKey, Modifier.weight(1f)) }
                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
             item("color") {
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 6.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(end = 10.dp)) {
                         Text("Colour", style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium))
                         Text(if (style == "slim" || style == "off") "For the Visualizer's styles; the slim bars take the cover's colour"
@@ -681,7 +688,7 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
                 Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
                     Text("Strength", style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium))
                     // The bar's 0 … 1 is a strength of 0.1 … 1 (never quite invisible: Off is for that).
-                    SlimBar((nowStrength - 0.1f) / 0.9f, onMove = { strengthDrag = 0.1f + 0.9f * it },
+                    SlimBar((nowStrength - 0.1f) / 0.9f, onMove = { strengthDrag = 0.1f + 0.9f * it; strengthPeek = true; strengthMoves++ },
                         onDone = { Prefs.setNum(Vis.NOW_STRENGTH, 0.1f + 0.9f * it); strengthDrag = null })
                 }
             }

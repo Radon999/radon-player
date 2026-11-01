@@ -385,6 +385,10 @@ fun MoodsTab(ui: Ui) {
             // Where to put a wrong mood right
             if (!picking) Text("A mood looks wrong? Change it in the Tagger (Tagger › Tags › Mood): long-press a song " +
                 "(right-click on the PC) › Tagger…", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            if (!picking) Text("Note: the moods won't always be spot on. From lots of testing, scanning both the sound (Full scan) and " +
+                "the lyrics (Read moods from lyrics) gives the best results: about 90% of songs land in the right moods. There " +
+                "will be a few outliers, and those can be changed in the Tagger.", style = T.sub,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             Section("${moods.size} MOOD${if (moods.size != 1) "S" else ""}")
         }
         laidOutItems(moods, ui, key = { "mood-" + moods[it].first }, row = { i ->

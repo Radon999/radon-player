@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.animateScrollBy
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1093,10 +1095,17 @@ fun VisualizerTab() {
     val colorKey = Vis.color()
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 6.dp),
+            // The styles in a row that scrolls: ‹ and › step through it (on the PC a mouse can't swipe it; Shift + wheel scrolls it too)
+            val styleScroll = rememberScrollState()
+            val scrollScope = androidx.compose.runtime.rememberCoroutineScope()
+            fun step(by: Float) { scrollScope.launch { styleScroll.animateScrollBy(by) } }
+            if (styleScroll.canScrollBackward) Chip("‹", false) { step(-420f) }
+            Row(Modifier.weight(1f).horizontalScroll(styleScroll)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 VIS_STYLES.forEach { (k, label) -> Chip(label, style == k) { Music.chooseVisPreset(k) } }
             }
+            if (styleScroll.canScrollForward) Chip("›", false) { step(420f) }
             Spacer(Modifier.width(4.dp))
             val accent = C.accent
             ChoicePill(VIS_COLORS, colorKey, swatch = { visSwatch(it, accent) }) { Prefs.setText(Vis.COLOR, it) }
