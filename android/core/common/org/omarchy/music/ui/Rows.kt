@@ -207,6 +207,15 @@ class Ui {
         showOptions = true
     }
 
+    /** One song's options (a long-press or ⋮): the same sheet as a selection's, with that song's own extras. */
+    var oneSong by mutableStateOf<Track?>(null)
+    fun songMenu(t: Track, place: RowPlace) {
+        if (selecting) { optionsHere(t); return }
+        oneSong = t
+        selectPlace = place
+        showOptions = true
+    }
+
     fun toggle(t: Track) { if (t.id in selected) selected.remove(t.id) else selected[t.id] = t }
     fun selectedTracks() = selected.values.toList()
 }
@@ -343,39 +352,11 @@ fun goToAlbum(ui: Ui, t: Track) {
     }
 }
 
+/** A song's menu (long-press, right-click or ⋮): opens the options sheet for it, the same look as for selected songs. */
 @Composable
 fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> Unit) {
-    DropdownMenu(expanded = open, onDismissRequest = dismiss) {
-        fun item(label: String, act: () -> Unit) = @Composable {
-            DropdownMenuItem(text = { Text(label, style = T.body) }, onClick = { dismiss(); act() })
-        }
-        if (place.kind == "queue") {
-            if (place.queueIndex != Music.shownIndex()) item("Play now") { Music.playIndex(place.queueIndex) }()
-            if (place.queueIndex != Music.shownIndex()) item("Remove from the queue") { Music.unqueueMany(listOf(place.queueIndex)) }()
-        } else {
-            item("Play next") { Music.enqueue(listOf(t), "next") }()
-            item("Add to the queue") { Music.enqueue(listOf(t)) }()
-        }
-        item("Add to playlist…") { ui.pickPlaylistFor = listOf(t) }()
-        splitArtists(t.artist).take(3).forEach { n -> item("Go to $n") { ui.pages += Ui.Page.Artist(n, t.source) }() }
-        if (t.album.isNotBlank()) item("Go to album “${t.album.trim()}”") { goToAlbum(ui, t) }()
-        if (place.playlistId != null) item("Remove from this playlist") { ui.confirm = "Take “${t.title}” out of this playlist? It stays in your music." to { Music.removeFromPlaylist(place.playlistId, setOf(t.id)) } }()
-        if (!t.isFile && !Music.lib.has(t.id)) item("Download") { Music.download(listOf(t)) }()
-        if (Music.lib.has(t.id)) item("Remove download") {
-            ui.confirm = "Delete the downloaded FLAC of “${t.title}”?" to { Music.removeDownload(t.id) }
-        }()
-        else if (Music.phoneFile(t) != null) item("Delete…") { ui.deleteFor = listOf(t) }()
-        item("Tagger…") { ui.taggerFor = listOf(t) }()
-        if (org.omarchy.music.upgradable(t) && Music.upgrading == null) item("Upgrade to FLAC…") { ui.upgradeFor = listOf(t) }()
-        item(if (Music.favorites.has(t)) "Unfavorite" else "Favorite") { Music.setFavorite(listOf(t)) }()
-        Music.gains.get(t, Music.outputNow.key).let { g -> item(if (g == 0.0) "Volume…" else "Volume (${"%+.1f".format(g)} dB)…") { ui.volumeFor = listOf(t) }() }
-        item(if (Music.songEqs.get(t, Music.outputNow.key) != null) "Custom EQ (on)…" else "Custom EQ…") { ui.songEqFor = listOf(t) }()
-        Music.speeds.get(t).speed.let { s -> item(if (s == 1.0) "Speed…" else "Speed (${org.omarchy.music.fmtSpeed(s)})…") { ui.speedFor = listOf(t) }() }
-        splitArtists(t.artist).firstOrNull()?.let { lead -> item("Discovery playlist for $lead") { Music.makeDiscovery(lead) }() }
-        if (t.isFile || Music.lib.has(t.id)) item("File location") { showLocation(ui, t) }()
-        if (org.omarchy.music.AudioTools.supported && (t.file ?: Music.lib.items[t.id]?.file) != null)
-            item("Identify by sound…") { ui.identifyFor = t }()
-        item("Select…") { ui.startSelecting(place.group, place, t) }()
+    androidx.compose.runtime.LaunchedEffect(open) {
+        if (open) { dismiss(); ui.songMenu(t, place) }
     }
 }
 

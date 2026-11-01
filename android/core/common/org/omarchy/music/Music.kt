@@ -760,6 +760,25 @@ object Music {
         return mine
     }
     @Volatile private var localCopies: Map<Pair<String, String>, List<Track>> = emptyMap()
+
+    /** Your own copy of a song (file or download) when you have one, else the song as it is: lists built from
+     *  plays (Skips, Recently played, favorites) show and edit your file, with its cover and tags, not a streamed copy. */
+    fun mineOf(t: Track): Track {
+        val v = musicVersion
+        if (v != mineOfVer) {
+            val all = runCatching { mySongs() }.getOrDefault(emptyList())
+            mineOfKey = all.groupBy { Stats.statsKey(it.title, it.artist) }
+            mineOfLoose = all.groupBy { looseTitle(it.title) to Stats.statsKey(it.title, it.artist).second }
+            mineOfVer = v
+        }
+        val k = Stats.statsKey(t.title, t.artist)
+        val copies = mineOfKey[k] ?: mineOfLoose[looseTitle(t.title) to k.second] ?: return t
+        if (!t.file.isNullOrEmpty() && copies.any { it.file == t.file }) return t   // already your file (as it is now)
+        return bestCopy(copies, t.album)
+    }
+    @Volatile private var mineOfVer = -1
+    @Volatile private var mineOfKey: Map<Pair<String, String>, List<Track>> = emptyMap()
+    @Volatile private var mineOfLoose: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var localByTitle: Map<String, List<Track>> = emptyMap()
 
     private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")

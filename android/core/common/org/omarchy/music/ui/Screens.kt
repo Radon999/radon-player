@@ -291,7 +291,7 @@ fun MusicTab(ui: Ui) {
     val songSort = sortNow(songTab, songOpts, if (ui.musicView == "all") Music.musicSort.takeIf { it in songOpts } ?: "title" else "order")
     val songBase = if (!songView) emptyList() else runCatching { when (ui.musicView) {
         "all" -> Music.mySongs()
-        "recent" -> Music.plays.recent()
+        "recent" -> Music.plays.recent().map { Music.mineOf(it) }   // your own files first
         "favorites" -> Music.favorites.tracks()
         else -> Music.mySongs().filter { !Music.favorites.has(it) }.sortedBy { norm(it.title) }
     } }.getOrDefault(emptyList())
@@ -318,7 +318,9 @@ fun MusicTab(ui: Ui) {
                 "discovery" -> discoveryView(ui)
                 "repeat" -> repeatView(ui)
                 else -> {
-                    val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince()) else emptyList()
+                    // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
+                    val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())
+                        .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) } else emptyList()
                     val skipInfo = skipRows.associate { (t, k, f) -> org.omarchy.music.songKey(t) to (k to f) }
                     val tracks = when (ui.musicView) {
                         "all", "recent", "favorites", "unfavorited" -> songSorted

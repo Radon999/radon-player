@@ -582,23 +582,39 @@ private fun BarButton(ico: Ico, label: String, onClick: () -> Unit) {
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun OptionsSheet(ui: Ui) {
-    val picked = ui.selectedTracks()
+    val one = ui.oneSong   // one song's menu (not a selection)
+    val picked = one?.let { listOf(it) } ?: ui.selectedTracks()
     val place = ui.selectPlace
+    fun close() { ui.showOptions = false; ui.oneSong = null }
     // Always open all the way, so every option shows without dragging the sheet up.
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = { ui.showOptions = false }, sheetState = sheet, containerColor = C.light) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = { close() }, sheetState = sheet, containerColor = C.light) {
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
-            item { Text("Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}", style = T.head,
+            item { Text(if (one != null) "“${one.title}”" else "Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}",
+                style = T.head, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
             val opts = buildList<Triple<Ico, String, () -> Unit>> {
+                if (one != null && place?.kind == "queue" && place.queueIndex != Music.shownIndex()) {
+                    add(Triple(Ico.PLAY, "Play now") { Music.playIndex(place.queueIndex) })
+                    add(Triple(Ico.CLOSE, "Remove from the queue") { Music.unqueueMany(listOf(place.queueIndex)) })
+                }
                 add(Triple(Ico.PLAY, "Play") { Music.playList(picked) })
                 add(Triple(Ico.SHUFFLE, "Shuffle play") { Music.playList(picked, shuffled = true) })
                 add(Triple(Ico.NEXT, "Play after the current song") { Music.enqueue(picked, "next") })
                 add(Triple(Ico.QUEUE, "Add to the queue") { Music.enqueue(picked) })
                 add(Triple(Ico.PLAYLIST, "Add to a playlist…") { ui.pickPlaylistFor = picked })
-                add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
-                add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
-                add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
+                if (one != null) {
+                    if (Music.favorites.has(one)) add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
+                    else add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
+                    org.omarchy.music.splitArtists(one.artist).take(3).forEach { n ->
+                        add(Triple(Ico.PERSON, "Go to $n") { ui.pages += Ui.Page.Artist(n, one.source) }) }
+                } else {
+                    add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
+                    add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
+                }
+                if (one == null || (!one.isFile && !Music.lib.has(one.id))) add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
+                if (one != null && Music.lib.has(one.id)) add(Triple(Ico.TRASH, "Remove download") {
+                    ui.confirm = "Delete the downloaded copy of “${one.title}”?" to { Music.removeDownload(one.id) } })
                 add(Triple(Ico.EDIT, "Tagger…") { ui.taggerFor = picked })   // tags, cover, the files' details, lyrics
                 add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
                 add(Triple(Ico.EQ, "Custom EQ…") { ui.songEqFor = picked })
@@ -618,7 +634,7 @@ fun OptionsSheet(ui: Ui) {
                     val ids = picked.map { it.id }.toSet()
                     ui.confirm = "Take ${ids.size} song${if (ids.size != 1) "s" else ""} out of this playlist? They stay in your music." to {
                         Music.removeFromPlaylist(place.playlistId, ids) } })
-                if (place?.kind == "queue") add(Triple(Ico.CLOSE, "Remove from the queue") {
+                if (place?.kind == "queue" && one == null) add(Triple(Ico.CLOSE, "Remove from the queue") {
                     val ids = picked.map { it.id }.toSet()
                     Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids }) })
                 val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
@@ -630,21 +646,24 @@ fun OptionsSheet(ui: Ui) {
                 if (files.isNotEmpty()) add(Triple(Ico.SHARE, "Share") {
                     shareFiles(files, "Share ${files.size} songs")
                 })
-                if (picked.any { Music.deletable(it) }) add(Triple(Ico.TRASH, "Delete permanently…") { ui.deleteFor = picked })
+                if (picked.any { Music.deletable(it) } && !(one != null && Music.lib.has(one.id)))
+                    add(Triple(Ico.TRASH, "Delete permanently…") { ui.deleteFor = picked })
+                if (one != null && place != null) add(Triple(Ico.SELECT, "Select…") { ui.startSelecting(place.group, place, one) })
             }
             items(opts.size) { i ->
                 val (ico, label, act) = opts[i]
                 Row(Modifier.fillMaxWidth().clickable {
-                    ui.showOptions = false
+                    val single = one != null
+                    close()
                     act()
                     // The ones that open a dialog close the selection when they're done.
-                    if (label.endsWith("…").not()) ui.afterOption()
+                    if (!single && label.endsWith("…").not()) ui.afterOption()
                 }.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(ico, if (label.startsWith("Delete")) C.red else C.accent, 20.dp)
                     Text(label, style = T.body.copy(color = if (label.startsWith("Delete")) C.red else C.fg), modifier = Modifier.padding(start = 16.dp))
                 }
             }
-            item {
+            if (one == null) item {
                 Row(Modifier.fillMaxWidth().clickable { ui.closeAfter = !ui.closeAfter; org.omarchy.music.Prefs.set("close_after", ui.closeAfter) }.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(ui.closeAfter, { ui.closeAfter = it; org.omarchy.music.Prefs.set("close_after", it) },
