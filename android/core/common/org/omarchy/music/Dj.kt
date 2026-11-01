@@ -17,16 +17,17 @@ import kotlin.random.Random
  *  blocks (run it in [Music.bg]); [Music] plays them. */
 object Dj {
     const val SET = 6   // songs in a set
-    val ORDER = listOf("repeat", "fresh", "hour", "throwback", "discover", "mood", "deep", "rediscover", "fresh", "favorites", "genre", "like", "discover")
+    val ORDER = listOf("repeat", "fresh", "hour", "throwback", "discover", "mood", "deep", "rediscover", "fresh", "favorites", "genre", "like", "discover", "moodmix")
     /** Playing from songs you picked (a playlist, a folder, an album): sets of only those. */
     val FROM_ORDER = listOf("loved", "unplayed", "hour", "mood", "artist", "throwback", "mix")
     // …and with new songs too: sets of new ones like them in between.
-    val FROM_NEW_ORDER = listOf("loved", "fresh", "unplayed", "hour", "like", "mood", "artist", "fresh", "throwback", "mix")
+    val FROM_NEW_ORDER = listOf("loved", "fresh", "unplayed", "hour", "like", "mood", "artist", "fresh", "throwback", "mix", "moodmix")
     @Volatile var withNew = true   // with a scope: new songs like those too
     val KINDS = mapOf("repeat" to "On repeat", "fresh" to "New for you", "throwback" to "Throwback", "deep" to "Deep cuts",
         "genre" to "Your genre", "like" to "More like this", "ask" to "You asked", "loved" to "Your favourites",
         "unplayed" to "Not played yet", "artist" to "One artist", "mix" to "Mix", "hour" to "This time of day",
-        "rediscover" to "Rediscover", "favorites" to "Your favourites", "discover" to "Artists for you", "mood" to "Your mood")
+        "rediscover" to "Rediscover", "favorites" to "Your favourites", "discover" to "Artists for you", "mood" to "Your mood",
+        "moodmix" to "Mood mix")
     /** Words in a request and the Last.fm tags they mean. */
     val WORDS = mapOf(
         "chill" to listOf("chill", "chillout"), "chilled" to listOf("chill", "chillout"), "relax" to listOf("chill", "relaxing"),
@@ -199,7 +200,8 @@ object Dj {
                         val artists: List<String>, val last: Map<Pair<String, String>, Long>,
                         val hour: List<Track> = emptyList(), val years: Map<Int, List<Track>> = emptyMap(),
                         val skipped: Set<Pair<String, String>> = emptySet(), val facts: Facts = Facts(),
-                        val moods: Map<String, Int> = emptyMap(), val moodHour: Map<String, Int> = emptyMap())
+                        val moods: Map<String, Int> = emptyMap(), val moodHour: Map<String, Int> = emptyMap(),
+                        val moodPlays: List<MoodPlay> = emptyList())
 
     /** What the DJ knows to tell you about: every song's plays and first play, your artists all told and this month,
      *  the hours you listen at, how many plays in all, each year's number one and plays, the moods of this month's plays. */
@@ -239,6 +241,17 @@ object Dj {
         return out
     }
 
+    /** (blocking) Every play (Last.fm, your imports, the plays here) of a song of yours whose mood is known, oldest
+     *  first, read again every ten minutes. See [MoodPlays]. */
+    fun moodPlays(): List<MoodPlay> = loadTaste().moodPlays
+
+    /** Your copy of the song a [MoodPlay.song] names (title and artist key), or null. */
+    fun moodSong(song: String): Track? {
+        val parts = song.split("\t")
+        if (parts.size != 2) return null
+        return (taste ?: loadTaste()).mine[parts[0] to parts[1]]
+    }
+
     /** (blocking) When you last played each song (seconds), by Stats.statsKey: for Sort › Recently played. */
     fun lastHeard(): Map<Pair<String, String>, Long> = loadTaste().last
 
@@ -263,7 +276,9 @@ object Dj {
         var total = 0
         var since = Long.MAX_VALUE
         // Moods of what you played: only your own songs have one (Moods reads their files), found once per song.
+        // Every play of a song with a mood is kept (MoodPlays: the mood facts, and Most played can count by mood too).
         val moodOf = HashMap<Pair<String, String>, String?>()
+        val moodPlays = ArrayList<MoodPlay>()
         val moodMonth = HashMap<String, Int>()
         val moodHour = HashMap<String, Int>()
         for (p in history()) {
@@ -284,13 +299,11 @@ object Dj {
             val lead = p.artist.split(",")[0].trim()
             if (lead.isNotEmpty()) { artistAll.merge(lead, 1, Int::plus); if (age < 30 * 86_400L) artistMonth.merge(lead, 1, Int::plus) }
             hours[at.hour]++
-            val recentOrNow = age < 30 * 86_400L || (age < 365 * 86_400L && Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1)
-            if (recentOrNow) {
-                val mood = moodOf.getOrPut(k) { mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
-                if (mood != null) {
-                    if (age < 30 * 86_400L) moodMonth.merge(mood, 1, Int::plus)
-                    if (Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1) moodHour.merge(mood, 1, Int::plus)
-                }
+            val mood = moodOf.getOrPut(k) { mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
+            if (mood != null) {
+                moodPlays += MoodPlay(p.t, mood, "${k.first}\t${k.second}")
+                if (age < 30 * 86_400L) moodMonth.merge(mood, 1, Int::plus)
+                if (age < 365 * 86_400L && Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1) moodHour.merge(mood, 1, Int::plus)
             }
         }
         val yearTop = years.mapNotNull { (y, c) -> c.maxByOrNull { it.value }?.let { (k, n) -> y to (names.getValue(k) to n) } }.toMap()
@@ -308,7 +321,8 @@ object Dj {
         val skipped = runCatching { Music.songStats.rows().filter { (_, n, f) -> n >= 3 && n > f }
             .flatMap { (t, _, _) -> listOf(songKey(t), Stats.statsKey(t.title, t.artist)) }.toSet() }.getOrDefault(emptySet())
         return Taste(mine, rec, all, top, last, songs(hour, 80),
-            years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, skipped, facts, moodMonth, moodHour).also { taste = it; tasteAt = now() }
+            years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, skipped, facts, moodMonth, moodHour,
+            moodPlays.sortedBy { it.t }).also { taste = it; tasteAt = now() }
     }
 
     private fun lastPlayed(taste: Taste, t: Track) = taste.last[Stats.statsKey(t.title, t.artist)] ?: 0L
@@ -437,6 +451,127 @@ object Dj {
                 "You've been playing a lot of $adj songs lately, so here are a few more: ${names(songs, 3)}.",
                 "I'm picking up a $adj vibe from you lately. Here's ${q(s)} to match.",
                 "Feeling $adj? Your recent plays say yes. ${q(s)} is up first.")
+    }
+
+    // ---- Mood mix: one mood at a time, a different one each time ----
+    private const val MOODMIX_HISTORY = "dj_moodmix_history"
+    private val artistMoodCache = ConcurrentHashMap<String, List<String>>()
+
+    /** (blocking) The moods an artist's Last.fm tags point to (the same rules Moods uses for a song's tags), best first;
+     *  empty with no Last.fm key or no tags. Kept while the app runs; a failed lookup is tried again next time. */
+    private fun artistMoods(artist: String): List<String> {
+        val lead = artist.split(",")[0].trim()
+        val k = norm(lead)
+        if (k.isEmpty() || LastFm.key.isEmpty()) return emptyList()
+        artistMoodCache[k]?.let { return it }
+        val tags = runCatching { LastFm.artistTags(lead) }.getOrNull() ?: return emptyList()
+        val got = MoodRules.decide(null, "", tags.filter { it.first.isNotBlank() && it.second > 0 && it.first.lowercase() !in JUNK_TAGS }
+            .associate { it.first.lowercase() to it.second / 100.0 }).map { it.first }
+        artistMoodCache[k] = got
+        return got
+    }
+
+    /** Whether a song you don't have (a stream, a new one) fits mood, judged by its artist's tags: its top two moods.
+     *  unknownFits: what to say when there's nothing to judge by (no Last.fm key, no tags). */
+    private fun fitsMood(t: Track, mood: String, unknownFits: Boolean): Boolean {
+        val ms = artistMoods(t.artist)
+        return if (ms.isEmpty()) unknownFits else mood in ms.take(2)
+    }
+
+    /** What the DJ says to open a mood mix: a few lines per mood, in his own words. */
+    private fun moodIntro(mood: String, s: Track): String = when (mood) {
+        "Happy" -> say("moodmix-Happy", "Let's lift things up a little. A happy run, starting with ${q(s)}.",
+            "Sun's out, at least in here. Some happy ones, kicking off with ${q(s)}.", "Time for a mood boost. Happy songs only, and ${q(s)} goes first.")
+        "Energetic" -> say("moodmix-Energetic", "Let's pick up the pace. Energy up, starting with ${q(s)}.",
+            "Okay, let's get moving. ${q(s)} gets us going.", "Shake off the slump. This one's all energy, and ${q(s)} leads the way.")
+        "Party" -> say("moodmix-Party", "Let's turn this into a party. ${q(s)} first, so turn it up.",
+            "Party mode, on. We're starting with ${q(s)}.", "If you're not dancing yet, give it a minute. ${q(s)} is up.")
+        "Hype" -> say("moodmix-Hype", "Let's get hyped. ${q(s)}, and it only goes up from here.",
+            "Hype mode. Hold on tight, ${q(s)} is first.", "Energy check. We're going full hype, with ${q(s)}.")
+        "Chill" -> say("moodmix-Chill", "Let's go somewhere chill. ${q(s)}, then a few more to sink into.",
+            "Time to slow it down and get comfy. ${q(s)} first.", "Deep breath. Something chill now, starting with ${q(s)}.")
+        "Calm" -> say("moodmix-Calm", "Let's bring it way down. Calm and easy, starting with ${q(s)}.",
+            "A quiet one now. ${q(s)}, nice and calm.", "Let's take a breather. ${q(s)}, and a few more like it.")
+        "Dreamy" -> say("moodmix-Dreamy", "Let's drift for a while. Something dreamy, starting with ${q(s)}.",
+            "Head in the clouds time. ${q(s)} first.", "A little dreamy detour now, starting with ${q(s)}.")
+        "Focus" -> say("moodmix-Focus", "Heads down, let's focus. ${q(s)}, and a few more to get you in the zone.",
+            "Getting things done? I've got you. Focus mode, starting with ${q(s)}.", "No distractions, just flow. ${q(s)} first.")
+        "Romantic" -> say("moodmix-Romantic", "Let's set the mood. Something romantic, starting with ${q(s)}.",
+            "A little romantic stretch now. ${q(s)} first.", "Candles optional. Romantic songs, starting with ${q(s)}.")
+        "Sad" -> say("moodmix-Sad", "Let's sit with our feelings for a bit. Something sad, starting with ${q(s)}.",
+            "Sometimes you just need a sad song. Here's ${q(s)}.", "Okay, tissues ready? A few sad ones, ${q(s)} first.")
+        "Dark" -> say("moodmix-Dark", "Let's go somewhere darker. ${q(s)} opens the way.",
+            "Lights down. Something dark now, starting with ${q(s)}.", "Into the shadows for a bit. ${q(s)} first.")
+        "Intense" -> say("moodmix-Intense", "Let's turn it up. Something intense, starting with ${q(s)}.",
+            "Brace yourself, it's getting intense. ${q(s)} first.", "No holding back now. ${q(s)} kicks it off.")
+        else -> say("moodmix-other", "Let's change the mood. Something ${Moods.adjective(mood)}, starting with ${q(s)}.",
+            "New mood, coming up. A ${Moods.adjective(mood)} run, starting with ${q(s)}.")
+    }
+
+    /** Mood mix: one mood (a different one from last time, rotating through them all), songs in it you know (yours, or
+     *  played from a service, its mood from its file or its artist's tags) and, with new songs on, a couple you haven't
+     *  heard that the DJ thinks you'll like (radios of the known ones, artists like yours) in that mood too. pool: the
+     *  songs the DJ plays from (null: everything). */
+    private fun setMoodMix(taste: Taste, pool: List<Track>?): Pair<List<Track>, String>? {
+        val withNewSongs = pool == null || withNew
+        val t0 = now().toLong()
+        // Songs you've played that aren't files (streams): judged by their artists' tags, a few artists at a time.
+        val streamed = (taste.recent + taste.hour + taste.all.take(150))
+            .filter { it.file.isNullOrEmpty() && runCatching { Moods.of(it) }.getOrNull() == null }.distinctBy { songKey(it) }
+        var lookups = 0
+        for (mood in MoodTally.moodOrder(Moods.ALL, said(MOODMIX_HISTORY)).take(5)) {
+            // Known: your songs in the mood (or the ones you picked to play from), those not played lately first
+            val mine = (pool?.filter { mood in Moods.all(it) } ?: Moods.songs(mood))
+            var have = ok(taste, mine).filter { songKey(it) !in used }.shuffled().sortedBy { (t0 - lastPlayed(taste, it)) < 7 * 86_400L }
+            if (pool == null && have.size < 6) {
+                val more = streamed.filter { s ->
+                    val k = norm(s.artist.split(",")[0].trim())
+                    if (!artistMoodCache.containsKey(k)) { if (lookups >= 12) return@filter false; lookups++ }
+                    fitsMood(s, mood, unknownFits = false)
+                }
+                have = have + ok(taste, more).filter { songKey(it) !in used }.shuffled()
+            }
+            val knownPick = pick(have.take(60), if (withNewSongs) 4 else SET, used)
+            if (knownPick.size < 2) continue
+            val fresh = ArrayList<Track>()
+            if (withNewSongs) {
+                val notNew = known(taste) + used + knownPick.map { songKey(it) }
+                val noKey = LastFm.key.isEmpty()
+                // Radios of two of the known ones: songs like them, so likely in the same mood; checked by their artist's tags
+                val keys = services()
+                for ((i, seed) in knownPick.take(2).withIndex()) {
+                    if (fresh.size >= 3) break
+                    val got = radio(seed, keys[i % keys.size]).filter { newToYou(it, notNew) && songKey(it) !in fresh.map { f -> songKey(f) }.toSet() }
+                    fresh += got.take(10).filter { fitsMood(it, mood, unknownFits = noKey) }.take(2)
+                }
+                // Artists like yours whose sound is this mood
+                if (fresh.size < 2 && !noKey) for ((name, _) in artistsForYou(taste).take(8)) {
+                    if (fresh.size >= 3) break
+                    if (mood !in artistMoods(name).take(2)) continue
+                    val info = runCatching { Music.artistInfo(name, null) }.getOrNull() ?: continue
+                    fresh += info.top.filter { newToYou(it, notNew) }.take(1)
+                }
+            }
+            val news = pick(fresh, 2, used)
+            // Known, known, new, known, new, known…
+            val songs = ArrayList<Track>()
+            val ki = knownPick.iterator(); val ni = news.iterator()
+            var i = 0
+            while ((ki.hasNext() || ni.hasNext()) && songs.size < SET) {
+                if ((i == 2 || i == 4) && ni.hasNext()) songs += ni.next() else if (ki.hasNext()) songs += ki.next() else songs += ni.next()
+                i++
+            }
+            if (songs.size < 3) continue
+            remember(MOODMIX_HISTORY, mood)
+            val intro = moodIntro(mood, songs[0])
+            val tail = if (news.isNotEmpty()) " " + say("moodmix-new",
+                "I've mixed in a couple of new ones I think you'll like.",
+                "There's something new in there too. Tell me what you think.",
+                "And a few you haven't heard yet, same vibe.",
+                "Plus a new find or two, picked just for you.") else ""
+            return songs to intro + tail
+        }
+        return null
     }
 
     /** Your starred songs, the ones you play most likelier. */
@@ -636,6 +771,7 @@ object Dj {
         taste.moodHour.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (m, _) ->
             out["mood-hour"] = "Around this time of day, you usually go for something ${Moods.adjective(m)}. I took notes."
         }
+        moodFacts(taste, nowS, out)
         // Your artists and songs
         val byMonth = f.artistMonth.entries.sortedByDescending { it.value }
         byMonth.getOrNull(0)?.takeIf { it.value >= 10 }?.let { (a, n) -> out["top-artist-month"] = "Your most played artist this month? $a, with ${num(n)} plays. No surprise there." }
@@ -686,6 +822,62 @@ object Dj {
         remember(FACT_HISTORY, key)
         out.getValue(key)
     }.getOrNull()
+
+    /** Facts about your moods (see [MoodTally]), from every play of your songs whose mood is known: this week's and
+     *  all time's top mood, a mood you've gone for more than usual this month, your go-to song in a mood, the time of
+     *  day you lean to a mood, how much of it is Hype, and a mood you've drifted away from. Into out, by key. */
+    private fun moodFacts(taste: Taste, nowS: Long, out: MutableMap<String, String>) {
+        val plays = taste.moodPlays
+        if (plays.size < 20) return
+        val day = 86_400L
+        val week = MoodTally.counts(plays, nowS - 7 * day, nowS + 1)
+        val month = MoodTally.counts(plays, nowS - 30 * day, nowS + 1)
+        val before = MoodTally.counts(plays, nowS - 60 * day, nowS - 30 * day)
+        val all = MoodTally.counts(plays, Long.MIN_VALUE, Long.MAX_VALUE)
+        fun adj(m: String) = Moods.adjective(m)
+        MoodTally.top(week, minPlays = 15)?.let { (m, n) ->
+            out["mood-week"] = say("fact-mood-week",
+                "This week you've mostly been in a ${adj(m)} mood. ${num(n)} plays of it, to be exact.",
+                "Your mood of the week? ${m}. ${MoodTally.percent(week, m)} percent of what you played from your music.",
+                "If this week had a mood, it'd be $m. You played ${num(n)} ${adj(m)} songs.")
+        }
+        MoodTally.top(all, minPlays = 100)?.let { (m, n) ->
+            out["mood-all"] = "All time, your number one mood is $m. That's ${num(n)} plays, and ${MoodTally.percent(all, m)} percent of your music."
+        }
+        MoodTally.shift(month, before)?.let { (m, was, pct) ->
+            out["mood-shift:$m"] = say("fact-mood-shift",
+                "You've been going for more $m than usual lately. Up from $was percent last month to $pct percent now.",
+                "Something's changed. Your $m songs went from $was percent of your plays to $pct percent this month.",
+                "I'm noticing more ${adj(m)} songs from you lately. About $pct percent this month, from $was percent before.")
+        }
+        // Your go-to song in your top mood of the month (else of all time)
+        val topMood = MoodTally.top(month, minPlays = 20)?.first ?: MoodTally.top(all, minPlays = 50)?.first
+        if (topMood != null) MoodTally.topSong(plays, topMood, minPlays = 5)?.let { (song, n) ->
+            moodSong(song)?.let { t ->
+                out["mood-song:$topMood"] = "Your go to ${adj(topMood)} song? ${q(t)} by ${by(t)}. You've played it ${num(n)} times."
+            }
+        }
+        // The time of day you lean to a mood
+        val zone = java.time.ZoneId.systemDefault()
+        MoodTally.leanings(plays, { java.time.Instant.ofEpochSecond(it).atZone(zone).hour }).entries
+            .maxByOrNull { it.value.second }?.let { (m, lean) ->
+                val part = lean.first
+                out["mood-time:$m"] = when (part) {
+                    "late night" -> "Late at night, you get ${adj(m)}. Your $m plays spike after ten."
+                    "morning" -> "Mornings are for $m, apparently. That's when you play the most ${adj(m)} songs."
+                    "afternoon" -> "Your afternoons lean $m. That's when the ${adj(m)} songs come out."
+                    else -> "Evenings bring out your $m side. That's when you play the most ${adj(m)} music."
+                }
+            }
+        // Hype's share
+        val hype = MoodTally.percent(all, "Hype")
+        if (all.values.sum() >= 100 && hype >= 5) out["mood-hype"] = if (hype >= 25) "About $hype percent of your listening is Hype. You don't do quiet, do you?"
+            else "About $hype percent of your music is Hype. Just enough to keep things moving."
+        // A mood you've drifted away from
+        MoodTally.neglected(all, month)?.let { m ->
+            out["mood-neglected:$m"] = "You used to play a lot of ${adj(m)} songs, but hardly any lately. Maybe I'll sneak one in."
+        }
+    }
 
     // ---- artists you might like ----
     @Serializable
@@ -963,7 +1155,8 @@ object Dj {
         val tries = if (kind != null) listOf(kind) else kindsToTry(order, key, avoid)
         for (k in tries) {
             val sc = scope
-            val got = if (sc != null && k in setOf("fresh", "like")) {   // new songs, from the ones it plays from
+            val got = if (k == "moodmix") setMoodMix(taste, sc?.second)   // one mood, songs you know and new ones
+            else if (sc != null && k in setOf("fresh", "like")) {   // new songs, from the ones it plays from
                 val t2 = Taste(taste.mine, sc.second.shuffled().take(20), sc.second, taste.artists, taste.last, skipped = taste.skipped)
                 if (k == "fresh") setFresh(t2) else setLike(t2)
             } else if (sc != null) fromSet(k, taste, coming) else when (k) {

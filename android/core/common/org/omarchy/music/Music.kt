@@ -970,11 +970,12 @@ object Music {
         if (!dj.on || set == null || n == dj.shown) return
         dj = dj.copy(shown = n)
         toast("DJ · ${set.line}")
-        djSay(set.line + if (set.fact.isNotEmpty()) "  " + set.fact else "")
+        // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
+        djSay(Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "")
     }
 
-    /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. On the PC through
-     *  Windows' voice, on the phone through Android's. */
+    /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. With your
+     *  ElevenLabs key through ElevenLabs; else on the PC Kokoro (once fetched) or Windows' voice, on the phone Android's. */
     val djVoice get() = Prefs.text("dj_voice") != "off"
     fun chooseDjVoice(on: Boolean) { Prefs.setText("dj_voice", if (on) "on" else "off"); if (!on) djHush() }
     var djTalking by mutableStateOf(false)

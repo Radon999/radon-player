@@ -6,6 +6,9 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -14,12 +17,15 @@ import java.util.concurrent.ConcurrentHashMap
  *  full: the sound is the whole song's (Full scan), not a minute of it. len: the song's length when it was heard (a
  *  file changed but just as long only had its tags changed, so its sound is kept). looked: the file's own MOOD tag
  *  looked for (at this mtime); inFile: the mood that tag gives ("" none); wrote: the mood the app last wrote into the
- *  file. picked: the mood you gave it (Tagger). kept/keptSure: moods from a backup, used until it's heard here. */
+ *  file. picked: the mood you gave it (Tagger). kept/keptSure: moods from a backup, used until it's heard here.
+ *  lyr: what its words say (the MOOD_LYRICS line, see [LyricsReading]; "" not read yet), lyrInFile: that line is in the
+ *  file itself, lyrTried: when its words were last looked for and none were found (0: not). */
 @Serializable
 data class MoodEntry(val mtime: Long = 0, val sound: SoundFeatures? = null, val heard: Boolean = false,
                      val tags: Map<String, Int> = emptyMap(), val fm: Boolean = false,
                      val full: Boolean = false, val len: Double = 0.0, val looked: Boolean = false, val inFile: String = "",
-                     val wrote: String = "", val picked: String = "", val kept: List<String> = emptyList(), val keptSure: Double = 0.0) {
+                     val wrote: String = "", val picked: String = "", val kept: List<String> = emptyList(), val keptSure: Double = 0.0,
+                     val lyr: String = "", val lyrInFile: Boolean = false, val lyrTried: Double = 0.0) {
     /** The mood that's settled, not worked out: yours, or one in the file that the app didn't put there. */
     val confirmed: String get() = picked.ifEmpty { inFile.takeIf { it.isNotEmpty() && it != wrote }.orEmpty() }
 }
@@ -122,8 +128,14 @@ object Moods {
             val e = synchronized(lock) { known[path] }
             val genre = runCatching { Music.genreOf(t) }.getOrDefault("").takeIf { it != "Unknown genre" } ?: ""
             val fromArtist = synchronized(lock) { artists[lead(t.artist)] }.orEmpty()
-            val worked = MoodRules.decide(e?.sound, genre, e?.tags.orEmpty().mapValues { it.value / 100.0 }, fromArtist.mapValues { it.value / 100.0 })
-            val sure = e?.confirmed.orEmpty()
+            val words = e?.lyr?.takeIf { it.isNotEmpty() }?.let { LyricsReading.parse(it) }
+            val worked = MoodRules.decide(e?.sound, genre, e?.tags.orEmpty().mapValues { it.value / 100.0 }, fromArtist.mapValues { it.value / 100.0 },
+                words?.points().orEmpty())
+            // A mood in the file's MOOD tag is the song's mood. (One the app wrote there itself is what it worked out, so
+            // that stands while there's nothing newer to go by: the song not heard, nor its words read, here.)
+            val sure = e?.confirmed.orEmpty().ifEmpty {
+                if (e != null && e.inFile.isNotEmpty() && !e.heard && words == null) e.inFile else ""
+            }
             when {
                 // Yours, or the file's: that's its mood, for sure; the others as worked out.
                 sure.isNotEmpty() -> listOf(sure to 1.0) + worked.filter { it.first != sure }.take(2)
@@ -161,8 +173,11 @@ object Moods {
     }
 
     /** How far the scans have got: songs with a mood that's read (heard, or yours, or in the file, or from a backup),
-     *  songs heard whole (Full scan), and how many songs there are. */
-    data class Counts(val done: Int, val full: Int, val total: Int, val inFiles: Int = 0)
+     *  songs heard whole (Full scan), and how many songs there are; songs whose file has a MOOD tag; songs whose files
+     *  haven't been looked at yet; songs whose words have been read (and of them, in the file), and songs with no words
+     *  found (instrumentals count as read). */
+    data class Counts(val done: Int, val full: Int, val total: Int, val inFiles: Int = 0, val unlooked: Int = 0,
+                      val words: Int = 0, val wordsInFiles: Int = 0, val noWords: Int = 0)
 
     fun counts(): Counts {
         load()
@@ -170,7 +185,30 @@ object Moods {
         return synchronized(lock) {
             Counts(paths.count { p -> known[p]?.let { it.heard || it.confirmed.isNotEmpty() || it.kept.isNotEmpty() || it.inFile.isNotEmpty() } == true },
                 paths.count { known[it]?.let { e -> e.full || e.inFile.isNotEmpty() } == true }, paths.size,
-                paths.count { known[it]?.inFile?.isNotEmpty() == true })
+                paths.count { known[it]?.inFile?.isNotEmpty() == true },
+                paths.count { known[it]?.looked != true },
+                paths.count { known[it]?.lyr?.isNotEmpty() == true },
+                paths.count { known[it]?.lyrInFile == true },
+                paths.count { known[it]?.let { e -> e.lyr.isEmpty() && e.lyrTried > 0 } == true })
+        }
+    }
+
+    /** Where a song's mood came from, in a few words ("in the file", "sound + words", "you"…); "" when it has none. */
+    fun sources(t: Track): String {
+        val path = pathOf(t) ?: return ""
+        load()
+        val e = synchronized(lock) { known[path] }
+        val words = e?.lyr?.let { LyricsReading.parse(it) }?.takeIf { !it.instrumental && it.mood.isNotEmpty() }
+        return when {
+            e == null -> if (scored(t).isNotEmpty()) "genre" else ""
+            e.picked.isNotEmpty() -> "you (Tagger)"
+            e.inFile.isNotEmpty() && e.inFile != e.wrote -> "the file's MOOD tag"
+            e.kept.isNotEmpty() && !e.heard -> "a backup"
+            else -> listOfNotNull(
+                (if (e.full) "whole song's sound" else "sound").takeIf { e.sound != null },
+                (if (words?.by == "ai") "words (AI)" else "words").takeIf { words != null },
+                "Last.fm tags".takeIf { e.tags.isNotEmpty() },
+            ).joinToString(" + ").ifEmpty { if (scored(t).isNotEmpty()) "genre" else "" }
         }
     }
 
@@ -201,6 +239,7 @@ object Moods {
      *  songs not read yet read (a minute each). On the phone the reading is only while it's charging, like the other
      *  background checks, so it never costs battery. */
     fun auto() {
+        lookFiles()   // moods already in the files (written on the PC, say) noticed straight away, with no scan
         val restore = restoreFile.isFile
         if (!restore) { if (AudioTools.supported && AudioTools.canRunNow()) start(auto = true, full = false); return }
         // The backup's moods first, so the songs they're given to aren't heard again.
@@ -246,9 +285,12 @@ object Moods {
         }, "moods").apply { isDaemon = true; priority = Thread.MIN_PRIORITY; start() }
     }
 
-    /** The file's own MOOD tag, as one of the moods ("" none or none of ours). */
-    private fun fileMood(path: String): String =
-        runCatching { Music.ctx.openIn(path)?.buffered()?.use { MoodTag.pick(MoodTag.read(it)) } }.getOrNull().orEmpty()
+    /** The file's own MOOD tag, as one of the moods ("" none or none of ours), and its MOOD_LYRICS line ("" none).
+     *  Read straight from the file (no tag library), so it works for every file the app can open, on the phone too. */
+    private fun fileMoods(path: String): Pair<String, String> {
+        val tags = runCatching { Music.ctx.openIn(path)?.buffered()?.use { MoodTag.readTags(it, setOf(MoodTag.MOOD, MoodTag.MOOD_LYRICS)) } }.getOrNull().orEmpty()
+        return MoodTag.pick(tags[MoodTag.MOOD]).orEmpty() to tags[MoodTag.MOOD_LYRICS]?.takeIf { LyricsReading.parse(it) != null }.orEmpty()
+    }
 
     /** The entry for a file as it is now ([m]: its mtime): its MOOD tag looked at again when it's changed, its sound
      *  kept when only its tags changed (the same length), forgotten when it's another song now. */
@@ -261,7 +303,9 @@ object Moods {
             sameSound -> e
             else -> MoodEntry(tags = e.tags, fm = e.fm, picked = e.picked, wrote = e.wrote)   // another sound: heard again
         }
-        val now = base.copy(mtime = m, looked = true, inFile = fileMood(path))
+        val (mood, words) = fileMoods(path)
+        val now = base.copy(mtime = m, looked = true, inFile = mood,
+            lyr = words.ifEmpty { base.lyr.takeIf { !base.lyrInFile }.orEmpty() }, lyrInFile = words.isNotEmpty())
         synchronized(lock) { known[path] = now }
         return now
     }
@@ -349,6 +393,184 @@ object Moods {
 
     private const val SECS = 60      // seconds of each song heard by Scan moods (from its middle)
     private const val RATE = 22050   // samples a second they're heard at
+
+    // ---- moods already in the files ----
+
+    /** (looked at, of) while the files are looked at for moods already in them, else null. */
+    var looking by mutableStateOf<Pair<Int, Int>?>(null)
+        private set
+    @Volatile private var lookRunning = false
+
+    /** A quick look at the files not looked at yet (their own MOOD and MOOD_LYRICS tags only, no sound), so moods
+     *  already in them (written on the PC, then copied to the phone) count straight away, with no scan. Runs by itself
+     *  when the Moods tab opens and after your music is scanned; a scan does the same as it goes, so it gives way. */
+    fun lookFiles() {
+        if (lookRunning || running) return
+        lookRunning = true
+        Thread({
+            var any = false
+            try {
+                load()
+                val list = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
+                val todo = list.filter { (p, _) -> synchronized(lock) { known[p] }?.looked != true }
+                if (todo.isNotEmpty()) {
+                    any = true
+                    Music.scope.launch { looking = 0 to todo.size }
+                    for ((i, x) in todo.withIndex()) {
+                        if (running) break   // a scan looks at them itself
+                        val (p, t) = x
+                        val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue   // gone
+                        fresh(p, t, m)
+                        if (i % 25 == 24) { val d = i + 1; Music.scope.launch { looking = d to todo.size; version++ } }
+                    }
+                    save()
+                }
+            } catch (e: Throwable) { Crashes.caught(e) }
+            finally {
+                lookRunning = false
+                if (any) Music.scope.launch { looking = null; version++ }
+            }
+        }, "moods-look").apply { isDaemon = true; priority = Thread.MIN_PRIORITY; start() }
+    }
+
+    // ---- moods from the songs' words ----
+
+    /** (done, of) while reading moods from songs' words, else null; the song being read. */
+    var wordsReading by mutableStateOf<Pair<Int, Int>?>(null)
+        private set
+    var wordsNow by mutableStateOf("")
+        private set
+    @Volatile private var wordsRunning = false
+    @Volatile private var wordsStop = false
+    val wordsBusy get() = wordsRunning
+    fun stopWords() { wordsStop = true }
+
+    /** Settings: the Anthropic key for the AI reading (ends in _token: never in backups or sync), and the switch. */
+    const val AI_KEY = "anthropic_token"
+    const val AI_ON = "moods_ai"
+    private const val AI_MODEL = "claude-haiku-4-5"
+    /** Whether songs' words are read by the AI (the switch on, and a key). */
+    fun aiOn(): Boolean = Prefs.on(AI_ON) && Prefs.text(AI_KEY).isNotBlank()
+
+    /** Read moods from lyrics (the Moods tab): each song's words (from its file, kept in the app, or found online as the
+     *  Lyrics tab finds them) read for their mood, on the device (or by the AI, when it's on), and the result written
+     *  into the file's MOOD_LYRICS tag where the app may change the file (else kept in the app), so it's never read
+     *  again. Songs whose file has it already are skipped; songs with no words found are tried again after a month. */
+    fun readWords() {
+        if (wordsRunning) return
+        wordsRunning = true; wordsStop = false
+        wordsReading = 0 to 0; wordsNow = ""
+        Thread({
+            var stats = Triple(0, 0, 0)
+            try { stats = wordsWork() } catch (e: Throwable) { Crashes.caught(e) }
+            finally {
+                wordsRunning = false
+                save()
+                val (read, none, wrote) = stats
+                Music.scope.launch {
+                    wordsReading = null; wordsNow = ""; version++
+                    if (read + none > 0) Music.toast("Words read for %,d song%s".format(read, if (read != 1) "s" else "") +
+                        (if (wrote > 0) " (%,d written into the files)".format(wrote) else "") +
+                        (if (none > 0) ". %,d have no lyrics to be found".format(none) else ""))
+                }
+            }
+        }, "moods-words").apply { isDaemon = true; priority = Thread.MIN_PRIORITY; start() }
+    }
+
+    /** (read, none found, written into files). */
+    private fun wordsWork(): Triple<Int, Int, Int> {
+        load()
+        val list = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        val todo = ArrayList<Triple<String, Track, Long>>()
+        var wrote = 0
+        for ((p, t) in list) {
+            if (wordsStop) return Triple(0, 0, wrote)
+            val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue
+            val e = fresh(p, t, m)
+            if (e.lyrInFile) continue   // in its file: read for good
+            if (e.lyr.isNotEmpty()) {   // read before (kept in the app): into the file now, if it can take it
+                if (p != playing && writeWords(p, e)) wrote++
+                continue
+            }
+            if (e.lyrTried > 0 && now() - e.lyrTried < 30 * 86400) continue   // no words a little while ago
+            todo += Triple(p, t, m)
+        }
+        Music.scope.launch { wordsReading = 0 to todo.size; version++ }
+        var read = 0; var none = 0
+        var ai = aiOn()
+        for ((i, x) in todo.withIndex()) {
+            if (wordsStop) break
+            val (p, t, m) = x
+            Music.scope.launch { wordsNow = "${t.title} · ${t.artist.split(",")[0].trim()}" }
+            val (text, instrumental) = runCatching { LyricsScan.wordsFor(t) }.getOrDefault(null to false)
+            val reading: LyricsReading? = when {
+                instrumental -> LyricsReading(instrumental = true, confidence = 1.0, by = "words")
+                text == null -> null
+                ai -> try { aiRead(t, text) } catch (e: HttpError) {
+                    if (e.code == 401 || e.code == 403) {
+                        ai = false
+                        Music.scope.launch { Music.toast("The Anthropic key didn't work, so the words are read on this ${org.omarchy.music.ui.DEVICE} instead") }
+                    }
+                    LyricsMood.read(text)
+                } catch (e: Exception) { LyricsMood.read(text) }
+                else -> LyricsMood.read(text)
+            }
+            val e = synchronized(lock) { known[p] } ?: MoodEntry(mtime = m, looked = true)
+            if (reading == null) {
+                none++
+                synchronized(lock) { known[p] = e.copy(lyrTried = now()) }
+            } else {
+                read++
+                val got = e.copy(lyr = reading.tag(), lyrInFile = false, lyrTried = 0.0)
+                synchronized(lock) { known[p] = got }
+                if (p != playing && writeWords(p, got)) wrote++
+            }
+            val done = i + 1
+            Music.scope.launch { wordsReading = done to todo.size; if (done % 10 == 0) version++ }
+            if (done % 25 == 0) save()
+            Thread.sleep(if (Music.paused) 30 else 150)
+        }
+        return Triple(read, none, wrote)
+    }
+
+    /** A song's words' reading written into its file's MOOD_LYRICS tag, if the app may change the file; true if it did. */
+    private fun writeWords(p: String, e: MoodEntry): Boolean {
+        if (!canWrite(p) || running) return false   // not while songs are being heard
+        val ok = runCatching { LyricsTags.writeTags(Music.ctx, p, null, mapOf(MoodTag.MOOD_LYRICS to e.lyr)) }.getOrDefault(false)
+        if (ok) {
+            val mt = runCatching { AudioTools.modified(p) }.getOrNull()
+            synchronized(lock) { known[p] = (known[p] ?: e).copy(mtime = mt ?: e.mtime, lyrInFile = true) }
+        }
+        return ok
+    }
+
+    /** The AI reading: the song's words sent to Anthropic's Messages API with your key (nothing else is sent, and the
+     *  key goes nowhere else), its answer read as a [LyricsReading]. Costs a little per song, on your Anthropic account. */
+    private fun aiRead(t: Track, words: String): LyricsReading {
+        val key = Prefs.text(AI_KEY).trim()
+        val ask = "Song: ${t.title} by ${t.artist}\n\nLyrics:\n" + words.take(8000)
+        val body = JsonObject(mapOf(
+            "model" to JsonPrimitive(AI_MODEL),
+            "max_tokens" to JsonPrimitive(300),
+            "system" to JsonPrimitive("You read song lyrics and say what mood they carry. Answer with JSON only, no other text: " +
+                "{\"mood\": one of ${MoodRules.ALL.joinToString(", ")} or \"None\" if the words don't say, \"second\": another of " +
+                "those or \"\", \"valence\": -1 (gloomy) to 1 (glad), \"energy\": 0 (calm) to 1 (charged), \"themes\": up to 3 " +
+                "one-word themes in lower case, \"confidence\": 0 to 1}."),
+            "messages" to JsonArray(listOf(JsonObject(mapOf("role" to JsonPrimitive("user"), "content" to JsonPrimitive(ask))))),
+        ))
+        val res = httpJson("https://api.anthropic.com/v1/messages",
+            mapOf("x-api-key" to key, "anthropic-version" to "2023-06-01"), jsonBody(body))
+        val text = res["content"].list.firstOrNull { it["type"].str == "text" }["text"].str ?: error("no answer")
+        val from = text.indexOf('{'); val to = text.lastIndexOf('}')
+        if (from < 0 || to <= from) error("no answer")
+        val j = JSON.parseToJsonElement(text.substring(from, to + 1))
+        fun mood(x: String?) = x?.let { m -> MoodRules.ALL.firstOrNull { it.equals(m.trim(), true) } ?: MoodTag.pick(m) }.orEmpty()
+        return LyricsReading(mood(j["mood"].str), mood(j["second"].str), (j["confidence"].dbl ?: 0.6).coerceIn(0.0, 1.0),
+            (j["valence"].dbl ?: 0.0).coerceIn(-1.0, 1.0), (j["energy"].dbl ?: 0.5).coerceIn(0.0, 1.0),
+            j["themes"].list.mapNotNull { it.str?.lowercase()?.replace(Regex("[^\\p{L}\\p{N} -]"), "")?.trim()?.takeIf { s -> s.isNotEmpty() } }.take(3),
+            by = "ai")
+    }
 
     // ---- your own mood for a song (Tagger) ----
 
@@ -469,11 +691,11 @@ object Moods {
             val p = pathOf(t) ?: continue
             if (!seen.add(p)) continue
             val e = synchronized(lock) { known[p] } ?: continue
-            if (!(e.heard || e.confirmed.isNotEmpty() || e.kept.isNotEmpty())) continue   // only a guess from the genre: nothing to keep
+            if (!(e.heard || e.confirmed.isNotEmpty() || e.kept.isNotEmpty() || e.lyr.isNotEmpty())) continue   // only a guess from the genre: nothing to keep
             val s = scored(t)
-            if (s.isEmpty()) continue
-            out += MoodBackupSong(t.title, t.artist, t.album, t.duration, s.map { it.first }, s[0].second, e.full,
-                e.confirmed.isNotEmpty(), e.sound)
+            if (s.isEmpty() && e.lyr.isEmpty()) continue
+            out += MoodBackupSong(t.title, t.artist, t.album, t.duration, s.map { it.first }, s.firstOrNull()?.second ?: 0.0, e.full,
+                e.confirmed.isNotEmpty(), e.sound, e.lyr)
         }
         return JSON.encodeToString(ListSerializer(MoodBackupSong.serializer()), out)
     }
@@ -499,12 +721,15 @@ object Moods {
         for ((p, b) in got) {
             val t = byPath[p] ?: continue
             val e = synchronized(lock) { known[p] }
-            val better = e == null || (!e.heard && e.confirmed.isEmpty()) || (b.full && !e.full) || (b.picked && e.picked.isEmpty())
-            if (!better) continue
+            val better = b.moods.isNotEmpty() &&
+                (e == null || (!e.heard && e.confirmed.isEmpty()) || (b.full && !e.full) || (b.picked && e.picked.isEmpty()))
+            val words = b.lyrics.isNotEmpty() && e?.lyr.isNullOrEmpty() && LyricsReading.parse(b.lyrics) != null   // its words' mood, read before
+            if (!better && !words) continue
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue
-            val base = e ?: MoodEntry()
+            val base = (e ?: MoodEntry()).let { if (words) it.copy(lyr = b.lyrics, lyrInFile = false) else it }
             synchronized(lock) {
-                known[p] = base.copy(mtime = m, sound = b.sound ?: base.sound, heard = true, full = b.full || base.full,
+                known[p] = if (!better) base.copy(mtime = if (e == null) m else base.mtime, looked = e != null && base.looked)
+                    else base.copy(mtime = m, sound = b.sound ?: base.sound, heard = true, full = b.full || base.full,
                     len = t.duration, picked = if (b.picked) b.moods.first() else base.picked, kept = b.moods, keptSure = b.sure,
                     looked = base.looked && base.mtime == m)
             }

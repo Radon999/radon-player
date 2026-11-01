@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class MoodBackupSong(val title: String, val artist: String, val album: String = "", val duration: Double = 0.0,
                           val moods: List<String> = emptyList(), val sure: Double = 0.0, val full: Boolean = false,
-                          val picked: Boolean = false, val sound: SoundFeatures? = null)
+                          val picked: Boolean = false, val sound: SoundFeatures? = null,
+                          val lyrics: String = "")   // what its words say: the MOOD_LYRICS line (LyricsReading.tag), "" none
 
 /** A song on this device, for matching a backup's moods to it: [key] is how the caller finds it again (its file). */
 data class MoodSongHere(val key: String, val title: String, val artist: String, val album: String = "", val duration: Double = 0.0)
@@ -26,8 +27,8 @@ object MoodBackup {
 
     /** {song here's key: its backed-up moods}, for the songs here the backup has. */
     fun match(saved: List<MoodBackupSong>, here: List<MoodSongHere>): Map<String, MoodBackupSong> {
-        val exact = saved.filter { it.moods.isNotEmpty() }.groupBy { norm(cleanTitle(it.title)) to artistKey(it.artist) }
-        val bare = saved.filter { it.moods.isNotEmpty() && it.duration > 0 }.groupBy { norm(bareTitle(it.title)) to artistKey(it.artist) }
+        val exact = saved.filter { it.moods.isNotEmpty() || it.lyrics.isNotEmpty() }.groupBy { norm(cleanTitle(it.title)) to artistKey(it.artist) }
+        val bare = saved.filter { (it.moods.isNotEmpty() || it.lyrics.isNotEmpty()) && it.duration > 0 }.groupBy { norm(bareTitle(it.title)) to artistKey(it.artist) }
         val out = HashMap<String, MoodBackupSong>()
         for (h in here) {
             val a = artistKey(h.artist)

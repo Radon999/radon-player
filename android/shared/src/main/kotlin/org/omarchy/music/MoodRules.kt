@@ -148,10 +148,18 @@ object MoodRules {
         )
     }
 
+    /** How much a song's words say about each mood (Sad, Romantic, Dark: a lot; Energetic, Party, Chill, Focus: little,
+     *  the sound says those), and how much the sound counts when there are words too. */
+    private val WORDS_SAY = mapOf("Sad" to 1.3, "Romantic" to 1.3, "Dark" to 1.2, "Happy" to 1.0, "Intense" to 0.9, "Hype" to 0.8,
+        "Dreamy" to 0.7, "Calm" to 0.7, "Energetic" to 0.5, "Party" to 0.5, "Chill" to 0.45, "Focus" to 0.3)
+    private val SOUND_SAYS = mapOf("Energetic" to 1.2, "Party" to 1.2, "Chill" to 1.2, "Focus" to 1.2, "Sad" to 0.8, "Romantic" to 0.8, "Dark" to 0.8)
+
     /** A song's moods, best first, each with how sure (0–1): at most three, none when nothing says anything.
      *  sound: what its sound says (null: not heard yet); genre: its file's genre ("" none); tags: Last.fm's tags of
-     *  the song, and of its artist, each with how much it counts (0–1: Last.fm's count over 100). */
-    fun decide(sound: SoundFeatures?, genre: String, tags: Map<String, Double> = emptyMap(), artistTags: Map<String, Double> = emptyMap()): List<Pair<String, Double>> {
+     *  the song, and of its artist, each with how much it counts (0–1: Last.fm's count over 100); lyrics: what its words
+     *  say ([LyricsReading.points]; empty: none read, or an instrumental, so the sound alone decides). */
+    fun decide(sound: SoundFeatures?, genre: String, tags: Map<String, Double> = emptyMap(), artistTags: Map<String, Double> = emptyMap(),
+               lyrics: Map<String, Double> = emptyMap()): List<Pair<String, Double>> {
         val score = HashMap<String, Double>()
         var clues = 0
         // Tags: mood words count most; genre names in tags a bit less. A mood gets at most 1.5 from tags.
@@ -170,7 +178,13 @@ object MoodRules {
             clues++
             val s = fromSound(sound)
             val avg = s.values.average()
-            s.forEach { (m, v) -> score.merge(m, 1.5 * (v - avg), Double::plus) }
+            // With words to go by, the sound counts a bit more for the moods you hear and a bit less for the ones you're told.
+            s.forEach { (m, v) -> score.merge(m, 1.5 * (if (lyrics.isEmpty()) 1.0 else SOUND_SAYS[m] ?: 1.0) * (v - avg), Double::plus) }
+        }
+        // The words (see [LyricsMood]): each mood by how sure the reading is, weighed by how much words say about it.
+        if (lyrics.isNotEmpty()) {
+            clues++
+            lyrics.forEach { (m, v) -> score.merge(m, 1.3 * (WORDS_SAY[m] ?: 0.7) * v.coerceIn(0.0, 1.0), Double::plus) }
         }
         val ranked = score.entries.filter { it.value > 0.08 }.sortedByDescending { it.value }
         if (ranked.isEmpty()) return emptyList()

@@ -214,10 +214,19 @@ object Lyrics {
         return Got(plain, "the file", synced, "the file")
     }
 
+    /** Lyrics in a file that isn't a FLAC (an MP3's USLT, an M4A's, a WAV's), read straight from it. */
+    private fun fromOtherFile(ctx: Ctx, m: SongMeta): Got? {
+        if (m.tags.isNotEmpty() || m.file == null) return null   // a FLAC: read already
+        val text = runCatching { ctx.openIn(m.file)?.buffered()?.use { MoodTag.readTags(it, setOf(MoodTag.LYRICS)) } }.getOrNull()
+            ?.get(MoodTag.LYRICS) ?: return null
+        return if (parseLrc(text).isNotEmpty()) Got(null, null, text, "the file") else Got(text, "the file")
+    }
+
     /** The lyrics of track, or null if nobody has them. It blocks. */
     fun get(ctx: Ctx, t: Track, refresh: Boolean = false): Got? {
         val m = songMeta(ctx, Music.lib, t)
-        if (m.file != null && !refresh) fromFile(m)?.let { return it }
+        if (m.file != null && !refresh) (fromFile(m) ?: fromOtherFile(ctx, m))?.let { return it }
+        if (!refresh) LyricsScan.kept(ctx, t)?.let { return it }   // found by the lyrics scanner, or typed in by you
         val dir = File(ctx.cacheDir, "lyrics").apply { mkdirs() }
         val file = File(dir, "${safeName(t.id)}.json")
         val cached = readText(file)?.let { runCatching { JSON.decodeFromString(Got.serializer(), it) }.getOrNull() }

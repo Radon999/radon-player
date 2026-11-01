@@ -56,6 +56,7 @@ fun ToolScreens(ui: Ui) {
         "skip" -> SkipFoldersScreen(ui)
         "quality" -> QualityScreen(ui)
         "genres" -> GenreNamesScreen(ui)
+        "lyrics" -> LyricsScanScreen(ui)
     }
     ui.identifyFor?.let { IdentifyDialog(ui, it) }
 }
@@ -422,6 +423,90 @@ private fun NoCoversScreen(ui: Ui) {
                 Pill("Done", quiet = true) { close() }
                 if (!f.isNullOrEmpty()) Pill("Fix them all…") { ui.coverFor = f.filter { g -> !org.omarchy.music.ScanIgnore.has("nocover",
                     org.omarchy.music.ScanIgnore.albumKey(g[0].artist, g[0].album.ifEmpty { g[0].title })) } }
+            }
+        }
+    }
+}
+
+/** The lyrics scanner: Find lyrics (with Stop and how far it's got), how it stands, then the songs it found nothing for,
+ *  each with Leave alone (remembered), Instrumental, Enter lyrics (typed in, into the file or kept in the app), Search the
+ *  web (your browser, for you to read) and Search again (the lyrics sites once more, with a looser title). */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun LyricsScanScreen(ui: Ui) {
+    val close = { ui.tool = null }
+    val ls = org.omarchy.music.LyricsScan
+    val progress = ls.progress
+    var list by remember { mutableStateOf<List<org.omarchy.music.Track>?>(null) }
+    var leftCount by remember { mutableStateOf(0) }
+    val justLeft = remember { mutableStateMapOf<String, org.omarchy.music.Track>() }   // left alone just now: Undo
+    val typing = remember { mutableStateMapOf<String, String>() }                       // Enter lyrics: what's typed so far
+    val searching = remember { mutableStateListOf<String>() }
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
+    LaunchedEffect(ls.version, progress == null) {
+        ls.recount()
+        if (progress == null) Music.bg({ ls.notFound() to ls.leftCount() }) { r, _ -> list = r?.first ?: emptyList(); leftCount = r?.second ?: 0 }
+    }
+    FullScreen("Lyrics", close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            Text("Finds each song's lyrics (the file's own, Genius, Musixmatch through Tidal, LRCLIB) and writes them into the song's " +
+                "file, timed lines when there are some, so any player shows them. " +
+                (if (onPhone) "On the phone that's the songs the app downloaded; Android keeps your other files to themselves, so their lyrics stay in the app (offline too)."
+                else "The songs in your playlists and favorites that are streamed keep theirs in the app.") +
+                " Songs with lyrics in their file already are skipped.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            ls.counts?.let { c ->
+                Text("Lyrics in files: %,d · kept in the app: %,d · still to find: %,d".format(c.inFiles, c.inApp, c.toFind) +
+                    (if (c.instrumental > 0) " · %,d instrumental".format(c.instrumental) else ""), style = T.sub.copy(color = C.accent))
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (progress != null) {
+                    Pill("Stop", quiet = true) { ls.stop() }
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text(if (progress.second > 0) "Finding lyrics… %,d of %,d".format(progress.first, progress.second) else "Finding lyrics…", style = T.sub)
+                        if (ls.nowSong.isNotEmpty()) Text(ls.nowSong, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                } else Pill("Find lyrics") { ls.start() }
+            }
+            if (leftCount > 0) Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("$leftCount left alone", style = T.sub, modifier = Modifier.weight(1f))
+                Pill("Show them again", quiet = true) { ls.showLeftAgain() }
+            }
+            val f = list
+            if (progress == null && f != null) Text(if (f.isEmpty()) "No songs waiting: each one has its lyrics, or you've said what to do with it"
+                else "${f.size} song${if (f.size != 1) "s" else ""} with no lyrics found:", style = T.sub, modifier = Modifier.padding(bottom = 4.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(if (progress == null) f.orEmpty() else emptyList()) { t ->
+                    val key = ls.keyOf(t)
+                    if (key in justLeft) { HiddenUndo(t.title) { ls.unleave(t); justLeft.remove(key) }; return@items }
+                    val st = ls.stateOf(t)
+                    if (st != org.omarchy.music.LyricsScan.NONE) {   // dealt with just now (found, typed in)
+                        Text("“${t.title}”: " + if (st == org.omarchy.music.LyricsScan.INSTRUMENTAL) "instrumental" else "has its lyrics now",
+                            style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+                        return@items
+                    }
+                    ScanSong(t, t.title, t.artist) {
+                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Chip("Leave alone", false) { ls.leave(t); justLeft[key] = t }
+                            Chip("Instrumental", false) { ls.leave(t, instrumental = true) }
+                            Chip("Enter lyrics", key in typing) { if (key in typing) typing.remove(key) else typing[key] = "" }
+                            Chip("Search the web", false) { runCatching { links.openUri(ls.webSearch(t)) } }
+                            Chip(if (key in searching) "Searching…" else "Search again", false) {
+                                if (key !in searching) { searching += key; ls.searchAgain(t) { searching -= key } }
+                            }
+                        }
+                        typing[key]?.let { text ->
+                            androidx.compose.material3.OutlinedTextField(text, { typing[key] = it }, minLines = 4, maxLines = 12,
+                                placeholder = { Text("Type or paste the lyrics") }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp).typing())
+                            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                                Pill("Cancel", quiet = true) { typing.remove(key) }
+                                Pill("Save") { if (text.isNotBlank()) { ls.enter(t, text); typing.remove(key) } }
+                            }
+                        }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill("Done", quiet = true) { close() }
             }
         }
     }

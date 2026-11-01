@@ -5,7 +5,8 @@ import java.io.File
 
 /** Lyrics into the songs' own files, so they stay with them: a FLAC's LYRICS comment, an MP3's
  *  ID3 lyrics frame (USLT). Only the words go in (no annotations, no timings). A file that has
- *  lyrics already is left as it is. Other kinds of files (M4A, OGG…) are left alone. */
+ *  lyrics already is left as it is. Other kinds of files (M4A, OGG…) are left alone. [writeTags] (the
+ *  lyrics scanner, the words' mood) also does WAVs and, on the PC, M4As, and timed lyrics. */
 object LyricsTags {
     /** The words of what was found: the plain lyrics, else the timed ones without their timings. */
     fun words(g: Lyrics.Got): String? =
@@ -22,6 +23,49 @@ object LyricsTags {
             else -> false
         }
     }
+
+    /** Lyrics (null: leave them as they are) and named tags of ours (MOOD_LYRICS; "" takes one off) written into the
+     *  file at uri, replacing what's there (blocking): a FLAC's comments, an MP3's ID3 frames (USLT, TXXX), a WAV's ID3
+     *  chunk (the PC), others (M4A…) through the PC's tag library. Returns whether it wrote; throws if the write failed. */
+    fun writeTags(ctx: Ctx, uri: String, lyrics: String?, named: Map<String, String>): Boolean {
+        if (lyrics == null && named.isEmpty()) return false
+        val head = ctx.openIn(uri)!!.use { s -> ByteArray(12).also { b -> var n = 0; while (n < 12) { val r = s.read(b, n, 12 - n); if (r < 0) break; n += r } } }
+        val magic = String(head, 0, 4, Charsets.ISO_8859_1)
+        return when {
+            magic == "fLaC" -> {
+                val changes = LinkedHashMap<String, String>()
+                if (lyrics != null) changes["lyrics"] = lyrics
+                for ((k, v) in named) changes[k.lowercase()] = v
+                Tags.write(ctx, uri, changes); true
+            }
+            magic.startsWith("ID3") || (head[0].toInt() and 0xFF == 0xFF && head[1].toInt() and 0xE0 == 0xE0 && head[1].toInt() and 0x06 != 0) -> {
+                val all = ctx.openIn(uri)!!.use { it.readBytes() }
+                val out = TagWrite.mp3(all, lyrics, named) ?: return false   // a tag we leave alone (ID3v2.2…)
+                replace(ctx, uri, all, out, ".mp3"); true
+            }
+            magic == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "WAVE" ->
+                !uri.startsWith("content:") && TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), lyrics, named)
+            else -> ExtraTags.write(ctx, uri, lyrics, named)
+        }
+    }
+
+    /** The file's bytes swapped for out, through a copy in the cache: a write that fails half way puts the old ones back. */
+    private fun replace(ctx: Ctx, uri: String, old: ByteArray, out: ByteArray, ext: String) {
+        val tmp = File.createTempFile("retag", ext, ctx.cacheDir).apply { writeBytes(old) }
+        try {
+            ctx.openOut(uri)!!.use { it.write(out) }
+        } catch (e: Exception) {
+            runCatching { ctx.openOut(uri)!!.use { it.write(tmp.readBytes()) } }
+            throw e
+        } finally {
+            tmp.delete()
+        }
+    }
+
+    /** The lyrics to put in a file: the timed lines (LRC) when there are some, so players that follow along can, else
+     *  the plain words. */
+    fun forFile(g: Lyrics.Got): String? =
+        g.synced?.trim()?.takeIf { Lyrics.parseLrc(it).isNotEmpty() } ?: words(g)
 
     /** Whether the FLAC has lyrics already (null if unreadable). */
     private fun flac(ctx: Ctx, uri: String): Boolean? = runCatching {

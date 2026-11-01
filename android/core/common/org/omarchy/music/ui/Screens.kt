@@ -390,7 +390,7 @@ fun MusicTab(ui: Ui) {
                                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists", "time_songs" to "Songs time",
-                                        "time_albums" to "Albums time", "time_artists" to "Artists time").forEach { (k, l) -> Chip(l, Music.topKind == k) { Music.chooseTopKind(k) } }
+                                        "time_albums" to "Albums time", "time_artists" to "Artists time", "moods" to "Moods").forEach { (k, l) -> Chip(l, Music.topKind == k) { Music.chooseTopKind(k) } }
                                 }
                                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -403,13 +403,14 @@ fun MusicTab(ui: Ui) {
                                 }
                                 Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Chip("Only songs on this $DEVICE", Music.topMineOnly) { Music.chooseTopMineOnly(!Music.topMineOnly) }
-                                    if (!Music.topKind.startsWith("time")) Chip("Collage…", false) { ui.collageFor = Music.topKind }
-                                    Chip("Share card…", false) { ui.cardFor = Music.topKind }
+                                    if (!Music.topKind.startsWith("time") && Music.topKind != "moods") Chip("Collage…", false) { ui.collageFor = Music.topKind }
+                                    if (Music.topKind != "moods") Chip("Share card…", false) { ui.cardFor = Music.topKind }
                                 }
                                 Milestones()
                             }
                         }
                         if (ui.musicView == "top" && Music.topKind.startsWith("time")) timeItems(ui, Music.topKind.removePrefix("time_"))   // listening time
+                        else if (ui.musicView == "top" && Music.topKind == "moods") moodPlaysItems(ui)   // plays by your songs' moods
                         else if (ui.musicView == "top" && Music.topKind == "albums") topAlbumsItems(ui)   // the songs above, added up by album
                         else if (ui.musicView == "top" && Music.topKind == "artists") topArtistsItems(ui)   // every play of theirs
                         else if (ui.musicView == "all" && songSort in setOf("artist", "album") && layoutNow(ui) == "list" && ui.filter.isNullOrBlank()) grouped(tracks, ui, songSort == "artist")
@@ -486,8 +487,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
 }
 
 /** The DJ: what it said last, Start or Switch it up, a box to ask it for something, and its songs to come. */
-/** The natural voice's download, while it runs ("Getting the voice… 40%"). */
-private var naturalStatus by androidx.compose.runtime.mutableStateOf<String?>(null)
 
 private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: String, setAsk: (String) -> Unit) {
     val d = Music.shownDj()
@@ -565,22 +564,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                     Music.chooseDjVoice(!Music.djVoice) }
                 if (Music.djTalking) Chip("Skip the talk", false) { Music.djHush(); Music.togglePause() }
             }
-            // The PC: a natural (neural) voice for the DJ, fetched once on request; Windows' own voices sound robotic.
-            if (org.omarchy.music.Voice.needsNatural || naturalStatus != null) Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val st = naturalStatus
-                if (st != null) Text(st, style = T.sub)
-                else Pill("Get the natural voice (about 140 MB)", quiet = true) {
-                    ui.confirm = "Download the DJ's natural voice? It's Piper, a free voice that runs on your PC and sounds like a person " +
-                        "(about 140 MB, once)." to {
-                        naturalStatus = "Starting…"
-                        Music.bg({ org.omarchy.music.Voice.getNatural { naturalStatus = it } }) { _, err ->
-                            naturalStatus = null
-                            Music.toast(if (err != null) "Couldn't get the voice: ${err.message?.take(100)}" else "The DJ has its natural voice now")
-                        }
-                    }
-                }
-            }
+            // The DJ's voice: the PC's natural voice (Kokoro), the voices to pick, an ElevenLabs key (ui/DjVoice.kt)
+            DjVoiceLines(ui)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (d.on) {
                     Pill("↻  Switch it up") { Music.djSwitch() }
@@ -1481,6 +1466,46 @@ private fun Bars(label: String, values: List<Long>, names: List<String>) {
                 }
             }
         }
+    }
+}
+
+/** Most played › Moods: your plays over the period added up by your songs' moods (see MoodStats), most played first,
+ *  each with its plays and about how long; a mood opens its songs, most played first. */
+fun androidx.compose.foundation.lazy.LazyListScope.moodPlaysItems(ui: Ui) {
+    val ms = org.omarchy.music.MoodStats
+    val period = Music.topPeriod
+    val rows = ms.rows[period]
+    item {
+        LaunchedEffect(period, org.omarchy.music.Stats.songs, org.omarchy.music.Stats.periods, org.omarchy.music.Moods.version, Music.musicVersion) { ms.refresh(period) }
+        Section(when {
+            rows == null -> "ADDING UP YOUR PLAYS BY MOOD…"
+            rows.isEmpty() -> "NO PLAYS OF YOUR SONGS WITH A MOOD IN THIS TIME"
+            else -> "%d MOOD%s · %,d PLAYS · MOST PLAYED FIRST".format(rows.size, if (rows.size != 1) "S" else "", rows.sumOf { it.plays })
+        })
+        if (rows != null && rows.isEmpty()) Text("Plays count here once your songs have moods (the Moods tab). Each play is matched to " +
+            "your own copy of the song, from all your play history.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+    }
+    val list = rows.orEmpty().filter { fits(ui, it.mood) }
+    fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
+    fun open(r: org.omarchy.music.MoodStats.Row) {
+        ui.pages += Ui.Page.Songs("${r.mood} · most played", r.songs.map { (t, n) -> t.copy(plays = n) }, "mood-plays", r.mood)
+    }
+    laidOutItems(list, ui, key = { "mpl-" + list[it].mood }, row = { i ->
+        val r = list[i]
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card).background(C.light.copy(alpha = 0.6f))
+            .clickable { open(r) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            MoodSwatch(r.mood, Modifier.size(42.dp).clip(R.card), 22.dp)
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                Text(r.mood, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${plays(r.plays)} · about ${fmtHours(r.secs)} · ${r.songs.size} song${if (r.songs.size != 1) "s" else ""}", style = T.sub,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            r.songs.firstOrNull()?.let { (t, _) -> Text(t.title, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(0.8f)) }
+        }
+    }) { i, mod, compact ->
+        val r = list[i]
+        Tile(null, r.mood, plays(r.plays), mod, compact, extra = "about " + fmtHours(r.secs), ico = Ico.MOOD,
+            over = { MoodSwatch(r.mood, Modifier.fillMaxSize(), if (compact) 26.dp else 40.dp) }) { open(r) }
     }
 }
 

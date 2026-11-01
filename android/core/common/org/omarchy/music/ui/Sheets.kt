@@ -342,6 +342,7 @@ private fun AccountsSheet(ui: Ui) {
                 Text("Scans that find and fix problems in your music. Run one when something looks wrong; nothing changes until you say so.",
                     style = T.sub, modifier = Modifier.padding(vertical = 8.dp))
                 SubGroup("Your files", ui) { ToolLines(ui) }
+                SubGroup("Lyrics & moods", ui) { LyricsMoodsLines(ui) }
                 SubGroup("Last.fm & your stats", ui) {
             run {
                 val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
@@ -678,6 +679,44 @@ private fun ToolLines(ui: Ui) {
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }
+    }
+}
+
+/** Scanner › Lyrics & moods: the lyrics scanner (lyrics into the files, then the songs it found none for), reading
+ *  moods from songs' words, and the optional AI reading with your own Anthropic key. */
+@Composable
+private fun LyricsMoodsLines(ui: Ui) {
+    val ls = org.omarchy.music.LyricsScan
+    val moods = org.omarchy.music.Moods
+    LaunchedEffect(ls.version) { ls.recount() }
+    val c = ls.counts
+    Line("Lyrics", "Finds every song's lyrics and writes them into its file (timed lines when there are some), so any player " +
+        "shows them" + (if (onPhone) ". On the phone that's the songs the app downloaded; the others keep theirs in the app" else "") +
+        ". Songs with lyrics in their file already are skipped; the ones with none found are listed after, to leave alone, " +
+        "type in or search for" + (c?.let { ". Lyrics in files: %,d · kept in the app: %,d · still to find: %,d".format(it.inFiles, it.inApp, it.toFind) } ?: ""),
+        ls.progress != null) {
+        Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
+    }
+    Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0)
+        else "Reads each song's words for its mood (sad, romantic, dark…), on this $DEVICE, and counts it with the sound: the " +
+        "words count more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and Focus. The result goes into the " +
+        "file (a MOOD_LYRICS tag) so it's never read again. Also on the Moods tab", moods.wordsReading != null) {
+        if (moods.wordsReading != null) Pill("Stop", quiet = true) { moods.stopWords() } else Pill("Read", quiet = true) { moods.readWords() }
+    }
+    var on by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.Moods.AI_ON)) }
+    var key by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)) }
+    Line("AI reading of lyrics (optional)", "With your own Anthropic API key, the words are read by Claude (claude-haiku-4-5) " +
+        "instead of on this $DEVICE: a closer reading, themes included. Each song's words are sent to Anthropic, and it costs a " +
+        "little on your Anthropic account for each song (well under a cent). The key stays on this $DEVICE: it isn't in backups " +
+        "or sync, and goes nowhere but Anthropic", on && key.isNotBlank()) {
+        Switch(on, { on = it; org.omarchy.music.Prefs.set(org.omarchy.music.Moods.AI_ON, it) }, colors = swColors())
+    }
+    if (on) {
+        Field(key, "Anthropic API key", password = true) { key = it }
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            Pill("Get a key", quiet = true) { Services.open("https://console.anthropic.com/settings/keys") }
+            Pill("Save") { org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, key.trim()); Music.toast(if (key.isBlank()) "Key taken off" else "Key saved") }
+        }
     }
 }
 
