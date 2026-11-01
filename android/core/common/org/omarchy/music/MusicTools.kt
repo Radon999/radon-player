@@ -137,6 +137,7 @@ object MusicTools {
             if (to != null) moved[n(src)] = to else failed += "${src.substringAfterLast('/')}: couldn't move it"
         }
         if (moved.isNotEmpty()) Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { Music.filesMoved(moved) }
+        FolderCleanup.after(moved.keys.map { it.substringBeforeLast('/') })   // the folders they left, if no music is left there
         return moved.size to failed
     }
 
@@ -240,8 +241,12 @@ object MusicTools {
     }
 
     /** (blocking) The folders picked, into the Recycle Bin, if they still have no songs. How many went. */
-    fun emptyRemove(folders: List<EmptyFolder>): Int = folders.count { f ->
-        val (now, _) = FileTags.listTree(listOf(f.folder))
-        !hasMusic(now.keys.map { it.substringAfterLast('/') }) && FileTags.removeFolder(f.folder)
+    fun emptyRemove(folders: List<EmptyFolder>): Int {
+        val gone = folders.filter { f ->
+            val (now, _) = FileTags.listTree(listOf(f.folder))
+            !hasMusic(now.keys.map { it.substringAfterLast('/') }) && FileTags.removeFolder(f.folder)
+        }
+        FolderCleanup.after(gone.map { n(it.folder).trimEnd('/').substringBeforeLast('/') })   // the folders above, if that left them bare
+        return gone.size
     }
 }

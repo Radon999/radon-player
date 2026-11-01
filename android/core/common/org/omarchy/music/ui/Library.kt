@@ -218,23 +218,66 @@ private fun MoodSwatch(mood: String, modifier: Modifier, iconSize: androidx.comp
     }
 }
 
-/** Find moods / Stop on the Moods tab, and how far it's got. */
+/** "about 1 h 20 min left": a scan's time left, roughly. */
+private fun moodsLeft(secs: Long): String = when {
+    secs < 60 -> "less than a minute left"
+    secs < 3600 -> "about ${(secs + 30) / 60} min left"
+    else -> "about ${secs / 3600} h ${(secs % 3600 + 30) / 60 % 60} min left".replace(" 0 min", "")
+}
+
+/** The Moods tab's scans (Scan moods: a minute of each song; Full scan: whole songs), Stop, how far they've got and
+ *  about how long is left, and Write moods into the files (asking first when it's many files). */
 @Composable
-private fun MoodsReading(reading: Pair<Int, Int>?, counts: Pair<Int, Int>) {
+private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.music.Moods.Counts) {
+    val moods = org.omarchy.music.Moods
+    val v = moods.version
+    // After a scan with many files to write: asked here (on this tab), not written behind your back.
+    val ask = moods.askWrite
+    androidx.compose.runtime.LaunchedEffect(ask) {
+        if (ask > 0) {
+            moods.askWrite = 0
+            ui.confirm = "Write the moods into %,d files? Each file's MOOD tag is set to its mood (other tags stay as they are).".format(ask) to { moods.writeFiles() }
+        }
+    }
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (reading != null) {
-            Chip("Stop", false) { org.omarchy.music.Moods.stop() }
-            Text("Reading moods… %,d of %,d".format(reading.first, reading.second), style = T.sub)
+            Chip("Stop", false) { moods.stop() }
+            Text((if (moods.readingFull) "Full scan… " else "Scanning moods… ") + "%,d of %,d".format(reading.first, reading.second), style = T.sub)
         } else {
-            if (counts.first < counts.second) Chip("Find moods", false) { org.omarchy.music.Moods.find() }
-            if (counts.second > 0) Text("Sound read for %,d of %,d songs".format(counts.first, counts.second), style = T.sub)
+            if (counts.done < counts.total) Chip("Scan moods (1 minute per song)", false) { moods.find() }
+            if (counts.full < counts.total) Chip(if (counts.full == 0) "Full scan (whole songs)" else "Resume full scan (%,d left)".format(counts.total - counts.full), false) { moods.findFull() }
+        }
+    }
+    Column(Modifier.padding(horizontal = 14.dp)) {
+        if (reading != null) {
+            if (moods.readingNow.isNotEmpty()) Text(moods.readingNow, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(moods.readingLeft?.let { moodsLeft(it) } ?: "Working out the time left…", style = T.sub)
+        } else if (counts.total > 0) Text("Moods read for %,d of %,d songs (%,d heard whole)".format(counts.done, counts.total, counts.full), style = T.sub)
+    }
+    var on by remember(v) { androidx.compose.runtime.mutableStateOf(moods.writeOn()) }
+    androidx.compose.runtime.LaunchedEffect(on, reading == null) { if (on && reading == null) moods.recount() }
+    Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Checkbox(on, { on = it; moods.setWriteOn(it) })
+        Text("Write moods into the files", style = T.body)
+    }
+    if (on) {
+        Text(if (org.omarchy.music.platformName == "android") "The songs the app downloaded get a MOOD tag; Android keeps your other files to " +
+            "themselves, so their moods stay in the app (and in backups)." else "Your songs' files get a MOOD tag, so other apps and " +
+            "the files' next home keep their moods.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp))
+        val n = moods.toWrite
+        if (n > 0 && reading == null) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+            Chip(if (moods.writing) "Writing…" else "Write into %,d file%s now".format(n, if (n != 1) "s" else ""), false) {
+                if (moods.writing) return@Chip
+                if (n > org.omarchy.music.Moods.ASK_OVER) { ui.confirm = "Write the moods into %,d files?".format(n) to { moods.writeFiles() } }
+                else { moods.writeFiles() }
+            }
         }
     }
 }
 
 /** Moods: your songs by mood (Chill, Happy, Sad…), found from their sound, genres and tags (see Moods). A tap opens a
- *  mood's songs; Find moods reads the songs not read yet, showing how far it's got, with Stop. */
+ *  mood's songs; Scan moods and Full scan read the songs not read yet, showing how far they've got, with Stop. */
 @Composable
 fun MoodsTab(ui: Ui) {
     val reading = org.omarchy.music.Moods.reading
@@ -242,13 +285,16 @@ fun MoodsTab(ui: Ui) {
     val all = remember(Music.musicVersion, Music.savedVersion, v) {
         runCatching { org.omarchy.music.Moods.ALL.map { it to org.omarchy.music.Moods.songs(it) }.filter { it.second.isNotEmpty() } }.getOrDefault(emptyList())
     }
-    val counts = remember(Music.musicVersion, v, reading == null) { runCatching { org.omarchy.music.Moods.counts() }.getOrDefault(0 to 0) }
+    val counts = remember(Music.musicVersion, v, reading == null) {
+        runCatching { org.omarchy.music.Moods.counts() }.getOrDefault(org.omarchy.music.Moods.Counts(0, 0, 0))
+    }
     if (all.isEmpty()) {
         Column {
-            MoodsReading(reading, counts)
+            MoodsReading(ui, reading, counts)
             Empty("No moods yet", "Each of your songs gets a mood (Chill, Happy, Sad, Party…) from how it sounds (its tempo, energy, " +
-                "brightness and key, heard from half a minute in its middle), its genre, and Last.fm's tags when you have a Last.fm key. " +
-                "Tap Find moods to read your songs now. It also runs by itself after your music is scanned" +
+                "brightness and key), its genre, and Last.fm's tags when you have a Last.fm key. Scan moods hears a minute from the " +
+                "middle of each song; Full scan hears every song from start to end (slower, surer). A mood in a file's MOOD tag, or " +
+                "one you pick in the Tagger, is used as it is. Scan moods also runs by itself after your music is scanned" +
                 (if (org.omarchy.music.platformName == "android") ", while the phone is charging." else "."))
         }
         return
@@ -267,7 +313,7 @@ fun MoodsTab(ui: Ui) {
     }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            MoodsReading(reading, counts)
+            MoodsReading(ui, reading, counts)
             if (picking) PickBar(ui, "moods")
             else Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) { Chip("Select", false) { ui.startPick("mood") }; SortMenu(sortTab, GROUPS_SORTS) }

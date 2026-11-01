@@ -146,7 +146,8 @@ fun App() {
     // The phone's Back on Now playing opens the ☰ menu; Back with that menu open (over Now playing) leaves the app.
     val atPlayer = ui.tab == "player" && page == null
     val leaveNow = onPhone && atPlayer && ui.drawer && !ui.selecting && ui.pane == "art"
-    PlatformBack(enabled = !leaveNow && (ui.drawer || ui.selecting || ui.pickingAlbums || ui.pane != "art" || page != null || ui.openMine != null ||
+    val smartEditing = SmartEdit.draft != null && ui.tab == "music" && ui.musicView == "smartlists" && page == null   // Back leaves the editor
+    PlatformBack(enabled = !leaveNow && (ui.drawer || ui.selecting || ui.pickingAlbums || ui.pane != "art" || page != null || ui.openMine != null || smartEditing ||
         ui.openList != null || ui.openFolder != null || ui.tab != "player" || (onPhone && atPlayer))) {
         when {
             ui.drawer -> ui.drawer = false
@@ -154,6 +155,7 @@ fun App() {
             ui.pickingAlbums -> { ui.albumsPicked.clear(); ui.pickingAlbums = false }
             ui.tab == "player" && ui.pane != "art" -> ui.pane = "art"
             ui.pages.isNotEmpty() -> ui.pages.removeAt(ui.pages.lastIndex)
+            smartEditing -> SmartEdit.close()
             ui.openMine != null -> ui.openMine = null
             ui.openList != null -> ui.openList = null
             ui.openFolder != null -> ui.openFolder = null
@@ -256,6 +258,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Genres", Ico.GENRE, "genres"))
         add(Entry("Moods", Ico.MOOD, "moods"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
+        add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
         add(Entry("Folders", Ico.FOLDER, "folders"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))

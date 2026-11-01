@@ -16,6 +16,7 @@ object Backup {
      *  it, so a phone's go only to a phone and a PC's only to a PC. */
     private val OWN_DEVICE = setOf("song-volume.json", "song-volume-outputs.json", "song-eq.json")
     private const val PREFS = "radon-2"   // 2.0's switches (Prefs)
+    private const val MOODS = "moods-backup.json"   // songs' moods (Moods.backup)
 
     /** (blocking) Into the zip at uri. How many files went in. */
     fun make(ctx: Ctx, uri: String): Int {
@@ -33,6 +34,8 @@ object Backup {
                     z.putNextEntry(ZipEntry(name)); f.inputStream().use { it.copyTo(z) }; z.closeEntry(); n++
                 }
                 z.putNextEntry(ZipEntry("switches.json")); z.write(BackupMerge.switchesToSave(Prefs.all()).toByteArray()); z.closeEntry()
+                // Moods: by song (title, artist, length), not by file, so they come back on any device without a scan
+                runCatching { Moods.backup() }.getOrNull()?.let { z.putNextEntry(ZipEntry(MOODS)); z.write(it.toByteArray()); z.closeEntry() }
             }
         }
         return n
@@ -45,7 +48,7 @@ object Backup {
             ZipInputStream(ins).use { z ->
                 while (true) {
                     val e = z.nextEntry ?: break
-                    if (e.name == "radon-backup.json" || e.name in FILES || e.name == "switches.xml" || e.name == "switches.json") got[e.name] = z.readBytes()
+                    if (e.name == "radon-backup.json" || e.name in FILES || e.name == "switches.xml" || e.name == "switches.json" || e.name == MOODS) got[e.name] = z.readBytes()
                 }
             }
         }
@@ -69,6 +72,8 @@ object Backup {
         if (switches != null) Prefs.restore(BackupMerge.switchesToRestore(switches.decodeToString(), cross))
         else if (!cross) got["switches.xml"]?.let { prefsFile(ctx, PREFS).apply { parentFile?.mkdirs() }.writeBytes(it) }   // an older backup
         if (cross) Prefs.set("adopt_files", true)   // the other device's song files: this one's copies found once it has read its folders
+        // Moods: given to the matching songs here once the app has read your music again (see Moods.auto)
+        got[MOODS]?.let { Moods.restoreLater(it.decodeToString()); done += MOODS }
         return done
     }
 

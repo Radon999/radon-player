@@ -127,7 +127,8 @@ object MoodRules {
         val b = clamp((f.bright - 1000) / 2500)                            // warm and dark … bright and sharp
         val d = clamp(f.onsets / 5)                                        // sparse … busy (notes and hits a second)
         val beat = clamp(f.beat * 2)                                       // no steady beat … a clear one
-        val r = clamp((f.range - 6) / 14)                                  // even … big swings in loudness
+        // even … big swings in loudness (within the part heard; for a whole song, from part to part too)
+        val r = clamp(maxOf((f.range - 6) / 14, (f.vary - 2) / 6))
         val up = clamp(f.major); val down = clamp(-f.major)                // major key … minor key
         val mid = clamp(1 - abs(e - 0.4) * 2)                              // neither loud nor quiet
         val dance = if (f.bpm <= 0) 0.0 else clamp(1 - abs(f.bpm - 120) / 30)   // 100–135 BPM: danceable

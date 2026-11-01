@@ -109,4 +109,26 @@ class SoundMoodTest {
         assertEquals("Party", got.first().first)
         assertTrue(got.all { it.first in MoodRules.ALL && it.second in 0.0..1.0 })
     }
+
+    /** A whole song heard in windows: the windows split right, its tempo kept, its loud and quiet halves seen as two parts. */
+    @Test fun wholeSong() {
+        val loud = clicks(120.0, 60, 0.8f); val quiet = clicks(90.0, 60, 0.1f)
+        val stereo = FloatArray((loud.size + quiet.size) * 2)
+        for (i in loud.indices) { stereo[2 * i] = loud[i]; stereo[2 * i + 1] = loud[i] }
+        for (i in quiet.indices) { stereo[2 * (loud.size + i)] = quiet[i]; stereo[2 * (loud.size + i) + 1] = quiet[i] }
+        val song = WholeSong(); var windows = 0
+        val w = MonoWindows(rate, 2, rate, 20) { windows++; song.add(it) }
+        var o = 0
+        while (o < stereo.size) { val n = minOf(5000, stereo.size - o); w.feed(stereo.copyOfRange(o, o + n), n); o += n }
+        w.finish()
+        assertEquals(6, windows); assertEquals(120.0, w.heard, 0.1)
+        val f = song.result()!!
+        assertTrue(f.sections >= 2); assertTrue(f.vary > 3)
+        val steady = WholeSong()
+        val w2 = MonoWindows(rate, 1, rate, 20) { steady.add(it) }
+        val c = clicks(128.0, 90); w2.feed(c, c.size); w2.finish()
+        val g = steady.result()!!
+        assertEquals(128.0, g.bpm, 4.0); assertEquals(1, g.sections); assertTrue(g.vary < 1)
+        assertNull(WholeSong().result())
+    }
 }

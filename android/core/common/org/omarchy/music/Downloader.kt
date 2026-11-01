@@ -42,6 +42,8 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     var folder: () -> String = { "" }                               // your download folder ("Music/Mine/"), "" for the app's own
 
     fun busy(id: String) = synchronized(active) { id in active }
+    /** Whether any song is being downloaded now (tidying empty folders waits, as a download may be making its folder). */
+    fun busyNow() = synchronized(active) { active.isNotEmpty() }
     fun streamQuality(id: String) = synchronized(streams) { streams[id]?.first?.quality ?: "" }
     fun streamLossy(id: String) = synchronized(streams) { streams[id]?.first?.lossyFrom }
     fun forgetStream(id: String) = synchronized(streams) { streams.remove(id) }

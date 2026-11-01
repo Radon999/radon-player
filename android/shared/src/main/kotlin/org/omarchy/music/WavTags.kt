@@ -10,7 +10,7 @@ import java.nio.file.StandardCopyOption
  *  a stray byte at the end. Every other chunk is kept as it is; the sound isn't touched. */
 object WavTags {
     private val FRAMES = mapOf("title" to "TIT2", "artist" to "TPE1", "albumartist" to "TPE2", "album" to "TALB",
-        "tracknumber" to "TRCK", "genre" to "TCON")
+        "tracknumber" to "TRCK", "genre" to "TCON", "mood" to "TMOO")
     private val INFO = mapOf("title" to "INAM", "artist" to "IART", "album" to "IPRD", "genre" to "IGNR", "date" to "ICRD",
         "tracknumber" to "ITRK")
 
@@ -129,14 +129,15 @@ object WavTags {
 
     // ---- reading and writing ----
 
-    /** The WAV's tags (title, artist, albumartist, album, tracknumber, date, genre): the ID3 chunk's, else LIST INFO's. */
+    /** The WAV's tags (title, artist, albumartist, album, tracknumber, date, genre, mood): the ID3 chunk's, else LIST INFO's.
+     *  The mood: its TMOO frame, else a TXXX frame named MOOD (as some taggers write it in ID3v2.3). */
     fun read(file: File): Map<String, String>? = runCatching {
         RandomAccessFile(file, "r").use { f ->
             val cs = chunks(f)
             val id3 = cs.firstOrNull { it.id.equals("id3 ", true) }?.let { parseId3(bytes(f, it)) }
             val info = cs.filter { it.id == "LIST" }.firstNotNullOfOrNull { parseInfo(bytes(f, it)) }
             val out = LinkedHashMap<String, String>()
-            for (k in listOf("title", "artist", "albumartist", "album", "tracknumber", "date", "genre")) {
+            for (k in listOf("title", "artist", "albumartist", "album", "tracknumber", "date", "genre", "mood")) {
                 val fromId3 = id3?.let { t ->
                     val ids = if (k == "date") listOf("TDRC", "TYER") else listOfNotNull(FRAMES[k])
                     ids.firstNotNullOfOrNull { id -> t.frames.firstOrNull { it.first == id }?.let { text(it.third) }?.ifEmpty { null } }
@@ -144,6 +145,9 @@ object WavTags {
                 val fromInfo = INFO[k]?.let { id -> info?.firstOrNull { it.first == id }?.let { infoText(it.second) }?.ifEmpty { null } }
                 out[k] = fromId3 ?: fromInfo ?: ""
             }
+            if (out["mood"].isNullOrEmpty()) id3?.frames?.firstNotNullOfOrNull { (id, _, d) ->
+                if (id != "TXXX") null else text(d).split(", ", limit = 2).takeIf { it.size == 2 && it[0].equals("MOOD", true) }?.get(1)
+            }?.let { out["mood"] = it }
             out
         }
     }.getOrNull()

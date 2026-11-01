@@ -126,8 +126,8 @@ object AudioTools {
         return QualityResult(clipped, peakDb?.let { Math.round(it * 100) / 100.0 }, fake.joinToString(", "))
     }
 
-    /** (blocking) [secs] seconds from the middle of a song, in one channel at about [rate] samples a second, for
-     *  Moods. Decoded a block at a time and averaged down as it goes, so only the small result is kept in memory.
+    /** (blocking) [secs] seconds from the middle of a song (a minute, for Scan moods), in one channel at about [rate]
+     *  samples a second, for Moods. Decoded a block at a time and averaged down as it goes, so only the small result is kept in memory.
      *  songSecs isn't needed here: the file says how long it is. */
     fun moodPcm(path: String, songSecs: Double, secs: Int, rate: Int): Pcm {
         var down: MonoDown? = null
@@ -136,6 +136,26 @@ object AudioTools {
             if (!d.full) d.feed(buf, count)
         }
         return down?.result() ?: error("couldn't hear the song")
+    }
+
+    private class Stopped : RuntimeException()
+
+    /** (blocking) The whole song, start to end, for Moods' Full scan: decoded a block at a time and cut into windows
+     *  (one channel, about [rate] samples a second), each heard and let go, so memory stays low however long the song
+     *  is. null: it couldn't be heard, or [stop] said to stop (checked as it goes). */
+    fun moodWhole(path: String, rate: Int, stop: () -> Boolean): SoundFeatures? {
+        val song = WholeSong()
+        var win: MonoWindows? = null
+        try {
+            decode(path, 0) { buf, count, r, ch ->
+                if (stop()) throw Stopped()
+                val w = win ?: MonoWindows(r, ch, rate, WholeSong.WINDOW) { song.add(it) }.also { win = it }
+                w.feed(buf, count)
+            }
+        } catch (_: Stopped) { return null }
+        val w = win ?: return null
+        w.finish()
+        return song.result()
     }
 
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two minutes. */

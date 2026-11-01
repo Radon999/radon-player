@@ -278,6 +278,9 @@ fun MusicTab(ui: Ui) {
     if (choosing) FolderBrowser { choosing = false }
     LaunchedEffect(Unit) { if (granted) Music.rescanSoon() }
     LaunchedEffect(ui.musicView, Music.accountsVersion, SpotifyHistory.count, org.omarchy.music.OtherPlays.count, org.omarchy.music.YouTubeHistory.count, org.omarchy.music.TidalHistory.count) { if (ui.musicView == "top") Stats.refresh() }
+    // Smart playlists: their songs worked out again (in the background) as your music, moods and formats change.
+    LaunchedEffect(ui.musicView, Music.musicVersion, org.omarchy.music.Moods.version, org.omarchy.music.FlacDepths.version) {
+        if (ui.musicView == "smartlists") org.omarchy.music.SmartLists.refresh() }
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importPlaylist(uri) }
     Music.musicVersion
     Music.savedVersion
@@ -307,6 +310,7 @@ fun MusicTab(ui: Ui) {
             }
             when (ui.musicView) {
                 "playlists" -> myPlaylists(ui) { importer.launch(arrayOf("*/*")) }
+                "smartlists" -> smartPlaylists(ui)
                 "dj" -> djView(ui, ask) { ask = it }
                 "dupes" -> dupesView(ui)
                 "pinned" -> pinnedView(ui)
@@ -541,6 +545,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                         for (sub in subs) item("      ${sub.removePrefix(top).trimEnd('/')} · ${counts.filterKeys { it.startsWith(sub) }.values.sum()}", Dj.From("folder", path = sub))
                     }
                     Music.lists.all().filter { it.tracks.isNotEmpty() }.forEach { item("${it.name} · ${it.tracks.size}", Dj.From("playlist", id = it.id)) }
+                    // Smart playlists, with the songs they have now (worked out once Smart playlists has been opened)
+                    Music.lists.smart().forEach { pl -> org.omarchy.music.SmartLists.songs(pl)?.takeIf { it.isNotEmpty() }
+                        ?.let { item("${pl.name} · ${it.size}", Dj.From("songs", name = pl.name, songs = it)) } }
                 }
             }
             Box {
@@ -633,7 +640,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.grouped(list: List<Tr
 }
 
 /** Your folders of playlists, as rows: in the Library tab and in Music › Playlists. */
-private fun androidx.compose.foundation.lazy.LazyListScope.folderRows(ui: Ui) {
+internal fun androidx.compose.foundation.lazy.LazyListScope.folderRows(ui: Ui) {
     val folders = Music.playlistFolders.all()
     if (folders.isEmpty()) return
     item { Section("FOLDERS") }
@@ -648,7 +655,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.folderRows(ui: Ui) {
 }
 
 /** A folder open: its playlists, yours and your services', each opening as it does anywhere. */
-private fun androidx.compose.foundation.lazy.LazyListScope.folderView(ui: Ui, f: org.omarchy.music.PlaylistFolder) {
+internal fun androidx.compose.foundation.lazy.LazyListScope.folderView(ui: Ui, f: org.omarchy.music.PlaylistFolder) {
     item { BackRow(f.name) { ui.openFolder = null } }
     item {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -663,12 +670,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.folderView(ui: Ui, f:
     items(items.size, key = { "fi-${items[it].key}" }) { i ->
         val it = items[i]
         val mine = if (it.kind == "mine") Music.lists.get(it.id) else null
-        val sub = if (mine != null) "yours" else "Playlist · ${SOURCES[it.source] ?: it.source}"
-        PlaylistRow(Album(it.id, mine?.name ?: it.title, sub, it.thumb, mine?.tracks?.size?.toString() ?: ""),
-            mine?.tracks?.firstOrNull { t -> t.thumb.isNotEmpty() || t.isFile }?.let { t -> artModel(t) },
+        val sub = if (mine?.smart != null) "smart" else if (mine != null) "yours" else "Playlist · ${SOURCES[it.source] ?: it.source}"
+        val songs = if (mine?.smart != null) org.omarchy.music.SmartLists.songs(mine) else mine?.tracks   // a smart one's: as last worked out
+        PlaylistRow(Album(it.id, mine?.name ?: it.title, sub, it.thumb, songs?.size?.toString() ?: ""),
+            songs?.firstOrNull { t -> t.thumb.isNotEmpty() || t.isFile }?.let { t -> artModel(t) },
             onLongClick = { ui.confirm = "Take “${mine?.name ?: it.title}” out of “${f.name}”?" to { Music.removeFromFolder(f.id, it) } }) {
             ui.openFolder = null
-            if (mine != null) { ui.tab = "music"; ui.musicView = "playlists"; ui.openMine = mine.id; return@PlaylistRow }
+            if (mine != null) { ui.tab = "music"; ui.musicView = if (mine.smart != null) "smartlists" else "playlists"; ui.openMine = mine.id; return@PlaylistRow }
             openServicePlaylist(ui, it.id, it.title, it.thumb, it.source)
         }
     }
@@ -690,7 +698,7 @@ private fun ArtistsViewMenu(view: String, pick: (String) -> Unit) {
 }
 
 /** Your playlists' sorts (none by plays: the list is built apart from the screen). */
-private val PLAYLISTS_SORTS = listOf("order", "name", "name-desc", "created", "created-old", "updated", "songs", "songs-least", "length", "length-short")
+internal val PLAYLISTS_SORTS = listOf("order", "name", "name-desc", "created", "created-old", "updated", "songs", "songs-least", "length", "length-short")
 
 /** Artists' sorts: your most played first, or any of these. */
 private val ARTIST_SORTS = listOf("plays", "plays-least", "name", "name-desc", "played", "played-old", "added", "added-old",
@@ -698,7 +706,7 @@ private val ARTIST_SORTS = listOf("plays", "plays-least", "name", "name-desc", "
 
 /** Chips to sort a playlist's songs by (PLAYLIST_SORTS), the same for every playlist. */
 @Composable
-private fun PlaylistSortChips() {
+internal fun PlaylistSortChips() {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("SORT", style = T.section, modifier = Modifier.padding(end = 2.dp))
@@ -707,7 +715,7 @@ private fun PlaylistSortChips() {
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, import: () -> Unit) {
-    val open = ui.openMine?.let { Music.lists.get(it) }
+    val open = ui.openMine?.let { Music.lists.get(it) }?.takeIf { it.smart == null }   // smart ones open in Smart playlists
     val folder = ui.openFolder?.let { Music.playlistFolders.get(it) }
     if (open != null) { minePlaylist(ui, open); return }
     if (open == null && folder != null) { folderView(ui, folder); return }

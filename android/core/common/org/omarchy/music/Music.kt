@@ -1575,6 +1575,7 @@ object Music {
     /** Android said yes (ok) or no to the trash job. */
     fun trashed(job: TrashJob, ok: Boolean) {
         trashJob = trashQueue.removeFirstOrNull()
+        FolderCleanup.afterSongs(job.tracks)   // their folders, if no music is left in them (some may have gone even if not all did)
         if (!ok) { toast("Your old files stay where they are"); return }
         val ids = job.tracks.map { it.id }.toSet()
         local.files = local.files.filter { it.id !in ids }
@@ -1919,6 +1920,7 @@ object Music {
 
     /** The phone's songs tracks were deleted: out of your music, the queue and your playlists. */
     fun phoneFilesDeleted(tracks: List<Track>) {
+        FolderCleanup.afterSongs(tracks)   // their folders, if no music is left in them
         val ids = tracks.map { it.id }.toSet()
         local.files = local.files.filter { it.id !in ids }
         unqueueMany(queue.indices.filter { queue[it].id in ids })

@@ -87,7 +87,9 @@ class Library(private val ctx: Ctx) {
         val t = items.remove(id) ?: return
         val shared = items.values.flatMap { listOf(it.file, it.art) }.toSet()
         if (t.file !in shared) runCatching {
+            val folder = runCatching { FileTags.folderOf(ctx, t.file) }.getOrNull()   // asked before the file goes (the phone)
             ctx.deleteUri(t.file)
+            FolderCleanup.after(listOf(folder))   // its folder too, if no music is left in it
         }
         if (t.art.isNotEmpty() && t.art !in shared) File(t.art).delete()
         save()
@@ -154,12 +156,23 @@ data class Playlist(val id: String, val name: String, val created: Double, val u
 @Serializable
 data class Discovery(val artist: String, val role: String)
 
-/** A smart playlist's rule (1.4; gone in 1.4.1: kept only so older playlists still read). */
+/** A smart playlist: its rules (see [SmartRules]), all of them or any one (any), its order, at most limit songs (0: all),
+ *  and live (its songs change as your music does) or not (the songs it had when made or refreshed, kept in the
+ *  playlist's tracks). moods and genres are 1.4's rules, kept so smart playlists made then still work. */
 @Serializable
-data class Smart(val moods: List<String> = emptyList(), val genres: List<String> = emptyList()) {
-    /** In words: "Happy, Chill · Pop". */
-    fun words() = listOf(moods.joinToString { it.replaceFirstChar { c -> c.uppercase() } }, genres.joinToString())
-        .filter { it.isNotEmpty() }.joinToString(" · ").ifEmpty { "any song" }
+data class Smart(val moods: List<String> = emptyList(), val genres: List<String> = emptyList(),
+                 val rules: List<SmartRule> = emptyList(), val any: Boolean = false, val order: String = "random",
+                 val limit: Int = 0, val live: Boolean = true) {
+    /** Every rule, 1.4's moods and genres as rules too. */
+    fun allRules(): List<SmartRule> = rules + listOfNotNull(
+        moods.takeIf { it.isNotEmpty() }?.let { m -> SmartRule("mood", "is", values = m.map { it.replaceFirstChar { c -> c.uppercase() } }) },
+        genres.takeIf { it.isNotEmpty() }?.let { SmartRule("genre", "contains", values = it) })
+
+    /** The same, with 1.4's moods and genres made into rules (for the editor). */
+    fun upgraded() = copy(moods = emptyList(), genres = emptyList(), rules = allRules())
+
+    /** In words: "Mood is Chill or Calm · Play count more than 5 plays". */
+    fun words() = allRules().joinToString(if (any) " or " else " · ") { SmartRules.words(it) }.ifEmpty { "Every song" }
 }
 
 /** A playlist in a folder: one of yours (kind "mine") or a service's (kind "service", with the service's key). */
@@ -249,9 +262,24 @@ class Playlists(ctx: Ctx) {
         private set
 
     private fun save() = writeAtomic(file, JSON.encodeToString(ser, items))
-    /** Your playlists, the last changed first (the smart ones 1.4 made, by mood, are gone). */
+    /** Your playlists, the last changed first (smart playlists are apart: [smart]). */
     fun all() = items.filter { it.smart == null }.sortedByDescending { it.updated }
+    /** Your smart playlists (Smart playlists), the last changed first. */
+    fun smart() = items.filter { it.smart != null }.sortedByDescending { it.updated }
     fun get(id: String) = items.firstOrNull { it.id == id }
+
+    @Synchronized
+    fun createSmart(name: String, smart: Smart, tracks: List<Track> = emptyList()): Playlist {
+        val pl = Playlist(randomHex(6), name, now(), now(), tracks.map { it.slim() }, smart = smart)
+        items += pl
+        save()
+        return pl
+    }
+
+    /** A smart playlist's new name and rules (and, when it isn't live, the songs it keeps). */
+    @Synchronized
+    fun setSmart(id: String, name: String, smart: Smart, tracks: List<Track>) =
+        edit(id) { it.copy(name = name, smart = smart, tracks = tracks.map { t -> t.slim() }, updated = now()) }
 
     /** Every playlist's songs through f (songs whose files moved). */
     @Synchronized

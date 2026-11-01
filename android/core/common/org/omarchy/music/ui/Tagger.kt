@@ -90,7 +90,7 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
             Text(if (n == 1) tracks[0].title else "$n songs", style = T.title, modifier = Modifier.padding(top = 6.dp))
             if (n == 1) Text(listOf(tracks[0].artist, tracks[0].album).filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
             when (tab) {
-                "tags" -> TaggerTags(ui, tracks)
+                "tags" -> { TaggerTags(ui, tracks); TaggerMood(tracks) }
                 "tab" -> TaggerTab(tracks)
                 "cover" -> {
                     ArtImage(artModel(tracks[0], 640), 220.dp)
@@ -157,6 +157,31 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
             if (typed.isEmpty()) Music.toast("Nothing changed")
             else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
         }
+    }
+}
+
+/** Mood: the songs' main mood picked by hand (one of the Moods tab's), or Clear to have it worked out again. Kept in
+ *  the app, and written into the files' MOOD tags where the app may write them (on the PC all your files; on the
+ *  phone its own downloads). Any song that's a file can have one, even where its other tags can't be changed. */
+@Composable
+private fun TaggerMood(tracks: List<Track>) {
+    val moods = org.omarchy.music.Moods
+    val mine = remember(tracks) { tracks.filter { it.isFile || Music.lib.has(it.id) } }
+    Text("Mood", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+    if (mine.isEmpty()) { Text("Only songs that are files (yours or downloaded) have a mood", style = T.sub); return }
+    val v = moods.version
+    val now = remember(mine, v) { mine.map { runCatching { moods.of(it) }.getOrNull() }.distinct() }
+    val yours = remember(mine, v) { mine.map { runCatching { moods.picked(it) }.getOrDefault("") }.distinct() }
+    val one = now.singleOrNull()
+    Text(when {
+        one == null && now.size > 1 -> "The songs' moods differ: a tap gives them all the same one"
+        one == null -> "No mood yet: pick one, or scan on the Moods tab"
+        yours.singleOrNull()?.isNotEmpty() == true -> "$one (picked by you)"
+        else -> "$one (worked out from the sound, genre and tags, or the file's MOOD tag)"
+    }, style = T.body)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (m in moods.ALL) Chip(m, one == m && yours.singleOrNull() == m) { moods.pick(mine, m) }
+        if (yours.any { it.isNotEmpty() }) Chip("Clear", false) { moods.pick(mine, null) }
     }
 }
 

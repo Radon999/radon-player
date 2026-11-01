@@ -43,14 +43,71 @@ class MonoDown(private val inRate: Int, private val channels: Int, want: Int, se
     fun result() = Pcm(out.copyOf(n), rate)
 }
 
-/** What a song sounds like, from its middle half-minute.
+/** Splits a whole song's decoded sound (any rate, any number of channels, interleaved) into windows of [secs] seconds
+ *  in one channel at about [want] samples a second, handing each to [each] as it fills (the last, shorter one on
+ *  [finish]). Only one window is held at a time, so a long song never fills memory (Moods' Full scan). */
+class MonoWindows(private val inRate: Int, private val channels: Int, want: Int, secs: Int, private val each: (Pcm) -> Unit) {
+    val rate = minOf(inRate, want).coerceAtLeast(1)
+    private val out = FloatArray(rate * secs)
+    private var n = 0
+    private var acc = 0.0; private var k = 0; private var phase = 0L
+    private var frame = 0.0; private var ch = 0
+    /** Seconds of sound handed on so far. */
+    var heard = 0.0
+        private set
+
+    fun feed(buf: FloatArray, count: Int) {
+        val chs = channels.coerceAtLeast(1)
+        for (i in 0 until count) {
+            frame += buf[i]; ch++
+            if (ch < chs) continue
+            acc += frame / chs; k++; frame = 0.0; ch = 0
+            phase += rate
+            if (phase >= inRate) {
+                phase -= inRate
+                out[n++] = (acc / k).toFloat()
+                acc = 0.0; k = 0
+                if (n == out.size) { heard += n.toDouble() / rate; each(Pcm(out.copyOf(), rate)); n = 0 }
+            }
+        }
+    }
+
+    fun finish() { if (n > 0) { heard += n.toDouble() / rate; each(Pcm(out.copyOf(n), rate)); n = 0 } }
+}
+
+/** What a song sounds like: from a minute of its middle (Scan moods), or the whole song (Full scan).
  *  loud: average loudness (dBFS, about -8 for a loud modern master, -25 for a quiet one); range: how much louder its
  *  loud parts are than its quiet ones (dB); bpm: its tempo (0: no steady beat found); beat: how clear that beat is
  *  (0–1); bright: where its sound sits (the spectral centroid, Hz: low and warm to bright and sharp); onsets: notes
- *  and hits a second; major: a rough guess at its key, +1 major to -1 minor (0: can't tell). */
+ *  and hits a second; major: a rough guess at its key, +1 major to -1 minor (0: can't tell).
+ *  Only from a whole song: vary: how much its loudness moves from part to part (dB, the spread of its parts'
+ *  loudness); sections: how many parts it seems to have (where loudness, brightness or busyness changes); 0: not
+ *  known (a minute of it heard). */
 @Serializable
 data class SoundFeatures(val loud: Double = -60.0, val range: Double = 0.0, val bpm: Double = 0.0, val beat: Double = 0.0,
-                         val bright: Double = 0.0, val onsets: Double = 0.0, val major: Double = 0.0)
+                         val bright: Double = 0.0, val onsets: Double = 0.0, val major: Double = 0.0,
+                         val vary: Double = 0.0, val sections: Int = 0)
+
+/** A whole song heard window by window ([add] each, from [MonoWindows]), its features worked out at the end ([result]):
+ *  averages over the song, its tempo where its beat is clearest, its loudness range over all of it, and how it
+ *  changes from part to part. Only each window's few numbers are kept. */
+class WholeSong {
+    companion object {
+        /** Seconds of each window a whole song is heard in: long enough for its tempo and key, short enough to see its parts. */
+        const val WINDOW = 20
+    }
+
+    private val parts = ArrayList<Pair<Double, SoundFeatures?>>()   // (seconds, its features; null: silent)
+    private val levels = IntArray(SoundMood.LEVEL_BINS)
+
+    fun add(pcm: Pcm) {
+        val secs = pcm.samples.size.toDouble() / pcm.rate
+        if (secs < 4 && parts.isNotEmpty()) return   // a last scrap: too short to say anything
+        parts += secs to SoundMood.features(pcm, levels)
+    }
+
+    fun result(): SoundFeatures? = SoundMood.combine(parts, levels)
+}
 
 /** Hears a song's features in its sound (no Android or Compose here, so it's tested on made-up signals). */
 object SoundMood {
@@ -58,8 +115,12 @@ object SoundMood {
     private val MAJOR = doubleArrayOf(6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88)
     private val MINOR = doubleArrayOf(6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17)
 
-    /** The features of [pcm], or null when there's too little of it or it's silent. */
-    fun features(pcm: Pcm): SoundFeatures? {
+    /** Bins of [features]' loudness counts: half a dB each, from -60 dB to 0. */
+    const val LEVEL_BINS = 120
+
+    /** The features of [pcm], or null when there's too little of it or it's silent. [levels]: if given, each short
+     *  frame's loudness is counted into it (for a whole song's loudness range, see [combine]). */
+    fun features(pcm: Pcm, levels: IntArray? = null): SoundFeatures? {
         val x = pcm.samples; val rate = pcm.rate
         if (rate < 4000 || x.size < rate * 4) return null
         var sq = 0.0
@@ -96,6 +157,7 @@ object SoundMood {
             if (den > 0 && db[f] > -50) { cSum += num / den * ms; cW += ms }
         }
         val bright = if (cW > 0) cSum / cW else 0.0
+        if (levels != null) for (d in db) if (d > -60) levels[((d + 60) * 2).toInt().coerceIn(0, LEVEL_BINS - 1)]++
         val heard = db.filter { it > -60 }.sorted()
         val range = if (heard.size >= 10) heard[(heard.size * 0.95).toInt().coerceAtMost(heard.size - 1)] - heard[(heard.size * 0.10).toInt()] else 0.0
 
@@ -130,6 +192,47 @@ object SoundMood {
         val (bpm, beat) = if (onsets < 0.3) 0.0 to 0.0 else tempo(onset, fps)
         return SoundFeatures(round(loud, 1), round(range, 1), round(bpm, 1), round(beat, 3), round(bright, 0), round(onsets, 2),
             round(key(x, rate), 3))
+    }
+
+    /** A whole song's features from its windows' [(seconds, features or null if silent)] and every frame's loudness
+     *  ([levels], from [features]); null when none of it could be heard. */
+    fun combine(parts: List<Pair<Double, SoundFeatures?>>, levels: IntArray): SoundFeatures? {
+        val heard = parts.filter { it.second != null }.map { it.first to it.second!! }
+        if (heard.isEmpty()) return null
+        val total = parts.sumOf { it.first }
+        // Loudness: the average power over the whole song (silent parts count as very quiet).
+        var power = 0.0
+        for ((s, f) in parts) power += s * Math.pow(10.0, (f?.loud ?: -70.0) / 10)
+        val loud = 10 * log10(power / total + 1e-12)
+        val hs = heard.sumOf { it.first }
+        fun avg(get: (SoundFeatures) -> Double) = heard.sumOf { it.first * get(it.second) } / hs
+        // Tempo: the middle one of the parts' tempos, each counted by its length and how clear its beat is.
+        val tempos = heard.filter { it.second.bpm > 0 }.map { it.second.bpm to it.first * it.second.beat }.sortedBy { it.first }
+        val bpm = if (tempos.isEmpty() || tempos.sumOf { it.second } <= 0) 0.0 else {
+            val half = tempos.sumOf { it.second } / 2; var acc = 0.0
+            tempos.first { acc += it.second; acc >= half }.first
+        }
+        // Range: the loud frames over the quiet ones across the whole song, as for a minute of it.
+        val count = levels.sum()
+        fun level(p: Double): Double {
+            val want = (count * p).toLong().coerceAtMost(count - 1L); var seen = 0L
+            for (i in levels.indices) { seen += levels[i]; if (seen > want) return -60 + (i + 0.5) / 2 }
+            return 0.0
+        }
+        val range = if (count >= 10) level(0.95) - level(0.10) else avg { it.range }
+        // Vary: the spread of the parts' loudness; sections: a new one where a part sounds clearly unlike the one before.
+        val meanLoud = avg { it.loud }
+        val vary = sqrt(heard.sumOf { it.first * (it.second.loud - meanLoud).let { d -> d * d } } / hs)
+        var sections = 1
+        for (i in 1 until parts.size) {
+            val a = parts[i - 1].second; val b = parts[i].second
+            val changed = if (a == null || b == null) a != b else
+                kotlin.math.abs(a.loud - b.loud) >= 3 || kotlin.math.abs(a.bright - b.bright) >= 0.3 * maxOf(a.bright, b.bright, 1.0) ||
+                    kotlin.math.abs(a.onsets - b.onsets) >= 0.5 * maxOf(a.onsets, b.onsets, 1.0)
+            if (changed) sections++
+        }
+        return SoundFeatures(round(loud, 1), round(range, 1), round(bpm, 1), round(avg { it.beat }, 3), round(avg { it.bright }, 0),
+            round(avg { it.onsets }, 2), round(avg { it.major }, 3), round(vary, 1), sections)
     }
 
     /** The tempo of an onset envelope: the lag (60–200 BPM) where it best repeats itself, tempos near 120 a little

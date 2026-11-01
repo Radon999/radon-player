@@ -12,13 +12,14 @@ object FileTags {
     const val canListFolders = true
 
     private val KEYS = mapOf("title" to FieldKey.TITLE, "artist" to FieldKey.ARTIST, "albumartist" to FieldKey.ALBUM_ARTIST,
-        "album" to FieldKey.ALBUM, "tracknumber" to FieldKey.TRACK, "date" to FieldKey.YEAR, "genre" to FieldKey.GENRE)
+        "album" to FieldKey.ALBUM, "tracknumber" to FieldKey.TRACK, "date" to FieldKey.YEAR, "genre" to FieldKey.GENRE,
+        "mood" to FieldKey.MOOD)   // Moods: Vorbis MOOD, ID3 TMOO, MP4's iTunes MOOD
 
     private fun file(uri: String) = File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri)
 
     fun canWrite(uri: String) = file(uri).let { it.isFile && it.canWrite() }
 
-    /** The file's tags (title, artist, albumartist, album, tracknumber, date), or null if unreadable. */
+    /** The file's tags (title, artist, albumartist, album, tracknumber, date, genre, mood), or null if unreadable. */
     fun read(ctx: Ctx, uri: String): Map<String, String>? = (if (isWav(uri)) WavTags.read(file(uri)) else null) ?: runCatching {
         val tag = AudioFileIO.read(file(uri)).tag ?: return@runCatching emptyMap()
         KEYS.mapValues { (_, k) -> runCatching { tag.getAll(k).filter { it.isNotBlank() }.joinToString(", ") }.getOrDefault("") }
@@ -83,4 +84,27 @@ object FileTags {
         val d = java.awt.Desktop.getDesktop()
         if (java.awt.Desktop.isDesktopSupported() && d.isSupported(java.awt.Desktop.Action.MOVE_TO_TRASH)) d.moveToTrash(f) else f.deleteRecursively()
     }.getOrDefault(false)
+
+    /** The folder a song's file is in (forward slashes), for tidying after it's gone; null if it has none. */
+    fun folderOf(ctx: Ctx, uri: String): String? = runCatching { file(uri).parentFile?.path?.replace('\\', '/') }.getOrNull()
+
+    /** Every file in a folder and below (paths inside it), or null if it isn't there or a part can't be read: then
+     *  it's left alone. A link to another folder counts as a file we don't know, which keeps it too. */
+    fun filesUnder(folder: String): List<String>? = runCatching {
+        val top = File(folder)
+        if (!top.isDirectory) return null
+        val out = ArrayList<String>()
+        fun walk(d: File, rel: String): Boolean {
+            val kids = d.listFiles() ?: return false
+            for (k in kids) {
+                val p = if (rel.isEmpty()) k.name else "$rel/${k.name}"
+                if (k.isDirectory && !java.nio.file.Files.isSymbolicLink(k.toPath())) { if (!walk(k, p)) return false } else out += p
+            }
+            return true
+        }
+        if (walk(top, "")) out else null
+    }.getOrNull()
+
+    /** A folder with no music left, into the Recycle Bin with what's in it. */
+    fun cleanFolder(path: String): Boolean = File(path).isDirectory && removeFolder(path)
 }

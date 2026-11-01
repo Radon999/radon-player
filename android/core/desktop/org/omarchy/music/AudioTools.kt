@@ -46,8 +46,8 @@ object AudioTools {
         return QualityResult(clipped, peak?.let { Math.round(it * 100) / 100.0 }, fake.joinToString(", "))
     }
 
-    /** (blocking) [secs] seconds from the middle of a song (of [songSecs]; 0: ffmpeg says how long), in one channel at
-     *  [rate] samples a second, for Moods. ffmpeg jumps straight there (-ss before -i) and does the mixing down. */
+    /** (blocking) [secs] seconds from the middle of a song (of [songSecs]; 0: ffmpeg says how long; a minute, for Scan
+     *  moods), in one channel at [rate] samples a second, for Moods. ffmpeg jumps straight there (-ss before -i) and does the mixing down. */
     fun moodPcm(path: String, songSecs: Double, secs: Int, rate: Int): Pcm {
         val length = songSecs.takeIf { it > 0 } ?: Regex("Duration:\\s*(\\d+):(\\d+):([\\d.]+)").find(run("-hide_banner", "-i", path, timeoutS = 30).second)
             ?.groupValues?.let { (it[1].toDouble() * 3600 + it[2].toDouble() * 60 + it[3].toDouble()) } ?: 0.0
@@ -62,6 +62,36 @@ object AudioTools {
         val bb = java.nio.ByteBuffer.wrap(bytes, 0, n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
         val out = FloatArray(n).also { bb.get(it) }
         return Pcm(out, rate)
+    }
+
+    /** (blocking) The whole song, start to end, for Moods' Full scan: ffmpeg decodes it to one channel at [rate]
+     *  samples a second, read a block at a time and cut into windows, each heard and let go, so memory stays low
+     *  however long the song is. null: it couldn't be heard, or [stop] said to stop (checked as it goes). */
+    fun moodWhole(path: String, rate: Int, stop: () -> Boolean): SoundFeatures? {
+        val p = ProcessBuilder(ffmpeg(), "-v", "error", "-nostdin", "-i", path, "-vn", "-ac", "1", "-ar", rate.toString(),
+            "-f", "f32le", "-acodec", "pcm_f32le", "-")
+            .redirectInput(ProcessBuilder.Redirect.from(File(if (windows) "NUL" else "/dev/null")))
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        val song = WholeSong()
+        val win = MonoWindows(rate, 1, rate, WholeSong.WINDOW) { song.add(it) }
+        try {
+            val ins = p.inputStream
+            val bytes = ByteArray(1 shl 16); val floats = FloatArray(bytes.size / 4)
+            var keep = 0   // bytes of a sample cut off at the end of the last read
+            while (true) {
+                if (stop()) return null
+                val n = ins.read(bytes, keep, bytes.size - keep)
+                if (n <= 0) break
+                val have = keep + n; val count = have / 4
+                java.nio.ByteBuffer.wrap(bytes, 0, count * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(floats, 0, count)
+                win.feed(floats, count)
+                keep = have - count * 4
+                if (keep > 0) System.arraycopy(bytes, count * 4, bytes, 0, keep)
+            }
+            win.finish()
+        } finally { p.destroy(); p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS) }
+        if (win.heard < 1) return null
+        return song.result()
     }
 
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two
