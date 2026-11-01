@@ -1,20 +1,20 @@
-run 41284961260 · Sun Nov  1 07:34:34 UTC 2026
+run 41289765653 · Sun Nov  1 08:46:44 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="8" failures="0" tests="4" failures="0" tests="6" failures="0" tests="5" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="10" failures="0" tests="3" failures="0" tests="1" failures="0" 
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:1103:13 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Updater.kt:76:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Voice.kt:80:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Voice.kt:103:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
 > Task :desktop:compileJava NO-SOURCE
 > Task :desktop:classes
+> Task :app:compileReleaseArtProfile
 > Task :desktop:jar
 > Task :desktop:flattenJars
 
 > Task :desktop:packageUberJarForCurrentOS
 The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-3.0.0.jar
 
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
