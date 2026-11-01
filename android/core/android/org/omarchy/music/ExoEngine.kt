@@ -81,11 +81,12 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
     }
 
     companion object {
-        /** The phone's renderers: the EQ in the audio path, for 16-bit music and (EqSink) hi-res too. */
+        /** The phone's renderers: the EQ in the audio path, for 16-bit music and (EqSink) hi-res too. Smooth distortion's
+         *  peak repair goes first, so resampling and the EQ get the rebuilt peaks and its 3 dB of room. */
         fun renderers(ctx: Ctx, eq: EqProcessor) = object : DefaultRenderersFactory(ctx) {
             override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 EqSink(DefaultAudioSink.Builder(context)
-                    .setAudioProcessors(arrayOf(ResampleProcessor(context), eq))
+                    .setAudioProcessors(arrayOf(PeakRepairProcessor(eq), ResampleProcessor(context), eq))
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     .build(), eq)

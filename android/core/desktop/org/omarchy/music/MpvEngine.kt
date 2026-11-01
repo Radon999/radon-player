@@ -265,6 +265,10 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         if (q.bypass) return ""
         val s = q.settings
         val parts = ArrayList<String>()
+        // Smooth distortion on loud songs: 3 dB of room first, before the EQ and mpv's resampling, so boosts and in-between
+        // peaks don't clip; the limiter at the end catches what's left (nothing is made up: it's 3 dB quieter). The PC
+        // doesn't rebuild clipped peaks: ffmpeg's adeclip, tried on clipped test music, left them almost as they were.
+        if (q.smooth) parts += "volume=volume=-3dB:precision=double"
         val gain = 20 * kotlin.math.log10((q.songGain * q.rgGain).coerceAtLeast(1e-6))
         if (s.on) {
             val fs = Eq.filters(s)
@@ -288,7 +292,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         }
         if (q.crossfeed) parts += "crossfeed=strength=${q.crossfeedK}:range=0.5"
         if (q.mono) parts += "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1"
-        if (q.limiter || s.boost > 0) parts += "alimiter=limit=0.97:attack=1:release=80:level=disabled"
+        if (q.limiter || s.boost > 0 || q.smooth) parts += "alimiter=limit=0.97:attack=1:release=80:level=disabled"
         return parts.joinToString(",")
     }
 

@@ -525,8 +525,9 @@ private fun Player(ui: Ui) {
     val t = n.t
     val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 1200) }
     Box(Modifier.fillMaxSize()) {
-        // A dark plain look: the cover again, blurred and dimmed, behind everything.
-        if (art != null && !C.isLight && C.gradient == null) {
+        // The Now playing look only: the cover again, blurred and dimmed, behind everything. Every other look keeps
+        // its own background (the window's colour or gradient) and colours.
+        if (art != null && Music.look == Looks.NOW_PLAYING) {
             AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().blur(70.dp).graphicsLayer(alpha = blurAlpha))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.2f),

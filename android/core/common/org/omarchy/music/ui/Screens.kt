@@ -927,7 +927,8 @@ fun ArtistsTab(ui: Ui) {
     fun menu(name: String, thumb: String) {
         if (picking) { picked[name] = Music.artistSongs(name); ui.optionsFor(picked.values.flatten()); return }
         artistMenu(ui, name, thumb)
-        ui.choices = ui.choices?.let { (t, l) -> t to (l + listOf("Options…" to { ui.optionsFor(Music.artistSongs(name)) },
+        ui.choices = ui.choices?.let { (t, l) -> t to (l + listOf("Create artist playlist" to { Music.makeArtistPlaylist(name) },
+            "Options…" to { ui.optionsFor(Music.artistSongs(name)) },
             "Select" to { ui.startPick("artists", name, Music.artistSongs(name)) })) }
     }
     fun open(name: String) {
@@ -998,8 +999,56 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         }
         if (todo.isNotEmpty()) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.flush() } }
     }
-    val all = remember(songs, coverTick, v) { songs.map { withCover(it) } }
-    val top = remember(info, coverTick, v) { info?.top.orEmpty().map { withCover(it) } }
+    // Where the page's songs and albums come from (the dropdown at the top, remembered): everything (the service's,
+    // with your own copy in place of each one you have) or only your music (your downloads and files).
+    var from by remember { mutableStateOf(org.omarchy.music.Prefs.text(Music.ARTIST_PAGE_FROM).ifEmpty { "all" }) }
+    val onlyMine = from == "mine"
+    fun yours(t: Track) = t.isFile || t.file != null || Music.lib.has(t.id)
+    val ownAlbums = remember(page, Music.musicVersion) { runCatching { Music.artistOwnAlbums(page.name) }.getOrDefault(emptyList()) }
+    val all = remember(songs, coverTick, v, onlyMine) { songs.filter { !onlyMine || yours(it) }.map { withCover(it) } }
+    val top = remember(info, coverTick, v, onlyMine) { info?.top.orEmpty().filter { !onlyMine || yours(it) }.map { withCover(it) } }
+    // The albums: only yours; or the service's (yours in place of each one you have: its cover, your songs), then
+    // yours the service doesn't list.
+    val albums = remember(info, ownAlbums, onlyMine) {
+        if (onlyMine) ownAlbums.map { ArtistAlbum(it.first, it, streamed = false) }
+        else {
+            val byBase = ownAlbums.associateBy { org.omarchy.music.albumBase(it.first.title) }
+            val streamed = info?.albums.orEmpty().map { ArtistAlbum(it, byBase[org.omarchy.music.albumBase(it.title)], streamed = true) }
+            val used = streamed.mapNotNull { it.own?.first?.id }.toSet()
+            streamed + ownAlbums.filter { it.first.id !in used }.map { ArtistAlbum(it.first, it, streamed = false) }
+        }
+    }
+    var opening by remember(page) { mutableStateOf(false) }
+    /** An album: yours opens your album's page (your files, their covers and tags); the service's is looked up first, and
+     *  opens as your album when you have every song on it, else as the service's with your copy of each song you have. */
+    fun openAlbum(a: ArtistAlbum) {
+        val own = a.own
+        val src = info?.source.orEmpty()
+        if (!a.streamed || src.isEmpty()) {
+            ui.pages += if (own != null) Ui.Page.AlbumPage(own.first, "local", own.second) else Ui.Page.AlbumPage(a.al, src)
+            return
+        }
+        if (opening) return
+        opening = true
+        Music.bg({
+            Music.yourCopies(Music.sources[src]?.album(a.al.id).orEmpty().map { if (it.album.isEmpty()) it.copy(album = a.al.title) else it })
+        }) { res, _ ->
+            opening = false
+            if (ui.pages.lastOrNull() != page) return@bg   // you went somewhere else meanwhile
+            val got = res.orEmpty()
+            ui.pages += when {
+                own != null && got.all { yours(it) } -> Ui.Page.AlbumPage(own.first, "local", own.second)
+                got.isNotEmpty() -> Ui.Page.AlbumPage(a.al, src, got)
+                else -> Ui.Page.AlbumPage(a.al, src)   // it tries again, and says what went wrong
+            }
+        }
+    }
+    fun albumMenu(a: ArtistAlbum) {
+        val own = a.own
+        val pin = if (a.streamed || own == null) org.omarchy.music.Pin("album", a.al.id, a.al.title, a.al.sub, a.al.thumb, info?.source.orEmpty())
+            else org.omarchy.music.Pin("album", own.first.id, own.first.title, own.first.sub, source = "local")
+        ui.choices = a.al.title to listOf(pinChoice(pin))
+    }
     val sort = Music.artistSort
     val mine = when (sort) {
         "least" -> all.sortedWith(compareBy({ it.plays }, { norm(it.title) }))
@@ -1011,6 +1060,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val links = androidx.compose.ui.platform.LocalUriHandler.current
     LazyColumn(Modifier.fillMaxSize()) {
         item { BackRow(page.name) { ui.pages.removeAt(ui.pages.lastIndex) } }
+        item { ArtistFromMenu(from) { from = it; org.omarchy.music.Prefs.setText(Music.ARTIST_PAGE_FROM, it) } }
         val i = info
         item {
             Row(Modifier.padding(12.dp)) {
@@ -1041,6 +1091,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 PinPill(org.omarchy.music.Pin("artist", page.name, page.name, thumb = i?.thumb ?: "", source = page.prefer ?: ""))
                 Pill("Change picture…", quiet = true) { ui.artistPictureFor = page.name }
                 Pill("Discovery playlist", quiet = true) { Music.makeDiscovery(page.name) }
+                Pill("Create artist playlist", quiet = true) { Music.makeArtistPlaylist(page.name) }
                 Pill("Merge into…", quiet = true) { ui.mergeArtist = page.name }
             }
         }
@@ -1054,27 +1105,48 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }
             tracks(mine, ui, "artist") { t -> "${t.plays} play${if (t.plays != 1) "s" else ""}" }
         }
+        if (onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("None of their music is yours yet",
+            "You have no downloads or files of ${page.name}'s. Pick “Everything” at the top to see their songs on the streaming services.") }
         when {
-            i == null && failed == null -> item { Section("LOADING…") }
-            i == null -> if (mine.isEmpty()) item { Empty("Couldn't find them", failed!!) }
-            else -> {
-                if (top.isNotEmpty()) {
-                    item { Section("TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
-                    tracks(top, ui, "artist", radio = true)
-                }
-                if (i.albums.isNotEmpty()) {
-                    item { Section("ALBUMS AND SINGLES") }
-                    val albums = i.albums.filter { fits(ui, it.title, it.sub) }
-                    fun menu(al: Album) { ui.choices = al.title to listOf(pinChoice(org.omarchy.music.Pin("album", al.id, al.title, al.sub, al.thumb, i.source))) }
-                    laidOutItems(albums, ui, key = { "aa-" + albums[it].id + "#" + it }, row = { j ->
-                        PlaylistRow(albums[j], onLongClick = { menu(albums[j]) }) { ui.pages += Ui.Page.AlbumPage(albums[j], i.source) }
-                    }) { j, mod, compact ->
-                        val al = albums[j]
-                        Tile(al.thumb.ifEmpty { null }, al.title, al.sub, mod, compact, ico = Ico.DISC, onLongClick = { menu(al) }) {
-                            ui.pages += Ui.Page.AlbumPage(al, i.source)
-                        }
-                    }
-                }
+            i == null && failed == null -> if (!onlyMine) item { Section("LOADING…") }
+            i == null -> if (!onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("Couldn't find them", failed ?: "") }
+            i != null && top.isNotEmpty() -> {
+                item { Section(if (onlyMine) "YOUR COPIES OF THEIR TOP SONGS"
+                    else "TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
+                tracks(top, ui, "artist", radio = true)
+            }
+        }
+        if (albums.isNotEmpty()) {
+            item { Section(if (onlyMine) "YOUR ALBUMS AND SINGLES" else "ALBUMS AND SINGLES") }
+            val shown = albums.filter { fits(ui, it.al.title, it.al.sub) }
+            laidOutItems(shown, ui, key = { "aa-" + shown[it].al.id + "#" + it }, row = { j ->
+                val a = shown[j]
+                PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+            }) { j, mod, compact ->
+                val a = shown[j]
+                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
+                    onLongClick = { albumMenu(a) }) { openAlbum(a) }
+            }
+        }
+    }
+}
+
+/** An album on an artist's page: the service's (streamed) or one of yours, with your copy of it (album, songs) if you have one. */
+private data class ArtistAlbum(val al: Album, val own: Pair<Album, List<Track>>?, val streamed: Boolean) {
+    /** Your copy's cover (the one in its files), or null. */
+    fun ownCover(): Any? = own?.second?.firstOrNull()?.let { artModel(it) }
+}
+
+/** The dropdown at the top of an artist's page: everything (streaming and yours) or only your music (downloads and files). */
+@Composable
+private fun ArtistFromMenu(from: String, pick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val names = linkedMapOf("all" to "Everything (streaming and yours)", "mine" to "Only my music (downloaded and local)")
+    Box(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
+        Chip("${names[from] ?: "Everything (streaming and yours)"} ▾", false) { open = true }
+        DropdownMenu(open, { open = false }, containerColor = C.light) {
+            names.forEach { (k, l) ->
+                DropdownMenuItem({ Text((if (k == from) "✓  " else "     ") + l, style = T.body) }, { open = false; pick(k) })
             }
         }
     }
@@ -1087,10 +1159,15 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
     var missing by remember(page) { mutableStateOf<List<Music.Missing>>(emptyList()) }
     var picking by remember(page) { mutableStateOf(false) }
     val artist = page.tracks?.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: ""
+    // An EP of yours (as the EPs tab sorts it) says EP in its missing section, and is looked for as an EP
+    val kind = remember(page) {
+        page.tracks?.takeIf { page.source == "local" && it.isNotEmpty() }
+            ?.let { runCatching { Music.releaseKind(page.album.title, it, page.album.id.startsWith("single:")) }.getOrNull() } ?: "album"
+    }
     LaunchedEffect(page) {
         val mine = page.tracks
         if (page.source == "local" && !mine.isNullOrEmpty())
-            Music.bg({ Music.albumMissing(page.album.title, artist, mine) }) { res, _ -> missing = res.orEmpty() }
+            Music.bg({ Music.albumMissing(page.album.title, artist, mine, kind) }) { res, _ -> missing = res.orEmpty() }
     }
     LaunchedEffect(page) {
         if (page.tracks != null) { tracks = page.tracks; return@LaunchedEffect }
@@ -1117,7 +1194,7 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
                 pin = if (page.source.isEmpty()) null else org.omarchy.music.Pin("album", page.album.id, page.album.title, page.album.sub, page.album.thumb, page.source)) }
             tracks(t, ui, "album")
             if (missing.isNotEmpty()) {
-                item { Section("MISSING FROM THIS ALBUM · ${missing.size}") }
+                item { Section("MISSING FROM THIS ${if (kind == "ep") "EP" else "ALBUM"} · ${missing.size}") }
                 items(missing.size) { i ->
                     val m = missing[i]
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).graphicsLayer(alpha = 0.55f),

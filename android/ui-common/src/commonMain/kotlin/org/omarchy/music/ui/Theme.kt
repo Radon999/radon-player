@@ -104,8 +104,13 @@ object Looks {
      *  is; Light or Dark while nothing is), then the themes. The other looks stay for the Visualizer and Wrapped. */
     val ALL: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark", "nowplaying" to "Now playing") +
         THEMES.map { it to (STYLED[it]?.first ?: it) }
-    val FALLBACK: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark")
+    /** The Now playing look's key. */
+    const val NOW_PLAYING = "nowplaying"
+    /** The looks Now playing can fall back to while nothing is playing: every look in the Look menu but Now playing. */
+    val FALLBACK: List<Pair<String, String>> = ALL.filter { it.first != NOW_PLAYING }
     fun known(look: String) = ALL.any { it.first == look }
+    /** A look Now playing can fall back to (a saved one that's no longer known goes back to Dark). */
+    fun knownFallback(look: String) = FALLBACK.any { it.first == look }
 
     /** A look's background and accent, for the little swatch beside its name in the menu (Now playing: a sample). */
     fun swatch(look: String): Pair<Color, Color> = STYLED[look]?.second?.let { Color(it.grad?.getOrNull(1) ?: it.bg) to Color(it.accent) }

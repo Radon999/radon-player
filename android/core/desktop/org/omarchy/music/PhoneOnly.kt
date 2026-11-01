@@ -149,6 +149,7 @@ class EqProcessor {
     @Volatile var mono = false
     @Volatile var limiter = false
     @Volatile var dither = false
+    @Volatile var smooth = false   // Smooth distortion on loud songs: 3 dB of room and the limiter (see MpvEngine.graph)
     @Volatile var balance = 0.0
     @Volatile var crossfeedK = 0.3
     @Volatile var loudnessDb = 0.0

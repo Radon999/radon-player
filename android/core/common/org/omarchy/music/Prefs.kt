@@ -37,6 +37,7 @@ object Prefs {
     const val AUTO_MONO = "auto_mono"            // Mono on its own while the chosen earbuds are connected
     const val CLIP_GUARD = "clip_guard"          // a peak limiter instead of hard clipping
     const val DITHER = "dither"                  // TPDF dither when cut to 16-bit
+    const val SMOOTH_PEAKS = "smooth_peaks"      // Smooth distortion on loud songs: clipped peaks rebuilt, 3 dB of room (off by default)
     const val BALANCE = "balance"                // -1 … 1 (a number)
     const val CROSSFEED_K = "crossfeed_k"        // crossfeed's strength (a number: 0.2, 0.3, 0.45)
     const val DETAIL = "detail"                  // Detail: background sounds brought forward

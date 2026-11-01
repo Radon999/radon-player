@@ -3,9 +3,12 @@ package org.omarchy.music.ui
 import org.omarchy.music.Ctx
 import org.omarchy.music.displayName
 import org.omarchy.music.openIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
@@ -25,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import org.omarchy.music.Flac
 import org.omarchy.music.Lyrics
@@ -90,7 +95,7 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
             Text(if (n == 1) tracks[0].title else "$n songs", style = T.title, modifier = Modifier.padding(top = 6.dp))
             if (n == 1) Text(listOf(tracks[0].artist, tracks[0].album).filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
             when (tab) {
-                "tags" -> { TaggerTags(ui, tracks); TaggerMood(tracks) }
+                "tags" -> TaggerTags(ui, tracks)
                 "tab" -> TaggerTab(tracks)
                 "cover" -> {
                     ArtImage(artModel(tracks[0], 640), 220.dp)
@@ -121,6 +126,7 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
         Text(if (onPhone) "Only songs the app downloaded (FLAC) can have their tags changed here: Android keeps other apps' files " +
             "(your own songs) to themselves. Download them first. The cover can still be changed."
             else "These songs' files can't be changed (they're streamed, or the files are read-only). The cover can still be changed.", style = T.sub)
+        TaggerMood(tracks)   // a mood can still be picked: it's kept in the app even where the file can't be written
         return
     }
     var have by remember { mutableStateOf<Map<String, String?>?>(null) }
@@ -146,6 +152,7 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
                 Text(n, style = T.body, modifier = Modifier.fillMaxWidth().clickable { typed[k] = before + n }.padding(horizontal = 12.dp, vertical = 8.dp))
             }
         }
+        if (k == "tracknumber") TaggerMood(tracks)   // Mood: right under Track, like the other fields
     }
     var renameFiles by remember { mutableStateOf(true) }
     if (org.omarchy.music.FileTags.canMove && typed["title"] != null) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -160,28 +167,38 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
     }
 }
 
-/** Mood: the songs' main mood picked by hand (one of the Moods tab's), or Clear to have it worked out again. Kept in
- *  the app, and written into the files' MOOD tags where the app may write them (on the PC all your files; on the
- *  phone its own downloads). Any song that's a file can have one, even where its other tags can't be changed. */
+/** Mood, a row of the Tags tab under Track that looks like the other fields: the songs' main mood; a tap picks one of
+ *  the Moods tab's (saved straight away, no need for Save the tags), or Clear to have it worked out again. Kept in the
+ *  app, and written into the files' MOOD tags where the app may write them (on the PC all your files; on the phone its
+ *  own downloads). Any song that's a file can have one, even where its other tags can't be changed. */
 @Composable
 private fun TaggerMood(tracks: List<Track>) {
     val moods = org.omarchy.music.Moods
     val mine = remember(tracks) { tracks.filter { it.isFile || Music.lib.has(it.id) } }
-    Text("Mood", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+    Text("Mood", style = T.sub, modifier = Modifier.padding(top = 2.dp))
     if (mine.isEmpty()) { Text("Only songs that are files (yours or downloaded) have a mood", style = T.sub); return }
     val v = moods.version
     val now = remember(mine, v) { mine.map { runCatching { moods.of(it) }.getOrNull() }.distinct() }
     val yours = remember(mine, v) { mine.map { runCatching { moods.picked(it) }.getOrDefault("") }.distinct() }
     val one = now.singleOrNull()
-    Text(when {
-        one == null && now.size > 1 -> "The songs' moods differ: a tap gives them all the same one"
-        one == null -> "No mood yet: pick one, or scan on the Moods tab"
-        yours.singleOrNull()?.isNotEmpty() == true -> "$one (picked by you)"
-        else -> "$one (worked out from the sound, genre and tags, or the file's MOOD tag)"
-    }, style = T.body)
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        for (m in moods.ALL) Chip(m, one == m && yours.singleOrNull() == m) { moods.pick(mine, m) }
-        if (yours.any { it.isNotEmpty() }) Chip("Clear", false) { moods.pick(mine, null) }
+    val byYou = one != null && yours.singleOrNull()?.isNotEmpty() == true
+    var open by remember { mutableStateOf(false) }
+    Box {
+        // Drawn like Field (the same border and background), but a tap opens the list of moods
+        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).border(1.dp, C.line).background(C.fg.copy(alpha = 0.04f))
+            .clickable { open = true }.padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(when {
+                one != null -> one
+                now.size > 1 -> "Several (a pick gives them all the same one)"
+                else -> "No mood yet: tap to pick one"
+            }, style = if (one != null) T.body else T.body.copy(color = C.muted), modifier = Modifier.weight(1f))
+            Text(if (byYou) "picked by you  ▾" else if (one != null) "worked out  ▾" else "▾", style = T.sub)
+        }
+        DropdownMenu(open, { open = false }, containerColor = C.light) {
+            for (m in moods.ALL) DropdownMenuItem({ Text((if (m == one) "✓  " else "     ") + m, style = T.body) }, { open = false; moods.pick(mine, m) })
+            if (yours.any { it.isNotEmpty() })
+                DropdownMenuItem({ Text("     Clear (work it out again)", style = T.body) }, { open = false; moods.pick(mine, null) })
+        }
     }
 }
 

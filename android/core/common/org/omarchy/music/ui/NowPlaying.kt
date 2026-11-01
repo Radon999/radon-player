@@ -76,9 +76,16 @@ import kotlin.math.roundToInt
 // The queue takes the cover's place: Shuffle, Repeat and Autoplay, the songs you queued, then the songs it
 // plays on with (drag ≡ to move one), then your other queues.
 
-private val WHITE = Color.White
-private val SOFT = Color.White.copy(alpha = 0.62f)
-private val GLASS = Color.White.copy(alpha = 0.14f)
+/** The Now playing look: this screen in the cover's colours, the cover faintly blurred behind. Any other look keeps
+ *  its own background and colours here (no blurred cover, no colours from the cover). */
+private val coverLook: Boolean get() = Music.look == Looks.NOW_PLAYING
+/** White text: in the cover's colours, or on the plain black background; else the look's own text colour. */
+private val whiteText: Boolean get() = coverLook || Vis.plainNow()
+private val WHITE: Color get() = if (whiteText) Color.White else C.fg
+private val SOFT: Color get() = if (whiteText) Color.White.copy(alpha = 0.62f) else C.muted
+private val GLASS: Color get() = if (whiteText) Color.White.copy(alpha = 0.14f) else C.fg.copy(alpha = 0.08f)
+/** An icon on a button that's on (filled with WHITE): dark, or light where the look's text is dark. */
+private val ON_WHITE: Color get() = if (whiteText || !C.isLight) Color(0xFF222222) else C.light
 
 /** The backdrop's colours from a cover: the gradient's top and bottom, and the bars' light shade. */
 class NowColors(val top: Color, val bottom: Color, val bars: Color)
@@ -111,17 +118,24 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     LaunchedEffect(Unit) { if (!micOk && !Music.micAsked) { Music.micAsked = true; Music.saveState(); askMic.launch(Perm.MIC) } }
     // Settings › Look: the background (the cover's colours and the cover blurred, or plain black) and the visualizer behind.
     val plain = Vis.plainNow()
+    val cover = coverLook   // only the Now playing look takes the cover's colours and blurs it behind
     val visStyle = Vis.nowStyle()
     val vis = if (micOk && visStyle != "off") rememberVis(on = true) else null
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
-    Box(Modifier.fillMaxSize().then(if (plain) Modifier.background(Color.Black)
-        else Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom))))) {
+    Box(Modifier.fillMaxSize().then(when {
+        plain -> Modifier.background(Color.Black)
+        cover -> Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))
+        // Another look: its own background, which the app's window already draws (with its stars); the lock screen has
+        // no window behind, so it's drawn here.
+        lock == null -> Modifier
+        else -> Modifier.background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)
+    })) {
         // The cover in the colour, faintly and only a little blurred, so it's still clearly the cover: a mid-size copy
         // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
-        if (art != null && !plain) AsyncImage(model = smallArt(art, 128), contentDescription = null,
+        if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
-        if (vis != null) NowVis(visStyle, vis, cols.bars, Modifier.align(Alignment.BottomCenter))
-        if (!plain) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
+        if (vis != null) NowVis(visStyle, vis, if (cover || plain) cols.bars else C.accent, Modifier.align(Alignment.BottomCenter))
+        if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if (lock != null) LockTop(n, lock) else NowTop(ui, n)
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -132,6 +146,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                         .background(when {
                             C.isLight -> C.light.copy(alpha = 0.94f)
                             plain -> WHITE.copy(alpha = 0.07f)
+                            !cover -> C.light.copy(alpha = 0.6f)
                             else -> Color.Black.copy(alpha = 0.25f)
                         })) { LyricsTab(ui) }
                     else -> Column(Modifier.fillMaxSize()) {
@@ -141,7 +156,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                 }
             }
             Seek(n)
-            Transport(n, volumeShown, { volumeShown = !volumeShown },
+            Transport(n, ui.pane != "queue" && ui.pane != "lyrics", volumeShown, { volumeShown = !volumeShown },
                 if (lock == null) ({ goTo(ui, "visualizer") }) else null)   // the lock screen has no Visualizer to go to
             if (volumeShown) VolumeLine()
             ToolPill(ui)
@@ -311,7 +326,7 @@ private fun SongLine(ui: Ui, n: Now) {
 private fun Glass(ico: Ico, desc: String, on: Boolean = false, onClick: () -> Unit) {
     Box(Modifier.size(42.dp).clip(R.pill).background(if (on) WHITE.copy(alpha = 0.85f) else GLASS).clickable(onClick = onClick)
         .semantics { contentDescription = desc }
-        .padding(10.dp), contentAlignment = Alignment.Center) { Icon(ico, if (on) Color(0xFF222222) else WHITE, 20.dp) }
+        .padding(10.dp), contentAlignment = Alignment.Center) { Icon(ico, if (on) ON_WHITE else WHITE, 20.dp) }
 }
 
 /** A thin bar to seek on; the time gone, the quality, the time left. */
@@ -382,12 +397,25 @@ private fun QualityMark() {
 }
 
 /** Previous, play/pause, next together in the middle, plain and white; the volume at the far left (it shows or hides the
- *  volume bar) and the big Visualizer at the far right (none: on the lock screen). */
+ *  volume bar) and the big Visualizer at the far right (none: on the lock screen). modes (the big cover showing): Shuffle
+ *  left of Previous and Repeat right of Next too, all a little smaller so they fit a phone. */
 @Composable
-private fun Transport(n: Now, volumeShown: Boolean, onVolume: () -> Unit, onVisualizer: (() -> Unit)?) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun Transport(n: Now, modes: Boolean, volumeShown: Boolean, onVolume: () -> Unit, onVisualizer: (() -> Unit)?) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = if (modes) 6.dp else 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(Ico.SPEAKER, if (volumeShown) WHITE else SOFT, 24.dp, 12.dp, desc = if (volumeShown) "Hide the volume" else "Volume") { onVolume() }
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        if (modes) BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            // The five take 244dp at full size; on a narrower phone they all shrink a little so none is cut off.
+            val k = (maxWidth / 244.dp).coerceIn(0.6f, 1f)
+            val rep = if (n.remote) Remote.status.repeat else Music.repeat
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp * k), verticalAlignment = Alignment.CenterVertically) {
+                ModeButton(Ico.SHUFFLE, Music.shuffled, "Shuffle", k) { Music.shuffle() }
+                IconButton(Ico.PREV, WHITE, 30.dp * k, 8.dp * k) { Music.previous() }
+                IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 44.dp * k, 10.dp * k) { Music.togglePause() }
+                IconButton(Ico.NEXT, WHITE, 30.dp * k, 8.dp * k) { Music.next() }
+                ModeButton(if (rep == "one") Ico.REPEAT_ONE else Ico.REPEAT, rep != "off",
+                    when (rep) { "one" -> "Repeat one"; "all" -> "Repeat all"; else -> "Repeat off" }, k) { Music.cycleRepeat() }
+            }
+        } else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(Ico.PREV, WHITE, 34.dp, 10.dp) { Music.previous() }
             IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 48.dp, 12.dp) { Music.togglePause() }
@@ -395,6 +423,15 @@ private fun Transport(n: Now, volumeShown: Boolean, onVolume: () -> Unit, onVisu
         }
         if (onVisualizer != null) IconButton(Ico.VIS, SOFT, 24.dp, 12.dp, desc = "Visualizer") { onVisualizer() }
         else Spacer(Modifier.size(48.dp))
+    }
+}
+
+/** Shuffle or Repeat beside the transport: filled while it's on, as the queue's buttons are (k: the size, 1 = full). */
+@Composable
+private fun ModeButton(ico: Ico, on: Boolean, desc: String, k: Float, onClick: () -> Unit) {
+    Box(Modifier.clip(R.pill).background(if (on) WHITE.copy(alpha = 0.85f) else Color.Transparent).clickable(onClick = onClick)
+        .semantics { contentDescription = desc }.padding(8.dp * k), contentAlignment = Alignment.Center) {
+        Icon(ico, if (on) ON_WHITE else SOFT, 20.dp * k)
     }
 }
 
@@ -437,7 +474,7 @@ private fun ToolPill(ui: Ui) {
 private fun PillTool(ico: Ico, on: Boolean, desc: String, dim: Boolean = false, onClick: () -> Unit) {
     Box(Modifier.size(width = 52.dp, height = 40.dp).clip(R.pill).background(if (on) WHITE.copy(alpha = 0.88f) else Color.Transparent)
         .clickable(onClick = onClick).semantics { contentDescription = desc }, contentAlignment = Alignment.Center) {
-        Icon(ico, if (on) Color(0xFF222222) else if (dim) WHITE.copy(alpha = 0.3f) else WHITE, 22.dp)
+        Icon(ico, if (on) ON_WHITE else if (dim) WHITE.copy(alpha = 0.3f) else WHITE, 22.dp)
     }
 }
 
@@ -530,7 +567,7 @@ private fun QHead(title: String, sub: String?, action: String?, onAction: () -> 
 private fun Mode(ico: Ico, on: Boolean, desc: String, modifier: Modifier, onClick: () -> Unit) {
     Box(modifier.height(40.dp).clip(RoundedCornerShape(10.dp)).background(if (on) WHITE.copy(alpha = 0.62f) else GLASS)
         .clickable(onClick = onClick).semantics { contentDescription = desc }, contentAlignment = Alignment.Center) {
-        Icon(ico, if (on) Color.Black.copy(alpha = 0.62f) else WHITE, 20.dp)
+        Icon(ico, if (on) ON_WHITE.copy(alpha = 0.75f) else WHITE, 20.dp)
     }
 }
 
@@ -553,7 +590,7 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
                 onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true }),
             verticalAlignment = Alignment.CenterVertically) {
             if (ui.selecting) androidx.compose.material3.Checkbox(checked, { ui.toggle(t) },   // picked: a checkmark, as in the lists
-                colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = WHITE, checkmarkColor = Color.Black,
+                colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = WHITE, checkmarkColor = ON_WHITE,
                     uncheckedColor = SOFT))
             ArtImage(if (remote) Remote.artModel(t) else artModel(t), 46.dp)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {

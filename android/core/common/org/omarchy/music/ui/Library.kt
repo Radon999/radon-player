@@ -67,9 +67,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         }.sortedBy { org.omarchy.music.norm(it.first.title) } }
     if (all.isEmpty()) { Empty(if (eps) "No EPs yet" else if (singles) "No singles yet" else "No albums yet",
         if (eps) "Your EPs (\"- EP\" at the end of their album name) show up here." else if (singles) "Your singles (\"- Single\" at the end of their album name, or no album) show up here." else "Your songs, by album, show up here."); return }
-    // Albums: the big ones (more than six songs here) or the ones you have only a few songs of
+    // Albums: the big ones (more than six songs here) or the ones you have only a few songs of; while you search
+    // the page, all of them (whichever group they're in), so a search finds any album
+    val searching = !ui.filter.isNullOrBlank()
+    val split = kind == "albums" && !searching
     val bigAlbums = kind == "albums" && ui.albumsLow.not()
-    val sized = if (kind != "albums") all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }
+    val sized = if (!split) all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }
     val sorts = if (singles) org.omarchy.music.GROUP_SORTS - setOf("songs", "songs-least") else org.omarchy.music.GROUP_SORTS
     val sort = sortNow(kind, sorts)
     val fitting = sized.filter { fits(ui, it.first.title, it.first.sub) }
@@ -97,12 +100,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
                     Chip("Select", false) { ui.startPick(kind) }
                     SortMenu(kind, sorts)
                 }
-                if (kind == "albums") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (split) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Albums (${all.count { it.second.size > 6 }})", !ui.albumsLow) { ui.albumsLow = false }
                     Chip("Low song count albums (${all.count { it.second.size <= 6 }})", ui.albumsLow) { ui.albumsLow = true }
                 }
             }
-            Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else if (!bigAlbums) "LOW SONG COUNT ALBUM" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
+            Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else if (split && !bigAlbums) "LOW SONG COUNT ALBUM" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
         }
         laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, row = { i ->
             val (al, songs) = albums[i]
@@ -317,6 +320,9 @@ fun MoodsTab(ui: Ui) {
             if (picking) PickBar(ui, "moods")
             else Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) { Chip("Select", false) { ui.startPick("mood") }; SortMenu(sortTab, GROUPS_SORTS) }
+            // Where to put a wrong mood right
+            if (!picking) Text("A mood looks wrong? Change it in the Tagger (Tagger › Tags › Mood): long-press a song " +
+                "(right-click on the PC) › Tagger…", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             Section("${moods.size} MOOD${if (moods.size != 1) "S" else ""}")
         }
         laidOutItems(moods, ui, key = { "mood-" + moods[it].first }, row = { i ->

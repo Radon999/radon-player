@@ -362,7 +362,7 @@ object Music {
         // The Apple Music look came with 1.3: everyone starts on it (dark if the phone is), and can pick any other after.
         // 1.4 keeps Light, Dark and Now playing: any other look becomes Light or Dark, as the phone is.
         look = st.look.takeIf { st.apple_ui && org.omarchy.music.ui.Looks.known(it) } ?: "nowplaying"   // 2.0: a first start is on Now playing
-        npFallback = st.np_fallback.takeIf { it == "apple" || it == "apple-dark" } ?: "apple-dark"
+        npFallback = st.np_fallback.takeIf { org.omarchy.music.ui.Looks.knownFallback(it) } ?: "apple-dark"
         drawerFolds.clear(); drawerFolds.putAll(st.drawer_folds)
         pins.clear(); pins.addAll(st.pins)
         micAsked = st.mic_asked
@@ -805,6 +805,83 @@ object Music {
         return tracks.map { t ->
             if (yours(t)) t
             else fmSong(t.title, t.artist, t.thumb, mine, t.album, sameArtistOnly = true).takeIf { yours(it) }?.copy(plays = t.plays) ?: t
+        }
+    }
+
+    // ---- an artist's own songs and albums; Create artist playlist ----
+    /** Prefs key: Settings › Your music › Artist playlists include songs you don't have. */
+    const val ARTIST_LISTS_ALL = "artist_playlist_all"
+    /** Prefs key: an artist page's songs, "all" (streaming and yours) or "mine" (only your downloads and files). */
+    const val ARTIST_PAGE_FROM = "artist_page_from"
+
+    /** Whether the song is the artist's: one of its credited artists (featured ones too, in the credit or the title's
+     *  "feat."), or one merged into them (Merge into…). */
+    fun creditsArtist(t: Track, name: String): Boolean {
+        val want = bare(name)
+        if (want.isEmpty()) return false
+        return (splitArtists(t.artist) + ownArtists(t.artist) + featured(t.title)).any { n ->
+            bare(n) == want || artistPicks[pairKey(n)]?.let { it.isNotEmpty() && bare(it) == want } == true
+        }
+    }
+
+    /** Every song of the artist's you have: downloaded or in your folders, the ones they're featured on too. */
+    fun artistOwnSongs(name: String): List<Track> = mySongs().filter { creditsArtist(it, name) }
+
+    /** Your albums (as Albums groups them) that are the artist's: billed to them, or most of their songs theirs. */
+    fun artistOwnAlbums(name: String): List<Pair<Album, List<Track>>> = albums().filter { (al, songs) ->
+        bare(al.sub) == bare(name) || songs.count { creditsArtist(it, name) } * 2 > songs.size
+    }
+
+    private val artistListsMaking = HashSet<String>()   // (main thread only) artists whose playlist is being made
+
+    /** Create artist playlist: a playlist named after the artist with every song of theirs you have, by album, then
+     *  track number (from the files' tags), then title. With Settings › Artist playlists include songs you don't have,
+     *  their songs on the streaming service too (top songs and every album's, ones you have left out by title). A
+     *  playlist of that exact name already there is brought up to date instead of made again. */
+    fun makeArtistPlaylist(name0: String) {
+        val name = name0.trim()
+        if (name.isEmpty() || !artistListsMaking.add(norm(name))) return
+        val withStreams = Prefs.on(ARTIST_LISTS_ALL)
+        if (withStreams) toast("Making the playlist $name: looking up their songs…")
+        bg({
+            val out = ArrayList<Pair<Track, Int>>()   // each song and its number on its album (9999: none)
+            for (t in artistOwnSongs(name)) {
+                val f = t.file ?: lib.items[t.id]?.file
+                val no = f?.let { runCatching { trackNo(FileTags.read(ctx, it)?.get("tracknumber")) }.getOrNull() } ?: 9999
+                out += t to no
+            }
+            var unreachable = false
+            if (withStreams) {
+                val have = out.mapTo(HashSet()) { norm(cleanTitle(it.first.title)) }
+                fun take(t: Track, no: Int) { if (have.add(norm(cleanTitle(t.title)))) out += t to no }
+                val info = try { artistInfo(name, null) } catch (e: Exception) { null }
+                if (info == null) unreachable = true
+                else {
+                    val src = sources[info.source]
+                    info.albums.forEachIndexed { i, al ->
+                        if (i > 0 && i % 10 == 0) toast("Making the playlist $name: album $i of ${info.albums.size}…")
+                        val songs = runCatching { src?.album(al.id).orEmpty() }.getOrDefault(emptyList())
+                        songs.forEachIndexed { j, t -> take(if (t.album.isEmpty()) t.copy(album = al.title) else t, j + 1) }
+                    }
+                    info.top.forEach { take(it, 9999) }
+                }
+            }
+            out.sortedWith(compareBy<Pair<Track, Int>>({ it.first.album.isBlank() }, { norm(it.first.album) }, { it.second },
+                { norm(it.first.title) })).map { it.first.slim() }.distinctBy { it.id } to unreachable
+        }) { res, err ->
+            artistListsMaking.remove(norm(name))
+            if (res == null) { toast("Couldn't make the playlist: ${err?.message?.take(100)}"); return@bg }
+            val (songs, unreachable) = res
+            if (songs.isEmpty()) {
+                toast(if (unreachable) "You have no songs of $name's, and the services couldn't be reached" else "You have no songs of $name's yet")
+                return@bg
+            }
+            val old = lists.named(name)
+            val pl = old ?: lists.create(name)
+            lists.replaceTracks(pl.id, songs)
+            musicVersion++
+            toast("${if (old != null) "Updated" else "Made"} the playlist $name (${songs.size} song${if (songs.size != 1) "s" else ""})" +
+                if (unreachable) ": only yours, the services couldn't be reached" else "")
         }
     }
 
@@ -1286,12 +1363,12 @@ object Music {
     data class Missing(val n: Int, val title: String, val short: String, val secs: Int)
     private val albumTracksSeen = HashMap<Pair<String, String>, List<Missing>>()
 
-    /** (blocking) The songs of your album you haven't got, from its tracklist on Deezer, in order ([] if none or not found). */
-    fun albumMissing(album: String, artist: String, tracks: List<Track>): List<Missing> {
+    /** (blocking) The songs of your album (or EP: kind "ep") you haven't got, from its tracklist on Deezer, in order
+     *  ([] if none or not found). */
+    fun albumMissing(album: String, artist: String, tracks: List<Track>, kind: String = "album"): List<Missing> {
         val k = norm(artist) to norm(album)
         val all = albumTracksSeen.getOrPut(k) {
-            val data = httpJson("https://api.deezer.com/search/album?q=" + enc("artist:\"$artist\" album:\"$album\"") + "&limit=5")["data"]
-            val best = (data as? kotlinx.serialization.json.JsonArray)?.firstOrNull { norm(it["title"].str) == norm(album) }
+            val best = deezerRelease(album, artist, kind)
             if (best == null) emptyList() else {
                 val ts = httpJson("https://api.deezer.com/album/${best["id"].long}/tracks?limit=200")["data"] as? kotlinx.serialization.json.JsonArray
                 ts.orEmpty().mapIndexed { i, t -> Missing((t["track_position"].long ?: (i + 1).toLong()).toInt(), t["title"].str ?: "",
@@ -1303,6 +1380,36 @@ object Music {
         val yours = tracks + mySongs().filter { norm(it.artist.split(",")[0]) == lead }
         return missingFrom(all, tracks, yours)
     }
+
+    /** (blocking) The release on Deezer by its name and artist, or null. Its name is compared without its kind on the end
+     *  (Deezer lists an EP as "Name" or "Name - EP"; see [releaseName]); tried by the album search, then a looser search,
+     *  then the artist's own list (albums, EPs and singles). Of those named so: the same full name first, then the kind wanted. */
+    private fun deezerRelease(album: String, artist: String, kind: String): kotlinx.serialization.json.JsonElement? {
+        val base = releaseName(album)
+        val want = norm(base)
+        val lead = norm(artist)
+        fun named(data: kotlinx.serialization.json.JsonElement?) =
+            (data as? kotlinx.serialization.json.JsonArray).orEmpty().filter { norm(releaseName(it["title"].str ?: "")) == want }
+        fun best(list: List<kotlinx.serialization.json.JsonElement>) = list.sortedWith(compareBy(
+            { if (norm(it["title"].str) == norm(album)) 0 else 1 },
+            { if (it["record_type"].str.equals(kind, true)) 0 else 1 })).firstOrNull()
+        fun byArtist(a: String?) = norm(a).let { lead.isEmpty() || (it.isNotEmpty() && (it == lead || lead in it || it in lead)) }
+        if (want.isEmpty()) return null
+        best(named(httpJson("https://api.deezer.com/search/album?q=" + enc("artist:\"$artist\" album:\"$base\"") + "&limit=10")["data"]))
+            ?.let { return it }
+        best(named(httpJson("https://api.deezer.com/search/album?q=" + enc("$artist $base") + "&limit=25")["data"])
+            .filter { byArtist(it["artist"]["name"].str) })?.let { return it }
+        if (lead.isEmpty()) return null
+        val who = (httpJson("https://api.deezer.com/search/artist?q=" + enc(artist) + "&limit=5")["data"] as? kotlinx.serialization.json.JsonArray)
+            .orEmpty().firstOrNull { norm(it["name"].str) == lead } ?: return null
+        return best(named(httpJson("https://api.deezer.com/artist/${who["id"].long}/albums?limit=200")["data"]))
+    }
+
+    /** A release's name without its kind on the end, for finding it: "Ruby - EP", "Ruby (EP)", "Ruby [EP]", "Ruby EP",
+     *  "Talk - Single", "Talk (Single)" -> "Ruby", "Talk". "Sleep" and "Singles Club" stay as they are. */
+    internal fun releaseName(s: String): String =
+        s.trim().replace(RELEASE_KIND_END, "").trim().ifEmpty { s.trim() }
+    private val RELEASE_KIND_END = Regex("(?:\\s*[(\\[]\\s*(?:ep|single)\\s*[)\\]]|(?:\\s+[-–—]|\\s*:)\\s*(?:ep|single)|\\s+ep)\\s*$", RegexOption.IGNORE_CASE)
 
     /** The album songs (all) not among yours: matched by name, forgivingly (versions, "feat.", punctuation and spelling
      *  left out; one name a near-whole part of the other), then any left over by length against the album's own songs
@@ -1786,7 +1893,7 @@ object Music {
 
 
     fun chooseLook(l: String) { look = l; coverRgb = null; applyLook(); saveState() }
-    fun chooseNpFallback(l: String) { npFallback = l; if (look == "nowplaying") applyLook(); saveState() }
+    fun chooseNpFallback(l: String) { if (!org.omarchy.music.ui.Looks.knownFallback(l)) return; npFallback = l; if (look == "nowplaying") applyLook(); saveState() }
     /** The playing song's cover colour, for the Now playing look (null: none yet). */
     var coverRgb: Int? = null
     fun applyLook() {
@@ -2436,7 +2543,8 @@ object Music {
     fun applySound() {
         eqProcessor.limiter = Prefs.on(Prefs.CLIP_GUARD)
         eqProcessor.dither = Prefs.on(Prefs.DITHER)
-        eqProcessor.balance = Prefs.num(Prefs.BALANCE, 0f).toDouble()
+        eqProcessor.smooth = Prefs.on(Prefs.SMOOTH_PEAKS)
+        eqProcessor.balance =Prefs.num(Prefs.BALANCE, 0f).toDouble()
         eqProcessor.crossfeedK = Prefs.num(Prefs.CROSSFEED_K, 0.3f).toDouble()
         eqProcessor.tilt = Prefs.num(Prefs.TILT, 0f).toDouble()
         eqProcessor.detail = Prefs.on(Prefs.DETAIL)
@@ -2450,7 +2558,7 @@ object Music {
         Prefs.set(key, on)
         if (key == Prefs.CROSSFEED) eqProcessor.crossfeed = on
         if (key == Prefs.AUTO_MONO) AutoMono.check()
-        if (key == Prefs.CLIP_GUARD || key == Prefs.DITHER || key == Prefs.LOUDNESS || key == Prefs.DETAIL) applySound()
+        if (key == Prefs.CLIP_GUARD || key == Prefs.DITHER || key == Prefs.LOUDNESS || key == Prefs.DETAIL || key == Prefs.SMOOTH_PEAKS) applySound()
         if (key == Prefs.MONO) { eqProcessor.mono = on || AutoMono.active; if (on && bitPerfect) toast("Mono isn't heard in bit-perfect: turn bit-perfect off for it") }
     }
 

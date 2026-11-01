@@ -88,6 +88,10 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile var limiter = false
     /** Dither (Settings › Sound): TPDF dither when the result is cut to 16-bit, so quiet passages fade smoothly. */
     @Volatile var dither = false
+    /** Smooth distortion on loud songs (Settings › Sound quality): [PeakRepairProcessor], first in the chain, rebuilds
+     *  peaks clipped in the master and takes 3 dB off; here, at the end, a soft knee instead of hard clipping (when the
+     *  limiter isn't on: it already keeps everything under full scale). */
+    @Volatile var smooth = false
     /** Balance: -1 (all left) … 0 … 1 (all right); the other side is turned down, never up. */
     @Volatile var balance = 0.0
     /** Crossfeed's strength: 0.2 light, 0.3 medium, 0.45 strong. */
@@ -112,7 +116,7 @@ class EqProcessor : BaseAudioProcessor() {
     /** Another processor's settings and levels (crossfade's second player sounds the same as the first). */
     fun copyFrom(o: EqProcessor) {
         songGain = o.songGain; rgGain = o.rgGain; bypass = o.bypass; crossfeed = o.crossfeed; mono = o.mono; limiter = o.limiter
-        dither = o.dither; balance = o.balance; crossfeedK = o.crossfeedK; loudnessDb = o.loudnessDb; tilt = o.tilt; detail = o.detail
+        smooth = o.smooth; dither = o.dither; balance = o.balance; crossfeedK = o.crossfeedK; loudnessDb = o.loudnessDb; tilt = o.tilt; detail = o.detail
         update(o.settings)
     }
 
@@ -179,7 +183,8 @@ class EqProcessor : BaseAudioProcessor() {
 
     fun resetFloat() = onFlush()
 
-    /** input's samples (16-bit or float), through gain, the EQ, balance, crossfeed, mono and the limiter, into out. */
+    /** input's samples (16-bit or float), through gain, the EQ, balance, crossfeed, mono and the limiter (or Smooth
+     *  distortion's soft knee), into out. */
     fun process(input: ByteBuffer, out: ByteBuffer, float: Boolean) {
         val n = input.remaining()
         val st = stages
@@ -194,6 +199,7 @@ class EqProcessor : BaseAudioProcessor() {
         val gl = if (b > 0) 1.0 - b else 1.0
         val gr = if (b < 0) 1.0 + b else 1.0
         val lim = limiter || boostGain > 1.0
+        val soft = smooth && !lim
         val rel = kotlin.math.exp(-1.0 / (0.08 * rate))   // the limiter lets go over 80 ms
         val th = 0.97
         val dith = dither && !float
@@ -213,7 +219,7 @@ class EqProcessor : BaseAudioProcessor() {
                 val a = kotlin.math.abs(x)
                 env = if (a > env) a else env * rel
                 if (env > th) x *= th / env
-            }
+            } else if (soft) x = SoftClip.apply(x)
             if (float) out.putFloat(x.toFloat())
             else {
                 val d = if (dith) (rnd.nextDouble() - rnd.nextDouble()) else 0.0   // TPDF: ±1 LSB, triangular
@@ -278,5 +284,76 @@ class EqProcessor : BaseAudioProcessor() {
     override fun onFlush() {
         stages.forEach { s -> s.state.forEach { it.fill(0.0) } }
         lpL = 0.0; lpR = 0.0; env = 0.0
+    }
+}
+
+/** Smooth distortion on loud songs (Settings › Sound quality), the first step in the phone's chain (before resampling
+ *  and the EQ). Some songs are mastered so loud their peaks are cut flat (clipped), which sounds grainy, and anything
+ *  that adds level afterwards (EQ boosts, a song's volume, resampling's in-between peaks) clips them again. Here:
+ *  the clipped runs are rebuilt as smooth peaks ([Declipper]), then everything is turned down 3 dB ([Smooth.HEADROOM])
+ *  so the rebuilt peaks and later boosts have room, with a soft knee ([SoftClip]) just in case. Nothing is made up
+ *  afterwards: the music is simply 3 dB quieter while it's on.
+ *
+ *  Off, every sample passes exactly as it came (5 ms later: the lookahead a clipped run needs). Turned on or off while
+ *  a song plays, the level glides over 50 ms instead of jumping. Not in the chain at all in bit-perfect. */
+class PeakRepairProcessor(private val eq: EqProcessor) : BaseAudioProcessor() {
+    private var dc: Declipper? = null
+    private var float = false
+    private var gain = 1.0            // glides between 1 and the headroom as the switch changes
+    private var glide = 0.0           // how much per sample
+    private val rnd = java.util.Random()
+
+    override fun onConfigure(input: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+        if (Music.bitPerfectNow() || input.sampleRate <= 0 || input.channelCount <= 0 ||
+            (input.encoding != C.ENCODING_PCM_16BIT && input.encoding != C.ENCODING_PCM_FLOAT)) return AudioProcessor.AudioFormat.NOT_SET
+        return input
+    }
+
+    /** The new format takes effect here (not in onConfigure: the last song may still be draining then). */
+    override fun onFlush() {
+        val f = inputAudioFormat
+        if (f == AudioProcessor.AudioFormat.NOT_SET) { dc = null; return }
+        float = f.encoding == C.ENCODING_PCM_FLOAT
+        dc = Declipper(f.channelCount, f.sampleRate)
+        gain = if (on()) Smooth.HEADROOM else 1.0
+        glide = (1.0 - Smooth.HEADROOM) / (0.05 * f.sampleRate * f.channelCount)
+    }
+
+    override fun onReset() { dc = null }
+
+    private fun on() = eq.smooth && !eq.bypass
+
+    override fun queueInput(input: ByteBuffer) {
+        val n = input.remaining()
+        if (n == 0) return
+        val out = replaceOutputBuffer(n)
+        val d = dc
+        if (d == null) { out.put(input); out.flip(); return }
+        input.order(ByteOrder.nativeOrder())
+        while (input.hasRemaining()) put(out, d, if (float) input.float.toDouble() else input.short / 32768.0)
+        out.flip()
+    }
+
+    /** The end of the music: out with the last 5 ms still held for the lookahead. */
+    override fun onQueueEndOfStream() {
+        val d = dc ?: return
+        val samples = d.delay * d.channels
+        val out = replaceOutputBuffer(samples * if (float) 4 else 2)
+        repeat(samples) { put(out, d, 0.0) }
+        out.flip()
+    }
+
+    private fun put(out: ByteBuffer, d: Declipper, x: Double) {
+        val on = on()
+        d.active = on
+        var y = d.next(x)
+        val target = if (on) Smooth.HEADROOM else 1.0
+        if (gain != target) gain = if (gain > target) maxOf(target, gain - glide) else minOf(target, gain + glide)
+        if (gain != 1.0) y = SoftClip.apply(y * gain)
+        if (float) out.putFloat(y.toFloat())
+        else {   // when off (gain 1, nothing rebuilt) y is exactly the sample that came in, so this gives it back as it was
+            val dth = if (gain != 1.0 && eq.dither) rnd.nextDouble() - rnd.nextDouble() else 0.0
+            out.putShort((y * 32768.0 + dth).roundToInt().coerceIn(-32768, 32767).toShort())
+        }
     }
 }

@@ -267,6 +267,8 @@ class Playlists(ctx: Ctx) {
     /** Your smart playlists (Smart playlists), the last changed first. */
     fun smart() = items.filter { it.smart != null }.sortedByDescending { it.updated }
     fun get(id: String) = items.firstOrNull { it.id == id }
+    /** A plain playlist of yours by its exact name (not a smart or discovery one), or null: Create artist playlist updates it. */
+    fun named(name: String) = items.firstOrNull { it.name == name && it.smart == null && it.discovery == null }
 
     @Synchronized
     fun createSmart(name: String, smart: Smart, tracks: List<Track> = emptyList()): Playlist {

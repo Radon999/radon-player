@@ -179,14 +179,9 @@ private fun AccountsSheet(ui: Ui) {
             }
             Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
                 "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
-                Box {
-                    var open by remember { mutableStateOf(false) }
-                    Pill("${Looks.FALLBACK.firstOrNull { it.first == Music.npFallback }?.second ?: "Dark"} ▾", quiet = true) { open = true }
-                    androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
-                        Looks.FALLBACK.forEach { (k, name) ->
-                            androidx.compose.material3.DropdownMenuItem({ Text(name, style = T.body) }, { open = false; Music.chooseNpFallback(k) })
-                        }
-                    }
+                // Every look the Look menu has (but Now playing itself), with the same swatches.
+                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) {
+                    Music.chooseNpFallback(it)
                 }
             }
             NowPlayingLookLines()
@@ -293,6 +288,12 @@ private fun AccountsSheet(ui: Ui) {
                 "you left it, so you can go back to any of them later, rename them or reorder them. Off: there's one queue, and " +
                 "playing something new replaces it",
                 Music.multiQueue) { Switch(Music.multiQueue, { Music.setMultiQueue(it) }, colors = swColors()) }
+            Line("Artist playlists include songs you don't have", "Create artist playlist (on an artist's page, or " +
+                "$LONG_PRESS an artist) makes a playlist of every song of theirs you have. On: it also gets their songs from the " +
+                "streaming service, their top songs and every album's", false) {
+                var on by remember { mutableStateOf(org.omarchy.music.Prefs.on(Music.ARTIST_LISTS_ALL)) }
+                Switch(on, { on = it; org.omarchy.music.Prefs.set(Music.ARTIST_LISTS_ALL, it) }, colors = swColors())
+            }
             StreamQualityLine()
             DownloadQualityLine()
             OtherServicesLine()
@@ -1051,6 +1052,14 @@ private fun SoundQuality(ui: Ui) {
         "maximum level, a limiter gently holds them down instead of letting them crackle. It only ever touches a peak that would " +
         "clip", P.on(P.CLIP_GUARD)) {
         Switch(P.on(P.CLIP_GUARD), { Music.setOpt(P.CLIP_GUARD, it) }, colors = swColors())
+    }
+    Line("Smooth distortion on loud songs", if (onPhone) "Some songs are mastered so loud that their peaks are cut off, " +
+        "which can sound grainy. This rebuilds those peaks and leaves 3 dB of room so nothing clips. Everything plays a little " +
+        "quieter while it's on (turn the volume up a notch). Off in bit-perfect"
+        else "Some songs are mastered so loud that their peaks are cut off, which can sound grainy, and the EQ or a song's " +
+        "volume makes it worse. This leaves 3 dB of room so nothing clips on top, and a limiter gently holds any peak that's left. " +
+        "Everything plays a little quieter while it's on (turn the volume up a notch). Off in bit-perfect", P.on(P.SMOOTH_PEAKS)) {
+        Switch(P.on(P.SMOOTH_PEAKS), { Music.setOpt(P.SMOOTH_PEAKS, it) }, colors = swColors())
     }
     Line("Dither", "When 16-bit (CD quality) music goes through the EQ, it's rounded off with a whisper of shaped " +
         "noise, so quiet fades stay smooth instead of grainy. Hi-res music is always dithered as it comes down to 16-bit (only bit-perfect to a USB DAC keeps every bit)", P.on(P.DITHER)) {
