@@ -131,6 +131,9 @@ private fun n(i: Int) = "%,d".format(i)
 
 private class Slide(val color: Int, val content: @Composable ColumnScope.() -> Unit)
 
+/** The space a slide has on screen (the summary card fills it). */
+private val LocalSlideSize = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.DpSize(400.dp, 800.dp) }
+
 /** The summary slide's Share…: opens the top's menu, and isn't in the picture. */
 private class Sharing(val open: () -> Unit, val busy: Boolean)
 private val LocalSharing = compositionLocalOf<Sharing?> { null }
@@ -252,7 +255,8 @@ fun WrappedScreen(onClose: () -> Unit) {
                                 scope.launch { pager.animateScrollToPage(to) }
                             }
                         }) {
-                        CompositionLocalProvider(LocalSharing provides Sharing({ menu = true }, busy)) {
+                        CompositionLocalProvider(LocalSharing provides Sharing({ menu = true }, busy),
+                            LocalSlideSize provides androidx.compose.ui.unit.DpSize(this@BoxWithConstraints.maxWidth, this@BoxWithConstraints.maxHeight)) {
                             // A long slide (a top 15) scrolls; a short one sits in the middle as before
                             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = this@BoxWithConstraints.maxHeight)
                                 .padding(start = 28.dp, end = 28.dp, top = 112.dp, bottom = 40.dp),
@@ -758,37 +762,43 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
 
 /** The last slide: the lot on one card, to save as a picture. */
 private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
-    Column(Modifier.fillMaxWidth()
+    // The card fills the screen: its height is the slide's (less the top bar and Share), and the type grows with it
+    val room = LocalSlideSize.current
+    val cardH = (room.height - 112.dp - 40.dp - 70.dp).coerceAtLeast(420.dp)
+    val line = ((cardH.value * 0.56f) / 16f * 0.68f).coerceIn(11f, 30f)   // a list line's font size (16 lines fit)
+    val k = line / 11f
+    Column(Modifier.fillMaxWidth().height(cardH)
         .background(WS.card).background(Brush.linearGradient(listOf(WS.accent.copy(alpha = 0.20f), Color.Transparent)))
-        .border(1.dp, WS.line, RoundedCornerShape(4.dp)).padding(horizontal = 18.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        .border(1.dp, WS.line, RoundedCornerShape(4.dp)).padding(horizontal = (18 * k).coerceAtMost(48f).dp, vertical = (20 * k).coerceAtMost(44f).dp),
+        verticalArrangement = Arrangement.SpaceBetween) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Pic(d.artistImage, 56.dp, round = true)
+            Pic(d.artistImage, (56 * k).coerceAtMost(120f).dp, round = true)
             Column(Modifier.weight(1f)) {
-                Text("$title WRAPPED", style = W.kicker)
-                Text(d.user, style = W.mid, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$title WRAPPED", style = W.kicker.copy(fontSize = W.kicker.fontSize * k.coerceAtMost(1.8f)))
+                Text(d.user, style = W.mid.copy(fontSize = W.mid.fontSize * k.coerceAtMost(1.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Rule()
         // Top 15 artists and top 15 songs side by side, then the top 5 genres, then the time in minutes and hours
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy((16 * k).dp)) {
             listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { it.title }).forEach { (head, items) ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(head, style = W.small)
-                    items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
+                    Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
+                    items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = line.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
         }
         val genres = d.fileGenres.map { it.first }.ifEmpty { d.genres }.take(5)
         if (genres.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("TOP GENRES", style = W.small)
-            Text(genres.mapIndexed { i, g -> "${i + 1}  $g" }.joinToString("   "), style = W.name.copy(fontSize = 11.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("TOP GENRES", style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
+            Text(genres.mapIndexed { i, g -> "${i + 1}  $g" }.joinToString("   "), style = W.name.copy(fontSize = line.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             listOf("MINUTES" to n(d.minutes), "HOURS" to n(((d.minutes + 30) / 60).toInt()), "SCROBBLES" to n(d.scrobbles)).forEach { (head, value) ->
                 Column(Modifier.weight(1f)) {
-                    Text(head, style = W.small)
-                    Text(value, style = W.mid.copy(color = WS.accent, shadow = WS.shadow), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.8f)))
+                    Text(value, style = W.mid.copy(color = WS.accent, shadow = WS.shadow, fontSize = W.mid.fontSize * k.coerceAtMost(2f)),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
