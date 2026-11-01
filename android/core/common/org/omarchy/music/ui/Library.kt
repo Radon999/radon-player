@@ -269,6 +269,11 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             "themselves, so their moods stay in the app (and in backups)." else "Your songs' files get a MOOD tag, so other apps and " +
             "the files' next home keep their moods.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp))
         val n = moods.toWrite
+        val wp = moods.writeProgress
+        // How far writing has got: files that have their mood, and files still waiting for theirs
+        Text(if (moods.writing && wp.second > 0) "Writing %,d of %,d files…".format(wp.first, wp.second)
+            else "%,d songs have their mood in the file · %,d still to write".format(counts.inFiles, n),
+            style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp))
         if (n > 0 && reading == null) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
             Chip(if (moods.writing) "Writing…" else "Write into %,d file%s now".format(n, if (n != 1) "s" else ""), false) {
                 if (moods.writing) return@Chip
@@ -335,7 +340,14 @@ fun MoodsTab(ui: Ui) {
                 MoodSwatch(mood, Modifier.size(42.dp).clip(R.card), 22.dp)
                 Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                     Text(mood, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(songs.take(3).joinToString { it.artist.split(",")[0] }, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                // Six of the mood's songs (different artists first), laid along the row toward the count
+                val six = remember(songs) { moodSix(songs) }
+                Column(Modifier.weight(2.2f).padding(end = 12.dp)) {
+                    for (line in six.chunked(3)) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        for (t in line) Text(t.title, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        repeat(3 - line.size) { androidx.compose.foundation.layout.Spacer(Modifier.weight(1f)) }
+                    }
                 }
                 Text("%,d".format(songs.size), style = T.sub)
             }
@@ -345,6 +357,13 @@ fun MoodsTab(ui: Ui) {
                 onLongClick = { menu(mood, songs) }, over = { MoodSwatch(mood, Modifier.fillMaxSize(), if (compact) 26.dp else 40.dp) }) { open(mood, songs) }
         }
     }
+}
+
+/** Six songs for a mood's row: the surest first, one per artist before any artist comes twice. */
+private fun moodSix(songs: List<Track>): List<Track> {
+    val seen = HashSet<String>()
+    val first = songs.filter { seen.add(it.artist.split(",")[0].trim().lowercase()) }.take(6)
+    return if (first.size >= 6) first else (first + songs.filter { it !in first }).take(6)
 }
 
 /** Artists › Folders: your artist folders (Artists/<Artist>), each with every song under it, as folders. */

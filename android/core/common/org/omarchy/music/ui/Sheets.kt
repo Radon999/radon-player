@@ -207,6 +207,7 @@ private fun AccountsSheet(ui: Ui) {
                 Text("Paired with ${Remote.host}", style = T.sub, modifier = Modifier.weight(1f))
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
+            SyncLines(ui)
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
             Group("Accounts", ui) {
@@ -724,6 +725,39 @@ private fun PhoneRemoteLines() {
     for ((tok, name) in h.phones) Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Paired: $name", style = T.sub, modifier = Modifier.weight(1f))
         Pill("Forget", quiet = true) { h.forget(tok) }
+    }
+}
+
+/** Sync with phone/PC (Sync.kt): once paired, the two apps swap their data and merge it, both ways, in one tap. */
+@Composable
+private fun SyncLines(ui: Ui) {
+    val s = org.omarchy.music.Sync
+    val host = org.omarchy.music.RemoteHost
+    val pc = host.supported
+    val other = if (pc) "phone" else "PC"
+    if (if (pc) !(host.running && host.phones.isNotEmpty()) else !Remote.paired) return
+    val last = if (s.lastAt > 0) "Last synced ${s.ago(s.lastAt)}" + (if (s.lastWith.isNotEmpty()) " with ${s.lastWith}" else "") +
+        ": " + s.lastText.removePrefix("Synced: ") else "Not synced yet"
+    val note = s.busy ?: if (pc && s.waiting) "Waiting for the phone: open Radon Player on it (on the same network) and it syncs " +
+        "within 20 seconds" else last
+    Line("Sync with $other", "Swaps your playlists, smart playlists and playlist folders, favorites, pins, plays and skips, moods, " +
+        "Sound presets, headphone corrections and each Bluetooth, USB or car output's EQ, the lists of things you said never to " +
+        "show again, sorts and tabs, the DJ's and your other settings with the $other's, both ways, keeping the newest change " +
+        "of each. Your music folders, download folder, queue and the settings only this $DEVICE has stay as they are",
+        false, note = note) {
+        when {
+            s.busy != null -> Unit
+            pc && s.waiting -> Pill("Cancel", quiet = true) { s.cancelAsk() }
+            else -> Pill("Sync now") { if (pc) s.ask() else s.now() }
+        }
+    }
+    Line("Songs' own volumes and EQs", "Syncs the volumes and Custom EQs you gave songs too. They're made for the headphones " +
+        "you use with each device, so they stay on the device they were made on unless this is on, on both", s.songsOn) {
+        Switch(s.songsOn, { s.setSongsOn(it) }, colors = swColors())
+    }
+    if (s.undoAt > 0) Line("Undo last sync", "Puts this $DEVICE's data back as it was just before the sync ${s.ago(s.undoAt)} " +
+        "(changes made here since go too). The $other keeps its own: undo there too if you want", false) {
+        Pill("Undo", quiet = true) { ui.confirm = "Put this $DEVICE's playlists, favorites and settings back as they were before the last sync?" to { s.undo() } }
     }
 }
 

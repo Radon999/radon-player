@@ -611,6 +611,16 @@ object Wrapped {
             newArtists = artistPlays.entries.sortedByDescending { it.value }.take(TOP).map { artistName.getValue(it.key) to it.value })
     }
 
+    /** Searched this many times within a week, a song counts as one you search often (Most searched). */
+    const val SEARCHED_OFTEN = 4
+
+    /** Whether these times (seconds) hold SEARCHED_OFTEN within any seven days. */
+    internal fun searchedOften(times: List<Long>): Boolean {
+        val t = times.sorted()
+        for (i in t.indices) { val j = i + SEARCHED_OFTEN - 1; if (j < t.size && t[j] - t[i] <= 7 * 86400L) return true }
+        return false
+    }
+
     /** What the listening diary says about a period's entries (since: when the diary began). */
     internal fun logStats(es: List<ListenLog.Entry>, since: Long): LogStats {
         if (es.isEmpty()) return LogStats(since = since)
@@ -622,7 +632,9 @@ object Wrapped {
         val devices = es.groupBy { it.out.ifEmpty { "Unknown output" } }.map { (k, l) ->
             Device(k, l.groupingBy { it.outKind }.eachCount().maxByOrNull { it.value }?.key ?: "", l.sumOf { it.secs }, l.size)
         }.sortedByDescending { it.secs }
-        val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.map { (_, l) ->
+        // Most searched: only songs you seek out often, started from search at least SEARCHED_OFTEN times within a week
+        val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.values
+            .filter { l -> searchedOften(l.map { it.t }) }.map { l ->
             val e = l.first(); Song(e.title, e.artist, l.size, "", e.t)   // pictures: load's last step
         }.sortedByDescending { it.plays }.take(TOP)
         // Shuffled or in order: listening from your playlists, albums and other lists (not the DJ, a radio or a search)
@@ -717,6 +729,12 @@ object Wrapped {
         fun albumKey(name: String) = norm(cleanTitle(albumEdition(bareRelease(name)).first))
         val albums = HashMap<String, MutableList<Track>>()
         for (t in Music.mySongs()) if (t.file != null && t.album.isNotBlank()) albums.getOrPut(albumKey(t.album)) { ArrayList() } += t
+        val byKey = HashMap<Pair<String, String>, Track>()
+        val byLoose = HashMap<Pair<String, String>, Track>()
+        for (t in Music.mySongs()) if (!t.file.isNullOrEmpty()) {
+            byKey.putIfAbsent(Stats.statsKey(t.title, t.artist), t)
+            byLoose.putIfAbsent(looseTitle(t.title) to Stats.statsKey(t.title, t.artist).second, t)
+        }
         fun saved(t: Track): String {
             Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && File(it).exists() }?.let { return it }
             val p = Pictures.cover(t.artist, t.album.ifEmpty { t.title })
@@ -726,7 +744,9 @@ object Wrapped {
             val t: Track? = if (album) {
                 val theirs = splitArtists(artist).map { norm(it) }.filter { it.isNotEmpty() }.toSet() + norm(artist)
                 albums[albumKey(name)].orEmpty().firstOrNull { c -> norm(c.artist) in theirs || splitArtists(c.artist).any { norm(it) in theirs } }
-            } else runCatching { Music.fmSong(name, artist, "", index) }.getOrNull()
+            } else runCatching { Music.fmSong(name, artist, "", index) }.getOrNull()?.takeIf { !it.file.isNullOrEmpty() }
+                ?: byKey[Stats.statsKey(name, artist)]   // the same song under a slightly different title ("(LBP2 Version)")
+                ?: byLoose[looseTitle(name) to Stats.statsKey(name, artist).second]
             val file = t?.file
             if (t == null || file.isNullOrEmpty()) Mine("", "") else Mine(file, saved(t))
         }

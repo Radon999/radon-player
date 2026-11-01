@@ -56,6 +56,9 @@ object Moods {
     var askWrite by mutableStateOf(0)
     /** Writing moods into files now. */
     var writing by mutableStateOf(false)
+
+    /** While writing: files written so far and how many there are to write. */
+    var writeProgress by mutableStateOf(0 to 0)
         private set
 
     private val lock = Any()
@@ -159,14 +162,15 @@ object Moods {
 
     /** How far the scans have got: songs with a mood that's read (heard, or yours, or in the file, or from a backup),
      *  songs heard whole (Full scan), and how many songs there are. */
-    data class Counts(val done: Int, val full: Int, val total: Int)
+    data class Counts(val done: Int, val full: Int, val total: Int, val inFiles: Int = 0)
 
     fun counts(): Counts {
         load()
         val paths = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNullTo(HashSet()) { pathOf(it) }
         return synchronized(lock) {
-            Counts(paths.count { p -> known[p]?.let { it.heard || it.confirmed.isNotEmpty() || it.kept.isNotEmpty() } == true },
-                paths.count { known[it]?.full == true }, paths.size)
+            Counts(paths.count { p -> known[p]?.let { it.heard || it.confirmed.isNotEmpty() || it.kept.isNotEmpty() || it.inFile.isNotEmpty() } == true },
+                paths.count { known[it]?.let { e -> e.full || e.inFile.isNotEmpty() } == true }, paths.size,
+                paths.count { known[it]?.inFile?.isNotEmpty() == true })
         }
     }
 
@@ -272,7 +276,8 @@ object Moods {
             if (stopAsked || (auto && !AudioTools.canRunNow())) return false
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue   // gone
             val e = fresh(p, t, m)
-            val need = if (full) !e.full else
+            // A song whose file already has a MOOD tag has its mood: neither scan hears it again.
+            val need = if (e.inFile.isNotEmpty()) false else if (full) !e.full else
                 (!e.heard && e.confirmed.isEmpty() && e.kept.isEmpty()) || (fmKey && !e.fm)   // settled moods needn't be heard
             if (need) todo += Triple(p, t, m)
         }
@@ -430,8 +435,11 @@ object Moods {
         Music.bg({
             val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
             var done = 0; var failed = 0
-            for ((p, m) in writable()) {
+            val list = writable()
+            Music.scope.launch { writeProgress = 0 to list.size }
+            for ((p, m) in list) {
                 if (p == playing) continue
+                if ((done + failed) % 10 == 0) { val d = done + failed; Music.scope.launch { writeProgress = d to list.size } }
                 if (runCatching { Tags.write(Music.ctx, p, mapOf("mood" to m)) }.isSuccess) {
                     done++
                     // The file changed because of us: remember its new time, so it isn't read again for it.

@@ -42,6 +42,7 @@ object RemoteHost {
     fun init(ctx: Ctx) {
         file = File(ctx.filesDir, "remote-tokens.json")
         phones = runCatching { (JSON.parseToJsonElement(file.readText()) as JsonObject).mapValues { it.value.str ?: "Phone" } }.getOrDefault(emptyMap())
+        Sync.load(ctx)
         if (Prefs.on("phone_remote")) runCatching { start() }
     }
 
@@ -96,11 +97,14 @@ object RemoteHost {
         ex.responseBody.use { it.write(data) }
     }
 
-    private fun phone(ex: HttpExchange): Boolean {
+    /** The paired phone's token the request carries, or null. */
+    private fun tokenOf(ex: HttpExchange): String? {
         val auth = ex.requestHeaders.getFirst("Authorization") ?: ""
         val tok = if (auth.startsWith("Bearer ")) auth.substring(7) else ""
-        return tok.isNotEmpty() && tok in phones
+        return tok.takeIf { it.isNotEmpty() && it in phones }
     }
+
+    private fun phone(ex: HttpExchange): Boolean = tokenOf(ex) != null
 
     /** On the screen's thread, waiting for the answer. */
     private fun <T> onUi(run: () -> T): T = runBlocking { withContext(Dispatchers.Main) { run() } }
@@ -115,9 +119,11 @@ object RemoteHost {
             return when (path) {
                 "/status" -> answer(ex, 200, onUi { status(q["qv"]) })
                 "/art" -> art(q["id"] ?: "")?.let { answer(ex, 200, it, "image/jpeg") } ?: answer(ex, 404, err("no picture"))
+                "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()) })   // Sync now, tapped here
                 else -> answer(ex, 404, err("no such thing"))
             }
         }
+        if (path == "/sync") return sync(ex)
         val raw = ex.requestBody.use { it.readNBytes(8_000_000) }
         val body = runCatching { JSON.parseToJsonElement(String(raw).ifBlank { "{}" }) as JsonObject }.getOrElse {
             return answer(ex, 400, err("that isn't JSON"))
@@ -133,6 +139,17 @@ object RemoteHost {
                 { answer(ex, 200, buildJsonObject { put("ok", true) }) }, { answer(ex, 400, err(it.message ?: "error")) })
         }
         answer(ex, 404, err("no such thing"))
+    }
+
+    /** Sync with phone (Sync.kt): the phone's data in (a zip, streamed), merged with this PC's and put in place here;
+     *  the result back, streamed as it's written. */
+    private fun sync(ex: HttpExchange) {
+        val tok = tokenOf(ex) ?: return answer(ex, 401, err("pair this phone first"))
+        val write = runCatching { ex.requestBody.use { Sync.serve(tok, phones[tok] ?: "Phone", it) } }
+            .getOrElse { return answer(ex, 409, err("couldn't sync: ${it.message ?: it.javaClass.simpleName}")) }
+        ex.responseHeaders.add("Content-Type", "application/zip")
+        ex.sendResponseHeaders(200, 0)   // 0: sent in chunks, however long it is
+        ex.responseBody.use { write(it) }
     }
 
     private fun pair(c: String, name: String): Pair<Int, JsonObject> {

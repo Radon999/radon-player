@@ -352,7 +352,30 @@ private fun rowPic(file: String, art: String): Any? = if (file.isNotEmpty()) Fil
 private val Wrapped.Song.pic: Any? get() = rowPic(file, art)
 private val Wrapped.AlbumPlays.pic: Any? get() = rowPic(file, art)
 /** A song the app counted (skips, heard out): its own file's cover first, else what the app draws for it. */
-private fun trackPic(t: org.omarchy.music.Track): Any? = t.file?.let { FileArt(it, t.thumb) } ?: artModel(t)
+private fun trackPic(t: org.omarchy.music.Track): Any? {
+    // Your copy of it as it is now (the counted song may be an old copy, moved, or played from a service): its file's cover
+    val mine = MyCopies.of(t)
+    if (mine != null) return FileArt(mine.file!!, artModel(mine)?.takeIf { it is java.io.File }?.let { (it as java.io.File).path } ?: t.thumb)
+    return t.file?.let { FileArt(it, t.thumb) } ?: artModel(t)   // not yours: its picture (downloaded once, then kept)
+}
+
+/** Your songs by title and artist (the way plays are counted), to find your own copy of a counted song. */
+private object MyCopies {
+    private var ver = -1
+    private var map: Map<Pair<String, String>, org.omarchy.music.Track> = emptyMap()
+    private var loose: Map<Pair<String, String>, org.omarchy.music.Track> = emptyMap()
+    private fun looseKey(t: org.omarchy.music.Track) = org.omarchy.music.looseTitle(t.title) to org.omarchy.music.Stats.statsKey(t.title, t.artist).second
+    fun of(t: org.omarchy.music.Track): org.omarchy.music.Track? {
+        val v = Music.musicVersion
+        if (v != ver) {
+            map = runCatching { Music.mySongs().filter { !it.file.isNullOrEmpty() }
+                .associateBy { org.omarchy.music.Stats.statsKey(it.title, it.artist) } }.getOrDefault(emptyMap())
+            loose = map.values.associateBy { looseKey(it) }
+            ver = v
+        }
+        return map[org.omarchy.music.Stats.statsKey(t.title, t.artist)] ?: loose[looseKey(t)]
+    }
+}
 
 @Composable
 private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
@@ -747,16 +770,22 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
             }
         }
         Rule()
+        // Top 15 artists and top 15 songs side by side, then the top 5 genres, then the time in minutes and hours
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            listOf("TOP ARTISTS" to d.artists.take(5).map { it.first }, "TOP SONGS" to d.songs.take(5).map { it.title }).forEach { (head, items) ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { it.title }).forEach { (head, items) ->
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(head, style = W.small)
-                    items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
         }
+        val genres = d.fileGenres.map { it.first }.ifEmpty { d.genres }.take(5)
+        if (genres.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("TOP GENRES", style = W.small)
+            Text(genres.mapIndexed { i, g -> "${i + 1}  $g" }.joinToString("   "), style = W.name.copy(fontSize = 11.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
         Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            listOf("MINUTES" to n(d.minutes), "SCROBBLES" to n(d.scrobbles), "TOP GENRE" to (d.fileGenres.firstOrNull()?.first ?: d.genres.firstOrNull() ?: "—")).forEach { (head, value) ->
+            listOf("MINUTES" to n(d.minutes), "HOURS" to n(((d.minutes + 30) / 60).toInt()), "SCROBBLES" to n(d.scrobbles)).forEach { (head, value) ->
                 Column(Modifier.weight(1f)) {
                     Text(head, style = W.small)
                     Text(value, style = W.mid.copy(color = WS.accent, shadow = WS.shadow), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -929,10 +958,11 @@ private fun diarySlides(d: Wrapped.Data): List<Slide> {
         Text("MOST SEARCHED", style = W.kicker)
         if (empty) DiaryEmpty("Your most searched songs")
         else if (log.searched.isEmpty()) {
-            Text("Nothing searched yet", style = W.big)
-            Text("The songs you start from search results show up here.", style = W.sub)
+            Text("Nothing searched often yet", style = W.big)
+            Text("The songs you search frequently and seek out show up here.", style = W.sub)
         } else {
             val s = log.searched[0]
+            Text("The songs you search frequently and seek out", style = W.sub)
             Pic(s.pic, 150.dp)
             Text(s.title, style = W.big)
             Text("${s.artist} · started from search ${s.plays} time${if (s.plays != 1) "s" else ""}", style = W.sub)

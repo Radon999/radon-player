@@ -56,9 +56,11 @@ object Remote {
         readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() }?.let {
             host = it.host; token = it.token; name = it.name; on = it.on
         }
+        Sync.load(ctx)
         Music.scope.launch {
             while (true) {
                 if (active) refresh()
+                Sync.tick()   // Sync now tapped on the PC: it waits for this phone
                 delay(if (active) 1000 else 3000)
             }
         }
@@ -104,7 +106,7 @@ object Remote {
         }
     }
 
-    private fun headers() = mapOf("Authorization" to "Bearer $token")
+    internal fun headers() = mapOf("Authorization" to "Bearer $token")   // (Sync too)
 
     private fun parse(e: JsonElement?): List<Track> =
         e?.let { runCatching { JSON.decodeFromJsonElement(ListSerializer(Track.serializer()), it) }.getOrNull() } ?: emptyList()
