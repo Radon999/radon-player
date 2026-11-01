@@ -1,3 +1,30 @@
-run 41258647519 · Sun Nov  1 00:53:50 UTC 2026
-PHONE FAILED
-PC FAILED
+run 41258806525 · Sun Nov  1 01:01:25 UTC 2026
+PHONE OK
+PC OK
+TESTS: tests="2" failures="0" tests="3" failures="0" tests="2" failures="0" tests="1" failures="0" tests="2" failures="0" tests="1" failures="0" tests="7" failures="0" tests="1" failures="0" tests="2" failures="0" tests="1" failures="0" 
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Main.kt:117:22 Condition is always 'false'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:682:9 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/Screens.kt:683:9 Condition is always 'true'.
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Updater.kt:76:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:flattenJars
+
+> Task :desktop:packageUberJarForCurrentOS
+The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-3.0.0.jar
+
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 5m 23s
+103 actionable tasks: 103 executed
