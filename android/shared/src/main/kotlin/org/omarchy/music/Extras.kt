@@ -209,6 +209,14 @@ fun downloadPlace(root: String, artist: String, album: String, kind: String?, nu
 /** The main music folder's name: inside it, one folder per artist, and in each one a folder per release. */
 const val ARTISTS = "Artists"
 
+/** The artist's folder a song's folder is in (…/Artists/<Artist>), or null if it isn't under an Artists folder. */
+fun artistFolder(folder: String?): String? {
+    val parts = (folder ?: return null).replace('\\', '/').trimEnd('/').split('/')
+    val i = parts.lastIndexOf(ARTISTS)
+    if (i < 0 || parts.size < i + 2 || parts[i + 1].isBlank()) return null
+    return parts.take(i + 2).joinToString("/")
+}
+
 /** A release's kind from where its song is: Artists/<Artist>/<Release>/… — a release folder ending in "EP" ("Spring EP",
  *  "South - EP") is an EP, one ending in "Single" ("Talk - Single") a single, any other an album. null outside an Artists folder. */
 fun folderKind(folder: String?): String? {

@@ -92,7 +92,10 @@ fun SearchTab(ui: Ui) {
                 }
                 if (res.songs.isNotEmpty()) {
                     if (res.artists.isNotEmpty() || res.albums.isNotEmpty()) item { Section("SONGS") }
-                    tracks(res.songs, ui, "search", radio = res.songs.size > 1 && !ui.resultsAreList)
+                    tracks(res.songs, ui, "search", radio = res.songs.size > 1 && !ui.resultsAreList) { t ->
+                        // Your own songs: which tab of My music they're in
+                        when (Music.tabOf(t)) { "album" -> "In Albums"; "ep" -> "In EPs"; "single" -> "In Singles"; else -> "" }
+                    }
                 }
             }
         }
@@ -490,6 +493,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                     "Tidal and YouTube Music, a few at a time. Switch it up for something else, or ask for an artist, " +
                     "a genre, a decade or a vibe."
             }, style = if (d.line.isNotEmpty()) T.title else T.body)
+            if (d.fact.isNotEmpty()) Text(d.fact, style = T.sub.copy(color = C.accent))
             if (d.busy.isNotEmpty()) Text(d.busy, style = T.sub)
             Box {
                 var menu by remember { mutableStateOf(false) }
@@ -534,13 +538,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                     }
                 }
             }
+            if (org.omarchy.music.Voice.canSpeak) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Chip(if (Music.djVoice) "Voice on: the DJ talks between sets" else "Voice off: the DJ's lines show only", Music.djVoice) {
+                    Music.chooseDjVoice(!Music.djVoice) }
+                if (Music.djTalking) Chip("Skip the talk", false) { Music.djHush(); Music.togglePause() }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (d.on) {
                     Pill("↻  Switch it up") { Music.djSwitch() }
                     Pill("Stop the DJ", quiet = true) { Music.djStop() }
                 } else Pill("▶  Start the DJ") { Music.djStart() }
             }
-            Box(Modifier.fillMaxWidth().border(1.dp, C.line).background(C.fg.copy(alpha = 0.04f)).padding(horizontal = 10.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f).border(1.dp, C.line).background(C.fg.copy(alpha = 0.04f)).padding(horizontal = 10.dp, vertical = 10.dp)) {
                 if (ask.isEmpty()) Text("Ask the DJ: something chill, 2010s, house, Daft Punk…", style = T.body.copy(color = C.muted), maxLines = 1)
                 BasicTextField(ask, setAsk, singleLine = true, textStyle = T.body, cursorBrush = SolidColor(C.accent),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -548,6 +558,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                         if (ask.isNotBlank()) { focus.clearFocus(); Music.djSwitch(ask); setAsk("") }
                     }),
                     modifier = Modifier.fillMaxWidth().typing())
+            }
+            MicButton { said -> focus.clearFocus(); Music.djSwitch(said); setAsk("") }   // ask out loud, like Spotify's DJ
             }
         }
     }
@@ -627,6 +639,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.folderView(ui: Ui, f:
             ui.openFolder = null
             if (mine != null) { ui.tab = "music"; ui.musicView = "playlists"; ui.openMine = mine.id; return@PlaylistRow }
             openServicePlaylist(ui, it.id, it.title, it.thumb, it.source)
+        }
+    }
+}
+
+/** Artists' view: "View: Most plays ▾", a tap lists Most plays and Folders. */
+@Composable
+private fun ArtistsViewMenu(view: String, pick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val names = linkedMapOf("plays" to "Most plays", "folders" to "Folders")
+    Box {
+        Chip("View: ${names[view] ?: view} ▾", false) { open = true }
+        androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+            names.forEach { (k, l) ->
+                androidx.compose.material3.DropdownMenuItem({ Text((if (k == view) "✓  " else "     ") + l, style = T.body) }, { open = false; pick(k) })
+            }
         }
     }
 }
@@ -819,6 +846,10 @@ fun RoundArt(model: Any?, size: androidx.compose.ui.unit.Dp) {
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ArtistsTab(ui: Ui) {
+    // View: Most plays (your artists, most played first, with their pictures) or Folders (your artist folders)
+    var view by remember { mutableStateOf(org.omarchy.music.Prefs.text("artists_view").ifEmpty { "plays" }) }
+    val viewMenu: @Composable () -> Unit = { ArtistsViewMenu(view) { view = it; org.omarchy.music.Prefs.setText("artists_view", it) } }
+    if (view == "folders") { ArtistFoldersView(ui, viewMenu); return }
     LaunchedEffect(Unit) { org.omarchy.music.Stats.refresh() }
     val stats = org.omarchy.music.Stats.artists
     // Your most played (120 of them), then every other artist you have songs of: by plays, then name.
@@ -870,7 +901,8 @@ fun ArtistsTab(ui: Ui) {
             Section((listOf("${top.size} ARTISTS" + if (sort == "plays") ", YOUR MOST PLAYED FIRST" else "") + org.omarchy.music.Stats.sources.joinToString(" + ").uppercase().ifEmpty { null })
                 .filterNotNull().joinToString(" · "))
             if (picking) PickBar(ui, "artists")
-            else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            else Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                viewMenu()
                 Chip("Collage…", false) { ui.collageFor = "artists-all" }
                 Chip("Select", false) { ui.startPick("artists") }
                 SortMenu("artists", ARTIST_SORTS)

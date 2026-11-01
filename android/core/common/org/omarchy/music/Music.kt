@@ -125,6 +125,7 @@ object Music {
     var apiKeys by mutableStateOf(mapOf<String, String>())   // Settings: keys of yours (see API_KEYS)
     var shuffled = false   // the queue was shuffled: repeat-all shuffles it again
     val tabSorts = androidx.compose.runtime.mutableStateMapOf<String, String>()   // each tab's sort (sortOf)
+    val tabPicks = androidx.compose.runtime.mutableStateMapOf<String, String>()   // song file -> the tab you put it in (Tagger › Tab)
     var playlistSort by mutableStateOf("order")   // how a playlist's songs are listed (PLAYLIST_SORTS)
     var browseLocal by mutableStateOf(false)   // Local picked in the source bar: your own songs, no Library tab
     var look by mutableStateOf("nowplaying")   // the app's colours: Light ("apple"), Dark ("apple-dark") or Now playing ("nowplaying")
@@ -330,7 +331,7 @@ object Music {
         val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
         val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
         val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(), val not_dupes: List<String> = emptyList(),
-        val tab_sorts: Map<String, String> = emptyMap(),
+        val tab_sorts: Map<String, String> = emptyMap(), val tab_picks: Map<String, String> = emptyMap(),
     )
 
     private val stateFile get() = File(ctx.filesDir, "state.json")
@@ -355,6 +356,7 @@ object Music {
         shuffled = st.shuffled
         playlistSort = st.playlist_sort.takeIf { it in PLAYLIST_SORTS } ?: "order"
         tabSorts.clear(); tabSorts.putAll(st.tab_sorts.filterValues { it in SORT_NAMES })
+        tabPicks.clear(); tabPicks.putAll(st.tab_picks.filterValues { it in setOf("album", "ep", "single") })
         browseLocal = st.browse_local
         searchBeforeLocal = st.search_before_local.takeIf { it in SEARCH_IN && it != "local" } ?: "tidal"
         // The Apple Music look came with 1.3: everyone starts on it (dark if the phone is), and can pick any other after.
@@ -418,7 +420,7 @@ object Music {
         return State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList(), tabSorts.toMap())
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
     }
 
     fun saveApiKeys(keys: Map<String, String>) {
@@ -454,9 +456,29 @@ object Music {
      *  albums). Songs in an Artists folder (Artists/<Artist>/<Title - EP>…) go by their folder; songs with no album at
      *  all (single) are singles. */
     fun releaseKind(title: String, songs: List<Track>, single: Boolean = false, byCount: Boolean = true): String {
+        songs.mapNotNull { tabPicks[tabKey(it)] }.takeIf { it.size * 2 > songs.size }?.groupingBy { it }?.eachCount()
+            ?.maxByOrNull { it.value }?.let { return it.key }   // put there by hand (Tagger › Tab)
         songs.mapNotNull { folderKind(folderOf(it)) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.let { return it.key }
         if (isEp(title)) return "ep"
         return if (single || isSingleRelease(title)) "single" else "album"
+    }
+
+    /** A song's key for Tagger › Tab: its file, written one way. */
+    fun tabKey(t: Track): String = (t.file ?: lib.items[t.id]?.file ?: t.id).replace('\\', '/').lowercase()
+
+    /** Which tab one song of yours sits in ("album", "ep", "single"), as its release is sorted; null if it isn't yours. */
+    fun tabOf(t: Track): String? {
+        if (!t.isFile && !lib.has(t.id)) return null
+        tabPicks[tabKey(t)]?.let { return it }
+        folderKind(folderOf(t))?.let { return it }
+        return when { t.album.isBlank() -> "single"; isEp(t.album) -> "ep"; isSingleRelease(t.album) -> "single"; else -> "album" }
+    }
+
+    /** Tagger › Tab: put the songs in Albums, EPs or Singles whatever their tags say (null: back to the usual way). */
+    fun setTab(tracks: List<Track>, kind: String?) {
+        for (t in tracks) if (kind == null) tabPicks.remove(tabKey(t)) else tabPicks[tabKey(t)] = kind
+        saveState(); musicVersion++
+        toast(if (kind == null) "Back where their tags put them" else "Moved to ${mapOf("album" to "Albums", "ep" to "EPs", "single" to "Singles")[kind]}")
     }
 
     /** A song's genre, as its file says (songs without one: Unknown genre). */
@@ -772,7 +794,7 @@ object Music {
     fun shownDj(): Dj.Shown {
         if (Remote.active) return Remote.status.dj
         val shown = dj.sets[dj.shown].takeIf { dj.on }
-        return Dj.Shown(dj.on, djBusy ?: "", shown?.kind ?: "", shown?.line ?: "", dj.sets.mapValues { it.value.kind }, djFromName(dj.from))
+        return Dj.Shown(dj.on, djBusy ?: "", shown?.kind ?: "", shown?.line ?: "", dj.sets.mapValues { it.value.kind }, djFromName(dj.from), shown?.fact ?: "")
     }
 
     /** What the DJ plays from, as [Dj.From] keeps it: (name, songs), or null if it's gone. */
@@ -838,7 +860,7 @@ object Music {
     /** The set's songs marked as set n of the DJ's (n: the next number), with its line. */
     private fun djTag(b: Dj.Built): List<Track> {
         val n = (dj.sets.keys.mapNotNull { it.toIntOrNull() }.maxOrNull() ?: 0) + 1
-        var sets = dj.sets + (n.toString() to Dj.Info(b.kind, b.line))
+        var sets = dj.sets + (n.toString() to Dj.Info(b.kind, b.line, b.fact))
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
         dj = dj.copy(sets = sets)
         Dj.used += b.songs.map { songKey(it) }
@@ -852,6 +874,31 @@ object Music {
         if (!dj.on || set == null || n == dj.shown) return
         dj = dj.copy(shown = n)
         toast("DJ · ${set.line}")
+        djSay(set.line + if (set.fact.isNotEmpty()) "  " + set.fact else "")
+    }
+
+    /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. On the PC through
+     *  Windows' voice, on the phone through Android's. */
+    val djVoice get() = Prefs.text("dj_voice") != "off"
+    fun chooseDjVoice(on: Boolean) { Prefs.setText("dj_voice", if (on) "on" else "off"); if (!on) djHush() }
+    var djTalking by mutableStateOf(false)
+        private set
+
+    private fun djSay(text: String) {
+        if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
+        val p = player ?: return
+        p.pause()
+        djTalking = true
+        Voice.say(text.replace("“", "").replace("”", "")) {
+            if (djTalking) { djTalking = false; if (player?.isPlaying == false) player?.play() }
+        }
+    }
+
+    /** The DJ stops talking (Play, Pause, a skip): the music goes on. */
+    fun djHush() {
+        if (!djTalking) return
+        djTalking = false
+        Voice.hush()
     }
 
     /** Near the end of the queue: the DJ's next set after it. */
@@ -2156,6 +2203,7 @@ object Music {
 
     fun next() {
         if (Remote.active) { Remote.cmd("next"); return }
+        djHush()
         when {
             index + 1 < queue.size -> { index++; loadCurrent(); autoplaySoon() }
             repeat == "all" && queue.isNotEmpty() -> {
@@ -2179,6 +2227,7 @@ object Music {
     fun nextQueue(): SavedQueue? = if (!multiQueue) null else queues.firstOrNull { it.id != queueId && it.index < it.tracks.size - 1 }
 
     fun previous() {
+        djHush()
         if (Remote.active) { Remote.cmd("prev"); return }
         if (position >= 10 || index <= 0) {   // ⏮: the start of the song; in its first 10 seconds, the song before
             player?.seekTo(0)
@@ -2359,6 +2408,7 @@ object Music {
         if (Remote.active) { Remote.cmd(if (Remote.status.paused) "play" else "pause"); return }
         val p = player ?: return
         if (current() == null) return
+        if (djTalking) { djHush(); if (!p.isPlaying) p.play(); return }   // tapped while the DJ talks: straight to the music
         if (p.isPlaying) p.pause() else {
             if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
         }

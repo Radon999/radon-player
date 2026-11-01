@@ -610,6 +610,7 @@ private fun ChooseYourself(hint: String, names: List<String>, start: String = ""
     var text by remember { mutableStateOf(start) }
     Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
         androidx.compose.material3.OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(hint) },
+            trailingIcon = { MicButton { said -> text = said } },
             modifier = Modifier.fillMaxWidth().typing())
         val q = org.omarchy.music.norm(text)
         val hits = remember(q, names) { if (q.isEmpty()) emptyList() else names.filter { q in org.omarchy.music.norm(it) }

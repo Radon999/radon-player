@@ -248,18 +248,6 @@ private fun AccountsSheet(ui: Ui) {
                     Pill("Remove", quiet = true) { Music.removeFolder(f) }
                 }
             }
-            ToolLines(ui)
-            run {   // Never show, undone for every scan at once
-                org.omarchy.music.ScanIgnore.version
-                val hid = org.omarchy.music.ScanIgnore.total()
-                Line("Reset Never show", if (hid == 0) "Nothing is hidden from the scans. What you mark Never show in a scan is kept " +
-                    "here, so that scan leaves it alone for good" else "$hid thing${if (hid != 1) "s are" else " is"} hidden from the scans (Never show). " +
-                    "Reset brings them all back, in every scan", false) {
-                    if (hid > 0) Pill("Reset", quiet = true) {
-                        ui.confirm = "Show everything you marked Never show in the scans again?" to { org.omarchy.music.ScanIgnore.clearAll(); Music.toast("Every scan shows everything again") }
-                    }
-                }
-            }
             Line("Lyrics", "Lyrics show on Now playing in place of the cover when you tap the lyrics button. Genius shows " +
                 "the words as written, with Genius's notes on the marked lines. Synced shows lines timed to the music that light up as " +
                 "they're sung; tap a line to jump to that point", false) {
@@ -350,6 +338,38 @@ private fun AccountsSheet(ui: Ui) {
                 else Pill("Upgrade…") { ui.upgradeFor = emptyList() }
             }
             }
+            Group("Scanner", ui) {
+                Text("Scans that find and fix problems in your music. Run one when something looks wrong; nothing changes until you say so.",
+                    style = T.sub, modifier = Modifier.padding(vertical = 8.dp))
+                SubGroup("Your files", ui) { ToolLines(ui) }
+                SubGroup("Last.fm & your stats", ui) {
+            run {
+                val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
+                Line("Similar artists", "Finds artists that look like the same one written two ways (cavetown offline and " +
+                    "Cavetown), which splits their plays in your stats. You choose to merge them, their songs' plays and all, or keep them apart", false) { Pill("Scan…", quiet = true) { ui.similarArtists = true } }
+                Line("Duplicates in Most played", "Finds songs counted twice in your stats under different names (\"N.P.D\" and " +
+                    "\"NPD\"), and versions of one song (acoustic, live, remix). You pick which to merge into one, their plays added " +
+                    "together, and which to leave alone", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
+                Line("Joint artists", "A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII), " +
+                    "so your top artists aren't split up. " +
+                    if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",
+                    undecided == 0) { Pill("Choose…", quiet = undecided == 0) { ui.jointArtists = true } }
+            }
+                }
+                SubGroup("Never show", ui) {
+            run {   // Never show, undone for every scan at once
+                org.omarchy.music.ScanIgnore.version
+                val hid = org.omarchy.music.ScanIgnore.total()
+                Line("Reset Never show", if (hid == 0) "Nothing is hidden from the scans. What you mark Never show in a scan is kept " +
+                    "here, so that scan leaves it alone for good" else "$hid thing${if (hid != 1) "s are" else " is"} hidden from the scans (Never show). " +
+                    "Reset brings them all back, in every scan", false) {
+                    if (hid > 0) Pill("Reset", quiet = true) {
+                        ui.confirm = "Show everything you marked Never show in the scans again?" to { org.omarchy.music.ScanIgnore.clearAll(); Music.toast("Every scan shows everything again") }
+                    }
+                }
+            }
+                }
+            }
             Group("Sound quality", ui) {
             SoundQuality(ui)
             }
@@ -383,18 +403,6 @@ private fun AccountsSheet(ui: Ui) {
                     "data request, from Tidal's privacy page or support). Tidal emails it to you; Import the zip here, or the streaming " +
                     "history file in it (CSV or JSON)",
                 arrayOf("application/zip", "text/csv", "text/comma-separated-values", "application/json", "text/plain", "application/octet-stream"))
-            run {
-                val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
-                Line("Similar artists", "Finds artists that look like the same one written two ways (cavetown offline and " +
-                    "Cavetown), which splits their plays in your stats. You choose to merge them, their songs' plays and all, or keep them apart", false) { Pill("Scan…", quiet = true) { ui.similarArtists = true } }
-                Line("Duplicates in Most played", "Finds songs counted twice in your stats under different names (\"N.P.D\" and " +
-                    "\"NPD\"), and versions of one song (acoustic, live, remix). You pick which to merge into one, their plays added " +
-                    "together, and which to leave alone", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
-                Line("Joint artists", "A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII), " +
-                    "so your top artists aren't split up. " +
-                    if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",
-                    undecided == 0) { Pill("Choose…", quiet = undecided == 0) { ui.jointArtists = true } }
-            }
             Line("Reset plays", "Clears every play you imported (from Spotify, Apple Music, Deezer, YouTube Music and Tidal), for " +
                 "when an import doubled your plays because you used Last.fm with that app too. Your Last.fm scrobbles stay (they're " +
                 "kept on Last.fm), and you can import again afterwards", false) {
@@ -1066,6 +1074,20 @@ private fun Group(title: String, ui: Ui, content: @Composable () -> Unit) {
         .padding(horizontal = 14.dp, vertical = 4.dp)) { content() }
 }
 
+/** A fold inside a Settings group (Scanner › Your files…): opens and closes on its own. */
+@Composable
+private fun SubGroup(title: String, ui: Ui, content: @Composable () -> Unit) {
+    val key = "sub:$title"
+    val open = key in ui.settingsOpen
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp).clip(R.card).background(C.accent.copy(alpha = 0.08f))
+        .clickable { if (open) ui.settingsOpen -= key else ui.settingsOpen += key }
+        .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = T.body.copy(fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), modifier = Modifier.weight(1f))
+        Text(if (open) "▾" else "▸", style = T.sub)
+    }
+    if (open) Column(Modifier.fillMaxWidth().padding(start = 6.dp, bottom = 4.dp)) { content() }
+}
+
 /** A row of Settings: its name and what it is (or what it's doing) on the left, its switch or buttons on the right. */
 @Composable
 private fun Line(name: String, state: String, ok: Boolean, note: String = "", actions: @Composable () -> Unit) {
@@ -1508,6 +1530,7 @@ private fun CoverDialog(ui: Ui, albums: List<List<org.omarchy.music.Track>>) {
                         keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { asked = query }),
                         modifier = Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 11.dp).typing())
                     if (query.isNotEmpty()) IconButton(Ico.CLOSE, C.muted, 14.dp, 8.dp) { query = "" }
+                    MicButton { said -> query = said; asked = said }
                     IconButton(Ico.SEARCH, C.accent, 18.dp, 8.dp) { asked = query }
                 }
                 Text(when {

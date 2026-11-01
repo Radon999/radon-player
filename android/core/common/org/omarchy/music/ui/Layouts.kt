@@ -186,6 +186,7 @@ fun FilterField(ui: Ui, title: String) {
                 keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
                 modifier = Modifier.fillMaxWidth().focusRequester(ask).typing())
         }
+        MicButton { said -> ui.filter = said; focus.clearFocus() }
         Box(Modifier.clip(R.pill).clickable { ui.filter = null; focus.clearFocus() }.padding(12.dp)) { Icon(Ico.CLOSE, C.muted, 16.dp) }
     }
 }

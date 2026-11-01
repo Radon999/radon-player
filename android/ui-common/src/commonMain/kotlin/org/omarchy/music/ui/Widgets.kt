@@ -110,7 +110,7 @@ fun IconButton(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, pad: Dp = 10.dp,
 val DESC = mapOf(Ico.MENU to "Menu", Ico.SEARCH to "Search", Ico.BACK to "Back", Ico.DOWN to "Close",
     Ico.MORE to "More", Ico.PLAY to "Play", Ico.PAUSE to "Pause", Ico.NEXT to "Next", Ico.PREV to "Previous",
     Ico.SHUFFLE to "Shuffle", Ico.REPEAT to "Repeat", Ico.REPEAT_ONE to "Repeat one", Ico.CLOSE to "Close",
-    Ico.SETTINGS to "Settings", Ico.EQ to "Equalizer")
+    Ico.SETTINGS to "Settings", Ico.EQ to "Equalizer", Ico.MIC to "Speak")
 
 
 @Composable

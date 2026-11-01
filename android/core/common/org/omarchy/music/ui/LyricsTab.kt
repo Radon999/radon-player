@@ -223,6 +223,7 @@ private fun LyricsSearch(t: org.omarchy.music.Track, found: (Lyrics.Got?) -> Uni
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                         keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { go() }), modifier = Modifier.fillMaxWidth().typing())
                 }
+                MicButton { said -> if (i == 0) artist = said else title = said }
             }
         }
         Box(Modifier.align(Alignment.End).padding(top = 4.dp)) { Pill(if (busy) "Searching…" else "Search lyrics") { if (!busy) go() } }

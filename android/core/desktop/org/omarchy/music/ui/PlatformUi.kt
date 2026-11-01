@@ -372,3 +372,22 @@ fun rememberFolderPick(done: (String?) -> Unit): (() -> Unit)? {
         }
     }
 }
+
+/** Voice typing (Windows' dictation): what you said, as text. Null off Windows. */
+@Composable
+fun rememberVoiceInput(onText: (String) -> Unit): (() -> Unit)? {
+    val cb = androidx.compose.runtime.rememberUpdatedState(onText)
+    if (!org.omarchy.music.Voice.canSpeak) return null
+    return remember {
+        {
+            Music.toast("Listening… say it now")
+            Music.bg({ org.omarchy.music.Voice.listen() }) { text, err ->
+                when {
+                    err != null -> Music.toast("Couldn't listen: ${err.message?.take(100)}")
+                    text.isNullOrBlank() -> Music.toast("Didn't catch that")
+                    else -> cb.value(text)
+                }
+            }
+        }
+    }
+}

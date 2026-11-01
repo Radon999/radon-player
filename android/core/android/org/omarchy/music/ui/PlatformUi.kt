@@ -262,3 +262,20 @@ fun androidx.compose.ui.Modifier.rightClick(run: () -> Unit): androidx.compose.u
 /** Picking a folder anywhere: the phone picks among the music it has (Choose), so none here. */
 @Composable
 fun rememberFolderPick(done: (String?) -> Unit): (() -> Unit)? = null
+
+/** Voice typing (the phone's speech recognizer, Google's dialog): what you said, as text. */
+@Composable
+fun rememberVoiceInput(onText: (String) -> Unit): (() -> Unit)? {
+    val cb = androidx.compose.runtime.rememberUpdatedState(onText)
+    val l = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.takeIf { it.isNotBlank() }?.let { cb.value(it) }
+    }
+    return remember(l) {
+        {
+            val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say it")
+            runCatching { l.launch(i) }.onFailure { Music.toast("This phone has no speech recognition (Google's app gives it)") }
+        }
+    }
+}

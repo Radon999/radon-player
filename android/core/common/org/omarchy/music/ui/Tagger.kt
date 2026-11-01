@@ -83,7 +83,7 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
     FullScreen(if (n == 1) "Tagger" else "Tagger · $n songs", close) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("tags" to "Tags", "cover" to "Cover", "info" to "Info", "lyrics" to "Lyrics").forEach { (k, l) -> Chip(l, tab == k) { tab = k } }
+            listOf("tags" to "Tags", "cover" to "Cover", "info" to "Info", "lyrics" to "Lyrics", "tab" to "Tab").forEach { (k, l) -> Chip(l, tab == k) { tab = k } }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,6 +91,7 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
             if (n == 1) Text(listOf(tracks[0].artist, tracks[0].album).filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
             when (tab) {
                 "tags" -> TaggerTags(ui, tracks)
+                "tab" -> TaggerTab(tracks)
                 "cover" -> {
                     ArtImage(artModel(tracks[0], 640), 220.dp)
                     val albums = tracks.map { org.omarchy.music.Covers.albumKey(it) }.distinct().size
@@ -156,6 +157,25 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
             if (typed.isEmpty()) Music.toast("Nothing changed")
             else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
         }
+    }
+}
+
+/** Tab: which of Albums, EPs and Singles the songs show in, when their tags put them in the wrong one. Automatic: as
+ *  their tags (or their Artists folder) say. Nothing in the files changes. */
+@Composable
+private fun TaggerTab(tracks: List<Track>) {
+    val mine = tracks.filter { it.isFile || Music.lib.has(it.id) }
+    if (mine.isEmpty()) { Text("Only songs in your music have a tab", style = T.sub); return }
+    val picked = mine.map { Music.tabPicks[Music.tabKey(it)] }.distinct().singleOrNull()
+    val now = mine.mapNotNull { Music.tabOf(it) }.distinct()
+    val names = mapOf("album" to "Albums", "ep" to "EPs", "single" to "Singles")
+    Text("In " + now.joinToString(" and ") { names[it] ?: it } + if (picked != null) " (put there by hand)" else " (as the tags say)", style = T.body)
+    Text("If ${if (mine.size == 1) "this song is" else "these songs are"} in the wrong tab, put ${if (mine.size == 1) "it" else "them"} " +
+        "in the right one here. A release goes where most of its songs are put, so pick all of an album's songs to move it. " +
+        "The files aren't changed; Automatic goes back to what the tags say.", style = T.sub)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip("Automatic", picked == null && mine.none { Music.tabPicks.containsKey(Music.tabKey(it)) }) { Music.setTab(mine, null) }
+        for ((k, l) in names) Chip(l, picked == k) { Music.setTab(mine, k) }
     }
 }
 

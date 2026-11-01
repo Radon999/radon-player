@@ -50,7 +50,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     val eps = kind == "eps"; val singles = kind == "singles"
     val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
         .flatMap { (al, songs) ->
-            if (kind == "singles" && songs.first().album.isEmpty() && songs.none { org.omarchy.music.folderKind(Music.folderOf(it)) != null })   // no album at all: each song is its own single
+            if (songs.first().album.isEmpty() && songs.none { org.omarchy.music.folderKind(Music.folderOf(it)) != null })   // no album at all: each song is its own single
                 songs.map { t -> Album("single:" + (t.file ?: t.id), t.title, t.artist.split(",")[0].trim(), count = "1") to listOf(t) }
             else listOf(al to songs)
         }
@@ -164,7 +164,8 @@ private fun GroupRow(ico: Ico, name: String, sub: String, count: Int, onLongClic
 
 /** Genres or Folders: a group of your songs each, as rows or covers. */
 private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: String, list: List<Pair<String, List<Track>>>,
-                                                                  name: (String) -> String, sub: (String, List<Track>) -> String) {
+                                                                  name: (String) -> String, sortTab: String = kind + "s", pinnable: Boolean = true,
+                                                                  head: @Composable () -> Unit = {}, sub: (String, List<Track>) -> String) {
     val ico = if (kind == "genre") Ico.GENRE else Ico.FOLDER
     val picking = ui.pickingIn(kind)
     val picked = ui.albumsPicked
@@ -174,10 +175,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
     }
     fun menu(id: String, songs: List<Track>) {
         if (picking) { picked[id] = songs; ui.optionsFor(picked.values.flatten()); return }
-        ui.choices = name(id) to listOf(pinChoice(Pin(kind, id, name(id))), "Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick(kind, id, songs) })
+        ui.choices = name(id) to listOfNotNull(if (pinnable) pinChoice(Pin(kind, id, name(id))) else null, "Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick(kind, id, songs) })
     }
-    item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) { Chip("Select", false) { ui.startPick(kind) }; SortMenu(kind + "s", GROUPS_SORTS) } }
+    item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) { head(); Chip("Select", false) { ui.startPick(kind) }; SortMenu(sortTab, GROUPS_SORTS) } }
     laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
         val (id, songs) = list[i]
         GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
@@ -197,6 +198,26 @@ fun GenresTab(ui: Ui) {
     LazyColumn(Modifier.fillMaxSize()) {
         item { Section("${genres.size} GENRES") }
         groups(ui, "genre", genres, { it }) { _, songs -> songs.take(3).joinToString { it.artist.split(",")[0] } }
+    }
+}
+
+/** Artists › Folders: your artist folders (Artists/<Artist>), each with every song under it, as folders. */
+@Composable
+fun ArtistFoldersView(ui: Ui, viewMenu: @Composable () -> Unit) {
+    val all = remember(Music.musicVersion, Music.savedVersion) { runCatching {
+        Music.mySongs().groupBy { org.omarchy.music.artistFolder(Music.folderOf(it)) }.filterKeys { it != null }
+            .map { (f, songs) -> f!! to songs }.sortedBy { org.omarchy.music.norm(it.first.substringAfterLast('/')) }
+    }.getOrDefault(emptyList()) }
+    if (all.isEmpty()) {
+        Column { Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { viewMenu() }
+            Empty("No artist folders", "Songs kept in an Artists folder (Artists / the artist / the album) show here, a folder per artist.") }
+        return
+    }
+    val name = { f: String -> f.substringAfterLast('/') }
+    val folders = sortedGroups("artist-folders", all.filter { fits(ui, name(it.first)) }, name)
+    LazyColumn(Modifier.fillMaxSize()) {
+        item { Section("${folders.size} ARTIST FOLDERS") }
+        groups(ui, "folder", folders, name, sortTab = "artist-folders", pinnable = false, head = viewMenu) { _, songs -> "%,d songs".format(songs.size) }
     }
 }
 

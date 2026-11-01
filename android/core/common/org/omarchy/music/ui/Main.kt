@@ -444,6 +444,7 @@ private fun SearchField(ui: Ui) {
                 modifier = Modifier.fillMaxWidth().typing())
         }
         if (ui.query.isNotEmpty()) IconButton(Ico.CLOSE, C.muted, 16.dp, 8.dp) { ui.query = "" }
+        MicButton { said -> ui.query = said; focus.clearFocus(); ui.pages.clear(); runSearch(ui) }
         // Where to search: Tidal, YouTube Music or your own songs.
         Box {
             Text("${if (Music.searchIn == "ytm") "YouTube" else SEARCH_IN[Music.searchIn]}  ▾", style = T.tab.copy(color = C.accent),
