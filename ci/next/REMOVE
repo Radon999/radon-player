@@ -1,0 +1,8 @@
+omarchy-music
+tests
+packaging
+requirements.txt
+requirements-windows.txt
+install.sh
+.github/workflows/release.yml
+.github/workflows/windows.yml
