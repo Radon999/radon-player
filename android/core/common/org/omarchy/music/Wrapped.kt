@@ -508,7 +508,9 @@ object Wrapped {
         fun ownCover(file: String) = file.isNotEmpty() &&
             hasOwn.getOrPut(file) { runCatching { embeddedPicture(ctx, file) != null }.getOrDefault(false) }
         fun song(s: Song, big: Boolean): Song {
-            val m = if (s.file.isNotEmpty()) Mine(s.file, "") else mine(s.artist, s.title, false)
+            // (a row that already has your file still gets the cover saved or picked for it: a file whose own picture
+            // can't be read here, as some M4As, shows that instead of nothing)
+            val m = if (s.file.isNotEmpty()) Mine(s.file, runCatching { mine(s.artist, s.title, false).saved }.getOrDefault("")) else mine(s.artist, s.title, false)
             val web = picture(s.art).let { if (big && it.isNotEmpty()) bigLastfm(it) else it }
             val art = m.saved.ifEmpty { web }.ifEmpty {
                 if (ownCover(m.file)) "" else runCatching { Pictures.deezerPace(); deezerCover(s.artist, s.title) }.getOrNull() ?: ""

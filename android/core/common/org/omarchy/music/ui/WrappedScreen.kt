@@ -453,12 +453,14 @@ private object MyCopies {
     fun savedArt(file: String): String {
         val v = Music.musicVersion
         if (v != byFileVer) {
-            byFile = runCatching { Music.mySongs().filter { !it.file.isNullOrEmpty() }.associateBy { it.file!! } }.getOrDefault(emptyMap())
+            byFile = runCatching { Music.mySongs().filter { !it.file.isNullOrEmpty() }.associateBy { same(it.file!!) } }.getOrDefault(emptyMap())
             byFileVer = v
         }
-        val t = byFile[file] ?: return ""
+        val t = byFile[same(file)] ?: return ""
         return (runCatching { artModel(t) }.getOrNull() as? java.io.File)?.path ?: ""
     }
+    /** A file's address as one form (file: or a path, either slash, any case), to match the same file. */
+    private fun same(f: String) = picPath(f).replace('\\', '/').lowercase()
     private var byFileVer = -1
     private var byFile: Map<String, org.omarchy.music.Track> = emptyMap()
 }
