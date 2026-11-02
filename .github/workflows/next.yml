@@ -5,6 +5,7 @@
 # ci/next/REMOVE: paths (one a line) taken out after the patches. ci/next/RELEASE (first line: the tag, second: the
 # title, the rest: the notes): the phone app is built as the real one ("Radon Player", over 2.x) and, with ci/next/PUSH,
 # a GitHub release is made on the pushed commit with OmarchyMusic.apk and the PC's .msi. Delete both after a release.
+# ci/next/files/: whole files copied over the patched code (FEATURE_GUIDE is made again from FEATURES.md after).
 name: Next build
 on:
   push:
@@ -43,6 +44,7 @@ jobs:
             base64 -d "$f" | gunzip | git apply --whitespace=nowarn -
           done
           if [ -f ../work/ci/next/REMOVE ]; then grep . ../work/ci/next/REMOVE | xargs git rm -rq --ignore-unmatch --; fi
+          if [ -d ../work/ci/next/files ]; then cp -r ../work/ci/next/files/. . && sed -i 's/\r$//' android/core/FEATURES.md android/core/CHANGELOG.md && { PYTHONUTF8=1 python3 android/core/gen-guide.py || PYTHONUTF8=1 python android/core/gen-guide.py; }; fi
           git add -A
           git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "Radon Player Next" || true
       - uses: actions/setup-java@v5
@@ -140,6 +142,7 @@ jobs:
         run: |
           git fetch -q origin radon-player && git checkout -q "$NEXT_BASE"
           for f in $(ls ../work/ci/next/r*.patch.b64 | sort -V); do tr -d '\r\n' < "$f" | base64 -d | gunzip | git apply --whitespace=nowarn -; done
+          if [ -d ../work/ci/next/files ]; then cp -r ../work/ci/next/files/. . && sed -i 's/\r$//' android/core/FEATURES.md android/core/CHANGELOG.md && { PYTHONUTF8=1 python3 android/core/gen-guide.py || PYTHONUTF8=1 python android/core/gen-guide.py; }; fi
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
