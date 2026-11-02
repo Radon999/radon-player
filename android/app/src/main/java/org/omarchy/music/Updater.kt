@@ -54,6 +54,8 @@ object Updater {
         return false
     }
 
+    private val APK_NAMES = listOf("RadonPlayer.apk", "OmarchyMusic.apk")
+
     /** Look for a newer release (quiet: no message when there's none, as at start). */
     fun check(quiet: Boolean = true) {
         if (checking) return
@@ -68,7 +70,9 @@ object Updater {
             Music.accountsVersion++
             val tag = rel["tag_name"].str ?: return@bg
             if (!newer(tag, version)) { if (!quiet) Music.toast("Radon Player $version is the newest"); return@bg }
-            val url = rel["assets"].list.firstOrNull { it["name"].str == "OmarchyMusic.apk" }?.get("browser_download_url").str
+            // The release's APK: RadonPlayer.apk (from the update after 3.0.0), else its old name OmarchyMusic.apk
+            val assets = rel["assets"].list
+            val url = APK_NAMES.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
             if (url == null) {   // the release is still being put up: its APK comes a few minutes after
                 if (!quiet) Music.toast("Radon Player ${tag.removePrefix("v")} is on its way: its Android app isn't up yet")
                 Music.scope.launch { delay(5 * 60_000L); check() }

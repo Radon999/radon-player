@@ -126,7 +126,7 @@ Everything is in the ☰ menu. Every page can be a list, a grid or a compact gri
 - **Tidal:** Streams in FLAC (hi-res where Tidal has it). Its favorites, playlists and radios work as a library too.
 - **Spotify, Apple Music, Deezer, YouTube Music:** Sign in to browse your library and playlists and bring them over. Their songs play from Tidal in FLAC, or YouTube when Tidal doesn't have one. **Import all into my playlists** copies their playlists in. Settings › Accounts explains how to switch to Tidal without losing anything.
 - **Stream and download quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately.
-- **Downloads:** Any song from any service downloads from Tidal (YouTube when Tidal doesn't have it), with full tags, cover and genre. It's taken from the artist's own album first (deluxe edition first), then EP, then single, and saved as Artist / Album. Download whole playlists too; songs you already have are skipped.
+- **Downloads:** Any song from any service downloads from Tidal (YouTube when Tidal doesn't have it), with full tags, cover and genre. It's taken from the artist's own album first (deluxe edition first), then EP, then single, and saved in **Music › Artists**, in the artist's own folder (Artists / Sody / Let Go - Single). Settings › Downloads can pick another folder. Download whole playlists too; songs you already have are skipped.
 - **Copies:** When you download a song you already have: Ask, Keep both or Replace.
 - **Discovery playlists:** For any artist, every song of theirs you don't have yet. Songs you hear to the end go to a "discovered" list to download or let go.
 - **New releases:** **Refresh…** checks every artist in your music for new albums, EPs and singles from the last week, month or year.
@@ -180,7 +180,7 @@ Also: **Bit-perfect** sends songs to a USB DAC (phone, Android 14+) or the PC's 
 
 Every scan is in **Settings › Scanner**. Run one when something looks wrong, then forget about it. On the PC they work on all your music; on the phone, on the songs the app downloaded (Android doesn't let apps change other apps' files).
 
-- **Tagger…:** Everything about the songs you picked in one place: **Tags** (with Mood and **Find tags online**, which shows every change before applying), **Cover**, **Info**, **Lyrics**, and **Tab** to move a release between Albums, EPs and Singles. A Play button lets you listen while you work.
+- **Tagger…:** Everything about the songs you picked in one place: **Tags** (with Mood and **Find tags online**, which shows every change before applying), **Cover**, **Info**, **Lyrics**, and **Tab** to move a release between Albums, EPs and Singles. A Play button lets you listen while you work. Changes to the song that's playing are saved the moment it ends. Change a download's artist or album and its file moves to match: into Artists / *the artist* / *the album* (folders made as needed, EPs and singles in their own), and the folder it left goes once no music is left in it. Your own files move the same way when they were in the folder their old tags gave them; folders you arranged yourself (like unreleased songs) stay as they are.
 - **Fix genre names:** Puts "Hip-Hop/Rap" and "Hip-Hop-Rap" under one name.
 - **Duplicates:** Finds songs you have twice and lets you keep the best copy.
 - **Upgrade to FLAC:** Swaps MP3s (and 16-bit files, where Tidal has 24-bit) for Tidal's FLAC; old files go to the trash.

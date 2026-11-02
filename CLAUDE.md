@@ -32,8 +32,8 @@ story of recent versions (what broke, why, how it was fixed, what's still open):
 2. On `android-work`, `ci/next/rN.patch.b64` patches are built by `.github/workflows/next.yml`. With
    `ci/next/PUSH` (first line: the branch, `radon-player`) the built tree is committed to that branch; with
    `ci/next/RELEASE` (first line: the tag, the rest: the notes) the phone app is built as the real app
-   (`org.omarchy.music`, "Radon Player") and a GitHub release is made with `OmarchyMusic.apk` (the in-app updater
-   looks for that name) and the PC's `.msi`. **Delete `ci/next/PUSH` and `ci/next/RELEASE` after a release.**
+   (`org.omarchy.music`, "Radon Player") and a GitHub release is made with `RadonPlayer.apk` and `OmarchyMusic.apk` (the same APK: 3.0.1 on
+   looks for RadonPlayer.apk, 3.0.0 and older only for OmarchyMusic.apk; keep both for a few releases) and the PC's `.msi`. **Delete `ci/next/PUSH` and `ci/next/RELEASE` after a release.**
 3. The APK is signed with the **test key** (`ci/test.keystore.b64`, certificate SHA-256
    `ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9`), as every release since 1.3.0: a
    different key can't install over the owner's app.

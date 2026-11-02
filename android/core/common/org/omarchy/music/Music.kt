@@ -173,9 +173,11 @@ object Music {
     fun chooseReplayGain(mode: String) { replayGain = mode; saveState(); toast(if (mode == "off") "ReplayGain off" else "ReplayGain: by $mode, from the next song") }
 
 
-    var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": your first music folder
+    var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": Music/Artists/
     /** Where downloads go: the folder you picked, else the first folder the Music tab reads. */
-    fun downloadFolder(): String = downloadDir.ifEmpty { folders.firstOrNull() ?: "Music/" }
+    /** Where downloads go: each in its artist's folder there (Music/Artists/Sody/…) unless you picked another. */
+    fun downloadFolder(): String = downloadDir.ifEmpty { DEFAULT_DOWNLOADS }
+    const val DEFAULT_DOWNLOADS = "Music/Artists/"
     var dupeAction by mutableStateOf("ask")    // a download you have already: ask, keep (both) or replace
     var dupePrompt by mutableStateOf<Pair<List<Track>, List<Pair<Track, List<Track>>>>?>(null)   // asking about copies
     var trashJob by mutableStateOf<TrashJob?>(null)   // your files Android is asked to put in its trash
@@ -395,6 +397,14 @@ object Music {
         wrappedStyle = st.wrapped_style
         skipOrder = st.skip_order.takeIf { it in setOf("most", "least", "heard") } ?: "most"
         downloadDir = st.download_dir
+        // 3.0.1: downloads that went straight into Music/ go to Music/Artists/ from now on (once; pick another after)
+        if (!Prefs.on("downloads_to_artists")) {
+            Prefs.set("downloads_to_artists", true)
+            if (downloadDir.trim().trimEnd('/', '\\').let { it.isNotEmpty() && it.equals("Music", true) }) {
+                downloadDir = ""
+                scope.launch(Dispatchers.Main) { saveState() }   // kept: the state file says Music/Artists/ from now on
+            }
+        }
         dupeAction = st.dupe_action.takeIf { it in setOf("ask", "keep", "replace") } ?: "ask"
         eq = st.eq
         applyEq()
@@ -2142,12 +2152,48 @@ object Music {
         musicVersion++
     }
 
+    /** The folder a song's file belongs in once its artist or album changed (Artists/<Artist>/<Album>/, EPs and singles in
+     *  their own folders, as downloads are), or null to leave it where it is. Downloads always go there (under the download
+     *  folder); a file of yours only when it sat where its old artist and album put it, in an Artists folder (so folders you
+     *  arranged yourself, like unreleased songs, stay as they are). On the phone only the app's own downloads can move. */
+    private fun releaseFolder(file: String, download: Boolean, oldArtist: String, oldAlbum: String, artist: String, album: String): String? {
+        if (artist.isBlank()) return null
+        val f = file.replace('\\', '/')
+        if (f.startsWith("content:")) return if (download) downloadPlace(downloadFolder(), artist, album, null, null, "x").first else null
+        if (!FileTags.canMove) return null
+        val root = if (download) org.omarchy.music.ui.fullFolderPath(downloadFolder().trimEnd('/')).replace('\\', '/')
+        else {
+            val parts = f.split('/'); val i = parts.lastIndexOf(ARTISTS)
+            if (i < 0) return null
+            val r = parts.take(i + 1).joinToString("/")
+            val was = downloadPlace(r, oldArtist, oldAlbum, null, null, "x").first
+            if (!f.substringBeforeLast('/').plus("/").equals(was, ignoreCase = true)) return null
+            r
+        }
+        if (!download && MusicTools.skip.any { inFolders(f, listOf(it)) }) return null
+        return downloadPlace(root, artist, album, null, null, "x").first
+    }
+
+    /** Tag changes to the song that was playing, by its id: written once another song is on (or none). */
+    private val heldTags = LinkedHashMap<String, Pair<Track, LinkedHashMap<String, String>>>()
+    private fun writeHeldTags() {
+        if (heldTags.isEmpty()) return
+        val cur = current()?.id
+        val ready = heldTags.filterKeys { it != cur }
+        ready.keys.forEach { heldTags.remove(it) }
+        for ((t, ch) in ready.values) editTags(listOf(t), ch)
+    }
+
     /** Write changes {field: value} into the tags of tracks' downloaded FLACs, and show the new
      *  names wherever the songs are. The playing song is left alone: its file is being read. */
     fun editTags(tracks: List<Track>, changes: Map<String, String>, renameFiles: Boolean = false) {
         val playing = current()?.id
         val todo = tracks.filter { Tags.editableAny(it) != null && it.id != playing }
-        if (todo.size < tracks.count { Tags.editableAny(it) != null }) toast("The playing song is left as it is: edit it once it's over")
+        // The playing song's file is being read: its changes wait, and are written the moment it ends
+        tracks.firstOrNull { it.id == playing && Tags.editableAny(it) != null }?.let { t ->
+            heldTags.getOrPut(t.id) { t to LinkedHashMap() }.second.putAll(changes)
+            toast("“${t.title}” is playing: its new tags are saved as soon as it ends")
+        }
         if (todo.isEmpty() || changes.isEmpty()) return
         bg({
             val renamed = HashMap<String, Triple<String, String, String>>()
@@ -2159,10 +2205,18 @@ object Music {
                 val c = try { Tags.write(ctx, file, changes) } catch (x: Exception) { failed += "${t.title}: ${x.message}"; continue }
                 if (changes.keys.any { it.equals("genre", true) }) noteGenre(file, c["GENRE"]?.firstOrNull() ?: "")
                 val title = c["TITLE"]?.firstOrNull() ?: e?.title ?: t.title
-                if (renameFiles && FileTags.canMove && title != (e?.title ?: t.title))
-                    renamedFile(file, e?.title ?: t.title, title)?.let { moves += file.replace('\\', '/') to it.replace('\\', '/') }
                 val artist = c["ARTIST"]?.joinToString(", ")?.ifEmpty { null } ?: "Unknown artist"
                 val album = c["ALBUM"]?.firstOrNull() ?: ""
+                var dest: String? = if (renameFiles && FileTags.canMove && title != (e?.title ?: t.title))
+                    renamedFile(file, e?.title ?: t.title, title) else null
+                // A new artist or album: the file goes to that artist's and album's folder (made if it isn't there)
+                if (changes.keys.any { it.lowercase() in setOf("artist", "album", "albumartist") }) {
+                    val lead = (c["ALBUMARTIST"]?.firstOrNull()?.takeIf { it.isNotBlank() } ?: artist).split(",")[0].trim()
+                    releaseFolder(file, e != null, (e?.artist ?: t.artist).split(",")[0].trim(), e?.album ?: t.album, lead, album)?.let { folder ->
+                        dest = if (file.startsWith("content:")) folder else folder + (dest ?: file).replace('\\', '/').substringAfterLast('/')
+                    }
+                }
+                dest?.let { d -> if (!d.replace('\\', '/').equals(file.replace('\\', '/'), ignoreCase = true)) moves += file.replace('\\', '/') to d.replace('\\', '/') }
                 if (e == null) { renamed[t.id] = Triple(title, artist, album); continue }
                 lib.items.values.filter { it.file == e.file }.forEach { same ->
                     lib.update(same.id) { it.copy(title = title, artist = artist, album = album, genre = c["GENRE"]?.firstOrNull() ?: "") }
@@ -2173,7 +2227,7 @@ object Music {
             if (moves.isNotEmpty()) {
                 val (n, bad) = MusicTools.moveFiles(moves.distinct())
                 if (bad.isNotEmpty()) failed += bad
-                else if (n > 0) scope.launch(kotlinx.coroutines.Dispatchers.Main) { toast("Renamed $n file${if (n != 1) "s" else ""}") }
+                else if (n > 0) scope.launch(kotlinx.coroutines.Dispatchers.Main) { toast("$n file${if (n != 1) "s" else ""} moved to match ${if (n != 1) "their" else "its"} tags") }
             }
             renamed to failed
         }) { res, err ->
@@ -2793,6 +2847,7 @@ object Music {
 
     fun loadCurrent(autoplay: Boolean = true) {
         val c = current() ?: return
+        if (heldTags.isNotEmpty()) scope.launch(Dispatchers.Main) { delay(1500); writeHeldTags() }   // the song that was playing: its tag changes, once its file is free
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
         val t0 = if (Remote.active) c else localOf(c)

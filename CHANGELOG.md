@@ -4,6 +4,16 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 3.0.1: Tidy folders (Windows and Android)
+- **Downloads go to Music › Artists:** every download is saved in its artist's own folder there (Artists / Sody / Singles / Let Go - Single). If your download folder was plain Music, it's moved to Music › Artists once; Settings › Downloads can pick another.
+- **Files follow their tags:** change a download's artist or album in the Tagger and its file moves to that artist's and album's folder (made if it isn't there), and the folder it left goes once no music is left in it. Your own files move too when they were in the folder their old tags gave them; folders you arranged yourself stay as they are.
+- **Editing the playing song:** tag changes to the song that's playing are no longer dropped: they're saved the moment it ends.
+- **The phone app's file is now RadonPlayer.apk** (OmarchyMusic.apk is still there for phones on 3.0.0 to update).
+
+### Good to know
+- **Android:** install RadonPlayer.apk over 3.0.0 or 2.x (same signature, your library and settings stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.0.1.msi installs over 3.0.0, or use Update in Settings.
+
 ## 3.0.0: One app (Windows and Android)
 The biggest update yet: the phone and PC apps are now **one app built from the same code**, so every screen, setting and feature matches on both. Everything the app does is in **Features** (☰ menu), and in [FEATURES.md](android/core/FEATURES.md).
 - **Moods:** every song sorted into 12 moods from how it sounds and what its words say (optionally read by Claude with your own Anthropic key), written into your files, with Mood lists, mood smart playlists and mood stats

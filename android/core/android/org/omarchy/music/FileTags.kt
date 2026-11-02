@@ -19,7 +19,18 @@ object FileTags {
     fun hasCover(ctx: Ctx, uri: String) = cover(ctx, uri) != null
     fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean = runCatching { Covers.write(ctx, uri, jpeg); true }.getOrDefault(false)
 
-    fun move(ctx: Ctx, src: String, dest: String): String? = null
+    /** One of the app's own downloads moved: dest is its new folder ("Music/Artists/Sody/Let Go - Single/", the name
+     *  kept) or folder and name. Its address stays the same. Only the app's own files (Android 10 and up). */
+    fun move(ctx: Ctx, src: String, dest: String): String? = runCatching {
+        if (!src.startsWith("content:") || android.os.Build.VERSION.SDK_INT < 29) return null
+        val rel = dest.removePrefix("/storage/emulated/0/").substringBeforeLast('/').trim('/') + "/"
+        val name = dest.substringAfterLast('/')
+        val cv = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, rel)
+            if (name.isNotBlank()) put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+        }
+        if (ctx.contentResolver.update(android.net.Uri.parse(src), cv, null, null) > 0) src else null
+    }.getOrNull()
     fun exists(path: String) = false
     fun subfolders(folder: String): List<String> = emptyList()
     fun listTree(roots: List<String>): Pair<Map<String, Long>, List<String>> = emptyMap<String, Long>() to emptyList()
