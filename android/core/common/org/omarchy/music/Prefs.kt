@@ -3,7 +3,7 @@ package org.omarchy.music
 import androidx.compose.runtime.mutableStateMapOf
 
 /** 2.0's switches (crossfade, crossfeed, the lock screen player…), each kept on its own; all off until you
- *  turn them on. Read in Compose, a change shows straight away. */
+ *  turn them on (but the sound ones in ON_AT_FIRST). Read in Compose, a change shows straight away. */
 object Prefs {
     private var store: PrefsStore? = null
     private val values = mutableStateMapOf<String, Any>()
@@ -13,7 +13,11 @@ object Prefs {
         store = PrefsStore(ctx, "radon-2").also { values.putAll(it.load()) }
     }
 
-    fun on(key: String, default: Boolean = false): Boolean = values[key] as? Boolean ?: default
+    /** Switches on from the start (until you turn them off), so a new install sounds its best without a look at
+     *  Settings: Clip guard, Smooth distortion on loud songs, Dither, HQ resampling, Loudness compensation, Detail. */
+    private val ON_AT_FIRST get() = setOf(CLIP_GUARD, SMOOTH_PEAKS, DITHER, HQ_RESAMPLE, LOUDNESS, DETAIL)
+
+    fun on(key: String, default: Boolean = false): Boolean = values[key] as? Boolean ?: (default || key in ON_AT_FIRST)
     fun set(key: String, on: Boolean) { values[key] = on; store?.put(key, on) }
     fun num(key: String, default: Float): Float = (values[key] as? Float) ?: default
     fun setNum(key: String, v: Float) { values[key] = v; store?.put(key, v) }
@@ -37,7 +41,7 @@ object Prefs {
     const val AUTO_MONO = "auto_mono"            // Mono on its own while the chosen earbuds are connected
     const val CLIP_GUARD = "clip_guard"          // a peak limiter instead of hard clipping
     const val DITHER = "dither"                  // TPDF dither when cut to 16-bit
-    const val SMOOTH_PEAKS = "smooth_peaks"      // Smooth distortion on loud songs: clipped peaks rebuilt, 3 dB of room (off by default)
+    const val SMOOTH_PEAKS = "smooth_peaks"      // Smooth distortion on loud songs: clipped peaks rebuilt, 3 dB of room
     const val BALANCE = "balance"                // -1 … 1 (a number)
     const val CROSSFEED_K = "crossfeed_k"        // crossfeed's strength (a number: 0.2, 0.3, 0.45)
     const val DETAIL = "detail"                  // Detail: background sounds brought forward

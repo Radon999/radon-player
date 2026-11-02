@@ -19,8 +19,8 @@ import java.io.RandomAccessFile
  *  on Discord's developer portal, not here, so the ID is a setting ([setAppId]). */
 object Discord {
     val supported = true
-    /** The app's built-in Discord application: the old "VarMusic" one (public; an application ID is no secret). */
-    const val DEFAULT_APP_ID = "1564098839475126292"
+    /** The app's built-in Discord application, "Radon Player" (public; an application ID is no secret). */
+    const val DEFAULT_APP_ID = "1566634240345383148"
     private const val APP_ID_KEY = "discord_app_id"
     private const val ICON = "https://raw.githubusercontent.com/Radon999/radon-player/radon-player/docs/icon.png"
     private const val DOWNLOAD = "https://github.com/Radon999/radon-player/releases/latest"

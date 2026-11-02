@@ -29,7 +29,7 @@ fun DiscordAppId() {
     var id by remember { mutableStateOf(if (Discord.ownAppId) Discord.appId else "") }
     val links = LocalUriHandler.current
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.End) {
-        Text(if (Discord.ownAppId) "Your Discord application: ${Discord.appId}" else "Discord shows the built-in name (VarMusic)",
+        Text(if (Discord.ownAppId) "Your Discord application: ${Discord.appId}" else "Discord shows the built-in name (Radon Player)",
             style = T.sub, modifier = Modifier.weight(1f).padding(end = 8.dp))
         Pill(if (open) "Close" else "Change the name", quiet = true) { open = !open }
     }
