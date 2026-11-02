@@ -1,0 +1,14 @@
+v3.0.0
+Radon Player 3.0.0: One app
+## 3.0.0: One app (Windows and Android)
+The biggest update yet: the phone and PC apps are now **one app built from the same code**, so every screen, setting and feature matches on both. Everything the app does is in **Features** (☰ menu), and in [FEATURES.md](https://github.com/Radon999/radon-player/blob/radon-player/android/core/FEATURES.md).
+- **Moods:** every song sorted into 12 moods from how it sounds and what its words say (optionally read by Claude with your own Anthropic key), written into your files, with Mood lists, mood smart playlists and mood stats
+- **The DJ:** sets built from your own listening, introduced in a natural female voice, with facts about your listening, mood sets and new artists for you
+- **Wrapped:** your week, month, year or all time, with top 15 lists, moods, devices, playlists, listener type and a summary card to save or share
+- **Phone + PC:** the phone as the PC's remote (with the visualizer), automatic sync of stats, moods, downloads, tag changes and synced playlists
+- **Sound:** Clip guard, Smooth distortion, Dither, HQ resampling, Loudness compensation and Detail on from the start; per-song volume, EQ and speed
+- **Library:** smart playlists, Albums/EPs/Singles, Missing from this album, 30 neon looks, 30 visualizer styles, Find tags online, Discord with album covers, and much more
+
+### Good to know
+- **Android:** install OmarchyMusic.apk over 2.x (same signature, your library and settings stay).
+- **Windows:** the PC app is now an .msi installer (Radon-Player-3.0.0.msi). Your settings and stats from 2.x are brought over the first time it starts. Uninstall the old 2.x app (and any "Radon Player Next" test build) first; your data stays.
