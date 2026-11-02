@@ -65,6 +65,31 @@ object LookFx {
         Fx("frame", "Neon frame", "A glowing neon line around the edge of the window"),
     )
     fun moves(fx: Set<String>) = ALL.any { it.moves && it.key in fx }
+
+    // ---- Settings › Personalization › Effects: any of these with any look or theme ----
+
+    /** On (the default): each look keeps its own effects and stars. Off: the effects picked here, whatever the look. */
+    const val OWN = "look_fx_own"
+    /** The effects picked here ("stars" for the plain stars, else LookFx keys), joined with ";". */
+    const val PICK = "look_fx_pick"
+    fun ownOn(): Boolean = org.omarchy.music.Prefs.on(OWN, true)
+    fun picked(): Set<String> = org.omarchy.music.Prefs.text(PICK).split(';').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    /** The menu's choices: the stars, then every effect. */
+    val MENU: List<Pair<String, String>> get() = listOf("stars" to "Stars") + ALL.map { it.key to it.name }
+    fun describe(k: String): String = if (k == "stars") "A few stars over the background, as the galaxy looks have" else ALL.firstOrNull { it.key == k }?.desc.orEmpty()
+    /** After a look is put on: with its own effects off, the ones picked here instead. */
+    fun override() {
+        if (ownOn()) return
+        val p = picked()
+        C.stars = "stars" in p
+        C.fx = p - "stars"
+    }
+    fun setOwn(on: Boolean) { org.omarchy.music.Prefs.set(OWN, on); org.omarchy.music.Music.applyLook() }
+    fun toggle(k: String) {
+        val p = picked().let { if (k in it) it - k else it + k }
+        org.omarchy.music.Prefs.setText(PICK, p.joinToString(";"))
+        org.omarchy.music.Music.applyLook()
+    }
 }
 
 /** The look's effects over the background (C.fx in the colours of the look in use). */
@@ -72,13 +97,16 @@ object LookFx {
 fun LookEffects(fx: Set<String> = C.fx, modifier: Modifier = Modifier.fillMaxSize()) {
     if (fx.isEmpty()) return
     val accent = C.accent; val fg = C.fg; val bg = C.bg
-    val t = if (LookFx.moves(fx)) {
+    // The time is read while drawing, not while composing: a moving effect redraws each frame without recomposing anything
+    val time: androidx.compose.runtime.State<Float>? = if (LookFx.moves(fx)) {
         val tr = rememberInfiniteTransition(label = "fx")
-        tr.animateFloat(0f, 600f, infiniteRepeatable(tween(600_000, easing = LinearEasing), RepeatMode.Restart), label = "t").value
-    } else 0f
+        tr.animateFloat(0f, 600f, infiniteRepeatable(tween(600_000, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    } else null
     val seeds = remember { java.util.Random(11).let { r -> List(200) { floatArrayOf(r.nextFloat(), r.nextFloat(), r.nextFloat(), r.nextFloat()) } } }
+    val keys = remember(fx) { LookFx.ALL.map { it.key }.filter { it in fx } }
     Canvas(modifier) {
-        for (k in LookFx.ALL.map { it.key }) if (k in fx) drawFx(k, t, seeds, accent, fg, bg)
+        val t = time?.value ?: 0f
+        for (k in keys) drawFx(k, t, seeds, accent, fg, bg)
     }
 }
 

@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.animateScrollBy
 import kotlinx.coroutines.launch
@@ -1085,16 +1088,24 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                describe: ((String) -> String)? = null,
                preview: (@Composable (String) -> Unit)? = null,
                thumb: (@Composable (String) -> Unit)? = null,
+               chosen: Set<String>? = null,   // several at once (ticked; the menu stays open): these are on
                pick: (String) -> Unit) {
     Box {
         var open by remember { mutableStateOf(false) }
         // The one the pointer is over (the PC), else the one in use: its picture and description at the top of the menu
         var over by remember { mutableStateOf<String?>(null) }
-        val name = options.firstOrNull { it.first == current }?.second ?: options.firstOrNull()?.second.orEmpty()
+        // Where each item is in the menu (its distance from the menu's left and right edges): its picture goes beside the menu
+        var menuRow by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+        val spots = remember { androidx.compose.runtime.mutableStateMapOf<String, Pair<Int, Int>>() }
+        val name = if (chosen != null) options.filter { it.first in chosen }.let { on ->
+                when (on.size) { 0 -> "None"; 1, 2 -> on.joinToString(", ") { it.second }; else -> "${on.size} on" } }
+            else options.firstOrNull { it.first == current }?.second ?: options.firstOrNull()?.second.orEmpty()
         Pill("$prefix$name \u25BE", quiet = true) { open = true; over = null }
         DropdownMenu(open, { open = false }, containerColor = C.light) {
-            if (preview != null || describe != null) {
-                val shown = over ?: current
+            // On the phone (no pointer): the one in use, big at the top of the menu. On the PC each one's picture pokes out
+            // beside it as the pointer goes over it, so it's in sight however far down the list is scrolled.
+            if (onPhone && (preview != null || describe != null)) {
+                val shown = current
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 320.dp)) {
                     preview?.invoke(shown)
                     val d = describe?.invoke(shown).orEmpty()
@@ -1104,11 +1115,14 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                 }
                 HorizontalDivider(color = C.line)
             }
-            options.forEach { (k, label) ->
+            // Too many to fit the screen's height (the PC): more columns, growing to the left, a line between them
+            val item: @Composable (String, String) -> Unit = { k, label ->
                 val text: @Composable () -> Unit = {
                     Column {
-                        Text(label, style = T.body.copy(color = if (k == current) C.accent else C.fg,
-                            fontWeight = if (k == current) FontWeight.SemiBold else FontWeight.Normal))
+                        val on = if (chosen != null) k in chosen else k == current
+                        Text((if (chosen != null) (if (on) "✓ " else "    ") else "") + label,
+                            style = T.body.copy(color = if (on) C.accent else C.fg,
+                            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal))
                         // On a phone there's no pointer to hover with: each one's description under its name
                         if (onPhone) describe?.invoke(k)?.takeIf { it.isNotEmpty() }?.let {
                             Text(it, style = T.sub.copy(fontSize = 11.sp), maxLines = 2) }
@@ -1121,6 +1135,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                             val e = awaitPointerEvent()
                             if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Enter ||
                                 e.type == androidx.compose.ui.input.pointer.PointerEventType.Move) over = k
+                            else if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Exit && over == k) over = null
                         }
                     }
                 }
@@ -1129,9 +1144,54 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                     sw != null -> ({ VisColorDot(sw.first, sw.second) })
                     else -> null
                 }
-                DropdownMenuItem(text = text, onClick = { open = false; pick(k) }, leadingIcon = lead, modifier = hover)
+                Box(Modifier.onGloballyPositioned { c -> menuRow?.let { r -> if (r.isAttached && c.isAttached)
+                        spots[k] = r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() to
+                            (r.size.width - r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() - c.size.width) } }) {
+                    DropdownMenuItem(text = text, onClick = { if (chosen == null) open = false; pick(k) }, leadingIcon = lead, modifier = hover)
+                    if (!onPhone && over == k && (preview != null || describe != null)) {
+                        val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 10.dp.roundToPx() }
+                        androidx.compose.ui.window.Popup(popupPositionProvider = remember(gap, spots[k]) { BesideMenu(gap, spots[k]?.first ?: 0, spots[k]?.second ?: 0) }) {
+                            Column(Modifier.shadow(12.dp, R.big).clip(R.big).background(C.light).border(1.dp, C.line, R.big)
+                                .padding(10.dp).widthIn(max = 380.dp)) {
+                                preview?.invoke(k)
+                                Text(label, style = T.title.copy(fontSize = 14.sp),
+                                    modifier = Modifier.padding(top = if (preview != null) 8.dp else 0.dp))
+                                describe?.invoke(k)?.takeIf { it.isNotEmpty() }?.let { Text(it, style = T.sub) }
+                            }
+                        }
+                    }
+                }
+            }
+            val perCol = if (onPhone) options.size else ((screenHeightDp() - 72) / 48).coerceAtLeast(6)
+            if (options.size <= perCol) options.forEach { (k, label) -> item(k, label) }
+            else {
+                val cols = (options.size + perCol - 1) / perCol
+                val chunks = options.chunked((options.size + cols - 1) / cols)
+                Row(Modifier.onGloballyPositioned { menuRow = it }) {
+                    chunks.reversed().forEachIndexed { i, chunk ->
+                        if (i > 0) Box(Modifier.padding(vertical = 6.dp).width(1.dp).height((chunks.first().size * 48).dp).background(C.line))
+                        Column(Modifier.width(androidx.compose.foundation.layout.IntrinsicSize.Max)) {
+                            chunk.forEach { (k, label) -> item(k, label) }
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+/** Where a menu item's picture goes: to the left of the menu, level with the item (kept on screen); to the right when
+ *  there's no room on the left. */
+private class BesideMenu(val gap: Int, val fromLeft: Int = 0, val fromRight: Int = 0) : androidx.compose.ui.window.PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize,
+                                   layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                                   popupContentSize: androidx.compose.ui.unit.IntSize): androidx.compose.ui.unit.IntOffset {
+        val left = anchorBounds.left - fromLeft - popupContentSize.width - gap
+        val x = if (left >= 0) left
+            else (anchorBounds.right + fromRight + gap).coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val y = (anchorBounds.top + anchorBounds.height / 2 - popupContentSize.height / 2)
+            .coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+        return androidx.compose.ui.unit.IntOffset(x, y)
     }
 }
 

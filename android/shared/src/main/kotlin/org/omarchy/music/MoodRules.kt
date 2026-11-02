@@ -297,13 +297,14 @@ object MoodRules {
         if (fit.isEmpty()) return NOTHING.copy(clues = clues)
         val ranked = fit.entries.sortedWith(compareByDescending<Map.Entry<String, Double>> { it.value }.thenBy { ALL.indexOf(it.key) })
         val top = ranked[0].value
-        if (top < 0.1) return NOTHING.copy(scores = fit, clues = clues)
+        // However unsure, the best guess stands (you fix the odd one as you hear it), never no mood at all
         val moods = ArrayList<Pair<String, Double>>()
         moods += ranked[0].key to top
         for (e in ranked.drop(1)) {
             if (moods.size == MOST || e.value < FITS || e.value < NEAR_TOP * top) break
-            // The opposite of a mood it's in already (Happy and Sad): only when that's plainly said too.
-            if (e.value < BOTH && moods.any { it.first in OPPOSITE[e.key].orEmpty() }) continue
+            // The opposite of a mood it's in already (Happy and Sad): only when that's plainly said too, or when the sound
+            // and the words disagree (happy-sounding, sad words): then it may well be both, and both go through.
+            if (e.value < BOTH && conflict < 0.3 && moods.any { it.first in OPPOSITE[e.key].orEmpty() }) continue
             moods += e.key to e.value
         }
         val second = ranked.getOrNull(1)?.value ?: 0.0

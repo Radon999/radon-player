@@ -2,6 +2,19 @@
 
 What's new in each update of Radon Player, the newest at the top: like a game's patch notes. Everything the app does is in **Features**.
 
+## 3.2.0 · November 2026
+- **Rescan moods (Moods tab):** for when moods or mood stats are lost or spoilt. Every song is heard again and its words read again (by the AI when Read with AI is on), and the new moods replace the ones the last scan wrote into your files. Moods you picked yourself stay.
+- **Moods always take a best guess:** when a song's sound and words disagree (happy-sounding, sad words), it can now be both, and a song the scan is unsure of still gets its likeliest mood instead of none. Fix any that are off in the Tagger as you hear them.
+- **Effects with any look (Settings › Personalization):** turn off Look's own effects and pick any of the effects, stars included, from a menu, with any look or theme.
+- **More pictures:** Now playing visualizer's menu shows each style moving on Now playing; a look's picture shows your Now playing visualizer in that look's colour; Make your own layout and Make your own look show your screens big at the top, changing as you go.
+- **Previews beside the list:** on the PC, a look's, theme's or layout's picture now pops out to the left of the one the pointer is over, level with it, so it's always in sight however far down the menu you scroll.
+- **Bigger, truer previews:** a look's picture is a small Now playing in that look (the cover, the song's name, the seek bar and buttons in its colour, and the visualizer in its own colour); themes show more of a list; layouts are drawn bigger.
+- **A bigger visualizer in Make your own visualizer,** so it's easier to see what you're making.
+- **Long menus fit the screen:** on the PC, a menu too long for the window (like Now playing's visualizer styles) opens in more columns side by side, growing to the left, with a line between them, instead of running off the bottom.
+- **Deezer import says why when the file is right but empty:** if Deezer's file only has a play or two in its listening history (or only short ones), it now says so plainly instead of a list of sheets.
+- **Covers in the car again:** Android Auto couldn't open the covers the app keeps on the phone, so it showed a blank square; now it's handed them in a way it can read.
+- **Smoother with look effects:** moving effects (stars, rain, aurora and the rest) redraw without making the screen around them work again each frame.
+
 ## 3.1.0 · November 2026
 - **15 layouts** (Settings › Personalization › Layout): a menu, a tab bar, a side rail or tabs along the top; the ☰ menu on the left or right; the mini player floating, as a bar, a pill or at the top; and six ways to lay out Now playing. Every feature can be reached from all of them.
 - **Make your own:** a **layout** from slots you pick and order, a **look** with your own colours (with a neon glow and stars if you like) and a **visualizer** with its own style and colour blend, all previewed live as you make them.
@@ -9,7 +22,7 @@ What's new in each update of Radon Player, the newest at the top: like a game's 
 - **Now playing in your look:** the look's background (its gradient and stars) shows behind Now playing, and the song name, buttons, seek bar, volume, tools, visualizer and lyrics are in the look's colour, made brighter or darker when needed so they always stand out from the background.
 - **The DJ in the queue:** while the DJ plays, the queue shows what it said, the set's category (on each song too) and any stat it gave, as on the DJ tab.
 - **Cover blur is gone:** Now playing's background is always plain.
-- **Tags & covers match (Settings › Sync):** pick the main device, the PC or the phone, and at each sync the songs on both get its tags and album art on the other. The main device always sends, the other always takes.
+- **Tags & covers match (Settings › Remote & sync):** pick the main device, the PC or the phone, and at each sync the songs on both get its tags and album art on the other. The main device always sends, the other always takes.
 - **Deezer history import fixed:** it now finds the listening history in any of the spreadsheet's sheets, however it's written (dates and columns in more forms, the zip as it comes, or a .csv), and reads it on the PC as on the phone.
 - **The DJ never repeats a song for 20 sets:** another song of the same mood or kind of set takes its place, and this is remembered after the app closes.
 - **Previews in Personalization:** every look, theme and layout has a picture and a description in its menu (point at one on the PC to see it big).

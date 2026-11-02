@@ -90,6 +90,12 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_files" />
         </provider>
 
+        <!-- Covers for Android Auto (read only, only pictures in the app's own folders; see ArtProvider.kt) -->
+        <provider
+            android:name="org.omarchy.music.ArtProvider"
+            android:authorities="${applicationId}.art"
+            android:exported="true" />
+
         <!-- Android Auto: a media app, browsed through MusicService's library session (see Car). -->
         <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="org.omarchy.music.CastSetup" />

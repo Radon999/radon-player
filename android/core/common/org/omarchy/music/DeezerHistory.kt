@@ -238,6 +238,8 @@ object DeezerHistory {
 
     /** What was read while importing, for the reason it failed: each sheet's columns and why its rows didn't count. */
     private val found = ArrayList<String>()
+    /** The listening history's sheet, when one was found: its plays, those under 30 seconds and those with a date not understood. */
+    private var history: Triple<Int, Int, Int>? = null
 
     /** Why rows gave no plays: no header row with a title, an artist and a date; or dates not understood; or plays too short. */
     internal fun explain(rows: List<List<String>>, what: String): String {
@@ -267,6 +269,7 @@ object DeezerHistory {
             return "$what (${rows.size} rows): no columns for a song's title, artist and date; its first row says " +
                 head.filter { it.isNotBlank() }.take(8).joinToString(", ") { "“${it.take(30)}”" }
         }
+        if (history == null) history = Triple(good + short + badDate + empty, short, badDate)
         return "$what (${rows.size} rows, columns ${headerRow.orEmpty().filter { it.isNotBlank() }.take(9).joinToString(", ")}): " +
             "$good plays, $short under 30 seconds, $badDate with a date not understood" +
             (if (sampleDate.isNotEmpty()) " (like “${sampleDate.take(40)}”)" else "") + ", $empty without a title or artist"
@@ -275,7 +278,7 @@ object DeezerHistory {
     /** Read Deezer's .xlsx (or the zip it came in, or a .csv) at uri; how many plays were new (blocking). */
     fun importFile(ctx: Ctx, uri: String): Int {
         busy = "Reading your Deezer history…"
-        found.clear()
+        found.clear(); history = null
         try {
             var out: List<SpotifyHistory.Play>? = null
             if (isZip(ctx, uri)) {
@@ -303,6 +306,12 @@ object DeezerHistory {
                 out = parseRows(r.asSequence()).takeIf { it.isNotEmpty() }
             }
             busy = "Adding the plays…"
+            // The history was there but held nothing that counts: say so plainly (the file is right, it's what Deezer put in it)
+            history?.let { (n, short, bad) -> if (out == null && bad == 0) error(
+                if (n == 0) "the file is the right one, but its listening history is empty: Deezer didn't put any plays in it"
+                else "the file is the right one, but Deezer put only $n play${if (n == 1) "" else "s"} in its listening history" +
+                    (if (short > 0) ", ${if (short == n) (if (n == 1) "and it was" else "all") else "$short of them"} under 30 seconds (shorter plays don't count, as on Spotify)" else "") +
+                    ". Radon Player doesn't report its plays to Deezer, so songs streamed from Deezer here aren't in that history (they're already in your stats)") }
             out ?: error("no listening history found in it. " + found.take(6).joinToString(". ").ifEmpty { "Nothing could be read" } +
                 ". Pick the .xlsx (or the zip) from Deezer's “My personal data” download; only plays of 30 seconds or more count")
             return add(out)

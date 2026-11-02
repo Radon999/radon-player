@@ -249,7 +249,8 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (reading != null) {
             Chip("Stop", false) { moods.stop() }
-            Text((if (moods.readingFull) "Full scan… " else "Scanning moods… ") + "%,d of %,d".format(reading.first, reading.second), style = T.sub)
+            Text((if (moods.rescanning) "Rescanning moods… " else if (moods.readingFull) "Full scan… " else "Scanning moods… ") +
+                "%,d of %,d".format(reading.first, reading.second), style = T.sub)
         } else if (looking == null) {
             if (left > 0) Chip(if (counts.inFiles > 0) "Scan moods (%,d song%s, 1 minute each)".format(left, if (left != 1) "s" else "")
                 else "Scan moods (1 minute per song)", false) { moods.find() }
@@ -260,6 +261,14 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
                     "Use this if a sync changed moods for the worse; the songs are then scanned again and their files' moods rewritten.").format(elsewhere) to {
                     Music.bg({ moods.hearAgainFromElsewhere() }) { n, _ -> if ((n ?: 0) > 0) moods.find() }
                 }
+            }
+            // Only for when moods are lost or spoilt: every song heard and its words read again, the files' moods replaced
+            if (counts.total > 0 && !moods.wordsBusy) Chip("Rescan moods", false) {
+                ui.confirm = ("Rescan the moods of all %,d songs? Only do this if something went wrong and your moods or mood " +
+                    "stats are lost or wrong. Everything the last scan worked out is forgotten: every song is heard again and its " +
+                    "words read again (by the AI when Read with AI is on, else on this ${DEVICE}), and the new moods replace the " +
+                    "ones the last scan wrote into your files. Moods you picked yourself in the Tagger stay. It takes as long as " +
+                    "the first scan did.").format(counts.total) to { moods.rescan() }
             }
             if (counts.full < counts.total) Chip(if (counts.full == 0 || counts.full == counts.inFiles) "Full scan (whole songs%s)".format(
                 if (counts.inFiles > 0) ", %,d".format(counts.total - counts.full) else "") else "Resume full scan (%,d left)".format(counts.total - counts.full), false) { moods.findFull() }

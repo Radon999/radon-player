@@ -93,17 +93,19 @@ private val WHITE: Color get() = if (whiteText) Color.White else readable(C.acce
 /** The visualizer's colour with a look: a colour that sets off the look's accent, its hue turned most of the way round
  *  the colour wheel (a purple look gets a warm yellow, a blue one an amber, a red one a teal), bright and clean so the
  *  two go together but the visualizer is never the colour of the song name, buttons and seek bar (in the accent). */
-internal val VIS_LOOK: Color get() {
-    if (whiteText) return Color.White
-    val a = C.accent
+internal val VIS_LOOK: Color get() = if (whiteText) Color.White else visColourFor(C.accent, listOf(C.bg) + (C.gradient ?: emptyList()), C.isLight)
+
+/** A look's visualizer colour: its accent's hue turned 150° (so it sets the accent off), bright, and standing out from
+ *  the look's background `backs`. Personalization's previews use it for looks that aren't in use. */
+internal fun visColourFor(a: Color, backs: List<Color>, light: Boolean): Color {
     val mx = maxOf(a.red, a.green, a.blue); val mn = minOf(a.red, a.green, a.blue); val d = mx - mn
     var h = when { d == 0f -> 0f; mx == a.red -> 60f * (((a.green - a.blue) / d) % 6f); mx == a.green -> 60f * ((a.blue - a.red) / d + 2f)
         else -> 60f * ((a.red - a.green) / d + 4f) }
     h = ((h + 150f) % 360f + 360f) % 360f
     val sat = if (mx == 0f) 0f else d / mx
     // A grey accent has no hue to turn: a lighter or darker grey instead
-    if (sat < 0.12f) return readable(androidx.compose.ui.graphics.lerp(a, if (C.isLight) Color.Black else Color.White, 0.45f), 3.2f)
-    return readable(Color.hsv(h, sat.coerceIn(0.55f, 0.85f), mx.coerceAtLeast(0.85f)), 3.2f)
+    if (sat < 0.12f) return readableOn(androidx.compose.ui.graphics.lerp(a, if (light) Color.Black else Color.White, 0.45f), backs, 3.2f)
+    return readableOn(Color.hsv(h, sat.coerceIn(0.55f, 0.85f), mx.coerceAtLeast(0.85f)), backs, 3.2f)
 }
 
 /** A soft shadow in the background's colour under Now playing's words, so they read over the visualizer too. */
@@ -121,8 +123,10 @@ private fun contrast(a: Color, b: Color): Float {
  *  stand out from every colour of the look's background, its gradient's too: the seek bar, buttons and names are never
  *  lost in the background, and a look whose colour already stands out keeps it exactly. */
 private val readCache = HashMap<Long, Color>()
-internal fun readable(c: Color, need: Float): Color {
-    val backs = listOf(C.bg) + (C.gradient ?: emptyList())
+internal fun readable(c: Color, need: Float): Color = readableOn(c, listOf(C.bg) + (C.gradient ?: emptyList()), need)
+
+/** [readable] on any background (a look's preview, not only the look in use). */
+internal fun readableOn(c: Color, backs: List<Color>, need: Float): Color {
     val key = (c.value.toLong() * 31 + backs.hashCode()) * 31 + need.hashCode()
     return readCache.getOrPut(key) {
         val dark = backs.map { it.luminance() }.average() < 0.4
@@ -988,7 +992,7 @@ private fun NowBars(levels: FloatArray, frame: Int, col: Color, modifier: Modifi
     }
 }
 
-private fun DrawScope.drawSlim(levels: FloatArray, col: Color, k: Float) {
+internal fun DrawScope.drawSlim(levels: FloatArray, col: Color, k: Float) {
     val n = levels.size
     val m = n * 2 - 1
     val slot = size.width / m

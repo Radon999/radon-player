@@ -1167,8 +1167,26 @@ fun PersonalizationLines(ui: Ui) {
                 ChoicePill(UiLayouts.MENU, lay.key, describe = { of(it)?.explain().orEmpty() },
                     preview = { k -> of(k)?.let { LayoutPreview(it) } }, thumb = { k -> of(k)?.let { LayoutThumb(it) } }) { UiLayouts.choose(it) }
             }
+            EffectsLines()
             NowPlayingLookLines()
             MakerLines(ui)
+}
+
+/** Settings › Personalization › Effects: the looks' own effects, or any of them with any look or theme. */
+@Composable
+private fun EffectsLines() {
+    var own by remember { mutableStateOf(LookFx.ownOn()) }
+    var picked by remember { mutableStateOf(LookFx.picked()) }
+    Line("Look's own effects", "On: each look keeps its own effects (the galaxy looks' stars, a look of yours with its " +
+        "effects). Off: no look's own effects; the ones you pick below go with any look or theme instead", own) {
+        Switch(own, { own = it; LookFx.setOwn(it) }, colors = swColors())
+    }
+    if (!own) Line("Effects", "Drawn over the background, behind everything else, with any look, theme and layout. " +
+        "Pick as many as you like; point at one (on the PC) to see it", false) {
+        ChoicePill(LookFx.MENU, "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = picked) {
+            LookFx.toggle(it); picked = LookFx.picked()
+        }
+    }
 }
 
 /** A look's description for its menu (the Now playing look's own, and yours). */
@@ -1181,7 +1199,8 @@ private fun NowPlayingLookLines() {
     Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
-        ChoicePill(NP_VIS_STYLES, Vis.nowStyle()) { org.omarchy.music.Prefs.setText(Vis.NOW, it) }
+        var now by remember { mutableStateOf(Vis.nowStyle()) }
+        ChoicePill(NP_VIS_STYLES, now, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
     }
 }
 

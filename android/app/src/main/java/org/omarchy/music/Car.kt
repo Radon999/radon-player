@@ -32,7 +32,7 @@ object Car {
 
     /** A song as the car shows it; its id says which list it's in and where (list:i). */
     private fun song(list: String, i: Int, t: Track): MediaItem {
-        val art = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && File(it).exists() }?.let { Uri.fromFile(File(it)) }
+        val art = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && File(it).exists() }?.let { ArtProvider.uri(Music.ctx, it) }
             ?: t.thumb.takeIf { it.isNotEmpty() }?.let { Uri.parse(sizedThumb(it, 544)) }
         return MediaItem.Builder().setMediaId("$list:$i")
             .setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album)

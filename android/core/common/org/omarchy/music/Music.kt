@@ -2103,6 +2103,7 @@ object Music {
     fun applyLook() {
         if (look == "nowplaying") org.omarchy.music.ui.Looks.applyCover(coverRgb, npFallback)
         else org.omarchy.music.ui.Looks.apply(look)
+        org.omarchy.music.ui.LookFx.override()   // Personalization › Effects: your own pick over the look's
     }
     fun chooseVisPreset(p: String) { visPreset = p; saveState() }
     fun chooseWrappedStyle(s: String) { wrappedStyle = s; saveState() }

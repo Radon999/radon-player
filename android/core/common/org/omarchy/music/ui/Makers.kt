@@ -220,7 +220,12 @@ fun LookMaker(ui: Ui, editing: String?) {
             ui.sheet = null
         }
     }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
+        Column(Modifier.fillMaxSize()) {
+        // What it looks like, always in sight: your layout's screens in these colours (with the fade, stars and effects)
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            LayoutPreview(UiLayouts.current, if (onPhone) 210.dp else 300.dp, look = true)
+        }
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
             Text("Pick each colour and the whole app shows it as you go. It works with every theme and layout. Glow makes it a " +
                 "neon look: the accent glows on what's playing and what's on.", style = T.sub)
             Spacer(Modifier.height(10.dp))
@@ -269,6 +274,7 @@ fun LookMaker(ui: Ui, editing: String?) {
                 Pill("Delete this look", quiet = true) { ui.confirm = "Delete “${start?.name}”?" to { MyLooks.delete(editing); ui.sheet = null } }
             }
         }
+        }
     }
     androidx.compose.runtime.LaunchedEffect(Unit) { tryIt() }
 }
@@ -313,7 +319,12 @@ fun LayoutMaker(ui: Ui, editing: String?) {
             ui.sheet = null
         }
     }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
+        Column(Modifier.fillMaxSize()) {
+        // What it looks like, always in sight: the main screen and Now playing, changing with every choice
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            LayoutPreview(current(), if (onPhone) 210.dp else 300.dp, look = true)
+        }
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
             Text("Started from ${from.name}. Each choice shows on the app straight away. The ☰ menu is always there (on the bar " +
                 "if there is one), so every tab and feature stays a tap or two away.", style = T.sub)
             Spacer(Modifier.height(10.dp))
@@ -386,6 +397,7 @@ fun LayoutMaker(ui: Ui, editing: String?) {
             if (editing?.startsWith("mine-") == true) Box(Modifier.padding(top = 16.dp)) {
                 Pill("Delete this layout", quiet = true) { ui.confirm = "Delete “${from.name}”?" to { UiLayouts.delete(editing); ui.sheet = null } }
             }
+        }
         }
     }
     androidx.compose.runtime.LaunchedEffect(Unit) { tryIt() }
@@ -501,7 +513,7 @@ fun VisMaker(ui: Ui, editing: String?) {
         Column(Modifier.fillMaxSize()) {
             // The preview, moving with what's playing
             val accent = C.accent; val fg = C.fg
-            Canvas(Modifier.fillMaxWidth().height(200.dp).padding(horizontal = 16.dp).clip(R.big).background(Color(0xFF0B0B10))) {
+            Canvas(Modifier.fillMaxWidth().height(if (onPhone) 280.dp else 360.dp).padding(horizontal = 16.dp).clip(R.big).background(Color(0xFF0B0B10))) {
                 if (s.frame < 0) return@Canvas
                 if (what == "style") {
                     val key = ownColor.ifEmpty { Vis.color() }
