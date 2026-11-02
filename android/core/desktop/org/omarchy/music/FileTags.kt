@@ -30,16 +30,21 @@ object FileTags {
     private fun isWav(uri: String) = uri.substringAfterLast('.').equals("wav", true)
 
     /** Write changes ("" clears a field); true if it worked. */
-    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean =
-        (isWav(uri) && runCatching { WavTags.write(file(uri), changes); true }.getOrDefault(false)) || runCatching {
-        val af = AudioFileIO.read(file(uri))
-        val tag = af.tagOrCreateAndSetDefault
-        for ((k, v) in changes) {
-            val key = KEYS[k] ?: continue
-            if (v.isEmpty()) tag.deleteField(key) else tag.setField(key, v)
-        }
-        af.commit(); true
-    }.getOrDefault(false)
+    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean {
+        val before = runCatching { read(ctx, uri) }.getOrNull()
+        val ok = (isWav(uri) && runCatching { WavTags.write(file(uri), changes); true }.getOrDefault(false)) || runCatching {
+            val af = AudioFileIO.read(file(uri))
+            val tag = af.tagOrCreateAndSetDefault
+            for ((k, v) in changes) {
+                val key = KEYS[k] ?: continue
+                if (v.isEmpty()) tag.deleteField(key) else tag.setField(key, v)
+            }
+            af.commit(); true
+        }.getOrDefault(false)
+        // Noted for your other device (Sync): the song as it was named before
+        if (ok && before != null) TagSync.note(before["title"].orEmpty(), before["artist"].orEmpty(), changes)
+        return ok
+    }
 
     fun cover(ctx: Ctx, uri: String): ByteArray? = embeddedPicture(ctx, uri)
 

@@ -387,9 +387,10 @@ fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, c
 }
 
 fun LazyListScope.tracks(list: List<Track>, ui: Ui, kind: String = "", playlistId: String? = null, radio: Boolean = false,
-                         extra: (Track) -> String = { "" }) {
+                         section: String = kind, extra: (Track) -> String = { "" }) {
     val shown = if (ui.filter.isNullOrBlank() || !laidOut(ui)) list else list.filter { trackFits(ui, it) }
-    laidOutItems(shown, ui, key = { "${shown[it].id}#$it" }, row = { i ->
+    // Keys unique on the page even when two lists of it hold the same song (an artist's songs of yours and their top songs)
+    laidOutItems(shown, ui, key = { "$section:${shown[it].id}#$it" }, row = { i ->
         val t = shown[i]
         TrackRow(t, RowPlace(shown, i, kind, playlistId, radio = radio), ui, extra(t)) { Music.playFrom(shown, i, radio) }
     }) { i, mod, compact ->

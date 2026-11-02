@@ -1107,7 +1107,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             i != null && top.isNotEmpty() -> {
                 item { Section(if (onlyMine) "YOUR COPIES OF THEIR TOP SONGS"
                     else "TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
-                tracks(top, ui, "artist", radio = true)
+                tracks(top, ui, "artist", radio = true, section = "artist-top")
             }
         }
         if (albums.isNotEmpty()) {

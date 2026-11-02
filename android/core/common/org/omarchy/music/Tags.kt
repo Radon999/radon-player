@@ -63,6 +63,7 @@ object Tags {
             return asComments(FileTags.read(ctx, uri) ?: emptyMap())
         }
         val cr = ctx
+        val before = runCatching { cr.openIn(uri)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }.getOrNull()
         val tmp = File.createTempFile("tags", ".flac", ctx.cacheDir)
         try {
             cr.openIn(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
@@ -70,6 +71,8 @@ object Tags {
         } finally {
             tmp.delete()
         }
+        // Noted for your other device (Sync): the song as it was named before
+        before?.let { b -> TagSync.note(b["TITLE"]?.firstOrNull().orEmpty(), b["ARTIST"].orEmpty().joinToString(", "), changes) }
         return cr.openIn(uri)!!.buffered().use { Flac.comments(Flac.readHeader(it)) }
     }
 }

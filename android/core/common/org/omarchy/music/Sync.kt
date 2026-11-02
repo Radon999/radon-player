@@ -47,7 +47,8 @@ object Sync {
     private const val MAX_ENTRY = 64L shl 20   // bytes one file in a sync may be
     private const val DIARY = "listen-log.jsonl"   // the listening diary (ListenLog): each device's stretches added to the other's
     private const val DOWNLOADS = "downloads.json" // the songs downloaded on this device: the other downloads the ones it hasn't
-    private val KNOWN = SyncRules.FILES + SyncRules.SONG_FILES + listOf(SyncRules.STATE, SyncRules.SWITCHES, SyncRules.MOODS, DIARY, DOWNLOADS)
+    private const val TAGS = "tag-changes.json"  // tag changes made on this device since the other took them (TagSync)
+    private val KNOWN = SyncRules.FILES + SyncRules.SONG_FILES + listOf(SyncRules.STATE, SyncRules.SWITCHES, SyncRules.MOODS, DIARY, DOWNLOADS, TAGS)
 
     var busy by mutableStateOf<String?>(null)   // "Syncing with …" while it runs
         private set
@@ -109,22 +110,26 @@ object Sync {
             val moods = runCatching { Moods.backup() }.getOrNull()
             val diary = runCatching { ListenLog.syncText() }.getOrDefault("")
             val (_, theirs) = post(host, headers, head(if (fromPc) "pc" else "phone", songs, auto),
-                mine + listOfNotNull(moods?.let { SyncRules.MOODS to it }) + (DIARY to diary) + (DOWNLOADS to DownloadSync.mine()))
+                mine + listOfNotNull(moods?.let { SyncRules.MOODS to it }) + (DIARY to diary) + (DOWNLOADS to DownloadSync.mine()) +
+                    (TAGS to TagSync.outgoing()))
             // The PC's result, on top of what was sent: anything changed here meanwhile (a play counted) stays too.
             val sent = parse(mine)
             val here = parse(files(songs)) + mapOf(SyncRules.STATE to st, SyncRules.SWITCHES to sw)
             val result = SyncMerge.mergeAll(sent, here, parse(theirs), preferLocal = false)
             saveUndo(mine, with)
             theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the PC's stretches (each one once)
+            val tagged = theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0   // the PC's tag changes
             val sum = SyncMerge.summary(result, here)
             Done(result.mapValues { it.value.toString() }, result.filter { (n, v) -> here[n] != v }.keys,
-                sum.text(), theirs[SyncRules.MOODS], sum.changed == 0, theirs[DOWNLOADS])
+                sum.text() + (if (tagged > 0) " · tags changed on $tagged song${if (tagged != 1) "s" else ""}" else ""),
+                theirs[SyncRules.MOODS], sum.changed == 0 && tagged == 0, theirs[DOWNLOADS], tagged)
         }) { d, err ->
             running.set(false); busy = null
             if (d == null) { if (!auto) Music.toast(failed(err)); return@bg }
             runCatching { putInPlace(d.files, d.changed) }.onFailure { Crashes.caught(it, "Sync"); Music.toast("Synced, but couldn't put everything in place: ${it.message?.take(80)}") }
             d.moods?.let { runCatching { Moods.restoreLater(it); Moods.auto() } }
             val got = d.downloads?.let { runCatching { DownloadSync.take(it, with) }.getOrDefault(0) } ?: 0
+            if (d.tagged > 0) Music.rescan()   // your songs read again with their new tags
             finished(d.summary, with, quiet = auto && d.nothing && got == 0)
         }
     }
@@ -139,7 +144,7 @@ object Sync {
     }
 
     private class Done(val files: Map<String, String>, val changed: Set<String>, val summary: String, val moods: String?, val nothing: Boolean,
-                       val downloads: String?)
+                       val downloads: String?, val tagged: Int = 0)
 
     private val client by lazy { HTTP.newBuilder().readTimeout(3, TimeUnit.MINUTES).writeTimeout(3, TimeUnit.MINUTES).build() }
 
@@ -218,6 +223,7 @@ object Sync {
             val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
             val myMoods = runCatching { Moods.backup() }.getOrNull()
             theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the phone's stretches (each one once)
+            val tagged = theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0   // the phone's tag changes
             val local = parse(mine)
             val remote = parse(theirs).filterKeys { songs || it !in SyncRules.SONG_FILES }
             val baseFile = File(dir, "sync-base-${sha1(peer).take(12)}.zip")
@@ -231,12 +237,14 @@ object Sync {
                 runCatching { putInPlace(out, merged.filter { (n, v) -> local[n] != v }.keys) }.onFailure { Crashes.caught(it, "Sync") }
                 theirs[SyncRules.MOODS]?.let { runCatching { Moods.restoreLater(it); Moods.auto() } }
                 theirs[DOWNLOADS]?.let { runCatching { DownloadSync.take(it, peerName) } }
+                if (tagged > 0) Music.rescan()
             }
             val back = head("pc", songs)
             writeZipFile(baseFile, back, out)   // what these two agreed on: next time, what's gone from one side is deleted
-            onMain { finished(summary, peerName, quiet = asked["auto"].bool == true && sum.changed == 0) }
+            onMain { finished(summary + (if (tagged > 0) " · tags changed on $tagged song${if (tagged != 1) "s" else ""}" else ""), peerName,
+                quiet = asked["auto"].bool == true && sum.changed == 0 && tagged == 0) }
             val reply = out + listOfNotNull(myMoods?.let { SyncRules.MOODS to it }) + (DIARY to runCatching { ListenLog.syncText() }.getOrDefault("")) +
-                (DOWNLOADS to DownloadSync.mine())
+                (DOWNLOADS to DownloadSync.mine()) + (TAGS to TagSync.outgoing())
             return { os -> writeZip(os, back, reply) }
         } finally {
             running.set(false)
@@ -293,7 +301,7 @@ object Sync {
     }
 
     private fun parse(files: Map<String, String>): Map<String, JsonElement> =
-        files.filterKeys { it != SyncRules.MOODS && it != DIARY && it != DOWNLOADS }.mapNotNull { (n, t) -> runCatching { n to JSON.parseToJsonElement(t) }.getOrNull() }.toMap()
+        files.filterKeys { it != SyncRules.MOODS && it != DIARY && it != DOWNLOADS && it != TAGS }.mapNotNull { (n, t) -> runCatching { n to JSON.parseToJsonElement(t) }.getOrNull() }.toMap()
 
     /** (the screen's thread) The settings of state.json that sync, from the app as it is now. The EQ playing now is
      *  kept in its output's place, so each output's EQ is whole. */
