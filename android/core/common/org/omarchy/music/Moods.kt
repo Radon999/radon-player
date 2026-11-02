@@ -899,9 +899,14 @@ object Moods {
         for ((p, b) in got) {
             val t = byPath[p] ?: continue
             val e = synchronized(lock) { known[p] }
-            val better = b.moods.isNotEmpty() &&
-                (e == null || (!e.heard && e.confirmed.isEmpty()) || (b.full && !e.full) || (b.picked && e.picked.isEmpty()))
-            val words = b.lyrics.isNotEmpty() && e?.lyr.isNullOrEmpty() && LyricsReading.parse(b.lyrics) != null   // its words' mood, read before
+            // The other device's reading of the words wins over this one's when it's better (the AI's over the word
+            // reader's): a scan with the AI on the PC doesn't have to be done again on the phone
+            val theirs = LyricsReading.parse(b.lyrics)
+            val mine = e?.lyr?.takeIf { it.isNotEmpty() }?.let { LyricsReading.parse(it) }
+            val wordsBetter = theirs != null && (mine == null || theirs.rank > mine.rank)
+            val better = b.moods.isNotEmpty() && e?.picked.isNullOrEmpty().let { notYours -> notYours || b.picked } &&
+                (e == null || (!e.heard && e.confirmed.isEmpty()) || (b.full && !e.full) || (b.picked && e.picked.isEmpty()) || wordsBetter)
+            val words = wordsBetter   // its words' mood, read before
             if (!better && !words) continue
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue
             val base = (e ?: MoodEntry()).let { if (words) it.copy(lyr = b.lyrics, lyrInFile = false) else it }
