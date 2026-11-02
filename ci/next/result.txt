@@ -1,14 +1,14 @@
-run 41377152289 · Mon Nov  2 02:25:12 UTC 2026
+run 41378490948 · Mon Nov  2 02:43:44 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="12" failures="0" tests="2" failures="0" tests="2" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
-  double sum;
-  double min;
-  double max;
-}`
+w: file:///home/runner/work/radon-player/radon-player/app/android/core/desktop/org/omarchy/music/Voice.kt:103:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
-> Task :desktop:flattenJars
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
 > Task :app:compileReleaseArtProfile
+> Task :desktop:flattenJars
 
 > Task :desktop:packageUberJarForCurrentOS
 The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player Next-linux-x64-3.0.0.jar
@@ -25,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 13s
+BUILD SUCCESSFUL in 6m 18s
 103 actionable tasks: 103 executed
