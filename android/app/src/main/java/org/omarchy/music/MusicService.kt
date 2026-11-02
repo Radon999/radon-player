@@ -90,6 +90,8 @@ class MusicService : MediaLibraryService() {
                     return
                 }
                 if (Music.streaming) Music.streamBroke()
+                // The song's file isn't where it was (moved or renamed): your copy of it found, linked everywhere, played
+                else if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND && Music.fileGone()) Unit
                 else {
                     Music.toast("Couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")
                     Music.paused = true

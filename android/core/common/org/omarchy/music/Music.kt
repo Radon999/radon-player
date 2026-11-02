@@ -1238,6 +1238,7 @@ object Music {
             else if (err != null) toast("Couldn't read your music: ${err.message?.take(80)}")
             if (changed == true) musicVersion++
             adoptFiles()
+            relinkMissing()   // songs you moved: your playlists follow them
             accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since
             bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
@@ -1249,7 +1250,48 @@ object Music {
     fun fileHere(t: Track): Boolean {
         val f = t.file ?: return true
         if (!BackupMerge.fileHere(f, platformName == "android")) return false
-        return platformName == "android" || f.startsWith("content:") || File(f).exists()
+        if (lib.has(t.id)) return true   // a download (its own checks)
+        return if (f.startsWith("content:")) runCatching { uriExists(ctx, f) }.getOrDefault(true) else File(f).exists()
+    }
+
+    /** The song playing couldn't be opened (its file was moved, renamed or deleted): your copy of the same song (the
+     *  same title and artist) is linked in its place everywhere (the queue, playlists, favorites) and played. False if
+     *  there's none (the usual "couldn't play"). */
+    fun fileGone(): Boolean {
+        val t = current() ?: return false
+        if (!t.isFile) return false
+        val n = hereCopy(t)?.takeIf { it.file != t.file } ?: return false
+        relink(mapOf(t.id to n))
+        toast("“${t.title}” had moved: found it and linked it")
+        loadCurrent(autoplay = true)
+        return true
+    }
+
+    /** Songs whose files moved: each old one (by id) becomes the new one in the queue, your playlists and favorites. */
+    private fun relink(moved: Map<String, Track>) {
+        if (moved.isEmpty()) return
+        fun fix(x: Track): Track = moved[x.id]?.slim()?.copy(queued = x.queued) ?: x
+        queue = queue.map(::fix)
+        lists.remap(::fix)
+        favorites.remap(::fix)
+        saveState(); musicVersion++
+    }
+
+    /** (after your folders are read) Songs of yours in your playlists, the queue and favorites whose file is gone: the
+     *  same song found where it is now (you moved or renamed a folder) and linked, so nothing has to be made again. */
+    private fun relinkMissing() {
+        val songs = (queue + lists.items.flatMap { it.tracks } + favorites.tracks()).filter { it.isFile && !lib.has(it.id) }
+            .distinctBy { it.id }
+        if (songs.isEmpty()) return
+        bg({
+            val moved = HashMap<String, Track>()
+            for (t in songs) if (!fileHere(t)) hereCopy(t)?.takeIf { it.file != t.file && fileHere(it) }?.let { moved[t.id] = it }
+            moved
+        }) { moved, _ ->
+            if (moved.isNullOrEmpty()) return@bg
+            relink(moved)
+            toast("Found ${moved.size} moved song${if (moved.size != 1) "s" else ""} and linked them in your playlists")
+        }
     }
 
     /** The same song of yours on this device (a file or a download), for one of the other device's song files. */
