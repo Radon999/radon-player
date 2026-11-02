@@ -180,7 +180,7 @@ Also: **Bit-perfect** sends songs to a USB DAC (phone, Android 14+) or the PC's 
 
 Every scan is in **Settings › Scanner**. Run one when something looks wrong, then forget about it. On the PC they work on all your music; on the phone, on the songs the app downloaded (Android doesn't let apps change other apps' files).
 
-- **Tagger…:** Everything about the songs you picked in one place: **Tags** (with Mood and **Find tags online**, which shows every change before applying), **Cover**, **Info**, **Lyrics**, and **Tab** to move a release between Albums, EPs and Singles. A Play button lets you listen while you work.
+- **Tagger…:** Everything about the songs you picked in one place: **Tags** (with Mood and **Find tags online**, which shows every change before applying), **Cover**, **Info**, **Lyrics**, and **Tab** to move a release between Albums, EPs and Singles. A Play button lets you listen while you work. Changes to the song that's playing are saved the moment it ends.
 - **Fix genre names:** Puts "Hip-Hop/Rap" and "Hip-Hop-Rap" under one name.
 - **Duplicates:** Finds songs you have twice and lets you keep the best copy.
 - **Upgrade to FLAC:** Swaps MP3s (and 16-bit files, where Tidal has 24-bit) for Tidal's FLAC; old files go to the trash.
