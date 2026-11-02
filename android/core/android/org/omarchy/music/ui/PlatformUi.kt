@@ -202,17 +202,34 @@ fun fileFacts(u: String): List<Pair<String, String>> {
     return out
 }
 
-/** A picture into the phone's Pictures, as name.png. */
+/** A picture saved to the phone: Pictures › Radon Player, as name.png (in the Gallery and Photos). */
 fun savePicture(img: ImageBitmap, name: String): Boolean = runCatching {
     val cr = Music.ctx.contentResolver
-    val uri = cr.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, android.content.ContentValues().apply {
-        put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
-        put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
-        put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES)
-    }) ?: return false
-    cr.openOutputStream(uri)?.use { plainBitmap(img).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } ?: return false
+    val file = name.replace(Regex("[\\\\/:*?\"<>|]"), "").trim().ifEmpty { "Radon Player" } + ".png"
+    val bmp = plainBitmap(img)
+    if (android.os.Build.VERSION.SDK_INT >= 29) {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, file)
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/Radon Player")
+            put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = cr.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+        val ok = cr.openOutputStream(uri)?.use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } ?: false
+        if (!ok) { cr.delete(uri, null, null); return false }
+        cr.update(uri, android.content.ContentValues().apply { put(android.provider.MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+    } else {
+        @Suppress("DEPRECATION")
+        val dir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "Radon Player").apply { mkdirs() }
+        val f = java.io.File(dir, file)
+        f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), arrayOf("image/png"), null)
+    }
     true
 }.getOrDefault(false)
+
+/** What a saved picture's toast says. */
+fun savedPictureNote(): String = "Saved to your Gallery (Pictures › Radon Player)"
 
 /** Send the picture to pkg (Instagram, Facebook), or to the app you pick in Android's share sheet. */
 fun sharePicture(img: ImageBitmap, name: String, pkg: String? = null): Boolean = runCatching {
@@ -236,6 +253,8 @@ private fun plainBitmap(img: ImageBitmap): android.graphics.Bitmap = img.asAndro
 /** Whether an app is on the phone (Instagram, for its story button). */
 /** What the share button of a picture says here. */
 const val SHARE_PICTURE = "Share…"
+/** What the save button of a picture says here. */
+const val SAVE_PICTURE = "Save to phone"
 
 fun appInstalled(pkg: String) = runCatching { Music.ctx.packageManager.getPackageInfo(pkg, 0); true }.getOrDefault(false)
 

@@ -262,7 +262,7 @@ fun WrappedScreen(onClose: () -> Unit) {
                 val name = "Wrapped ${label.lowercase().replaceFirstChar { it.uppercase() }} · ${d.user}${if (last) "" else " · ${i + 1}"}"
                 when {
                     bmp == null -> Music.toast("Couldn't make the picture")
-                    save -> Music.toast(if (savePicture(bmp, name)) "Saved to Pictures" else "Couldn't save it")
+                    save -> Music.bg({ savePicture(bmp, name) }) { ok, _ -> Music.toast(if (ok == true) savedPictureNote() else "Couldn't save it") }
                     else -> if (!sharePicture(bmp, name, pkg)) Music.toast("Couldn't share it")
                 }
             }
@@ -339,11 +339,15 @@ fun WrappedScreen(onClose: () -> Unit) {
                                 .background(if (k <= pager.currentPage) WS.fg else WS.fg.copy(alpha = 0.25f)))
                         }
                     }
+                    // Save: this slide as a picture on this device, straight away
+                    if (data?.empty == false) Text("Save", style = T.tab.copy(fontSize = 12.sp, color = WS.fg), modifier = Modifier.clip(CircleShape)
+                        .background(WS.bg.copy(alpha = 0.4f)).pointerInput(Unit) { detectTapGestures { share(save = true) } }
+                        .padding(horizontal = 12.dp, vertical = 8.dp))
                     if (data?.empty == false) Box {
                         Text("Share", style = T.tab.copy(fontSize = 12.sp, color = WS.fg), modifier = Modifier.clip(CircleShape).background(WS.bg.copy(alpha = 0.4f))
                             .pointerInput(Unit) { detectTapGestures { menu = true } }.padding(horizontal = 12.dp, vertical = 8.dp))
                         DropdownMenu(menu, { menu = false }, containerColor = C.light) {
-                            DropdownMenuItem({ Text("Save to Pictures", style = T.body) }, { menu = false; share(save = true) })
+                            DropdownMenuItem({ Text(SAVE_PICTURE, style = T.body) }, { menu = false; share(save = true) })
                             apps.forEach { (pkg, name) ->
                                 DropdownMenuItem({ Text("Post to $name", style = T.body) }, { menu = false; share(save = false, pkg = pkg) })
                             }

@@ -102,7 +102,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                         Text("Facebook", color = C.accent) }
                 }
                 Row {
-                    TextButton({ Music.toast(if (savePicture(bmp, "${t.title} lyrics")) "Saved to Pictures" else "Couldn't save it") }) {
+                    TextButton({ Music.toast(if (savePicture(bmp, "${t.title} lyrics")) savedPictureNote() else "Couldn't save it") }) {
                         Text("Save", color = C.muted) }
                     TextButton({ sharePicture(bmp, "${t.title} lyrics", null) }) { Text(if (onPhone) "Messages & more…" else SHARE_PICTURE, color = C.accent) }
                 }

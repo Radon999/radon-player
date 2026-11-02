@@ -121,8 +121,8 @@ fun CollageSheet(ui: Ui, kind: String) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val file = "${name} ${period} ${n}x$n".replace(' ', '-')
                     Pill(SHARE_PICTURE) { if (!sharePicture(b, file, null)) Music.toast("Couldn't share it") }
-                    Pill("Save to Pictures", quiet = true) {
-                        Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) "Saved to Pictures" else "Couldn't save it") }
+                    Pill(SAVE_PICTURE) {
+                        Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) savedPictureNote() else "Couldn't save it") }
                     }
                 }
             }
@@ -214,8 +214,8 @@ fun CardSheet(ui: Ui, kind: String) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val file = "$title $period".replace(' ', '-')
                     Pill(SHARE_PICTURE) { if (!sharePicture(b, file, null)) Music.toast("Couldn't share it") }
-                    Pill("Save to Pictures", quiet = true) {
-                        Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) "Saved to Pictures" else "Couldn't save it") }
+                    Pill(SAVE_PICTURE) {
+                        Music.bg({ savePicture(b, file) }) { ok, _ -> Music.toast(if (ok == true) savedPictureNote() else "Couldn't save it") }
                     }
                 }
             }

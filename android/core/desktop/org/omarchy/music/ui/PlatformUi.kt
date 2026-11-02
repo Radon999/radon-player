@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.Dispatchers
@@ -273,14 +274,45 @@ fun fileFacts(u: String): List<Pair<String, String>> {
     return out
 }
 
-private val picturesDir: File get() = File(System.getProperty("user.home"), "Pictures/Radon Player").apply { mkdirs() }
+/** Where pictures are saved on the PC: your Downloads folder (Windows' own, even when it's been moved), in Radon Player. */
+private val picturesDir: File get() {
+    val home = System.getProperty("user.home")
+    val dl = runCatching {   // Windows keeps a moved Downloads folder's place in the registry
+        val p = ProcessBuilder("reg", "query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders",
+            "/v", "{374DE290-123F-4565-9164-39C4925E467B}").redirectErrorStream(true).start()
+        val out = p.inputStream.bufferedReader().readText(); p.waitFor()
+        Regex("REG_(?:EXPAND_)?SZ\\s+(.+)").find(out)?.groupValues?.get(1)?.trim()
+            ?.replace("%USERPROFILE%", home, ignoreCase = true)?.let { File(it) }?.takeIf { it.isDirectory }
+    }.getOrNull() ?: File(home, "Downloads")
+    return File(dl, "Radon Player").apply { mkdirs() }
+}
 
-private fun pictureFile(name: String) = File(picturesDir, name.replace(Regex("[\\\\/:*?\"<>|]"), "") + ".png")
+/** A name not taken yet in the folder: name.png, else name (2).png… */
+private fun pictureFile(name: String): File {
+    val base = name.replace(Regex("[\\\\/:*?\"<>|]"), "").replace(Regex("[^\\x20-\\x7E]"), "-").trim().ifEmpty { "Radon Player" }
+    val dir = picturesDir
+    var f = File(dir, "$base.png"); var n = 2
+    while (f.exists()) { f = File(dir, "$base ($n).png"); n++ }
+    return f
+}
 
-/** A picture into Pictures/Radon Player, as name.png. */
+/** The last picture saved (for the toast and to show it in its folder). */
+@Volatile var lastSavedPicture: File? = null
+
+/** A picture saved to the PC: Downloads › Radon Player, as name.png (shown in its folder). */
 fun savePicture(img: ImageBitmap, name: String): Boolean = runCatching {
-    javax.imageio.ImageIO.write(img.toAwtImage(), "png", pictureFile(name))
+    val f = pictureFile(name)
+    // Skia's PNG first (it reads every picture the app draws), Java's if that fails
+    val png = runCatching { org.jetbrains.skia.Image.makeFromBitmap(img.asSkiaBitmap()).encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)?.bytes }.getOrNull()
+    if (png != null && png.isNotEmpty()) f.writeBytes(png) else javax.imageio.ImageIO.write(img.toAwtImage(), "png", f)
+    if (!f.isFile || f.length() == 0L) return@runCatching false
+    lastSavedPicture = f
+    runCatching { ProcessBuilder("explorer.exe", "/select,", f.absolutePath).start() }   // shows it, picked, in its folder
+    true
 }.getOrDefault(false)
+
+/** What a saved picture's toast says. */
+fun savedPictureNote(): String = lastSavedPicture?.let { "Saved to Downloads › Radon Player › ${it.name}" } ?: "Saved to Downloads › Radon Player"
 
 /** A picture to another app, the PC's way (as the Python app's Copy): on the clipboard, to paste anywhere, and saved
  *  to Pictures too. */
@@ -295,12 +327,14 @@ fun sharePicture(img: ImageBitmap, name: String, pkg: String? = null): Boolean {
         }
         java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, null)
     }.isSuccess
-    if (copied) Music.toast("Copied: paste it anywhere" + if (saved) " (and saved to Pictures)" else "")
+    if (copied) Music.toast("Copied: paste it anywhere" + if (saved) " (and saved to Downloads › Radon Player)" else "")
     return copied || saved
 }
 
 /** What the share button of a picture says here. */
 const val SHARE_PICTURE = "Copy"
+/** What the save button of a picture says here. */
+const val SAVE_PICTURE = "Save to PC"
 
 fun appInstalled(pkg: String) = false
 
