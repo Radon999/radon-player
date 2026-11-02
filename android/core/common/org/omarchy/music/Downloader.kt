@@ -129,7 +129,9 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     /** Where a download goes and its file name, with ext. */
     private fun place(t: Track, root: String?, match: JsonElement?, album: JsonElement?, ext: String): Pair<String, String> {
         val (where, name) = (root ?: folder()).takeIf { it.isNotEmpty() }?.let { r ->
-            if (match != null) downloadPlace(r, album.path("artist", "name").str ?: t.artist.split(",")[0], match.path("album", "title").str ?: t.album,
+            // In the artist's folder, never "Various Artists" (a song only on a compilation goes under its own artist)
+            if (match != null) downloadPlace(r, album.path("artist", "name").str?.takeUnless { ReleasePick.compilation(ReleasePick.Release(null, it, "", false)) }
+                ?: match.path("artist", "name").str ?: t.artist.split(",")[0], match.path("album", "title").str ?: t.album,
                 album["type"].str, match["trackNumber"].long, Tidal.tidalTitle(match))
             else downloadPlace(r, t.artist.split(",")[0].trim(), t.album, null, null, t.title)
         } ?: (LocalFiles.DOWNLOADS to "${safeName(t.id)}.flac")
@@ -139,7 +141,9 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     private fun fromTidal(t: Track, root: String?): String {
         val q = quality
         val aac = q == "mp3" && !CAN_MP3   // the phone: Tidal's own 320 kbps (AAC) in place of MP3
-        val match = tidal.resolve(t, lossy = aac) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
+        val found = tidal.resolve(t, lossy = aac) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
+        // Saved from the artist's own album (deluxe first), else EP, else single; a compilation only if nothing else has it
+        val match = runCatching { tidal.bestRelease(found, aac, t.album) }.getOrDefault(found)
         val tid = match["id"].long ?: 0
         if (q != "mp3") lib.byTidal(tid)?.let { same ->
             // Already saved from another service: the same file serves both.

@@ -149,6 +149,26 @@ class Tidal(ctx: Ctx) : Source {
         return if (found != null && !lossy && norm(found.path("album", "title").str) != norm(t.album)) albumVersion(found) else found
     }
 
+    /** The release to download recording c from (ReleasePick): every release Tidal has it on (the same ISRC) looked at,
+     *  the artist's album first (a deluxe or special edition over the plain one), then an EP, then a single, and a
+     *  various-artists compilation only when it's on nothing else. from: the album the song came with. */
+    fun bestRelease(c: JsonElement, lossy: Boolean, from: String = ""): JsonElement {
+        val isrc = c["isrc"].str ?: return c
+        val all = (listOf(c) + runCatching {
+            api("tracks", mapOf("filter[isrc]" to isrc), base = OPENAPI).get("data").list
+                .mapNotNull { d -> d["id"].long?.let { runCatching { trackJson(it) }.getOrNull() } }
+        }.getOrDefault(emptyList())).filter { ok(it, lossy) }.distinctBy { it["id"].long }
+        if (all.size < 2) return c
+        val albums = HashMap<Long, JsonElement?>()
+        val releases = all.map { x ->
+            val id = x.path("album", "id").long ?: 0
+            val a = albums.getOrPut(id) { runCatching { albumJson(id) }.getOrNull() }
+            ReleasePick.Release(a["type"].str, a.path("artist", "name").str, x.path("album", "title").str ?: "",
+                "HIRES_LOSSLESS" in x.path("mediaMetadata", "tags").list.map { it.str }, onSingle(x))
+        }
+        return all[ReleasePick.best(releases, from).coerceAtLeast(0)]
+    }
+
     /** Whether Tidal track c comes from a single: its release is named after it ("Song", "Song - Single"). */
     fun onSingle(c: JsonElement): Boolean {
         val album = norm((c.path("album", "title").str ?: "").replace(Regex("\\s*[-–]\\s*(single|ep)\\s*$", RegexOption.IGNORE_CASE), ""))
