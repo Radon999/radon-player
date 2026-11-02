@@ -139,8 +139,9 @@ object Discord {
         val start = System.currentTimeMillis() - (Music.position * 1000).toLong()
         val dur = Music.duration.takeIf { it > 0 } ?: t.duration
         val p = page(t)
-        // A picture's address may be 256 characters at most (a longer one makes Discord refuse the whole activity)
-        val cover = t.thumb.takeIf { it.startsWith("https://") && it.length <= 256 } ?: ICON
+        // The song's cover (Discord shows only pictures on the web: a file of yours gets its cover's address looked
+        // up once, as Most played does), the app's icon until it's found; the icon stays small in the corner
+        val cover = coverUrl(t) ?: ICON
         val act = buildJsonObject {
             put("type", 2)   // "Listening to …", as Spotify shows
             if (!basic) put("status_display_type", 0)
@@ -162,7 +163,30 @@ object Discord {
                 })
             }
         }
-        return act to "${t.id}|${start / 3000}"   // the bar a few seconds off isn't worth an update
+        return act to "${t.id}|${start / 3000}|$cover"   // the bar a few seconds off isn't worth an update; a cover found is
+    }
+
+    /** A picture's address Discord takes: on the web, 256 characters at most (a longer one makes it refuse the whole activity). */
+    private fun usable(u: String?) = u?.takeIf { it.startsWith("https://") && it.length <= 256 }
+
+    /** Covers looked up for songs without a web picture (your files): song -> address ("" while looking, or none). */
+    private val covers = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** The song's cover as an address Discord can show, or null (not known yet: looked up in the background, and the
+     *  activity is sent again once it's found). Streamed songs have theirs; your files' covers are found online
+     *  (their service, Deezer, Last.fm, iTunes), once, and kept (SongCovers). */
+    private fun coverUrl(t: Track): String? {
+        usable(t.thumb)?.let { return it }
+        usable(runCatching { sizedThumb(t.thumb, 640) }.getOrNull())?.let { return it }
+        val k = norm(t.artist) + "|" + norm(t.title)
+        covers[k]?.let { return usable(it) }
+        usable(runCatching { SongCovers.known(t.title, t.artist) }.getOrNull())?.let { covers[k] = it; return it }
+        covers[k] = ""
+        Thread({
+            val u = runCatching { SongCovers.look(t.copy(source = if (t.isFile) "lastfm" else t.source)) }.getOrDefault("")
+            covers[k] = usable(u).orEmpty()
+        }, "discord-cover").apply { isDaemon = true }.start()
+        return null
     }
 
     /** A problem written to Settings › Problems (Crashes), once each, so it can be seen and sent; Discord simply not
