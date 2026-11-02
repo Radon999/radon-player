@@ -95,6 +95,13 @@ fun TaggerSheet(ui: Ui, tracks: List<Track>) {
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (n == 1) tracks[0].title else "$n songs", style = T.title, modifier = Modifier.padding(top = 6.dp))
             if (n == 1) Text(listOf(tracks[0].artist, tracks[0].album).filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
+            // Hear it while you choose its tags and moods (several: from the first, the others after)
+            run {
+                val playing = tracks.any { it.id == Music.current()?.id }
+                Pill(if (playing && !Music.paused) "❚❚ Pause" else if (n == 1) "▶ Play it" else "▶ Play them", quiet = !playing) {
+                    if (playing) Music.togglePause() else Music.playFrom(tracks, 0, radio = false)
+                }
+            }
             when (tab) {
                 "tags" -> TaggerTags(ui, tracks)
                 "tab" -> TaggerTab(tracks)

@@ -447,8 +447,8 @@ fun MoodsTab(ui: Ui) {
 }
 
 /** Check these (the Moods tab): songs whose moods may well be wrong (their sound and words disagree, or the app isn't
- *  sure), folded away until tapped. Each shows its moods: tick the right ones and Save (they're then yours, exactly
- *  those), open it in the Tagger, or Looks right to leave it as it is (remembered: it isn't listed again). */
+ *  sure), folded away until tapped. Each shows its moods: Play to hear it, tick the right ones and Save (they're then
+ *  yours, exactly those), open it in the Tagger, or Looks right to leave it as it is (remembered: it isn't listed again). */
 @Composable
 private fun MoodsCheck(ui: Ui, list: List<Pair<Track, org.omarchy.music.Moods.Judged>>) {
     if (list.isEmpty()) return
@@ -478,6 +478,11 @@ private fun MoodsCheck(ui: Ui, list: List<Pair<Track, org.omarchy.music.Moods.Ju
                 for (m in moods.ALL) Chip(m, m in now) { edits[t.id] = if (m in now) now - m else now + m }
             }
             Row(Modifier.padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Hear it to decide: plays this song, the others of the list after it (Next goes on to the next one)
+                val playing = Music.current()?.id == t.id
+                Pill(if (playing && !Music.paused) "❚❚ Pause" else "▶ Play", quiet = !playing) {
+                    if (playing) Music.togglePause() else Music.playFrom(shown.map { it.first }, shown.indexOfFirst { it.first.id == t.id }, radio = false)
+                }
                 if (edits[t.id] != null) Pill("Save") { val got = edits.remove(t.id).orEmpty(); moods.pick(listOf(t), got.ifEmpty { null }) }
                 Pill("Tagger…", quiet = true) { ui.taggerFor = listOf(t) }
                 Pill("Looks right", quiet = true) { edits.remove(t.id); moods.looksRight(t) }
