@@ -55,6 +55,7 @@ Like Spotify's DJ, but built only from *your* listening. It plays short sets of 
 - **Play from:** Everything, all your songs, or one playlist, folder or album. The **DJ** button on My music and playlists starts it there.
 - **Switch it up** starts a different kind of set; **⏭ set** on Now playing skips to the next set.
 - **Your copy first:** Every song the DJ plays uses your own file when you have one.
+- **In the queue:** While the DJ plays, Up next and Now playing's queue show what it said last, the set's category (on each song too) and any stat it gave, as on the DJ tab. Other queues don't.
 
 ---
 
@@ -124,6 +125,7 @@ Everything is in the ☰ menu. Every page can be a list, a grid or a compact gri
 
 - **Search:** Tidal, YouTube Music, Deezer, Apple Music, Spotify or your own music, from the menu by the search bar. Paste a link from another app and it opens.
 - **Tidal:** Streams in FLAC (hi-res where Tidal has it). Its favorites, playlists and radios work as a library too.
+- **SoundCloud (streaming only):** Sign in under Settings › Accounts with your own SoundCloud app's Client ID and secret to search, play your likes and playlists, and open artists and radio. SoundCloud is its own section: its songs can't be downloaded, added to your playlists or favorites (a star likes it on SoundCloud instead), or mixed into a queue with other music. Spotify, Deezer, YouTube, Tidal and Apple Music can all be mixed with your offline music.
 - **Spotify, Apple Music, Deezer, YouTube Music:** Sign in to browse your library and playlists and bring them over. Their songs play from Tidal in FLAC, or YouTube when Tidal doesn't have one. **Import all into my playlists** copies their playlists in. Settings › Accounts explains how to switch to Tidal without losing anything.
 - **Stream and download quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately.
 - **Downloads:** Any song from any service downloads from Tidal (YouTube when Tidal doesn't have it), with full tags, cover and genre. It's taken from the artist's own album first (deluxe edition first), then EP, then single, and saved in **Music › Artists**, in the artist's own folder (Artists / Sody / Let Go - Single). Settings › Downloads can pick another folder. Download whole playlists too; songs you already have are skipped.
@@ -171,6 +173,9 @@ Also: **Bit-perfect** sends songs to a USB DAC (phone, Android 14+) or the PC's 
 ## Looks & visualizer
 
 - **Looks:** Light, Dark, **Now playing** (every screen takes the playing song's colours), 35 more themes and 30 dark **neon** looks. Settings › Personalization, or the palette button on Now playing to see changes live.
+- **Layouts:** 15 ways to lay out the app (Settings › Personalization › Layout): the ☰ menu, a tab bar, a side rail or tabs along the top; the menu on the left or right; the mini player floating, as a bar, a pill or at the top; and six ways to arrange Now playing (classic, centred, split, info on top, full bleed, headline). Every feature can be reached from all of them.
+- **Make your own:** **New look** (your own background, card, text and accent colours, a gradient, a neon glow, stars), **New layout** (pick and order the slots, the bar and the mini player) and **New visualizer** (a style from any of the 30, mirrored, flipped, spun or echoed, or your own colour blend). Each shows live while you make it, and yours can be changed or deleted any time.
+- **Now playing in your look:** The look's background, gradient and stars show behind Now playing. The song name, buttons, seek bar, volume, tools, visualizer and lyrics take the look's colour, made brighter or darker when needed so they always stand out from the background. The Now playing look uses the cover's colours instead.
 - **Themes:** Change how the app is drawn (Rounded, Sharp, Compact, Glass, Retro, Minimal and more), with any look.
 - **Visualizer:** 30 styles (bars, waves, circles, starfield, galaxy, fireworks, tunnel…) and dozens of colour blends. Any style can run on Now playing, round ones inside the cover. It only listens to the app's own sound, and on the phone remote it moves with the PC's music.
 
