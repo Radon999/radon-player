@@ -126,7 +126,7 @@ Everything is in the ☰ menu. Every page can be a list, a grid or a compact gri
 - **Tidal:** Streams in FLAC (hi-res where Tidal has it). Its favorites, playlists and radios work as a library too.
 - **Spotify, Apple Music, Deezer, YouTube Music:** Sign in to browse your library and playlists and bring them over. Their songs play from Tidal in FLAC, or YouTube when Tidal doesn't have one. **Import all into my playlists** copies their playlists in. Settings › Accounts explains how to switch to Tidal without losing anything.
 - **Stream and download quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately.
-- **Downloads:** Any song from any service downloads from Tidal (YouTube when Tidal doesn't have it), with full tags, cover and genre. It's taken from the artist's own album first (deluxe edition first), then EP, then single, and saved as Artist / Album. Download whole playlists too; songs you already have are skipped.
+- **Downloads:** Any song from any service downloads from Tidal (YouTube when Tidal doesn't have it), with full tags, cover and genre. It's taken from the artist's own album first (deluxe edition first), then EP, then single, and saved in **Music › Artists**, in the artist's own folder (Artists / Sody / Let Go - Single). Settings › Downloads can pick another folder. Download whole playlists too; songs you already have are skipped.
 - **Copies:** When you download a song you already have: Ask, Keep both or Replace.
 - **Discovery playlists:** For any artist, every song of theirs you don't have yet. Songs you hear to the end go to a "discovered" list to download or let go.
 - **New releases:** **Refresh…** checks every artist in your music for new albums, EPs and singles from the last week, month or year.
