@@ -150,7 +150,8 @@ object SysVolume {
  *  which needs the microphone permission: nothing is recorded); null when it can't be had. */
 @Composable
 fun rememberSpectrum(on: Boolean, failed: (String) -> Unit = {}): FloatArray? {
-    if (!on || !hasPermission(Perm.MIC) || org.omarchy.music.Remote.active) return null
+    if (on && org.omarchy.music.Remote.active) return rememberPcSpectrum()   // the PC's remote: the PC's sound
+    if (!on || !hasPermission(Perm.MIC)) return null
     val session = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? androidx.media3.exoplayer.ExoPlayer)?.audioSessionId ?: 0
     val target = remember { FloatArray(org.omarchy.music.Spectrum.BANDS) }
     DisposableEffect(session) {
@@ -170,6 +171,22 @@ fun rememberSpectrum(on: Boolean, failed: (String) -> Unit = {}): FloatArray? {
     }
     return target
 }
+/** The PC's sound's levels while this phone is its remote: asked of the PC about 20 times a second. */
+@Composable
+private fun rememberPcSpectrum(): FloatArray {
+    val target = remember { FloatArray(org.omarchy.music.Spectrum.BANDS) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        var misses = 0
+        while (true) {
+            val got = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { org.omarchy.music.Remote.levels() }
+            if (got != null) { misses = 0; got.copyInto(target, endIndex = minOf(got.size, target.size)) }
+            else { misses++; target.fill(0f) }
+            kotlinx.coroutines.delay(if (misses > 3) 2000L else 45L)   // the PC away (or too old): asked less often
+        }
+    }
+    return target
+}
+
 /** What the spectrum needs and why, when it isn't allowed yet. */
 const val SPECTRUM_ASK = "Android's visualizer reads the music this app plays, and for that it asks for the microphone permission. " +
     "The microphone itself is never used."

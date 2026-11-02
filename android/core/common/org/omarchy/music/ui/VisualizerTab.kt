@@ -456,7 +456,7 @@ fun rememberVis(on: Boolean, failed: (String) -> Unit = {}): VisState? {
         while (true) withFrameNanos { now ->
             val dt = if (last == 0L) 1f / 60f else ((now - last) / 1e9f).coerceIn(0.001f, 0.1f)
             last = now
-            if (s.step(target, Music.paused, dt)) s.frame++
+            if (s.step(target, if (org.omarchy.music.Remote.active) org.omarchy.music.Remote.status.paused else Music.paused, dt)) s.frame++
         }
     }
     return s
@@ -1093,7 +1093,7 @@ fun VisColorDot(bg: Color, dot: Brush) {
 fun VisualizerTab() {
     var allowed by remember { mutableStateOf(hasPermission(Perm.MIC)) }
     val ask = rememberPermission { allowed = it }
-    if (!allowed) {
+    if (!allowed && !org.omarchy.music.Remote.active) {   // the PC's remote: the PC's sound, no permission needed
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally) {
             Text(SPECTRUM_ASK, style = T.sub, textAlign = TextAlign.Center)

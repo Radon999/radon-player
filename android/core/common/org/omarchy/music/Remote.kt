@@ -109,6 +109,13 @@ object Remote {
 
     internal fun headers() = mapOf("Authorization" to "Bearer $token")   // (Sync too)
 
+    /** (blocking) The PC's visualizer levels now (its sound's bands, 0..1), for the visualizer here; null if it
+     *  can't be asked (a PC app too old to have them). */
+    fun levels(): FloatArray? = runCatching {
+        (httpJson("http://$host/levels", headers()) as? kotlinx.serialization.json.JsonArray)
+            ?.map { it.dbl?.toFloat() ?: 0f }?.toFloatArray()
+    }.getOrNull()
+
     private fun parse(e: JsonElement?): List<Track> =
         e?.let { runCatching { JSON.decodeFromJsonElement(ListSerializer(Track.serializer()), it) }.getOrNull() } ?: emptyList()
 

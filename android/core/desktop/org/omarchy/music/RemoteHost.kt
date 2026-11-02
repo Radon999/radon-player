@@ -106,6 +106,22 @@ object RemoteHost {
 
     private fun phone(ex: HttpExchange): Boolean = tokenOf(ex) != null
 
+    @Volatile private var levelsAskedAt = 0L
+    private var holding = false
+    /** The spectrum on while the phone asks for /levels, let go 4 seconds after it stops. */
+    private fun holdSpectrum() {
+        levelsAskedAt = System.currentTimeMillis()
+        synchronized(this) {
+            if (holding) return
+            holding = true
+            PcSpectrum.use()
+        }
+        Thread({
+            while (System.currentTimeMillis() - levelsAskedAt < 4000) Thread.sleep(1000)
+            synchronized(this) { holding = false; PcSpectrum.done() }
+        }, "phone-levels").apply { isDaemon = true }.start()
+    }
+
     /** On the screen's thread, waiting for the answer. */
     private fun <T> onUi(run: () -> T): T = runBlocking { withContext(Dispatchers.Main) { run() } }
 
@@ -120,6 +136,9 @@ object RemoteHost {
                 "/status" -> answer(ex, 200, onUi { status(q["qv"]) })
                 "/art" -> art(q["id"] ?: "")?.let { answer(ex, 200, it, "image/jpeg") } ?: answer(ex, 404, err("no picture"))
                 "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()) })   // Sync now, tapped here
+                // The visualizer's levels for the phone's (its remote): the spectrum runs while the phone asks
+                "/levels" -> { holdSpectrum(); answer(ex, 200, kotlinx.serialization.json.JsonArray(
+                    PcSpectrum.levels.map { kotlinx.serialization.json.JsonPrimitive((it * 1000).toInt() / 1000f) })) }
                 else -> answer(ex, 404, err("no such thing"))
             }
         }

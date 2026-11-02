@@ -554,6 +554,10 @@ object Moods {
 
     /** Settings: the Anthropic key for the AI reading (ends in _token: never in backups or sync), and the switch. */
     const val AI_KEY = "anthropic_token"
+    /** The key as pasted, without spaces or line breaks (a key copied from a wrapped line had one in the middle). */
+    fun cleanKey(k: String): String = k.filterNot { it.isWhitespace() }
+    /** A message with any key in it hidden, so it's never shown or logged. */
+    fun hideKey(msg: String): String = msg.replace(Regex("sk-ant-[A-Za-z0-9_\\-]+"), "sk-ant-…")
     const val AI_ON = "moods_ai"
     /** Set once "Read again with AI" has gone through the songs read on the device (or you chose to keep them). */
     const val AI_AGAIN_DONE = "moods_ai_again_done"
@@ -637,7 +641,7 @@ object Moods {
                         Music.scope.launch { Music.toast("AI reading stopped: $why. The words are read on this ${org.omarchy.music.ui.DEVICE} instead") }
                     }
                     LyricsMood.read(text)
-                } catch (e: Exception) { Music.scope.launch { aiStatus = "couldn't reach Anthropic: ${e.message?.take(100)}" }; LyricsMood.read(text) }
+                } catch (e: Exception) { Music.scope.launch { aiStatus = "couldn't reach Anthropic: ${hideKey(e.message.orEmpty()).take(100)}" }; LyricsMood.read(text) }
                 else -> LyricsMood.read(text)
             }
             val e = synchronized(lock) { known[p] } ?: MoodEntry(mtime = m, looked = true)
@@ -676,7 +680,7 @@ object Moods {
 
     /** A failed request in plain words. */
     private fun aiWhy(e: HttpError): String {
-        val msg = runCatching { JSON.parseToJsonElement(e.body)["error"]["message"].str }.getOrNull().orEmpty().take(160)
+        val msg = runCatching { JSON.parseToJsonElement(e.body)["error"]["message"].str }.getOrNull().orEmpty().let(::hideKey).take(160)
         return when {
             e.code == 401 -> "Anthropic says the key isn't valid (check it was copied whole)"
             e.code == 403 -> "the key isn't allowed to do this" + if (msg.isNotEmpty()) " ($msg)" else ""
@@ -688,14 +692,14 @@ object Moods {
 
     /** Test the key (Settings): one tiny request; done gets "" if it works, else why not. Costs a fraction of a cent. */
     fun testAi(done: (String) -> Unit) {
-        val key = Prefs.text(AI_KEY).trim()
+        val key = cleanKey(Prefs.text(AI_KEY))
         if (key.isEmpty()) { done("no key saved yet"); return }
         Music.bg({
             val body = JsonObject(mapOf("model" to JsonPrimitive(AI_MODEL), "max_tokens" to JsonPrimitive(5),
                 "messages" to JsonArray(listOf(JsonObject(mapOf("role" to JsonPrimitive("user"), "content" to JsonPrimitive("Say ok")))))))
             try { httpJson("https://api.anthropic.com/v1/messages", mapOf("x-api-key" to key, "anthropic-version" to "2023-06-01"), jsonBody(body)); "" }
             catch (e: HttpError) { aiWhy(e) }
-            catch (e: Exception) { "couldn't reach Anthropic: ${e.message?.take(100)}" }
+            catch (e: Exception) { "couldn't reach Anthropic: ${hideKey(e.message.orEmpty()).take(100)}" }
         }) { r, _ -> val why = r ?: "it didn't answer"; aiStatus = why; done(why) }
     }
 
@@ -703,7 +707,7 @@ object Moods {
      *  is sent, and the key goes nowhere else and is never logged), its answer read as a [LyricsReading]: a score for
      *  every mood, what the singer means, valence and energy. Costs a little per song, on your Anthropic account. */
     private fun aiRead(t: Track, words: String): LyricsReading {
-        val key = Prefs.text(AI_KEY).trim()
+        val key = cleanKey(Prefs.text(AI_KEY))
         val ask = "Song: ${t.title} by ${t.artist}\n\nLyrics:\n" + words.take(8000)
         val body = JsonObject(mapOf(
             "model" to JsonPrimitive(AI_MODEL),

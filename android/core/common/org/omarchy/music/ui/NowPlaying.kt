@@ -126,7 +126,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val cover = coverLook   // only the Now playing look takes the cover's colours and blurs it behind
     val visStyle = Vis.nowStyle()
     val visPane = ui.pane == "nowvis"   // the visualizer's settings in the cover's place: it runs there for the previews
-    val vis = if (micOk && (visStyle != "off" || visPane)) rememberVis(on = true) else null
+    val vis = if ((micOk || Remote.active) && (visStyle != "off" || visPane)) rememberVis(on = true) else null
     val visCol = if (cover || plain) cols.bars else C.accent
     val strength = nowStrength
     // The styles around a middle (Ring, Pulse…) go over the big cover while it shows, else they'd hide behind it.
@@ -344,19 +344,21 @@ private fun SongLine(ui: Ui, n: Now) {
                 suffix = if (t.album.isNotEmpty()) "  —  ${t.album}" else "")
             else Text("Open ☰ and pick a song to start", style = T.body.copy(color = SOFT))
         }
-        if (t != null && !n.remote) {
+        // ☆, ⋯ and Personalization, on the phone as on the PC (the phone as the PC's remote too: the song playing
+        // there is favorited here, and synced)
+        if (t != null) {
             Music.musicVersion
             val fav = Music.favorites.has(t)
             Glass(if (fav) Ico.STAR else Ico.STAR_LINE, "Favorite") { Music.setFavorite(listOf(t)) }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(if (onPhone) 8.dp else 10.dp))
             Box {
                 Glass(Ico.MORE, "More") { menu = true }
                 TrackMenu(t, RowPlace(listOf(t), 0), ui, menu) { menu = false }
             }
-            Spacer(Modifier.width(10.dp))
-            // Personalization right here (look, theme, background), so each change shows on this screen as it's made
-            Glass(Ico.PALETTE, "Personalization") { ui.pane = if (ui.pane == "looks") "art" else "looks" }
+            Spacer(Modifier.width(if (onPhone) 8.dp else 10.dp))
         }
+        // Personalization right here (look, theme, background), so each change shows on this screen as it's made
+        Glass(Ico.PALETTE, "Personalization") { ui.pane = if (ui.pane == "looks") "art" else "looks" }
     }
 }
 
@@ -784,7 +786,7 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
         while (true) withFrameNanos { now ->
             var moving = false
             for (b in levels.indices) {
-                val want = if (Music.paused) 0f else target[b]
+                val want = if (if (Remote.active) Remote.status.paused else Music.paused) 0f else target[b]
                 val have = levels[b]
                 // Android hands over ~20 spectra a second: rise most of the way at once, fall quickly, eased between.
                 val new = if (want > have) have + (want - have) * 0.7f else have - (have - want) * 0.3f

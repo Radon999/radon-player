@@ -723,7 +723,7 @@ private fun LyricsMoodsLines(ui: Ui) {
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             Pill("Get a key", quiet = true) { Services.open("https://platform.claude.com/settings/keys") }
             Pill("Save") {
-                org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, key.trim())
+                org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, org.omarchy.music.Moods.cleanKey(key))
                 // A key saved: the AI reading is on (the switch shows it); you can still turn it off.
                 if (key.isNotBlank()) { org.omarchy.music.Prefs.set(org.omarchy.music.Moods.AI_ON, true); on = true }
                 Music.toast(if (key.isBlank()) "Key taken off" else "Key saved: lyrics are read by the AI from now on")
@@ -735,7 +735,7 @@ private fun LyricsMoodsLines(ui: Ui) {
             }
         }
         val status = org.omarchy.music.Moods.aiStatus
-        if (status.isNotEmpty()) Text("Last AI problem: $status", style = T.sub.copy(color = C.red))
+        if (status.isNotEmpty()) Text("Last AI problem: ${org.omarchy.music.Moods.hideKey(status)}", style = T.sub.copy(color = C.red))
     }
 }
 
