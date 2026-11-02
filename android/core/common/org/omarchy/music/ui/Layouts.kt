@@ -96,9 +96,7 @@ fun tilePx(compact: Boolean): Int = when (LocalTileLayout.current) { "huge" -> 1
 fun fits(ui: Ui, vararg text: String): Boolean {
     val q = ui.filter?.trim().orEmpty()
     if (q.isEmpty()) return true
-    val words = norm(q).split(" ").filter { it.isNotEmpty() }
-    val all = text.joinToString(" ") { norm(it) }
-    return words.all { it in all }
+    return org.omarchy.music.searchHit(org.omarchy.music.searchWords(q), text.joinToString(" "))   // symbols don't matter
 }
 
 fun trackFits(ui: Ui, t: Track) = fits(ui, t.title, t.artist, t.album)

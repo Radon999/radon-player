@@ -17,6 +17,19 @@ fun norm(s: String?): String {
     return squash(NON_WORD.replace(ascii.lowercase(), " "))
 }
 
+/** Text as searches compare it: [norm] (no commas, dots or other symbols, any case or accent), with an apostrophe
+ *  joining its word ("Don't" is "dont"), so what's typed matches with or without them. */
+fun searchNorm(s: String?): String = norm((s ?: "").replace(Regex("['’‘`´]"), ""))
+
+/** The words of a search. */
+fun searchWords(q: String): List<String> = searchNorm(q).split(" ").filter { it.isNotEmpty() }
+
+/** Whether every word of a search is in text, with or without the spaces symbols left ("heysoul" finds "Hey, Soul"). */
+fun searchHit(words: List<String>, text: String): Boolean {
+    val t = searchNorm(text); val tight = t.replace(" ", "")
+    return words.all { it in t || it in tight }
+}
+
 private val NOISE_BRACKETS = Regex(
     "[(\\[][^)\\]]*\\b(official|video|audio|lyrics?|visuali[sz]er|hd|4k|mv|remaster(ed)?|feat|ft|with" +
         "|original|album version|explicit|clean|single version)\\b[^)\\]]*[)\\]]"

@@ -170,9 +170,9 @@ fun bestMatch(hits: List<Track>, artist: String, title: String, seconds: Int): T
 
 /** Your songs, artists and albums whose names have every word of q in them. */
 fun localMatches(songs: List<Track>, q: String): Found {
-    val words = norm(q).split(" ").filter { it.isNotEmpty() }
+    val words = searchWords(q)   // commas, apostrophes and other symbols don't matter
     if (words.isEmpty()) return Found(emptyList())
-    fun has(text: String) = norm(text).let { t -> words.all { it in t } }
+    fun has(text: String) = searchHit(words, text)
     val hits = songs.filter { has("${it.title} ${it.artist} ${it.album}") }
     val artists = sortedMapOf<String, String>()
     val albums = LinkedHashMap<String, Pair<Album, MutableList<Track>>>()
@@ -450,14 +450,14 @@ fun statsKey(title: String, artist: String): Pair<String, String> =
 /** A service's songs for a search, the best fits first: the song named just what you typed, then ones whose name and
  *  artist hold all your words, then the rest, each in the service's own order. */
 fun rankSongs(songs: List<Track>, q: String): List<Track> {
-    val words = norm(q).split(" ").filter { it.isNotEmpty() }
+    val words = searchWords(q)
     if (words.isEmpty() || songs.size < 2) return songs
-    val whole = norm(q)
+    val whole = searchNorm(q)
     fun score(t: Track): Int {
-        val title = norm(cleanTitle(t.title)); val all = norm("${t.title} ${t.artist}")
+        val title = searchNorm(cleanTitle(t.title))
         return when {
-            title == whole || norm("${cleanTitle(t.title)} ${t.artist.split(",")[0]}") == whole || norm("${t.artist.split(",")[0]} ${cleanTitle(t.title)}") == whole -> 3
-            words.all { it in all } -> 2
+            title == whole || searchNorm("${cleanTitle(t.title)} ${t.artist.split(",")[0]}") == whole || searchNorm("${t.artist.split(",")[0]} ${cleanTitle(t.title)}") == whole -> 3
+            searchHit(words, "${t.title} ${t.artist}") -> 2
             words.any { it in title } -> 1
             else -> 0
         }
