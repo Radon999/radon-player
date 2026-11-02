@@ -33,6 +33,13 @@ fun DiscordAppId() {
             style = T.sub, modifier = Modifier.weight(1f).padding(end = 8.dp))
         Pill(if (open) "Close" else "Change the name", quiet = true) { open = !open }
     }
+    // Whether Discord is showing your song now, or why not (Discord closed, it said no…)
+    if (Discord.on) Text(when (Discord.status) {
+        "" -> "Looking for Discord…"
+        "on" -> "Connected to Discord: your song shows on your profile while it plays"
+        else -> "Not showing on Discord: ${Discord.status}" + if (Discord.status.startsWith("Discord isn't open"))
+            " (open the Discord app on this PC; in Discord, Settings › Activity Privacy › Share your detected activities must be on)" else ""
+    }, style = T.sub.copy(color = if (Discord.status == "on") C.accent else C.muted), modifier = Modifier.padding(vertical = 2.dp))
     if (!open) return
     Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
         Text("Discord shows the name of the Discord application the app uses, and it can only be set on Discord's site. " +
