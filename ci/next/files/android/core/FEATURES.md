@@ -48,7 +48,7 @@ Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark a
 Like Spotify's DJ, but built only from *your* listening. It plays short sets of songs and talks between them like a radio host.
 
 - **Sets made for you:** What you've had on repeat, what you usually play at this time of day, favorites, throwbacks to a year you played something to death, songs you loved but haven't heard in months, your current mood, a genre you've been into lately, and (if you like) new songs and new artists like yours. Songs you keep skipping are left out.
-- **Never repetitive:** A kind of set doesn't come back for about 15 sets, and the same goes for its fun facts. This is remembered after the app closes.
+- **Never repetitive:** A song the DJ plays can't come back for 20 sets: when its kind of set comes round again (the same mood, This time of day…), another song of that kind takes its place. A kind of set doesn't come back for about 15 sets, and the same goes for its fun facts. All of this is remembered after the app closes.
 - **It talks:** With **Voice on**, the DJ speaks between sets, never over a song: what's coming up and why ("Let's take it back to 2020…"), and now and then a fact about your listening (hours on a song, when you first played it, your top mood this week, your most played artist this month). **Skip the talk** goes straight to the music.
 - **The voice:** One natural female voice. On the PC, **Get the natural voice** downloads it once (about 400 MB) and it runs on your PC. The phone uses Google's natural voice. Unusual names are said the way they sound.
 - **Ask for something:** Type or say an artist, a genre, a decade ("80s"), a mood ("sad songs") or a vibe ("workout"), and the DJ builds a set for it from your own songs first.
