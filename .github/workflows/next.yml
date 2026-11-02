@@ -4,7 +4,8 @@
 # present, the code goes to radon-player-next as one new commit (its first line: the branch; the rest: the message).
 # ci/next/REMOVE: paths (one a line) taken out after the patches. ci/next/RELEASE (first line: the tag, second: the
 # title, the rest: the notes): the phone app is built as the real one ("Radon Player", over 2.x) and, with ci/next/PUSH,
-# a GitHub release is made on the pushed commit with OmarchyMusic.apk and the PC's .msi. Delete both after a release.
+# a GitHub release is made on the pushed commit with RadonPlayer.apk, OmarchyMusic.apk (the same APK, its old name) and the
+# PC's .msi. Delete both after a release.
 # ci/next/files/: whole files copied over the patched code (FEATURE_GUIDE is made again from FEATURES.md after).
 name: Next build
 on:
@@ -227,6 +228,7 @@ jobs:
           set -euo pipefail
           V="${TAG#v}"
           cp apk/app-release.apk OmarchyMusic.apk
+          cp apk/app-release.apk RadonPlayer.apk   # 3.0.1 on look for this name; 3.0.0 and older for OmarchyMusic.apk
           M=$(ls msi/*.msi | head -1); cp "$M" "Radon-Player-$V.msi"
           tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$tools/aapt2" dump badging OmarchyMusic.apk > badging.txt; head -1 badging.txt
@@ -236,5 +238,5 @@ jobs:
           ls -la OmarchyMusic.apk "Radon-Player-$V.msi"
           TITLE="$(sed -n 2p work/ci/next/RELEASE)"; sed 1,2d work/ci/next/RELEASE > notes.md
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$COMMIT" --draft --title "$TITLE" --notes-file notes.md \
-            OmarchyMusic.apk "Radon-Player-$V.msi"
+            RadonPlayer.apk OmarchyMusic.apk "Radon-Player-$V.msi"
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
