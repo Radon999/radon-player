@@ -1239,6 +1239,7 @@ object Music {
             if (changed == true) musicVersion++
             adoptFiles()
             relinkMissing()   // songs you moved: your playlists follow them
+            fillDownloadGenres()   // downloads saved without a genre: one looked up and written in
             accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since
             bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
@@ -1265,6 +1266,33 @@ object Music {
         toast("“${t.title}” had moved: found it and linked it")
         loadCurrent(autoplay = true)
         return true
+    }
+
+    /** Downloads with no genre in their tags (saved before downloads had one): each looked up once (Apple, Deezer,
+     *  Last.fm) and written into the file, so they leave Unknown genre. */
+    private var genresBusy = false
+    private fun fillDownloadGenres() {
+        if (genresBusy) return
+        genresBusy = true
+        bg({
+            val tried = Prefs.text("genres_tried").split(',').filter { it.isNotEmpty() }.toMutableSet()
+            var done = 0
+            for (e in lib.items.values.toList()) {
+                if (e.id in tried || e.format == "m4a" || !Tags.writable(e.file)) continue
+                tried += e.id
+                val has = runCatching { Tags.read(ctx, listOf(e.file))["genre"] }.getOrNull()
+                if (!has.isNullOrBlank()) continue
+                val g = runCatching { GenreLookup.of(e.artist, e.title, e.album) }.getOrDefault("")
+                if (g.isNotEmpty() && runCatching { Tags.write(ctx, e.file, mapOf("genre" to g)) }.isSuccess) {
+                    lib.update(e.id) { it.copy(genre = g) }; done++
+                }
+            }
+            Prefs.setText("genres_tried", tried.joinToString(","))
+            done
+        }) { n, _ ->
+            genresBusy = false
+            if ((n ?: 0) > 0) { toast("Genres added to $n download${if (n != 1) "s" else ""}"); rescan() }
+        }
     }
 
     /** Songs whose files moved: each old one (by id) becomes the new one in the queue, your playlists and favorites. */

@@ -217,10 +217,27 @@ fun soloName(names: Map<String, Int>, solo: Set<String> = emptySet()): String {
 fun ownArtists(credit: String?): List<String> {
     val c = credit?.trim().orEmpty()
     if (c.isEmpty()) return emptyList()
-    val many = Regex(" & | x | X | and |;|\\s(?:feat\\.?|ft\\.?|featuring|with)\\s", RegexOption.IGNORE_CASE)
+    // "and" is never split: it's in band names ("Of Monsters and Men", "Fitz and The Tantrums", "Esquivel and His
+    // Orchestra"), and two artists are credited with "&", "x" or a comma
+    val many = Regex(" & | x |;|\\s(?:feat\\.?|ft\\.?|featuring|with)\\s", RegexOption.IGNORE_CASE)
     if (!many.containsMatchIn(c)) return listOf(c)
-    return c.split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+| & | x | X | and ", RegexOption.IGNORE_CASE))
-        .map { it.trim() }.filter { it.isNotEmpty() }
+    val out = ArrayList<String>()
+    for (part in c.split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE))) {
+        val p = part.trim()
+        if (p.isEmpty()) continue
+        val pieces = p.split(Regex(" & | x (?![&+])"))   // ("Lil Nas X & Jack Harlow": the X is the name's)
+        // A band named "A & B" ("Mumford & Sons", "Florence + the Machine"-like "& The …") stays whole
+        if (pieces.size == 2 && bandTail(pieces[1])) out += p else out += pieces.map { it.trim() }.filter { it.isNotEmpty() }
+    }
+    return out.distinct()
+}
+
+/** The end of a band's name after "&" ("Sons", "The Machine", "His Orchestra"), not a second artist. */
+fun bandTail(s: String): Boolean {
+    val t = s.trim().lowercase()
+    return t.startsWith("the ") || t.startsWith("his ") || t.startsWith("her ") || t.startsWith("their ") ||
+        t in setOf("sons", "men", "friends", "co", "co.", "company", "daughters", "brothers", "sisters", "family", "crew", "band",
+            "orchestra", "the gang", "gang", "boys", "girls")
 }
 
 // ---- Whose plays a joint credit's are (the desktop's artist_resolver) ----

@@ -370,6 +370,9 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         "artist" to c["artists"].list.mapNotNull { it["name"].str },
         "album" to listOfNotNull(c.path("album", "title").str?.let { releaseName(it, album["type"].str) }),   // "Title - Single", as taggers
         "albumartist" to listOfNotNull(album.path("artist", "name").str),
+        // Tidal gives no genre: Apple's, Deezer's or Last.fm's for the song
+        "genre" to listOfNotNull(runCatching { GenreLookup.of(c["artists"].list.firstOrNull()?.get("name").str ?: t.artist,
+            Tidal.tidalTitle(c), c.path("album", "title").str ?: t.album) }.getOrNull()?.ifEmpty { null }),
         "tracknumber" to listOfNotNull(c["trackNumber"].long?.takeIf { it > 0 }?.toString()),
         "discnumber" to listOfNotNull(c["volumeNumber"].long?.takeIf { it > 0 }?.toString()),
         "date" to listOfNotNull((album["releaseDate"].str ?: c["streamStartDate"].str)?.take(10)),
