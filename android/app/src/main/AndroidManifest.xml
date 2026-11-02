@@ -24,6 +24,9 @@
     <queries>
         <package android:name="com.instagram.android" />
         <package android:name="com.facebook.katana" />
+        <!-- Android Auto's connection state (wired or wireless), for the truck's own equalizer -->
+        <package android:name="com.google.android.projection.gearhead" />
+        <provider android:authorities="androidx.car.app.connection" />
     </queries>
 
     <application

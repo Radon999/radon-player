@@ -52,9 +52,16 @@ object AudioQuality {
     }
 
     /** ReplayGain from a song's tags (FLAC's Vorbis comments, MP3's TXXX frames): its gain in dB, or null. */
-    fun replayGain(metadata: androidx.media3.common.Metadata?, album: Boolean): Double? {
+    fun replayGain(metadata: androidx.media3.common.Metadata?, album: Boolean): Double? =
+        rgTag(metadata, if (album) "REPLAYGAIN_ALBUM_GAIN" else "REPLAYGAIN_TRACK_GAIN")?.takeIf { it in -30.0..25.0 }
+
+    /** The song's (or album's) loudest sample as ReplayGain measured it (1.0 is full scale), so its boost can stop short
+     *  of clipping. */
+    fun replayPeak(metadata: androidx.media3.common.Metadata?, album: Boolean): Double? =
+        rgTag(metadata, if (album) "REPLAYGAIN_ALBUM_PEAK" else "REPLAYGAIN_TRACK_PEAK")?.takeIf { it > 0.0 && it < 10.0 }
+
+    private fun rgTag(metadata: androidx.media3.common.Metadata?, want: String): Double? {
         metadata ?: return null
-        val want = if (album) "REPLAYGAIN_ALBUM_GAIN" else "REPLAYGAIN_TRACK_GAIN"
         for (i in 0 until metadata.length()) {
             val e = metadata[i]
             val (k, v) = when (e) {

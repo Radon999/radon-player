@@ -29,8 +29,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 20102   // major·10000 + minor·100 + patch
-        versionName = "2.1.2"
+        versionCode = 30000   // major·10000 + minor·100 + patch
+        versionName = "3.0.0"
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
         buildConfigField("String", "TIDAL_CLIENT_SECRET", "\"${tidal.getProperty("client_secret", "")}\"")
     }
@@ -59,6 +59,8 @@ android {
         jvmTarget = "17"
         freeCompilerArgs += listOf("-opt-in=androidx.media3.common.util.UnstableApi")
     }
+    // The shared core (common to the phone and the PC) and the phone's side of it
+    sourceSets["main"].java.srcDirs("../core/common", "../core/android")
     buildFeatures {
         compose = true
         buildConfig = true
@@ -69,6 +71,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
+    implementation(project(":ui-common"))
     val compose = "1.7.0-rc01"
     val media3 = "1.4.1"
     implementation("androidx.core:core-ktx:1.13.1")

@@ -31,18 +31,12 @@ class MusicService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private var switching: Job? = null
     private var players = emptyList<Player>()
+    private var retriedFor: String? = null   // the song played again once after an audio error
 
     override fun onCreate() {
         super.onCreate()
         Music.init(this)
-        val renderers = object : DefaultRenderersFactory(this) {
-            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                EqSink(DefaultAudioSink.Builder(context)
-                    .setAudioProcessors(arrayOf(Music.eqProcessor))
-                    .setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .build(), Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
-        }.setEnableAudioFloatOutput(true)   // hi-res FLAC stays 24-bit through the EQ
+        val renderers = ExoEngine.renderers(this, Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
         val exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true)
@@ -69,16 +63,35 @@ class MusicService : MediaLibraryService() {
                 Music.nowFormatOf = Music.current()?.id ?: ""
                 // Bit-perfect: ask for the DAC at this song's own rate; else ReplayGain from its tags.
                 if (f != null) {
-                    val rate = f.sampleRate; val bits = if (f.pcmEncoding != androidx.media3.common.Format.NO_VALUE) Music.pcmBits(f.pcmEncoding) else 0
+                    val rate = f.sampleRate; val bits = if (f.pcmEncoding != androidx.media3.common.Format.NO_VALUE) pcmBits(f.pcmEncoding) else 0
                     if (Music.bitPerfect) Music.bg({ Music.dacNote = AudioQuality.applyBitPerfect(this@MusicService, true, rate, bits) })
                     Music.eqProcessor.rgGain = if (Music.bitPerfect || Music.replayGain == "off") 1.0 else
-                        (AudioQuality.replayGain(f.metadata, Music.replayGain == "album")
-                            ?: AudioQuality.replayGain(f.metadata, Music.replayGain != "album"))?.let { Music.rgFactor(it) } ?: 1.0
+                        run {
+                            val album = Music.replayGain == "album"
+                            val (db, peak) = AudioQuality.replayGain(f.metadata, album)?.let { it to AudioQuality.replayPeak(f.metadata, album) }
+                                ?: AudioQuality.replayGain(f.metadata, !album)?.let { it to AudioQuality.replayPeak(f.metadata, !album) } ?: (null to null)
+                            db?.let { Music.rgFactor(it, peak) } ?: 1.0
+                        }
                 }
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                // The sound output refused the song (an audio error, as Android Auto's output gave on some songs): tried
+                // again at once without HQ resampling, before anything is said. Noted in Settings › Problems.
+                val id = Music.current()?.id
+                val audio = error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
+                    error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED ||
+                    (error as? androidx.media3.exoplayer.ExoPlaybackException)?.type == androidx.media3.exoplayer.ExoPlaybackException.TYPE_RENDERER
+                if (audio && id != null && retriedFor != id) {
+                    retriedFor = id
+                    Crashes.caught(error, "The sound output refused “${Music.current()?.title}” (${error.errorCodeName}): played again without HQ resampling")
+                    ResampleProcessor.plain = true
+                    exo.prepare()
+                    return
+                }
                 if (Music.streaming) Music.streamBroke()
+                // The song's file isn't where it was (moved or renamed): your copy of it found, linked everywhere, played
+                else if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND && Music.fileGone()) Unit
                 else {
                     Music.toast("Couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")
                     Music.paused = true
@@ -116,7 +129,7 @@ class MusicService : MediaLibraryService() {
                 runCatching { PlayerWidget.update(this@MusicService) }
             }
         }
-        Music.player = exo
+        Music.player = ExoEngine(exo, this)
         Music.playerReady()
         LockScreen.register(this)
     }
@@ -129,22 +142,22 @@ class MusicService : MediaLibraryService() {
         val cp = CastPlayer(ctx)
         cp.addListener(object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                if (Music.cast === cp) Music.paused = !playWhenReady
+                if ((Music.cast as? ExoEngine)?.p === cp) Music.paused = !playWhenReady
             }
             override fun onPlaybackStateChanged(state: Int) {
-                if (Music.cast !== cp) return
+                if ((Music.cast as? ExoEngine)?.p !== cp) return
                 if (state == Player.STATE_ENDED) Music.trackEnded()
                 if (state == Player.STATE_READY) cp.duration.takeIf { it > 0 }?.let { Music.duration = it / 1000.0 }
             }
             override fun onPlayerError(error: PlaybackException) {
-                if (Music.cast === cp) Music.toast("The cast device couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")
+                if ((Music.cast as? ExoEngine)?.p === cp) Music.toast("The cast device couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")
             }
         })
         cp.setSessionAvailabilityListener(object : SessionAvailabilityListener {
             override fun onCastSessionAvailable() {
                 val dev = ctx.sessionManager.currentCastSession?.castDevice
                 Music.castHost = dev?.ipAddress?.hostAddress ?: ""
-                Music.castStarted(cp, dev?.friendlyName ?: "the cast device")
+                Music.castStarted(ExoEngine(cp, this@MusicService), dev?.friendlyName ?: "the cast device")
             }
             override fun onCastSessionUnavailable() = Music.castStopped()
         })

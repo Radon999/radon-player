@@ -18,12 +18,17 @@ class AlbumPlaysTest {
         val h = "half•alive"
         val plays = listOf(AlbumPlay("Songs", h, "Songs", 5), AlbumPlay("Songs", h, "Persona", 7), AlbumPlay("Hot Mess", h, "Persona", 3),
             AlbumPlay("Ruby", "Bad Suns", "Ruby EP", 4), AlbumPlay("Ruby", "Bad Suns", "Ruby - Single", 1))
-        val rows = albumPlaysPlan(plays, emptyList(), emptyMap()).associateBy { it.title }
+        val mine = listOf(Track("a", title = "Hot Mess", artist = h, album = "Persona"), Track("b", title = "Ruby", artist = "Bad Suns", album = "Ruby EP"))
+        val rows = albumPlaysPlan(plays, mine, emptyMap()).associateBy { it.title }
         assertEquals("Persona", rows["Songs"]!!.to)
         assertEquals("Ruby EP", rows["Ruby"]!!.to)
         assertTrue("Hot Mess" !in rows)
         val picks = mapOf(albumPlayKey("Songs", h, "Songs") to "Persona")
-        assertTrue(albumPlaysPlan(plays, emptyList(), picks).none { it.title == "Songs" })
+        assertTrue(albumPlaysPlan(plays, mine, picks).none { it.title == "Songs" })
+        // An album that isn't on this device: the single stays a single.
+        assertTrue(albumPlaysPlan(plays, emptyList(), emptyMap()).isEmpty())
+        val heathens = listOf(AlbumPlay("Heathens", "twenty one pilots", "Heathens - Single", 9), AlbumPlay("Heathens", "twenty one pilots", "TOPxMM - EP", 2))
+        assertTrue(albumPlaysPlan(heathens, mine, emptyMap()).none { it.title == "Heathens" })
     }
 
     @Test fun duplicates() {

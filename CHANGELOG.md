@@ -4,6 +4,19 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 3.0.0: One app (Windows and Android)
+The biggest update yet: the phone and PC apps are now **one app built from the same code**, so every screen, setting and feature matches on both. Everything the app does is in **Features** (☰ menu), and in [FEATURES.md](android/core/FEATURES.md).
+- **Moods:** every song sorted into 12 moods from how it sounds and what its words say (optionally read by Claude with your own Anthropic key), written into your files, with Mood lists, mood smart playlists and mood stats
+- **The DJ:** sets built from your own listening, introduced in a natural female voice, with facts about your listening, mood sets and new artists for you
+- **Wrapped:** your week, month, year or all time, with top 15 lists, moods, devices, playlists, listener type and a summary card to save or share
+- **Phone + PC:** the phone as the PC's remote (with the visualizer), automatic sync of stats, moods, downloads, tag changes and synced playlists
+- **Sound:** Clip guard, Smooth distortion, Dither, HQ resampling, Loudness compensation and Detail on from the start; per-song volume, EQ and speed
+- **Library:** smart playlists, Albums/EPs/Singles, Missing from this album, 30 neon looks, 30 visualizer styles, Find tags online, Discord with album covers, and much more
+
+### Good to know
+- **Android:** install OmarchyMusic.apk over 2.x (same signature, your library and settings stay).
+- **Windows:** the PC app is now an .msi installer (Radon-Player-3.0.0.msi). Your settings and stats from 2.x are brought over the first time it starts. Uninstall the old 2.x app (and any "Radon Player Next" test build) first; your data stays.
+
 ## 2.1.2: Boost (Windows and Android)
 - Equalizer › Boost: a fader from normal (the bottom) up to 12 dB louder, for headphones that are too quiet. It's on everything you play, not one song, and each output keeps its own (the car stays at normal). A red line marks how far it goes cleanly: the EQ's own pre-cut back, plus a couple of dB the limiter does without being heard. Above the line the limiter squashes the peaks to keep them from clipping, and the fader turns red
 

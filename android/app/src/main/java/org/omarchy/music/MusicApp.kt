@@ -13,10 +13,21 @@ class MusicApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         Crashes.init(this)
+        // The last start closed with a crash within seconds: this time nothing starts but the report (the window shows
+        // it, to send on), so a crash at start can always be seen and fixed.
+        val starting = java.io.File(filesDir, "starting")
+        val report = java.io.File(filesDir, "problems.txt")
+        if (starting.exists() && report.isFile && System.currentTimeMillis() - report.lastModified() < 15 * 60_000L) {
+            starting.delete(); safeMode = true; return
+        }
+        runCatching { starting.writeText("1") }
+        android.os.Handler(mainLooper).postDelayed({ starting.delete() }, 10_000)
         Music.init(this)
         LastFm.init(this)
         SpotifyHistory.init(this)
         DeezerHistory.init(this)
+        YouTubeHistory.init(this)
+        TidalHistory.init(this)
         AppleHistory.init(this)
         NewReleases.init(this)
         Stats.init(this)
@@ -28,10 +39,17 @@ class MusicApp : Application(), ImageLoaderFactory {
         runCatching { Loudness.start(this) }
     }
 
+    companion object {
+        @Volatile var safeMode = false   // the last start crashed: only the crash report is shown
+    }
+
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .components { add(FileArtFetcher.Factory()) }
         .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.2).build() }
-        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("art")).maxSizeBytes(200L * 1024 * 1024).build() }
+        // Every cover from the web kept on the phone after its first load (512 MB, the oldest go first), whatever the
+        // server says about caching: shown from there after, never downloaded again.
+        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("art")).maxSizeBytes(512L * 1024 * 1024).build() }
+        .respectCacheHeaders(false)
         .crossfade(true)
         .build()
 }
