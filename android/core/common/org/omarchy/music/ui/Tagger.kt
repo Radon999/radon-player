@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -159,12 +160,73 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
         androidx.compose.material3.Checkbox(renameFiles, { renameFiles = it })
         Text("Rename the file${if (songs.size != 1) "s" else ""} too (the new title in the file name)", style = T.body)
     }
+    // Find tags online: each song's title, artist, album, year, track and genre looked up; shown before anything is saved
+    var finding by remember { mutableStateOf(false) }
+    var found by remember { mutableStateOf<List<Pair<Track, Map<String, Pair<String, String>>>>?>(null) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Pill("Save the tags") {
             if (typed.isEmpty()) Music.toast("Nothing changed")
             else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
         }
+        Pill(if (finding) "Finding tags…" else "Find tags online", quiet = true) {
+            if (finding) return@Pill
+            finding = true
+            Music.bg({
+                songs.map { s ->
+                    val f = Tags.editableAny(s)!!
+                    val cur = runCatching { Tags.read(Music.ctx, listOf(f)) }.getOrDefault(emptyMap())
+                    val got = org.omarchy.music.TagFinder.find(cur["title"] ?: s.title, cur["artist"] ?: s.artist, cur["album"] ?: s.album)
+                    s to got.mapNotNull { (k, v) -> val was = cur[k].orEmpty(); if (was.trim() == v.trim()) null else k to (was to v) }.toMap()
+                }
+            }) { res, err ->
+                finding = false
+                when {
+                    res == null -> Music.toast("Couldn't look them up: ${err?.message?.take(80)}")
+                    res.all { it.second.isEmpty() } -> Music.toast(if (songs.size == 1) "Its tags already match what's online (or it wasn't found)"
+                        else "Their tags already match what's online (or they weren't found)")
+                    else -> found = res.filter { it.second.isNotEmpty() }
+                }
+            }
+        }
     }
+    found?.let { list -> FoundTags(list, onDone = { found = null }) }
+}
+
+/** What Find tags online found, field by field (what it is now → what it would be), each ticked to apply; Apply writes
+ *  the ticked ones, Cancel nothing. */
+@Composable
+private fun FoundTags(list: List<Pair<Track, Map<String, Pair<String, String>>>>, onDone: () -> Unit) {
+    val keep = remember(list) { mutableStateMapOf<String, Boolean>().apply { list.forEach { (t, m) -> m.keys.forEach { put(t.id + "|" + it, true) } } } }
+    androidx.compose.material3.AlertDialog(onDismissRequest = onDone, containerColor = C.light,
+        title = { Text("Apply these tags?", style = T.title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Found online. Untick any you'd rather keep as they are. Moods aren't changed.", style = T.sub)
+                list.forEach { (t, m) ->
+                    if (list.size > 1) Text(t.title, style = T.title, modifier = Modifier.padding(top = 6.dp))
+                    m.forEach { (k, v) ->
+                        val key = t.id + "|" + k
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { keep[key] = keep[key] != true }) {
+                            androidx.compose.material3.Checkbox(keep[key] == true, { keep[key] = it })
+                            Column {
+                                Text(Tags.FIELDS.firstOrNull { it.first == k }?.second ?: k, style = T.sub)
+                                Text("${v.first.ifEmpty { "(empty)" }}  →  ${v.second}", style = T.body)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton({
+            var n = 0
+            list.forEach { (t, m) ->
+                val ch = m.filterKeys { keep[t.id + "|" + it] == true }.mapValues { it.value.second }
+                if (ch.isNotEmpty()) { Music.editTags(listOf(t), ch); n++ }
+            }
+            if (n == 0) Music.toast("Nothing applied")
+            onDone()
+        }) { Text("Apply", color = C.accent) } },
+        dismissButton = { androidx.compose.material3.TextButton(onDone) { Text("Cancel", color = C.muted) } })
 }
 
 /** Mood, a row of the Tags tab under Track that looks like the other fields: the songs' moods (every one that fits, the
