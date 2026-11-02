@@ -512,6 +512,13 @@ object Wrapped {
             val web = picture(s.art).let { if (big && it.isNotEmpty()) bigLastfm(it) else it }
             val art = m.saved.ifEmpty { web }.ifEmpty {
                 if (ownCover(m.file)) "" else runCatching { Pictures.deezerPace(); deezerCover(s.artist, s.title) }.getOrNull() ?: ""
+            }.ifEmpty {
+                // Not on Deezer either (an old EP, a demo): the app's own song cover finder (the service, Last.fm,
+                // iTunes), as Most played uses; else the artist's picture, so the row isn't left blank.
+                if (ownCover(m.file)) "" else runCatching {
+                    SongCovers.look(Track(id = "", source = "lastfm", title = s.title, artist = s.artist))
+                        .ifEmpty { SongCovers.fallback(s.title, s.artist) }
+                }.getOrNull() ?: ""
             }
             return s.copy(file = m.file, art = art)
         }
@@ -520,6 +527,8 @@ object Wrapped {
             val web = picture(a.art).let { if (big && it.isNotEmpty()) bigLastfm(it) else it }
             val art = m.saved.ifEmpty { web }.ifEmpty {
                 if (ownCover(m.file)) "" else runCatching { Pictures.deezerPace(); deezerAlbumCover(a.artist, bareRelease(a.name)) }.getOrNull() ?: ""
+            }.ifEmpty {   // nothing has it: the artist's picture, so the row isn't left blank
+                if (ownCover(m.file)) "" else runCatching { Pictures.known(a.artist)?.let { p -> p.saved.takeIf { it.isNotEmpty() && File(it).exists() } ?: p.image } }.getOrNull() ?: ""
             }
             return a.copy(file = m.file, art = art)
         }
