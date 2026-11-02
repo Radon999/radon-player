@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
 import java.io.File
 
 /** The app: your queue and what's playing, your music, the services and the settings.
@@ -484,7 +485,28 @@ object Music {
     }
 
     /** A song's genre, as its file says (songs without one: Unknown genre). */
-    fun genreOf(t: Track): String = LocalFiles.idOf(t.file ?: lib.items[t.id]?.file)?.let { local.genres[it] } ?: "Unknown genre"
+    fun genreOf(t: Track): String {
+        val e = lib.items[t.id]
+        val id = LocalFiles.idOf(t.file ?: e?.file)
+        return id?.let { genreFix[it] }?.takeIf { it.isNotBlank() }   // written here since the last library read
+            ?: e?.genre?.takeIf { it.isNotBlank() }                    // a download: its own genre
+            ?: id?.let { local.genres[it] }?.takeIf { it.isNotBlank() } ?: "Unknown genre"
+    }
+
+    /** Genres written into files here, by file: the phone's media library can take a while to notice. */
+    private val genreFix: MutableMap<String, String> by lazy {
+        java.util.concurrent.ConcurrentHashMap(runCatching { JSON.decodeFromString(
+            GENRE_FIX_SER,
+            Prefs.text("genre_fix").ifEmpty { "{}" }) }.getOrDefault(emptyMap()))
+    }
+    private val GENRE_FIX_SER = kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer())
+    private fun noteGenre(file: String, g: String) {
+        val id = LocalFiles.idOf(file) ?: return
+        genreFix[id] = g
+        Prefs.setText("genre_fix", JSON.encodeToString(
+            GENRE_FIX_SER,
+            genreFix.toMap()))
+    }
 
     /** Your songs by genre, the most songs first. */
     fun genres(): List<Pair<String, List<Track>>> = mySongs().groupBy { genreOf(it) }.toList()
@@ -1277,17 +1299,21 @@ object Music {
         bg({
             val tried = Prefs.text("genres_tried").split(',').filter { it.isNotEmpty() }.toMutableSet()
             var done = 0
+            val read = Prefs.text("genres_read").split(',').filter { it.isNotEmpty() }.toMutableSet()
             for (e in lib.items.values.toList()) {
+                if (e.genre.isNotBlank() || (e.id in tried && e.id in read)) continue
+                read += e.id
+                val has = runCatching { Tags.read(ctx, listOf(e.file))["genre"] }.getOrNull()
+                if (!has.isNullOrBlank()) { lib.update(e.id) { it.copy(genre = has.trim()) }; done++; continue }   // tagged: keep it
                 if (e.id in tried || e.format == "m4a" || !Tags.writable(e.file)) continue
                 tried += e.id
-                val has = runCatching { Tags.read(ctx, listOf(e.file))["genre"] }.getOrNull()
-                if (!has.isNullOrBlank()) continue
                 val g = runCatching { GenreLookup.of(e.artist, e.title, e.album) }.getOrDefault("")
                 if (g.isNotEmpty() && runCatching { Tags.write(ctx, e.file, mapOf("genre" to g)) }.isSuccess) {
                     lib.update(e.id) { it.copy(genre = g) }; done++
                 }
             }
             Prefs.setText("genres_tried", tried.joinToString(","))
+            Prefs.setText("genres_read", read.joinToString(","))
             done
         }) { n, _ ->
             genresBusy = false
@@ -2131,6 +2157,7 @@ object Music {
                 val e = lib.items[t.id]
                 val file = e?.file ?: Tags.editableAny(t) ?: continue   // a download, or (PC) a file of yours
                 val c = try { Tags.write(ctx, file, changes) } catch (x: Exception) { failed += "${t.title}: ${x.message}"; continue }
+                if (changes.keys.any { it.equals("genre", true) }) noteGenre(file, c["GENRE"]?.firstOrNull() ?: "")
                 val title = c["TITLE"]?.firstOrNull() ?: e?.title ?: t.title
                 if (renameFiles && FileTags.canMove && title != (e?.title ?: t.title))
                     renamedFile(file, e?.title ?: t.title, title)?.let { moves += file.replace('\\', '/') to it.replace('\\', '/') }
