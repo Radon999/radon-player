@@ -24,12 +24,14 @@ Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark a
 - **The words:** **Read moods from lyrics** reads each song's lyrics for what they're about. It reads whole lines, not single words: it knows "wash my blues away" is relief, not sadness, and understands "not", "used to… but now" and stories about someone else. Instrumentals use the sound alone.
 - **AI reading (optional):** Paste your own Anthropic API key (Settings › Scanner › Lyrics & moods) and Claude reads the lyrics instead, catching irony, sayings and sad stories told cheerfully. It costs a little per song on your Anthropic account. The key stays on your device, never in backups or sync. **Test the key** checks it works.
 - **Put together:** The sound counts more for Energetic, Party, Chill and Focus; the words count more for Sad, Romantic and Dark. A clearly upbeat song isn't made sad by one sad line. The song's genre and, with Last.fm, the tags people gave it help too.
+- **A best guess, always:** When a song's sound and words disagree (a happy-sounding song with sad words), it can be both; a song the app is unsure of still gets its likeliest mood, never none. Fix any that are off in the Tagger as you hear them.
 
 ### Fixing and checking moods
 
 - **Fix a mood:** Long-press a song (right-click on the PC) › **Tagger…** › Tags › **Mood**, and tick every mood that fits. It's saved straight away.
 - **It learns:** When you fix a song, songs that sound like it and the same artist's other songs move a little the same way.
 - **Check these:** The Moods tab lists songs it isn't sure about (or whose sound and words disagree). Play each one, tick the right moods and Save, or tap **Looks right**.
+- **Rescan moods:** Only for when something went wrong and your moods or mood stats are lost or spoilt. Every song is heard again and its words read again (by the AI when it's on), and the new moods replace the ones the last scan wrote into your files. Moods you picked yourself stay.
 
 ### Moods stay with your songs
 
@@ -179,6 +181,8 @@ Also: **Bit-perfect** sends songs to a USB DAC (phone, Android 14+) or the PC's 
 - **Previews in the menus:** Look, Theme and Layout each show a picture and a description of every choice: on the PC, point at one to see it big at the top of the menu; on the phone, each one's description is under its name. A layout's picture shows the main screen and Now playing side by side.
 - **Effects for your own look:** 31 to pick from in Make your own look, any number at once, drawn behind everything so they go with every theme and layout: twinkling stars, shooting stars, aurora, a synthwave grid, a retro sun, scanlines, film grain, vignette, bokeh, rain, snow, fireflies, bubbles, waves, mountains, a city skyline, halftone, stripes, hexagons, light rays, a spotlight, glass sheen, a nebula, a lava lamp, breathing, drifting colours, digital rain, confetti, constellations, rings and a neon frame.
 - **More layout choices:** Make your own layout also picks the rail's side, a floating bar, the bar's background, how the screen you're on is marked, names on every button or only the one you're on, icon size, page title size, no mini player, the cover's shape (rounded, square, very round or a circle), size and shadow, the seek bar's thickness, the times under it, and whether swiping the cover skips songs.
+- **Effects with any look:** Settings › Personalization › **Look's own effects** off lets you pick any of the effects, stars included, from the Effects menu, with any look or theme. On, each look keeps its own.
+- **Pictures as you make them:** Make your own layout and Make your own look show your main screen and Now playing big at the top, changing with every choice; the Now playing visualizer menu shows each style moving, and a look's picture shows your visualizer in that look's colour.
 - **Test your visualizer with a song:** Make your own visualizer keeps its preview at the top while you change it, and Play a song… searches your music or a service live (pick which) and plays it right there.
 - **Themes:** Change how the app is drawn (Rounded, Sharp, Compact, Glass, Retro, Minimal and more), with any look.
 - **Visualizer:** 30 styles (bars, waves, circles, starfield, galaxy, fireworks, tunnel…) and dozens of colour blends. Any style can run on Now playing, round ones inside the cover. It only listens to the app's own sound, and on the phone remote it moves with the PC's music.
