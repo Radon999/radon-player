@@ -237,6 +237,8 @@ object Music {
         if (::ctx.isInitialized) return
         ctx = appCtx(c)
         Prefs.init(ctx)
+        org.omarchy.music.ui.MyLooks.hook()   // the looks you made, known to the Look menu before the saved look is checked
+        bg({ SoundCloud(ctx) }) { src, err -> sourceReady(SoundCloud.KEY, src, err) }   // its own service: streams only
         // The theme (Settings › Personalization › Theme) is read from the settings, as Compose state, so a change redraws
         org.omarchy.music.ui.Themes.source = { Prefs.text(org.omarchy.music.ui.Themes.PREF, org.omarchy.music.ui.Themes.STANDARD) }
         loadDownloadQuality()
@@ -1053,7 +1055,7 @@ object Music {
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
         dj = dj.copy(sets = sets)
         val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
-        Dj.used += (b.songs + songs).map { songKey(it) }
+        Dj.played((b.songs + songs).map { songKey(it) })   // not again for the next 20 sets
         return songs.map { it.copy(dj = n) }
     }
 
@@ -1231,7 +1233,7 @@ object Music {
 
     /** The services a song an import didn't find can be looked for on: [(key, name)]. */
     fun reportSources(): List<Pair<String, String>> =
-        SOURCES.filter { (k, _) -> sources[k]?.let { k != "tidal" || it.signedIn } == true }.toList()
+        SOURCES.filter { (k, _) -> k != SoundCloud.KEY && sources[k]?.let { k != "tidal" || it.signedIn } == true }.toList()
 
     /** Put t, found for m, back where m was in the playlist id; placed: the ones put back already (m joins them). */
     fun placeMissed(id: String, m: Missed, t: Track, placed: MutableList<Missed>): Boolean {
@@ -1247,13 +1249,15 @@ object Music {
         importing = "Reading the playlist…"
         bg({ importM3u(uri) }) { res, err ->
             importing = null
-            if (res == null) { toast("Couldn't import it: ${err?.message?.take(100)}"); return@bg }
+            if (res == null) { val why = err?.let { ImportNotes.why(it) } ?: "nothing could be read from it"
+                ImportNotes.failed("playlists", RuntimeException("the playlist file: $why")); toast("Import failed: $why"); return@bg }
             val (name, tracks, missed) = res
             val id = lists.create(name).id
             lists.add(id, tracks)
             musicVersion++
             missed.forEach { logWarn("import $name: not found: ${it.name} (${it.why})") }
-            toast("Imported “$name”: ${tracks.size} songs" + if (missed.isNotEmpty()) " (${missed.size} not found)" else "")
+            ("Imported “$name”: ${tracks.size} songs" + if (missed.isNotEmpty()) " (${missed.size} not found)" else "").let {
+                ImportNotes.ok("playlists", it); toast("Import worked: $it") }
             if (missed.isNotEmpty()) importReport = ImportReport(id, name, missed)
         }
     }
@@ -1276,6 +1280,7 @@ object Music {
             QualityCheck.scan()   // Loudness check: the songs new or changed since
             bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
             runCatching { Moods.auto() }   // Moods: read the songs new or changed since, in the background
+            TagMatch.refreshSoon()   // Tags & covers match: what the new or changed songs say
         }
     }
 
@@ -1660,29 +1665,40 @@ object Music {
      *  songs streaming as they are until you download them. A playlist of yours with the same name gets the songs it
      *  hasn't got (importing again brings in what was added there since). */
     fun importServicePlaylist(key: String, pl: Album, quiet: Boolean = false, done: ((Int) -> Unit)? = null) {
+        if (key == SoundCloud.KEY) { if (!quiet) toast(SoundCloud.APART); done?.invoke(-1); return }
         val src = sources[key] ?: run { toast("Sign in to ${SOURCES[key]} first"); return }
         if (!quiet) toast("Importing “${pl.title}”…")
         bg({ src.playlist(pl.id) }) { tracks, err ->
-            if (tracks == null) { if (!quiet) toast("Couldn't import “${pl.title}”: ${err?.message?.take(100)}"); done?.invoke(-1); return@bg }
+            if (tracks == null) {
+                val why = err?.let { ImportNotes.why(it) } ?: "the service sent nothing back"
+                if (!quiet) { ImportNotes.failed("playlists", RuntimeException("“${pl.title}” from ${SOURCES[key]}: $why")); toast("Import failed: $why") }
+                done?.invoke(-1); return@bg
+            }
             val name = pl.title.ifBlank { "${SOURCES[key]} playlist" }
             val mine = lists.all().firstOrNull { it.name.equals(name, ignoreCase = true) }
             val id = mine?.id ?: lists.create(name).id
             val n = lists.add(id, tracks)
             musicVersion++
-            if (!quiet) toast(if (mine == null) "Imported “$name”: $n songs. Open it in your playlists to download it"
-                else "“$name” was imported already: $n new song${if (n != 1) "s" else ""} added")
+            if (!quiet) (if (mine == null) "Imported “$name” from ${SOURCES[key]}: $n songs. Open it in your playlists to download it"
+                else "“$name” was imported already: $n new song${if (n != 1) "s" else ""} added").let { ImportNotes.ok("playlists", it); toast("Import worked: $it") }
             done?.invoke(n)
         }
     }
 
     /** Every playlist of yours on that service imported, one after another. */
     fun importAllServicePlaylists(key: String, lists: List<Album>) {
+        if (key == SoundCloud.KEY) { toast(SoundCloud.APART); return }
         val todo = lists
         if (todo.isEmpty()) return
         toast("Importing ${todo.size} ${SOURCES[key]} playlists…")
         var i = 0; var songs = 0; var failed = 0
         fun next() {
-            if (i >= todo.size) { toast("Imported ${todo.size - failed} playlists ($songs songs)" + if (failed > 0) ", $failed couldn't be read" else ""); return }
+            if (i >= todo.size) {
+                val text = "Imported ${todo.size - failed} of ${todo.size} ${SOURCES[key]} playlists ($songs songs)" + if (failed > 0) ", $failed couldn't be read" else ""
+                if (failed == todo.size) ImportNotes.failed("playlists", RuntimeException("none of the ${todo.size} ${SOURCES[key]} playlists could be read"))
+                else ImportNotes.ok("playlists", text)
+                toast(if (failed == todo.size) "Import failed: none of the playlists could be read" else "Import worked: $text"); return
+            }
             importServicePlaylist(key, todo[i++], quiet = true) { n -> if (n < 0) failed++ else songs += n; next() }
         }
         next()
@@ -1712,6 +1728,8 @@ object Music {
 
     fun addToPlaylist(id: String, tracks: List<Track>) {
         val pl = lists.get(id) ?: return
+        if (tracks.any { it.source == SoundCloud.KEY }) toast("SoundCloud songs can't go in your playlists: like them on SoundCloud instead")
+        @Suppress("NAME_SHADOWING") val tracks = tracks.filter { it.source != SoundCloud.KEY }
         if (tracks.isEmpty()) return
         val n = lists.add(id, tracks)
         toast(when {
@@ -1768,7 +1786,8 @@ object Music {
     // ---- downloads ----
     fun download(tracks: List<Track>, checked: Boolean = false) {
         val waiting = downloads.map { it.id }.toSet()
-        val new = tracks.filter { !it.isFile && !lib.has(it.id) && it.id !in waiting }
+        if (tracks.isNotEmpty() && tracks.all { it.source == SoundCloud.KEY }) { toast("SoundCloud songs can't be downloaded: they only stream"); return }
+        val new = tracks.filter { !it.isFile && !lib.has(it.id) && it.id !in waiting && it.source != SoundCloud.KEY }
         if (new.isEmpty()) { toast("Those are downloaded already"); return }
         if (!checked && dupeAction != "keep") {
             val dupes = new.mapNotNull { t -> copiesOf(t).takeIf { it.isNotEmpty() }?.let { t to it } }
@@ -1840,6 +1859,7 @@ object Music {
     /** Whether a song may be saved without asking (Keep, or a service's sync): yes unless you have it
      *  already and Copies says Ask (then it streams; Download asks). With Replace, your copy goes once it's in. */
     fun autoSaveOk(t: Track): Boolean {
+        if (t.source == SoundCloud.KEY) return false   // never saved: SoundCloud songs only stream
         if (dupeAction == "keep" || lib.has(t.id)) return true
         val copies = copiesOf(t)
         if (copies.isEmpty()) return true
@@ -2032,6 +2052,17 @@ object Music {
 
     // ---- favorites, a song's volume, moods by hand, looks ----
     fun setFavorite(tracks: List<Track>, on: Boolean? = null) {
+        if (tracks.any { it.source == SoundCloud.KEY }) {   // its own service: liked on SoundCloud, not mixed into your favorites
+            val sc = tracks.filter { it.source == SoundCloud.KEY }
+            val src = sources[SoundCloud.KEY]
+            if (sc.size == 1 && src?.signedIn == true) {
+                val t0 = sc[0]; val like = t0.id !in liked
+                liked = if (like) liked + t0.id else liked - t0.id
+                bg({ src.rate(t0, like) }) { _, err -> if (err != null) toast("SoundCloud said: ${err.message?.take(80)}") }
+                toast(if (like) "Liked on SoundCloud" else "Not liked on SoundCloud any more")
+            } else toast("SoundCloud songs can't go in your favorites: like them on SoundCloud (sign in under Settings › Accounts)")
+        }
+        @Suppress("NAME_SHADOWING") val tracks = tracks.filter { it.source != SoundCloud.KEY }
         if (tracks.isEmpty()) return
         val star = on ?: !favorites.has(tracks[0])
         favorites.set(tracks, star)
@@ -2344,7 +2375,7 @@ object Music {
     /** Download every song in your playlists and favourites, on each service you sync, in FLAC. */
     fun syncLibrary() {
         if (!tidal.connected) return
-        val srcs = sources.filter { (k, s) -> s.signedIn && syncSources[k] == true }.values.toList()
+        val srcs = sources.filter { (k, s) -> s.signedIn && syncSources[k] == true && k != SoundCloud.KEY }.values.toList()   // SoundCloud's are never saved
         if (srcs.isEmpty()) return
         if (syncing) { syncAgain = true; return }
         syncing = true
@@ -2407,6 +2438,13 @@ object Music {
 
     /** Play tracks[i], then the rest of tracks; the songs you queued come first. */
     fun playFrom(tracks: List<Track>, i: Int, radio: Boolean) {
+        // SoundCloud is a service of its own: its songs play in a queue of SoundCloud songs only, and other songs never
+        // share a queue with them (SoundCloud's rules)
+        val tapped = tracks.getOrNull(i)
+        if (tapped != null && tracks.any { (it.source == SoundCloud.KEY) != (tapped.source == SoundCloud.KEY) }) {
+            val apart = tracks.filter { (it.source == SoundCloud.KEY) == (tapped.source == SoundCloud.KEY) }
+            playFrom(apart, apart.indexOf(tapped).coerceAtLeast(0), radio); return
+        }
         if (Remote.active) { Remote.playFrom(tracks, i, radio); return }
         ListenLog.picked(tracks.getOrNull(i), listName)   // Wrapped's Most searched: a song tapped in search results
         val newQueue = multiQueue && listName.isNotEmpty() && listName != queueName
@@ -2505,6 +2543,14 @@ object Music {
 
     /** "next" plays the songs right after this one, "queue" after the songs you queued before. */
     fun enqueue(tracks: List<Track>, how: String = "queue") {
+        val cur = current()
+        if (cur != null && tracks.any { (it.source == SoundCloud.KEY) != (cur.source == SoundCloud.KEY) }) {
+            toast(if (cur.source == SoundCloud.KEY) "A SoundCloud queue holds SoundCloud songs only: play this to start a queue of its own"
+                else "SoundCloud songs play in a queue of their own: play one to start it")
+            val fit = tracks.filter { (it.source == SoundCloud.KEY) == (cur.source == SoundCloud.KEY) }
+            if (fit.isEmpty()) return
+            enqueue(fit, how); return
+        }
         if (Remote.active) { Remote.enqueue(tracks, how); return }
         val ts = localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
@@ -2939,7 +2985,8 @@ object Music {
         val art = if (cast == null) nowArt(t) else t.thumb.takeIf { it.isNotEmpty() }?.let { sizedThumb(it, 544) }
         // Casting: the device fetches the song itself: a stream as it is, a file of the phone's from here over the network.
         val uri = if (cast != null && !ready.uri.startsWith("http")) PhoneShare.forCast(t, castHost) ?: ready.uri else ready.uri
-        val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (cast != null) castMime(t, uri) else null,
+        val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (t.source == SoundCloud.KEY) "application/x-mpegURL"
+            else if (cast != null) castMime(t, uri) else null,
             t.title, t.artist, t.album, art)
         p.load(item, (startAt * 1000).toLong())
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }

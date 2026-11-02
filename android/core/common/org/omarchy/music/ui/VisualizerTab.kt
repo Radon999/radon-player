@@ -1,5 +1,9 @@
 package org.omarchy.music.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,20 +67,26 @@ import kotlin.math.sin
 
 /** The visualizer's styles: each is drawn its own way. Its colour is picked apart from it (VIS_COLORS), for any style.
  *  Bars is the one it had from the start (and the default). */
-val VIS_STYLES: List<Pair<String, String>> = listOf("bars" to "Bars", "mirror" to "Mirror", "wave" to "Wave", "circle" to "Circle",
+private val BUILT_VIS_STYLES: List<Pair<String, String>> = listOf("bars" to "Bars", "mirror" to "Mirror", "wave" to "Wave", "circle" to "Circle",
     "led" to "LED", "glow" to "Glow", "neon" to "Neon", "ring" to "Ring", "particles" to "Particles", "scope" to "Scope",
     "terrain" to "Terrain", "dots" to "Dot matrix", "spectrogram" to "Spectrogram", "pulse" to "Pulse", "blocks" to "Blocks",
     "starfield" to "Starfield", "sunburst" to "Sunburst", "galaxy" to "Galaxy", "flower" to "Flower", "fireworks" to "Fireworks",
     "towers" to "Towers", "vinyl" to "Vinyl", "lissajous" to "XY scope", "rain" to "Rain", "kaleido" to "Kaleidoscope",
     "aurora" to "Aurora", "ecg" to "Heartbeat", "bubbles" to "Bubbles", "matrix" to "Code rain", "tunnel" to "Tunnel")
+/** The built-in styles that the style maker can start from. */
+val VIS_BASES: List<Pair<String, String>> get() = BUILT_VIS_STYLES
+/** Every style: the built-in ones, then the ones you made (Make your own visualizer). */
+val VIS_STYLES: List<Pair<String, String>> get() = BUILT_VIS_STYLES + MyVis.styles().map { it.key to "${it.name} (yours)" }
 
 /** The colours, for any style: the look's own (its accent; on Now playing the cover's), the blends, then plain ones
  *  (the colours that used to be styles of their own). The blends' keys never clash with the plain ones (Looks.NEON). */
-val VIS_COLORS: List<Pair<String, String>> = listOf("auto" to "Look's colour", "rainbow" to "Rainbow", "twilight" to "Twilight",
+private val BUILT_VIS_COLORS: List<Pair<String, String>> = listOf("auto" to "Look's colour", "rainbow" to "Rainbow", "twilight" to "Twilight",
     "fire" to "Fire", "ice" to "Ice", "ocean" to "Ocean", "sunset" to "Sunset", "aurora" to "Aurora", "neonpop" to "Neon pop",
     "forest" to "Forest", "magma" to "Magma", "candy" to "Candy", "goldleaf" to "Gold leaf", "synthwave" to "Synthwave",
     "mint" to "Mint", "galaxy" to "Galaxy", "pastel" to "Pastel", "bloodmoon" to "Blood moon", "acid" to "Acid",
     "silver" to "Silver") + Looks.NEON.map { (k, v) -> k to v.first } + Looks.NEON_LOOKS.map { it.first to it.second }
+/** Every colour: the built-in ones, then the blends you made. */
+val VIS_COLORS: List<Pair<String, String>> get() = BUILT_VIS_COLORS + MyVis.colors().map { it.key to "${it.name} (yours)" }
 
 /** The neon looks' colours (Neon Tokyo nights…): each look's neon, blended from its second hue (its background's,
  *  made bright) through the neon to a white-hot top on the loud parts. */
@@ -91,7 +101,7 @@ private val NEON_LOOK_GRADS: Map<String, VisGrad> by lazy {
 }
 
 /** Now playing's own visualizer, behind the cover: the slim bars it always had, none, or any of the styles. */
-val NP_VIS_STYLES: List<Pair<String, String>> = listOf("slim" to "Slim bars", "off" to "Off") + VIS_STYLES
+val NP_VIS_STYLES: List<Pair<String, String>> get() = listOf("slim" to "Slim bars", "off" to "Off") + VIS_STYLES
 
 /** The visualizer's settings. The style stays in Music.visPreset (saved with the app's state); the rest are Prefs. */
 object Vis {
@@ -101,17 +111,20 @@ object Vis {
     const val NOW_STRENGTH = "np_vis_strength"   // how strongly Now playing's visualizer shows, 0.1 … 1 (a number)
 
     /** The styles drawn around the middle of the space (the others stand on its bottom). */
-    val CENTRED = setOf("circle", "ring", "particles", "pulse", "starfield", "sunburst", "galaxy", "flower", "vinyl",
+    private val BUILT_CENTRED = setOf("circle", "ring", "particles", "pulse", "starfield", "sunburst", "galaxy", "flower", "vinyl",
         "lissajous", "kaleido", "tunnel")
+    /** ... and the styles you made from one of them. */
+    val CENTRED: Set<String> get() = BUILT_CENTRED + MyVis.styles().filter { it.base in BUILT_CENTRED }.map { it.key }
     /** On Now playing these are drawn over the big cover (around and through it), not hidden behind it; the styles that
      *  stand on the bottom (bars, wave, glow, terrain…) stay behind, along the bottom of the screen. */
-    val OVER_COVER = CENTRED
+    val OVER_COVER: Set<String> get() = CENTRED
 
     /** The style; an old colour preset ("red"…) is Bars in that colour. */
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
     fun color(): String = Prefs.text(COLOR).ifEmpty { Music.visPreset.takeIf { Looks.NEON.containsKey(it) } ?: "auto" }
     fun nowStyle(): String = Prefs.text(NOW, "slim").let { k -> if (NP_VIS_STYLES.any { it.first == k }) k else "slim" }
-    fun plainNow(): Boolean = Prefs.text(NOW_BG) == "plain"
+    /** Now playing's background: plain since 3.1 (Cover blur is gone): no blurred cover behind it. */
+    fun plainNow(): Boolean = true
     /** Now playing visualizer's strength (its opacity): 0.5 is how faint it always was. */
     fun nowStrength(): Float = Prefs.num(NOW_STRENGTH, 0.5f).coerceIn(0.1f, 1f)
 
@@ -163,14 +176,16 @@ private val VIS_GRADS: Map<String, VisGrad> = mapOf(
 /** A colour for a spot in the picture: t is where along the spectrum (0 the bass … 1 the treble), lv how loud. */
 class VisPalette(val key: String, private val base: Color, private val shift: Float) {
     private val neon = Looks.NEON[key]?.second
-    private val grad = VIS_GRADS[key] ?: NEON_LOOK_GRADS[key]
+    private val grad = VIS_GRADS[key] ?: NEON_LOOK_GRADS[key] ?: myGrad(key)
     /** One colour all over (the look's own or a plain one), not a blend. */
-    val single = neon != null || (grad == null && key !in setOf("rainbow", "twilight", "fire", "ice", "pastel"))
+    val single = neon != null || (grad == null && key !in setOf("rainbow", "twilight", "fire", "ice", "pastel", "lookglow"))
 
     fun at(t: Float, lv: Float): Color = when (key) {
         "rainbow" -> { val f = ((t * 0.85f + shift) % 1f + 1f) % 1f; RAINBOW[(f * RAINBOW.size).toInt().coerceIn(0, RAINBOW.size - 1)] }
         "pastel" -> { val f = ((t * 0.85f + shift) % 1f + 1f) % 1f; PASTEL[(f * PASTEL.size).toInt().coerceIn(0, PASTEL.size - 1)] }
         "twilight" -> lerp(TW_A, TW_B, t.coerceIn(0f, 1f))
+        // Glow on the look's colour: the look's accent, from a deeper shade of it to a bright one
+        "lookglow" -> lerp(lerp(base, Color.Black, 0.2f), lerp(base, Color.White, 0.5f), (t * 0.7f + lv * 0.3f).coerceIn(0f, 1f))
         "fire" -> lerp(FIRE_LOW, FIRE_HIGH, (lv * 0.8f + (1f - t) * 0.2f).coerceIn(0f, 1f))
         "ice" -> lerp(ICE_LOW, ICE_HIGH, (lv * 0.7f + t * 0.3f).coerceIn(0f, 1f))
         else -> grad?.at(t, lv) ?: neon ?: base
@@ -180,9 +195,14 @@ class VisPalette(val key: String, private val base: Color, private val shift: Fl
     fun brush(alpha: Float): Brush = Brush.horizontalGradient(List(7) { at(it / 6f, 0.6f).copy(alpha = alpha) })
 
     companion object {
-        /** Glow on the look's colour keeps the blue-to-violet it always had. */
-        fun of(style: String, key: String, base: Color, phase: Float) =
-            VisPalette(if (style == "glow" && key == "auto") "twilight" else key, base, phase * 0.05f)
+        /** Glow on the look's colour: shades of the look's accent (it used to be a fixed blue-to-violet). */
+        fun of(style: String, key: String, base: Color, phase: Float): VisPalette {
+            // A style you made with a colour of its own keeps it; one made from Glow keeps Glow's look on the look's colour
+            val own = MyVis.style(style)
+            val k = own?.color?.takeIf { it.isNotEmpty() } ?: key
+            val from = own?.base ?: style
+            return VisPalette(if (from == "glow" && k == "auto") "lookglow" else k, base, phase * 0.05f)
+        }
     }
 }
 
@@ -464,6 +484,7 @@ fun rememberVis(on: Boolean, failed: (String) -> Unit = {}): VisState? {
 
 /** Draws a style. backdrop: behind Now playing (no solid backgrounds or faint unlit parts, everything to the bottom edge). */
 fun DrawScope.drawVis(style: String, s: VisState, pal: VisPalette, fg: Color, backdrop: Boolean) {
+    MyVis.style(style)?.let { drawMyVis(it, s, pal, fg, backdrop); return }
     val lv = s.levels
     val n = lv.size
     val w = size.width
@@ -1060,20 +1081,55 @@ fun visSwatch(key: String, accent: Color): Pair<Color, Brush> = Color(0xFF101014
 /** A pill showing the choice, and a menu of the others (with a colour sample beside each when swatch gives one). */
 @Composable
 fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: String = "",
-               swatch: ((String) -> Pair<Color, Brush>?)? = null, pick: (String) -> Unit) {
+               swatch: ((String) -> Pair<Color, Brush>?)? = null,
+               describe: ((String) -> String)? = null,
+               preview: (@Composable (String) -> Unit)? = null,
+               thumb: (@Composable (String) -> Unit)? = null,
+               pick: (String) -> Unit) {
     Box {
         var open by remember { mutableStateOf(false) }
+        // The one the pointer is over (the PC), else the one in use: its picture and description at the top of the menu
+        var over by remember { mutableStateOf<String?>(null) }
         val name = options.firstOrNull { it.first == current }?.second ?: options.firstOrNull()?.second.orEmpty()
-        Pill("$prefix$name ▾", quiet = true) { open = true }
+        Pill("$prefix$name \u25BE", quiet = true) { open = true; over = null }
         DropdownMenu(open, { open = false }, containerColor = C.light) {
+            if (preview != null || describe != null) {
+                val shown = over ?: current
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 320.dp)) {
+                    preview?.invoke(shown)
+                    val d = describe?.invoke(shown).orEmpty()
+                    Text(options.firstOrNull { it.first == shown }?.second.orEmpty(), style = T.title.copy(fontSize = 14.sp),
+                        modifier = Modifier.padding(top = if (preview != null) 8.dp else 0.dp))
+                    if (d.isNotEmpty()) Text(d, style = T.sub)
+                }
+                HorizontalDivider(color = C.line)
+            }
             options.forEach { (k, label) ->
                 val text: @Composable () -> Unit = {
-                    Text(label, style = T.body.copy(color = if (k == current) C.accent else C.fg,
-                        fontWeight = if (k == current) FontWeight.SemiBold else FontWeight.Normal))
+                    Column {
+                        Text(label, style = T.body.copy(color = if (k == current) C.accent else C.fg,
+                            fontWeight = if (k == current) FontWeight.SemiBold else FontWeight.Normal))
+                        // On a phone there's no pointer to hover with: each one's description under its name
+                        if (onPhone) describe?.invoke(k)?.takeIf { it.isNotEmpty() }?.let {
+                            Text(it, style = T.sub.copy(fontSize = 11.sp), maxLines = 2) }
+                    }
                 }
                 val sw = swatch?.invoke(k)
-                if (sw != null) DropdownMenuItem(text = text, onClick = { open = false; pick(k) }, leadingIcon = { VisColorDot(sw.first, sw.second) })
-                else DropdownMenuItem(text = text, onClick = { open = false; pick(k) })
+                val hover = Modifier.pointerInput(k) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val e = awaitPointerEvent()
+                            if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Enter ||
+                                e.type == androidx.compose.ui.input.pointer.PointerEventType.Move) over = k
+                        }
+                    }
+                }
+                val lead: (@Composable () -> Unit)? = when {
+                    thumb != null -> ({ thumb(k) })
+                    sw != null -> ({ VisColorDot(sw.first, sw.second) })
+                    else -> null
+                }
+                DropdownMenuItem(text = text, onClick = { open = false; pick(k) }, leadingIcon = lead, modifier = hover)
             }
         }
     }
@@ -1117,6 +1173,10 @@ fun VisualizerTab() {
                 .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 VIS_STYLES.forEach { (k, label) -> Chip(label, style == k) { Music.chooseVisPreset(k) } }
+                // Your own style or colour blend (and the one picked, if it's yours, to change it)
+                Chip(if (style.startsWith("myvis-")) "✎ Change yours" else "+ Make your own", false) {
+                    Ui.current?.let { it.makerEdit = style.takeIf { s -> s.startsWith("myvis-") }; it.sheet = "vismaker" }
+                }
             }
             if (styleScroll.canScrollForward) Chip("›", false) { step(420f) }
             Spacer(Modifier.width(4.dp))
@@ -1133,4 +1193,133 @@ fun VisualizerTab() {
         Text(failed ?: Music.current()?.title ?: "Nothing playing", style = T.sub,
             modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), textAlign = TextAlign.Center)
     }
+}
+
+
+// ───────────────────────────── Visualizers you made ─────────────────────────────
+
+/** A style you made: one of the built-in styles (base) drawn your way. mirror: its left half mirrored onto the right;
+ *  flip: upside down; reflect: a faint reflection under it; spin: turns (0 none … 1 fast); amp: how strongly it moves
+ *  (0.5 calm … 2 wild); echo: a soft glow around it; color: a colour of its own ("" the one picked in the Visualizer). */
+data class MyVisStyle(val key: String, val name: String, val base: String, val mirror: Boolean = false, val flip: Boolean = false,
+                      val reflect: Boolean = false, val spin: Float = 0f, val amp: Float = 1f, val echo: Boolean = false, val color: String = "") {
+    fun encode() = listOf(key, name.replace('|', '/'), base, mirror, flip, reflect, spin, amp, echo, color).joinToString("|")
+}
+
+/** A colour blend you made: 2 to 5 colours (0xAARRGGBB), how they spread (ALONG bass to treble, LOUD by loudness, STRIPES
+ *  hard bands), and glow: the loud parts go white-hot, like the neon colours. */
+data class MyVisColor(val key: String, val name: String, val stops: List<Long>, val mode: Int = 0, val glow: Boolean = false) {
+    fun encode() = listOf(key, name.replace('|', '/'), mode, glow, stops.joinToString(",") { it.toString(16) }).joinToString("|")
+}
+
+/** The visualizers you made, kept with the app's settings (so backups and Sync carry them). */
+object MyVis {
+    const val STYLES = "my_vis_styles"
+    const val COLORS = "my_vis_colors"
+    const val SPREAD_ALONG = 0; const val SPREAD_LOUD = 1; const val SPREAD_STRIPES = 2
+
+    private var stylesFrom = "\u0000"; private var stylesCache: List<MyVisStyle> = emptyList()
+    private var colorsFrom = "\u0000"; private var colorsCache: List<MyVisColor> = emptyList()
+
+    fun styles(): List<MyVisStyle> {
+        val text = Prefs.text(STYLES)
+        if (text != stylesFrom) {
+            stylesCache = text.lines().mapNotNull { l -> runCatching { val p = l.split("|")
+                MyVisStyle(p[0], p[1], p[2], p[3].toBoolean(), p[4].toBoolean(), p[5].toBoolean(), p[6].toFloat(), p[7].toFloat(),
+                    p[8].toBoolean(), p.getOrElse(9) { "" }) }.getOrNull() }
+            stylesFrom = text
+        }
+        return stylesCache
+    }
+    fun colors(): List<MyVisColor> {
+        val text = Prefs.text(COLORS)
+        if (text != colorsFrom) {
+            colorsCache = text.lines().mapNotNull { l -> runCatching { val p = l.split("|")
+                MyVisColor(p[0], p[1], p[4].split(",").filter { it.isNotBlank() }.map { it.toLong(16) }, p[2].toInt(), p[3].toBoolean())
+                    .takeIf { it.stops.size >= 2 } }.getOrNull() }
+            colorsFrom = text
+        }
+        return colorsCache
+    }
+    fun style(key: String): MyVisStyle? = when {
+        key == "myvis-preview" -> PreviewVis.style   // the maker's, not saved yet
+        key.startsWith("myvis-") -> styles().firstOrNull { it.key == key }
+        else -> null
+    }
+    fun color(key: String): MyVisColor? = when {
+        key == "mycol-preview" -> PreviewVis.color
+        key.startsWith("mycol-") -> colors().firstOrNull { it.key == key }
+        else -> null
+    }
+
+    fun saveStyle(v: MyVisStyle): MyVisStyle {
+        val keyed = if (v.key.startsWith("myvis-")) v else v.copy(key = "myvis-" + System.currentTimeMillis().toString(36))
+        Prefs.setText(STYLES, (styles().filter { it.key != keyed.key } + keyed).joinToString("\n") { it.encode() })
+        return keyed
+    }
+    fun deleteStyle(key: String) {
+        Prefs.setText(STYLES, styles().filter { it.key != key }.joinToString("\n") { it.encode() })
+        if (Music.visPreset == key) Music.chooseVisPreset("bars")
+        if (Prefs.text(Vis.NOW) == key) Prefs.setText(Vis.NOW, "slim")
+    }
+    fun saveColor(c: MyVisColor): MyVisColor {
+        val keyed = if (c.key.startsWith("mycol-")) c else c.copy(key = "mycol-" + System.currentTimeMillis().toString(36))
+        Prefs.setText(COLORS, (colors().filter { it.key != keyed.key } + keyed).joinToString("\n") { it.encode() })
+        return keyed
+    }
+    fun deleteColor(key: String) {
+        Prefs.setText(COLORS, colors().filter { it.key != key }.joinToString("\n") { it.encode() })
+        if (Prefs.text(Vis.COLOR) == key) Prefs.setText(Vis.COLOR, "auto")
+    }
+}
+
+/** A blend you made, as the built-in blends are drawn (glow: a white-hot top on the loud parts). */
+private fun myGrad(key: String): VisGrad? = MyVis.color(key)?.let { c ->
+    val stops = if (c.glow) c.stops + (lerp(Color(c.stops.last()), Color.White, 0.6f).toArgb().toLong() and 0xFFFFFFFFL) else c.stops
+    VisGrad(if (c.glow) VisGrad.LOUD else c.mode, *stops.toLongArray())
+}
+
+/** A style you made: its base style drawn with your changes. The levels are scaled for amp while it's drawn, then put back. */
+private fun DrawScope.drawMyVis(d: MyVisStyle, s: VisState, pal: VisPalette, fg: Color, backdrop: Boolean) {
+    if (d.base.startsWith("myvis-")) return   // made from one of yours: not allowed (it could go round in circles)
+    val lv = s.levels
+    val keep = lv.copyOf()
+    if (d.amp != 1f) for (i in lv.indices) lv[i] = (lv[i] * d.amp).coerceIn(0f, 1f)
+    val mid = Offset(size.width / 2, size.height / 2)
+    fun faint(alpha: Float, block: DrawScope.() -> Unit) {
+        val paint = androidx.compose.ui.graphics.Paint().apply { this.alpha = alpha }
+        drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(Offset.Zero, size), paint)
+        block()
+        drawContext.canvas.restore()
+    }
+    fun plain() {
+        val turn = if (d.spin > 0f) s.phase * 90f * d.spin else 0f
+        rotateIf(turn, mid) { if (d.flip) scaleY(-1f, mid) { drawVis(d.base, s, pal, fg, backdrop) } else drawVis(d.base, s, pal, fg, backdrop) }
+    }
+    fun shaped() {
+        if (d.mirror) {
+            clipRect(right = size.width / 2) { plain() }
+            scaleX(-1f, mid) { clipRect(right = size.width / 2) { plain() } }
+        } else plain()
+    }
+    try {
+        if (d.echo) faint(0.35f) { scaleBoth(1.05f, mid) { shaped() } }
+        shaped()
+        if (d.reflect) faint(0.28f) { scaleY(-1f, mid) { shaped() } }
+    } finally {
+        keep.copyInto(lv)
+    }
+}
+
+private inline fun DrawScope.rotateIf(deg: Float, pivot: Offset, block: DrawScope.() -> Unit) {
+    if (deg == 0f) block() else { drawContext.transform.rotate(deg, pivot); block(); drawContext.transform.rotate(-deg, pivot) }
+}
+private inline fun DrawScope.scaleY(k: Float, pivot: Offset, block: DrawScope.() -> Unit) {
+    drawContext.transform.scale(1f, k, pivot); block(); drawContext.transform.scale(1f, 1f / k, pivot)
+}
+private inline fun DrawScope.scaleX(k: Float, pivot: Offset, block: DrawScope.() -> Unit) {
+    drawContext.transform.scale(k, 1f, pivot); block(); drawContext.transform.scale(1f / k, 1f, pivot)
+}
+private inline fun DrawScope.scaleBoth(k: Float, pivot: Offset, block: DrawScope.() -> Unit) {
+    drawContext.transform.scale(k, k, pivot); block(); drawContext.transform.scale(1f / k, 1f / k, pivot)
 }

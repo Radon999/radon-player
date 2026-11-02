@@ -84,7 +84,7 @@ object MusicTools {
     }
 
     /** A picture's look as 64 bits (a difference hash at 9×8, in grey): covers that look alike have bits nearly the same. */
-    private fun pictureHash(data: ByteArray): Long? = runCatching {
+    internal fun pictureHash(data: ByteArray): Long? = runCatching {
         val img = org.omarchy.music.ui.decodeImage(data) ?: return null
         val (px, w, h) = org.omarchy.music.ui.pixelsOf(img)
         val grey = Array(8) { y -> IntArray(9) { x ->

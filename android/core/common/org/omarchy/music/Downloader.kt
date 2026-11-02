@@ -57,6 +57,12 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     /** Play t without saving it (blocking): the file when it is on the phone, else Tidal's stream. */
     fun stream(t: Track): Ready {
         if (t.isFile) return Ready(t.file!!, onDisk = true)
+        if (t.source == SoundCloud.KEY) {   // its own service: streamed from SoundCloud itself, never matched elsewhere or saved
+            val sc = Music.sources[SoundCloud.KEY] as? SoundCloud ?: error("SoundCloud isn't set up")
+            synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < 600 }?.let { return it.first } }   // its addresses last a while
+            val (uri, q) = sc.stream(t)
+            return Ready(uri, quality = q, lossyFrom = "SoundCloud").also { r -> synchronized(streams) { streams[t.id] = r to now() } }
+        }
         lib.items[t.id]?.let { return Ready(it.file, quality = it.quality, onDisk = true) }
         synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < STREAM_FOR }?.let { return it.first } }
         val ready = find(t)
@@ -112,6 +118,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
      *  it or isn't connected (youtubeToo: Keep, which saves what you play, leaves those). Returns its address. */
     fun download(t: Track, root: String? = null, youtubeToo: Boolean = true): String {
         lib.items[t.id]?.let { return it.file }
+        if (t.source == SoundCloud.KEY) throw NoLosslessMatch("SoundCloud songs can't be downloaded: they only stream")
         synchronized(active) { if (!active.add(t.id)) error("already downloading") }
         try {
             if (tidal.connected) {

@@ -104,7 +104,7 @@ fun watchOutputs(ctx: Ctx, changed: () -> Unit) {
 }
 fun headphonesName(ctx: Ctx): String = Outputs.now(ctx).takeIf { it.kind != "speaker" }?.label?.substringBefore(" (") ?: ""
 
-fun xmlParser(): org.xmlpull.v1.XmlPullParser = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser()
+fun xmlParser(): org.xmlpull.v1.XmlPullParser = org.kxml2.io.KXmlParser()   // directly: the factory looks for it by a service file a packaged app may not find
 
 fun toJpeg(b: ByteArray): ByteArray? {
     val img = runCatching { javax.imageio.ImageIO.read(b.inputStream()) }.getOrNull() ?: return null

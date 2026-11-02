@@ -48,13 +48,14 @@ Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark a
 Like Spotify's DJ, but built only from *your* listening. It plays short sets of songs and talks between them like a radio host.
 
 - **Sets made for you:** What you've had on repeat, what you usually play at this time of day, favorites, throwbacks to a year you played something to death, songs you loved but haven't heard in months, your current mood, a genre you've been into lately, and (if you like) new songs and new artists like yours. Songs you keep skipping are left out.
-- **Never repetitive:** A kind of set doesn't come back for about 15 sets, and the same goes for its fun facts. This is remembered after the app closes.
+- **Never repetitive:** A song the DJ plays can't come back for 20 sets: when its kind of set comes round again (the same mood, This time of day…), another song of that kind takes its place. A kind of set doesn't come back for about 15 sets, and the same goes for its fun facts. All of this is remembered after the app closes.
 - **It talks:** With **Voice on**, the DJ speaks between sets, never over a song: what's coming up and why ("Let's take it back to 2020…"), and now and then a fact about your listening (hours on a song, when you first played it, your top mood this week, your most played artist this month). **Skip the talk** goes straight to the music.
 - **The voice:** One natural female voice. On the PC, **Get the natural voice** downloads it once (about 400 MB) and it runs on your PC. The phone uses Google's natural voice. Unusual names are said the way they sound.
 - **Ask for something:** Type or say an artist, a genre, a decade ("80s"), a mood ("sad songs") or a vibe ("workout"), and the DJ builds a set for it from your own songs first.
 - **Play from:** Everything, all your songs, or one playlist, folder or album. The **DJ** button on My music and playlists starts it there.
 - **Switch it up** starts a different kind of set; **⏭ set** on Now playing skips to the next set.
 - **Your copy first:** Every song the DJ plays uses your own file when you have one.
+- **In the queue:** While the DJ plays, Up next and Now playing's queue show what it said last, the set's category (on each song too) and any stat it gave, as on the DJ tab. Other queues don't.
 
 ---
 
@@ -124,6 +125,7 @@ Everything is in the ☰ menu. Every page can be a list, a grid or a compact gri
 
 - **Search:** Tidal, YouTube Music, Deezer, Apple Music, Spotify or your own music, from the menu by the search bar. Paste a link from another app and it opens.
 - **Tidal:** Streams in FLAC (hi-res where Tidal has it). Its favorites, playlists and radios work as a library too.
+- **SoundCloud (streaming only):** Sign in under Settings › Accounts with your own SoundCloud app's Client ID and secret to search, play your likes and playlists, and open artists and radio. SoundCloud is its own section: its songs can't be downloaded, added to your playlists or favorites (a star likes it on SoundCloud instead), or mixed into a queue with other music. Spotify, Deezer, YouTube, Tidal and Apple Music can all be mixed with your offline music.
 - **Spotify, Apple Music, Deezer, YouTube Music:** Sign in to browse your library and playlists and bring them over. Their songs play from Tidal in FLAC, or YouTube when Tidal doesn't have one. **Import all into my playlists** copies their playlists in. Settings › Accounts explains how to switch to Tidal without losing anything.
 - **Stream and download quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately.
 - **Downloads:** Any song from any service downloads from Tidal (YouTube when Tidal doesn't have it), with full tags, cover and genre. It's taken from the artist's own album first (deluxe edition first), then EP, then single, and saved in **Music › Artists**, in the artist's own folder (Artists / Sody / Let Go - Single). Settings › Downloads can pick another folder. Download whole playlists too; songs you already have are skipped.
@@ -171,6 +173,13 @@ Also: **Bit-perfect** sends songs to a USB DAC (phone, Android 14+) or the PC's 
 ## Looks & visualizer
 
 - **Looks:** Light, Dark, **Now playing** (every screen takes the playing song's colours), 35 more themes and 30 dark **neon** looks. Settings › Personalization, or the palette button on Now playing to see changes live.
+- **Layouts:** 15 ways to lay out the app (Settings › Personalization › Layout): the ☰ menu, a tab bar, a side rail or tabs along the top; the menu on the left or right; the mini player floating, as a bar, a pill or at the top; and six ways to arrange Now playing (classic, centred, split, info on top, full bleed, headline). Every feature can be reached from all of them.
+- **Make your own:** **New look** (your own background, card, text and accent colours, a gradient, a neon glow, stars), **New layout** (pick and order the slots, the bar and the mini player) and **New visualizer** (a style from any of the 30, mirrored, flipped, spun or echoed, or your own colour blend). Each shows live while you make it, and yours can be changed or deleted any time.
+- **Now playing in your look:** The look's background, gradient and stars show behind Now playing. The song name, buttons, seek bar, tools and lyrics take the look's colour, made brighter or darker when needed so they always stand out from the background, and the visualizer has its own colour for each look, one that sets off its accent (a purple look gets a warm yellow), so it never hides them. The Now playing look uses the cover's colours instead.
+- **Previews in the menus:** Look, Theme and Layout each show a picture and a description of every choice: on the PC, point at one to see it big at the top of the menu; on the phone, each one's description is under its name. A layout's picture shows the main screen and Now playing side by side.
+- **Effects for your own look:** 31 to pick from in Make your own look, any number at once, drawn behind everything so they go with every theme and layout: twinkling stars, shooting stars, aurora, a synthwave grid, a retro sun, scanlines, film grain, vignette, bokeh, rain, snow, fireflies, bubbles, waves, mountains, a city skyline, halftone, stripes, hexagons, light rays, a spotlight, glass sheen, a nebula, a lava lamp, breathing, drifting colours, digital rain, confetti, constellations, rings and a neon frame.
+- **More layout choices:** Make your own layout also picks the rail's side, a floating bar, the bar's background, how the screen you're on is marked, names on every button or only the one you're on, icon size, page title size, no mini player, the cover's shape (rounded, square, very round or a circle), size and shadow, the seek bar's thickness, the times under it, and whether swiping the cover skips songs.
+- **Test your visualizer with a song:** Make your own visualizer keeps its preview at the top while you change it, and Play a song… searches your music or a service live (pick which) and plays it right there.
 - **Themes:** Change how the app is drawn (Rounded, Sharp, Compact, Glass, Retro, Minimal and more), with any look.
 - **Visualizer:** 30 styles (bars, waves, circles, starfield, galaxy, fireworks, tunnel…) and dozens of colour blends. Any style can run on Now playing, round ones inside the cover. It only listens to the app's own sound, and on the phone remote it moves with the PC's music.
 
@@ -193,7 +202,9 @@ Every scan is in **Settings › Scanner**. Run one when something looks wrong, t
 ## Phone + PC together
 
 - **Phone remote:** On the PC, turn on **Phone remote** (Settings › Play on) for a pairing code; enter it on the phone. The phone then plays, queues, skips and sets the volume on the PC, with the visualizer moving to the PC's music.
-- **Sync:** Paired devices sync by themselves whenever they connect (and **Sync now** any time): plays, skips, listening time, favorites, pins, moods, EQs and settings, nothing counted twice. **Downloads** made on one are downloaded on the other, and **tag changes** made on one are made on the other. **Synced playlists (⇄)** stay exactly the same on both; other playlists stay where they were made. **Undo last sync** puts things back.
+- **Sync:** Paired devices sync only when you tap **Sync now** (on either), never by themselves: plays, skips, listening time, favorites, pins, moods, EQs and settings, nothing counted twice. **Downloads** made on one are downloaded on the other, and **tag changes** made on one are made on the other. **Synced playlists (⇄)** stay exactly the same on both; other playlists stay where they were made. **Undo last sync** puts things back.
+- **Tags & covers match:** Turn it on in Settings › Sync and pick the main device (the PC or the phone). At each sync, the songs that are on both are made the same on the other device as on the main one: title, artist, album, album artist, genre, year, track and album art. The main device always sends, the other always takes; tag edits made on either still go to both. Songs are matched by ISRC, title and artist, or file name, when the lengths agree. On the phone only the songs the app downloaded can be changed.
+- **Folders sync leaves alone:** In Settings › Remote & sync, list folders (a full path, or a name like Unreleased) whose songs a sync never changes: their tags and covers never come from, or go to, the other device. Use it for unreleased music.
 - **Continue where you left off:** Stop on one and the other offers the same song at the same spot.
 - **Back up and restore:** One file with your playlists, favorites, plays, moods, settings and EQs, which restores on either device.
 

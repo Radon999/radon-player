@@ -70,6 +70,9 @@ fun Sheets(ui: Ui) {
     when (ui.sheet) {
         "accounts" -> AccountsSheet(ui)
         "eq" -> EqSheet(ui)
+        "lookmaker" -> LookMaker(ui, ui.makerEdit)
+        "layoutmaker" -> LayoutMaker(ui, ui.makerEdit)
+        "vismaker" -> VisMaker(ui, ui.makerEdit)
         "tidal-login" -> WebLogin(Music.tidal.loginUrl(), { it.startsWith(Tidal.REDIRECT) }) { url ->
             ui.sheet = "accounts"; if (url != null) Music.tidalLoggedIn(url)
         }
@@ -86,6 +89,12 @@ fun Sheets(ui: Ui) {
         }
         "spotify-login" -> WebLogin(Services.spotifyLoginUrl(), { it.startsWith(org.omarchy.music.Spotify.REDIRECT) }) { url ->
             ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
+        }
+        "soundcloud-login" -> {
+            val loginAt = remember { (Music.sources[org.omarchy.music.SoundCloud.KEY] as? org.omarchy.music.SoundCloud)?.loginUrl() ?: "about:blank" }
+            WebLogin(loginAt, { it.startsWith(org.omarchy.music.SoundCloud.REDIRECT) }) { url ->
+                ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) org.omarchy.music.SoundCloud.finish(url)
+            }
         }
         "lastfm-login" -> WebLogin(LastFm.authUrl(), { LastFm.authDone(it) }) { url ->
             ui.sheet = "accounts"; LastFm.finishLogin(quiet = url == null)
@@ -170,7 +179,7 @@ private fun AccountsSheet(ui: Ui) {
             if (org.omarchy.music.Startup.supported) StartupLine()
             }
             Group("Personalization", ui) {
-            PersonalizationLines()
+            PersonalizationLines(ui)
             }
             Group("Playback", ui) {
             PlaybackLines(ui)
@@ -178,7 +187,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("Backup", ui) {
             BackupLines(activity)
             }
-            Group("Play on", ui) {
+            Group("Remote & sync", ui) {
             if (org.omarchy.music.RemoteHost.supported) PhoneRemoteLines()
             // ---- play on ----
             else Line("Play on", if (Remote.active) "Music plays on the desktop (${Remote.name}), and this phone is its remote" +
@@ -194,6 +203,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
             SyncLines(ui)
+            SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
             Group("Accounts", ui) {
@@ -215,6 +225,7 @@ private fun AccountsSheet(ui: Ui) {
                 "music folders to play here as your own songs. A file can't sound better than what the service streams.\n" +
                 "Stream and download quality are in Your music.",
                 style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+            ImportNote("playlists")   // how the last playlist import went
             // ---- services ----
             for (key in listOf("ytm", "apple", "deezer")) {
                 val src = Music.sources[key]
@@ -238,6 +249,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Connect") { ui.sheet = "tidal-login" }
             }
             SpotifyLine(ui)
+            SoundCloudLine(ui)
             }
             Group("Your music", ui) {
             // ---- your music ----
@@ -451,6 +463,44 @@ private fun SpotifyLine(ui: Ui) {
     }
 }
 
+/** SoundCloud: its own service here. Its songs stream from SoundCloud (AAC, about 160 kbps) and never mix with the others. */
+@Composable
+private fun SoundCloudLine(ui: Ui) {
+    val sc = Music.sources[org.omarchy.music.SoundCloud.KEY] as? org.omarchy.music.SoundCloud
+    Text("Mixing services: songs from Tidal, Spotify, Apple Music, Deezer and YouTube Music can all go together with your own " +
+        "offline music in the same playlists and queues, since they all play through Tidal (or YouTube) and your files.\n\n" +
+        "SoundCloud is different: it's a service of its own in the app. Its songs stream straight from SoundCloud (AAC, about " +
+        "160 kbps, close to YouTube's quality), but SoundCloud's rules for apps like this one mean they can't be downloaded or " +
+        "kept offline, and can't be mixed with other services or your own music: they play in a SoundCloud queue of their " +
+        "own, and can't go in your playlists or favorites (like them on SoundCloud instead).",
+        style = T.sub, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+    when {
+        sc == null -> Line("SoundCloud", "Starting…", false) {}
+        sc.signedIn -> Line("SoundCloud", "Connected" + (if (sc.user.isNotEmpty()) " as ${sc.user}" else "") + ": search, your likes " +
+            "and playlists and artists are under SoundCloud (☰ › the service chips), streaming from SoundCloud", true) {
+            Pill("Disconnect", quiet = true) { org.omarchy.music.SoundCloud.signOut() }
+        }
+        else -> {
+            var cid by remember { mutableStateOf(sc.clientId) }
+            var secret by remember { mutableStateOf("") }
+            Line("SoundCloud", if (sc.ready) "Your SoundCloud app is set up: search works. Sign in to see your likes and playlists" else
+                "SoundCloud needs a free app of your own: tap Make an app, sign in to SoundCloud, register an app with the " +
+                "redirect URI below, then paste its Client ID and Client secret here and tap Connect. Redirect URI:", sc.ready) {}
+            Text(org.omarchy.music.SoundCloud.REDIRECT, style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 4.dp))
+            Field(cid, "Client ID") { cid = it }
+            Field(secret, if (sc.ready) "Client secret (kept: type it only to change it)" else "Client secret", password = true) { secret = it }
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill("Make an app", quiet = true) { org.omarchy.music.Services.open("https://soundcloud.com/you/apps") }
+                Pill(if (sc.ready) "Sign in" else "Connect") {
+                    if (secret.isBlank() && sc.ready && cid.trim() == sc.clientId) ui.sheet = "soundcloud-login"
+                    else if (sc.setClient(cid, secret)) { Music.sourceReady(org.omarchy.music.SoundCloud.KEY, sc, null); ui.sheet = "soundcloud-login" }
+                    else Music.toast("Paste both your app's Client ID and its Client secret")
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun LastFmLine(ui: Ui) {
     if (LastFm.connected) {
@@ -481,8 +531,9 @@ private fun SpotifyHistoryLine(ui: Ui) {
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(140)}"
-                else "Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed("spotify", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("spotify", it); Music.toast("Import worked: $it") }
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Spotify plays added alongside your Last.fm scrobbles in your stats " +
@@ -495,6 +546,7 @@ private fun SpotifyHistoryLine(ui: Ui) {
                 "(Spotify only keeps the last 50), and Sync fetches them now"
             else ". Connect Spotify under Accounts and your latest plays come in on their own too"
     Line("Spotify history", state, h.count > 0) {}
+    ImportNote("spotify")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://www.spotify.com/account/privacy/") }
         if (sp?.signedIn == true) Pill("Sync", quiet = true) {
@@ -523,8 +575,9 @@ private fun AppleHistoryLine() {
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
-                else "Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed("apple", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("apple", it); Music.toast("Import worked: $it") }
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
@@ -535,6 +588,7 @@ private fun AppleHistoryLine() {
             "of your data › Apple Media Services), then Import the zip when it comes. Or import a library exported from the Music " +
             "app on a computer (File › Library › Export Library…)"
     Line("Apple Music history", state, h.count > 0) {}
+    ImportNote("apple")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://privacy.apple.com/") }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
@@ -554,14 +608,16 @@ private fun ImportLine(h: org.omarchy.music.PlaysImport, getAt: String, howTo: S
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(200)}"
-                else "Added ${"%,d".format(n ?: 0)} ${h.label} plays" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed(h.label, err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} ${h.label} plays" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok(h.label, it); Music.toast("Import worked: $it") }
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} ${h.label} plays added alongside your Last.fm scrobbles in Most " +
         "played, Artists and Wrapped. Importing again only adds plays you didn't have yet" else howTo
     Line("${h.label} history", state, h.count > 0) {}
+    ImportNote(h.label)
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open(getAt) }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
@@ -580,8 +636,9 @@ private fun DeezerHistoryLine() {
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
-                else "Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed("deezer", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("deezer", it); Music.toast("Import worked: $it") }
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
@@ -591,6 +648,7 @@ private fun DeezerHistoryLine() {
             "Last.fm scrobbles (importing it again never adds a play twice). Tap Get the file and download your data from Deezer's privacy settings " +
             "(My account › Privacy settings › My personal data), then Import the .xlsx spreadsheet with your listening history"
     Line("Deezer history", state, h.count > 0) {}
+    ImportNote("deezer")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open("https://www.deezer.com/account/privacy") }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
@@ -603,6 +661,15 @@ private fun DeezerHistoryLine() {
         text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
         confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** How the last import of this kind went: it worked and what it added, or it failed and why (kept till the next). */
+@Composable
+private fun ImportNote(kind: String) {
+    val (ok, at, text) = org.omarchy.music.ImportNotes.last(kind) ?: return
+    val ago = org.omarchy.music.Sync.ago(at.toLong())
+    Text((if (ok) "\u2713 Last import worked ($ago): " else "\u2717 Last import failed ($ago): ") + text,
+        style = T.sub.copy(color = if (ok) C.green else C.red), modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp))
 }
 
 /** Loudness check (the PC: ffmpeg looks at each song once). */
@@ -798,8 +865,8 @@ private fun SyncLines(ui: Ui) {
         ": " + s.lastText.removePrefix("Synced: ") else "Not synced yet"
     val note = s.busy ?: if (pc && s.waiting) "Waiting for the phone: open Radon Player on it (on the same network) and it syncs " +
         "within 20 seconds" else last
-    Line("Sync with $other", "Syncs by itself each time the phone and PC connect (pairing, opening the app, back on the same Wi-Fi), " +
-        "and whenever you tap Sync now. The app's own stats go across so both show the same: plays, skips, songs heard out and " +
+    Line("Sync with $other", "Syncs only when you tap Sync now (here or on the $other): never by itself. " +
+        "The app's own stats go across so both show the same: plays, skips, songs heard out and " +
         "the listening diary (time listened, playlists, outputs, searches), each counted once however often you sync. Imports " +
         "and Last.fm aren't sent: import them on each device. Songs downloaded on one are downloaded on the other (each once), " +
         "and tag changes you make on one are made to the same songs on the other. " +
@@ -818,10 +885,71 @@ private fun SyncLines(ui: Ui) {
         "you use with each device, so they stay on the device they were made on unless this is on, on both", s.songsOn) {
         Switch(s.songsOn, { s.setSongsOn(it) }, colors = swColors())
     }
+    TagMatchLine(other)
     if (s.undoAt > 0) Line("Undo last sync", "Puts this $DEVICE's data back as it was just before the sync ${s.ago(s.undoAt)} " +
         "(changes made here since go too). The $other keeps its own: undo there too if you want", false) {
         Pill("Undo", quiet = true) { ui.confirm = "Put this $DEVICE's playlists, favorites and settings back as they were before the last sync?" to { s.undo() } }
     }
+}
+
+/** Folders sync leaves alone: their songs never take tags or covers from the other device, nor send theirs. */
+@Composable
+private fun SyncIgnoreLines() {
+    val ig = org.omarchy.music.SyncIgnore
+    var typed by remember { mutableStateOf("") }
+    val pick = rememberFolderPick { path -> if (path != null) ig.add(path) }
+    Line("Folders sync leaves alone", "Put your unreleased music (and any songs only you have the right tags for) in a folder " +
+        "listed here, so a sync never changes their tags or album art. Without it, a sync can take an unreleased song for " +
+        "another song of the same name and give it that song's tags and cover. Add the folder's full path, or just its name " +
+        "(such as Unreleased) to leave alone every folder of that name. This list is kept on this $DEVICE only: add the " +
+        "folder on your other device too. Their moods still sync, and with this list empty unreleased songs sync like " +
+        "any other (only FLACs can take tags and covers on the phone; other files there are never changed)", ig.all.isNotEmpty()) {
+        if (pick != null) Pill("Choose\u2026", quiet = true) { pick() }
+    }
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { Field(typed, "A folder, e.g. Unreleased") { typed = it } }
+        Pill("Add") { if (typed.isNotBlank()) { ig.add(typed); typed = "" } }
+    }
+    ig.all.forEach { f ->
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(f, style = T.sub, modifier = Modifier.weight(1f))
+            Pill("Remove", quiet = true) { ig.remove(f) }
+        }
+    }
+}
+
+/** Tags & covers match: the songs on both devices kept with the same tags and album art, the main device's. */
+@Composable
+private fun TagMatchLine(other: String) {
+    val m = org.omarchy.music.TagMatch
+    val P = org.omarchy.music.Prefs
+    var asking by remember { mutableStateOf(false) }
+    val on = P.on(m.ON)
+    val mainName = if (m.main == "pc") "the PC" else "the phone"
+    val receiver = if (m.main == "pc") "the phone" else "the PC"
+    Line("Tags & covers match", "Keeps the songs that are on both devices exactly the same: their tags (title, artist, album, " +
+        "album artist, genre, year, track) and their album art. The main device sends, the other takes: at each sync $receiver's " +
+        "copies are made the same as $mainName's. Tag edits you make on either still go to both. A song is matched by its ISRC, " +
+        "its title and artist, or its file's name, when the lengths agree. On the phone only the songs the app downloaded can be " +
+        "changed (Android lets an app change only its own files)", on,
+        note = when {
+            !on -> ""
+            m.isMain -> "Main device: this $DEVICE. It sends, the $other takes"
+            else -> "Main device: the $other. It sends, this $DEVICE takes"
+        }) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (on) Pill("Main: ${if (m.main == "pc") "PC" else "phone"}", quiet = true) { asking = true }
+            Switch(on, { v -> if (v) asking = true else P.set(m.ON, false) }, colors = swColors())
+        }
+    }
+    if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
+        title = { Text("Which device leads?", style = T.title) },
+        text = { Text("The main device's tags and album art are put on the other's copies of the same songs at each sync. " +
+            "Pick the one where you edit your tags.", style = T.sub) },
+        confirmButton = { TextButton({ asking = false; P.setText(m.MAIN, "pc"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
+            Text("The PC", color = C.accent) } },
+        dismissButton = { TextButton({ asking = false; P.setText(m.MAIN, "phone"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
+            Text("The phone", color = C.accent) } })
 }
 
 /** Time choice: Most played's Songs time, Albums time and Artists time in hours or in minutes. */
@@ -1004,44 +1132,52 @@ private fun PlaybackLines(ui: Ui) {
 /** Settings › Personalization (also the Now playing look pane): Look, Theme, the Now playing look's fallback, and Now
  *  playing's background and visualizer. */
 @Composable
-fun PersonalizationLines() {
+fun PersonalizationLines(ui: Ui) {
             // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
-            Text("The Now playing look: the background is the song's album cover, blurred, with the cover's colours over the whole " +
-                "app, and they change with each song. The other looks keep their own colours. Look picks the colours and Theme " +
-                "the style (corners, type, spacing), and any theme goes with any look.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+            Text("Look picks the colours, Theme how things are drawn (corners, type, spacing) and Layout where they are: any of " +
+                "each goes with any other. The Now playing look takes the colours of the song's cover; every other look keeps its " +
+                "own, and Now playing's song name, buttons, seek bar and lyrics are in the look's colour.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
             Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
                 "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
                 false, note = Looks.describe(Music.look)) {
-                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
+                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
+                    describe = { lookDesc(it) }, preview = { LookPreview(it) }) { Music.chooseLook(it) }
             }
             // The app's style, apart from its colours: kept with the other settings (so backups and Sync carry it too).
             val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
             Line("Theme", "How the app is drawn, whatever its colours: its corners, type, spacing, cards and lines",
                 false, note = Themes.ALL[theme]?.desc.orEmpty()) {
-                ChoicePill(Themes.MENU, theme) { org.omarchy.music.Prefs.setText(Themes.PREF, it) }
+                ChoicePill(Themes.MENU, theme, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) }) {
+                    org.omarchy.music.Prefs.setText(Themes.PREF, it) }
             }
             Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
                 "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
                 // Every look the Look menu has (but Now playing itself), with the same swatches.
-                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) {
+                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
+                    describe = { lookDesc(it) }, preview = { LookPreview(it) }) {
                     Music.chooseNpFallback(it)
                 }
             }
+            // Where things are on the screen, apart from colours and drawing: any layout goes with any look and theme
+            val lay = UiLayouts.current
+            Line("Layout", "Where things are on the screen: how you get around (the ☰ menu, a bar along the bottom, a rail " +
+                "down the side or tabs along the top), the mini player and how Now playing is arranged. Every layout has every " +
+                "feature: what isn't on its bar is in the ☰ menu", false, note = lay.explain()) {
+                fun of(k: String) = UiLayouts.all().firstOrNull { it.key == k }
+                ChoicePill(UiLayouts.MENU, lay.key, describe = { of(it)?.explain().orEmpty() },
+                    preview = { k -> of(k)?.let { LayoutPreview(it) } }, thumb = { k -> of(k)?.let { LayoutThumb(it) } }) { UiLayouts.choose(it) }
+            }
             NowPlayingLookLines()
+            MakerLines(ui)
 }
+
+/** A look's description for its menu (the Now playing look's own, and yours). */
+private fun lookDesc(k: String): String = Looks.describe(k).ifEmpty {
+    if (k == Looks.NOW_PLAYING) "Every screen takes the colours of the cover of the song that's playing" else "" }
 
 /** Settings › Look for Now playing: its background, and the visualizer behind it. */
 @Composable
 private fun NowPlayingLookLines() {
-    val plain = Vis.plainNow()
-    Line("Now playing background", if (plain) "Plain: a still black background with the cover shown as it is, no blur. The queue " +
-        "and lyrics sit on it too"
-        else "Cover blur: the colours of the song's cover, with the cover itself faintly blurred behind everything, the queue " +
-        "and lyrics too", false) {
-        Chip("Cover blur", !plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "blur") }
-        Spacer(Modifier.width(4.dp))
-        Chip("Plain", plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "plain") }
-    }
     Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
@@ -1245,7 +1381,7 @@ private fun SyncSwitch(key: String) {
 }
 
 @Composable
-private fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, checkedTrackColor = C.accent,
+internal fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, checkedTrackColor = C.accent,
     uncheckedThumbColor = C.muted, uncheckedTrackColor = C.dark, uncheckedBorderColor = C.line)
 
 /** A section of Settings: a row with its name and an arrow that folds it open or shut (all shut when Settings opens). */

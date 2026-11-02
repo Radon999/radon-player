@@ -428,7 +428,8 @@ object Moods {
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue   // gone
             val e = fresh(p, t, m)
             // A song whose file already has a MOOD tag has its mood: neither scan hears it again.
-            val need = if (e.inFile.isNotEmpty()) false else if (full) !e.full else
+            // (Unless the app put it there and it was sent to hear the song again: see [hearAgainFromElsewhere].)
+            val need = if (e.inFile.isNotEmpty() && (e.heard || e.inFile != e.wrote)) false else if (full) !e.full else
                 (!e.heard && e.confirmed.isEmpty() && e.kept.isEmpty()) || (fmKey && !e.fm)   // settled moods needn't be heard
             if (need) todo += Triple(p, t, m)
         }
@@ -819,8 +820,9 @@ object Moods {
             val p = pathOf(t) ?: continue
             val e = synchronized(lock) { known[p] } ?: continue
             if (!e.looked || !(e.heard || e.picked.isNotEmpty() || e.kept.isNotEmpty())) continue
-            // Yours (one or several) as you picked them, else the mood worked out
-            val m = e.picked.ifEmpty { scored(t).firstOrNull()?.first.orEmpty() }.ifEmpty { null } ?: continue
+            // Yours (one or several) as you picked them, else every mood worked out (main first, joined with ";"), so
+            // the file carries them all: your other device and other apps read the same moods, not just the main one
+            val m = e.picked.ifEmpty { scored(t).take(MoodRules.MOST).joinToString(";") { it.first } }.ifEmpty { null } ?: continue
             if (m == e.inFile || !seen.add(p)) continue
             if (canWrite(p)) out += p to m
         }
@@ -879,9 +881,57 @@ object Moods {
     }
 
     /** A backup's moods, kept to be given to the songs here once they're read (after the app starts again). */
-    fun restoreLater(text: String) {
+    fun restoreLater(text: String, fromSync: Boolean = false) {
         runCatching { JSON.decodeFromString(ListSerializer(MoodBackupSong.serializer()), text) }.getOrNull() ?: return
+        if (fromSync) {
+            // Tags & covers match: the main device leads the moods too, so it never takes the other's
+            if (TagMatch.on && TagMatch.isMain) return
+            snapshot()   // what the moods were, so Undo last sync can put them back
+            if (TagMatch.on) mainFile.writeText("1") else mainFile.delete()
+        } else mainFile.delete()
         writeAtomic(restoreFile, text)
+    }
+
+    /** Songs whose moods came from a backup or the other device rather than being heard here (and aren't yours). */
+    fun fromElsewhere(): Int { load(); return synchronized(lock) { known.values.count { it.kept.isNotEmpty() && it.picked.isEmpty() } } }
+
+    /** (blocking) Those songs heard again here, from scratch: their moods from elsewhere dropped (the MOOD the app wrote
+     *  into their files is worked out again and rewritten). For moods a sync spoilt. How many. */
+    fun hearAgainFromElsewhere(): Int {
+        load()
+        var n = 0
+        synchronized(lock) {
+            for ((p, e) in known.entries.toList()) if (e.kept.isNotEmpty() && e.picked.isEmpty()) {
+                known[p] = e.copy(kept = emptyList(), keptSure = 0.0, heard = false, full = false, sound = null,
+                    wrote = e.inFile.ifEmpty { e.wrote })
+                n++
+            }
+        }
+        if (n > 0) { save(); Music.scope.launch { version++ } }
+        return n
+    }
+
+    /** The other device is the main one (Tags & covers match) and these moods came from it: its moods win. */
+    private val mainFile get() = File(Music.ctx.filesDir, "moods-restore-main")
+    private val beforeSync get() = File(Music.ctx.filesDir, "moods-before-sync.json")
+
+    /** (blocking) The moods as they are, kept aside before a sync changes them. */
+    fun snapshot() {
+        load(); save()
+        runCatching { file.takeIf { it.isFile }?.copyTo(beforeSync, overwrite = true) }
+    }
+
+    /** (blocking) Undo last sync: the moods put back as they were before it (and the ones it brought dropped). */
+    fun undoSync(): Boolean {
+        if (!beforeSync.isFile) return false
+        synchronized(saving) {
+            beforeSync.copyTo(file, overwrite = true)
+            restoreFile.delete(); mainFile.delete()
+            synchronized(lock) { known.clear(); artists.clear(); bias.clear(); ok.clear(); loaded = false }
+        }
+        load()
+        Music.scope.launch { version++ }
+        return true
     }
 
     /** (blocking) The waiting backup's moods given to the songs here that match (title and artist, length, album).
@@ -890,6 +940,7 @@ object Moods {
     private fun applyRestored() {
         val saved = runCatching { JSON.decodeFromString(ListSerializer(MoodBackupSong.serializer()), readText(restoreFile) ?: return) }.getOrNull()
         if (saved == null) { restoreFile.delete(); return }
+        val fromMain = mainFile.isFile
         load()
         val songs = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
         if (songs.isEmpty()) return   // your music isn't read yet: next time
@@ -904,8 +955,12 @@ object Moods {
             val theirs = LyricsReading.parse(b.lyrics)
             val mine = e?.lyr?.takeIf { it.isNotEmpty() }?.let { LyricsReading.parse(it) }
             val wordsBetter = theirs != null && (mine == null || theirs.rank > mine.rank)
-            val better = b.moods.isNotEmpty() && e?.picked.isNullOrEmpty().let { notYours -> notYours || b.picked } &&
-                (e == null || (!e.heard && e.confirmed.isEmpty()) || (b.full && !e.full) || (b.picked && e.picked.isEmpty()) || wordsBetter)
+            // A song's moods here are only replaced when it has none of its own yet (or the other device's are yours), or the
+            // other device is the main one (Tags & covers match). A better reading of the words alone no longer replaces
+            // moods heard here: that's what made a sync swap good moods for fewer.
+            val notYours = e?.picked.isNullOrEmpty()
+            val better = b.moods.isNotEmpty() && (notYours || b.picked) &&
+                (e == null || (!e.heard && e.confirmed.isEmpty()) || (b.picked && e.picked.isEmpty()) || (fromMain && notYours))
             val words = wordsBetter   // its words' mood, read before
             if (!better && !words) continue
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue
@@ -920,7 +975,7 @@ object Moods {
         }
         val used = got.values.toHashSet()
         val left = saved.filter { it !in used }
-        if (left.isEmpty()) restoreFile.delete() else writeAtomic(restoreFile, JSON.encodeToString(ListSerializer(MoodBackupSong.serializer()), left))
+        if (left.isEmpty()) { restoreFile.delete(); mainFile.delete() } else writeAtomic(restoreFile, JSON.encodeToString(ListSerializer(MoodBackupSong.serializer()), left))
         if (n > 0) {
             save()
             Music.scope.launch { version++; Music.toast("Moods from your backup given to ${"%,d".format(n)} song${if (n != 1) "s" else ""}") }

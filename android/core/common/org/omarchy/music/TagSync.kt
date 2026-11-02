@@ -35,6 +35,13 @@ object TagSync {
         } }
     }
 
+    /** Changes made here not noted for the other device (they came from it: Tags & covers match). */
+    fun quietly(run: () -> Unit) { taking.set(true); try { run() } finally { taking.set(false) } }
+
+    /** The songs (title and artist, before and after) changed here and not yet taken by the other device. */
+    fun waitingKeys(): Set<String> = runCatching { synchronized(lock) { pending() } }.getOrDefault(emptyList())
+        .flatMap { c -> listOf(TagChanges.key(c.title, c.artist), TagChanges.after(c).let { (t, a) -> TagChanges.key(t, a) }) }.toSet()
+
     /** (blocking) What goes to the other device. */
     fun outgoing(): String = synchronized(lock) {
         JSON.encodeToString(TagChangesSent.serializer(), TagChangesSent(pending(), applied().toList().takeLast(2000)))
@@ -54,7 +61,7 @@ object TagSync {
         val index = HashMap<String, MutableList<String>>()
         for (t in runCatching { Music.mySongs() }.getOrDefault(emptyList())) {
             val f = Music.lib.items[t.id]?.file ?: t.file?.takeIf { t.isFile } ?: continue
-            if (Tags.writable(f)) index.getOrPut(TagChanges.key(t.title, t.artist)) { mutableListOf() }.let { if (f !in it) it += f }
+            if (Tags.writable(f) && !SyncIgnore.ignored(f)) index.getOrPut(TagChanges.key(t.title, t.artist)) { mutableListOf() }.let { if (f !in it) it += f }
         }
         val playing = runCatching { Music.current() }.getOrNull()?.let { Music.lib.items[it.id]?.file ?: it.file }
         var changed = 0

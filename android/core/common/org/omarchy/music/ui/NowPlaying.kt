@@ -51,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -84,13 +85,62 @@ import kotlin.math.roundToInt
 /** The Now playing look: this screen in the cover's colours, the cover faintly blurred behind. Any other look keeps
  *  its own background and colours here (no blurred cover, no colours from the cover). */
 private val coverLook: Boolean get() = Music.look == Looks.NOW_PLAYING
-/** White text: in the cover's colours, or on the plain black background; else the look's own text colour. */
-private val whiteText: Boolean get() = coverLook || Vis.plainNow()
-private val WHITE: Color get() = if (whiteText) Color.White else C.fg
-private val SOFT: Color get() = if (whiteText) Color.White.copy(alpha = 0.62f) else C.muted
-private val GLASS: Color get() = if (whiteText) Color.White.copy(alpha = 0.14f) else C.fg.copy(alpha = 0.08f)
-/** An icon on a button that's on (filled with WHITE): dark, or light where the look's text is dark. */
-private val ON_WHITE: Color get() = if (whiteText || !C.isLight) Color(0xFF222222) else C.light
+/** White on the Now playing look (the cover's colours); with any other look, Now playing's song name, buttons, seek bar and
+ *  tools are all in the look's own colour (its accent), quieter text in its muted colour. */
+private val whiteText: Boolean get() = coverLook
+private val WHITE: Color get() = if (whiteText) Color.White else readable(C.accent, 3.2f)
+
+/** The visualizer's colour with a look: a colour that sets off the look's accent, its hue turned most of the way round
+ *  the colour wheel (a purple look gets a warm yellow, a blue one an amber, a red one a teal), bright and clean so the
+ *  two go together but the visualizer is never the colour of the song name, buttons and seek bar (in the accent). */
+internal val VIS_LOOK: Color get() {
+    if (whiteText) return Color.White
+    val a = C.accent
+    val mx = maxOf(a.red, a.green, a.blue); val mn = minOf(a.red, a.green, a.blue); val d = mx - mn
+    var h = when { d == 0f -> 0f; mx == a.red -> 60f * (((a.green - a.blue) / d) % 6f); mx == a.green -> 60f * ((a.blue - a.red) / d + 2f)
+        else -> 60f * ((a.red - a.green) / d + 4f) }
+    h = ((h + 150f) % 360f + 360f) % 360f
+    val sat = if (mx == 0f) 0f else d / mx
+    // A grey accent has no hue to turn: a lighter or darker grey instead
+    if (sat < 0.12f) return readable(androidx.compose.ui.graphics.lerp(a, if (C.isLight) Color.Black else Color.White, 0.45f), 3.2f)
+    return readable(Color.hsv(h, sat.coerceIn(0.55f, 0.85f), mx.coerceAtLeast(0.85f)), 3.2f)
+}
+
+/** A soft shadow in the background's colour under Now playing's words, so they read over the visualizer too. */
+private val LIFT: androidx.compose.ui.graphics.Shadow? get() = if (whiteText) null
+    else androidx.compose.ui.graphics.Shadow(C.bg.copy(alpha = 0.9f), blurRadius = 10f)
+private val SOFT: Color get() = if (whiteText) Color.White.copy(alpha = 0.62f) else readable(C.muted, 2.6f)
+
+/** Contrast between two colours (1 to 21, as the web's guidelines measure it). */
+private fun contrast(a: Color, b: Color): Float {
+    val la = a.luminance(); val lb = b.luminance()
+    return (maxOf(la, lb) + 0.05f) / (minOf(la, lb) + 0.05f)
+}
+
+/** The look's colour, nudged toward white (on a dark background) or black (on a light one) only as far as it takes to
+ *  stand out from every colour of the look's background, its gradient's too: the seek bar, buttons and names are never
+ *  lost in the background, and a look whose colour already stands out keeps it exactly. */
+private val readCache = HashMap<Long, Color>()
+internal fun readable(c: Color, need: Float): Color {
+    val backs = listOf(C.bg) + (C.gradient ?: emptyList())
+    val key = (c.value.toLong() * 31 + backs.hashCode()) * 31 + need.hashCode()
+    return readCache.getOrPut(key) {
+        val dark = backs.map { it.luminance() }.average() < 0.4
+        val toward = if (dark) Color.White else Color.Black
+        var t = 0f
+        var out = c
+        while (t < 1f && backs.minOf { contrast(out, it) } < need) {
+            t += 0.05f
+            out = androidx.compose.ui.graphics.lerp(c, toward, t)
+        }
+        out
+    }
+}
+/** The look's colour, made to stand out from its background (the lyrics use it too). */
+internal val LOOK_ACCENT: Color get() = readable(C.accent, 3.2f)
+private val GLASS: Color get() = if (whiteText) Color.White.copy(alpha = 0.14f) else C.accent.copy(alpha = 0.12f)
+/** An icon on a button that's on (filled with WHITE): dark on white, else the look's background on its accent. */
+private val ON_WHITE: Color get() = if (whiteText) Color(0xFF222222) else if (C.isLight) C.light else C.darker
 
 /** The backdrop's colours from a cover: the gradient's top and bottom, and the bars' light shade. */
 class NowColors(val top: Color, val bottom: Color, val bars: Color)
@@ -127,20 +177,22 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val visStyle = Vis.nowStyle()
     val visPane = ui.pane == "nowvis"   // the visualizer's settings in the cover's place: it runs there for the previews
     val vis = if ((micOk || Remote.active) && (visStyle != "off" || visPane)) rememberVis(on = true) else null
-    val visCol = if (cover || plain) cols.bars else C.accent
+    val visCol = if (cover) cols.bars else VIS_LOOK   // the look's own visualizer colour (not the words' and buttons'), or the cover's
     val strength = nowStrength
     // The styles around a middle (Ring, Pulse…) go over the big cover while it shows, else they'd hide behind it.
     val coverShown = ui.pane != "queue" && ui.pane != "lyrics" && !visPane
     val onCover = vis != null && visStyle != "off" && coverShown && visStyle in Vis.OVER_COVER
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
     Box(Modifier.fillMaxSize().then(when {
-        plain -> Modifier.background(Color.Black)
+        plain && cover -> Modifier.background(Color.Black)   // the Now playing look, plain: black, the cover sharp
         cover -> Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))
         // Another look: its own background, which the app's window already draws (with its stars); the lock screen has
         // no window behind, so it's drawn here.
         lock == null -> Modifier
         else -> Modifier.background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)
     })) {
+        if (!cover && lock != null && C.stars) Stars()   // the look's stars on the lock screen too, as in the window
+        if (!cover && lock != null) LookEffects()
         // The cover in the colour, faintly and only a little blurred, so it's still clearly the cover: a mid-size copy
         // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
         if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
@@ -148,9 +200,10 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         if (vis != null && visStyle != "off" && !onCover && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
             visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
         if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            if (lock != null) LockTop(n, lock) else NowTop(ui, n)
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+        val lay = if (lock != null) UiLayouts.BUILT_IN.first() else UiLayouts.current
+        // What takes the middle: the queue, the lyrics, Personalization, the visualizer's settings, or the cover and song
+        // (arranged as the layout says).
+        val middle: @Composable (Modifier, NpKind) -> Unit = { m, np -> Box(m) {
                 when (ui.pane) {
                     "queue" -> QueuePane(ui, n)
                     // The lyrics are in the look's colours: on a light look's card, so they read on any background
@@ -170,25 +223,68 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                                 IconButton(Ico.CLOSE, C.muted, 20.dp, desc = "Close") { ui.pane = "art" }
                             }
                             Column(Modifier.weight(1f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp)) {
-                                PersonalizationLines()
+                                PersonalizationLines(ui)
                             }
                         }
                     }
                     "nowvis" -> NowVisPane(ui, vis, visCol, micOk, { askMic.launch(Perm.MIC) },
                         if (lock == null) ({ ui.pane = "art"; goTo(ui, "visualizer") }) else null)   // the lock screen has no Visualizer tab
                     else -> Column(Modifier.fillMaxSize()) {
-                        BigCover(ui, art, t != null, Modifier.weight(1f), if (onCover) vis else null, visStyle, visCol, strength)
-                        SongLine(ui, n)
+                        val over = if (onCover) vis else null
+                        when (np) {
+                            NpKind.CENTERED -> {
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, scale = 0.74f)
+                                SongLine(ui, n, centered = true)
+                            }
+                            NpKind.INFO_TOP -> {
+                                SongLine(ui, n)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength)
+                            }
+                            NpKind.BLEED -> {
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, bleed = true)
+                                SongLine(ui, n)
+                            }
+                            NpKind.SPLIT -> BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength)
+                            NpKind.HEADLINE -> {
+                                SongLine(ui, n, headline = true)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, scale = 0.66f)
+                            }
+                            else -> {
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength)
+                                SongLine(ui, n)
+                            }
+                        }
                     }
                 }
-            }
+            } }
+        val controls: @Composable () -> Unit = {
             Seek(n)
             Transport(n, ui.pane != "queue" && ui.pane != "lyrics", volumeShown, { volumeShown = !volumeShown }, visPane) {
                 ui.pane = if (visPane) "art" else "nowvis"
             }
             if (volumeShown) VolumeLine()
-            ToolPill(ui)
-            Spacer(Modifier.height(14.dp))   // where the sound goes shows in the Equalizer only (1.4)
+        }
+        BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            // Side by side when there's room for it (a PC window, a tablet, a phone on its side); stacked and centred if not.
+            val wide = maxWidth > maxHeight * 1.05f && maxWidth >= 560.dp
+            val np = if (lay.np == NpKind.SPLIT && !wide) NpKind.CENTERED else lay.np
+            Column(Modifier.fillMaxSize()) {
+                if (lock != null) LockTop(n, lock) else NowTop(ui, n, lay)
+                if (lay.toolsTop) ToolPill(ui, top = true)
+                if (np == NpKind.SPLIT) Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    middle(Modifier.weight(1f).fillMaxHeight(), NpKind.SPLIT)
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                        if (ui.pane == "art" || ui.pane.isEmpty()) SongLine(ui, n)
+                        controls()
+                        if (!lay.toolsTop) ToolPill(ui)
+                    }
+                } else {
+                    middle(Modifier.weight(1f).fillMaxWidth(), np)
+                    controls()
+                    if (!lay.toolsTop) ToolPill(ui)
+                }
+                Spacer(Modifier.height(14.dp))   // where the sound goes shows in the Equalizer only (1.4)
+            }
         }
     }
 }
@@ -206,24 +302,25 @@ private fun LockTop(n: Now, lock: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.width(48.dp))
-            Text(clock, style = T.big.copy(color = WHITE, fontSize = 30.sp, fontWeight = FontWeight.SemiBold), textAlign = TextAlign.Center,
+            Text(clock, style = T.big.copy(shadow = LIFT, color = WHITE, fontSize = 30.sp, fontWeight = FontWeight.SemiBold), textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f))
             Box(Modifier.size(48.dp).clip(R.pill).background(GLASS).clickable(onClick = lock)
                 .semantics { contentDescription = "To the lock screen" }, contentAlignment = Alignment.Center) {
-                Text("⌄", style = T.big.copy(color = WHITE, fontSize = 26.sp))
+                Text("⌄", style = T.big.copy(shadow = LIFT, color = WHITE, fontSize = 26.sp))
             }
         }
         val t = n.t
-        if (t != null && t.album.isNotEmpty()) Text("From the album ${t.album}", style = T.sub.copy(color = WHITE.copy(alpha = 0.85f)),
+        if (t != null && t.album.isNotEmpty()) Text("From the album ${t.album}", style = T.sub.copy(shadow = LIFT, color = WHITE.copy(alpha = 0.85f)),
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 /** ☰ (always there), where it plays from, and the gear. */
 @Composable
-private fun NowTop(ui: Ui, n: Now) {
+private fun NowTop(ui: Ui, n: Now, lay: UiLayout = UiLayouts.current) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(Ico.MENU, WHITE) { ui.openDrawer() }
+        // ☰ where the layout puts it: the left, the right (Right-handed, Zen), or on its bar instead
+        if (lay.headerMenu && !lay.menuRight) IconButton(Ico.MENU, WHITE) { ui.openDrawer() } else Spacer(Modifier.width(8.dp))
         val t = n.t
         val from = when {
             n.remote -> "Playing on the desktop"
@@ -233,12 +330,12 @@ private fun NowTop(ui: Ui, n: Now) {
             Music.queueName.isNotEmpty() -> "Playing from ${Music.queueName}"
             else -> ""
         }
-        Text(from, style = T.sub.copy(color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
+        Text(from, style = T.sub.copy(shadow = LIFT, color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
         // Playing a DJ set: straight to the DJ's next set (its next category), skipping the rest of this one.
         if (t != null && t.dj > 0 && Music.shownDj().on)
-            IconButton(Ico.SKIP, C.accent, desc = "Next DJ set") { Music.djNextSet() }
+            IconButton(Ico.SKIP, LOOK_ACCENT, desc = "Next DJ set") { Music.djNextSet() }
         // The song's own EQ (Custom EQ…): always here to set one up; red while the song's is in effect here (on this
         // output), the accent when it has one for another output. Left of Mono (on the PC, where Auto mono's button was).
         if (!n.remote && t != null) {
@@ -248,13 +345,13 @@ private fun NowTop(ui: Ui, n: Now) {
             Box(Modifier.clip(R.pill).clickable { ui.songEqFor = listOf(t) }
                 .semantics { contentDescription = when { now -> "Custom EQ on"; has -> "Custom EQ on another output"; else -> "Custom EQ for this song" } }
                 .padding(horizontal = 6.dp, vertical = 10.dp)) {
-                Text("C EQ", style = T.tab.copy(color = when { now -> MONO_RED; has -> C.accent; else -> SOFT }, fontWeight = FontWeight.Bold))
+                Text("C EQ", style = T.tab.copy(color = when { now -> MONO_RED; has -> LOOK_ACCENT; else -> SOFT }, fontWeight = FontWeight.Bold))
             }
         }
         if (!n.remote) {   // Mono: both sides in each ear (one earbud in); red while it's on, the cover's colour while it's off
             val auto = onPhone && org.omarchy.music.AutoMono.active   // Auto mono is the phone's only
             val mono = org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO) || auto
-            IconButton(Ico.HEADPHONES, if (mono) MONO_RED else C.accent, desc = if (mono) "Mono on" else "Mono off") {
+            IconButton(Ico.HEADPHONES, if (mono) MONO_RED else LOOK_ACCENT, desc = if (mono) "Mono on" else "Mono off") {
                 if (auto) Music.toast("Auto mono has mono on while your earbuds are connected (Settings › Playback)")
                 else { Music.setOpt(org.omarchy.music.Prefs.MONO, !mono); Music.toast(if (mono) "Stereo" else "Mono: both sides in each ear") }
             }
@@ -265,7 +362,7 @@ private fun NowTop(ui: Ui, n: Now) {
             Music.musicVersion
             val has = Music.gains.has(t)
             val now = has && Music.gainNow(t) != 0.0
-            val col = when { now -> MONO_RED; has -> C.accent; else -> SOFT }
+            val col = when { now -> MONO_RED; has -> LOOK_ACCENT; else -> SOFT }
             Row(Modifier.clip(R.pill).clickable { ui.volumeFor = listOf(t) }.padding(horizontal = 6.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("C", style = T.tab.copy(color = col, fontWeight = FontWeight.Bold))
@@ -291,8 +388,9 @@ private fun NowTop(ui: Ui, n: Now) {
                 Icon(Ico.BLUETOOTH_OFF, if (on) MONO_RED else SOFT, 24.dp)
             }
         }
-        if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) C.accent else WHITE, desc = "Cast") { ui.castPick = true }
+        if (!n.remote) IconButton(Ico.CAST, if (Music.cast != null) LOOK_ACCENT else WHITE, desc = "Cast") { ui.castPick = true }
         IconButton(Ico.SETTINGS, WHITE) { ui.openSettings() }
+        if (lay.headerMenu && lay.menuRight) IconButton(Ico.MENU, WHITE) { ui.openDrawer() }
     }
 }
 
@@ -300,16 +398,24 @@ private fun NowTop(ui: Ui, n: Now) {
  *  over: the visualizer drawn over it (a style around a middle, Vis.OVER_COVER), in visStyle, moving with the cover's swipe. */
 @Composable
 private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, over: VisState? = null, visStyle: String = "",
-                     visCol: Color = Color.White, strength: Float = 0.5f) {
+                     visCol: Color = Color.White, strength: Float = 0.5f, scale: Float = 1f, bleed: Boolean = false) {
     var dx by remember { mutableFloatStateOf(0f) }
+    // bleed: edge to edge across the screen, square, no frame or shadow (Full cover); scale: smaller, in the middle
+    val lay = UiLayouts.current
+    val shape = if (bleed) RoundedCornerShape(0.dp) else when (lay.x("artShape")) {
+        "square" -> RoundedCornerShape(0.dp); "soft" -> RoundedCornerShape(32.dp); "circle" -> RoundedCornerShape(50); else -> RoundedCornerShape(14.dp) }
+    val sizeK = (lay.x("artSize").toIntOrNull() ?: 100) / 100f
+    val swipe = lay.x("swipe") != "off"
     Box(modifier.fillMaxWidth()) {
-        BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
-            val side = if (maxWidth < maxHeight) maxWidth else maxHeight
+        BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = if (bleed) 0.dp else 24.dp, vertical = if (bleed) 0.dp else 14.dp),
+            contentAlignment = if (bleed) Alignment.TopCenter else Alignment.Center) {
+            val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK)
             Box(Modifier.size(side)
-                .graphicsLayer(translationX = dx * 0.6f, rotationZ = dx / 90f, alpha = 1f - (abs(dx) / 900f).coerceIn(0f, 0.5f))
-                .shadow(26.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black, spotColor = Color.Black)
-                .clip(RoundedCornerShape(14.dp)).background(GLASS)
-                .pointerInput(playing) {
+                .graphicsLayer(translationX = dx * 0.6f, rotationZ = if (bleed) 0f else dx / 90f, alpha = 1f - (abs(dx) / 900f).coerceIn(0f, 0.5f))
+                .then(if (bleed || lay.x("artShadow") == "off") Modifier else Modifier.shadow(26.dp, shape, ambientColor = Color.Black, spotColor = Color.Black))
+                .clip(shape).background(GLASS)
+                .pointerInput(playing, swipe) {
+                    if (!swipe) return@pointerInput
                     detectHorizontalDragGestures(onDragEnd = {
                         if (playing) { if (dx < -160f) Music.next() else if (dx > 160f) Music.previous() }
                         dx = 0f
@@ -333,16 +439,43 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
 
 /** The song, the artist (— the album), and ☆ and ⋯ in glass circles. */
 @Composable
-private fun SongLine(ui: Ui, n: Now) {
+private fun SongLine(ui: Ui, n: Now, centered: Boolean = false, headline: Boolean = false) {
     val t = n.t
     var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(t?.title ?: "Nothing playing", style = T.big.copy(color = WHITE, fontSize = 24.sp, fontWeight = FontWeight.Medium),
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (t != null) ArtistLinks(t.artist, ui, t.source, style = T.body.copy(color = SOFT, fontSize = 17.sp),
+    if (centered) {   // Centred: the song and artist centred, ☆ ⋯ and Personalization in a row under them
+        Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(t?.title ?: "Nothing playing", style = T.big.copy(shadow = LIFT, color = WHITE, fontSize = 24.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            if (t != null) ArtistLinks(t.artist, ui, t.source, style = T.body.copy(shadow = LIFT, color = SOFT, fontSize = 16.sp, textAlign = TextAlign.Center),
                 suffix = if (t.album.isNotEmpty()) "  —  ${t.album}" else "")
-            else Text("Open ☰ and pick a song to start", style = T.body.copy(color = SOFT))
+            else Text("Open ☰ and pick a song to start", style = T.body.copy(shadow = LIFT, color = SOFT))
+            if (t != null) SoundCloudCredit(t)
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (t != null) {
+                    Music.musicVersion
+                    val fav = Music.favorites.has(t)
+                    Glass(if (fav) Ico.STAR else Ico.STAR_LINE, "Favorite") { Music.setFavorite(listOf(t)) }
+                    Box {
+                        Glass(Ico.MORE, "More") { menu = true }
+                        TrackMenu(t, RowPlace(listOf(t), 0), ui, menu) { menu = false }
+                    }
+                }
+                Glass(Ico.PALETTE, "Personalization") { ui.pane = if (ui.pane == "looks") "art" else "looks" }
+            }
+        }
+        return
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 10.dp, top = if (headline) 6.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            // Headline: the song's name in big type, over two lines if it needs them
+            Text(t?.title ?: "Nothing playing", style = T.big.copy(shadow = LIFT, color = WHITE, fontSize = if (headline) 36.sp else 24.sp,
+                lineHeight = if (headline) 40.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
+                fontWeight = if (headline) FontWeight.Bold else FontWeight.Medium),
+                maxLines = if (headline) 2 else 1, overflow = TextOverflow.Ellipsis)
+            if (t != null) ArtistLinks(t.artist, ui, t.source, style = T.body.copy(shadow = LIFT, color = SOFT, fontSize = 17.sp),
+                suffix = if (t.album.isNotEmpty()) "  —  ${t.album}" else "")
+            else Text("Open ☰ and pick a song to start", style = T.body.copy(shadow = LIFT, color = SOFT))
+            if (t != null) SoundCloudCredit(t)
         }
         // ☆, ⋯ and Personalization, on the phone as on the PC (the phone as the PC's remote too: the song playing
         // there is favorited here, and synced)
@@ -362,6 +495,17 @@ private fun SongLine(ui: Ui, n: Now) {
     }
 }
 
+/** A SoundCloud song's credit, as SoundCloud asks: its uploader, SoundCloud as the source, and a link to its page there. */
+@Composable
+private fun SoundCloudCredit(t: Track) {
+    if (t.source != org.omarchy.music.SoundCloud.KEY) return
+    Text("By ${t.artist} on SoundCloud  ↗", style = T.sub.copy(color = LOOK_ACCENT, fontWeight = FontWeight.SemiBold), maxLines = 1,
+        overflow = TextOverflow.Ellipsis, modifier = Modifier.clip(R.small).clickable {
+            val sc = Music.sources[org.omarchy.music.SoundCloud.KEY] as? org.omarchy.music.SoundCloud ?: return@clickable
+            Music.bg({ sc.pageOf(t) }) { url, _ -> if (url != null) org.omarchy.music.Services.open(url) else Music.toast("Couldn't find its SoundCloud page") }
+        }.padding(vertical = 2.dp))
+}
+
 @Composable
 private fun Glass(ico: Ico, desc: String, on: Boolean = false, onClick: () -> Unit) {
     Box(Modifier.size(42.dp).clip(R.pill).background(if (on) WHITE.copy(alpha = 0.85f) else GLASS).clickable(onClick = onClick)
@@ -375,22 +519,24 @@ private fun Seek(n: Now) {
     var drag by remember { mutableStateOf<Float?>(null) }
     val frac = drag ?: if (n.dur > 0) (n.pos / n.dur).toFloat().coerceIn(0f, 1f) else 0f
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        SlimBar(frac, onMove = { drag = it }, onDone = { f -> if (n.dur > 0) Music.seek(f * n.dur); drag = null })
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        SlimBar(frac, onMove = { drag = it }, onDone = { f -> if (n.dur > 0) Music.seek(f * n.dur); drag = null },
+            thick = when (UiLayouts.current.x("seek")) { "thin" -> 0.55f; "thick" -> 1.8f; else -> 1f })
+        if (UiLayouts.current.x("times") != "off") Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             val pos = drag?.let { it * n.dur } ?: n.pos
-            Text(fmtTime(pos), style = T.time.copy(color = SOFT))
+            Text(fmtTime(pos), style = T.time.copy(shadow = LIFT, color = SOFT))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 if (!n.remote) QualityMark()
-                else if (Remote.status.quality.isNotEmpty()) Text(Remote.status.quality, style = T.time.copy(color = SOFT, fontWeight = FontWeight.SemiBold), maxLines = 1)
+                else if (Remote.status.quality.isNotEmpty()) Text(Remote.status.quality, style = T.time.copy(shadow = LIFT, color = SOFT, fontWeight = FontWeight.SemiBold), maxLines = 1)
             }
-            Text("-" + fmtTime(maxOf(0.0, n.dur - pos)), style = T.time.copy(color = SOFT))
+            Text("-" + fmtTime(maxOf(0.0, n.dur - pos)), style = T.time.copy(shadow = LIFT, color = SOFT))
         }
     }
 }
 
 /** A slim bar (the seek bar, the volume): tap or drag along it. */
 @Composable
-private fun SlimBar(frac: Float, onMove: (Float) -> Unit, onDone: (Float) -> Unit, modifier: Modifier = Modifier) {
+private fun SlimBar(frac: Float, onMove: (Float) -> Unit, onDone: (Float) -> Unit, modifier: Modifier = Modifier, thick: Float = 1f,
+                    bar: Color = WHITE) {
     var dragging by remember { mutableStateOf(false) }
     Canvas(modifier.fillMaxWidth().height(24.dp)
         .pointerInput(Unit) { detectTapGestures { o -> onDone((o.x / size.width).coerceIn(0f, 1f)) } }
@@ -402,10 +548,10 @@ private fun SlimBar(frac: Float, onMove: (Float) -> Unit, onDone: (Float) -> Uni
                 onDragCancel = { dragging = false; onDone(last) },
             ) { change, _ -> last = (change.position.x / size.width).coerceIn(0f, 1f); onMove(last) }
         }) {
-        val h = (if (dragging) 9f else 6f) * density / 2.6f * 2.6f
+        val h = (if (dragging) 9f else 6f) * density / 2.6f * 2.6f * thick
         val y = (size.height - h) / 2
-        drawRoundRect(WHITE.copy(alpha = 0.22f), Offset(0f, y), Size(size.width, h), CornerRadius(h / 2))
-        drawRoundRect(WHITE.copy(alpha = 0.9f), Offset(0f, y), Size(size.width * frac, h), CornerRadius(h / 2))
+        drawRoundRect(bar.copy(alpha = 0.22f), Offset(0f, y), Size(size.width, h), CornerRadius(h / 2))
+        drawRoundRect(bar.copy(alpha = 0.9f), Offset(0f, y), Size(size.width * frac, h), CornerRadius(h / 2))
     }
 }
 
@@ -431,7 +577,7 @@ private fun QualityMark() {
         else -> ""
     }
     if (label.isEmpty()) return
-    Text(label, style = T.time.copy(color = SOFT, fontWeight = FontWeight.SemiBold), maxLines = 1,
+    Text(label, style = T.time.copy(shadow = LIFT, color = SOFT, fontWeight = FontWeight.SemiBold), maxLines = 1,
         modifier = Modifier.clip(R.small).clickable(enabled = stream && !saving && lossy == null) { Music.saveCurrent() }
             .padding(horizontal = 6.dp, vertical = 2.dp))
 }
@@ -496,8 +642,8 @@ private fun VolumeLine() {
 
 /** Lyrics, where the sound goes (its equalizer) and the queue, in a glass pill. */
 @Composable
-private fun ToolPill(ui: Ui) {
-    Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+private fun ToolPill(ui: Ui, top: Boolean = false) {
+    Box(Modifier.fillMaxWidth().padding(top = if (top) 2.dp else 8.dp, bottom = if (top) 4.dp else 0.dp), contentAlignment = Alignment.Center) {
         Row(Modifier.clip(R.pill).background(GLASS).border(1.dp, WHITE.copy(alpha = 0.14f), R.pill).padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             PillTool(Ico.LYRICS, ui.pane == "lyrics", "Lyrics") { ui.pane = if (ui.pane == "lyrics") "art" else "lyrics" }
@@ -531,8 +677,8 @@ private fun QueuePane(ui: Ui, n: Now) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clickable { ui.pane = "art" }) { ArtImage(t?.let { if (n.remote) Remote.artModel(it) else artModel(it) }, 60.dp) }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(t?.title ?: "Nothing playing", style = T.title.copy(color = WHITE, fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(t?.artist ?: "", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(t?.title ?: "Nothing playing", style = T.title.copy(shadow = LIFT, color = WHITE, fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(t?.artist ?: "", style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (t != null && !n.remote) {
                 Music.musicVersion
@@ -556,6 +702,8 @@ private fun QueuePane(ui: Ui, n: Now) {
         val rest = (start until q.size).filter { !q[it].queued }
         val list = rememberLazyListState()
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
+            // The DJ's queue: what it said, the category and its stat, as on the DJ tab
+            if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
             if (queued.isNotEmpty()) {
                 item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
                 itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
@@ -563,7 +711,7 @@ private fun QueuePane(ui: Ui, n: Now) {
             item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music", null) {} }
             if (rest.isEmpty()) item("none") {
                 Text(if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
-                    style = T.sub.copy(color = SOFT), modifier = Modifier.padding(vertical = 10.dp))
+                    style = T.sub.copy(shadow = LIFT, color = SOFT), modifier = Modifier.padding(vertical = 10.dp))
             }
             itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             if (!n.remote && Music.queues.isNotEmpty()) {
@@ -573,9 +721,9 @@ private fun QueuePane(ui: Ui, n: Now) {
                         verticalAlignment = Alignment.CenterVertically) {
                         Icon(Ico.QUEUE, SOFT, 20.dp)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(s.name, style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(s.name, style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val cur = s.tracks.getOrNull(s.index)?.title ?: ""
-                            Text("${s.index + 1} of ${s.tracks.size} · $cur", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${s.index + 1} of ${s.tracks.size} · $cur", style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         IconButton(Ico.UP, SOFT, 18.dp, 8.dp, desc = "Move up") { Music.moveQueue(s.id, -1) }
                         IconButton(Ico.DOWN, SOFT, 18.dp, 8.dp, desc = "Move down") { Music.moveQueue(s.id, 1) }
@@ -595,10 +743,10 @@ private fun QueuePane(ui: Ui, n: Now) {
 private fun QHead(title: String, sub: String?, action: String?, onAction: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = T.title.copy(color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
-            if (sub != null) Text(sub, style = T.sub.copy(color = SOFT))
+            Text(title, style = T.title.copy(shadow = LIFT, color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
+            if (sub != null) Text(sub, style = T.sub.copy(shadow = LIFT, color = SOFT))
         }
-        if (action != null) Text(action, style = T.body.copy(color = SOFT, fontWeight = FontWeight.Medium),
+        if (action != null) Text(action, style = T.body.copy(shadow = LIFT, color = SOFT, fontWeight = FontWeight.Medium),
             modifier = Modifier.clip(R.small).clickable(onClick = onAction).padding(horizontal = 6.dp, vertical = 4.dp))
     }
 }
@@ -634,8 +782,9 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
                     uncheckedColor = SOFT))
             ArtImage(if (remote) Remote.artModel(t) else artModel(t), 46.dp)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(t.title, style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(t.artist, style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(t.title, style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val kind = if (!remote && djQueueOn()) djKindOf(t) else ""
+                Text(if (kind.isNotEmpty()) "${t.artist}  ·  $kind" else t.artist, style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (!remote) Box(Modifier.size(44.dp).pointerInput(j) {
                 detectVerticalDragGestures(onDragStart = { dy = 0f },
@@ -676,14 +825,14 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Visualizer", style = T.title.copy(color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
-                Text("What moves with the music on this screen", style = T.sub.copy(color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Visualizer", style = T.title.copy(shadow = LIFT, color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
+                Text("What moves with the music on this screen", style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Glass(Ico.CLOSE, "Close") { ui.pane = "art" }
         }
         if (!micOk) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(10.dp)).background(GLASS)
             .clickable { askMic() }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("It needs to hear the music the app plays. Tap to allow it", style = T.sub.copy(color = WHITE), modifier = Modifier.weight(1f))
+            Text("It needs to hear the music the app plays. Tap to allow it", style = T.sub.copy(shadow = LIFT, color = WHITE), modifier = Modifier.weight(1f))
         }
         val rows = NP_VIS_STYLES.chunked(3)
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
@@ -696,23 +845,23 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
             item("color") {
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 6.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                        Text("Colour", style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium))
+                        Text("Colour", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
                         Text(if (style == "slim" || style == "off") "For the Visualizer's styles; the slim bars take the cover's colour"
-                            else "Look's colour is the cover's colour here", style = T.sub.copy(color = SOFT))
+                            else "Look's colour is the cover's colour here", style = T.sub.copy(shadow = LIFT, color = SOFT))
                     }
                     VisColorPick(colorKey, col)
                 }
             }
             item("strength") {
                 Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                    Text("Strength", style = T.title.copy(color = WHITE, fontWeight = FontWeight.Medium))
+                    Text("Strength", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
                     // The bar's 0 … 1 is a strength of 0.1 … 1 (never quite invisible: Off is for that).
                     SlimBar((nowStrength - 0.1f) / 0.9f, onMove = { strengthDrag = 0.1f + 0.9f * it; strengthPeek = true; strengthMoves++ },
                         onDone = { Prefs.setNum(Vis.NOW_STRENGTH, 0.1f + 0.9f * it); strengthDrag = null })
                 }
             }
             if (openFull != null) item("full") {
-                Text("Open the full Visualizer ›", style = T.body.copy(color = SOFT, fontWeight = FontWeight.Medium),
+                Text("Open the full Visualizer ›", style = T.body.copy(shadow = LIFT, color = SOFT, fontWeight = FontWeight.Medium),
                     modifier = Modifier.padding(top = 10.dp, bottom = 14.dp).clip(R.small).clickable { openFull() }
                         .padding(horizontal = 6.dp, vertical = 4.dp))
             } else item("end") { Spacer(Modifier.height(12.dp)) }
@@ -755,7 +904,7 @@ private fun VisColorPick(current: String, col: Color) {
             .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             val (bg, dot) = visSwatch(current, col)
             VisColorDot(bg, dot)
-            Text("$name ▾", style = T.body.copy(color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1,
+            Text("$name ▾", style = T.body.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1,
                 modifier = Modifier.padding(start = 6.dp))
         }
         DropdownMenu(open, { open = false }, containerColor = C.light) {

@@ -37,8 +37,10 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
     var wrong by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf("") }
     val spotify = url.startsWith("https://accounts.spotify.com")
+    val soundcloud = url.startsWith("https://secure.soundcloud.com")
     val lastfm = url.startsWith("https://www.last.fm/api/auth")
-    val by = spotify || lastfm
+    val by = spotify || soundcloud || lastfm
+    val who = when { spotify -> "Spotify"; soundcloud -> "SoundCloud"; else -> "Last.fm" }
     val cookieKey = when {
         url.startsWith("https://accounts.google.com") -> "ytm"
         url.startsWith("https://music.apple.com") -> "apple"
@@ -75,24 +77,25 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
         }
         return
     }
-    if (spotify) DisposableEffect(url) {
-        // Spotify sends the browser on to http://127.0.0.1:8898/callback?code=…: answer it here
-        val back = java.net.URI(org.omarchy.music.Spotify.REDIRECT)
+    if (spotify || soundcloud) DisposableEffect(url) {
+        // Spotify (SoundCloud) sends the browser on to http://127.0.0.1:8898/callback?code=… (…:8899/soundcloud): answer it here
+        val redirect = if (soundcloud) org.omarchy.music.SoundCloud.REDIRECT else org.omarchy.music.Spotify.REDIRECT
+        val back = java.net.URI(redirect)
         val server = runCatching {
             com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", back.port), 4).apply {
                 createContext(back.path) { ex ->
                     val q = ex.requestURI.rawQuery ?: ""
                     val ok = "code=" in q
-                    val msg = (if (ok) "Spotify is connected to Radon Player. You can close this tab."
-                        else "Spotify didn't connect: ${Regex("error=([^&]*)").find(q)?.groupValues?.get(1) ?: "no code came back"}").toByteArray()
+                    val msg = (if (ok) "$who is connected to Radon Player. You can close this tab."
+                        else "$who didn't connect: ${Regex("error=([^&]*)").find(q)?.groupValues?.get(1) ?: "no code came back"}").toByteArray()
                     ex.responseHeaders.add("Content-Type", "text/plain; charset=utf-8")
                     ex.sendResponseHeaders(200, msg.size.toLong()); ex.responseBody.use { it.write(msg) }
-                    val full = "${org.omarchy.music.Spotify.REDIRECT}?$q"
+                    val full = "$redirect?$q"
                     Music.scope.launch(Dispatchers.Main) { if (ok) done(full) else problem = String(msg) }
                 }
                 start()
             }
-        }.onFailure { problem = "Couldn't listen for Spotify on port ${back.port} (is the old app signing in to Spotify?): close it and try again." }.getOrNull()
+        }.onFailure { problem = "Couldn't listen for $who on port ${back.port} (is another app using it?): close it and try again." }.getOrNull()
         if (server != null) open()
         onDispose { runCatching { server?.stop(0) } }
     }
@@ -109,11 +112,11 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
         Column(Modifier.widthIn(max = 520.dp).background(C.light, R.card).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Sign in", style = T.title)
             if (by) {
-                Text("The ${if (spotify) "Spotify" else "Last.fm"} page opened in your browser. ${if (spotify) "Sign in and agree" else "Approve Radon Player"} " +
+                Text("The $who page opened in your browser. ${if (spotify || soundcloud) "Sign in and agree" else "Approve Radon Player"} " +
                     "there: the app notices by itself, nothing to copy.", style = T.sub)
                 Pill("Open the page again") { open() }
                 if (problem.isNotEmpty()) Text(problem, style = T.sub.copy(color = C.red))
-                else Text("Waiting for ${if (spotify) "Spotify" else "Last.fm"}…", style = T.sub.copy(color = C.muted))
+                else Text("Waiting for $who…", style = T.sub.copy(color = C.muted))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
                     Pill("Cancel", quiet = true) { done(null) }
                 }

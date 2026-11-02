@@ -42,6 +42,7 @@ object C {
     var glow by mutableStateOf(false)   // a neon look: what's on glows
     var gradient by mutableStateOf<List<Color>?>(null)   // a colourful look: the window is this gradient
     var stars by mutableStateOf(false)                   // the galaxy looks: a few stars over it
+    var fx by mutableStateOf<Set<String>>(emptySet())    // a look of yours: its extras drawn over the background (LookEffects)
     var apple by mutableStateOf(false)                   // the Apple Music looks: plain pages, thin lines between rows
     /** Lines between rows and quiet borders (a theme can make them fainter, or take them away). */
     val line get() = selection.copy(alpha = 0.45f * Themes.current.line)
@@ -60,7 +61,7 @@ object Looks {
  *  glow: a neon look (what's on glows). */
     private class P(val accent: Long, val bg: Long, val light: Long, val fg: Long, val muted: Long, val sel: Long,
                     val isLight: Boolean, val grad: List<Long>? = null, val stars: Boolean = false, val apple: Boolean = false,
-                    val glow: Boolean = false)
+                    val glow: Boolean = false, val fx: Set<String> = emptySet())
 
     /** Stellio's own (light and dark), and colourful ones that still keep it simple. */
     private val STYLED = linkedMapOf(
@@ -275,23 +276,63 @@ object Looks {
     val NEON_LOOKS: List<Triple<String, String, Pair<Color, Color>>> get() = STYLED.filter { it.value.second.glow }.map { (k, v) ->
         Triple(k, v.first, Color(v.second.accent) to Color(v.second.grad?.getOrNull(1) ?: v.second.bg)) }
 
+    /** A look you made (Personalization › Make your own look): its colours as 0xAARRGGBB; grad: a second background colour
+     *  the window fades into (0: none); glow: neon, what's on glows; stars: a few stars over it. */
+    class CustomLook(val key: String, val name: String, val accent: Long, val bg: Long, val card: Long, val text: Long,
+                     val grad: Long = 0, val glow: Boolean = false, val stars: Boolean = false, val fx: Set<String> = emptySet())
+
+    /** Where the looks you made are kept (the app's settings, read as Compose state); the app sets it. */
+    var customSource: () -> List<CustomLook> = { emptyList() }
+    private var customFrom: List<CustomLook>? = null
+    private var customMap: Map<String, Pair<String, P>> = emptyMap()
+    /** Your looks, as the built-in ones are kept: muted text, the selection and light or dark worked out from your colours. */
+    private fun customs(): Map<String, Pair<String, P>> {
+        val l = customSource()
+        if (l !== customFrom) {
+            customMap = l.associate { c ->
+                val bg = Color(c.bg); val fg = Color(c.text)
+                val light = bg.red * 0.299f + bg.green * 0.587f + bg.blue * 0.114f > 0.55f
+                fun argb(col: Color): Long = (col.toArgbInt().toLong() and 0xFFFFFFFFL)
+                c.key to (c.name to P(c.accent, c.bg, c.card, c.text, argb(lerp(fg, bg, 0.42f)), argb(lerp(bg, fg, 0.18f)), light,
+                    if (c.grad != 0L) listOf(c.bg, c.grad, c.bg) else null, stars = c.stars, apple = true, glow = c.glow, fx = c.fx))
+            }
+            customFrom = l
+        }
+        return customMap
+    }
+    private fun Color.toArgbInt(): Int = (((alpha * 255f + 0.5f).toInt() and 0xFF) shl 24) or (((red * 255f + 0.5f).toInt() and 0xFF) shl 16) or
+        (((green * 255f + 0.5f).toInt() and 0xFF) shl 8) or ((blue * 255f + 0.5f).toInt() and 0xFF)
+    private fun styledLook(look: String): P? = STYLED[look]?.second ?: customs()[look]?.second
+
     /** A look's one-line description ("" for one that has none). */
-    fun describe(look: String): String = DESC[look].orEmpty()
+    fun describe(look: String): String = DESC[look] ?: if (customs().containsKey(look)) "Your own look" else ""
 
     /** The Look menu: Light, Dark, Now playing (every screen in the colours of the song playing, the way Now playing
      *  is; Light or Dark while nothing is), then the themes. The other looks stay for the Visualizer and Wrapped. */
-    val ALL: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark", "nowplaying" to "Now playing") +
+    private val BUILT: List<Pair<String, String>> = listOf("apple" to "Light", "apple-dark" to "Dark", "nowplaying" to "Now playing") +
         THEMES.map { it to (STYLED[it]?.first ?: it) }
+    /** ... and then the looks you made. */
+    val ALL: List<Pair<String, String>> get() = BUILT + customs().map { (k, v) -> k to "${v.first} (yours)" }
     /** The Now playing look's key. */
     const val NOW_PLAYING = "nowplaying"
     /** The looks Now playing can fall back to while nothing is playing: every look in the Look menu but Now playing. */
-    val FALLBACK: List<Pair<String, String>> = ALL.filter { it.first != NOW_PLAYING }
+    val FALLBACK: List<Pair<String, String>> get() = ALL.filter { it.first != NOW_PLAYING }
     fun known(look: String) = ALL.any { it.first == look }
     /** A look Now playing can fall back to (a saved one that's no longer known goes back to Dark). */
     fun knownFallback(look: String) = FALLBACK.any { it.first == look }
 
+    /** A look's colours, for its preview in the menu (Now playing: a sample cover's). */
+    class LookColors(val bg: Color, val card: Color, val fg: Color, val muted: Color, val accent: Color,
+                     val grad: List<Color>?, val stars: Boolean, val glow: Boolean, val fx: Set<String> = emptySet())
+    fun colors(look: String): LookColors = styledLook(look)?.let { p ->
+        LookColors(Color(p.bg), Color(p.light), Color(p.fg), Color(p.muted), Color(p.accent), p.grad?.map { Color(it) }, p.stars, p.glow, p.fx)
+    } ?: NEON[look]?.second?.let { n ->
+        LookColors(lerp(Color.Black, n, 0.02f), lerp(Color.Black, n, 0.06f), Color(0xFFF4F4F4), lerp(Color(0xFF8A8A8A), n, 0.25f), n, null, false, true)
+    } ?: LookColors(Color(0xFF3A1D33), Color(0xFF52304A), Color.White, Color(0xFFD8C2CF), Color(0xFFFFB46B),
+        listOf(Color(0xFF6B2E5A), Color(0xFF2A1426)), false, false)
+
     /** A look's background and accent, for the little swatch beside its name in the menu (Now playing: a sample). */
-    fun swatch(look: String): Pair<Color, Color> = STYLED[look]?.second?.let { Color(it.grad?.getOrNull(1) ?: it.bg) to Color(it.accent) }
+    fun swatch(look: String): Pair<Color, Color> = styledLook(look)?.let { Color(it.grad?.getOrNull(1) ?: it.bg) to Color(it.accent) }
         ?: (Color(0xFF6B2E5A) to Color(0xFFFFB46B))
 
     /** The Now playing look: from a cover's main colour (null: none), else the fallback look. */
@@ -312,11 +353,12 @@ object Looks {
 
     fun apply(look: String) {
         val neon = NEON[look]?.second
-        val styled = STYLED[look]?.second
+        val styled = styledLook(look)
         C.isLight = look == "light" || styled?.isLight == true
         C.glow = neon != null || styled?.glow == true
         C.gradient = styled?.grad?.map { Color(it) }
         C.stars = styled?.stars == true
+        C.fx = styled?.fx ?: emptySet()
         C.apple = styled?.apple ?: look.startsWith("apple")
         when {
             styled != null -> {

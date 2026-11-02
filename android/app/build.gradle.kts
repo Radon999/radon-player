@@ -84,6 +84,7 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.0-rc01")
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-dash:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")     // SoundCloud streams (HLS)
     implementation("androidx.media3:media3-session:$media3")
     implementation("androidx.media3:media3-cast:$media3")          // Cast: a Chromecast, Google speaker or TV
     implementation("androidx.mediarouter:mediarouter:1.7.0")

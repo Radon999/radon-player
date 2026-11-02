@@ -253,6 +253,14 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
         } else if (looking == null) {
             if (left > 0) Chip(if (counts.inFiles > 0) "Scan moods (%,d song%s, 1 minute each)".format(left, if (left != 1) "s" else "")
                 else "Scan moods (1 minute per song)", false) { moods.find() }
+            // Moods that came from the other device or a backup (a sync could swap good ones for worse): heard again here
+            val elsewhere = remember(v) { moods.fromElsewhere() }
+            if (elsewhere > 0) Chip("Hear again %,d from elsewhere".format(elsewhere), false) {
+                ui.confirm = ("Hear %,d songs again here? Their moods came from your other device or a backup, not from this one. " +
+                    "Use this if a sync changed moods for the worse; the songs are then scanned again and their files' moods rewritten.").format(elsewhere) to {
+                    Music.bg({ moods.hearAgainFromElsewhere() }) { n, _ -> if ((n ?: 0) > 0) moods.find() }
+                }
+            }
             if (counts.full < counts.total) Chip(if (counts.full == 0 || counts.full == counts.inFiles) "Full scan (whole songs%s)".format(
                 if (counts.inFiles > 0) ", %,d".format(counts.total - counts.full) else "") else "Resume full scan (%,d left)".format(counts.total - counts.full), false) { moods.findFull() }
         }

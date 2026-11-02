@@ -132,7 +132,7 @@ private fun Plain(text: String, notes: List<Lyrics.Noted>, page: String?) {
     }
     Box(Modifier.fillMaxSize()) {
         SelectionContainer {
-            Text(styled, style = T.body.copy(fontSize = 15.sp, lineHeight = 23.sp),
+            Text(styled, style = T.body.copy(fontSize = 15.sp, lineHeight = 23.sp, color = LOOK_ACCENT),   // in the look's colour
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp))
         }
         open?.let { k -> notes.getOrNull(k)?.let { NoteCard(it, page, Modifier.align(Alignment.BottomCenter)) { open = null } } }
@@ -191,7 +191,9 @@ private fun Synced(lines: List<Pair<Double, String>>) {
             val (at, words) = lines[i]
             Text(words.ifEmpty { "♪" },
                 style = T.body.copy(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = if (i == cur) FontWeight.ExtraBold else FontWeight.Bold,
-                    color = when { i == cur -> C.accent; i < cur -> C.muted.copy(alpha = 0.7f); else -> C.fg.copy(alpha = 0.85f) }),
+                    // all in the look's colour: the line being sung full and glowing in a neon look, the rest fainter
+                    color = when { i == cur -> LOOK_ACCENT; i < cur -> LOOK_ACCENT.copy(alpha = 0.4f); else -> LOOK_ACCENT.copy(alpha = 0.62f) },
+                    shadow = if (i == cur) C.shadow else null),
                 modifier = Modifier.fillMaxWidth().clickable { Music.seek(at) }.padding(vertical = 7.dp))
         }
     }

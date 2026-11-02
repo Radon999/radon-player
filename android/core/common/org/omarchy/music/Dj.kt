@@ -212,7 +212,43 @@ object Dj {
 
     private var taste: Taste? = null
     private var tasteAt = 0.0
-    val used: MutableSet<Pair<String, String>> = ConcurrentHashMap.newKeySet()   // song keys the DJ has played since the app started
+    /** How many sets go by before a song the DJ played can come back: in the meantime every set (a mood, This time
+     *  of day, your favourites…) takes another song of its kind in its place. */
+    const val SONG_GAP = 20
+    private const val RECENT_SETS = "dj_recent_sets"
+    private val recentLock = Any()
+    private var recentSets: ArrayDeque<List<String>>? = null   // the last SONG_GAP sets' songs, oldest first ("title|artist")
+
+    /** Song keys of what the DJ played in its last [SONG_GAP] sets (kept across restarts): never picked again till then. */
+    @Volatile var used: Set<Pair<String, String>> = emptySet()
+        private set
+
+    private fun recent(): ArrayDeque<List<String>> = recentSets ?: ArrayDeque<List<String>>().also { q ->
+        Prefs.text(RECENT_SETS).split('\u0001').filter { it.isNotBlank() }.forEach { set -> q += set.split('\n').filter { it.isNotBlank() } }
+        while (q.size > SONG_GAP) q.removeFirst()
+        recentSets = q
+        used = q.flatten().map { it.substringBeforeLast('|') to it.substringAfterLast('|') }.toHashSet()
+    }
+
+    /** A set the DJ is about to play: its songs (keys) can't come back for [SONG_GAP] sets. */
+    fun played(keys: Collection<Pair<String, String>>) {
+        val text = synchronized(recentLock) {
+            val q = recent()
+            q += keys.map { "${it.first}|${it.second}" }.distinct()
+            while (q.size > SONG_GAP) q.removeFirst()
+            used = q.flatten().map { it.substringBeforeLast('|') to it.substringAfterLast('|') }.toHashSet()
+            q.joinToString("\u0001") { it.joinToString("\n") }
+        }
+        Prefs.setText(RECENT_SETS, text)
+    }
+
+    /** Song keys of the last n sets. */
+    private fun usedInLast(n: Int): Set<Pair<String, String>> = synchronized(recentLock) {
+        recent().toList().takeLast(n).flatten().map { it.substringBeforeLast('|') to it.substringAfterLast('|') }.toHashSet()
+    }
+
+    /** (on starting) What the last sets played, read in. */
+    fun loadRecent() { synchronized(recentLock) { recent() } }
     @Volatile var scope: Pair<String, List<Track>>? = null   // (name, songs) the DJ plays from; null: everything
         private set
 
@@ -968,10 +1004,15 @@ object Dj {
     private fun fromSet(kind: String, taste: Taste, coming: Set<Pair<String, String>>): Pair<List<Track>, String>? {
         val (name, pool) = scope ?: return null
         var fresh = pool.filter { songKey(it) !in used }
-        if (fresh.size < minOf(3, pool.size)) {   // all of them played: around again, but not with songs still to come
-            fresh = pool.filter { songKey(it) !in coming }
-            if (fresh.size < minOf(3, pool.size)) fresh = pool
+        // Fewer songs than 20 sets take: the ones played longest ago come back first, never the last few sets' or ones
+        // still to come
+        var gap = SONG_GAP - 1
+        while (fresh.size < minOf(3, pool.size) && gap > 0) {
+            val lately = usedInLast(gap)
+            fresh = pool.filter { songKey(it) !in lately && songKey(it) !in coming }
+            gap--
         }
+        if (fresh.size < minOf(3, pool.size)) fresh = pool.filter { songKey(it) !in coming }.ifEmpty { pool }
         val plays = HashMap<Pair<String, String>, Int>()
         Music.plays.items.values.forEach { plays[songKey(it.track)] = it.plays }
         taste.all.forEach { plays.merge(songKey(it), it.plays) { a, b -> maxOf(a, b) } }
@@ -1073,12 +1114,12 @@ object Dj {
         // A mood ("something chill"): the ones of them with that mood
         Moods.fromWords(text)?.takeIf { words.size <= 2 }?.let { mood ->
             val hits = pool.filter { mood in Moods.all(it) }
-            val songs = pick(hits.filter { songKey(it) !in used }.shuffled() + hits.shuffled(), SET, emptySet())
+            val songs = pick(hits.shuffled(), SET, used)   // none of the last sets' songs: others of the mood in their place
             if (songs.size >= minOf(3, hits.size) && songs.isNotEmpty())
                 return Built("ask", songs, "From $name, something ${Moods.adjective(mood)}: “${songs[0].title}” by ${names(songs.take(1))} first.")
         }
         val hits = pool.filter { t -> val all = norm("${t.title} ${t.artist} ${t.album} ${genreOf(t)}"); words.all { it in all } }
-        val songs = pick(hits.filter { songKey(it) !in used }.shuffled() + hits.shuffled(), SET, emptySet())
+        val songs = pick(hits.shuffled(), SET, used)
         if (songs.isEmpty()) return null
         return Built("ask", songs, "From $name, you asked for ${text.trim()}: “${songs[0].title}” by ${names(songs.take(1))} first.")
     }
@@ -1151,6 +1192,7 @@ object Dj {
      *  when no other has. first: the DJ's first set, with its hello. coming: the song keys still to come in the
      *  queue. Null if there are none. */
     fun build(kind: String? = null, avoid: String? = null, first: Boolean = false, coming: Set<Pair<String, String>> = emptySet()): Built? {
+        loadRecent()   // the last sets' songs (kept across restarts), so none comes back too soon
         val taste = loadTaste()
         val sc0 = scope
         val order = if (sc0 != null) (if (withNew) FROM_NEW_ORDER else FROM_ORDER) else ORDER
