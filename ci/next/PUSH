@@ -1,4 +1,0 @@
-radon-player
-Radon Player 3.0.0: One app (Windows and Android)
-
-The phone and PC apps are now one Kotlin codebase (Compose Multiplatform). The Python desktop app is retired; it stays in the history and in the old releases.
