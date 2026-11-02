@@ -8,7 +8,7 @@ import java.net.ServerSocket
 import java.net.Socket
 
 /** One Radon Player at a time, as the Python app: starting it again (or opening a song file with it, or a command
- *  like `"Radon Player Next.exe" next`) hands what was asked to the one already running, over a local socket that
+ *  like `"Radon Player.exe" next`) hands what was asked to the one already running, over a local socket that
  *  only this computer can reach, with a secret only this account can read.
  *
  *  Commands (the Python app's): see [HELP]; and song files to play. */

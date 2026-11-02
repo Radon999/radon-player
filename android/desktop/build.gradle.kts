@@ -60,7 +60,7 @@ compose.desktop {
         mainClass = "org.omarchy.music.desktop.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
-            packageName = "Radon Player Next"
+            packageName = "Radon Player"
             packageVersion = appVersion
             // Java parts the app uses beyond the defaults: the phone remote's server (jdk.httpserver), finding it on the network
             modules("jdk.httpserver", "java.naming", "jdk.unsupported")

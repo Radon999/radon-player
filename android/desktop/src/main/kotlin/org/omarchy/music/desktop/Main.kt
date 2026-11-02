@@ -69,6 +69,7 @@ fun main(args: Array<String>) {
 
 private fun app(args: Array<String>) = application {
     remember { org.omarchy.music.PcApp.start() }
+    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.Startup.moveOld() } } }
     var shown by remember { mutableStateOf("--tray" !in args) }   // started with Windows: in the tray
     val tray = androidx.compose.ui.window.rememberTrayState()
     // A new song while the window is closed: a note by the clock, as the phone's notification

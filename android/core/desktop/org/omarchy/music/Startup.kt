@@ -3,10 +3,11 @@ package org.omarchy.music
 /** Start with Windows (Settings › General, the PC): Radon Player starts in the tray when you sign in (the Run key). */
 object Startup {
     private const val KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-    private const val NAME = "Radon Player Next"
+    private const val NAME = "Radon Player"
+    private const val OLD = "Radon Player Next"   // the test builds' name, before 3.0
     val supported = System.getProperty("os.name").lowercase().contains("win")
 
-    /** The program to start: the installed launcher (Radon Player Next.exe), not the Java inside it. It's the program
+    /** The program to start: the installed launcher (Radon Player.exe), not the Java inside it. It's the program
      *  this is running as; else the .exe beside the app's own Java (the install folder). */
     private fun exe(): String? {
         fun ok(c: String?) = c?.lowercase()?.let { it.endsWith(".exe") && !it.endsWith("java.exe") && !it.endsWith("javaw.exe") } == true
@@ -29,6 +30,13 @@ object Startup {
     }.getOrDefault("")
 
     fun isOn(): Boolean = supported && NAME in reg("query", KEY, "/v", NAME)
+
+    /** Started with Windows under the test builds' name: moved to this one (its program is gone after the update). */
+    fun moveOld() {
+        if (!supported || OLD !in reg("query", KEY, "/v", OLD)) return
+        reg("delete", KEY, "/v", OLD, "/f")
+        set(true)
+    }
 
     fun set(on: Boolean): Boolean {
         if (!supported) return false
