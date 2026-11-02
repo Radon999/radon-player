@@ -504,7 +504,7 @@ private fun SpotifyHistoryLine(ui: Ui) {
             }
         }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
-        Pill("Import zip") { if (h.busy == null) pick.launch(arrayOf("application/zip", "application/json", "application/octet-stream")) }
+        Pill("Import zip") { if (h.busy == null) pick.launch(arrayOf("*/*")) }
     }
     if (h.count > 0 && !LastFm.connected) ActionRow("✦  Your ${org.omarchy.music.Wrapped.year()} Wrapped  ›") { ui.sheet = "wrapped" }
     if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
@@ -538,8 +538,7 @@ private fun AppleHistoryLine() {
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://privacy.apple.com/") }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
-        Pill("Import") { if (h.busy == null) pick.launch(arrayOf("application/zip", "text/csv", "text/comma-separated-values",
-            "text/xml", "application/xml", "application/octet-stream")) }
+        Pill("Import") { if (h.busy == null) pick.launch(arrayOf("*/*")) }
     }
     if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
         title = { Text("Clear your Apple Music history?", style = T.title) },
@@ -595,8 +594,9 @@ private fun DeezerHistoryLine() {
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open("https://www.deezer.com/account/privacy") }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
-        Pill("Import") { if (h.busy == null) pick.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/zip", "application/octet-stream")) }
+        // Any file: phones label Deezer's spreadsheet in different ways (from Drive, Gmail, Files), and a type it
+        // didn't list was greyed out, so tapping it did nothing; the file is checked once it's picked
+        Pill("Import") { if (h.busy == null) pick.launch(arrayOf("*/*")) }
     }
     if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
         title = { Text("Clear your Deezer history?", style = T.title) },
