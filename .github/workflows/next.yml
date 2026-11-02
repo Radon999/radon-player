@@ -2,6 +2,9 @@
 # NEXT_BASE, Radon Player 2.1.2) are built and tested here: the shared code's tests, the phone's app (a side-by-side
 # test app, "Radon Player Next", so 2.0 stays as it is) and the PC app (on Windows: an installer). With ci/next/PUSH
 # present, the code goes to radon-player-next as one new commit (its first line: the branch; the rest: the message).
+# ci/next/REMOVE: paths (one a line) taken out after the patches. ci/next/RELEASE (first line: the tag, second: the
+# title, the rest: the notes): the phone app is built as the real one ("Radon Player", over 2.x) and, with ci/next/PUSH,
+# a GitHub release is made on the pushed commit with OmarchyMusic.apk and the PC's .msi. Delete both after a release.
 name: Next build
 on:
   push:
@@ -18,6 +21,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.rel.outputs.tag }}
+      commit: ${{ steps.push.outputs.commit }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,6 +42,7 @@ jobs:
             echo "applying $f"
             base64 -d "$f" | gunzip | git apply --whitespace=nowarn -
           done
+          if [ -f ../work/ci/next/REMOVE ]; then grep . ../work/ci/next/REMOVE | xargs git rm -rq --ignore-unmatch --; fi
           git add -A
           git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "Radon Player Next" || true
       - uses: actions/setup-java@v5
@@ -56,6 +63,7 @@ jobs:
           base64 -d ../work/ci/test.keystore.b64 > "$RUNNER_TEMP/test.keystore"
           mkdir -p ~/.local/share/omarchy-music
           printf 'storeFile=%s\nstorePassword=varmusictest\nkeyAlias=test\nkeyPassword=varmusictest\n' "$RUNNER_TEMP/test.keystore" > ~/.local/share/omarchy-music/keystore.properties
+          if [ -f ../work/ci/next/RELEASE ]; then echo "A release: the real app"; exit 0; fi
           sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.next"/' android/app/build.gradle.kts
           sed -i 's/android:label="Radon Player"/android:label="Radon Player Next"/' android/app/src/main/AndroidManifest.xml
       - name: Build and test
@@ -86,7 +94,18 @@ jobs:
           name: RadonPlayerNext-pc-jar
           path: app/android/desktop/build/compose/jars/*.jar
           if-no-files-found: ignore
+      - name: A release?
+        id: rel
+        if: hashFiles('work/ci/next/RELEASE') != ''
+        run: echo "tag=$(head -1 work/ci/next/RELEASE | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        if: steps.rel.outputs.tag != ''
+        with:
+          name: RadonPlayer-release-apk
+          path: app/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
       - name: To radon-player-next
+        id: push
         if: hashFiles('work/ci/next/PUSH') != ''
         working-directory: app
         run: |
@@ -102,6 +121,7 @@ jobs:
           [ -f "${LAST%.patch.b64}.msg" ] && cp "${LAST%.patch.b64}.msg" "$RUNNER_TEMP/message" || true
           C=$(git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit-tree "HEAD^{tree}" -p FETCH_HEAD -F "$RUNNER_TEMP/message")
           git push origin "$C:refs/heads/$B"
+          echo "commit=$C" >> "$GITHUB_OUTPUT"
   windows:
     runs-on: windows-latest
     steps:
@@ -178,3 +198,40 @@ jobs:
         with:
           name: RadonPlayerNext-windows
           path: app/android/desktop/build/compose/binaries/main/msi/*.msi
+  release:
+    needs: [build, windows]
+    if: needs.build.outputs.tag != '' && needs.build.outputs.commit != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: android-work
+          path: work
+      - uses: actions/download-artifact@v7
+        with:
+          name: RadonPlayer-release-apk
+          path: apk
+      - uses: actions/download-artifact@v7
+        with:
+          name: RadonPlayerNext-windows
+          path: msi
+      - name: Check, then release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          COMMIT: ${{ needs.build.outputs.commit }}
+        run: |
+          set -euo pipefail
+          V="${TAG#v}"
+          cp apk/app-release.apk OmarchyMusic.apk
+          M=$(ls msi/*.msi | head -1); cp "$M" "Radon-Player-$V.msi"
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$tools/aapt2" dump badging OmarchyMusic.apk > badging.txt; head -1 badging.txt
+          grep -q "package: name='org.omarchy.music' " badging.txt && grep -q "versionName='$V'" badging.txt
+          "$tools/apksigner" verify --print-certs OmarchyMusic.apk | tee certs.txt
+          grep -q "certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9$" certs.txt
+          ls -la OmarchyMusic.apk "Radon-Player-$V.msi"
+          TITLE="$(sed -n 2p work/ci/next/RELEASE)"; sed 1,2d work/ci/next/RELEASE > notes.md
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$COMMIT" --draft --title "$TITLE" --notes-file notes.md \
+            OmarchyMusic.apk "Radon-Player-$V.msi"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
