@@ -948,10 +948,13 @@ private fun releaseSlides(d: Wrapped.Data): List<Slide> {
     listOf(Triple("YOUR TOP SINGLES", d.singles, 3), Triple("YOUR TOP EPS", d.eps, 5)).forEach { (head, list, color) ->
         if (list.isNotEmpty()) out += Slide(color) {
             Text(head, style = W.kicker)
-            Pic(list[0].pic, 150.dp)
-            Text(list[0].name, style = W.big)
-            Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
-            if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)
+            if (list.size <= 6) {   // a few: the top one big
+                Pic(list[0].pic, 150.dp)
+                Text(list[0].name, style = W.big)
+                Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
+                if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)
+            } else   // a full top 15: one list, as the top songs, so all of it fits on one screen
+                Ranked(list.map { Triple(it.name, it.artist, it.plays) }, list.map { it.pic }, meter = true)
         }
     }
     return out

@@ -70,6 +70,31 @@ object Moods {
     /** While writing: files written so far and how many there are to write. */
     var writeProgress by mutableStateOf(0 to 0)
         private set
+    /** About how many seconds are left of reading the words / writing the files (null: not known yet). */
+    var wordsLeft by mutableStateOf<Long?>(null)
+        private set
+    var writeLeft by mutableStateOf<Long?>(null)
+        private set
+
+    // How fast the scans went last time on this device, kept so a scan can say how long it will take before it starts:
+    // seconds per song (a minute's scan, words on the device or by the AI, writing a file) and, for Full scan, seconds
+    // taken per second of music.
+    private const val RATE_MIN = "mood_rate_minute"; private const val RATE_FULL = "mood_rate_full"
+    private const val RATE_WORDS = "mood_rate_words"; private const val RATE_AI = "mood_rate_ai"; private const val RATE_WRITE = "mood_rate_write"
+    private fun rate(key: String, v: Double) { if (v > 0 && v.isFinite()) Prefs.setNum(key, v.toFloat()) }
+    private fun rateOf(key: String, guess: Float) = Prefs.num(key, -1f).takeIf { it > 0 } ?: guess
+    /** About how long a scan would take, in seconds, for n songs (full: hearing whole songs of about secsOfMusic). */
+    fun estimate(kind: String, n: Int, secsOfMusic: Double = 0.0): Long = when (kind) {
+        "full" -> (secsOfMusic * rateOf(RATE_FULL, 0.25f)).toLong()
+        "words" -> (n * rateOf(if (aiOn()) RATE_AI else RATE_WORDS, if (aiOn()) 3f else 1.2f)).toLong()
+        "write" -> (n * rateOf(RATE_WRITE, 0.4f)).toLong()
+        else -> (n * rateOf(RATE_MIN, if (org.omarchy.music.platformName == "android") 6f else 3f)).toLong()
+    }
+    /** Seconds of music in your songs that Full scan hasn't heard whole (for its estimate). */
+    fun fullMusicLeft(): Double = runCatching {
+        val list = Music.mySongs()
+        synchronized(lock) { list.sumOf { t -> val p = pathOf(t); if (p != null && known[p]?.full == true) 0.0 else t.duration.takeIf { it > 0 } ?: 200.0 } }
+    }.getOrDefault(0.0)
 
     private val lock = Any()
     private val known = HashMap<String, MoodEntry>()
@@ -517,6 +542,7 @@ object Moods {
                 (audioLeft * spent / audioDone).toLong()
             } else ((todo.size - done) * spent / done).toLong()
             Music.scope.launch { reading = done to todo.size; readingLeft = left; if (full || done % 10 == 0) version++ }
+            if (done >= 3 && done % 5 == 0) rate(if (full) RATE_FULL else RATE_MIN, if (full) spent / audioDone else spent / done)
             if (done % (if (full) 5 else 25) == 0) save()
             // Gentle: a pause between songs, longer while music plays, so playback never stutters.
             Thread.sleep(if (Music.paused) 40 else 300)
@@ -661,7 +687,8 @@ object Moods {
             if (e.lyrTried > 0 && now() - e.lyrTried < 30 * 86400) continue   // no words a little while ago
             todo += Triple(p, t, m)
         }
-        Music.scope.launch { wordsReading = 0 to todo.size; version++ }
+        Music.scope.launch { wordsReading = 0 to todo.size; wordsLeft = null; version++ }
+        val wordsBegan = System.currentTimeMillis()
         var read = 0; var none = 0
         for ((i, x) in todo.withIndex()) {
             if (wordsStop) break
@@ -696,7 +723,10 @@ object Moods {
                 if (p != playing && writeWords(p, got)) wrote++
             }
             val done = i + 1
-            Music.scope.launch { wordsReading = done to todo.size; if (done % 10 == 0) version++ }
+            val spent = (System.currentTimeMillis() - wordsBegan) / 1000.0
+            val wl = if (done < 3) null else ((todo.size - done) * spent / done).toLong()
+            Music.scope.launch { wordsReading = done to todo.size; wordsLeft = wl; if (done % 10 == 0) version++ }
+            if (done >= 3 && done % 5 == 0) rate(if (ai) RATE_AI else RATE_WORDS, spent / done)
             if (done % 25 == 0) save()
             Thread.sleep(if (Music.paused) 30 else 150)
         }
@@ -881,10 +911,15 @@ object Moods {
             val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
             var done = 0; var failed = 0
             val list = writable()
-            Music.scope.launch { writeProgress = 0 to list.size }
+            Music.scope.launch { writeProgress = 0 to list.size; writeLeft = null }
+            val writeBegan = System.currentTimeMillis()
             for ((p, m) in list) {
                 if (p == playing) continue
-                if ((done + failed) % 10 == 0) { val d = done + failed; Music.scope.launch { writeProgress = d to list.size } }
+                if ((done + failed) % 10 == 0) { val d = done + failed
+                    val spent = (System.currentTimeMillis() - writeBegan) / 1000.0
+                    val wl = if (d < 10) null else ((list.size - d) * spent / d).toLong()
+                    if (d >= 10) rate(RATE_WRITE, spent / d)
+                    Music.scope.launch { writeProgress = d to list.size; writeLeft = wl } }
                 if (runCatching { LyricsTags.writeMood(Music.ctx, p, m) }.getOrDefault(false)) {   // only the mood changes, never the album or artist
                     done++
                     // The file changed because of us: remember its new time, so it isn't read again for it.

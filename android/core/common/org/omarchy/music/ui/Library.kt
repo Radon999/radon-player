@@ -222,6 +222,13 @@ internal fun MoodSwatch(mood: String, modifier: Modifier, iconSize: androidx.com
 }
 
 /** "about 1 h 20 min left": a scan's time left, roughly. */
+/** About how long something takes, short: "about 25 min", "about 2 h 10 min", "under a minute". */
+private fun moodsTime(secs: Long): String = when {
+    secs < 60 -> "under a minute"
+    secs < 3600 -> "about ${(secs + 30) / 60} min"
+    else -> "about ${secs / 3600} h ${(secs % 3600 + 30) / 60 % 60} min".replace(" 0 min", "")
+}
+
 private fun moodsLeft(secs: Long): String = when {
     secs < 60 -> "less than a minute left"
     secs < 3600 -> "about ${(secs + 30) / 60} min left"
@@ -250,10 +257,12 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
         if (reading != null) {
             Chip("Stop", false) { moods.stop() }
             Text((if (moods.rescanning) "Rescanning moods… " else if (moods.readingFull) "Full scan… " else "Scanning moods… ") +
-                "%,d of %,d".format(reading.first, reading.second), style = T.sub)
+                "%,d of %,d".format(reading.first, reading.second) + " · " + (moods.readingLeft?.let { moodsLeft(it) } ?: "working out the time left…"),
+                style = T.sub.copy(color = C.accent))
         } else if (looking == null) {
-            if (left > 0) Chip(if (counts.inFiles > 0) "Scan moods (%,d song%s, 1 minute each)".format(left, if (left != 1) "s" else "")
-                else "Scan moods (1 minute per song)", false) { moods.find() }
+            // With about how long it will take (from how fast the last scan went on this device)
+            if (left > 0) Chip(if (counts.inFiles > 0) "Scan moods (%,d song%s, %s)".format(left, if (left != 1) "s" else "", moodsTime(moods.estimate("minute", left)))
+                else "Scan moods (%,d songs, %s)".format(left, moodsTime(moods.estimate("minute", left))), false) { moods.find() }
             // Moods that came from the other device or a backup (a sync could swap good ones for worse): heard again here
             val elsewhere = remember(v) { moods.fromElsewhere() }
             if (elsewhere > 0) Chip("Hear again %,d from elsewhere".format(elsewhere), false) {
@@ -268,17 +277,17 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
                     "stats are lost or wrong. Everything the last scan worked out is forgotten: every song is heard again and its " +
                     "words read again (by the AI when Read with AI is on, else on this ${DEVICE}), and the new moods replace the " +
                     "ones the last scan wrote into your files. Moods you picked yourself in the Tagger stay. It takes as long as " +
-                    "the first scan did.").format(counts.total) to { moods.rescan() }
+                    "the first scan did (%s).").format(counts.total, moodsTime(moods.estimate("minute", counts.total) + moods.estimate("words", counts.total))) to { moods.rescan() }
             }
-            if (counts.full < counts.total) Chip(if (counts.full == 0 || counts.full == counts.inFiles) "Full scan (whole songs%s)".format(
-                if (counts.inFiles > 0) ", %,d".format(counts.total - counts.full) else "") else "Resume full scan (%,d left)".format(counts.total - counts.full), false) { moods.findFull() }
+            val fullTime = remember(v, counts.full) { moodsTime(moods.estimate("full", 0, moods.fullMusicLeft())) }
+            if (counts.full < counts.total) Chip(if (counts.full == 0 || counts.full == counts.inFiles) "Full scan (whole songs%s, %s)".format(
+                if (counts.inFiles > 0) ", %,d".format(counts.total - counts.full) else "", fullTime) else "Resume full scan (%,d left, %s)".format(counts.total - counts.full, fullTime), false) { moods.findFull() }
         }
     }
     Column(Modifier.padding(horizontal = 14.dp)) {
         if (looking != null) Text("Looking at your files for moods already in them… %,d of %,d".format(looking.first, looking.second), style = T.sub)
         if (reading != null) {
             if (moods.readingNow.isNotEmpty()) Text(moods.readingNow, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(moods.readingLeft?.let { moodsLeft(it) } ?: "Working out the time left…", style = T.sub)
         } else if (counts.total > 0 && looking == null) {
             when {
                 counts.inFiles >= counts.total -> Text("All %,d songs already have their moods in their files — no scan needed".format(counts.total),
@@ -311,11 +320,11 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
         val n = moods.toWrite
         val wp = moods.writeProgress
         // How far writing has got: files that have their mood, and files still waiting for theirs
-        Text(if (moods.writing && wp.second > 0) "Writing %,d of %,d files…".format(wp.first, wp.second)
+        Text(if (moods.writing && wp.second > 0) "Writing %,d of %,d files… · %s".format(wp.first, wp.second, moods.writeLeft?.let { moodsLeft(it) } ?: "working out the time left…")
             else "%,d songs have their mood in the file · %,d still to write".format(counts.inFiles, n),
             style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp))
         if (n > 0 && reading == null) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
-            Chip(if (moods.writing) "Writing…" else "Write into %,d file%s now".format(n, if (n != 1) "s" else ""), false) {
+            Chip(if (moods.writing) "Writing…" else "Write into %,d file%s now (%s)".format(n, if (n != 1) "s" else "", moodsTime(moods.estimate("write", n))), false) {
                 if (moods.writing) return@Chip
                 if (n > org.omarchy.music.Moods.ASK_OVER) { ui.confirm = "Write the moods into %,d files?".format(n) to { moods.writeFiles() } }
                 else { moods.writeFiles() }
@@ -337,9 +346,11 @@ private fun MoodsWords(ui: Ui, counts: org.omarchy.music.Moods.Counts) {
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (words != null) {
             Chip("Stop", false) { moods.stopWords() }
-            Text("Reading the words… " + if (words.second > 0) "%,d of %,d".format(words.first, words.second) else "", style = T.sub)
+            Text("Reading the words… " + (if (words.second > 0) "%,d of %,d · ".format(words.first, words.second) + (moods.wordsLeft?.let { moodsLeft(it) }
+                ?: "working out the time left…") else ""), style = T.sub.copy(color = C.accent))
         } else Chip("Read moods from lyrics" + (if (moods.aiOn()) " (AI)" else "") +
-            (if (counts.wordsOld > 0) " · %,d to update".format(counts.wordsOld) else ""), false) { moods.readWords() }
+            (if (counts.wordsOld > 0) " · %,d to update".format(counts.wordsOld) else "") +
+            (counts.total - counts.words + counts.wordsOld).takeIf { it > 0 }?.let { " · " + moodsTime(moods.estimate("words", it)) }.orEmpty(), false) { moods.readWords() }
         if (found != null) {
             Chip("Stop", false) { lyrics.stop() }
             Text("Finding lyrics… " + if (found.second > 0) "%,d of %,d".format(found.first, found.second) else "", style = T.sub)

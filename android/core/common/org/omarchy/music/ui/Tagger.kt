@@ -129,11 +129,22 @@ private fun suggestNames(): Pair<List<String>, List<String>> {
 
 @Composable
 private fun TaggerTags(ui: Ui, tracks: List<Track>) {
-    val songs = remember(tracks) { tracks.filter { Tags.editableAny(it) != null } }
+    var tick by remember { mutableStateOf(0) }
+    val songs = remember(tracks, tick) { tracks.filter { Tags.editableAny(it) != null } }
+    // Back from Android's settings with All files access on: the songs can be changed now
+    LaunchedEffect(songs.isEmpty()) {
+        if (songs.isEmpty() && onPhone && !Music.canWriteOwnFiles()) {
+            while (!Music.canWriteOwnFiles()) kotlinx.coroutines.delay(1000)
+            tick++
+        }
+    }
     if (songs.isEmpty()) {
-        Text(if (onPhone) "Only songs the app downloaded (FLAC) can have their tags changed here: Android keeps other apps' files " +
-            "(your own songs) to themselves. Download them first. The cover can still be changed."
+        val ask = onPhone && !Music.canWriteOwnFiles()
+        Text(if (ask) "To change your own songs' tags (any file: FLAC, MP3, M4A and more), Android needs to let the app change your " +
+            "music files: tap Allow, turn on All files access for Radon Player, then come back. The cover can still be changed."
+            else if (onPhone) "These songs' files can't be changed (they're streamed, or Android won't let the app write them). The cover can still be changed."
             else "These songs' files can't be changed (they're streamed, or the files are read-only). The cover can still be changed.", style = T.sub)
+        if (ask) Box(Modifier.padding(vertical = 8.dp)) { Pill("Allow") { openSystemSettings("allfiles") } }
         TaggerMood(tracks)   // a mood can still be picked: it's kept in the app even where the file can't be written
         return
     }

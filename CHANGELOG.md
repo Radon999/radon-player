@@ -4,6 +4,16 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 3.2.2: Tag any song (Windows and Android)
+- **Each device keeps its own look:** Sync no longer copies the look, theme, layout, visualizer choices or picked effects between the phone and the PC, so each can look different. The looks, layouts and visualizers you made still go to both: one made on the phone is on the PC after the next sync.
+- **Lyrics cards in your look:** a lyrics card now takes the look in use on that device: its background (and fade), its stars and effects, the lyrics on a rounded card like the Lyrics screen's (with a small LYRICS heading) and the song's name in its accent, with your own file's cover too. The Now playing look still uses the cover's colours.
+- **How long a mood scan takes:** Scan moods, Full scan, Read moods from lyrics, Rescan and writing into files each say about how long they'll take before you start (from how fast they went last time on this device), and while running they show the time left right beside how far they've got.
+- **Hold on the phone:** hold your finger on any look, theme, layout, effect or visualizer in its menu (or a style in the Visualizer tab): Favourite for every one, and Edit and Delete too for the ones you made, shown right under it, as right-click does on the PC. After a favourite moves to the top, holding or tapping always acts on the one under your finger. Each one also has a ⋯ at its right that opens the same choices with a tap.
+- **Wrapped's top singles and EPs fit:** a full top 15 shows as one list, like the top songs, so all of it fits on the phone's screen.
+- **Edit from the menu:** right-click (or hold) one of your own looks, layouts or visualizers in its menu and tap Edit: its maker opens with every setting it has, name included, ready to change.
+- **Tag any song on the phone:** the Tagger can now change your own songs' tags and covers on the phone too (FLAC, MP3, M4A, Ogg, WAV and more, each in its own format), not just the app's downloads. Android asks once: tap Allow in the Tagger and turn on All files access for Radon Player.
+- **Your own looks keep their effects:** the effects picked in Settings › Personalization › Effects now go with the ready-made looks only; a look you made shows the effects you gave it.
+
 ## 3.2.1: Try looks on the phone (Windows and Android)
 - **Picture menus stay open on the phone:** in Look, Theme, Layout, Now playing visualizer and Effects, a tap puts that one on and shows its picture right under it, and the menu stays open so you can try others. Back or a tap outside closes it. (Layout shows its picture as you tap and goes on when you close the menu, since a new layout redraws the whole screen.)
 - **Repeat one never gets stuck at the end:** a song whose player ran on past its end (or sat at -0:00) without saying it had finished now starts again on Repeat one, or moves on to the next song otherwise, within a second or two, on the phone and the PC.

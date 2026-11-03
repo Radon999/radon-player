@@ -371,10 +371,15 @@ object Sync {
         if (changed.isNotEmpty()) Prefs.set("adopt_files", true)
     }
 
+    /** Personalization stays each device's own at a sync (the phone can wear another look, theme or layout than the
+     *  PC): the one in use of each, the visualizer's colour and Now playing's, and the effects picked. What you made
+     *  (looks, layouts, visualizers) still comes across, added to the other device's (MadeSync). */
+    private val PERSONAL = setOf("ui_theme", "ui_layout", "vis_color", "np_vis", "np_bg", "np_vis_strength", "look_fx_own", "look_fx_pick")
+
     private fun applySwitches(text: String) {
         val now = Prefs.all()
         for ((k, v) in BackupMerge.switchesToRestore(text, crossDevice = true)) {
-            if (!SyncRules.prefSyncs(k) || now[k] == v) continue
+            if (!SyncRules.prefSyncs(k) || k in PERSONAL || now[k] == v) continue
             // Your own looks, layouts and visualizers: the other device's added to yours, not swapped for them
             val made = if (v is String) org.omarchy.music.ui.MadeSync.incoming(k, now[k] as? String ?: "", v) else null
             if (made != null) { Prefs.setText(k, made); continue }
@@ -414,15 +419,13 @@ object Sync {
         s("top_period")?.let { m.topPeriod = it }
         s("top_kind")?.let { m.topKind = it }
         st["collage_size"]?.long?.toInt()?.let { m.collageSize = it }
-        s("vis_preset")?.let { m.visPreset = it }
+        // vis_preset (the Visualizer's style), np_fallback and look: each device's own (see PERSONAL)
         s("wrapped_style")?.let { m.wrappedStyle = it }
         b("autoplay")?.let { m.autoplay = it }
         b("multi_queue")?.let { m.multiQueue = it }
         b("lyrics_to_files")?.let { m.lyricsToFiles = it }
         s("dupe_action")?.let { m.dupeAction = it }
         b("dj_new")?.takeIf { it != m.djNew }?.let { m.djNew = it; Dj.withNew = it }
-        s("np_fallback")?.takeIf { it != m.npFallback }?.let { m.chooseNpFallback(it) }
-        s("look")?.takeIf { it != m.look && org.omarchy.music.ui.Looks.known(it) }?.let { m.chooseLook(it) }
         m.saveState()
     }
 

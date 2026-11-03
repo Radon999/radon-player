@@ -105,6 +105,8 @@ object LookFx {
     /** After a look is put on: with its own effects off, the ones picked here instead. */
     fun override() {
         if (ownOn()) return
+        // A look you made keeps the effects you gave it: the ones picked here go with the ready-made looks only
+        if (org.omarchy.music.Music.look.startsWith("mylook-")) return
         val p = picked()
         C.stars = has(p, "stars")
         C.fx = p.filter { keyOf(it) != "stars" }.toSet()

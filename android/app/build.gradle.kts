@@ -41,8 +41,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 30201   // major·10000 + minor·100 + patch
-        versionName = "3.2.1"
+        versionCode = 30202   // major·10000 + minor·100 + patch
+        versionName = "3.2.2"
         // The DJ's natural voice (sherpa-onnx's library): only the phones' own processors, to keep the app small
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
@@ -105,7 +105,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation(files(sherpaAar))                                      // the DJ's natural voice (Kokoro)
-    implementation("org.apache.commons:commons-compress:1.26.2")         // unpacking the voice (.tar.bz2)
+    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("net.jthink:jaudiotagger:3.0.1")   // your own files' tags on the phone (All files access), any format         // unpacking the voice (.tar.bz2)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")

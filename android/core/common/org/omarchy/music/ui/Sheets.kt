@@ -750,7 +750,8 @@ private fun LyricsMoodsLines(ui: Ui) {
         ls.progress != null) {
         Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
     }
-    Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0)
+    Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0) +
+        (moods.wordsLeft?.let { s -> " · about " + (if (s < 60) "a minute" else if (s < 3600) "${(s + 30) / 60} min" else "${s / 3600} h ${(s % 3600 + 30) / 60 % 60} min") + " left" } ?: "")
         else "Reads each song's words for how much they say every mood (sad, romantic, dark…), on this $DEVICE, reading whole " +
         "lines and sayings (\"wash my blues away\" is relief, not sadness), and counts it together with the sound. Both always " +
         "count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and " +
@@ -1162,7 +1163,8 @@ fun PersonalizationLines(ui: Ui) {
             val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
             Line("Theme", "How the app is drawn, whatever its colours: its corners, type, spacing, cards and lines",
                 false, note = Themes.ALL[theme]?.desc.orEmpty()) {
-                ChoicePill(Themes.MENU, theme, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) }) {
+                ChoicePill(Favs.sorted(Favs.THEMES, Themes.MENU), theme, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) },
+                    menu = { k, l -> Favs.menu(Favs.THEMES, k, l) }) {
                     org.omarchy.music.Prefs.setText(Themes.PREF, it) }
             }
             // Where things are on the screen, apart from colours and drawing: any layout goes with any look and theme
@@ -1189,9 +1191,10 @@ private fun EffectsLines() {
         "effects). Off: no look's own effects; the ones you pick below go with any look or theme instead", own) {
         Switch(own, { own = it; LookFx.setOwn(it) }, colors = swColors())
     }
-    if (!own) Line("Effects", "Drawn over the background, behind everything else, with any look, theme and layout. " +
-        "Pick as many as you like; point at one (on the PC) to see it", false) {
-        ChoicePill(LookFx.MENU, "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = LookFx.keys(picked)) {
+    if (!own) Line("Effects", "Drawn over the background, behind everything else, with the ready-made looks, any theme " +
+        "and layout (a look you made keeps its own effects). Pick as many as you like; point at one (on the PC) to see it", false) {
+        ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = LookFx.keys(picked),
+            menu = { k, l -> Favs.menu(Favs.EFFECTS, k, l) }) {
             LookFx.toggle(it); picked = LookFx.picked()
         }
     }

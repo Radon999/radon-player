@@ -903,6 +903,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawVisPreviewStyle
 object Favs {
     const val LOOKS = "fav_looks"; const val LAYOUTS = "fav_layouts"; const val VIS = "fav_vis"
     const val LOOK_COLOURS = "fav_look_colours"; const val BLEND_COLOURS = "fav_blend_colours"
+    const val THEMES = "fav_themes"; const val EFFECTS = "fav_effects"
     fun of(kind: String): Set<String> = Prefs.text(kind).split(';').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     fun isFav(kind: String, key: String) = key in of(kind)
     fun toggle(kind: String, key: String) {
@@ -928,7 +929,12 @@ object Favs {
             else -> false
         }
         if (!mine) return listOf(fav)
-        return listOf(fav, "Delete" to {
+        // Edit: straight to its maker, with every setting it has (and its name) to change
+        val edit = "Edit" to {
+            Ui.current?.let { ui -> ui.makerEdit = key; ui.sheet = when (kind) { LOOKS -> "lookmaker"; LAYOUTS -> "layoutmaker"; else -> "vismaker" } }
+            Unit
+        }
+        return listOf(edit, fav, "Delete" to {
             Ui.current?.let { ui -> ui.confirm = "Delete “$name”?" to {
                 when (kind) { LOOKS -> MyLooks.delete(key); LAYOUTS -> UiLayouts.delete(key); VIS -> MyVis.deleteStyle(key) }
                 if (isFav(kind, key)) Prefs.setText(kind, (of(kind) - key).joinToString(";"))

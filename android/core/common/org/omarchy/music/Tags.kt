@@ -22,6 +22,8 @@ object Tags {
 
     /** Edit tags… also takes your own MP3, M4A and Ogg files on the PC (their tags through FileTags), as the Python app. */
     fun editableAny(t: Track): String? = editable(t) ?: t.file?.takeIf {
+        t.isFile && !Music.lib.has(t.id) && FileTags.OWN_BY_TAGLIB && FileTags.canWrite(it)   // the phone: your own files, with All files access
+    } ?: t.file?.takeIf {
         t.isFile && !Music.lib.has(t.id) && !it.startsWith("content:") &&
             it.substringAfterLast('.').lowercase() in setOf("mp3", "m4a", "mp4", "aac", "ogg", "opus", "wma", "aiff", "aif", "wav", "dsf") &&
             FileTags.canWrite(it)
@@ -52,7 +54,8 @@ object Tags {
     }
 
     fun read(ctx: Ctx, uris: List<String>): Map<String, String?> = common(uris.map { u ->
-        if (!u.startsWith("content:") && !isFlac(ctx, u)) asComments(FileTags.read(ctx, u) ?: emptyMap())
+        if (FileTags.OWN_BY_TAGLIB && Music.lib.items.values.none { it.file == u }) asComments(FileTags.read(ctx, u) ?: emptyMap())
+        else if (!u.startsWith("content:") && !isFlac(ctx, u)) asComments(FileTags.read(ctx, u) ?: emptyMap())
         else runCatching { ctx.openIn(u)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }
             .getOrDefault(emptyMap())
     })
@@ -60,6 +63,11 @@ object Tags {
     /** Write changes into the FLAC at uri (blocking); returns its comments as they are now. */
     fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Map<String, List<String>> {
         TagMatch.touched(uri)   // read again for Tags & covers match
+        // The phone: your own file (not a download), in its own format, with All files access
+        if (FileTags.OWN_BY_TAGLIB && Music.lib.items.values.none { it.file == uri }) {
+            if (!FileTags.writeOwn(uri, changes)) error("couldn't write its tags (Settings › Tagger: allow All files access)")
+            return asComments(FileTags.read(ctx, uri) ?: emptyMap())
+        }
         if (!uri.startsWith("content:") && !isFlac(ctx, uri)) {   // an MP3, M4A… of yours on the PC
             if (!FileTags.write(ctx, uri, changes)) error("couldn't write its tags")
             return asComments(FileTags.read(ctx, uri) ?: emptyMap())

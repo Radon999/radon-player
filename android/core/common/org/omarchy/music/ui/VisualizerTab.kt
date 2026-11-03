@@ -1,8 +1,13 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package org.omarchy.music.ui
 
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.widthIn
@@ -1149,9 +1154,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                             }
                         }
                     }
-                }.then(if (menu != null && onPhone) Modifier.pointerInput(k) {
-                    detectTapGestures(onLongPress = { skip = k; ctx = k })
-                } else Modifier)
+                }
                 val lead: (@Composable () -> Unit)? = when {
                     thumb != null -> ({ thumb(k) })
                     sw != null -> ({ VisColorDot(sw.first, sw.second) })
@@ -1160,14 +1163,35 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                 Column(Modifier.onGloballyPositioned { c -> menuRow?.let { r -> if (r.isAttached && c.isAttached)
                         spots[k] = r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() to
                             (r.size.width - r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() - c.size.width) } }) {
-                    DropdownMenuItem(text = text, onClick = {
-                        if (skip == k) { skip = null; return@DropdownMenuItem }   // that was a right-click or a long press
-                        if (chosen == null && !stays) open = false; tapped = k; if (!(later && stays)) pick(k) }, leadingIcon = lead, modifier = hover)
-                    if (menu != null && ctx == k) DropdownMenu(true, { ctx = null; skip = null }, containerColor = C.light) {
+                    val tap = {
+                        if (skip == k) skip = null   // that was a right-click or a long press
+                        else { if (chosen == null && !stays) open = false; tapped = k; if (!(later && stays)) pick(k) }
+                        Unit
+                    }
+                    if (onPhone && menu != null) {
+                        // The phone: a tap picks it, holding a finger on it opens its Edit / Favourite / Delete right under it
+                        Row(Modifier.fillMaxWidth().combinedClickable(onClick = tap, onLongClick = { ctx = if (ctx == k) null else k })
+                            .padding(start = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            lead?.invoke()
+                            Box(Modifier.weight(1f)) { text() }
+                            // ⋯ opens the same choices with a plain tap, for when a hold isn't caught
+                            Text("\u22EF", style = T.title.copy(color = if (ctx == k) C.accent else C.muted),
+                                modifier = Modifier.clip(R.pill).clickable { ctx = if (ctx == k) null else k }.padding(horizontal = 12.dp, vertical = 6.dp))
+                        }
+                        if (ctx == k) Row(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
+                            .horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            menu(k, label).forEach { (what, act) ->
+                                Pill(what, quiet = what != "Edit") { ctx = null; if (what == "Delete" || what == "Edit") open = false; act() }
+                            }
+                            Pill("Cancel", quiet = true) { ctx = null }
+                        }
+                    } else DropdownMenuItem(text = text, onClick = tap, leadingIcon = lead, modifier = hover)
+                    if (menu != null && ctx == k && !onPhone) DropdownMenu(true, { ctx = null; skip = null }, containerColor = C.light) {
                         Text(label.removePrefix("★ "), style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
                         menu(k, label).forEach { (what, act) ->
                             DropdownMenuItem(text = { Text(what, style = T.body.copy(color = if (what == "Delete") C.red else C.fg)) },
-                                onClick = { ctx = null; skip = null; if (what == "Delete") open = false; act() })
+                                onClick = { ctx = null; skip = null; if (what == "Delete" || what == "Edit") open = false; act() })
                         }
                     }
                     if (stays && tapped == k) Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp).widthIn(max = 320.dp)) {
@@ -1188,7 +1212,8 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                 }
             }
             val perCol = if (onPhone) options.size else ((screenHeightDp() - 72) / 48).coerceAtLeast(6)
-            if (options.size <= perCol) options.forEach { (k, label) -> item(k, label) }
+            // Each one keyed by what it is, so after a favourite moves to the top its taps and holds still go to it
+            if (options.size <= perCol) options.forEach { (k, label) -> androidx.compose.runtime.key(k) { item(k, label) } }
             else {
                 val cols = (options.size + perCol - 1) / perCol
                 val chunks = options.chunked((options.size + cols - 1) / cols)
@@ -1196,10 +1221,34 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                     chunks.reversed().forEachIndexed { i, chunk ->
                         if (i > 0) Box(Modifier.padding(vertical = 6.dp).width(1.dp).height((chunks.first().size * 48).dp).background(C.line))
                         Column(Modifier.width(androidx.compose.foundation.layout.IntrinsicSize.Max)) {
-                            chunk.forEach { (k, label) -> item(k, label) }
+                            chunk.forEach { (k, label) -> androidx.compose.runtime.key(k) { item(k, label) } }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Holding a finger on it (the phone): onLong, seen before the item's own tap (which would otherwise take the press),
+ *  and that press then doesn't tap it. Moving the finger (scrolling) or lifting it early is an ordinary touch. */
+fun Modifier.holdForMenu(onLong: () -> Unit): Modifier = pointerInput(onLong) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+        val ended = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            while (true) {
+                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                val c = e.changes.firstOrNull { it.id == down.id } ?: break
+                if (!c.pressed || (c.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+            }
+            true
+        }
+        if (ended == null) {   // held long enough without moving: the menu, and the rest of this press is swallowed
+            onLong()
+            while (true) {
+                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                e.changes.forEach { it.consume() }
+                if (e.changes.none { it.pressed }) break
             }
         }
     }
@@ -1209,21 +1258,22 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
 @Composable
 fun MenuChip(label: String, on: Boolean, menu: () -> List<Pair<String, () -> Unit>>, pick: () -> Unit) {
     var open by remember { mutableStateOf(false) }
-    var held by remember { mutableStateOf(false) }   // that press opened the menu: it doesn't pick
     Box(Modifier.pointerInput(label) {
         awaitPointerEventScope {
             while (true) {
                 val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                 if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Press && e.buttons.isSecondaryPressed) {
-                    open = true; held = true; e.changes.forEach { it.consume() }
+                    open = true; e.changes.forEach { it.consume() }
                 }
             }
         }
-    }.then(if (onPhone) Modifier.pointerInput(label) {
-        detectTapGestures(onLongPress = { open = true; held = true })
-    } else Modifier)) {
-        Chip(label, on) { if (held) held = false else pick() }
-        DropdownMenu(open, { open = false; held = false }, containerColor = C.light) {
+    }) {
+        if (onPhone) Text(label, style = T.tab.copy(color = if (on) C.accent else C.muted),   // the phone: hold it for its menu
+            modifier = Modifier.clip(R.pill).background(if (on) C.accent.copy(alpha = 0.16f) else C.fg.copy(alpha = 0.05f))
+                .border(1.dp, if (on) C.accent.copy(alpha = 0.5f) else Color.Transparent, R.pill)
+                .combinedClickable(onClick = pick, onLongClick = { open = true }).padding(horizontal = 12.dp, vertical = 6.dp))
+        else Chip(label, on) { pick() }
+        DropdownMenu(open, { open = false }, containerColor = C.light) {
             Text(label.removePrefix("★ "), style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
             menu().forEach { (what, act) ->
                 DropdownMenuItem(text = { Text(what, style = T.body.copy(color = if (what == "Delete") C.red else C.fg)) },
@@ -1297,7 +1347,7 @@ fun VisualizerTab() {
                 .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Right-click (or hold) one: ★ Favourite (to the front), or Delete one you made
-                Favs.sorted(Favs.VIS, VIS_STYLES).forEach { (k, label) -> MenuChip(label, style == k, { Favs.menu(Favs.VIS, k, label) }) { Music.chooseVisPreset(k) } }
+                Favs.sorted(Favs.VIS, VIS_STYLES).forEach { (k, label) -> androidx.compose.runtime.key(k) { MenuChip(label, style == k, { Favs.menu(Favs.VIS, k, label) }) { Music.chooseVisPreset(k) } } }
                 // Your own style or colour blend (and the one picked, if it's yours, to change it)
                 Chip(if (style.startsWith("myvis-")) "✎ Change yours" else "+ Make your own", false) {
                     Ui.current?.let { it.makerEdit = style.takeIf { s -> s.startsWith("myvis-") }; it.sheet = "vismaker" }
