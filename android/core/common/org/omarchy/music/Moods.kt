@@ -167,7 +167,7 @@ object Moods {
             sures.size == 1 -> listOf(sures[0] to 1.0) + j.moods.filter { it.first != sures[0] }.take(MoodRules.MOST - 1)
             // From a backup, until it's heard here.
             e != null && e.kept.isNotEmpty() ->
-                e.kept.take(MoodRules.MOST).mapIndexed { i, m -> m to (if (i == 0) e.keptSure else e.keptSure * 0.8) }
+                e.kept.mapIndexed { i, m -> m to (if (i == 0) e.keptSure else e.keptSure * 0.8) }
             else -> null
         }
         if (moods != null) return Judged(moods, if (sures.isNotEmpty()) 1.0 else e?.keptSure ?: 0.0, j.conflict, true, false)
@@ -733,13 +733,19 @@ object Moods {
     fun testAi(done: (String) -> Unit) {
         val key = cleanKey(Prefs.text(AI_KEY))
         if (key.isEmpty()) { done("no key saved yet"); return }
+        // Always an answer: whichever comes first, Anthropic's or "no answer in 25 seconds"
+        val answered = java.util.concurrent.atomic.AtomicBoolean(false)
+        Music.bg({ Thread.sleep(25_000) }) { _, _ ->
+            if (answered.compareAndSet(false, true)) { val why = "Anthropic didn't answer within 25 seconds (no internet, or it's busy): try again"; aiStatus = why; done(why) }
+        }
         Music.bg({
             val body = JsonObject(mapOf("model" to JsonPrimitive(AI_MODEL), "max_tokens" to JsonPrimitive(5),
                 "messages" to JsonArray(listOf(JsonObject(mapOf("role" to JsonPrimitive("user"), "content" to JsonPrimitive("Say ok")))))))
             try { httpJson("https://api.anthropic.com/v1/messages", mapOf("x-api-key" to key, "anthropic-version" to "2023-06-01"), jsonBody(body)); "" }
             catch (e: HttpError) { aiWhy(e) }
             catch (e: Exception) { "couldn't reach Anthropic: ${hideKey(e.message.orEmpty()).take(100)}" }
-        }) { r, _ -> val why = r ?: "it didn't answer"; aiStatus = why; done(why) }
+        }) { r, err -> if (answered.compareAndSet(false, true)) {
+            val why = r ?: "something went wrong (${err?.message?.let { hideKey(it).take(80) } ?: "no answer"})"; aiStatus = why; done(why) } }
     }
 
     /** The AI reading: the song's title, artist and words sent to Anthropic's Messages API with your key (nothing else
@@ -1006,7 +1012,7 @@ object Moods {
             synchronized(lock) {
                 known[p] = if (!better) base.copy(mtime = if (e == null) m else base.mtime, looked = e != null && base.looked)
                     else base.copy(mtime = m, sound = b.sound ?: base.sound, heard = true, full = b.full || base.full,
-                    len = t.duration, picked = if (b.picked) b.moods.first() else base.picked, kept = b.moods, keptSure = b.sure,
+                    len = t.duration, picked = if (b.picked) b.moods.joinToString(";") else base.picked, kept = b.moods, keptSure = b.sure,
                     looked = base.looked && base.mtime == m)
             }
             n++

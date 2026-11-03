@@ -375,6 +375,9 @@ object Sync {
         val now = Prefs.all()
         for ((k, v) in BackupMerge.switchesToRestore(text, crossDevice = true)) {
             if (!SyncRules.prefSyncs(k) || now[k] == v) continue
+            // Your own looks, layouts and visualizers: the other device's added to yours, not swapped for them
+            val made = if (v is String) org.omarchy.music.ui.MadeSync.incoming(k, now[k] as? String ?: "", v) else null
+            if (made != null) { Prefs.setText(k, made); continue }
             when (v) {
                 is Boolean -> Music.setOpt(k, v)   // with what it takes to take effect (crossfeed…)
                 is Float -> Prefs.setNum(k, v)

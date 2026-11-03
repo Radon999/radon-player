@@ -186,6 +186,8 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     // The styles around a middle (Ring, Pulse…) go over the big cover while it shows, else they'd hide behind it.
     val coverShown = ui.pane != "queue" && ui.pane != "lyrics" && !visPane
     val onCover = vis != null && visStyle != "off" && coverShown && visStyle in Vis.OVER_COVER
+    // Yours with Full screen on: the whole screen, exactly as the Visualizer tab draws it, over the cover
+    val fullOver = vis != null && coverShown && Vis.full(visStyle)
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
     Box(Modifier.fillMaxSize().then(when {
         plain && cover -> Modifier.background(Color.Black)   // the Now playing look, plain: black, the cover sharp
@@ -196,13 +198,14 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         else -> Modifier.background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)
     })) {
         if (!cover && lock != null && C.stars) Stars()   // the look's stars on the lock screen too, as in the window
-        if (!cover && lock != null) LookEffects()
+        if (!cover && lock != null) LookEffects(LookFx.behind(C.fx))
         // The cover in the colour, faintly and only a little blurred, so it's still clearly the cover: a mid-size copy
         // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
         if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
-        if (vis != null && visStyle != "off" && !onCover && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
-            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
+        // (a Dual one over the cover: its bottom style still along the bottom here)
+        if (vis != null && visStyle != "off" && (!onCover || Vis.dual(visStyle)) && !fullOver && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
+            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = onCover)
         if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         val lay = if (lock != null) UiLayouts.BUILT_IN.first() else UiLayouts.current
         // What takes the middle: the queue, the lyrics, Personalization, the visualizer's settings, or the cover and song
@@ -290,6 +293,22 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                 Spacer(Modifier.height(14.dp))   // where the sound goes shows in the Equalizer only (1.4)
             }
         }
+        if (!cover && lock != null) LookEffects(LookFx.over(C.fx))   // rain and snow over the buttons too (the lock screen)
+        // On top of it all, over the cover: a plain Canvas takes no taps, so the buttons under it still work
+        if (fullOver && vis != null) NowVisFull(visStyle, vis, visCol, strength,
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(16.dp))
+    }
+}
+
+/** Your visualizer with Full screen on: over the whole screen and the cover, drawn just as the Visualizer tab draws it
+ *  (its full size, not a faint backdrop); the strength turns it down a little, never to faint. */
+@Composable
+private fun NowVisFull(style: String, s: VisState, col: Color, strength: Float, modifier: Modifier) {
+    val colorKey = Vis.color()
+    Canvas(modifier.graphicsLayer(alpha = (0.55f + strength * 0.5f).coerceIn(0.6f, 1f))) {
+        if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
+        val pal = VisPalette.of(style, colorKey, col, s.phase)
+        clipRect { drawVis(style, s, pal, WHITE, backdrop = false) }
     }
 }
 
@@ -956,14 +975,16 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
  *  its Look's colour here is the cover's light shade). The styles around a middle get the whole screen (while the cover
  *  doesn't show; over it, NowVisOver), the others the bottom. strength: its opacity (Vis.nowStrength). */
 @Composable
-private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, modifier: Modifier) {
+private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, modifier: Modifier, bottomOnly: Boolean = false) {
     if (style == "slim") { NowBars(s.levels, s.frame, bars, modifier, strength / 0.5f); return }
     val colorKey = Vis.color()
-    Canvas(modifier.fillMaxWidth().then(if (style in Vis.CENTRED) Modifier.fillMaxHeight() else Modifier.fillMaxHeight(0.32f))
+    val dual = Vis.dual(style)
+    val tall = !(dual && bottomOnly) && (style in Vis.CENTRED || Vis.full(style))
+    Canvas(modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier.fillMaxHeight(0.32f))
         .graphicsLayer(alpha = strength)) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
         val pal = VisPalette.of(style, colorKey, bars, s.phase)
-        clipRect { drawVis(style, s, pal, WHITE, backdrop = true) }
+        MyVis.drawingPart(if (dual && bottomOnly) MyVis.PART_BOTTOM else MyVis.PART_ALL) { clipRect { drawVis(style, s, pal, WHITE, backdrop = true) } }
     }
 }
 
@@ -978,8 +999,10 @@ private fun NowVisOver(style: String, s: VisState, col: Color, strength: Float, 
     Canvas(modifier.graphicsLayer(alpha = (0.7f + strength * 0.6f).coerceIn(0.75f, 1f))) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
         val pal = VisPalette.of(style, colorKey, col, s.phase)
-        drawVis(style, s, pal, fg, backdrop = true)
-        if (strength >= 0.35f) drawVis(style, s, pal, fg, backdrop = true)
+        MyVis.drawingPart(MyVis.PART_MIDDLE) {   // a Dual one: its middle style here, its bottom one along the bottom
+            drawVis(style, s, pal, fg, backdrop = true)
+            if (strength >= 0.35f) drawVis(style, s, pal, fg, backdrop = true)
+        }
     }
 }
 

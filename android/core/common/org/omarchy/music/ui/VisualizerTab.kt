@@ -2,6 +2,8 @@ package org.omarchy.music.ui
 
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
@@ -50,6 +52,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
@@ -114,13 +117,18 @@ object Vis {
     const val NOW_STRENGTH = "np_vis_strength"   // how strongly Now playing's visualizer shows, 0.1 … 1 (a number)
 
     /** The styles drawn around the middle of the space (the others stand on its bottom). */
-    private val BUILT_CENTRED = setOf("circle", "ring", "particles", "pulse", "starfield", "sunburst", "galaxy", "flower", "vinyl",
+    val BUILT_CENTRED = setOf("circle", "ring", "particles", "pulse", "starfield", "sunburst", "galaxy", "flower", "vinyl",
         "lissajous", "kaleido", "tunnel")
     /** ... and the styles you made from one of them. */
-    val CENTRED: Set<String> get() = BUILT_CENTRED + MyVis.styles().filter { it.base in BUILT_CENTRED }.map { it.key }
+    val CENTRED: Set<String> get() = BUILT_CENTRED + MyVis.styles().filter { it.base in BUILT_CENTRED || it.dual }.map { it.key }
+    /** Yours with Dual on: one style in the middle (over the cover on Now playing) and one along the bottom. */
+    fun dual(key: String): Boolean = key.startsWith("myvis-") && MyVis.style(key)?.dual == true
     /** On Now playing these are drawn over the big cover (around and through it), not hidden behind it; the styles that
      *  stand on the bottom (bars, wave, glow, terrain…) stay behind, along the bottom of the screen. */
-    val OVER_COVER: Set<String> get() = CENTRED
+    val OVER_COVER: Set<String> get() = CENTRED.filterNot { full(it) }.toSet()
+    /** A style you made with Full screen on: on Now playing it fills the whole screen behind everything (at its normal
+     *  size, the way the Visualizer tab draws it), instead of over the cover or along the bottom. */
+    fun full(key: String): Boolean = key.startsWith("myvis-") && MyVis.style(key)?.full == true
 
     /** The style; an old colour preset ("red"…) is Bars in that colour. */
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
@@ -1089,9 +1097,14 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                preview: (@Composable (String) -> Unit)? = null,
                thumb: (@Composable (String) -> Unit)? = null,
                chosen: Set<String>? = null,   // several at once (ticked; the menu stays open): these are on
+               later: Boolean = false,        // the phone: put on when the menu closes (a layout rebuilds the screen, menu and all)
+               menu: ((String, String) -> List<Pair<String, () -> Unit>>)? = null,   // right-click (or hold) on one: these
                pick: (String) -> Unit) {
     Box {
         var open by remember { mutableStateOf(false) }
+        // Right-click (the PC) or a long press (the phone) on one: its little menu (Favourite, Delete…); that press doesn't pick it
+        var ctx by remember { mutableStateOf<String?>(null) }
+        var skip by remember { mutableStateOf<String?>(null) }
         // The one the pointer is over (the PC), else the one in use: its picture and description at the top of the menu
         var over by remember { mutableStateOf<String?>(null) }
         // Where each item is in the menu (its distance from the menu's left and right edges): its picture goes beside the menu
@@ -1100,26 +1113,22 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
         val name = if (chosen != null) options.filter { it.first in chosen }.let { on ->
                 when (on.size) { 0 -> "None"; 1, 2 -> on.joinToString(", ") { it.second }; else -> "${on.size} on" } }
             else options.firstOrNull { it.first == current }?.second ?: options.firstOrNull()?.second.orEmpty()
-        Pill("$prefix$name \u25BE", quiet = true) { open = true; over = null }
-        DropdownMenu(open, { open = false }, containerColor = C.light) {
-            // On the phone (no pointer): the one in use, big at the top of the menu. On the PC each one's picture pokes out
-            // beside it as the pointer goes over it, so it's in sight however far down the list is scrolled.
-            if (onPhone && (preview != null || describe != null)) {
-                val shown = current
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 320.dp)) {
-                    preview?.invoke(shown)
-                    val d = describe?.invoke(shown).orEmpty()
-                    Text(options.firstOrNull { it.first == shown }?.second.orEmpty(), style = T.title.copy(fontSize = 14.sp),
-                        modifier = Modifier.padding(top = if (preview != null) 8.dp else 0.dp))
-                    if (d.isNotEmpty()) Text(d, style = T.sub)
-                }
-                HorizontalDivider(color = C.line)
-            }
+        // The phone: the one last tapped in the menu, its picture shown under it
+        var tapped by remember { mutableStateOf<String?>(null) }
+        val stays = onPhone && preview != null
+        Pill("$prefix$name \u25BE", quiet = true) { open = true; over = null; tapped = if (stays && chosen == null) current else null }
+        DropdownMenu(open, {
+            open = false
+            if (later && stays) tapped?.let { if (it != current) pick(it) }
+        }, containerColor = C.light) {
+            // On the PC each one's picture pokes out beside it as the pointer goes over it. On the phone (no pointer) a tap
+            // puts that one on and shows its picture right under it, and the menu stays open to try others: Back or a tap
+            // outside closes it.
             // Too many to fit the screen's height (the PC): more columns, growing to the left, a line between them
             val item: @Composable (String, String) -> Unit = { k, label ->
                 val text: @Composable () -> Unit = {
                     Column {
-                        val on = if (chosen != null) k in chosen else k == current
+                        val on = if (chosen != null) k in chosen else k == (tapped ?: current)
                         Text((if (chosen != null) (if (on) "✓ " else "    ") else "") + label,
                             style = T.body.copy(color = if (on) C.accent else C.fg,
                             fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal))
@@ -1135,19 +1144,35 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                             val e = awaitPointerEvent()
                             if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Enter ||
                                 e.type == androidx.compose.ui.input.pointer.PointerEventType.Move) over = k
-                            else if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Exit && over == k) over = null
+                            if (menu != null && e.type == androidx.compose.ui.input.pointer.PointerEventType.Press && e.buttons.isSecondaryPressed) {
+                                skip = k; ctx = k; e.changes.forEach { it.consume() }
+                            }
                         }
                     }
-                }
+                }.then(if (menu != null && onPhone) Modifier.pointerInput(k) {
+                    detectTapGestures(onLongPress = { skip = k; ctx = k })
+                } else Modifier)
                 val lead: (@Composable () -> Unit)? = when {
                     thumb != null -> ({ thumb(k) })
                     sw != null -> ({ VisColorDot(sw.first, sw.second) })
                     else -> null
                 }
-                Box(Modifier.onGloballyPositioned { c -> menuRow?.let { r -> if (r.isAttached && c.isAttached)
+                Column(Modifier.onGloballyPositioned { c -> menuRow?.let { r -> if (r.isAttached && c.isAttached)
                         spots[k] = r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() to
                             (r.size.width - r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() - c.size.width) } }) {
-                    DropdownMenuItem(text = text, onClick = { if (chosen == null) open = false; pick(k) }, leadingIcon = lead, modifier = hover)
+                    DropdownMenuItem(text = text, onClick = {
+                        if (skip == k) { skip = null; return@DropdownMenuItem }   // that was a right-click or a long press
+                        if (chosen == null && !stays) open = false; tapped = k; if (!(later && stays)) pick(k) }, leadingIcon = lead, modifier = hover)
+                    if (menu != null && ctx == k) DropdownMenu(true, { ctx = null; skip = null }, containerColor = C.light) {
+                        Text(label.removePrefix("★ "), style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+                        menu(k, label).forEach { (what, act) ->
+                            DropdownMenuItem(text = { Text(what, style = T.body.copy(color = if (what == "Delete") C.red else C.fg)) },
+                                onClick = { ctx = null; skip = null; if (what == "Delete") open = false; act() })
+                        }
+                    }
+                    if (stays && tapped == k) Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp).widthIn(max = 320.dp)) {
+                        preview?.invoke(k)
+                    }
                     if (!onPhone && over == k && (preview != null || describe != null)) {
                         val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 10.dp.roundToPx() }
                         androidx.compose.ui.window.Popup(popupPositionProvider = remember(gap, spots[k]) { BesideMenu(gap, spots[k]?.first ?: 0, spots[k]?.second ?: 0) }) {
@@ -1180,17 +1205,56 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
     }
 }
 
+/** A chip with a little menu on right-click (the PC) or a long press (the phone). */
+@Composable
+fun MenuChip(label: String, on: Boolean, menu: () -> List<Pair<String, () -> Unit>>, pick: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    var held by remember { mutableStateOf(false) }   // that press opened the menu: it doesn't pick
+    Box(Modifier.pointerInput(label) {
+        awaitPointerEventScope {
+            while (true) {
+                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Press && e.buttons.isSecondaryPressed) {
+                    open = true; held = true; e.changes.forEach { it.consume() }
+                }
+            }
+        }
+    }.then(if (onPhone) Modifier.pointerInput(label) {
+        detectTapGestures(onLongPress = { open = true; held = true })
+    } else Modifier)) {
+        Chip(label, on) { if (held) held = false else pick() }
+        DropdownMenu(open, { open = false; held = false }, containerColor = C.light) {
+            Text(label.removePrefix("★ "), style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            menu().forEach { (what, act) ->
+                DropdownMenuItem(text = { Text(what, style = T.body.copy(color = if (what == "Delete") C.red else C.fg)) },
+                    onClick = { open = false; act() })
+            }
+        }
+    }
+}
+
 /** Where a menu item's picture goes: to the left of the menu, level with the item (kept on screen); to the right when
  *  there's no room on the left. */
 private class BesideMenu(val gap: Int, val fromLeft: Int = 0, val fromRight: Int = 0) : androidx.compose.ui.window.PopupPositionProvider {
     override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize,
                                    layoutDirection: androidx.compose.ui.unit.LayoutDirection,
                                    popupContentSize: androidx.compose.ui.unit.IntSize): androidx.compose.ui.unit.IntOffset {
-        val left = anchorBounds.left - fromLeft - popupContentSize.width - gap
-        val x = if (left >= 0) left
-            else (anchorBounds.right + fromRight + gap).coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0)
-        val y = (anchorBounds.top + anchorBounds.height / 2 - popupContentSize.height / 2)
-            .coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+        val w = popupContentSize.width; val h = popupContentSize.height
+        val menuLeft = anchorBounds.left - fromLeft; val menuRight = anchorBounds.right + fromRight
+        fun level() = (anchorBounds.top + anchorBounds.height / 2 - h / 2).coerceIn(0, (windowSize.height - h).coerceAtLeast(0))
+        // Beside the menu (left first, then right), never over it: over it, it would sit under the pointer
+        if (menuLeft - gap - w >= 0) return androidx.compose.ui.unit.IntOffset(menuLeft - gap - w, level())
+        if (menuRight + gap + w <= windowSize.width) return androidx.compose.ui.unit.IntOffset(menuRight + gap, level())
+        // A small window: no room beside it. Under the item pointed at (or above it), clear of that item's row
+        val x = ((anchorBounds.left + anchorBounds.right) / 2 - w / 2).coerceIn(0, (windowSize.width - w).coerceAtLeast(0))
+        val below = anchorBounds.bottom + gap
+        val above = anchorBounds.top - gap - h
+        val y = when {
+            below + h <= windowSize.height -> below
+            above >= 0 -> above
+            windowSize.height - anchorBounds.bottom >= anchorBounds.top -> below
+            else -> above.coerceAtLeast(0)
+        }
         return androidx.compose.ui.unit.IntOffset(x, y)
     }
 }
@@ -1232,7 +1296,8 @@ fun VisualizerTab() {
             Row(Modifier.weight(1f).horizontalScroll(styleScroll)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                VIS_STYLES.forEach { (k, label) -> Chip(label, style == k) { Music.chooseVisPreset(k) } }
+                // Right-click (or hold) one: ★ Favourite (to the front), or Delete one you made
+                Favs.sorted(Favs.VIS, VIS_STYLES).forEach { (k, label) -> MenuChip(label, style == k, { Favs.menu(Favs.VIS, k, label) }) { Music.chooseVisPreset(k) } }
                 // Your own style or colour blend (and the one picked, if it's yours, to change it)
                 Chip(if (style.startsWith("myvis-")) "✎ Change yours" else "+ Make your own", false) {
                     Ui.current?.let { it.makerEdit = style.takeIf { s -> s.startsWith("myvis-") }; it.sheet = "vismaker" }
@@ -1262,8 +1327,9 @@ fun VisualizerTab() {
  *  flip: upside down; reflect: a faint reflection under it; spin: turns (0 none … 1 fast); amp: how strongly it moves
  *  (0.5 calm … 2 wild); echo: a soft glow around it; color: a colour of its own ("" the one picked in the Visualizer). */
 data class MyVisStyle(val key: String, val name: String, val base: String, val mirror: Boolean = false, val flip: Boolean = false,
-                      val reflect: Boolean = false, val spin: Float = 0f, val amp: Float = 1f, val echo: Boolean = false, val color: String = "") {
-    fun encode() = listOf(key, name.replace('|', '/'), base, mirror, flip, reflect, spin, amp, echo, color).joinToString("|")
+                      val reflect: Boolean = false, val spin: Float = 0f, val amp: Float = 1f, val echo: Boolean = false, val color: String = "",
+                      val full: Boolean = false, val dual: Boolean = false, val base2: String = "bars") {
+    fun encode() = listOf(key, name.replace('|', '/'), base, mirror, flip, reflect, spin, amp, echo, color, full, dual, base2).joinToString("|")
 }
 
 /** A colour blend you made: 2 to 5 colours (0xAARRGGBB), how they spread (ALONG bass to treble, LOUD by loudness, STRIPES
@@ -1277,6 +1343,11 @@ object MyVis {
     const val STYLES = "my_vis_styles"
     const val COLORS = "my_vis_colors"
     const val SPREAD_ALONG = 0; const val SPREAD_LOUD = 1; const val SPREAD_STRIPES = 2
+    /** Which part of a Dual one to draw next: ALL (the middle one, the bottom one in the lower part), MIDDLE or BOTTOM. */
+    const val PART_ALL = 0; const val PART_MIDDLE = 1; const val PART_BOTTOM = 2
+    var part = PART_ALL
+    /** Draws a Dual one's part p (Now playing: the middle over the cover, the bottom along the bottom). */
+    inline fun <T> drawingPart(p: Int, block: () -> T): T { val was = part; part = p; try { return block() } finally { part = was } }
 
     private var stylesFrom = "\u0000"; private var stylesCache: List<MyVisStyle> = emptyList()
     private var colorsFrom = "\u0000"; private var colorsCache: List<MyVisColor> = emptyList()
@@ -1286,7 +1357,8 @@ object MyVis {
         if (text != stylesFrom) {
             stylesCache = text.lines().mapNotNull { l -> runCatching { val p = l.split("|")
                 MyVisStyle(p[0], p[1], p[2], p[3].toBoolean(), p[4].toBoolean(), p[5].toBoolean(), p[6].toFloat(), p[7].toFloat(),
-                    p[8].toBoolean(), p.getOrElse(9) { "" }) }.getOrNull() }
+                    p[8].toBoolean(), p.getOrElse(9) { "" }, p.getOrElse(10) { "false" }.toBoolean(),
+                    p.getOrElse(11) { "false" }.toBoolean(), p.getOrElse(12) { "bars" }) }.getOrNull() }
             stylesFrom = text
         }
         return stylesCache
@@ -1318,6 +1390,7 @@ object MyVis {
         return keyed
     }
     fun deleteStyle(key: String) {
+        MadeSync.forget(key)
         Prefs.setText(STYLES, styles().filter { it.key != key }.joinToString("\n") { it.encode() })
         if (Music.visPreset == key) Music.chooseVisPreset("bars")
         if (Prefs.text(Vis.NOW) == key) Prefs.setText(Vis.NOW, "slim")
@@ -1328,6 +1401,7 @@ object MyVis {
         return keyed
     }
     fun deleteColor(key: String) {
+        MadeSync.forget(key)
         Prefs.setText(COLORS, colors().filter { it.key != key }.joinToString("\n") { it.encode() })
         if (Prefs.text(Vis.COLOR) == key) Prefs.setText(Vis.COLOR, "auto")
     }
@@ -1352,20 +1426,37 @@ private fun DrawScope.drawMyVis(d: MyVisStyle, s: VisState, pal: VisPalette, fg:
         block()
         drawContext.canvas.restore()
     }
-    fun plain() {
-        val turn = if (d.spin > 0f) s.phase * 90f * d.spin else 0f
-        rotateIf(turn, mid) { if (d.flip) scaleY(-1f, mid) { drawVis(d.base, s, pal, fg, backdrop) } else drawVis(d.base, s, pal, fg, backdrop) }
+    fun DrawScope.plain(b: String, turns: Boolean) {
+        val m = Offset(size.width / 2, size.height / 2)
+        val turn = if (turns && d.spin > 0f) s.phase * 90f * d.spin else 0f
+        rotateIf(turn, m) { if (d.flip) scaleY(-1f, m) { drawVis(b, s, pal, fg, backdrop) } else drawVis(b, s, pal, fg, backdrop) }
     }
-    fun shaped() {
+    fun DrawScope.shaped(b: String, turns: Boolean) {
+        val m = Offset(size.width / 2, size.height / 2)
         if (d.mirror) {
-            clipRect(right = size.width / 2) { plain() }
-            scaleX(-1f, mid) { clipRect(right = size.width / 2) { plain() } }
-        } else plain()
+            clipRect(right = size.width / 2) { plain(b, turns) }
+            scaleX(-1f, m) { clipRect(right = size.width / 2) { plain(b, turns) } }
+        } else plain(b, turns)
+    }
+    fun DrawScope.whole(b: String, turns: Boolean) {
+        val m = Offset(size.width / 2, size.height / 2)
+        if (d.echo) faint(0.35f) { scaleBoth(1.05f, m) { shaped(b, turns) } }
+        shaped(b, turns)
+        if (d.reflect) faint(0.28f) { scaleY(-1f, m) { shaped(b, turns) } }
     }
     try {
-        if (d.echo) faint(0.35f) { scaleBoth(1.05f, mid) { shaped() } }
-        shaped()
-        if (d.reflect) faint(0.28f) { scaleY(-1f, mid) { shaped() } }
+        val bottom = d.base2.takeIf { d.dual && !it.startsWith("myvis-") && it !in Vis.BUILT_CENTRED } ?: "bars"
+        when {
+            !d.dual -> whole(d.base, true)
+            MyVis.part == MyVis.PART_MIDDLE -> whole(d.base, true)
+            MyVis.part == MyVis.PART_BOTTOM -> whole(bottom, false)
+            else -> {
+                // The bottom one in the lower 40%, the middle one over the whole space
+                val h = size.height * 0.4f
+                translate(top = size.height - h) { clipRect(0f, 0f, size.width, h) { withSize(size.width, h) { whole(bottom, false) } } }
+                whole(d.base, true)
+            }
+        }
     } finally {
         keep.copyInto(lv)
     }

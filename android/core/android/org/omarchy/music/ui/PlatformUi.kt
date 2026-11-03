@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -20,6 +22,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import org.omarchy.music.Music
+import kotlinx.coroutines.launch
 
 // The phone's side of what the shared screens ask of the platform (the PC has its own, the same names).
 
@@ -147,29 +150,82 @@ object SysVolume {
 }
 
 /** The music's spectrum, Spectrum.BANDS levels filled in as it plays (Android's visualizer on the player's own sound,
- *  which needs the microphone permission: nothing is recorded); null when it can't be had. */
+ *  which needs the microphone permission: nothing is recorded); null when it can't be had. Every screen showing a
+ *  visualizer shares one Android visualizer ([SpectrumHub]): two of them on the same sound got in each other's way (one
+ *  closing could silence the other, so Make your own visualizer froze over Now playing). */
 @Composable
 fun rememberSpectrum(on: Boolean, failed: (String) -> Unit = {}): FloatArray? {
     if (on && org.omarchy.music.Remote.active) return rememberPcSpectrum()   // the PC's remote: the PC's sound
     if (!on || !hasPermission(Perm.MIC)) return null
-    val session = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? androidx.media3.exoplayer.ExoPlayer)?.audioSessionId ?: 0
-    val target = remember { FloatArray(org.omarchy.music.Spectrum.BANDS) }
-    DisposableEffect(session) {
-        val vis = runCatching {
+    DisposableEffect(Unit) {
+        SpectrumHub.acquire(failed)
+        onDispose { SpectrumHub.release() }
+    }
+    return SpectrumHub.target
+}
+
+/** The one Android visualizer, open while any screen shows a visualizer. It follows the player's sound (a new session
+ *  when the player changes) and is opened again by itself when it goes quiet while music plays. */
+object SpectrumHub {
+    val target = FloatArray(org.omarchy.music.Spectrum.BANDS)
+    private var users = 0
+    private var vis: android.media.audiofx.Visualizer? = null
+    private var session = 0
+    @Volatile private var heard = 0L
+    private var watch: kotlinx.coroutines.Job? = null
+    private var onFail: (String) -> Unit = {}
+
+    private fun sessionNow() = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? androidx.media3.exoplayer.ExoPlayer)?.audioSessionId ?: 0
+
+    fun acquire(failed: (String) -> Unit) {
+        onFail = failed
+        users++
+        if (users > 1) return
+        open()
+        watch?.cancel()
+        watch = Music.scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(700)
+                val s = sessionNow()
+                val playing = !Music.paused && Music.player?.isPlaying == true
+                // A new sound (another player), none yet, or quiet for 3 seconds while music plays: opened again
+                if (s != session || vis == null || (playing && System.currentTimeMillis() - heard > 3000)) open()
+            }
+        }
+    }
+
+    fun release() {
+        users = (users - 1).coerceAtLeast(0)
+        if (users > 0) return
+        watch?.cancel(); watch = null
+        close()
+        target.fill(0f)
+    }
+
+    private fun close() {
+        vis?.runCatching { enabled = false; release() }
+        vis = null
+    }
+
+    private fun open() {
+        close()
+        session = sessionNow()
+        heard = System.currentTimeMillis()
+        if (session == 0) return   // no player's sound yet: tried again in a moment
+        vis = runCatching {
             android.media.audiofx.Visualizer(session).apply {
                 captureSize = android.media.audiofx.Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
                 setDataCaptureListener(object : android.media.audiofx.Visualizer.OnDataCaptureListener {
                     override fun onWaveFormDataCapture(v: android.media.audiofx.Visualizer, wave: ByteArray, rate: Int) {}
                     override fun onFftDataCapture(v: android.media.audiofx.Visualizer, fft: ByteArray, rate: Int) {
                         org.omarchy.music.Spectrum.bands(fft, rate / 1000).copyInto(target)   // rate comes in millihertz
+                        if (fft.any { it.toInt() != 0 }) heard = System.currentTimeMillis()
                     }
                 }, android.media.audiofx.Visualizer.getMaxCaptureRate(), false, true)
                 enabled = true
             }
-        }.onFailure { failed(it.message ?: "Android's visualizer isn't available") }.getOrNull()
-        onDispose { vis?.runCatching { enabled = false; release() } }
+        }.onFailure { onFail(it.message ?: "Android's visualizer isn't available") }.getOrNull()
     }
-    return target
 }
 /** The PC's sound's levels while this phone is its remote: asked of the PC about 20 times a second. */
 @Composable

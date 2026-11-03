@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -64,7 +65,31 @@ object LookFx {
         Fx("rings", "Rings", "Rings spreading out from the middle, like ripples", true),
         Fx("frame", "Neon frame", "A glowing neon line around the edge of the window"),
     )
-    fun moves(fx: Set<String>) = ALL.any { it.moves && it.key in fx }
+    fun moves(fx: Set<String>) = keys(fx).let { k -> ALL.any { it.moves && it.key in k } }
+
+    // An effect's own colour rides in its entry: "rain@ff4fd8ff" (ARGB hex); a plain "rain" draws in the look's colours.
+    fun keyOf(e: String) = e.substringBefore('@')
+    fun keys(fx: Set<String>): Set<String> = fx.map { keyOf(it) }.toSet()
+    fun colors(fx: Set<String>): Map<String, Color> = fx.mapNotNull { e ->
+        e.substringAfter('@', "").takeIf { it.isNotEmpty() }?.toLongOrNull(16)?.let { keyOf(e) to Color(it) } }.toMap()
+    fun has(fx: Set<String>, k: String) = fx.any { keyOf(it) == k }
+    /** Rain and snow fall over everything (the seek bar and buttons too); the others stay behind. */
+    private val OVER = setOf("rain", "snow")
+    fun behind(fx: Set<String>): Set<String> = fx.filter { keyOf(it) !in OVER }.toSet()
+    fun over(fx: Set<String>): Set<String> = fx.filter { keyOf(it) in OVER }.toSet()
+    /** The effects with k's colour set (null: back to the look's colours). */
+    fun withColor(fx: Set<String>, k: String, c: Color?): Set<String> = fx.map { e ->
+        if (keyOf(e) != k) e else if (c == null) k else k + "@" + (c.toArgb().toLong() and 0xFFFFFFFFL).toString(16) }.toSet()
+    /** Turns k on or off, keeping the others (and their colours). */
+    fun flip(fx: Set<String>, k: String): Set<String> = if (has(fx, k)) fx.filter { keyOf(it) != k }.toSet() else fx + k
+    /** The colour an effect is drawn in by default, to start its picker from. */
+    fun defaultColor(k: String, accent: Color, fg: Color): Color = when (k) {
+        "twinkle", "shooting", "snow", "sheen", "constellation" -> Color.White
+        "rain", "stripes", "hexagons" -> fg
+        "fireflies" -> Color(0xFFFFF27A); "skyline" -> Color(0xFFFFE08A); "digital" -> Color(0xFF3CFF7A)
+        "scanlines", "vignette", "mountains" -> Color.Black
+        else -> accent
+    }
 
     // ---- Settings › Personalization › Effects: any of these with any look or theme ----
 
@@ -81,12 +106,12 @@ object LookFx {
     fun override() {
         if (ownOn()) return
         val p = picked()
-        C.stars = "stars" in p
-        C.fx = p - "stars"
+        C.stars = has(p, "stars")
+        C.fx = p.filter { keyOf(it) != "stars" }.toSet()
     }
     fun setOwn(on: Boolean) { org.omarchy.music.Prefs.set(OWN, on); org.omarchy.music.Music.applyLook() }
     fun toggle(k: String) {
-        val p = picked().let { if (k in it) it - k else it + k }
+        val p = flip(picked(), k)
         org.omarchy.music.Prefs.setText(PICK, p.joinToString(";"))
         org.omarchy.music.Music.applyLook()
     }
@@ -103,26 +128,30 @@ fun LookEffects(fx: Set<String> = C.fx, modifier: Modifier = Modifier.fillMaxSiz
         tr.animateFloat(0f, 600f, infiniteRepeatable(tween(600_000, easing = LinearEasing), RepeatMode.Restart), label = "t")
     } else null
     val seeds = remember { java.util.Random(11).let { r -> List(200) { floatArrayOf(r.nextFloat(), r.nextFloat(), r.nextFloat(), r.nextFloat()) } } }
-    val keys = remember(fx) { LookFx.ALL.map { it.key }.filter { it in fx } }
+    val keys = remember(fx) { LookFx.keys(fx).let { on -> LookFx.ALL.map { it.key }.filter { it in on } } }
+    val tints = remember(fx) { LookFx.colors(fx) }
     Canvas(modifier) {
         val t = time?.value ?: 0f
-        for (k in keys) drawFx(k, t, seeds, accent, fg, bg)
+        for (k in keys) drawFx(k, t, seeds, accent, fg, bg, tints[k])
     }
 }
 
-private fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, accent: Color, fg: Color, bg: Color) {
+internal fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, lookAccent: Color, fg: Color, bg: Color, tint: Color? = null) {
     val W = size.width; val H = size.height; val d = density
+    // Its own colour (Effects › its colour) in place of its usual main colour
+    val accent = tint ?: lookAccent
+    fun m(def: Color) = tint ?: def
     val light = lerp(accent, Color.White, 0.5f)
     when (k) {
         "twinkle" -> for (i in 0 until 90) { val p = s[i]
             val a = 0.15f + 0.75f * (0.5f + 0.5f * sin(t * (0.6f + p[2] * 1.4f) + p[3] * 6.28f))
-            drawCircle(Color.White.copy(alpha = a), (0.6f + p[2] * 1.6f) * d, Offset(p[0] * W, p[1] * H)) }
+            drawCircle(m(Color.White).copy(alpha = a), (0.6f + p[2] * 1.6f) * d, Offset(p[0] * W, p[1] * H)) }
         "shooting" -> for (i in 0 until 3) { val p = s[i]
             val cycle = 7f + p[2] * 6f; val ph = ((t + p[3] * cycle) % cycle) / 1.2f
             if (ph < 1f) {
                 val x0 = p[0] * W * 0.7f + W * 0.3f; val y0 = p[1] * H * 0.4f
                 val len = 140 * d; val head = Offset(x0 - ph * W * 0.5f, y0 + ph * W * 0.25f)
-                drawLine(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 1 - ph)), Offset(head.x + len, head.y - len / 2), head),
+                drawLine(Brush.linearGradient(listOf(Color.Transparent, m(Color.White).copy(alpha = 1 - ph)), Offset(head.x + len, head.y - len / 2), head),
                     Offset(head.x + len, head.y - len / 2), head, 2 * d)
             } }
         "aurora" -> for (b in 0 until 3) {
@@ -131,7 +160,7 @@ private fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, accent: C
             var x = 0f
             while (x <= W) { path.lineTo(x, base + sin(x / W * 6f + t * 0.3f + b) * H * 0.04f); x += 8 * d }
             path.lineTo(W, base + H * 0.18f); path.lineTo(0f, base + H * 0.18f); path.close()
-            val col = if (b == 1) Color(0xFF3CFFB4) else accent
+            val col = if (b == 1) (tint?.let { lerp(it, Color.White, 0.35f) } ?: Color(0xFF3CFFB4)) else accent
             drawPath(path, Brush.verticalGradient(listOf(col.copy(alpha = 0.22f), Color.Transparent), base - H * 0.05f, base + H * 0.18f))
         }
         "grid" -> {
@@ -145,27 +174,27 @@ private fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, accent: C
             drawCircle(Brush.verticalGradient(listOf(Color(0xFFFFD36B), accent), c.y - r, c.y + r), r, c, alpha = 0.55f)
             for (i in 0 until 6) { val y = c.y + r * (0.1f + i * 0.16f); drawRect(bg, Offset(c.x - r, y), Size(2 * r, (2f + i * 1.5f) * d)) }
         }
-        "scanlines" -> { var y = 0f; while (y < H) { drawLine(Color.Black.copy(alpha = 0.16f), Offset(0f, y), Offset(W, y), 1 * d); y += 3 * d } }
+        "scanlines" -> { var y = 0f; while (y < H) { drawLine(m(Color.Black).copy(alpha = 0.16f), Offset(0f, y), Offset(W, y), 1 * d); y += 3 * d } }
         "grain" -> { val r = java.util.Random(5); repeat(1400) {
-            drawRect((if (r.nextBoolean()) Color.White else Color.Black).copy(alpha = 0.05f + r.nextFloat() * 0.06f),
+            drawRect((if (r.nextBoolean()) m(Color.White) else Color.Black).copy(alpha = 0.05f + r.nextFloat() * 0.06f),
                 Offset(r.nextFloat() * W, r.nextFloat() * H), Size(1.2f * d, 1.2f * d)) } }
-        "vignette" -> drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)), Offset(W / 2, H / 2),
+        "vignette" -> drawRect(Brush.radialGradient(listOf(Color.Transparent, m(Color.Black).copy(alpha = 0.55f)), Offset(W / 2, H / 2),
             sqrt(W * W + H * H) / 1.6f))
         "bokeh" -> for (i in 0 until 14) { val p = s[i + 20]
             val r = (30 + p[2] * 70) * d
-            drawCircle(Brush.radialGradient(listOf((if (i % 2 == 0) accent else fg).copy(alpha = 0.16f), Color.Transparent), Offset(p[0] * W, p[1] * H), r),
+            drawCircle(Brush.radialGradient(listOf((if (i % 2 == 0) accent else (if (tint != null) light else fg)).copy(alpha = 0.16f), Color.Transparent), Offset(p[0] * W, p[1] * H), r),
                 r, Offset(p[0] * W, p[1] * H)) }
         "rain" -> for (i in 0 until 80) { val p = s[i]
             val speed = 0.6f + p[2]; val y = ((p[1] + t * speed * 0.5f) % 1.2f - 0.1f) * H; val x = p[0] * W
-            drawLine(fg.copy(alpha = 0.18f), Offset(x, y), Offset(x - 3 * d, y + 16 * d), 1 * d) }
+            drawLine(m(fg).copy(alpha = if (tint != null) 0.4f else 0.18f), Offset(x, y), Offset(x - 3 * d, y + 16 * d), 1 * d) }
         "snow" -> for (i in 0 until 70) { val p = s[i + 40]
             val y = ((p[1] + t * (0.03f + p[2] * 0.05f)) % 1.1f - 0.05f) * H
             val x = p[0] * W + sin(t * 0.8f + p[3] * 6f) * 12 * d
-            drawCircle(Color.White.copy(alpha = 0.55f), (1.2f + p[2] * 2.2f) * d, Offset(x, y)) }
+            drawCircle(m(Color.White).copy(alpha = 0.55f), (1.2f + p[2] * 2.2f) * d, Offset(x, y)) }
         "fireflies" -> for (i in 0 until 24) { val p = s[i + 60]
             val x = (p[0] + 0.05f * sin(t * 0.3f + p[3] * 9)) * W; val y = (p[1] + 0.05f * cos(t * 0.25f + p[2] * 9)) * H
             val a = 0.3f + 0.6f * (0.5f + 0.5f * sin(t * 1.3f + p[3] * 7))
-            drawCircle(Brush.radialGradient(listOf(Color(0xFFFFF27A).copy(alpha = a), Color.Transparent), Offset(x, y), 10 * d), 10 * d, Offset(x, y)) }
+            drawCircle(Brush.radialGradient(listOf(m(Color(0xFFFFF27A)).copy(alpha = a), Color.Transparent), Offset(x, y), 10 * d), 10 * d, Offset(x, y)) }
         "bubbles" -> for (i in 0 until 26) { val p = s[i + 90]
             val y = H - ((p[1] + t * (0.02f + p[2] * 0.03f)) % 1.1f) * H * 1.05f
             val x = p[0] * W + sin(t * 0.7f + p[3] * 6) * 8 * d
@@ -181,36 +210,36 @@ private fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, accent: C
             val path = Path(); val base = H * (0.7f + b * 0.08f); path.moveTo(0f, H)
             for (j in 0..8) { val p = s[j + b * 9 + 120]; path.lineTo(W * j / 8f, base - p[0] * H * 0.12f) }
             path.lineTo(W, H); path.close()
-            drawPath(path, lerp(bg, Color.Black, 0.25f + b * 0.2f).copy(alpha = 0.85f))
+            drawPath(path, lerp(tint ?: bg, Color.Black, 0.25f + b * 0.2f).copy(alpha = 0.85f))
         }
         "skyline" -> { var x = 0f; var i = 0
             while (x < W) { val p = s[(i++) % 200]; val w = (24 + p[0] * 40) * d; val h = H * (0.08f + p[1] * 0.18f)
                 drawRect(lerp(bg, Color.Black, 0.55f), Offset(x, H - h), Size(w, h))
                 var wy = H - h + 6 * d
                 while (wy < H - 8 * d) { var wx = x + 5 * d
-                    while (wx < x + w - 6 * d) { if (((wx + wy) * 7).toInt() % 5 == 0) drawRect(Color(0xFFFFE08A).copy(alpha = 0.5f), Offset(wx, wy), Size(3 * d, 3 * d)); wx += 8 * d }
+                    while (wx < x + w - 6 * d) { if (((wx + wy) * 7).toInt() % 5 == 0) drawRect(m(Color(0xFFFFE08A)).copy(alpha = 0.5f), Offset(wx, wy), Size(3 * d, 3 * d)); wx += 8 * d }
                     wy += 9 * d }
                 x += w + 2 * d } }
         "halftone" -> { val step = 14 * d; var y = 0f
             while (y < H) { var x = 0f
                 while (x < W) { val f = 1f - ((x / W) + (y / H)) / 2f; if (f > 0.35f) drawCircle(accent.copy(alpha = 0.16f), step * 0.45f * (f - 0.35f) * 1.5f, Offset(x, y)); x += step }
                 y += step } }
-        "stripes" -> { var x = -H; while (x < W) { drawLine(fg.copy(alpha = 0.04f), Offset(x, H), Offset(x + H, 0f), 10 * d); x += 28 * d } }
+        "stripes" -> { var x = -H; while (x < W) { drawLine(m(fg).copy(alpha = if (tint != null) 0.08f else 0.04f), Offset(x, H), Offset(x + H, 0f), 10 * d); x += 28 * d } }
         "hexagons" -> { val r = 22 * d; val hh = r * sqrt(3f); var row = 0; var y = 0f
             while (y < H + hh) { var x = if (row % 2 == 0) 0f else r * 1.5f
                 while (x < W + r) { val path = Path()
                     for (j in 0..6) { val a = PI.toFloat() / 3 * j; val px = x + r * cos(a); val py = y + r * sin(a); if (j == 0) path.moveTo(px, py) else path.lineTo(px, py) }
-                    drawPath(path, fg.copy(alpha = 0.05f), style = Stroke(1 * d)); x += r * 3 }
+                    drawPath(path, m(fg).copy(alpha = if (tint != null) 0.1f else 0.05f), style = Stroke(1 * d)); x += r * 3 }
                 y += hh / 2; row++ } }
         "rays" -> for (i in 0 until 9) { val a = -0.6f + i * 0.15f; val path = Path()
             path.moveTo(W / 2, -10 * d); path.lineTo(W / 2 + sin(a - 0.04f) * H * 1.4f, H); path.lineTo(W / 2 + sin(a + 0.04f) * H * 1.4f, H); path.close()
             drawPath(path, Brush.verticalGradient(listOf(light.copy(alpha = 0.10f), Color.Transparent), 0f, H)) }
         "spotlight" -> drawCircle(Brush.radialGradient(listOf(light.copy(alpha = 0.16f), Color.Transparent), Offset(W / 2, H * 0.35f), minOf(W, H) * 0.6f),
             minOf(W, H) * 0.6f, Offset(W / 2, H * 0.35f))
-        "sheen" -> drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.07f), Color.Transparent),
+        "sheen" -> drawRect(Brush.linearGradient(listOf(Color.Transparent, m(Color.White).copy(alpha = 0.07f), Color.Transparent),
             Offset(W * 0.2f, 0f), Offset(W * 0.6f, H * 0.4f)))
         "nebula" -> for (i in 0 until 6) { val p = s[i + 150]; val r = (90 + p[2] * 160) * d
-            val col = listOf(accent, Color(0xFFFF4FD8), Color(0xFF4F7BFF))[i % 3]
+            val col = if (tint != null) listOf(tint, light, lerp(tint, Color.Black, 0.3f))[i % 3] else listOf(accent, Color(0xFFFF4FD8), Color(0xFF4F7BFF))[i % 3]
             drawCircle(Brush.radialGradient(listOf(col.copy(alpha = 0.14f), Color.Transparent), Offset(p[0] * W, p[1] * H), r), r, Offset(p[0] * W, p[1] * H)) }
         "lava" -> for (i in 0 until 5) { val p = s[i + 160]
             val c = Offset((0.5f + 0.4f * sin(t * 0.07f * (1 + p[2]) + p[3] * 6)) * W, (0.5f + 0.4f * cos(t * 0.05f * (1 + p[0]) + p[1] * 6)) * H)
@@ -223,14 +252,14 @@ private fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, accent: C
         "digital" -> { val cols = (W / (14 * d)).toInt().coerceAtLeast(1)
             for (c in 0 until cols) { val p = s[c % 200]; val head = ((p[1] + t * (0.08f + p[2] * 0.1f)) % 1.3f) * H
                 for (j in 0 until 12) { val y = head - j * 14 * d; if (y < 0 || y > H) continue
-                    drawRect(Color(0xFF3CFF7A).copy(alpha = (0.35f - j * 0.028f).coerceAtLeast(0f)), Offset(c * 14 * d + 4 * d, y), Size(5 * d, 9 * d)) } } }
-        "confetti" -> { val cs = listOf(accent, Color(0xFFFF5D8F), Color(0xFFFFD34F), Color(0xFF4FD8FF), Color(0xFF8BFF6A))
+                    drawRect(m(Color(0xFF3CFF7A)).copy(alpha = (0.35f - j * 0.028f).coerceAtLeast(0f)), Offset(c * 14 * d + 4 * d, y), Size(5 * d, 9 * d)) } } }
+        "confetti" -> { val cs = if (tint != null) listOf(tint, light, lerp(tint, Color.Black, 0.3f)) else listOf(accent, Color(0xFFFF5D8F), Color(0xFFFFD34F), Color(0xFF4FD8FF), Color(0xFF8BFF6A))
             for (i in 0 until 60) { val p = s[i + 100]
                 rotate(p[3] * 360, Offset(p[0] * W, p[1] * H)) { drawRect(cs[i % cs.size].copy(alpha = 0.35f), Offset(p[0] * W, p[1] * H), Size(6 * d, 3 * d)) } } }
         "constellation" -> { val pts = (0 until 22).map { Offset(s[it + 170][0] * W, s[it + 170][1] * H) }
             for (i in pts.indices) for (j in i + 1 until pts.size) { val a = pts[i]; val b = pts[j]
                 if (abs(a.x - b.x) + abs(a.y - b.y) < minOf(W, H) * 0.22f) drawLine(light.copy(alpha = 0.18f), a, b, 0.8f * d) }
-            pts.forEach { drawCircle(Color.White.copy(alpha = 0.7f), 1.6f * d, it) } }
+            pts.forEach { drawCircle(m(Color.White).copy(alpha = 0.7f), 1.6f * d, it) } }
         "rings" -> for (i in 0 until 4) { val f = ((t * 0.08f + i / 4f) % 1f)
             drawCircle(accent.copy(alpha = 0.18f * (1 - f)), f * maxOf(W, H) * 0.7f, Offset(W / 2, H / 2), style = Stroke(1.5f * d)) }
         "frame" -> { drawRect(accent.copy(alpha = 0.25f), style = Stroke(6 * d)); drawRect(light.copy(alpha = 0.8f), style = Stroke(1.5f * d)) }

@@ -581,6 +581,16 @@ object Wrapped {
                 (if (kind == "single") singles else eps).getOrPut(key) { Rel(name, lead, t) }.n++
             }
         }
+        // A release's tag can call it a single when it's really an EP (or the other way round): the most played of each
+        // checked against what Deezer or Apple Music says it is (looked up once, then remembered), and moved over
+        for ((from, to, kind) in listOf(Triple(singles, eps, "ep"), Triple(eps, singles, "single"))) {
+            for ((key, r) in from.entries.sortedByDescending { it.value.n }.take(TOP * 2).map { it.key to it.value }) {
+                val truth = runCatching { AlbumTruth.kindKnown(r.t.album, r.t.artist) }.getOrNull() ?: continue
+                if (truth == kind) { from.remove(key); val name = bareRelease(r.t.album.ifBlank { r.name })
+                    to.getOrPut(key) { Rel(name, r.artist, r.t) }.n += r.n }
+                else if (truth == "album") from.remove(key)
+            }
+        }
         fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP).map { r ->
             AlbumPlays(r.name, r.artist, r.n, "", r.t.file ?: "")   // its picture: the file's own cover (load's last step)
         }

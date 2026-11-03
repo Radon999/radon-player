@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -164,8 +165,9 @@ private fun SlideColumn(spacing: Dp, centred: Boolean, content: @Composable Colu
     val room = LocalSlideSize.current
     val k = LocalSlideScale.current
     FitHeight {
+        // Clear of the phone's buttons at the bottom too: a top 15 used to run under them, its last rows hidden
         Column(Modifier.widthIn(max = SLIDE_MAX_WIDTH + 56.dp).fillMaxWidth().heightIn(min = room.height)
-            .padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 24.dp),
+            .navigationBarsPadding().padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 24.dp),
             verticalArrangement = if (centred) Arrangement.spacedBy(spacing, Alignment.CenterVertically) else Arrangement.spacedBy(spacing),
             content = content)
     }
@@ -476,11 +478,12 @@ private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
 @Composable
 private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = null, start: Int = 1, meter: Boolean = false) {
     val top = (items.maxOfOrNull { it.third } ?: 0).coerceAtLeast(1)
-    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // A long list (a top 15) a little tighter, so all of it fits on one screen
+    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(if (items.size > 10) 8.dp else 12.dp)) {
         items.forEachIndexed { i, (name, sub, plays) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${i + start}", style = W.rank, modifier = Modifier.widthIn(min = 26.dp))
-                art?.let { Pic(it.getOrNull(i), if (items.size > 6) 38.dp else 44.dp) }
+                art?.let { Pic(it.getOrNull(i), if (items.size > 10) 34.dp else if (items.size > 6) 38.dp else 44.dp) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(name, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (sub.isNotEmpty()) Text(sub, style = W.small, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -1,5 +1,7 @@
 package org.omarchy.music
 
+import kotlinx.serialization.builtins.serializer
+
 /** Settings › Albums, EPs and singles: each release of yours looked up on Deezer (else Apple Music) to learn what it
  *  really is, an album, an EP or a single, and its name made to say so (" - Single", " - EP"; an album's name without
  *  them), so nothing shows in two of the three tabs. Releases no service knows are asked about (unsure). */
@@ -49,6 +51,31 @@ object AlbumTruth {
             return Triple(kind, r["trackCount"].long?.toInt(), "Apple Music")
         }
         return null
+    }
+
+    // ---- what a release really is, remembered (Wrapped's top singles and EPs) ----
+
+    private val KINDS_SER = kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer())
+    private val known = java.util.concurrent.ConcurrentHashMap<String, String>()
+    @Volatile private var knownRead = false
+    private val knownFile get() = java.io.File(Music.ctx.filesDir, "release-kinds.json")
+
+    /** (blocking) What a service says a release is ("album", "ep", "single"), or null if none knows it: looked up once
+     *  and remembered (in release-kinds.json). A "single" of four songs or more is counted an EP, as the stores do. */
+    fun kindKnown(album: String, artist: String): String? {
+        if (album.isBlank()) return null
+        val key = norm(bareTitle(SUFFIX.replace(album, ""))) + "|" + norm(lead(artist))
+        if (!knownRead) {
+            knownRead = true
+            runCatching { readText(knownFile)?.let { JSON.decodeFromString(KINDS_SER, it) } }
+                .getOrNull()?.let { known.putAll(it) }
+        }
+        known[key]?.let { return it.ifEmpty { null } }
+        val got = runCatching { lookUp(album, artist) }.getOrNull()
+        val kind = got?.let { (k, n, _) -> if (k == "single" && (n ?: 0) >= 4) "ep" else k }.orEmpty()
+        known[key] = kind
+        runCatching { writeAtomic(knownFile, JSON.encodeToString(KINDS_SER, known.toMap())) }
+        return kind.ifEmpty { null }
     }
 
     /** Your releases (the files the app can change), each looked up (blocking): the ones whose name doesn't match what

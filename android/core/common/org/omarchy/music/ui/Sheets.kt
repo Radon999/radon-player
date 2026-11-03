@@ -786,6 +786,8 @@ private fun LyricsMoodsLines(ui: Ui) {
             "Keep the key to yourself: anyone with it can spend your credits. To stop, clear the box and tap Save, or delete " +
             "the key at platform.claude.com.",
             style = T.sub, modifier = Modifier.padding(vertical = 4.dp))
+        var testing by remember { mutableStateOf(false) }
+        var tested by remember { mutableStateOf("") }
         Field(key, "Anthropic API key", password = true) { key = it }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             Pill("Get a key", quiet = true) { Services.open("https://platform.claude.com/settings/keys") }
@@ -796,11 +798,23 @@ private fun LyricsMoodsLines(ui: Ui) {
                 Music.toast(if (key.isBlank()) "Key taken off" else "Key saved: lyrics are read by the AI from now on")
             }
             // One tiny request (a fraction of a cent): says whether the key and the account's credits work
-            Pill("Test the key", quiet = true) {
-                Music.toast("Testing the key…")
-                org.omarchy.music.Moods.testAi { why -> Music.toast(if (why.isEmpty()) "The key works: the AI reads the lyrics" else "The key didn't work: $why") }
+            Pill(if (testing) "Testing…" else "Test the key", quiet = true) {
+                if (!testing) {
+                    if (org.omarchy.music.Moods.cleanKey(key) != org.omarchy.music.Moods.cleanKey(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)))
+                        org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, org.omarchy.music.Moods.cleanKey(key))  // tests the key in the box
+                    testing = true; tested = ""
+                    org.omarchy.music.Moods.testAi { why ->
+                        testing = false
+                        tested = if (why.isEmpty()) "✓ The key works: the AI reads the lyrics" else "✗ The key didn't work: $why"
+                        Music.toast(tested)
+                    }
+                }
             }
         }
+        // The answer right here (a toast can hide behind this sheet)
+        if (testing) Text("Testing the key with Anthropic…", style = T.sub)
+        else if (tested.isNotEmpty()) Text(org.omarchy.music.Moods.hideKey(tested),
+            style = T.sub.copy(color = if (tested.startsWith("✓")) C.accent else C.red))
         val status = org.omarchy.music.Moods.aiStatus
         if (status.isNotEmpty()) Text("Last AI problem: ${org.omarchy.music.Moods.hideKey(status)}", style = T.sub.copy(color = C.red))
     }
@@ -1140,8 +1154,9 @@ fun PersonalizationLines(ui: Ui) {
             Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
                 "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
                 false, note = Looks.describe(Music.look)) {
-                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
-                    describe = { lookDesc(it) }, preview = { LookPreview(it) }) { Music.chooseLook(it) }
+                // Right-click (or hold) one: ★ Favourite (to the top), or Delete one you made
+                ChoicePill(Favs.sorted(Favs.LOOKS, Looks.ALL), Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
+                    describe = { lookDesc(it) }, preview = { LookPreview(it) }, menu = { k, l -> Favs.menu(Favs.LOOKS, k, l) }) { Music.chooseLook(it) }
             }
             // The app's style, apart from its colours: kept with the other settings (so backups and Sync carry it too).
             val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
@@ -1150,22 +1165,15 @@ fun PersonalizationLines(ui: Ui) {
                 ChoicePill(Themes.MENU, theme, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) }) {
                     org.omarchy.music.Prefs.setText(Themes.PREF, it) }
             }
-            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
-                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
-                // Every look the Look menu has (but Now playing itself), with the same swatches.
-                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
-                    describe = { lookDesc(it) }, preview = { LookPreview(it) }) {
-                    Music.chooseNpFallback(it)
-                }
-            }
             // Where things are on the screen, apart from colours and drawing: any layout goes with any look and theme
             val lay = UiLayouts.current
             Line("Layout", "Where things are on the screen: how you get around (the ☰ menu, a bar along the bottom, a rail " +
                 "down the side or tabs along the top), the mini player and how Now playing is arranged. Every layout has every " +
                 "feature: what isn't on its bar is in the ☰ menu", false, note = lay.explain()) {
                 fun of(k: String) = UiLayouts.all().firstOrNull { it.key == k }
-                ChoicePill(UiLayouts.MENU, lay.key, describe = { of(it)?.explain().orEmpty() },
-                    preview = { k -> of(k)?.let { LayoutPreview(it) } }, thumb = { k -> of(k)?.let { LayoutThumb(it) } }) { UiLayouts.choose(it) }
+                ChoicePill(Favs.sorted(Favs.LAYOUTS, UiLayouts.MENU), lay.key, describe = { of(it)?.explain().orEmpty() },
+                    preview = { k -> of(k)?.let { LayoutPreview(it) } }, thumb = { k -> of(k)?.let { LayoutThumb(it) } },
+                    later = true, menu = { k, l -> Favs.menu(Favs.LAYOUTS, k, l) }) { UiLayouts.choose(it) }
             }
             EffectsLines()
             NowPlayingLookLines()
@@ -1183,9 +1191,13 @@ private fun EffectsLines() {
     }
     if (!own) Line("Effects", "Drawn over the background, behind everything else, with any look, theme and layout. " +
         "Pick as many as you like; point at one (on the PC) to see it", false) {
-        ChoicePill(LookFx.MENU, "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = picked) {
+        ChoicePill(LookFx.MENU, "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = LookFx.keys(picked)) {
             LookFx.toggle(it); picked = LookFx.picked()
         }
+    }
+    // Each effect picked: its own colour, if you like
+    if (!own && LookFx.keys(picked).any { it != "stars" }) FxColors(picked) { p ->
+        org.omarchy.music.Prefs.setText(LookFx.PICK, p.joinToString(";")); picked = LookFx.picked(); org.omarchy.music.Music.applyLook()
     }
 }
 
@@ -1200,7 +1212,8 @@ private fun NowPlayingLookLines() {
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
         var now by remember { mutableStateOf(Vis.nowStyle()) }
-        ChoicePill(NP_VIS_STYLES, now, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
+        ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, preview = { NowVisPreview(it) },
+            menu = { k, l -> if (k == "slim" || k == "off") emptyList() else Favs.menu(Favs.VIS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
     }
 }
 

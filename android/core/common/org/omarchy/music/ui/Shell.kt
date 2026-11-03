@@ -208,6 +208,7 @@ object UiLayouts {
         return keyed
     }
     fun delete(key: String) {
+        MadeSync.forget(key)
         Prefs.setText(MINE, mine().filter { it.key != key }.joinToString("\n") { it.encode() })
         if (Prefs.text(PREF) == key) choose(CLASSIC)
     }

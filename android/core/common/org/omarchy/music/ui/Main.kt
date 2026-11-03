@@ -180,7 +180,7 @@ fun App() {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides ltr) {
         Box(Modifier.fillMaxSize().background(bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)) {
             if (C.stars) Stars()
-            LookEffects()   // a look of yours: its effects
+            LookEffects(LookFx.behind(C.fx))   // a look of yours: its effects (rain and snow go over everything, below)
             val screens: @Composable (Modifier) -> Unit = { m -> Box(m) {
             if (ui.tab == "player" && page == null) {
                 ApplePlayer(ui)
@@ -236,6 +236,8 @@ fun App() {
                 }
                 NavKind.DRAWER -> screens(Modifier.fillMaxSize())
             }
+            // Rain and snow fall over the screens, the seek bar and the buttons (a plain Canvas: taps go through to them)
+            LookEffects(LookFx.over(C.fx))
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp))
             DesktopVolume(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
             Sheets(ui)

@@ -289,19 +289,28 @@ object Music {
 
     private var stuckMs = 0
     private var stuckAt = -1L
+    private var advancingSince = 0L
 
     /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
-     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next. Within its last
-     *  1.5 seconds, still meant to be playing, and the position hasn't moved for 2.5 seconds: it's over, on to the next. */
+     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
+     *  runs on past the end (with Repeat one it then never started again). Within its last 1.5 seconds, still meant to
+     *  be playing, and the position hasn't moved for 2.5 seconds; or 1.5 seconds past its end: it's over, on to the next
+     *  (or, on Repeat one, the same song from the start). On both the phone and the PC. */
     private fun endWatch(p: Engine) {
-        val d = p.durationMs; val at = p.positionMs
-        val stuck = p.playWhenReady && !advancing && !Remote.active && current() != null && d > 0 && at >= d - 1500 &&
-            (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
+        val d = p.durationMs.takeIf { it > 0 } ?: (duration * 1000).toLong(); val at = p.positionMs
+        // Moving on that never finished (it should take a moment): not waited for any longer
+        if (advancing) { if (advancingSince == 0L) advancingSince = System.currentTimeMillis() } else advancingSince = 0L
+        val busy = advancing && System.currentTimeMillis() - advancingSince < 8000
+        val live = p.playWhenReady && !busy && !Remote.active && current() != null && d > 0
+        val stuck = live && at >= d - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
+        val past = live && at >= d + 1500 && p.state != Engine.IDLE
         stuckAt = at
         stuckMs = if (stuck) stuckMs + 500 else 0
-        if (stuckMs >= 2500) {
-            stuckMs = 0
-            Crashes.note("“${current()?.title}” stopped at its end without finishing: moved on to the next song")
+        if (stuckMs >= 2500 || past) {
+            stuckMs = 0; advancingSince = 0L
+            Crashes.note("“${current()?.title}” ${if (past) "ran on past" else "stopped at"} its end without finishing: " +
+                if (repeat == "one") "played again" else "moved on to the next song")
+            advancing = false
             trackEnded()
         }
     }
@@ -2837,7 +2846,7 @@ object Music {
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
         finishing = true
-        if (repeat == "one") loadCurrent() else next()
+        if (repeat == "one") { resumeAt = 0.0; position = 0.0; loadCurrent() } else next()   // Repeat one: from its very start
         if (ended && !(autoplay && repeat == "off")) doneAdvancing()
     }
 

@@ -44,7 +44,8 @@ object Updater {
     fun init(c: Context) {
         if (::ctx.isInitialized) return
         ctx = c.applicationContext
-        Music.scope.launch { while (true) { delay(10_000); check(); delay(12 * 3600_000L - 10_000) } }
+        // At start: always says how it went (an update, or that this is the newest); then quietly every 12 hours
+        Music.scope.launch { delay(4_000); check(quiet = false); while (true) { delay(12 * 3600_000L); check() } }
     }
 
     private fun parts(v: String) = Regex("\\d+").findAll(v).take(3).map { it.value.toInt() }.toList() + listOf(0, 0, 0)
@@ -68,8 +69,9 @@ object Updater {
             checkedAt = now()
             checkError = err?.let { "couldn't check: ${it.message?.take(60)}" } ?: ""
             Music.accountsVersion++
+            if (err != null && !quiet) Music.toast("Couldn't check for an update (no internet?)")
             val tag = rel["tag_name"].str ?: return@bg
-            if (!newer(tag, version)) { if (!quiet) Music.toast("Radon Player $version is the newest"); return@bg }
+            if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
             // The release's APK: RadonPlayer.apk (from the update after 3.0.0), else its old name OmarchyMusic.apk
             val assets = rel["assets"].list
             val url = APK_NAMES.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
