@@ -4,6 +4,13 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 3.2.3: Centred on the cover (Windows and Android)
+- **Your own Wrapped:** Make your own › New Wrapped: pick its background, text, soft text and accent colours and a colour for each slide, the glow (and how strong), neon text, bold or light type, text size, spacing, corners, round covers and their size, bar thickness, tiles, and stars and effects behind every slide (each effect in its own colour). Randomize, Randomize colours and Saved colours work there too, and a slide in it shows as you go.
+- **Wrapped in your look:** Wrapped's Style menu has Your look: the slides take the app's look in use, its stars and effects too.
+- **Favourites in Wrapped's Style menu:** hold down a style (or its ⋯, or right-click) to favourite it; the ones you made can be edited or deleted there.
+- **30 more visualizers:** 15 along the bottom (City lights, Capsules, Hills, Steps, Needles, Ribbon, Dot bars, Flames, Tides, 8-bit, Bouncing balls, Meadow, Outlines, Curtain, Echoes) and 15 around the middle that come out of the cover's centre on Now playing, Full screen too (Orbits, Spiral, Polygons, Radar, Light rays, Atom, Mandala, Ripples, Supernova, Honeycomb, Heart, Sunflower, Vortex, Iris, Clockwork). They're in the Visualizer tab, Now playing's visualizer menu and Make your own visualizer.
+- **Visualizers come out of the cover's middle:** a visualizer drawn around a middle (Ring, Pulse, Starfield, Dual's middle style…) now always centres on the album cover on Now playing, in every layout, with Full screen on or off.
+
 ## 3.2.2: Tag any song (Windows and Android)
 - **Each device keeps its own look:** Sync no longer copies the look, theme, layout, visualizer choices or picked effects between the phone and the PC, so each can look different. The looks, layouts and visualizers you made still go to both: one made on the phone is on the PC after the next sync.
 - **Lyrics cards in your look:** a lyrics card now takes the look in use on that device: its background (and fade), its stars and effects, the lyrics on a rounded card like the Lyrics screen's (with a small LYRICS heading) and the song's name in its accent, with your own file's cover too. The Now playing look still uses the cover's colours.

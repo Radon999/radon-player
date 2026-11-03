@@ -1,5 +1,17 @@
 package org.omarchy.music.ui
 
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.layout.requiredSize
+
+import androidx.compose.ui.graphics.drawscope.translate
+
+import androidx.compose.ui.layout.positionInRoot
+
+import androidx.compose.ui.layout.boundsInRoot
+
+import androidx.compose.ui.layout.onGloballyPositioned
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -93,7 +105,8 @@ private val WHITE: Color get() = if (whiteText) Color.White else readable(C.acce
 /** The visualizer's colour with a look: a colour that sets off the look's accent, its hue turned most of the way round
  *  the colour wheel (a purple look gets a warm yellow, a blue one an amber, a red one a teal), bright and clean so the
  *  two go together but the visualizer is never the colour of the song name, buttons and seek bar (in the accent). */
-internal val VIS_LOOK: Color get() = if (whiteText) Color.White else visColourFor(C.accent, listOf(C.bg) + (C.gradient ?: emptyList()), C.isLight)
+// The look's own colour (its accent), only nudged lighter or darker where it would be lost in the background
+internal val VIS_LOOK: Color get() = if (whiteText) Color.White else readableOn(C.accent, listOf(C.bg) + (C.gradient ?: emptyList()), 3.2f)
 
 /** A look's visualizer colour: its accent's hue turned 150° (so it sets the accent off), bright, and standing out from
  *  the look's background `backs`. Personalization's previews use it for looks that aren't in use. */
@@ -189,7 +202,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     // Yours with Full screen on: the whole screen, exactly as the Visualizer tab draws it, over the cover
     val fullOver = vis != null && coverShown && Vis.full(visStyle)
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
-    Box(Modifier.fillMaxSize().then(when {
+    Box(Modifier.fillMaxSize().onSizeChanged { npSize = it }.then(when {
         plain && cover -> Modifier.background(Color.Black)   // the Now playing look, plain: black, the cover sharp
         cover -> Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))
         // Another look: its own background, which the app's window already draws (with its stars); the lock screen has
@@ -204,8 +217,9 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
         // (a Dual one over the cover: its bottom style still along the bottom here)
-        if (vis != null && visStyle != "off" && (!onCover || Vis.dual(visStyle)) && !fullOver && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
-            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = onCover)
+        if (vis != null && visStyle != "off" && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle)) && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
+            // A Dual one's bottom style (Full screen or not) stands right on the bottom edge, as a bottom style always does
+            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = onCover || (fullOver && Vis.dual(visStyle)))
         if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         val lay = if (lock != null) UiLayouts.BUILT_IN.first() else UiLayouts.current
         // What takes the middle: the queue, the lyrics, Personalization, the visualizer's settings, or the cover and song
@@ -237,7 +251,9 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                     "nowvis" -> NowVisPane(ui, vis, visCol, micOk, { askMic.launch(Perm.MIC) },
                         if (lock == null) ({ ui.pane = "art"; goTo(ui, "visualizer") }) else null)   // the lock screen has no Visualizer tab
                     else -> Column(Modifier.fillMaxSize()) {
-                        val over = if (onCover) vis else null
+                        // Yours with Full screen on, made from a style around a middle: drawn from the cover itself, at the
+                        // screen's size, so it always comes out of the cover's exact centre (as the built-in ones do)
+                        val over = if (onCover || (fullOver && visStyle in Vis.CENTRED)) vis else null
                         when (np) {
                             NpKind.CENTERED -> {
                                 BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, scale = 0.74f)
@@ -305,12 +321,48 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
 @Composable
 private fun NowVisFull(style: String, s: VisState, col: Color, strength: Float, modifier: Modifier) {
     val colorKey = Vis.color()
-    Canvas(modifier.graphicsLayer(alpha = (0.55f + strength * 0.5f).coerceIn(0.6f, 1f))) {
+    var at by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val round = style in Vis.CENTRED
+    val dual = Vis.dual(style)
+    Canvas(modifier.onGloballyPositioned { at = it.positionInWindow() }.graphicsLayer(alpha = (0.55f + strength * 0.5f).coerceIn(0.6f, 1f))) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
         val pal = VisPalette.of(style, colorKey, col, s.phase)
-        clipRect { drawVis(style, s, pal, WHITE, backdrop = false) }
+        // A style drawn around a middle comes out of the cover's exact centre, whatever the layout; the rest stay as they are
+        clipRect {
+            // A style around a middle (and a Dual one's middle) is drawn from the cover itself: NowVisFullMiddle
+            // (A Dual one's bottom style is NowVis's, on the bottom edge, as everywhere else)
+            if (!dual && !round) drawVis(style, s, pal, WHITE, backdrop = false)
+        }
     }
 }
+
+/** Yours with Full screen on, from a style around a middle: the screen's size, centred on the cover (it isn't clipped to
+ *  it), so it comes out of the cover's exact middle whatever the layout, and moves with the cover's swipe. */
+@Composable
+private fun NowVisFullMiddle(style: String, s: VisState, col: Color, strength: Float) {
+    val sz = npSize
+    if (sz.width == 0 || sz.height == 0) return
+    val colorKey = Vis.color()
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    Canvas(Modifier.requiredSize(with(d) { sz.width.toDp() }, with(d) { sz.height.toDp() })
+        .graphicsLayer(alpha = (0.55f + strength * 0.5f).coerceIn(0.6f, 1f))) {
+        if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
+        val pal = VisPalette.of(style, colorKey, col, s.phase)
+        // From the cover's middle out to the screen's farthest corner (it sits higher than the screen's middle)
+        val c = coverCenter
+        val far = if (c == null) 0f else listOf(0f to 0f, size.width to 0f, 0f to size.height, size.width to size.height)
+            .maxOf { (x, y) -> kotlin.math.hypot(x - c.x, y - c.y) }
+        val half = kotlin.math.hypot(size.width, size.height) / 2
+        starReach = if (far > half) far / half * 1.05f else 1f
+        try { MyVis.drawingPart(MyVis.PART_MIDDLE) { drawVis(style, s, pal, WHITE, backdrop = false) } } finally { starReach = 1f }
+    }
+}
+
+/** Now playing's size on the screen, for NowVisFullMiddle. */
+private var npSize by mutableStateOf(androidx.compose.ui.unit.IntSize.Zero)
+
+/** The cover's middle on the screen (Now playing), for a full screen visualizer to come out of; null when it isn't showing. */
+private var coverCenter by mutableStateOf<androidx.compose.ui.geometry.Offset?>(null)
 
 /** On the lock screen: the time, where it plays from, and ⌄ to the phone's lock screen. */
 @Composable
@@ -434,6 +486,7 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
             contentAlignment = if (bleed) Alignment.TopCenter else Alignment.Center) {
             val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK)
             Box(Modifier.size(side)
+                .onGloballyPositioned { val p = it.positionInWindow(); coverCenter = androidx.compose.ui.geometry.Offset(p.x + it.size.width / 2f, p.y + it.size.height / 2f) }   // where a full screen visualizer centres
                 .graphicsLayer(translationX = dx * 0.6f, rotationZ = if (bleed) 0f else dx / 90f, alpha = 1f - (abs(dx) / 900f).coerceIn(0f, 0.5f))
                 .then(if (bleed || lay.x("artShadow") == "off") Modifier else Modifier.shadow(26.dp, shape, ambientColor = Color.Black, spotColor = Color.Black))
                 .clip(shape).background(GLASS)
@@ -455,7 +508,11 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
             }
             // On top of the cover, in its middle and a little smaller than it; it takes no taps, so the cover's swipes and
             // taps still work.
-            if (over != null) NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * 0.8f).graphicsLayer(translationX = dx * 0.6f))
+            if (over != null) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
+                // Starfield's stars fly out over the whole screen from the cover's middle, Full screen on or not
+                if (Vis.full(visStyle) || (MyVis.style(visStyle)?.base ?: visStyle) == "starfield") NowVisFullMiddle(visStyle, over, visCol, strength)
+                else NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * 0.8f))   // always in the cover's exact middle
+            }
         }
     }
 }
@@ -870,7 +927,7 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
                     Column(Modifier.weight(1f).padding(end = 10.dp)) {
                         Text("Colour", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
                         Text(if (style == "slim" || style == "off") "For the Visualizer's styles; the slim bars take the cover's colour"
-                            else "Look's colour is the cover's colour here", style = T.sub.copy(shadow = LIFT, color = SOFT))
+                            else if (coverLook) "Look's colour is the cover's colour here" else "Look's colour is your look's own colour", style = T.sub.copy(shadow = LIFT, color = SOFT))
                     }
                     VisColorPick(colorKey, col)
                 }
@@ -979,7 +1036,9 @@ private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, mod
     if (style == "slim") { NowBars(s.levels, s.frame, bars, modifier, strength / 0.5f); return }
     val colorKey = Vis.color()
     val dual = Vis.dual(style)
-    val tall = !(dual && bottomOnly) && (style in Vis.CENTRED || Vis.full(style))
+    // Rain and Code rain fall down the whole screen, as rain does; the ones around a middle get it all too
+    val rains = (MyVis.style(style)?.let { if (it.dual) it.base2 else it.base } ?: style) in RAIN_STYLES
+    val tall = rains || (!(dual && bottomOnly) && (style in Vis.CENTRED || Vis.full(style)))
     Canvas(modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier.fillMaxHeight(0.32f))
         .graphicsLayer(alpha = strength)) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
@@ -987,6 +1046,9 @@ private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, mod
         MyVis.drawingPart(if (dual && bottomOnly) MyVis.PART_BOTTOM else MyVis.PART_ALL) { clipRect { drawVis(style, s, pal, WHITE, backdrop = true) } }
     }
 }
+
+/** The visualizer styles that fall from the top: they fill Now playing's whole height. */
+private val RAIN_STYLES = setOf("rain", "matrix")
 
 /** A style around a middle (Vis.OVER_COVER) over the big cover: brighter than behind, still see-through so the cover shows.
  *  A plain Canvas takes no taps, so they reach the cover under it. */
@@ -1055,3 +1117,96 @@ fun MiniPlayer() {
 
 /** Mono's colour while it is on (Now playing's button, the queue's badge). */
 val MONO_RED = androidx.compose.ui.graphics.Color(0xFFE5484D)
+
+/** The PC's mini player window: Now playing made small, in the look in use (its background, stars and effects, or the
+ *  cover's colours with the Now playing look), with Now playing's visualizer (the ones around a middle over the cover,
+ *  the rest along the bottom), the cover in the layout's shape, and Now playing's own controls: the song with ☆ and ⋯,
+ *  the seek bar, Shuffle · previous · play · next · Repeat with the volume, and the pill with the lyrics, the output and
+ *  equalizer and the queue (shown in the cover's place). Only Personalization isn't there. back: to the big window. */
+@Composable
+fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
+    val n = now()
+    val t = n.t
+    val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 600) }
+    var cols by remember { mutableStateOf(GREY) }
+    LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(art) ?: GREY }
+    val cover = coverLook
+    val plain = Vis.plainNow()
+    val visStyle = Vis.nowStyle()
+    val vis = if (visStyle != "off") rememberVis(on = true) else null
+    val visCol = if (cover) cols.bars else VIS_LOOK
+    val strength = nowStrength
+    val round = visStyle in Vis.CENTRED || Vis.full(visStyle)
+    val lay = UiLayouts.current
+    val shape = when (lay.x("artShape")) {
+        "square" -> RoundedCornerShape(0.dp); "soft" -> RoundedCornerShape(24.dp); "circle" -> RoundedCornerShape(50); else -> RoundedCornerShape(10.dp) }
+    var pane by remember { mutableStateOf("art") }   // "art", "queue" or "lyrics", in the cover's place
+    var volumeShown by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().then(when {
+        plain && cover -> Modifier.background(Color.Black)
+        cover -> Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))
+        else -> Modifier.background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)
+    })) {
+        if (!cover && C.stars) Stars()
+        if (!cover) LookEffects(LookFx.behind(C.fx))
+        // Along the bottom (and a Dual one's bottom style), as on Now playing
+        if (vis != null && pane == "art" && (!round || Vis.dual(visStyle)))
+            NowVis(visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = round)
+        Column(Modifier.fillMaxSize().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // ↑ back to the big window
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), horizontalArrangement = Arrangement.End) {
+                IconButton(Ico.UP, SOFT, 20.dp, 6.dp, desc = "Back to the big window") { back() }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                when (pane) {
+                    "queue" -> QueuePane(ui, n)
+                    "lyrics" -> Box(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 4.dp).clip(R.big)
+                        .background(if (C.isLight) C.light.copy(alpha = 0.94f) else if (cover) Color.Black.copy(alpha = 0.25f) else C.light.copy(alpha = 0.6f))) { LyricsTab(ui) }
+                    else -> BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                        val side = if (maxWidth < maxHeight) maxWidth else maxHeight
+                        Box(Modifier.size(side).clip(shape).background(GLASS), contentAlignment = Alignment.Center) {
+                            Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
+                            if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize())
+                        }
+                        // Around a middle: over the cover, coming out of its centre (it isn't clipped to the cover)
+                        if (vis != null && round) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
+                    }
+                }
+            }
+            // The song, with ☆ and ⋯ as on Now playing (no Personalization here)
+            Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(t?.title ?: "Nothing playing", style = T.title.copy(shadow = LIFT, color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Medium),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t?.let { it.artist + if (it.album.isNotEmpty()) "  —  ${it.album}" else "" } ?: "", style = T.sub.copy(shadow = LIFT, color = SOFT, fontSize = 12.sp),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (t != null) {
+                    Music.musicVersion
+                    val fav = Music.favorites.has(t)
+                    Glass(if (fav) Ico.STAR else Ico.STAR_LINE, "Favorite") { Music.setFavorite(listOf(t)) }
+                    Spacer(Modifier.width(6.dp))
+                    Box {
+                        Glass(Ico.MORE, "More") { menu = true }
+                        TrackMenu(t, RowPlace(listOf(t), 0), ui, menu) { menu = false }
+                    }
+                }
+            }
+            Seek(n)
+            Transport(n, pane == "art", volumeShown, { volumeShown = !volumeShown }, false) { back(); ui.pane = "nowvis" }
+            if (volumeShown) VolumeLine()
+            // Now playing's pill: the lyrics, the output and equalizer, and the queue (in the cover's place here)
+            Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
+                Row(Modifier.clip(R.pill).background(GLASS).border(1.dp, WHITE.copy(alpha = 0.14f), R.pill).padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PillTool(Ico.LYRICS, pane == "lyrics", "Lyrics") { pane = if (pane == "lyrics") "art" else "lyrics" }
+                    PillTool(Ico.SPEAKER, false, "Output and equalizer") { back(); ui.sheet = "eq" }
+                    PillTool(Ico.QUEUE, pane == "queue", "Queue") { pane = if (pane == "queue") "art" else "queue" }
+                }
+            }
+        }
+        if (!cover) LookEffects(LookFx.over(C.fx))   // rain and snow over the buttons too
+    }
+}

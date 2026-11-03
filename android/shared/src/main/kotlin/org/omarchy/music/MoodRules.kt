@@ -176,6 +176,10 @@ object MoodRules {
     const val FITS = 0.40
     /** …and at least this share of the song's top score (so a song with one very clear mood isn't in many weak ones). */
     const val NEAR_TOP = 0.45
+    /** A song that's been heard (its sound is known, so its scores are well founded) also gets the other moods that fit
+     *  fairly well: at least this score and this share of its top one. Songs used to come out with only their main mood. */
+    const val FITS_HEARD = 0.26
+    const val NEAR_TOP_HEARD = 0.30
     /** The most moods a song is in (a song in more says little about any of them). */
     const val MOST = 5
     /** Words that say a mood at least this much (0–1) count even against a sound that says otherwise. */
@@ -301,10 +305,13 @@ object MoodRules {
         val moods = ArrayList<Pair<String, Double>>()
         moods += ranked[0].key to top
         for (e in ranked.drop(1)) {
-            if (moods.size == MOST || e.value < FITS || e.value < NEAR_TOP * top) break
+            val fits = if (sound != null) FITS_HEARD else FITS; val near = if (sound != null) NEAR_TOP_HEARD else NEAR_TOP
+            if (moods.size == MOST || e.value < fits || e.value < near * top) break
             // The opposite of a mood it's in already (Happy and Sad): only when that's plainly said too, or when the sound
             // and the words disagree (happy-sounding, sad words): then it may well be both, and both go through.
             if (e.value < BOTH && conflict < 0.3 && moods.any { it.first in OPPOSITE[e.key].orEmpty() }) continue
+            // One only in by the looser line (a heard song's) is never the opposite of a mood it's in already
+            if ((e.value < FITS || e.value < NEAR_TOP * top) && moods.any { it.first in OPPOSITE[e.key].orEmpty() }) continue
             moods += e.key to e.value
         }
         val second = ranked.getOrNull(1)?.value ?: 0.0

@@ -371,3 +371,17 @@ fun rememberVoiceInput(onText: (String) -> Unit): (() -> Unit)? {
         }
     }
 }
+
+/** How tall the phone's own buttons (Back, Home, Recents, or the gesture bar) are at the bottom of the screen, so what
+ *  can be tapped stays above them. Read from the activity's window: in a dialog drawn edge to edge the insets can come
+ *  through as nothing. */
+@Composable
+fun navBarBottom(): androidx.compose.ui.unit.Dp {
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    val act = currentActivity() as? android.app.Activity
+    val px = act?.window?.decorView?.rootWindowInsets?.let { wi ->
+        if (android.os.Build.VERSION.SDK_INT >= 30) wi.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+        else @Suppress("DEPRECATION") wi.systemWindowInsetBottom
+    } ?: 0
+    return with(d) { px.toDp() }
+}

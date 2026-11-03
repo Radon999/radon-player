@@ -78,29 +78,44 @@ object AppleHistory {
     /** The rows of a CSV (quoted fields with commas and line breaks in them). */
     internal fun csv(text: String): List<List<String>> {
         val out = ArrayList<List<String>>()
+        csvRows(java.io.StringReader(text)) { out += it }
+        return out
+    }
+
+    /** Each row of a CSV read from r, one at a time, so a file of hundreds of megabytes (Apple's Play Activity) is never
+     *  held in memory whole: the whole file read at once ran the phone out of memory. */
+    internal fun csvRows(r: java.io.Reader, each: (List<String>) -> Unit) {
+        val inp = if (r is java.io.BufferedReader) r else java.io.BufferedReader(r, 1 shl 16)
         var row = ArrayList<String>()
         val cell = StringBuilder()
         var quoted = false
-        var i = 0
-        val s = text.removePrefix("﻿")
-        while (i < s.length) {
-            val c = s[i]
+        var first = true
+        var c = inp.read()
+        while (c >= 0) {
+            val ch = c.toChar()
+            if (first) { first = false; if (ch == '\uFEFF') { c = inp.read(); continue } }
             when {
-                quoted && c == '"' && i + 1 < s.length && s[i + 1] == '"' -> { cell.append('"'); i++ }
-                c == '"' -> quoted = !quoted
-                !quoted && c == ',' -> { row += cell.toString(); cell.setLength(0) }
-                !quoted && (c == '\n' || c == '\r') -> {
-                    if (c == '\r' && i + 1 < s.length && s[i + 1] == '\n') i++
-                    row += cell.toString(); cell.setLength(0)
-                    if (row.any { it.isNotEmpty() }) out += row
-                    row = ArrayList()
+                quoted && ch == '"' -> {
+                    val nx = inp.read()
+                    if (nx == '"'.code) cell.append('"') else { quoted = false; c = nx; continue }
                 }
-                else -> cell.append(c)
+                // A quote opens a quoted field only at its start: one inside a field (a 12" mix) is just a character.
+                // Without this, one stray quote swallowed the rest of the file into a single cell, which on a big
+                // download ran the phone out of memory.
+                ch == '"' && !quoted && cell.isEmpty() -> quoted = true
+                quoted && cell.length > 200_000 -> { quoted = false; continue }   // a quote never closed: give up on it
+                !quoted && ch == ',' -> { row += cell.toString(); cell.setLength(0) }
+                !quoted && (ch == '\n' || ch == '\r') -> {
+                    row += cell.toString(); cell.setLength(0)
+                    if (row.any { it.isNotEmpty() }) each(row)
+                    row = ArrayList()
+                    if (ch == '\r') { val nx = inp.read(); if (nx != '\n'.code) { c = nx; continue } }
+                }
+                else -> cell.append(ch)
             }
-            i++
+            c = inp.read()
         }
-        if (cell.isNotEmpty() || row.isNotEmpty()) { row += cell.toString(); if (row.any { it.isNotEmpty() }) out += row }
-        return out
+        if (cell.isNotEmpty() || row.isNotEmpty()) { row += cell.toString(); if (row.any { it.isNotEmpty() }) each(row) }
     }
 
     private fun stamp(v: String): Long {
@@ -117,23 +132,26 @@ object AppleHistory {
     }
 
     /** The rows in one of Apple's CSV files, by its name; none for files without plays. */
-    internal fun parseCsv(name: String, text: String): List<Row> {
-        val table = csv(text)
-        if (table.isEmpty()) return emptyList()
-        val head = table[0].map { it.trim() }
+    internal fun parseCsv(name: String, text: String): List<Row> = parseCsv(name, java.io.StringReader(text))
+
+    /** The same, read a row at a time from input (it isn't closed). */
+    internal fun parseCsv(name: String, input: java.io.Reader): List<Row> {
+        var head: List<String>? = null
         fun List<String>.col(vararg keys: String): String {
-            for (k in keys) { val i = head.indexOf(k); if (i >= 0 && i < size && this[i].isNotBlank()) return this[i].trim() }
+            val h = head ?: return ""
+            for (k in keys) { val i = h.indexOf(k); if (i >= 0 && i < size && this[i].isNotBlank()) return this[i].trim() }
             return ""
         }
         val low = name.lowercase()
         val out = ArrayList<Row>()
-        for (r in table.drop(1)) when {
+        csvRows(input) { r -> if (head == null) { head = r.map { it.trim() }; return@csvRows }
+        when {
             "play activity" in low -> {
                 val title = r.col("Song Name", "Content Name"); val artist = r.col("Artist Name", "Container Artist Name")
                 val played = r.col("Play Duration Milliseconds").toDoubleOrNull()?.toLong() ?: 0
                 val length = r.col("Media Duration In Milliseconds").toDoubleOrNull()?.toLong() ?: 0
-                if (title.isEmpty() || artist.isEmpty() || played <= 0) continue
-                if (if (length > 0) played < length / 2 else played < 30_000) continue   // a play counts from half the song
+                if (title.isEmpty() || artist.isEmpty() || played <= 0) return@csvRows
+                if (if (length > 0) played < length / 2 else played < 30_000) return@csvRows   // a play counts from half the song
                 val t = stamp(r.col("Event Start Timestamp", "Event Received Timestamp", "Event End Timestamp"))
                 if (t > 0) out += Row(t, artist, title, r.col("Album Name", "Container Album Name"), played, 1)
             }
@@ -141,7 +159,7 @@ object AppleHistory {
                 val (artist, title) = split(r.col("Track Description"))
                 val n = r.col("Play Count").toDoubleOrNull()?.toInt() ?: 0
                 val day = runCatching { LocalDate.parse(r.col("Date Played"), DateTimeFormatter.BASIC_ISO_DATE)
-                    .atStartOfDay().toEpochSecond(ZoneOffset.UTC) }.getOrNull() ?: continue
+                    .atStartOfDay().toEpochSecond(ZoneOffset.UTC) }.getOrNull() ?: return@csvRows
                 if (artist.isNotEmpty() && title.isNotEmpty() && n > 0) out += Row(day, artist, title, "", 86_400_000L, n)
             }
             "track play history" in low -> {
@@ -149,7 +167,7 @@ object AppleHistory {
                 val t = stamp(r.col("Last Played Date", "Play Date"))
                 if (artist.isNotEmpty() && title.isNotEmpty() && t > 0) out += Row(t, artist, title, "", 0, 1)
             }
-        }
+        } }
         return out
     }
 
@@ -194,8 +212,9 @@ object AppleHistory {
             val e = z.nextEntry ?: break
             if (e.isDirectory) continue
             val name = e.name.substringAfterLast('/')
-            if (interesting(name)) { busy = "Reading $name…"; found[name] = parseCsv(name, z.readBytes().toString(Charsets.UTF_8)) }
-            else if (name.lowercase().endsWith(".zip")) readZip(ByteArrayInputStream(z.readBytes()), found)   // Apple's zips hold zips
+            // Read straight from the zip, a row at a time (never the whole file in memory)
+            if (interesting(name)) { busy = "Reading $name…"; found[name] = parseCsv(name, java.io.InputStreamReader(z, Charsets.UTF_8)) }
+            else if (name.lowercase().endsWith(".zip")) readZip(z, found)   // Apple's zips hold zips: read the inner one in place
         }
     }
 
@@ -212,7 +231,7 @@ object AppleHistory {
                 when {
                     head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte() -> readZip(s, found)
                     name.lowercase().endsWith(".xml") || head[0] == '<'.code.toByte() -> found[name] = parseLibrary(s)
-                    else -> found[name] = parseCsv(name, s.readBytes().toString(Charsets.UTF_8))
+                    else -> found[name] = parseCsv(name, java.io.InputStreamReader(s, Charsets.UTF_8))
                 }
             }
             // The most detailed file wins: each play over each day's over the list.

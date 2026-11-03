@@ -271,6 +271,20 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
                     Music.bg({ moods.hearAgainFromElsewhere() }) { n, _ -> if ((n ?: 0) > 0) moods.find() }
                 }
             }
+            // Songs held to the one mood in their file (another app's, another device's, an older version's): use what the
+            // scans found instead, with nothing heard again that was heard
+            val fileOnly = remember(v) { moods.fileOnly() }
+            if (fileOnly > 0 && !moods.wordsBusy) Chip("Use the scans' moods (%,d)".format(fileOnly), false) {
+                ui.confirm = ("%,d songs are held to the one mood in their file (put there by another app, your other device or an " +
+                    "older version), so the moods the scans found for them don't show. Use the scans' moods for them instead? Nothing " +
+                    "already heard is heard again: songs the scans heard get all their moods straight away, songs never heard are " +
+                    "left for Scan moods, and the files get all their moods written in. Moods you picked yourself stay.").format(fileOnly) to {
+                    Music.bg({ moods.useScans() }) { n, _ ->
+                        Music.toast("%,d songs now use the scans' moods".format(n ?: 0))
+                        if (moods.writeOn()) moods.writeFiles()
+                    }
+                }
+            }
             // Only for when moods are lost or spoilt: every song heard and its words read again, the files' moods replaced
             if (counts.total > 0 && !moods.wordsBusy) Chip("Rescan moods", false) {
                 ui.confirm = ("Rescan the moods of all %,d songs? Only do this if something went wrong and your moods or mood " +
@@ -296,7 +310,7 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
                     "only listens to the other %,d").format(counts.inFiles, counts.total, left.coerceAtLeast(0)), style = T.sub.copy(color = C.accent))
                 else -> {}
             }
-            Text("Moods read for %,d of %,d songs (%,d heard whole%s)".format(counts.done, counts.total, counts.full,
+            Text("Moods for %,d of %,d songs (%,d heard whole%s)".format(counts.done, counts.total, counts.full,
                 if (counts.inFiles > 0) ", %,d from the files".format(counts.inFiles) else ""), style = T.sub)
         }
     }
@@ -410,8 +424,7 @@ fun MoodsTab(ui: Ui) {
                 "and Last.fm's tags when you have a Last.fm key. The sound and the words both always count for every mood: the words " +
                 "weigh more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and Focus. Scan moods hears a minute from the " +
                 "middle of each song; Full scan hears every song from start to end (slower, surer). A mood in a file's MOOD tag, or " +
-                "the moods you tick in the Tagger, are used as they are. Scan moods also runs by itself after your music is scanned" +
-                (if (org.omarchy.music.platformName == "android") ", while the phone is charging." else "."))
+                "the moods you tick in the Tagger, are used as they are. No scan starts by itself: each runs only when you tap it.")
         }
         return
     }

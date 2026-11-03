@@ -78,9 +78,11 @@ fun SearchTab(ui: Ui) {
             else -> {
                 if (res.artists.isNotEmpty()) {
                     item { Section("ARTISTS") }
+                    // Their pictures as on the Artists tab (looked up for the ones not known yet)
+                    item { androidx.compose.runtime.LaunchedEffect(res) { Music.lookUpArtists(res.artists.map { it.title }) } }
                     items(res.artists.size) { i ->
                         val a = res.artists[i]
-                        PlaylistRow(a) { ui.pages += Ui.Page.Artist(a.title, ui.foundIn.takeIf { it in SOURCES }) }
+                        PlaylistRow(a, artistArt(a.title, a.thumb)) { ui.pages += Ui.Page.Artist(a.title, ui.foundIn.takeIf { it in SOURCES }) }
                     }
                 }
                 if (res.albums.isNotEmpty()) {

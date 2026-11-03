@@ -27,7 +27,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **Playlists:** Make, sort, fold into folders, import and export (.m3u8). **Smart playlists** fill themselves by rules (genre, mood, plays, format, skips, length…), with ready-made ones.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items at the top of the menu.
 - **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists, then play, queue, download, tag or delete them together.
-- **Search** ignores symbols ("acdc" finds AC/DC) and takes voice typing. **Covers** are found for songs without one, and **moved files** are followed, so playlists still find them.
+- **Search** ignores symbols ("acdc" finds AC/DC), takes voice typing, and shows artists with the same pictures as the Artists tab. **Covers** are found for songs without one, and **moved files** are followed, so playlists still find them.
 - **Nothing is deleted without asking.**
 
 ## Streaming & downloads
@@ -45,10 +45,12 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 Every song gets the moods that fit it, from 12: Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark and Intense. Its best fit is its main mood.
 
 - **How they're worked out:** **Scan moods** hears a minute from each song (its energy, tempo, brightness and key); **Full scan** hears every song whole and is surer. **Read moods from lyrics** reads what the words mean, whole lines and sayings, not single words. The sound counts more for Energetic, Party and Chill, the words more for Sad, Romantic and Dark.
-- **How long:** Each scan says about how long it will take before you start, and shows the time left beside its progress. Stop any time; it carries on from there.
+- **How long:** No scan starts by itself; each runs only when you tap it. Each scan says about how long it will take before you start, and shows the time left beside its progress. Stop any time; it carries on from there.
 - **AI reading (optional):** Add your own Anthropic API key and Claude reads the lyrics instead, catching irony and sad stories told cheerfully. **Test the key** always says whether it works. The key stays on the device.
+- **Moods already in your files:** a song whose file has one mood from elsewhere keeps it; **Use the scans' moods** gives those songs all the moods the scans found instead, without hearing them again.
 - **Fix one:** Tagger › Tags › Mood. Songs that sound like it learn from your fix. The Moods tab lists songs it's unsure of to check.
 - **Saved in your files:** Every mood goes in the file's MOOD tag, and Sync and backups carry them all, so a scan is only done once. **Rescan moods** is only for when moods were lost or spoilt.
+- **Starting over:** Settings › Reset mood and lyrics scans resets the scans (each asks first). **Remove all moods** takes the mood out of every song's file, yours too, checking each file and changing no other tag, so a fresh Full scan starts clean.
 - **Used in:** Mood lists, Smart playlists, the DJ, Most played and Wrapped.
 
 ## The DJ
@@ -66,16 +68,18 @@ Short sets built from *your* listening, with a voice between them like a radio h
 - **Most played:** Top songs, albums, artists and moods for a week, month, year or all time, by plays or time, with charts of when you listen. Plus Repeat, Milestones and Skips.
 - **Tidy stats:** Merge an artist or song counted under two names.
 - **Wrapped:** Any period as full-screen slides: top 15s (songs, artists, albums, singles, EPs, genres, moods), minutes, streaks, discoveries, your listener type and a summary card. Singles and EPs are checked online. Every slide saves or shares as a picture.
+- **Wrapped styles:** Pick how the slides look in Style, including **Your look** (the app's look in use, with its stars and effects) and the ones you made. Make your own Wrapped shows every slide of yours to swipe through as you change it.
 
 ## Lyrics
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
-- **Lyrics card:** Tick up to 15 lines for a picture to share or save. It looks like the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above.
+- **Lyrics card:** Tick up to 15 lines for a picture to share or save. Its **Style** menu has Your look (the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above), Now playing (as the Now playing screen looks, in the cover's colours), 30 ready-made styles, and your own.
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
 ## Sound
 
 - **Equalizer:** One for each output (speaker, wired headphones, each Bluetooth device, a USB DAC, the car), switched in by itself. 3 to 31 bands, presets, your own presets, and **Auto EQ** headphone correction by name.
+- **Dual volume:** On, a song's own volume and the Boost go together; off, a song with its own volume plays at just that volume, without the Boost.
 - **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows.
 - **Sound quality** (each can be turned off): clip guard, smoothing of harsh loud masters, dither, high-quality resampling, loudness compensation and detail.
 - **Bit-perfect** to a USB DAC (phone) or the PC's sound card, and **Ignore Bluetooth devices** so the car doesn't take the music.
@@ -87,21 +91,24 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Looks** are the colours: Light, Dark, **Now playing** (every screen in the playing cover's colours), and dozens of themes and neon looks.
 - **Themes** are how things are drawn (Rounded, Sharp, Compact, Glass, Retro…), with any look.
 - **Layouts** are where things are: the ☰ menu, a bottom bar, a side rail or top tabs, the mini player's style, and 6 ways to arrange Now playing. Every layout reaches every feature.
-- **Effects:** 31 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula…). A look you made keeps its own; the ready-made looks take the ones picked in Settings. Each effect can have its own colour, and rain and snow fall over the buttons too.
-- **Favorite, Edit, Delete:** Hold down on any look, theme, layout, effect or visualizer, or tap its ⋯ (right-click on the PC). ★ Favorite moves it to the top; the ones you made can also be edited or deleted there.
+- **Effects:** 61 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula, petals, lightning, a moon, warp speed…); on the phone the first tap shows one's picture, a second puts it on or off. A look you made keeps its own; the ready-made looks take the ones picked in Settings. Each effect can have its own colour, and rain and snow fall over the buttons too.
+- **Presets:** **Save as a preset** keeps everything on the tab (look, theme, layout, effects and their colours, Now playing's visualizer) under a name; pick one from **Personalization presets** to put it all back at once.
+- **Favorite, Edit, Delete:** Hold down on any look, theme, layout, effect, visualizer, colour blend, Wrapped style, preset or lyrics card style, or tap its ⋯ (right-click on the PC). ★ Favorite moves it to the top; the ones you made can also be edited or deleted there (the menu stays open). Everything you made is in its own menu.
 
 ### Make your own
 
 - **Look:** Your background, cards, text and accent colours, a fade, neon glow, stars and effects (each in its colour), shown on the whole app as you go.
 - **Layout:** The bar's buttons and their order, the mini player, Now playing's arrangement and many finer choices, with a big live preview.
-- **Visualizer:** Start from any style and shape it (mirror, flip, spin, glow, strength), or make a colour blend. **Dual** plays a middle style and a bottom style at once; **Full screen on Now playing** draws it over the whole screen. Play any song right there to test it.
-- **Start points:** **Randomize** sets everything at random, **Randomize colours** only the colours, and **Saved colours** keeps your colour sets beside 15 ready-made ones.
+- **Visualizer:** Start from any style and shape it (mirror, flip, spin, glow, strength), or make a colour blend. **Dual** plays a middle style and a bottom style at once, each with its own shape and colour; **Full screen on Now playing** draws it over the whole screen, coming out of the cover's centre. Play any song right there to test it.
+- **Lyrics card:** Every colour (background, the card behind the words, words, song name, soft text), how see-through the card is, its corners, the type and its size, a round cover, and stars and effects each in its own colour, with the card shown as you go.
+- **Wrapped:** Its colours and a colour for each slide (or rainbow), glow and neon text, bold or light type, text size, spacing, corners, round covers and their size, bar thickness, tiles, and stars and effects behind the slides, with a slide shown as you go.
+- **Start points:** **Randomize** sets everything at random, **Randomize colours** only the colours, **Copy my look** (Wrapped) your look's colours and effects, and **Saved colours** keeps your colour sets (named as you save them; hold one to rename it) beside 15 ready-made ones.
 - **Yours everywhere:** What you make goes to your other device at each Sync (one made on the phone is on the PC after the next sync) and into backups.
 
 ## Visualizer
 
-- **30 styles** (bars, waves, rings, starfield, galaxy, tunnel…) and dozens of colour blends, in the Visualizer tab.
-- **On Now playing:** Slim bars, any style or yours: round styles over the cover, the rest along the bottom, with its own strength. It only hears the app's own sound.
+- **60 styles** and dozens of colour blends, in the Visualizer tab: ones along the bottom (bars, waves, city lights, flames, meadow, 8-bit…) and ones around a middle (rings, starfield, galaxy, tunnel, orbits, supernova, mandala, heart…).
+- **On Now playing:** Slim bars, any style or yours, with its own strength. The ones around a middle come out of the cover's exact centre in every layout (Starfield fills the whole screen); the rest go along the bottom, and Rain and Code rain fall down the whole screen. It only hears the app's own sound.
 
 ## Tags & tidying
 
@@ -123,7 +130,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 ## PC only
 
-- **System tray, media keys, Start with Windows** and an always-on-top mini player window.
+- **System tray, media keys, Start with Windows** and an always-on-top **mini player**: Now playing made small, with your look, effects, visualizer and Now playing's buttons and queue.
 - **Discord** shows what you're playing on your profile.
 - **Keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the Equalizer, / to search) and right-click menus everywhere.
 
@@ -132,3 +139,4 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it.
 - **Changelog and Features** are in the ☰ menu.
 - **Problems:** Settings shows anything that went wrong recently, with a Copy button.
+- **Phone menus** always end above the phone's own Back and Home buttons, so nothing is out of reach.

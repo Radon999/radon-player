@@ -73,6 +73,8 @@ fun Sheets(ui: Ui) {
         "lookmaker" -> LookMaker(ui, ui.makerEdit)
         "layoutmaker" -> LayoutMaker(ui, ui.makerEdit)
         "vismaker" -> VisMaker(ui, ui.makerEdit)
+        "wrapmaker" -> WrapMaker(ui, ui.makerEdit)
+        "cardmaker" -> CardMaker(ui, ui.makerEdit)
         "tidal-login" -> WebLogin(Music.tidal.loginUrl(), { it.startsWith(Tidal.REDIRECT) }) { url ->
             ui.sheet = "accounts"; if (url != null) Music.tidalLoggedIn(url)
         }
@@ -760,6 +762,48 @@ private fun LyricsMoodsLines(ui: Ui) {
         "Also on the Moods tab", moods.wordsReading != null) {
         if (moods.wordsReading != null) Pill("Stop", quiet = true) { moods.stopWords() } else Pill("Read", quiet = true) { moods.readWords() }
     }
+    // Starting again: the moods worked out afresh from what was heard (quick), or everything forgotten to scan again
+    Line("Reset mood and lyrics scans", "Moods look wrong after a sync, or songs only have one mood? Reset moods works every " +
+        "song's moods out again from what the scans already heard and read (no scanning, a minute or so) and rewrites them " +
+        "into your files. Reset sound scan has every song heard again (the lyrics readings kept). Clear my moods forgets the ones you picked. Remove all moods takes every mood out of every file and forgets all the scans found (the sound, the lyrics readings) so you can scan " +
+        "again from the start with Full scan and Read moods from lyrics, your picked moods included. Every reset only ever " +
+        "changes the MOOD tags: artist, album, title and all other tags stay as they are. Each asks before it does anything", false) {}
+    // The buttons under it, not beside it (beside, they squeezed the words into a thin column)
+    moods.removing?.let { (d, n) -> Text("Removing moods from your files… %,d of %,d".format(d, n), style = T.sub.copy(color = C.accent)) }
+    run {
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Pill("Reset moods", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This works every song's moods out again from what the scans already heard and read. Moods " +
+                    "from a sync, a backup or the files are dropped, and the new moods are written into your files. Nothing " +
+                    "is scanned again. Continue?") to {
+                    moods.resetAll(keepScans = true) { n -> Music.toast("Moods worked out again for %,d songs".format(n)) } }
+            }
+            Pill("Reset sound scan", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This forgets what the sound scans heard for all your songs, so every song " +
+                    "is heard again: run Full scan on the Moods tab afterwards (it takes as long as the first time). The lyrics " +
+                    "readings and moods you picked yourself stay. Continue?") to {
+                    moods.reset(org.omarchy.music.Moods.RESET_SOUND) { n -> Music.toast("Sound scan reset for %,d songs: run Full scan on the Moods tab".format(n)) } }
+            }
+            Pill("Clear my moods", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This clears every mood you picked yourself in the Tagger, and what your " +
+                    "fixes taught the scans, so those songs' moods are worked out from their sound and words like the rest. Only " +
+                    "the MOOD tag of their files is rewritten (nothing else in them changes). Continue?") to {
+                    moods.clearPicked { n -> Music.toast("Your moods cleared from %,d songs".format(n)) } }
+            }
+            Pill("Remove all moods", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This takes every mood off every song, for a completely fresh start: the MOOD " +
+                    "tag and the words' reading (MOOD_LYRICS) are removed from all your files (only those two: the artist, album, " +
+                    "title and every other tag stay exactly as they are), and everything the scans found and every mood you " +
+                    "picked yourself is forgotten. Then run Full scan and Read moods from lyrics on the Moods tab to give " +
+                    "every song its moods again from its sound and words; that takes as long as the first time. Continue?") to {
+                    moods.removeAll { changed, left, stuck ->
+                        if (stuck == 0) Music.toast("All moods removed (%,d files changed%s): run Full scan and Read moods from lyrics on the Moods tab"
+                            .format(changed, if (left > 0) ", %,d this ${DEVICE} may not change or the playing song".format(left) else ""))
+                        else Music.toast("Moods removed from %,d files, but %,d still have one (Settings › Problems says which and why)%s"
+                            .format(changed, stuck, if (left > 0) "; %,d this ${DEVICE} may not change or the playing song".format(left) else "")) } }
+            }
+        }
+    }
     var on by remember { mutableStateOf(org.omarchy.music.Moods.aiSwitch()) }
     var key by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)) }
     Line("AI reading of lyrics (optional)", "With your own Anthropic API key, the words are read by Claude (claude-haiku-4-5) " +
@@ -1148,10 +1192,17 @@ private fun PlaybackLines(ui: Ui) {
  *  playing's background and visualizer. */
 @Composable
 fun PersonalizationLines(ui: Ui) {
+    // A preset put on: every line below starts again from the new choices
+    androidx.compose.runtime.key(MyPresets.applied) { PersonalizationBody(ui) }
+}
+
+@Composable
+private fun PersonalizationBody(ui: Ui) {
             // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
             Text("Look picks the colours, Theme how things are drawn (corners, type, spacing) and Layout where they are: any of " +
                 "each goes with any other. The Now playing look takes the colours of the song's cover; every other look keeps its " +
                 "own, and Now playing's song name, buttons, seek bar and lyrics are in the look's colour.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+            PresetLines(ui)
             Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
                 "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
                 false, note = Looks.describe(Music.look)) {
@@ -1469,7 +1520,8 @@ private fun Divider() = HorizontalDivider(color = C.line, modifier = Modifier.pa
 fun FullScreen(title: String, close: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
     PlatformBack { close() }
     Column(Modifier.fillMaxSize().background(C.bg).then(C.gradient?.let { Modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(it)) } ?: Modifier)
-        .pointerInput(Unit) { detectTapGestures { } }.statusBarsPadding()) {
+        // Above the phone's own buttons too (Back, Home), so nothing at the bottom is under them
+        .pointerInput(Unit) { detectTapGestures { } }.statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(Ico.BACK, onClick = close)
             Text(title, style = T.head.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), modifier = Modifier.weight(1f).padding(start = 4.dp))
@@ -1676,6 +1728,15 @@ private fun BoostFader(eq: org.omarchy.music.EqSettings) {
             }, style = T.sub)
             if (b > 0) Pill("Off", quiet = true) { Music.setEqBoost(0.0) }
         }
+    }
+    // Dual volume: the Boost and a song's own volume (Volume…) together, or the song's own alone
+    var dual by remember { mutableStateOf(Music.dualVolume()) }
+    val ownNow = Music.current()?.let { Music.gainNow(it) != 0.0 } == true
+    Line("Dual volume", if (dual) "On: a song with its own volume (Volume… in its menu) plays at that volume with the Boost on " +
+        "top, as every other song has the Boost" else "Off: a song with its own volume (Volume… in its menu) plays at just that " +
+        "volume, without the Boost; every other song keeps the Boost" + if (ownNow && b > 0) ". The song playing has its own volume, so the Boost is left out now" else "",
+        dual) {
+        Switch(dual, { dual = it; Music.setDualVolume(it) }, colors = swColors())
     }
 }
 
@@ -2314,5 +2375,46 @@ private fun NameDialog(title: String, start: String, dismiss: () -> Unit, done: 
         text = { Field(name, "Name") { name = it } },
         confirmButton = { TextButton({ if (name.isNotBlank()) done(name.trim()) }) { Text("OK", color = C.accent) } },
         dismissButton = { TextButton(dismiss) { Text("Cancel", color = C.muted) } })
+}
+
+/** Settings › Personalization: the presets menu and Save. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PresetLines(ui: Ui) {
+    val presets = MyPresets.all()
+    val editing = MyPresets.editing?.let { MyPresets.of(it) }
+    Line("Personalization presets", "Everything on this tab at once (look, theme, layout, effects and their colours, Now " +
+        "playing's visualizer) saved under a name: pick one to put all of it back. Hold one or tap its \u22EF " +
+        "(right-click on the PC) to edit, favourite or delete it", false,
+        note = if (presets.isEmpty()) "None yet: set the tab up the way you like it, then Save" else "") {
+        if (presets.isNotEmpty()) {
+            // The one that matches what's picked now, if one does
+            val here = MyPresets.now("")
+            val current = presets.firstOrNull { p -> p.look == here.look && p.theme == here.theme && p.layout == here.layout &&
+                p.own == here.own && (p.own || p.fx == here.fx) && p.npVis == here.npVis }?.key.orEmpty()
+            val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to it.name })
+            ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current,
+                describe = { MyPresets.describe(it) }, later = true,
+                menu = { k, l -> if (k.isEmpty()) emptyList() else Favs.menu(Favs.PRESETS, k, l) }) { if (it.isNotEmpty()) MyPresets.apply(it) }
+        }
+    }
+    androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (editing != null) {
+            Pill("Save changes to “${editing.name}”") {
+                ui.askName = Triple("Name this preset", editing.name) { n: String ->
+                    MyPresets.save(n, editing.key); MyPresets.editing = null; Music.toast("Saved “${n.trim()}”") }
+            }
+            Pill("Save as new") {
+                ui.askName = Triple("Name this preset", editing.name + " 2") { n: String ->
+                    MyPresets.save(n); MyPresets.editing = null; Music.toast("Saved “${n.trim()}”") }
+            }
+            Pill("Cancel", quiet = true) { MyPresets.editing = null }
+        } else Pill("Save as a preset") {
+            ui.askName = Triple("Name this preset", "My preset ${presets.size + 1}") { n: String ->
+                MyPresets.save(n); Music.toast("Saved “${n.trim()}”: it's in Personalization presets") }
+        }
+    }
+    if (editing != null) Text("Editing “${editing.name}”: change anything on this tab, then Save changes", style = T.sub,
+        modifier = Modifier.padding(bottom = 8.dp))
 }
 

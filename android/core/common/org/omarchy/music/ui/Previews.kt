@@ -438,7 +438,7 @@ fun NowVisPreview(style: String) {
     Box(Modifier.size(if (wide) 360.dp else 220.dp, if (wide) 220.dp else 280.dp).clip(shape).background(back).border(1.dp, C.line, shape)) {
         if (C.stars) Stars()
         LookEffects()
-        Box(Modifier.align(Alignment.Center).padding(bottom = 30.dp).size(if (wide) 120.dp else 130.dp).clip(RoundedCornerShape(8.dp))
+        Box(Modifier.align(Alignment.Center).size(if (wide) 120.dp else 130.dp).clip(RoundedCornerShape(8.dp))
             .background(Brush.linearGradient(listOf(C.accent, C.light, C.accent.copy(alpha = 0.5f)))))
         NowVisSample(style, VIS_LOOK, Modifier.fillMaxSize())
     }

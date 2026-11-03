@@ -2085,6 +2085,7 @@ object Music {
         if (tracks.isEmpty()) return
         gains.set(tracks, db, output)
         current()?.let { eqProcessor.songGain = gainOf(it) }
+        applyEq()   // Dual volume off: the Boost goes or comes back with the song's own volume
         val v = gains.saved(tracks[0], output) ?: 0.0
         val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
         val where = if (output == null) "" else " on ${outLabel(output)}"
@@ -2095,6 +2096,7 @@ object Music {
     /** Songs' own volumes always apply (the old Song volume changes switch is gone): this re-applies the playing song's. */
     fun refreshSongVolume() {
         current()?.let { eqProcessor.songGain = gainOf(it) }
+        applyEq()
         musicVersion++
     }
 
@@ -3066,9 +3068,17 @@ object Music {
     private fun applyEq() {
         val s = songEqNow()
         songEqActive = s != null
-        eqProcessor.update(if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
-            custom = s.custom, count = s.count, boost = s.boost))
+        val e = if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
+            custom = s.custom, count = s.count, boost = s.boost)
+        // Dual volume off: a song with its own volume (Volume…) plays at that volume alone, without the Boost on top
+        eqProcessor.update(if (!dualVolume() && eqProcessor.songGain != 1.0) e.copy(boost = 0.0) else e)
     }
+
+    /** Dual volume (Equalizer): on, the Boost and a song's own volume go together; off, a song with its own volume
+     *  plays at just that one (the songs without one keep the Boost). */
+    fun dualVolume() = Prefs.on(DUAL_VOLUME, true)
+    fun setDualVolume(on: Boolean) { Prefs.set(DUAL_VOLUME, on); applyEq(); musicVersion++ }
+    private const val DUAL_VOLUME = "eq_dual_volume"
 
     /** Custom EQ…: e (null: take it away) for tracks, on the output playing now. */
     fun setSongEq(tracks: List<Track>, e: OutputEq?) {
