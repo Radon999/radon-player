@@ -90,7 +90,7 @@ Short sets from *your* listening, with a voice between them, like a radio host.
 - **Layouts:** 15 ways round: ☰ menu, bottom bar, side rail or top tabs, mini player styles, and 6 Now playing arrangements.
 - **Previews:** Every menu shows a picture of each choice (point at it on the PC, tap it on the phone).
 - **Favorites:** Right-click (or hold) a look, layout or visualizer: ★ Favorite puts it at the top; your own can be deleted there too.
-- **Effects:** 31 effects (stars, aurora, rain, snow, synthwave grid, nebula…), with your look or any look. Each can have its own colour. Rain and snow fall over the buttons too.
+- **Effects:** 31 effects (stars, aurora, rain, snow, synthwave grid, nebula…). Your own looks keep theirs; the ready-made looks can take any from Settings. Each can have its own colour. Rain and snow fall over the buttons too.
 
 ### Make your own
 
@@ -108,7 +108,7 @@ Short sets from *your* listening, with a voice between them, like a radio host.
 
 ## Tags & tidying
 
-- **Tagger:** Tags (with Find tags online), cover, info, lyrics, mood, and which tab a release goes in. Files move to match new tags.
+- **Tagger:** Tags (with Find tags online), cover, info, lyrics, mood, and which tab a release goes in. Files move to match new tags. On the phone it works on any of your files once you allow All files access.
 - **Scanner tools:** Fix genre names, Duplicates, Upgrade to FLAC, Songs without covers, Identify by sound, Similar artists.
 - **PC only:** Fix albums and artists, empty folders, and folders to leave alone.
 
