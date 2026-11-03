@@ -52,7 +52,7 @@ Like Spotify's DJ, but built only from *your* listening. It plays short sets of 
 - **Sets made for you:** What you've had on repeat, what you usually play at this time of day, favorites, throwbacks to a year you played something to death, songs you loved but haven't heard in months, your current mood, a genre you've been into lately, and (if you like) new songs and new artists like yours. Songs you keep skipping are left out.
 - **Never repetitive:** A song the DJ plays can't come back for 20 sets: when its kind of set comes round again (the same mood, This time of day…), another song of that kind takes its place. A kind of set doesn't come back for about 15 sets, and the same goes for its fun facts. All of this is remembered after the app closes.
 - **It talks:** With **Voice on**, the DJ speaks between sets, never over a song: what's coming up and why ("Let's take it back to 2020…"), and now and then a fact about your listening (hours on a song, when you first played it, your top mood this week, your most played artist this month). **Skip the talk** goes straight to the music.
-- **The voice:** One natural female voice. On the PC, **Get the natural voice** downloads it once (about 400 MB) and it runs on your PC. The phone uses Google's natural voice. Unusual names are said the way they sound.
+- **The voice:** One natural female voice, the same on the phone and the PC. **Get the natural voice** (DJ › Voice settings) downloads it once (about 400 MB on the PC, 130 MB on the phone) and it runs on your device, no internet needed after. Until then the phone uses Google's voice. Unusual names are said the way they sound.
 - **Ask for something:** Type or say an artist, a genre, a decade ("80s"), a mood ("sad songs") or a vibe ("workout"), and the DJ builds a set for it from your own songs first.
 - **Play from:** Everything, all your songs, or one playlist, folder or album. The **DJ** button on My music and playlists starts it there.
 - **Switch it up** starts a different kind of set; **⏭ set** on Now playing skips to the next set.
@@ -234,6 +234,6 @@ Every scan is in **Settings › Scanner**. Run one when something looks wrong, t
 
 ## Help
 
-- **Updates:** Settings shows your version and checks for a new one; **Update** downloads and installs it.
+- **Updates:** Each time the app starts it checks for a new version and says whether there is one; Settings shows your version and checks again, and **Update** downloads and installs it.
 - **Changelog and Features:** In the ☰ menu: what each update changed, and this page.
 - **Problems:** Settings shows anything that went wrong recently, with a **Copy** button to send it on.
