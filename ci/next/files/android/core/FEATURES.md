@@ -27,7 +27,7 @@ Everything is in the ☰ menu. Every page can be a list, grid or compact grid, w
 - **Playlists:** Make, sort, fold into folders, import and export (.m3u8).
 - **Smart playlists:** Fill themselves by rules (genre, mood, plays, format, skips and more), with ready-made ones.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items.
-- **Select:** Long-press (or right-click) to pick several songs, albums or playlists and act on them all.
+- **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists and act on them all.
 - **Search:** Ignores symbols ("acdc" finds AC/DC), with voice typing.
 - **Covers everywhere**, and **moved files followed**: rename a folder and playlists still find the songs.
 - **Nothing deleted without asking.**
@@ -47,6 +47,7 @@ Everything is in the ☰ menu. Every page can be a list, grid or compact grid, w
 Every song is sorted into 12 moods: Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark and Intense. A song can have several.
 
 - **How:** The app listens to each song (**Scan moods**, or the surer **Full scan**) and reads its lyrics for what they mean, not single words.
+- **Time estimates:** Each scan says about how long it will take before you start, and shows the time left beside its progress.
 - **AI reading (optional):** Use your own Anthropic API key and Claude reads the lyrics instead. **Test the key** always tells you whether it worked.
 - **Fix one:** Tagger › Tags › Mood. Similar songs learn from your fix. The Moods tab lists songs it's unsure of to check.
 - **Saved in your files:** Every mood goes in the file's MOOD tag, and Sync and backups carry them all, so a scan is done once.
@@ -73,7 +74,7 @@ Short sets from *your* listening, with a voice between them, like a radio host.
 ## Lyrics
 
 - **Synced** (line by line, tap to jump) or **Genius** (with annotations).
-- **Lyrics card:** Up to 15 lines on a picture with the cover.
+- **Lyrics card:** Up to 15 lines on a picture with the cover, in the colours of the look you're using.
 - **Lyrics scanner:** Finds and writes lyrics into every file at once.
 
 ## Sound
@@ -85,11 +86,13 @@ Short sets from *your* listening, with a voice between them, like a radio host.
 
 ## Personalization
 
+Each device keeps its own look, theme, layout and visualizer; Sync shares the ones you made.
+
 - **Looks:** Light, Dark, Now playing (every screen in the cover's colours), dozens of themes and neon looks.
 - **Themes:** How the app is drawn (Rounded, Sharp, Glass, Retro…), with any look.
 - **Layouts:** 15 ways round: ☰ menu, bottom bar, side rail or top tabs, mini player styles, and 6 Now playing arrangements.
 - **Previews:** Every menu shows a picture of each choice (point at it on the PC, tap it on the phone).
-- **Favorites:** Right-click (or hold) a look, layout or visualizer: ★ Favorite puts it at the top; your own can be deleted there too.
+- **Favorites, Edit, Delete:** Hold down on a look, theme, layout, effect or visualizer (right-click on the PC): ★ Favorite puts it at the top; your own can also be edited or deleted there.
 - **Effects:** 31 effects (stars, aurora, rain, snow, synthwave grid, nebula…). Your own looks keep theirs; the ready-made looks can take any from Settings. Each can have its own colour. Rain and snow fall over the buttons too.
 
 ### Make your own
@@ -99,7 +102,7 @@ Short sets from *your* listening, with a voice between them, like a radio host.
 - **Visualizer:** A style shaped your way (mirror, flip, spin, glow, strength), or a colour blend. **Dual** plays a middle style and a bottom style at once. **Full screen on Now playing** shows it over the whole screen. Test it with any song.
 - **Randomize** in every maker, and **Randomize colours** for just the colours.
 - **Saved colours:** Save colour sets and pick from them, with 15 ready-made sets in each.
-- **Yours everywhere:** What you make goes with Sync and backups.
+- **Yours everywhere:** What you make goes to your other device at each Sync, and into backups.
 
 ## Visualizer
 
@@ -115,7 +118,7 @@ Short sets from *your* listening, with a voice between them, like a radio host.
 ## Phone + PC together
 
 - **Phone remote:** Pair with a code and control the PC from the phone.
-- **Sync now:** Plays, favorites, moods, EQs, settings, downloads, tag changes and synced playlists (⇄), with Undo.
+- **Sync now:** Plays, favorites, moods, EQs, downloads, tag changes and synced playlists (⇄), with Undo. Each device keeps its own look, theme and layout; the looks, layouts and visualizers you made are added to both.
 - **Tags & covers match** from a main device, with folders sync leaves alone.
 - **Continue where you left off**, and **back up and restore** with one file.
 
