@@ -1,23 +1,47 @@
-run 41564087949 · Tue Nov  3 02:13:33 UTC 2026
-PHONE OK
-PC OK
+run 41565975895 · Tue Nov  3 02:30:59 UTC 2026
+PHONE FAILED
+PC FAILED
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="1" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="12" failures="0" tests="2" failures="0" tests="2" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
-  double sum;
-  double min;
-  double max;
-}`
+e: core/common/org/omarchy/music/ui/VisualizerTab.kt:1152:58 Unresolved reference 'detectTapGestures'.
+e: core/common/org/omarchy/music/ui/VisualizerTab.kt:1222:46 Unresolved reference 'detectTapGestures'.
+> Task :app:compileReleaseKotlin FAILED
+e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1152:58 Unresolved reference 'detectTapGestures'.
+e: file:///home/runner/work/radon-player/radon-player/app/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1222:46 Unresolved reference 'detectTapGestures'.
 
-> Task :desktop:flattenJars
-> Task :app:compileReleaseArtProfile
+--
+> Task :desktop:compileKotlin FAILED
 
-> Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player-linux-x64-3.2.0.jar
+FAILURE: Build completed with 2 failures.
 
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+--
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+--
+BUILD FAILED in 4m 7s
+86 actionable tasks: 86 executed
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -25,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m
-103 actionable tasks: 103 executed
+BUILD FAILED in 4m 7s
+86 actionable tasks: 86 executed
