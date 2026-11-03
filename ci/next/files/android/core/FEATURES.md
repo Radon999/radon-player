@@ -66,6 +66,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 - **Most played:** Top songs, albums, artists and moods for a week, month, year or all time, by plays or time, with charts of when you listen. Plus Repeat, Milestones and Skips.
 - **Tidy stats:** Merge an artist or song counted under two names.
 - **Wrapped:** Any period as full-screen slides: top 15s (songs, artists, albums, singles, EPs, genres, moods), minutes, streaks, discoveries, your listener type and a summary card. Singles and EPs are checked online. Every slide saves or shares as a picture.
+- **Wrapped styles:** Pick how the slides look in Style, including **Your look** (the app's look in use, with its stars and effects) and the ones you made.
 
 ## Lyrics
 
@@ -88,20 +89,21 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Themes** are how things are drawn (Rounded, Sharp, Compact, Glass, Retro…), with any look.
 - **Layouts** are where things are: the ☰ menu, a bottom bar, a side rail or top tabs, the mini player's style, and 6 ways to arrange Now playing. Every layout reaches every feature.
 - **Effects:** 31 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula…). A look you made keeps its own; the ready-made looks take the ones picked in Settings. Each effect can have its own colour, and rain and snow fall over the buttons too.
-- **Favorite, Edit, Delete:** Hold down on any look, theme, layout, effect or visualizer, or tap its ⋯ (right-click on the PC). ★ Favorite moves it to the top; the ones you made can also be edited or deleted there.
+- **Favorite, Edit, Delete:** Hold down on any look, theme, layout, effect, visualizer or Wrapped style, or tap its ⋯ (right-click on the PC). ★ Favorite moves it to the top; the ones you made can also be edited or deleted there.
 
 ### Make your own
 
 - **Look:** Your background, cards, text and accent colours, a fade, neon glow, stars and effects (each in its colour), shown on the whole app as you go.
 - **Layout:** The bar's buttons and their order, the mini player, Now playing's arrangement and many finer choices, with a big live preview.
-- **Visualizer:** Start from any style and shape it (mirror, flip, spin, glow, strength), or make a colour blend. **Dual** plays a middle style and a bottom style at once; **Full screen on Now playing** draws it over the whole screen. Play any song right there to test it.
+- **Visualizer:** Start from any style and shape it (mirror, flip, spin, glow, strength), or make a colour blend. **Dual** plays a middle style and a bottom style at once; **Full screen on Now playing** draws it over the whole screen, coming out of the cover's centre. Play any song right there to test it.
+- **Wrapped:** Its colours and a colour for each slide (or rainbow), glow and neon text, bold or light type, text size, spacing, corners, round covers and their size, bar thickness, tiles, and stars and effects behind the slides, with a slide shown as you go.
 - **Start points:** **Randomize** sets everything at random, **Randomize colours** only the colours, and **Saved colours** keeps your colour sets beside 15 ready-made ones.
 - **Yours everywhere:** What you make goes to your other device at each Sync (one made on the phone is on the PC after the next sync) and into backups.
 
 ## Visualizer
 
-- **30 styles** (bars, waves, rings, starfield, galaxy, tunnel…) and dozens of colour blends, in the Visualizer tab.
-- **On Now playing:** Slim bars, any style or yours: round styles over the cover, the rest along the bottom, with its own strength. It only hears the app's own sound.
+- **60 styles** and dozens of colour blends, in the Visualizer tab: ones along the bottom (bars, waves, city lights, flames, meadow, 8-bit…) and ones around a middle (rings, starfield, galaxy, tunnel, orbits, supernova, mandala, heart…).
+- **On Now playing:** Slim bars, any style or yours, with its own strength. The ones around a middle come out of the cover's exact centre in every layout; the rest go along the bottom. It only hears the app's own sound.
 
 ## Tags & tidying
 
