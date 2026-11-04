@@ -1442,6 +1442,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                thumb: (@Composable (String) -> Unit)? = null,
                chosen: Set<String>? = null,   // several at once (ticked; the menu stays open): these are on
                later: Boolean = false,        // the phone: put on when the menu closes (a layout rebuilds the screen, menu and all)
+               twice: Boolean = false,        // a tap shows its picture (and stays open), a second tap on it puts it on
                menu: ((String, String) -> List<Pair<String, () -> Unit>>)? = null,   // right-click (or hold) on one: these
                pick: (String) -> Unit) {
     Box {
@@ -1461,11 +1462,11 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
             else options.firstOrNull { it.first == current }?.second ?: options.firstOrNull()?.second.orEmpty()
         // The phone: the one last tapped in the menu, its picture shown under it
         var tapped by remember { mutableStateOf<String?>(null) }
-        val stays = onPhone && preview != null
+        val stays = (onPhone && preview != null) || twice
         Pill("$prefix$name \u25BE", quiet = true) { open = true; over = null; tapped = if (stays && chosen == null) current else null }
         val dismiss = {
             open = false
-            if (later && stays) tapped?.let { if (it != current) pick(it) }
+            if (later && stays && !twice) tapped?.let { if (it != current) pick(it) }
             Unit
         }
         val body: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
@@ -1511,6 +1512,9 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                         // Several at once (Effects) on the phone: the first tap only shows its picture, a tap on it again
                         // puts it on or off
                         else if (stays && chosen != null && tapped != k) tapped = k
+                        // Two taps (a preset): the first only shows its picture, a tap on it again puts it on
+                        else if (twice && chosen == null && tapped != k) tapped = k
+                        else if (twice && chosen == null) { open = false; if (k != current) pick(k) }
                         else { if (chosen == null && !stays) open = false; tapped = k; if (!(later && stays)) pick(k) }
                         Unit
                     }
@@ -1553,8 +1557,10 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                                 onClick = { if (what == "Delete") sure = k else { ctx = null; skip = null; if (what == "Edit") open = false; act() } })
                         }
                     }
-                    if (stays && tapped == k) Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp).widthIn(max = 320.dp)) {
+                    if (onPhone && stays && tapped == k) Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp).widthIn(max = 320.dp)) {
                         preview?.invoke(k)
+                        if (twice && k != current) Text("Tap it again to put it on", style = T.sub.copy(color = C.accent),
+                            modifier = Modifier.padding(top = 6.dp))
                     }
                     if (!onPhone && over == k && (preview != null || describe != null)) {
                         val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 10.dp.roundToPx() }
@@ -1565,6 +1571,8 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                                 Text(label, style = T.title.copy(fontSize = 14.sp),
                                     modifier = Modifier.padding(top = if (preview != null) 8.dp else 0.dp))
                                 describe?.invoke(k)?.takeIf { it.isNotEmpty() }?.let { Text(it, style = T.sub) }
+                                if (twice && k != current) Text(if (tapped == k) "Click it again to put it on" else "Click it twice to put it on",
+                                    style = T.sub.copy(color = C.accent), modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }

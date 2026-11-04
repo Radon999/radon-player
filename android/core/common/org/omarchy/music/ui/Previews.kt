@@ -47,7 +47,8 @@ import androidx.compose.ui.unit.coerceAtLeast
  *  seek bar in the look's colour (made to stand out, as Now playing does) and the visualizer in the look's own colour.
  *  Wide like the PC's window on the PC, tall like a phone's screen on the phone. */
 @Composable
-fun LookPreview(key: String, wide: Boolean = !onPhone) {
+fun LookPreview(key: String, wide: Boolean = !onPhone, fx: Set<String>? = null, visStyle: String = Vis.nowStyle(),
+                bottom: String? = null, visColor: String = Vis.color(), pw: Dp? = null, ph: Dp? = null) {
     val c = remember(key) { Looks.colors(key) }
     val backs = listOf(c.bg) + (c.grad ?: emptyList())
     val word = remember(key) { readableOn(c.accent, backs, 3.2f) }
@@ -55,16 +56,19 @@ fun LookPreview(key: String, wide: Boolean = !onPhone) {
     val vis = remember(key) { visColourFor(c.accent, backs, c.bg.luminance() > 0.5f) }
     val back = c.grad?.takeIf { it.size > 1 }?.let { Brush.linearGradient(it) } ?: Brush.linearGradient(listOf(c.bg, c.bg))
     val shape = RoundedCornerShape(12.dp)
-    val w = if (wide) 360.dp else 200.dp; val h = if (wide) 220.dp else 340.dp
+    val w = pw ?: if (wide) 360.dp else 200.dp; val h = ph ?: if (wide) 220.dp else 340.dp
+    val effects = fx ?: c.fx
     Box(Modifier.size(w, h).clip(shape).background(back).border(1.dp, C.line, shape)) {
         if (c.stars) Canvas(Modifier.fillMaxSize()) {
             val r = java.util.Random(3)
             repeat(40) { drawCircle(Color.White.copy(alpha = 0.3f + r.nextFloat() * 0.6f), (0.5f + r.nextFloat()) * density,
                 Offset(r.nextFloat() * size.width, r.nextFloat() * size.height)) }
         }
-        if (c.fx.isNotEmpty()) LookEffects(c.fx)
+        if (effects.isNotEmpty()) LookEffects(effects, accent = c.accent, fg = c.fg, bg = c.bg)
         // The Now playing visualizer you use, in this look's own visualizer colour, behind the song as on Now playing
-        NowVisSample(Vis.nowStyle(), vis, Modifier.fillMaxSize())
+        // (a preset's: its own, and Dual's second one along the bottom)
+        NowVisSample(visStyle, vis, Modifier.fillMaxSize(), visColor)
+        if (bottom != null) NowVisSample(bottom, vis, Modifier.fillMaxSize(), visColor, bottomOnly = true)
         val title = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = word,
             shadow = androidx.compose.ui.graphics.Shadow(c.bg.copy(alpha = 0.9f), blurRadius = 8f))
         val sub = TextStyle(fontSize = 11.sp, color = soft)
@@ -397,12 +401,11 @@ internal fun rememberSampleVis(): VisState {
  *  Visualizer's colour setting, as there): round ones in the middle, the rest along the bottom. Off: faint slim bars, so the
  *  colour still shows. */
 @Composable
-internal fun NowVisSample(style: String, col: Color, modifier: Modifier) {
+internal fun NowVisSample(style: String, col: Color, modifier: Modifier, colorKey: String = Vis.color(), bottomOnly: Boolean = false) {
     val s = rememberSampleVis()
-    val colorKey = Vis.color()
     Canvas(modifier) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
-        val round = style in Vis.CENTRED || Vis.full(style)   // full screen ones fill it all too
+        val round = !bottomOnly && (style in Vis.CENTRED || Vis.full(style))   // full screen ones fill it all too
         val h = if (round) size.height else size.height * 0.34f
         translate(top = size.height - h) {
             clipRect(0f, 0f, size.width, h) {

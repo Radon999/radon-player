@@ -97,6 +97,8 @@ fun App() {
     val ui = remember { Ui() }
     Ui.current = ui
     val snack = remember { SnackbarHostState() }
+    // Shuffle presets: a different Personalization preset every 15 minutes
+    LaunchedEffect(Unit) { while (true) { MyPresets.shuffleTick(); kotlinx.coroutines.delay(30_000) } }
     LaunchedEffect(Unit) { for (t in Music.toasts) { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
     LaunchedEffect(Unit) {   // a note with a button (Continue where you left off's Play)
         for ((text, label, act) in Music.offers) {

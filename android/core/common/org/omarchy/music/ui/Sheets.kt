@@ -1194,6 +1194,7 @@ fun PersonalizationLines(ui: Ui) {
 
 @Composable
 private fun PersonalizationBody(ui: Ui) {
+            PresetShuffleLines()
             // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
             Text("Look picks the colours, Theme how things are drawn (corners, type, spacing) and Layout where they are: any of " +
                 "each goes with any other. The Now playing look takes the colours of the song's cover; every other look keeps its " +
@@ -2393,6 +2394,25 @@ private fun NameDialog(title: String, start: String, dismiss: () -> Unit, done: 
         dismissButton = { TextButton(dismiss) { Text("Cancel", color = C.muted) } })
 }
 
+/** Settings › Personalization, at the top: Personalization Preset Shuffle, a different favourite preset every 5, 10, 15 or 30 minutes. */
+@Composable
+private fun PresetShuffleLines() {
+    var on by remember { mutableStateOf(MyPresets.shuffleOn()) }
+    var every by remember { mutableStateOf(MyPresets.shuffleMinutes()) }
+    val favs = MyPresets.shufflePool().size
+    Line("Personalization Preset Shuffle", "On: puts on a different Personalization preset every few minutes. It only " +
+        "shuffles your favourite presets (★: in Personalization presets below, hold one or tap its \u22EF, then Favourite)", on,
+        note = when { !on -> ""; favs == 0 -> "No favourite presets yet: favourite some below and it starts going through them"
+            favs == 1 -> "Only one favourite preset: favourite more below to shuffle between them"
+            else -> "Shuffling your $favs favourite presets every $every minutes" }) {
+        Switch(on, { on = it; MyPresets.setShuffle(it) }, colors = swColors())
+    }
+    if (on) Line("Change every", "How often Personalization Preset Shuffle puts on the next favourite preset", false) {
+        ChoicePill(MyPresets.SHUFFLE_TIMES.map { it.toString() to "$it minutes" }, every.toString()) {
+            every = it.toInt(); MyPresets.setShuffleMinutes(every) }
+    }
+}
+
 /** Settings › Personalization: the presets menu and Save. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -2400,7 +2420,8 @@ fun PresetLines(ui: Ui) {
     val presets = MyPresets.all()
     val editing = MyPresets.editing?.let { MyPresets.of(it) }
     Line("Personalization presets", "Everything on this tab at once (look, theme, layout, effects and their colours, Now " +
-        "playing's visualizer and Dual, Wrapped's style and the lyrics card's style) saved under a name: pick one to put all of it back. Hold one or tap its \u22EF " +
+        "playing's visualizer and Dual, Wrapped's style and the lyrics card's style) saved under a name: pick one to put all of it back. Tap one to see " +
+        "its pictures (Now playing, Wrapped and its lyrics card: swipe through them), tap it again to put it on. Hold one or tap its \u22EF " +
         "(right-click on the PC) to edit, favourite or delete it", false,
         note = if (presets.isEmpty()) "None yet: set the tab up the way you like it, then Save" else "") {
         if (presets.isNotEmpty()) {
@@ -2412,7 +2433,7 @@ fun PresetLines(ui: Ui) {
                 (p.card.isEmpty() || p.card == here.card) && (p.visColor.isEmpty() || p.visColor == here.visColor) }?.key.orEmpty()
             val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to MyPresets.label(it) })
             ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current,
-                describe = { MyPresets.describe(it) }, later = true,
+                describe = { MyPresets.describe(it) }, twice = true, preview = { k -> if (k.isNotEmpty()) PresetPreview(k) },
                 menu = { k, l -> if (k.isEmpty()) emptyList() else Favs.menu(Favs.PRESETS, k, l) }) { if (it.isNotEmpty()) MyPresets.apply(it) }
         }
     }

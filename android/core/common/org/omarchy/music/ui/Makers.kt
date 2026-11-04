@@ -1019,6 +1019,35 @@ object MyPresets {
         applied++
     }
 
+    /** Personalization Preset Shuffle: on, a different favourite preset (★) is put on every 5, 10, 15 or 30 minutes; only
+     *  favourites. When it last switched is kept, so closing the app doesn't start the wait over. */
+    const val SHUFFLE = "preset_shuffle"
+    private const val SHUFFLE_AT = "preset_shuffle_at"
+    private const val SHUFFLE_LAST = "preset_shuffle_last"
+    private const val SHUFFLE_MIN = "preset_shuffle_minutes"
+    val SHUFFLE_TIMES = listOf(5, 10, 15, 30)
+    fun shuffleOn() = Prefs.on(SHUFFLE)
+    fun shuffleMinutes() = Prefs.text(SHUFFLE_MIN, "15").toIntOrNull()?.takeIf { it in SHUFFLE_TIMES } ?: 15
+    fun setShuffleMinutes(m: Int) { Prefs.setText(SHUFFLE_MIN, m.toString()) }
+    fun setShuffle(on: Boolean) { Prefs.set(SHUFFLE, on); if (on) shuffleNext() }
+    /** The ones it goes through: your favourite presets only. */
+    fun shufflePool(): List<Preset> { val f = Favs.of(Favs.PRESETS); return all().filter { it.key in f } }
+    /** Puts on the next one: any favourite but the one it put on last. */
+    fun shuffleNext() {
+        val pool = shufflePool(); if (pool.isEmpty()) return
+        val last = Prefs.text(SHUFFLE_LAST)
+        val p = pool.filter { it.key != last }.ifEmpty { pool }.random()
+        Prefs.setText(SHUFFLE_LAST, p.key)
+        Prefs.setText(SHUFFLE_AT, System.currentTimeMillis().toString())
+        apply(p.key)
+    }
+    /** Called every so often while the app is open: the next one when its minutes have gone by (not while you edit one). */
+    fun shuffleTick() {
+        if (!shuffleOn() || editing != null) return
+        val at = Prefs.text(SHUFFLE_AT).toLongOrNull() ?: 0L
+        if (System.currentTimeMillis() - at >= shuffleMinutes() * 60_000L) shuffleNext()
+    }
+
     /** One preset's short summary for its menu. */
     fun describe(key: String): String {
         val p = of(key) ?: return ""

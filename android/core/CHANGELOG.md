@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.6 · November 2026
+- **Presets in pictures:** each Personalization preset shows what it looks like: Now playing (its look, effects and visualizers), a slide of Wrapped in its style and its lyrics card. Tap one in the menu (click on the PC) to see its pictures and swipe through them, then tap it again to put it on; on the PC they also show beside the menu as you point at one, and turn by themselves.
+- **Personalization Preset Shuffle:** a switch at the very top of Settings › Personalization puts on a different one of your favourite presets (★) every 5, 10, 15 or 30 minutes (Change every). It only shuffles favourites.
+
 ## 3.2.5 · November 2026
 - **30 ready-made Personalization presets:** each a whole setup that goes together, in one tap: a look and theme, a layout, effects, Now playing's visualizer (Dual: one in the middle and one along the bottom) and its colour, Wrapped's style and a lyrics card style to match. Midnight drive, Northern lights, Golden hour, Cherry blossom, Deep ocean, Misty woods, Desert mirage, Old TV, Code rain, Cotton candy, Thunderstorm, First snow, Galaxy quest, Lava lamp, Notebook, Comic book, Vaporwave, Firefly meadow, Love letter, Concert night, Circuit, Autumn walk, Moonlight, Hyperspace, Cabin fire, Polka pop, Neon frame, Contours, Meteor night and Dream orbs.
 - **Yours marked:** the presets you saved show (yours) in the Personalization presets menu, so the ready-made ones and yours are easy to tell apart. Presets now keep the visualizer's colour too.

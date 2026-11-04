@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -1302,6 +1303,85 @@ fun WrapStylePreview(i: Int, modifier: Modifier) {
                 Ranked(listOf(Triple("A song you love", "Its artist", 120), Triple("Another one", "Someone else", 84), Triple("And a third", "A band", 52)),
                     listOf(null, null, null), meter = true)
                 Stats(listOf("214" to "artists", "38" to "day streak"))
+            }
+        }
+    }
+}
+
+/** A Wrapped style's colours worked out for any look (not only the one in use), for a preset's picture: what WS gives
+ *  for the style in use, for style with look's colours. */
+private class WrapPal(val bg: Color, val fg: Color, val muted: Color, val accent: Color, val gradients: Boolean, val tintAlpha: Float,
+                      val tint: Color, val glow: Color, val shadow: Shadow?, val heavy: Boolean, val scale: Float, val round: Boolean,
+                      val bar: Float, val fx: Set<String>, val stars: Boolean)
+
+private fun wrapPal(style: String, c: Looks.LookColors): WrapPal {
+    val my = if (style.startsWith("mywrap-")) MyWraps.style(style) else null
+    if (my != null) return WrapPal(Color(my.bg), Color(my.fg), Color(my.muted), Color(my.accent), my.gradients, my.glow,
+        Color(my.slides[0]), Color(my.slides[1 % my.slides.size]), if (my.neonText) Shadow(Color(my.accent).copy(alpha = 0.85f), blurRadius = 18f) else null,
+        my.heavy, my.textScale, my.roundCovers, my.bar, my.fx, my.stars)
+    val look = style == "look"
+    val neon = if (look) null else Looks.NEON[style]?.second
+    val black = !look && (style == "neon" || style == "mono" || neon != null)
+    val darker = lerp(c.bg, Color.Black, if (c.bg.luminance() > 0.5f) 0.07f else 0.45f)
+    val bg = if (look) c.bg else if (style == "paper") Color(0xFFF2EBDD) else if (black) Color.Black else darker
+    val fg = when { look -> c.fg; style == "paper" -> Color(0xFF1F1A14); style == "mono" -> Color.White; black -> Color(0xFFF5F2F2); else -> c.fg }
+    val muted = when { look -> c.muted; style == "paper" -> Color(0xFF6D6354); style == "mono" -> Color(0xFFB0B0B0)
+        neon != null -> lerp(Color(0xFF9A9A9A), neon, 0.3f); else -> c.muted }
+    val accent = if (look) c.accent else when (style) { "paper" -> Color(0xFFC2410C); "mono" -> Color.White; "minimal" -> c.fg
+        "neon" -> CYAN; else -> neon ?: c.accent }
+    val shadow = if ((look && c.glow) || (!look && (style == "neon" || neon != null))) Shadow(accent.copy(alpha = 0.85f), blurRadius = 18f) else null
+    val gradients = look || style !in setOf("minimal", "paper", "mono")
+    val tintAlpha = if (look) 0.35f else if (neon != null) 0.20f else if (style == "neon") 0.30f else 0.5f
+    val tint = if (look) c.accent else neon ?: if (style == "neon") NEON_SLIDE[0] else c.accent
+    val glow = if (look) c.accent else neon ?: if (style == "neon") NEON_GLOW[0] else MAGENTA
+    return WrapPal(bg, fg, muted, accent, gradients, tintAlpha, tint, glow, shadow, true, 1f, false, 5f,
+        if (look) c.fx else emptySet(), look && c.stars)
+}
+
+/** A preset's Wrapped: one slide (your top songs) in its Wrapped style and look, as a picture to swipe to. */
+@Composable
+fun WrapPresetSlide(style: String, look: String, modifier: Modifier) {
+    val c = remember(look) { Looks.colors(look) }
+    val p = wrapPal(style, c)
+    fun k(v: Float) = (v * p.scale).sp
+    val wt = { heavy: FontWeight, light: FontWeight -> if (p.heavy) heavy else light }
+    BoxWithConstraints(modifier.clip(RoundedCornerShape(18.dp)).background(p.bg)) {
+        val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+        val g = if (p.gradients) 1f else 0f
+        Box(Modifier.fillMaxSize()
+            .background(Brush.linearGradient(0f to p.tint.copy(alpha = p.tintAlpha * g), 0.62f to p.bg.copy(alpha = 0f),
+                start = Offset(w * 0.4f, 0f), end = Offset(w * 0.6f + h * 0.27f, h)))
+            .background(Brush.radialGradient(listOf(p.glow.copy(alpha = 0.30f * g), Color.Transparent), center = Offset(w * 0.92f, h * 0.08f), radius = maxOf(w, h) * 0.38f))
+            .background(Brush.radialGradient(listOf(p.tint.copy(alpha = 0.22f * g), Color.Transparent), center = Offset(0f, h), radius = maxOf(w, h) * 0.45f))) {
+            if (p.stars) Stars()
+            if (p.fx.isNotEmpty()) LookEffects(p.fx, accent = p.accent, fg = p.fg, bg = p.bg)
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)) {
+                Text("YOUR TOP SONGS", style = T.body.copy(color = p.fg.copy(alpha = 0.72f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.SemiBold),
+                    letterSpacing = 2.sp, fontSize = k(10f)))
+                Text("Your year in music", style = T.body.copy(color = p.fg, fontSize = k(21f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), lineHeight = k(25f)))
+                Text("12,480 minutes", style = T.body.copy(color = p.fg, fontSize = k(27f), fontWeight = wt(FontWeight.Black, FontWeight.Light),
+                    lineHeight = k(31f), shadow = p.shadow))
+                listOf(Triple("A song you love", "Its artist", 1f), Triple("Another one", "Someone else", 0.7f), Triple("And a third", "A band", 0.43f))
+                    .forEachIndexed { i, (song, who, part) ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("${i + 1}", style = T.body.copy(color = p.accent, fontWeight = wt(FontWeight.Black, FontWeight.Medium), fontSize = k(14f), shadow = p.shadow))
+                            Box(Modifier.size(30.dp).clip(if (p.round) CircleShape else RoundedCornerShape(6.dp))
+                                .background(Brush.linearGradient(listOf(p.accent, p.tint.copy(alpha = 0.6f), p.bg))))
+                            Column(Modifier.weight(1f)) {
+                                Text(song, style = T.body.copy(color = p.fg, fontWeight = wt(FontWeight.Bold, FontWeight.Normal), fontSize = k(12f)), maxLines = 1)
+                                Text(who, style = T.body.copy(color = p.muted, fontSize = k(10f)), maxLines = 1)
+                                Box(Modifier.padding(top = 3.dp).fillMaxWidth(part).height((p.bar * 0.8f).dp).clip(RoundedCornerShape(3.dp)).background(p.accent))
+                            }
+                        }
+                    }
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("214" to "artists", "38" to "day streak").forEach { (n, what) ->
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(p.fg.copy(alpha = 0.07f)).padding(8.dp)) {
+                            Text(n, style = T.body.copy(color = p.fg, fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), fontSize = k(16f), shadow = p.shadow))
+                            Text(what, style = T.body.copy(color = p.muted, fontSize = k(10f)))
+                        }
+                    }
+                }
             }
         }
     }
