@@ -752,21 +752,18 @@ private fun LyricsMoodsLines(ui: Ui) {
         ls.progress != null) {
         Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
     }
-    Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0) +
-        (moods.wordsLeft?.let { s -> " · about " + (if (s < 60) "a minute" else if (s < 3600) "${(s + 30) / 60} min" else "${s / 3600} h ${(s % 3600 + 30) / 60 % 60} min") + " left" } ?: "")
-        else "Reads each song's words for how much they say every mood (sad, romantic, dark…), on this $DEVICE, reading whole " +
-        "lines and sayings (\"wash my blues away\" is relief, not sadness), and counts it together with the sound. Both always " +
-        "count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and " +
-        "Focus, and a hint of sad words counts for less in a clearly upbeat song. With an Anthropic key saved, Claude reads them " +
-        "instead. The result goes into the file (a MOOD_LYRICS tag, nothing else in the file changes) so it's never read again. " +
-        "Also on the Moods tab", moods.wordsReading != null) {
-        if (moods.wordsReading != null) Pill("Stop", quiet = true) { moods.stopWords() } else Pill("Read", quiet = true) { moods.readWords() }
+    Line("Moods from lyrics", "Scan moods (the Moods tab) reads each song's words as well as hearing its sound: on this " +
+        "$DEVICE, reading whole lines and sayings (\"wash my blues away\" is relief, not sadness), or by Claude with an Anthropic " +
+        "key saved. Both always count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for " +
+        "Energetic, Party, Chill and Focus. Only once a song's sound and words are both done are its moods written into its file",
+        moods.reading != null) {
+        if (moods.reading != null) Pill("Stop", quiet = true) { moods.stop() } else Pill("Scan moods", quiet = true) { moods.scan() }
     }
     // Starting again: the moods worked out afresh from what was heard (quick), or everything forgotten to scan again
     Line("Reset mood and lyrics scans", "Moods look wrong after a sync, or songs only have one mood? Reset moods works every " +
-        "song's moods out again from what the scans already heard and read (no scanning, a minute or so) and rewrites them " +
-        "into your files. Reset sound scan has every song heard again (the lyrics readings kept). Clear my moods forgets the ones you picked. Remove all moods takes every mood out of every file and forgets all the scans found (the sound, the lyrics readings) so you can scan " +
-        "again from the start with Full scan and Read moods from lyrics, your picked moods included. Every reset only ever " +
+        "song's moods out again from what the scan already heard and read (nothing heard again), dropping moods a sync, a " +
+        "backup or another app brought; the next Scan moods writes them into your files without hearing anything again. Reset sound scan has every song heard again (the lyrics readings kept). Clear my moods forgets the ones you picked. Remove all moods takes every mood out of every file and forgets all the scans found (the sound, the lyrics readings) so Scan moods " +
+        "starts again from the very beginning, your picked moods included. Every reset only ever " +
         "changes the MOOD tags: artist, album, title and all other tags stay as they are. Each asks before it does anything", false) {}
     // The buttons under it, not beside it (beside, they squeezed the words into a thin column)
     moods.removing?.let { (d, n) -> Text("Removing moods from your files… %,d of %,d".format(d, n), style = T.sub.copy(color = C.accent)) }
@@ -774,30 +771,30 @@ private fun LyricsMoodsLines(ui: Ui) {
         Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Pill("Reset moods", quiet = true) {
                 Ui.current?.confirm = ("Are you sure? This works every song's moods out again from what the scans already heard and read. Moods " +
-                    "from a sync, a backup or the files are dropped, and the new moods are written into your files. Nothing " +
-                    "is scanned again. Continue?") to {
-                    moods.resetAll(keepScans = true) { n -> Music.toast("Moods worked out again for %,d songs".format(n)) } }
+                    "from a sync, a backup or another app are dropped. Nothing is heard again; tap Scan moods on the Moods tab " +
+                    "afterwards to write the new moods into your files. Continue?") to {
+                    moods.resetAll(keepScans = true) { n -> Music.toast("Moods worked out again for %,d songs: Scan moods writes them into the files".format(n)) } }
             }
             Pill("Reset sound scan", quiet = true) {
                 Ui.current?.confirm = ("Are you sure? This forgets what the sound scans heard for all your songs, so every song " +
-                    "is heard again: run Full scan on the Moods tab afterwards (it takes as long as the first time). The lyrics " +
+                    "is heard again: run Scan moods on the Moods tab afterwards (it takes as long as the first time). The lyrics " +
                     "readings and moods you picked yourself stay. Continue?") to {
-                    moods.reset(org.omarchy.music.Moods.RESET_SOUND) { n -> Music.toast("Sound scan reset for %,d songs: run Full scan on the Moods tab".format(n)) } }
+                    moods.reset(org.omarchy.music.Moods.RESET_SOUND) { n -> Music.toast("Sound scan reset for %,d songs: run Scan moods on the Moods tab".format(n)) } }
             }
             Pill("Clear my moods", quiet = true) {
                 Ui.current?.confirm = ("Are you sure? This clears every mood you picked yourself in the Tagger, and what your " +
-                    "fixes taught the scans, so those songs' moods are worked out from their sound and words like the rest. Only " +
-                    "the MOOD tag of their files is rewritten (nothing else in them changes). Continue?") to {
+                    "fixes taught the scans, so those songs' moods are worked out from their sound and words like the rest. The " +
+                    "next Scan moods rewrites only the MOOD tag of their files (nothing else in them changes). Continue?") to {
                     moods.clearPicked { n -> Music.toast("Your moods cleared from %,d songs".format(n)) } }
             }
             Pill("Remove all moods", quiet = true) {
                 Ui.current?.confirm = ("Are you sure? This takes every mood off every song, for a completely fresh start: the MOOD " +
                     "tag and the words' reading (MOOD_LYRICS) are removed from all your files (only those two: the artist, album, " +
                     "title and every other tag stay exactly as they are), and everything the scans found and every mood you " +
-                    "picked yourself is forgotten. Then run Full scan and Read moods from lyrics on the Moods tab to give " +
+                    "picked yourself is forgotten. Then run Scan moods on the Moods tab to give " +
                     "every song its moods again from its sound and words; that takes as long as the first time. Continue?") to {
                     moods.removeAll { changed, left, stuck ->
-                        if (stuck == 0) Music.toast("All moods removed (%,d files changed%s): run Full scan and Read moods from lyrics on the Moods tab"
+                        if (stuck == 0) Music.toast("All moods removed (%,d files changed%s): run Scan moods on the Moods tab"
                             .format(changed, if (left > 0) ", %,d this ${DEVICE} may not change or the playing song".format(left) else ""))
                         else Music.toast("Moods removed from %,d files, but %,d still have one (Settings › Problems says which and why)%s"
                             .format(changed, stuck, if (left > 0) "; %,d this ${DEVICE} may not change or the playing song".format(left) else "")) } }
@@ -808,8 +805,7 @@ private fun LyricsMoodsLines(ui: Ui) {
     var key by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)) }
     Line("AI reading of lyrics (optional)", "With your own Anthropic API key, the words are read by Claude (claude-haiku-4-5) " +
         "instead of on this $DEVICE (on by itself once a key is saved): it scores every mood and reads what the singer means " +
-        "(irony, a sad story told cheerfully, sayings), using the title and artist too. Songs read on this $DEVICE before can be " +
-        "read again by the AI once (the Moods tab offers it); a song the AI has read is never read again. Each song's title, " +
+        "(irony, a sad story told cheerfully, sayings), using the title and artist too. A song the AI has read is never read again. Each song's title, " +
         "artist and words are sent to Anthropic, and it costs a " +
         "little on your Anthropic account for each song (well under a cent). The key stays on this $DEVICE: it isn't in backups " +
         "or sync, and goes nowhere but Anthropic", on && key.isNotBlank()) {
@@ -826,8 +822,8 @@ private fun LyricsMoodsLines(ui: Ui) {
             "4. Copy the key straight away (it starts with sk-ant-). It's only shown once.\n" +
             "Credits must be added first (step 2), or Anthropic refuses every request. \"Test the key\" below checks both.\n" +
             "5. Paste it in the box below and tap Save.\n" +
-            "6. Tap Read under Moods from lyrics (or on the Moods tab). Songs the AI has read aren't read again; songs read " +
-            "on this $DEVICE before can be read again with the AI once (the Moods tab offers it).\n" +
+            "6. Tap Scan moods on the Moods tab: it reads each song's words with the AI as it hears its sound. Songs the AI " +
+            "has read aren't read again.\n" +
             "Keep the key to yourself: anyone with it can spend your credits. To stop, clear the box and tap Save, or delete " +
             "the key at platform.claude.com.",
             style = T.sub, modifier = Modifier.padding(vertical = 4.dp))
@@ -1268,6 +1264,26 @@ private fun NowPlayingLookLines() {
         var now by remember { mutableStateOf(Vis.nowStyle()) }
         ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, preview = { NowVisPreview(it) },
             menu = { k, l -> if (k == "slim" || k == "off") emptyList() else Favs.menu(Favs.VIS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
+    }
+    // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button)
+    var dual by remember { mutableStateOf(Vis.nowDual()) }
+    Line("Dual visualizer", "Two at once on Now playing: the one above in the middle (around the cover) and another along " +
+        "the bottom", dual) {
+        Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())
+    }
+    if (dual) Line("Along the bottom", "Dual's style along the bottom of Now playing", false) {
+        var bottom by remember { mutableStateOf(Vis.nowBottom()) }
+        ChoicePill(Vis.BOTTOM_STYLES, bottom, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW_BOTTOM, it); bottom = it }
+    }
+    // Wrapped's look and the lyrics card's style, here too (they stay in Wrapped and the Lyrics card), so a preset keeps them
+    Line("Wrapped style", "How Wrapped's slides look (the same as Style in Wrapped): the ready-made ones, Your look, and yours", false) {
+        ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) }) { Music.chooseWrappedStyle(it) }
+    }
+    Line("Lyrics card style", "How lyrics cards look (the same as Style in the Lyrics card box): Your look, Now playing, 30 " +
+        "ready-made styles and yours", false) {
+        var card by remember { mutableStateOf(LyricsCards.picked()) }
+        ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), card, describe = { LyricsCards.describe(it) },
+            menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { LyricsCards.pick(it); card = it }
     }
 }
 
@@ -2384,14 +2400,16 @@ fun PresetLines(ui: Ui) {
     val presets = MyPresets.all()
     val editing = MyPresets.editing?.let { MyPresets.of(it) }
     Line("Personalization presets", "Everything on this tab at once (look, theme, layout, effects and their colours, Now " +
-        "playing's visualizer) saved under a name: pick one to put all of it back. Hold one or tap its \u22EF " +
+        "playing's visualizer and Dual, Wrapped's style and the lyrics card's style) saved under a name: pick one to put all of it back. Hold one or tap its \u22EF " +
         "(right-click on the PC) to edit, favourite or delete it", false,
         note = if (presets.isEmpty()) "None yet: set the tab up the way you like it, then Save" else "") {
         if (presets.isNotEmpty()) {
             // The one that matches what's picked now, if one does
             val here = MyPresets.now("")
             val current = presets.firstOrNull { p -> p.look == here.look && p.theme == here.theme && p.layout == here.layout &&
-                p.own == here.own && (p.own || p.fx == here.fx) && p.npVis == here.npVis }?.key.orEmpty()
+                p.own == here.own && (p.own || p.fx == here.fx) && p.npVis == here.npVis && p.dual == here.dual &&
+                (!p.dual || p.npBottom == here.npBottom) && (p.wrapped.isEmpty() || p.wrapped == here.wrapped) &&
+                (p.card.isEmpty() || p.card == here.card) }?.key.orEmpty()
             val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to it.name })
             ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current,
                 describe = { MyPresets.describe(it) }, later = true,

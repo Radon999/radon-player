@@ -198,6 +198,9 @@ object Moods {
             else -> null
         }
         if (moods != null) return Judged(moods, if (sures.isNotEmpty()) 1.0 else e?.keptSure ?: 0.0, j.conflict, true, false)
+        // Not scanned yet (nothing heard, no words read, no Last.fm tags): no mood. A guess from the genre alone made
+        // songs look like they had moods when none were in their files or found by a scan.
+        if (e == null || (e.sound == null && e.lyr.isEmpty() && e.tags.isEmpty())) return NONE
         // Worth a look: the sound and the words plainly disagree, or there's more than one clue and it's still unsure.
         val doubt = j.moods.isNotEmpty() && (j.conflict >= 0.5 || (j.clues >= 2 && j.confidence < 0.5))
         return Judged(j.moods, j.confidence, j.conflict, false, doubt)
@@ -538,11 +541,175 @@ object Moods {
     }
 
     /** Scan moods (the Moods tab): a minute from the middle of every song not read yet, now. */
-    fun find() = start(auto = false, full = false)
+    fun find() = scan()
 
     /** Full scan (the Moods tab): every song heard whole, start to end, that isn't yet. Stopped, it carries on from the
      *  song it stopped at (each song's result is kept as soon as it's done). */
-    fun findFull() = start(auto = false, full = true)
+    fun findFull() = scan()
+
+    /** Scan moods (the Moods tab), the one scan: each song not scanned yet is heard whole (its sound) and its words are
+     *  read (by the AI when it's on, else on this device), and only once both are done are its moods (and the words'
+     *  reading) written into its file, so the sound always has its say. A song scanned once is never scanned again
+     *  (Settings › Reset mood and lyrics scans starts over); one whose moods aren't in its file yet (the playing song,
+     *  moods from your other device) just has them written. Moods you picked yourself (Tagger) are left as they are.
+     *  Stopped, it carries on from the song it stopped at. Nothing writes moods into the files but this scan. */
+    fun scan() {
+        if (running || wordsRunning || writing || removing != null) return
+        val list = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
+        if (list.isEmpty()) return
+        running = true; stopAsked = false
+        reading = 0 to list.size; readingFull = true; readingNow = ""; readingLeft = null
+        Thread({
+            var finished = false
+            var wrote = 0
+            try { val r = scanWork(list); finished = r.first; wrote = r.second } catch (e: Throwable) { Crashes.caught(e) }
+            finally {
+                running = false
+                runCatching { if (synchronized(lock) { known.values.any { it.picked.isNotEmpty() } }) learn() }.onFailure { Crashes.caught(it) }
+                save()
+                if (finished) { Prefs.set(FULL_DONE_KEY, true); Prefs.set(CLEARED_KEY, false) }
+                Music.scope.launch {
+                    reading = null; readingNow = ""; readingLeft = null; version++
+                    Music.toast((if (finished) "Mood scan done" else "Mood scan stopped: Scan moods carries on from there") +
+                        if (wrote > 0) " (moods written into %,d file%s)".format(wrote, if (wrote != 1) "s" else "") else "")
+                }
+            }
+        }, "moods-scan").apply { isDaemon = true; priority = Thread.MIN_PRIORITY; start() }
+    }
+
+    /** Whether a song's words still need reading: none read and none looked for lately, or read by an older word reader. */
+    private fun wordsNeeded(e: MoodEntry): Boolean {
+        val r = LyricsReading.parse(e.lyr)
+        if (r != null) return !r.instrumental && r.by != "ai" && r.outdated
+        return e.lyr.isEmpty() && !(e.lyrTried > 0 && now() - e.lyrTried < 30 * 86400)
+    }
+
+    /** Scanned: heard whole and its words read (or looked for). */
+    private fun scanned(e: MoodEntry?): Boolean = e != null && e.full && !wordsNeeded(e)
+
+    /** The moods to go into a song's file now: yours, else every mood worked out (main first), "" none. */
+    private fun moodsFor(t: Track, e: MoodEntry): String =
+        e.picked.ifEmpty { scored(t).take(MoodRules.MOST).joinToString(";") { it.first } }
+
+    /** The one scan's work: (went through them all, files written). */
+    private fun scanWork(list: List<Pair<String, Track>>): Pair<Boolean, Int> {
+        load()
+        val fmKey = LastFm.key.isNotEmpty()
+        var ai = aiOn()
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        // What each song still needs: hearing, its words read, or only its moods written
+        val todo = ArrayList<Triple<String, Track, Long>>()
+        for ((i, pt) in list.withIndex()) {
+            if (stopAsked) return false to 0
+            val (p, t) = pt
+            if (i % 50 == 0) Music.scope.launch { readingNow = "Looking at your songs… %,d of %,d".format(i, list.size) }
+            val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue   // gone
+            val e = fresh(p, t, m)
+            if (e.picked.isNotEmpty()) continue   // yours: as you set it
+            val write = canWrite(p) && (moodsFor(t, e.copy(wrote = e.inFile)) != e.inFile || (e.lyr.isNotEmpty() && !e.lyrInFile))
+            if (!scanned(e) || write) todo += Triple(p, t, m)
+        }
+        Music.scope.launch { version++; readingNow = "" }
+        if (todo.isEmpty()) { Music.scope.launch { Music.toast("Every song is scanned already") }; return true to 0 }
+        Music.scope.launch { reading = 0 to todo.size }
+        var wrote = 0; var fails = 0; var heardAny = false
+        val began = System.currentTimeMillis()
+        var audioDone = 0.0
+        for ((i, x) in todo.withIndex()) {
+            if (stopAsked) return false to wrote
+            val (p, t, m) = x
+            Music.scope.launch { readingNow = "${t.title} · ${t.artist.split(",")[0].trim()}" }
+            var e = synchronized(lock) { known[p] } ?: MoodEntry(mtime = m, looked = true)
+            // 1. The sound: the whole song
+            if (!e.full) {
+                val sound = runCatching { AudioTools.moodWhole(p, RATE) { stopAsked } }.getOrNull()
+                if (stopAsked) return false to wrote   // stopped in the middle of a song: it's heard again next time
+                var tags = e.tags; var fm = e.fm
+                if (fmKey && !fm) {
+                    runCatching { tags = trackTags(t); fm = true }
+                    val a = lead(t.artist)
+                    if (a.isNotEmpty() && synchronized(lock) { a !in artists }) runCatching {
+                        val got = LastFm.artistTags(t.artist.split(",")[0].trim()).filter { it.first.isNotBlank() && it.second > 0 }
+                            .associate { it.first.lowercase() to it.second }
+                        synchronized(lock) { artists[a] = got }
+                    }
+                }
+                if (sound != null) { heardAny = true; fails = 0
+                    e = e.copy(mtime = m, sound = sound, heard = true, full = true, len = t.duration, tags = tags, fm = fm, kept = emptyList(), keptSure = 0.0)
+                } else { fails++; e = e.copy(tags = tags, fm = fm) }
+                synchronized(lock) { known[p] = e }
+                if (!heardAny && fails >= 8) { Music.scope.launch { Music.toast("Couldn't hear your songs to find their moods") }; return false to wrote }
+            }
+            // 2. The words
+            if (wordsNeeded(e)) {
+                val (text, instrumental) = runCatching { LyricsScan.wordsFor(t) }.getOrDefault(null to false)
+                val rd: LyricsReading? = when {
+                    instrumental -> LyricsReading(instrumental = true, confidence = 1.0, by = "words")
+                    text == null -> null
+                    ai -> try { aiRead(t, text).also { if (aiStatus.isNotEmpty()) Music.scope.launch { aiStatus = "" } } } catch (err: HttpError) {
+                        val why = aiWhy(err)
+                        Music.scope.launch { aiStatus = why }
+                        if (err.code == 401 || err.code == 403 || (err.code == 400 && "credit" in err.body.lowercase())) {
+                            ai = false
+                            Music.scope.launch { Music.toast("AI reading stopped: $why. The words are read on this ${org.omarchy.music.ui.DEVICE} instead") }
+                        }
+                        LyricsMood.read(text)
+                    } catch (err: Exception) { Music.scope.launch { aiStatus = "couldn't reach Anthropic: ${hideKey(err.message.orEmpty()).take(100)}" }; LyricsMood.read(text) }
+                    else -> LyricsMood.read(text)
+                }
+                e = synchronized(lock) { known[p] } ?: e
+                e = if (rd != null) e.copy(lyr = rd.tag(), lyrInFile = false, lyrTried = 0.0)
+                    else if (e.lyr.isEmpty()) e.copy(lyrTried = now()) else e
+                synchronized(lock) { known[p] = e }
+            }
+            // 3. Both done: the moods (and the words' reading) into the file, the scan's own from now on
+            if (e.full && p != playing && canWrite(p)) {
+                e = e.copy(wrote = e.inFile)   // whatever was in the file is the scan's to replace now
+                synchronized(lock) { known[p] = e }
+                val want = moodsFor(t, e)
+                var did = false
+                if (e.lyr.isNotEmpty() && !e.lyrInFile &&
+                    runCatching { LyricsTags.writeTags(Music.ctx, p, null, mapOf(MoodTag.MOOD_LYRICS to e.lyr)) }.getOrDefault(false)) {
+                    e = e.copy(lyrInFile = true); did = true
+                }
+                if (want != e.inFile && runCatching { LyricsTags.writeMood(Music.ctx, p, want) }.getOrDefault(false)) {
+                    e = e.copy(inFile = want, wrote = want); did = true
+                }
+                if (did) { wrote++; e = e.copy(mtime = runCatching { AudioTools.modified(p) }.getOrNull() ?: e.mtime) }
+                synchronized(lock) { known[p] = e }
+            }
+            val done = i + 1
+            audioDone += t.duration.takeIf { it > 0 } ?: 200.0
+            val spent = (System.currentTimeMillis() - began) / 1000.0
+            val left = if (done < 2 && spent < 20) null else {
+                val audioLeft = todo.drop(done).sumOf { it.second.duration.takeIf { d -> d > 0 } ?: 200.0 }
+                (audioLeft * spent / audioDone).toLong()
+            }
+            Music.scope.launch { reading = done to todo.size; readingLeft = left; version++ }
+            if (done >= 3 && done % 5 == 0) rate(RATE_FULL, spent / audioDone)
+            if (done % 5 == 0) save()
+            Thread.sleep(if (Music.paused) 40 else 300)
+        }
+        return true to wrote
+    }
+
+    /** Songs the one scan still has to do something for (hear, read, or write), and about how long it takes. */
+    fun scanLeft(): Pair<Int, Long> = runCatching {
+        load()
+        var n = 0; var audio = 0.0; var words = 0
+        for (t in Music.mySongs()) {
+            val p = pathOf(t) ?: continue
+            val e = synchronized(lock) { known[p] }
+            if (e?.picked?.isNotEmpty() == true) continue
+            if (!scanned(e)) { n++; if (e?.full != true) audio += t.duration.takeIf { it > 0 } ?: 200.0; if (e == null || wordsNeeded(e)) words++ }
+        }
+        n to (estimate("full", 0, audio) + estimate("words", words))
+    }.getOrDefault(0 to 0L)
+
+    /** How many songs the one scan has done (heard whole and words read). */
+    fun scannedCount(): Int = runCatching {
+        load(); Music.mySongs().mapNotNull { pathOf(it) }.distinct().count { p -> scanned(synchronized(lock) { known[p] }) }
+    }.getOrDefault(0)
 
     /** Stop reading (what's been read is kept; the scan carries on from there next time). */
     fun stop() { stopAsked = true }
@@ -1004,7 +1171,7 @@ object Moods {
     // ---- moods into the files ----
 
     /** Whether moods are written into the files: as you set it, else on once a Full scan has gone through every song. */
-    fun writeOn(): Boolean = Prefs.text(WRITE_KEY).let { if (it.isEmpty()) Prefs.on(FULL_DONE_KEY) else it == "on" }
+    fun writeOn(): Boolean = false   // only Scan moods writes moods into the files now
 
     /** Turn writing moods into files on or off (the Moods tab then counts the files waiting, see [recount]). */
     fun setWriteOn(on: Boolean) {

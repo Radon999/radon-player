@@ -156,6 +156,25 @@ object Vis {
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
     fun color(): String = Prefs.text(COLOR).ifEmpty { Music.visPreset.takeIf { Looks.NEON.containsKey(it) } ?: "auto" }
     fun nowStyle(): String = Prefs.text(NOW, "slim").let { k -> if (NP_VIS_STYLES.any { it.first == k }) k else "slim" }
+    /** Dual on Now playing (its visualizer button): one style in the middle (nowStyle) and one along the bottom. */
+    const val NOW_DUAL = "np_vis_dual"
+    const val NOW_BOTTOM = "np_vis_bottom"
+    fun nowDual(): Boolean = Prefs.on(NOW_DUAL)
+    /** The styles for the middle (around the cover) and for the bottom, as Dual offers them. */
+    val MIDDLE_STYLES: List<Pair<String, String>> get() = NP_VIS_STYLES.filter { it.first in OVER_COVER && !dual(it.first) }
+    val BOTTOM_STYLES: List<Pair<String, String>> get() = NP_VIS_STYLES.filter { it.first != "off" && it.first !in CENTRED && !full(it.first) }
+    /** Dual's bottom style ("slim" until one's picked). */
+    fun nowBottom(): String = Prefs.text(NOW_BOTTOM, "slim").let { k -> if (BOTTOM_STYLES.any { it.first == k }) k else "slim" }
+    /** The bottom style drawn with the middle one now (Dual on, and a middle style picked), else null. */
+    fun nowSecond(): String? = if (nowDual() && nowStyle() in OVER_COVER && !dual(nowStyle())) nowBottom() else null
+    /** Dual on or off: on, the style in use goes to the middle (a middle one if it isn't). */
+    fun setNowDual(on: Boolean) {
+        Prefs.set(NOW_DUAL, on)
+        if (on && nowStyle() !in OVER_COVER) {
+            if (nowStyle() in BOTTOM_STYLES.map { it.first }) Prefs.setText(NOW_BOTTOM, nowStyle())
+            Prefs.setText(NOW, MIDDLE_STYLES.firstOrNull { it.first == "ring" }?.first ?: MIDDLE_STYLES.firstOrNull()?.first ?: "slim")
+        }
+    }
     /** Now playing's background: plain since 3.1 (Cover blur is gone): no blurred cover behind it. */
     fun plainNow(): Boolean = true
     /** Now playing visualizer's strength (its opacity): 0.5 is how faint it always was. */

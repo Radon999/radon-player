@@ -257,6 +257,7 @@ object SavedColours {
         return s
     }
     fun delete(kind: String, key: String) {
+        MadeSync.forget(key)
         Prefs.setText(kind, mine(kind).filter { it.key != key }.joinToString("\n") { encode(it) })
         val fk = favKind(kind); if (Favs.isFav(fk, key)) Prefs.setText(fk, (Favs.of(fk) - key).joinToString(";"))
     }
@@ -914,7 +915,8 @@ fun MakerLines(ui: Ui) {
 object MyPresets {
     const val PREF = "my_presets"
     class Preset(val key: String, val name: String, val look: String, val theme: String, val layout: String,
-                 val own: Boolean, val fx: String, val npFallback: String, val npVis: String)
+                 val own: Boolean, val fx: String, val npFallback: String, val npVis: String,
+                 val dual: Boolean = false, val npBottom: String = "", val wrapped: String = "", val card: String = "")
 
     /** Goes up each time a preset is put on, so the tab's lines show the new choices. */
     var applied by mutableStateOf(0)
@@ -923,16 +925,18 @@ object MyPresets {
 
     private fun clean(s: String) = s.replace('|', '/').replace('\n', ' ')
     private fun encode(p: Preset) = listOf(p.key, clean(p.name), p.look, p.theme, p.layout, if (p.own) "1" else "0",
-        clean(p.fx), p.npFallback, p.npVis).joinToString("|")
+        clean(p.fx), p.npFallback, p.npVis, if (p.dual) "1" else "0", p.npBottom, p.wrapped, p.card).joinToString("|")
 
     fun all(): List<Preset> = Prefs.text(PREF).lines().mapNotNull { l -> runCatching { val f = l.split("|")
-        Preset(f[0], f[1], f[2], f[3], f[4], f[5] == "1", f[6], f[7], f[8]) }.getOrNull() }
+        Preset(f[0], f[1], f[2], f[3], f[4], f[5] == "1", f[6], f[7], f[8], f.getOrNull(9) == "1", f.getOrElse(10) { "" },
+            f.getOrElse(11) { "" }, f.getOrElse(12) { "" }) }.getOrNull() }
     fun of(key: String) = all().firstOrNull { it.key == key }
 
     /** What's picked on the tab now, as a preset (not saved). */
     fun now(name: String, key: String = "") = Preset(key, name, Music.look,
         Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD,
-        UiLayouts.current.key, LookFx.ownOn(), Prefs.text(LookFx.PICK), Music.npFallback, Vis.nowStyle())
+        UiLayouts.current.key, LookFx.ownOn(), Prefs.text(LookFx.PICK), Music.npFallback, Vis.nowStyle(),
+        Vis.nowDual(), Vis.nowBottom(), Music.wrappedStyle, LyricsCards.picked())
 
     /** The tab's choices saved under name (over the one with key, when it's given). */
     fun save(name: String, key: String? = null): Preset {
@@ -957,6 +961,10 @@ object MyPresets {
         Prefs.set(LookFx.OWN, p.own)
         Prefs.setText(LookFx.PICK, p.fx)
         if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
+        Prefs.set(Vis.NOW_DUAL, p.dual)
+        if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
+        if (p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
+        if (p.card.isNotBlank()) LyricsCards.pick(p.card)
         Music.chooseNpFallback(p.npFallback)
         if (Looks.known(p.look)) Music.chooseLook(p.look) else Music.applyLook()
         if (UiLayouts.all().any { it.key == p.layout }) UiLayouts.choose(p.layout)
@@ -1073,7 +1081,8 @@ object Favs {
  *  restore adds the other side's to yours, one by one (each by its key), instead of one device's list replacing the
  *  other's. One you delete is remembered as gone, so a sync doesn't bring it back. */
 object MadeSync {
-    val KEYS: List<String> get() = listOf(MyLooks.PREF, MyVis.STYLES, MyVis.COLORS, UiLayouts.MINE, MyWraps.PREF, MyPresets.PREF, LyricsCards.PREF)
+    val KEYS: List<String> get() = listOf(MyLooks.PREF, MyVis.STYLES, MyVis.COLORS, UiLayouts.MINE, MyWraps.PREF, MyPresets.PREF, LyricsCards.PREF,
+        SavedColours.LOOK, SavedColours.BLEND)
     /** The keys of the ones you deleted, one a line (synced and backed up with the rest). */
     const val GONE = "made_gone"
 

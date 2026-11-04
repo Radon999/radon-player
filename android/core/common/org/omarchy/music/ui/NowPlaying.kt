@@ -220,6 +220,9 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         if (vis != null && visStyle != "off" && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle)) && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
             // A Dual one's bottom style (Full screen or not) stands right on the bottom edge, as a bottom style always does
             visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = onCover || (fullOver && Vis.dual(visStyle)))
+        // Dual (picked on this screen): the bottom style along the bottom too, under the one in the middle
+        val second = Vis.nowSecond()
+        if (vis != null && second != null && (!visPane || strengthPeek)) NowVis(second, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
         if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         val lay = if (lock != null) UiLayouts.BUILT_IN.first() else UiLayouts.current
         // What takes the middle: the queue, the lyrics, Personalization, the visualizer's settings, or the cover and song
@@ -914,11 +917,32 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
             .clickable { askMic() }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("It needs to hear the music the app plays. Tap to allow it", style = T.sub.copy(shadow = LIFT, color = WHITE), modifier = Modifier.weight(1f))
         }
-        val rows = NP_VIS_STYLES.chunked(3)
+        var dual by remember { mutableStateOf(Vis.nowDual()) }
+        val bottom = if (dual) Vis.nowBottom() else ""
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                Text("Dual", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
+                Text(if (dual) "One in the middle and one along the bottom, both at once" else "Two at once: one in the middle, one along the bottom",
+                    style = T.sub.copy(shadow = LIFT, color = SOFT))
+            }
+            androidx.compose.material3.Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())
+        }
+        val rows = (if (dual) Vis.MIDDLE_STYLES else NP_VIS_STYLES).chunked(3)
+        val bottomRows = if (dual) Vis.BOTTOM_STYLES.chunked(3) else emptyList()
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+            if (dual) item("mid") { Text("In the middle", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium),
+                modifier = Modifier.padding(bottom = 6.dp).then(hide)) }
             itemsIndexed(rows, key = { i, _ -> "r$i" }) { _, row ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { (k, label) -> VisTile(k, label, k == style, levels, col, colorKey, Modifier.weight(1f)) }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+            if (dual) item("bot") { Text("Along the bottom", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium),
+                modifier = Modifier.padding(top = 6.dp, bottom = 6.dp).then(hide)) }
+            itemsIndexed(bottomRows, key = { i, _ -> "b$i" }) { _, row ->
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { (k, label) -> VisTile(k, label, k == bottom, levels, col, colorKey, Modifier.weight(1f), Vis.NOW_BOTTOM) }
                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -951,12 +975,12 @@ private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic:
 
 /** A style to pick: its small live preview (Off: a ✕) and its name; the one picked is lit. */
 @Composable
-private fun VisTile(key: String, label: String, on: Boolean, s: VisState, col: Color, colorKey: String, modifier: Modifier) {
+private fun VisTile(key: String, label: String, on: Boolean, s: VisState, col: Color, colorKey: String, modifier: Modifier, pref: String = Vis.NOW) {
     val shape = RoundedCornerShape(10.dp)
     val fg = WHITE
     Column(modifier.clip(shape).background(if (on) WHITE.copy(alpha = 0.22f) else GLASS)
         .border(1.dp, if (on) WHITE.copy(alpha = 0.75f) else Color.Transparent, shape)
-        .clickable { Prefs.setText(Vis.NOW, key) }.semantics { contentDescription = label }.padding(6.dp)) {
+        .clickable { Prefs.setText(pref, key) }.semantics { contentDescription = label }.padding(6.dp)) {
         Box(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center) {
             if (key == "off") Icon(Ico.CLOSE, SOFT, 18.dp)
@@ -1153,6 +1177,7 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
         // Along the bottom (and a Dual one's bottom style), as on Now playing
         if (vis != null && pane == "art" && (!round || Vis.dual(visStyle)))
             NowVis(visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = round)
+        if (vis != null && pane == "art") Vis.nowSecond()?.let { NowVis(it, vis, visCol, strength, Modifier.align(Alignment.BottomCenter)) }
         Column(Modifier.fillMaxSize().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             // ↑ back to the big window
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), horizontalArrangement = Arrangement.End) {

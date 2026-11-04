@@ -354,10 +354,25 @@ internal fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, lookAcce
             var x = 0f; while (x <= W) { path.lineTo(x, base - sin(x / W * (2.5f + b) + b * 1.7f) * H * 0.05f); x += 8 * d }
             path.lineTo(W, H); path.close()
             drawPath(path, lerp(m(Color(0xFFD9A066)), bg, 0.35f + b * 0.2f).copy(alpha = 0.55f)) }
-        "pines" -> for (b in 0 until 2) { val n = 16 + b * 6; val base = H * (if (b == 0) 0.9f else 1f)
-            for (i in 0 until n) { val p = s[i + 100 + b * 30]; val x = (i + p[0] * 0.6f) * W / n; val h = (60 + p[2] * 70) * d * (if (b == 0) 0.8f else 1.1f)
-                val path = Path(); path.moveTo(x, base - h); path.lineTo(x + h * 0.28f, base); path.lineTo(x - h * 0.28f, base); path.close()
-                drawPath(path, lerp(bg, Color.Black, 0.4f + b * 0.3f).copy(alpha = 0.85f)) } }
+        "pines" -> {
+            // Two rows of firs standing on the bottom edge (none float above it): the back row taller and fainter, the front
+            // darker; each a trunk and three tiers that overlap, so a tree reads as one tree
+            val ground = lerp(m(bg), Color.Black, 0.55f)
+            for (b in 0 until 2) { val n = 14 + b * 6
+                // Solid colours (a see-through one showed every tier's overlap as a darker patch)
+                val col = if (tint != null) lerp(tint, Color.Black, 0.35f + b * 0.3f) else lerp(bg, Color.Black, 0.3f + b * 0.35f)
+                for (i in 0 until n) { val p = s[(i + 100 + b * 30) % s.size]
+                    val x = (i + 0.2f + p[0] * 0.6f) * W / n
+                    // (never more than a third of the space up: a small preview gets small trees, not a wall of them)
+                    val h = minOf((70 + p[2] * 80) * d, H * (0.22f + p[2] * 0.12f)) * (if (b == 0) 1.15f else 0.85f)
+                    val w = h * 0.3f
+                    drawRect(col, Offset(x - w * 0.07f, H - h * 0.06f), Size(w * 0.14f, h * 0.06f))   // a short trunk, under the branches
+                    for (k in 0 until 3) {   // the tiers, from the bottom up, each smaller and overlapping the one below
+                        val bottom = H - h * (0.05f + k * 0.28f); val top = bottom - h * (0.5f - k * 0.06f); val half = w * (1f - k * 0.25f)
+                        val path = Path(); path.moveTo(x, top); path.lineTo(x + half, bottom); path.lineTo(x - half, bottom); path.close()
+                        drawPath(path, col)
+                    } } }
+            drawRect(ground.copy(alpha = 0.8f), Offset(0f, H - 3 * d), Size(W, 3 * d)) }
         "graph" -> { val g = 22 * d; var x = 0f; while (x < W) { drawLine(m(fg).copy(alpha = 0.05f), Offset(x, 0f), Offset(x, H), 1f); x += g }
             var y = 0f; while (y < H) { drawLine(m(fg).copy(alpha = 0.05f), Offset(0f, y), Offset(W, y), 1f); y += g } }
         "polka" -> { val g = 26 * d; var row = 0; var y = 0f
