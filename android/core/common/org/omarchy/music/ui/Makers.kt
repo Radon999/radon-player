@@ -916,7 +916,49 @@ object MyPresets {
     const val PREF = "my_presets"
     class Preset(val key: String, val name: String, val look: String, val theme: String, val layout: String,
                  val own: Boolean, val fx: String, val npFallback: String, val npVis: String,
-                 val dual: Boolean = false, val npBottom: String = "", val wrapped: String = "", val card: String = "")
+                 val dual: Boolean = false, val npBottom: String = "", val wrapped: String = "", val card: String = "",
+                 val visColor: String = "") {
+        val mine get() = key.startsWith("mypreset-")
+    }
+
+    /** 30 ready-made presets, each a whole matching setup: a look and theme, a layout, effects, Now playing's visualizer
+     *  (Dual: one in the middle, one along the bottom) and its colour, Wrapped's style and the lyrics card's style. */
+    private fun b(n: Int, name: String, look: String, theme: String, layout: String, fx: String, vis: String, bottom: String,
+                  wrapped: String, card: Int, color: String) =
+        Preset("preset-$n", name, look, theme, layout, false, fx.replace(",", ";"), "apple-dark", vis, bottom.isNotEmpty(), bottom,
+            wrapped, "card-$card", color)
+    val BUILT: List<Preset> = listOf(
+        b(1, "Midnight drive", "neon-retrowave", "glass", "classic", "grid,sun,twinkle", "sunburst", "skyline", "pink", 1, "synthwave"),
+        b(2, "Northern lights", "nord", "rounded", "tabbar", "aurora,twinkle,constellation", "ring", "aurora", "green", 2, "aurora"),
+        b(3, "Golden hour", "sunset", "elegant", "classic", "sunbeams,embers", "sunburst", "hills", "gold", 3, "sunset"),
+        b(4, "Cherry blossom", "sakura", "playful", "tabbar", "petals,bokeh", "flower", "grass", "pink", 4, "candy"),
+        b(5, "Deep ocean", "deepsea", "glass", "rail", "sea,bubbles,moon", "ripples", "tides", "blue", 5, "ocean"),
+        b(6, "Misty woods", "forest", "minimal", "zen", "pines,fog", "iris", "grass", "green", 6, "forest"),
+        b(7, "Desert mirage", "terracotta", "flat", "magazine", "dunes,sun", "radar", "hills", "orange", 7, "sunset"),
+        b(8, "Old TV", "mono", "retro", "classic", "crt,scanlines,grain", "lissajous", "", "mono", 8, "silver"),
+        b(9, "Code rain", "matrix", "sharp", "compactrail", "digital,scanlines", "matrix", "", "green", 9, "acid"),
+        b(10, "Cotton candy", "bubblegum", "playful", "tabbar", "bubbles,sparkle", "heart", "bounce", "pink", 10, "pastel"),
+        b(11, "Thunderstorm", "slate", "outline", "rail", "rain,lightning,clouds", "pulse", "rain", "blue", 11, "ice"),
+        b(12, "First snow", "arctic", "roomy", "toptabs", "snow", "iris", "needles", "white", 12, "ice"),
+        b(13, "Galaxy quest", "neon-ultraviolet", "glass", "stage", "spiral,nebula,twinkle", "galaxy", "echoes", "purple", 13, "galaxy"),
+        b(14, "Lava lamp", "ember", "bold", "classic", "lava,embers", "vortex", "flames", "orange", 14, "magma"),
+        b(15, "Notebook", "paper", "lighttype", "magazine", "graph,grain", "steps", "", "paper", 15, "silver"),
+        b(16, "Comic book", "lemonade", "bold", "headline", "halftone,burst", "sunburst", "blocks", "classic", 16, "neonpop"),
+        b(17, "Vaporwave", "vaporwave", "glass", "dock", "grid,prism", "kaleido", "terrain", "cyan", 17, "synthwave"),
+        b(18, "Firefly meadow", "olive", "rounded", "zen", "fireflies,pines", "particles", "grass", "lime", 18, "forest"),
+        b(19, "Love letter", "rose", "elegant", "classic", "hearts,bokeh", "heart", "ribbon", "pink", 19, "candy"),
+        b(20, "Concert night", "neon-rave", "bold", "stage", "spotlight,rays,confetti", "nova", "towers", "neon", 20, "neonpop"),
+        b(21, "Circuit", "neon-hologram", "sharp", "studio", "circuit,glitch", "atom", "dots", "cyan", 21, "ice"),
+        b(22, "Autumn walk", "coffee", "cards", "classic", "leaves", "sunflower", "hills", "orange", 22, "goldleaf"),
+        b(23, "Moonlight", "midnight", "minimal", "zen", "moon,clouds,twinkle", "ring", "wave", "white", 23, "twilight"),
+        b(24, "Hyperspace", "contrast", "flat", "cover", "warp,comets", "tunnel", "needles", "white", 24, "silver"),
+        b(25, "Cabin fire", "crimson", "cards", "thumb", "plaid,embers", "vinyl", "flames", "red", 25, "fire"),
+        b(26, "Polka pop", "peach", "playful", "tabbar", "polka,confetti", "polygons", "capsules", "pink", 26, "pastel"),
+        b(27, "Neon frame", "neon-acid", "outline", "compactrail", "frame,hexagons", "honeycomb", "dotbars", "lime", 27, "acid"),
+        b(28, "Contours", "mint", "minimal", "magazine", "topo", "ripples", "curtain", "green", 28, "mint"),
+        b(29, "Meteor night", "neon-nebula", "glass", "stage", "meteors,constellation,twinkle", "starfield", "echoes", "purple", 29, "galaxy"),
+        b(30, "Dream orbs", "lavender", "rounded", "dock", "orbs,drift,sparkle", "orbits", "bubbles", "purple", 30, "twilight"),
+    )
 
     /** Goes up each time a preset is put on, so the tab's lines show the new choices. */
     var applied by mutableStateOf(0)
@@ -925,23 +967,28 @@ object MyPresets {
 
     private fun clean(s: String) = s.replace('|', '/').replace('\n', ' ')
     private fun encode(p: Preset) = listOf(p.key, clean(p.name), p.look, p.theme, p.layout, if (p.own) "1" else "0",
-        clean(p.fx), p.npFallback, p.npVis, if (p.dual) "1" else "0", p.npBottom, p.wrapped, p.card).joinToString("|")
+        clean(p.fx), p.npFallback, p.npVis, if (p.dual) "1" else "0", p.npBottom, p.wrapped, p.card, p.visColor).joinToString("|")
 
-    fun all(): List<Preset> = Prefs.text(PREF).lines().mapNotNull { l -> runCatching { val f = l.split("|")
+    /** Yours, kept with the app's settings. */
+    fun mine(): List<Preset> = Prefs.text(PREF).lines().mapNotNull { l -> runCatching { val f = l.split("|")
         Preset(f[0], f[1], f[2], f[3], f[4], f[5] == "1", f[6], f[7], f[8], f.getOrNull(9) == "1", f.getOrElse(10) { "" },
-            f.getOrElse(11) { "" }, f.getOrElse(12) { "" }) }.getOrNull() }
+            f.getOrElse(11) { "" }, f.getOrElse(12) { "" }, f.getOrElse(13) { "" }) }.getOrNull() }
+    /** The ready-made ones, then yours. */
+    fun all(): List<Preset> = BUILT + mine()
+    /** A preset's name in the menu: yours marked (yours). */
+    fun label(p: Preset) = if (p.mine) "${p.name} (yours)" else p.name
     fun of(key: String) = all().firstOrNull { it.key == key }
 
     /** What's picked on the tab now, as a preset (not saved). */
     fun now(name: String, key: String = "") = Preset(key, name, Music.look,
         Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD,
         UiLayouts.current.key, LookFx.ownOn(), Prefs.text(LookFx.PICK), Music.npFallback, Vis.nowStyle(),
-        Vis.nowDual(), Vis.nowBottom(), Music.wrappedStyle, LyricsCards.picked())
+        Vis.nowDual(), Vis.nowBottom(), Music.wrappedStyle, LyricsCards.picked(), Prefs.text(Vis.COLOR))
 
     /** The tab's choices saved under name (over the one with key, when it's given). */
     fun save(name: String, key: String? = null): Preset {
         val p = now(name.trim().ifEmpty { "My preset" }, key ?: ("mypreset-" + System.currentTimeMillis().toString(36)))
-        val list = all()
+        val list = mine()
         val at = list.indexOfFirst { it.key == p.key }
         val next = if (at >= 0) list.toMutableList().also { it[at] = p } else list + p
         Prefs.setText(PREF, next.joinToString("\n") { encode(it) })
@@ -950,7 +997,7 @@ object MyPresets {
 
     fun delete(key: String) {
         MadeSync.forget(key)
-        Prefs.setText(PREF, all().filter { it.key != key }.joinToString("\n") { encode(it) })
+        Prefs.setText(PREF, mine().filter { it.key != key }.joinToString("\n") { encode(it) })
         if (editing == key) editing = null
     }
 
@@ -965,6 +1012,7 @@ object MyPresets {
         if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
         if (p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
         if (p.card.isNotBlank()) LyricsCards.pick(p.card)
+        if (p.visColor.isNotBlank()) Prefs.setText(Vis.COLOR, p.visColor)
         Music.chooseNpFallback(p.npFallback)
         if (Looks.known(p.look)) Music.chooseLook(p.look) else Music.applyLook()
         if (UiLayouts.all().any { it.key == p.layout }) UiLayouts.choose(p.layout)

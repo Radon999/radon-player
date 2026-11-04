@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.5 · November 2026
+- **30 ready-made Personalization presets:** each a whole setup that goes together, in one tap: a look and theme, a layout, effects, Now playing's visualizer (Dual: one in the middle and one along the bottom) and its colour, Wrapped's style and a lyrics card style to match. Midnight drive, Northern lights, Golden hour, Cherry blossom, Deep ocean, Misty woods, Desert mirage, Old TV, Code rain, Cotton candy, Thunderstorm, First snow, Galaxy quest, Lava lamp, Notebook, Comic book, Vaporwave, Firefly meadow, Love letter, Concert night, Circuit, Autumn walk, Moonlight, Hyperspace, Cabin fire, Polka pop, Neon frame, Contours, Meteor night and Dream orbs.
+- **Yours marked:** the presets you saved show (yours) in the Personalization presets menu, so the ready-made ones and yours are easy to tell apart. Presets now keep the visualizer's colour too.
+
 ## 3.2.4 · November 2026
 - **No made-up moods:** a song gets moods only from Scan moods, its file's MOOD tag, your own picks or your other device; the guess from the genre alone is gone. After Remove all moods the Moods tab is really empty until you scan (the genre guesses made it look as if moods were still in the files).
 - **Dual on Now playing:** Now playing's visualizer button has a Dual switch: pick one style for the middle (around the cover) and one for the bottom, and both play at once, no need to make your own. It's in Settings › Personalization too.

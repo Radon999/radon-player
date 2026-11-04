@@ -2409,8 +2409,8 @@ fun PresetLines(ui: Ui) {
             val current = presets.firstOrNull { p -> p.look == here.look && p.theme == here.theme && p.layout == here.layout &&
                 p.own == here.own && (p.own || p.fx == here.fx) && p.npVis == here.npVis && p.dual == here.dual &&
                 (!p.dual || p.npBottom == here.npBottom) && (p.wrapped.isEmpty() || p.wrapped == here.wrapped) &&
-                (p.card.isEmpty() || p.card == here.card) }?.key.orEmpty()
-            val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to it.name })
+                (p.card.isEmpty() || p.card == here.card) && (p.visColor.isEmpty() || p.visColor == here.visColor) }?.key.orEmpty()
+            val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to MyPresets.label(it) })
             ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current,
                 describe = { MyPresets.describe(it) }, later = true,
                 menu = { k, l -> if (k.isEmpty()) emptyList() else Favs.menu(Favs.PRESETS, k, l) }) { if (it.isNotEmpty()) MyPresets.apply(it) }
@@ -2428,7 +2428,7 @@ fun PresetLines(ui: Ui) {
             }
             Pill("Cancel", quiet = true) { MyPresets.editing = null }
         } else Pill("Save as a preset") {
-            ui.askName = Triple("Name this preset", "My preset ${presets.size + 1}") { n: String ->
+            ui.askName = Triple("Name this preset", "My preset ${MyPresets.mine().size + 1}") { n: String ->
                 MyPresets.save(n); Music.toast("Saved “${n.trim()}”: it's in Personalization presets") }
         }
     }
