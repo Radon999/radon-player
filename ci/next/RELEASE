@@ -1,0 +1,9 @@
+v3.2.8
+Radon Player 3.2.8: The DJ keeps DJing
+## 3.2.8: The DJ keeps DJing (Windows and Android)
+- **The DJ keeps DJing when you skip:** a skip near the end of the DJ's queue set off ∞ (Autoplay), which filled the queue with a radio of streams: songs that aren't the DJ's (no sets, so it went quiet), and not only yours. With the DJ on, ∞'s radio never starts now: skip to the end of its queue and it goes on to its next set (waiting for it if it's still picking), and introduces it as always.
+- **Only my songs means only yours:** with the DJ's Only my songs on, every set is your songs alone (a stream it found never gets in), and asking for something that isn't in your music finds nothing rather than playing it from everywhere.
+
+### Good to know
+- **Android:** install RadonPlayer.apk over 3.2.7 (same signature, your library and settings stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.8.msi installs over 3.2.7, or use Update in Settings.
