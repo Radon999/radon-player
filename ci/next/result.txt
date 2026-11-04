@@ -1,4 +1,4 @@
-run 41761272553 · Wed Nov  4 02:38:59 UTC 2026
+run 41762296379 · Wed Nov  4 02:46:23 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="2" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="1" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="12" failures="0" tests="2" failures="0" tests="2" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
@@ -8,11 +8,11 @@ TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" test
 }`
 
 > Task :desktop:flattenJars
+> Task :app:compileReleaseArtProfile
 
 > Task :desktop:packageUberJarForCurrentOS
 The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player-linux-x64-3.2.6.jar
 
-> Task :app:compileReleaseArtProfile
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:lintVitalReportRelease
@@ -25,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 51s
+BUILD SUCCESSFUL in 4m 12s
 103 actionable tasks: 103 executed
