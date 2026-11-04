@@ -1131,6 +1131,7 @@ object Dj {
     private fun askAny(text: String): Built? {
         val sc = scope ?: return askAll(text)
         askFrom(text)?.let { return it }
+        if (!withNew) return null   // Only my songs: nothing from anywhere else
         return askAll(text)?.let { it.copy(line = "There's nothing like that in ${sc.first}, so from everywhere: ${it.line}") }
     }
 

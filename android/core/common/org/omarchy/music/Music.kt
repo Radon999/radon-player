@@ -1064,6 +1064,8 @@ object Music {
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
         dj = dj.copy(sets = sets)
         val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
+            // Only my songs: never a stream, whatever the set found
+            .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
         Dj.played((b.songs + songs).map { songKey(it) })   // not again for the next 20 sets
         return songs.map { it.copy(dj = n) }
     }
@@ -1111,6 +1113,10 @@ object Music {
         Voice.hush()
     }
 
+    /** You skipped (or a song ended) at the end of the DJ's queue while its next set was still being picked: it
+     *  goes on to that set as soon as it's ready (never to ∞'s radio, which isn't the DJ's). */
+    private var djWaiting = false
+
     /** Near the end of the queue: the DJ's next set after it. */
     private fun djMore() {
         if (djBusy != null) return
@@ -1121,10 +1127,13 @@ object Music {
         val coming = coming()
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
             djBusy = null
+            val wait = djWaiting; djWaiting = false
             if (res != null && ctxNow == context && dj.on) {
-                queue = queue + djTag(res)
+                val songs = djTag(res)
+                queue = queue + songs
                 afterQueueChange()
-            }
+                if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }   // on to it: the DJ introduces it
+            } else if (wait) { doneAdvancing(); player?.pause() }
         }
     }
 
@@ -1153,6 +1162,7 @@ object Music {
         val coming = coming()
         bg({ if (ask != null) Dj.ask(ask) else Dj.build(avoid = avoid, coming = coming) }) { res, err ->
             djBusy = null
+            djWaiting = false
             if (res == null) {
                 toast(if (ask != null) "The DJ found nothing for “${ask.trim()}”. Try an artist, a genre, a decade or a vibe."
                       else "The DJ has nothing else right now" + (err?.let { ": ${it.message?.take(80)}" } ?: "."))
@@ -2624,7 +2634,7 @@ object Music {
 
     /** ∞: a couple of songs before the end, songs like the last one, so there's no gap. */
     private fun autoplaySoon() {
-        if (autoplay && repeat == "off" && queue.isNotEmpty() && queue.size - index <= 2 && radioFrom != queue.last().id)
+        if (autoplay && !dj.on && repeat == "off" && queue.isNotEmpty() && queue.size - index <= 2 && radioFrom != queue.last().id)
             extendRadio(queue.last())
     }
 
@@ -2663,6 +2673,8 @@ object Music {
                 index = 0; loadCurrent()
             }
             repeat == "off" && nextQueue() != null -> switchQueue(nextQueue()!!.id)   // this queue is done: your next one goes on
+            // The DJ's queue is done (you skipped to its end): its next set, not ∞'s radio of streams
+            dj.on -> { djWaiting = true; if (djBusy == null) djMore() }
             else -> {
                 ended = true
                 val more = autoplay && repeat == "off" && current() != null
@@ -2955,7 +2967,7 @@ object Music {
         }
         saveState()
         // Keep a radio going: near the end of the queue, ask for more like the last song.
-        if (radioFrom != null && index >= queue.size - 2) extendRadio(queue.last())
+        if (radioFrom != null && !dj.on && index >= queue.size - 2) extendRadio(queue.last())
         if (dj.on) {
             djAnnounce(t)
             if (index >= queue.size - 2) djMore()
