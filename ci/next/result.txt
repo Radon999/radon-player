@@ -1,7 +1,8 @@
-run 41763707487 · Wed Nov  4 03:00:44 UTC 2026
+run 41764359535 · Wed Nov  4 03:07:52 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="2" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="1" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="12" failures="0" tests="2" failures="0" tests="2" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
   double sum;
   double min;
   double max;
@@ -11,7 +12,7 @@ TESTS: tests="2" failures="0" tests="3" failures="0" tests="5" failures="0" test
 > Task :app:compileReleaseArtProfile
 
 > Task :desktop:packageUberJarForCurrentOS
-The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player-linux-x64-3.2.6.jar
+The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player-linux-x64-3.2.7.jar
 
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
@@ -25,5 +26,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 58s
+BUILD SUCCESSFUL in 4m 54s
 103 actionable tasks: 103 executed
