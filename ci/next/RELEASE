@@ -1,0 +1,10 @@
+v3.2.6
+Radon Player 3.2.6: Presets in pictures
+## 3.2.6: Presets in pictures (Windows and Android)
+- **Presets in pictures:** each Personalization preset shows what it looks like: Now playing (its look, effects and visualizers), a slide of Wrapped in its style and its lyrics card. Tap one in the menu (click on the PC) to see its pictures and swipe through them, then tap it again to put it on; on the PC they also show beside the menu as you point at one, and turn by themselves.
+- **Personalization Preset Shuffle:** a switch at the very top of Settings › Personalization puts on a different one of your favourite presets (★) every 5, 10, 15 or 30 minutes (Change every). It only shuffles favourites.
+
+### Good to know
+- **Android:** install RadonPlayer.apk over 3.2.5 (same signature, your library and settings stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.6.msi installs over 3.2.5, or use Update in Settings.
+- **Shuffle:** favourite the presets you want to shuffle first (hold one or tap its ⋯ in Personalization presets), then turn on Personalization Preset Shuffle at the top of the tab.
