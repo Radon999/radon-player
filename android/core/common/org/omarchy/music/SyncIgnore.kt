@@ -20,8 +20,10 @@ object SyncIgnore {
     /** Whether the song file at uri is in one of the folders (a full path, or a folder's name anywhere in its path). */
     fun ignored(uri: String): Boolean {
         val list = all
-        if (list.isEmpty()) return false
         val folder = "/" + norm(runCatching { Music.ctx.folderOf(uri) }.getOrDefault("").ifEmpty { uri.substringBeforeLast('/') }) + "/"
+        // A folder named Unreleased (anywhere) is always left alone, listed or not: only you have its songs' right tags
+        if (folder.contains("/unreleased/")) return true
+        if (list.isEmpty()) return false
         return list.any { f ->
             val n = norm(f)
             if (n.isEmpty()) false

@@ -1332,7 +1332,10 @@ object Music {
                 if (e.id in tried || e.format == "m4a" || !Tags.writable(e.file)) continue
                 tried += e.id
                 val g = runCatching { GenreLookup.of(e.artist, e.title, e.album) }.getOrDefault("")
-                if (g.isNotEmpty() && runCatching { Tags.write(ctx, e.file, mapOf("genre" to g)) }.isSuccess) {
+                // Not sent to your other device: it only fills a missing genre here, never changes one it has
+                var wrote = false
+                if (g.isNotEmpty()) TagSync.quietly { wrote = runCatching { Tags.write(ctx, e.file, mapOf("genre" to g)) }.isSuccess }
+                if (wrote) {
                     lib.update(e.id) { it.copy(genre = g) }; done++
                 }
             }

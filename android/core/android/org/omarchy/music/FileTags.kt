@@ -47,8 +47,13 @@ object FileTags {
     fun canWrite(uri: String) = Music.lib.items.values.any { it.file == uri && it.format == "flac" } ||
         (!isDownload(uri) && runCatching { ownFile(uri) != null }.getOrDefault(false))
 
+    /** WAVs are tagged by hand ([WavTags], as on the PC): their ID3 chunk (where the cover is) and LIST INFO, every other
+     *  chunk kept. The tag library can read a WAV's LIST INFO only and write it back without its ID3 chunk, cover and all. */
+    private fun isWav(f: java.io.File) = f.extension.equals("wav", true)
+
     fun read(ctx: Ctx, uri: String): Map<String, String>? = runCatching {
         if (!isDownload(uri)) ownFile(uri)?.let { f ->
+            if (isWav(f)) WavTags.read(f)?.let { w -> return@runCatching KEYS.keys.filter { it != "lyrics" }.associateWith { w[it].orEmpty() } }
             setUp
             val tag = org.jaudiotagger.audio.AudioFileIO.read(f).tag ?: return@runCatching KEYS.mapValues { "" }
             return@runCatching KEYS.filterKeys { it != "lyrics" }.mapValues { (_, k) -> runCatching { tag.getAll(k).filter { it.isNotBlank() }.joinToString(", ") }.getOrDefault("") }
@@ -60,18 +65,41 @@ object FileTags {
     /** Your own file's tags written in its own format ("" clears a field); true if it worked. */
     fun writeOwn(uri: String, changes: Map<String, String>): Boolean = runCatching {
         val f = ownFile(uri) ?: error("can't write it")
+        if (isWav(f)) {
+            val rest = changes.filterKeys { it != "lyrics" }
+            val ok = (rest.isEmpty() || runCatching { WavTags.write(f, rest); true }.getOrDefault(false)) &&
+                (changes["lyrics"] == null || runCatching { TagWrite.wav(f, changes["lyrics"], emptyMap()) }.getOrDefault(false))
+            if (ok) {
+                runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
+                return@runCatching true
+            }
+        }
         setUp
         val af = org.jaudiotagger.audio.AudioFileIO.read(f)
         val tag = af.tagOrCreateAndSetDefault
+        // The cover (and every other picture) as it was: a tag write never takes it off
+        val pictures = runCatching { tag.artworkList.toList() }.getOrDefault(emptyList())
         for ((k, v) in changes) {
             val key = KEYS[k] ?: continue
             if (v.isEmpty()) runCatching { tag.deleteField(key) } else tag.setField(key, v)
         }
         af.commit()
+        if (pictures.isNotEmpty()) keepPictures(f, pictures)
         // Android's list of songs reads the new tags
         runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
         true
     }.getOrDefault(false)
+
+    /** After a write: the file's pictures put back if the tag library dropped them (it has with some files), so a
+     *  song's cover never goes when its other tags change. */
+    private fun keepPictures(f: java.io.File, pictures: List<org.jaudiotagger.tag.images.Artwork>) = runCatching {
+        val af = org.jaudiotagger.audio.AudioFileIO.read(f)
+        val tag = af.tagOrCreateAndSetDefault
+        if (runCatching { tag.artworkList.isNotEmpty() }.getOrDefault(false)) return@runCatching
+        for (p in pictures) tag.addField(p)
+        af.commit()
+        Crashes.note("Put the cover back into ${f.name}: the tag write had dropped it")
+    }
 
     fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean =
         if (!isDownload(uri) && ownFile(uri) != null) {
@@ -79,12 +107,19 @@ object FileTags {
             writeOwn(uri, changes).also { ok -> if (ok && before != null) TagSync.note(before["title"].orEmpty(), before["artist"].orEmpty(), changes) }
         } else runCatching { Tags.write(ctx, uri, changes); true }.getOrDefault(false)
 
-    fun cover(ctx: Ctx, uri: String): ByteArray? = runCatching { TagScan.read(uri).second }.getOrNull()
+    /** The picture inside the file, whatever its format (it read FLACs' only, so a sync took every MP3's, M4A's and
+     *  WAV's for one with no cover and put the other device's in its place). */
+    fun cover(ctx: Ctx, uri: String): ByteArray? = runCatching { embeddedPicture(ctx, uri) }.getOrNull()
+        ?: runCatching { TagScan.read(uri).second }.getOrNull()
     fun hasCover(ctx: Ctx, uri: String) = cover(ctx, uri) != null
     fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean =
         if (!isDownload(uri) && ownFile(uri) != null) runCatching {
             setUp
             val f = ownFile(uri)!!
+            if (isWav(f) && runCatching { WavTags.write(f, emptyMap(), jpeg); true }.getOrDefault(false)) {
+                runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
+                return@runCatching true
+            }
             val af = org.jaudiotagger.audio.AudioFileIO.read(f)
             val tag = af.tagOrCreateAndSetDefault
             val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }

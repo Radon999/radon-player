@@ -7,8 +7,8 @@ import java.io.File
 
 /** Tags & covers match (Settings › Sync): your songs that are on both devices end up with the same tags and the same
  *  album art. You pick the main device (the PC or the phone): at each sync it sends what every song of its says (title,
- *  artist, album, album artist, genre, year, track) and its cover, and the other device makes its copy of the song the
- *  same. The main device always sends, the other always takes; tag edits made on either still go both ways (TagSync).
+ *  artist, album, album artist, genre, year, track) and its cover, and the other device fills in what its copy of the
+ *  song is missing: a tag that's filled in, and a cover it has, are never changed by it. The main device always sends, the other always takes; tag edits made on either still go both ways (TagSync).
  *
  *  A song is found on the other device by its ISRC, else its title and artist, else its file's name, as long as the
  *  lengths agree. On the phone only the songs the app downloaded can be changed (Android lets an app write only its own
@@ -189,16 +189,17 @@ object TagMatch {
                 if (f == playing || f in done) continue
                 if (TagChanges.key(t.title, t.artist) in waiting) continue
                 val now = synchronized(lock) { c[f] }?.takeIf { it.stamp == stampOf(f) } ?: readFile(f) ?: continue
-                // Only what's missing here or really different: a field that says the same thing (another case, spacing,
-                // "A, B" and "A; B", 2010 and 2010-01-26, 8 and 8/12) is left exactly as it is
-                val changes = e.tags.filter { (k, v) -> k in FIELDS && v.isNotBlank() && !same(k, v, now.tags[k].orEmpty()) }
+                // Only what's missing here: a tag that's filled in is never changed by a sync (only by you, in the
+                // Tagger or Edit tags, or a scan you run to change it)
+                val changes = e.tags.filter { (k, v) -> k in FIELDS && v.isNotBlank() && now.tags[k].isNullOrBlank() }
                 var did = false
                 if (changes.isNotEmpty()) TagSync.quietly {
                     if (runCatching { Tags.write(Music.ctx, f, changes) }.isSuccess) did = true
                 }
                 // The cover only when it's the same album (a single's cover never goes onto the album version)
                 val sameAlbum = norm(e.tags["album"].orEmpty()) == norm((changes["album"] ?: now.tags["album"]).orEmpty())
-                if (sameAlbum && e.art.isNotEmpty() && e.art != now.art) got.art[e.art]?.let { b64 ->
+                // and only when the song has none here: a cover it has is never replaced or taken off by a sync
+                if (sameAlbum && e.art.isNotEmpty() && now.art.isEmpty()) got.art[e.art]?.let { b64 ->
                     val jpeg = runCatching { java.util.Base64.getDecoder().decode(b64) }.getOrNull()
                     // A cover that's already here and looks the same (the same picture saved another way) stays as it is
                     val mine = if (now.art.isEmpty()) null else runCatching { FileTags.cover(Music.ctx, f) }.getOrNull()

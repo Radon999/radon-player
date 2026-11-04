@@ -957,8 +957,8 @@ private fun SyncIgnoreLines() {
         "listed here, so a sync never changes their tags or album art. Without it, a sync can take an unreleased song for " +
         "another song of the same name and give it that song's tags and cover. Add the folder's full path, or just its name " +
         "(such as Unreleased) to leave alone every folder of that name. This list is kept on this $DEVICE only: add the " +
-        "folder on your other device too. Their moods still sync, and with this list empty unreleased songs sync like " +
-        "any other (only FLACs can take tags and covers on the phone; other files there are never changed)", ig.all.isNotEmpty()) {
+        "folder on your other device too. A folder named Unreleased is always left alone on both, listed or not. Their " +
+        "moods still sync", ig.all.isNotEmpty()) {
         if (pick != null) Pill("Choose\u2026", quiet = true) { pick() }
     }
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -982,9 +982,10 @@ private fun TagMatchLine(other: String) {
     val on = P.on(m.ON)
     val mainName = if (m.main == "pc") "the PC" else "the phone"
     val receiver = if (m.main == "pc") "the phone" else "the PC"
-    Line("Tags & covers match", "Keeps the songs that are on both devices exactly the same: their tags (title, artist, album, " +
+    Line("Tags & covers match", "Fills in what the songs on both devices are missing: their tags (title, artist, album, " +
         "album artist, genre, year, track) and their album art. The main device sends, the other takes: at each sync $receiver's " +
-        "copies are made the same as $mainName's. Tag edits you make on either still go to both. A song is matched by its ISRC, " +
+        "copies get what $mainName's have and they don't. A tag that's filled in, and a cover a song has, are never changed or " +
+        "taken off by it. Tag edits you make in the Tagger or Edit tags on either still go to both. A song is matched by its ISRC, " +
         "its title and artist, or its file's name, when the lengths agree. On the phone only the songs the app downloaded can be " +
         "changed (Android lets an app change only its own files)", on,
         note = when {
