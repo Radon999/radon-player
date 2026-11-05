@@ -782,6 +782,11 @@ private fun LyricsMoodsLines(ui: Ui) {
         ls.progress != null) {
         Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
     }
+    Line("Lyrics files (.lrc)", "Saves a .lrc file beside each song that has lyrics in its file, with the same name " +
+        "(timed lines when the song has them, else the words), so any player, and the folder wherever it's copied, has " +
+        "them. Songs with a .lrc already are left as they are" + (if (onPhone) ". On the phone it needs All files access" else ""), false) {
+        Pill("Scan…", quiet = true) { ui.tool = "lrc" }
+    }
     Line("Moods from lyrics", "Scan moods (the Moods tab) reads each song's words as well as hearing its sound: on this " +
         "$DEVICE, reading whole lines and sayings (\"wash my blues away\" is relief, not sadness), or by Claude with an Anthropic " +
         "key saved. Both always count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for " +

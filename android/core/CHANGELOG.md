@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.11 · November 2026
+- **Lyrics files (.lrc) (Settings › Scanner › Lyrics & moods):** saves a .lrc file beside each song that has lyrics in its file, with the song's file name (its timed lines when it has them, else its words, with the title, artist and album at the top), so any player, and the folder wherever you copy it, has them. Works on the PC and on the phone (with All files access); songs with a .lrc already are left as they are.
+
 ## 3.2.10 · November 2026
 - **Wrapped and lyrics card styles in pictures:** Settings › Personalization's Wrapped style and Lyrics card style menus show what each one looks like (a slide of Wrapped in that style and your look, and a lyrics card in that style): tap one on the phone to see it under it, point at one on the PC.
 

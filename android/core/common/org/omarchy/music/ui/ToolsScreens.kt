@@ -53,6 +53,7 @@ fun ToolScreens(ui: Ui) {
         "nocover" -> NoCoversScreen(ui)
         "savecovers" -> FolderCoversScreen(ui, apply = false)
         "applycovers" -> FolderCoversScreen(ui, apply = true)
+        "lrc" -> LrcScreen(ui)
         "truth" -> AlbumTruthScreen(ui)
         "empty" -> EmptyFoldersScreen(ui)
         "skip" -> SkipFoldersScreen(ui)
@@ -760,6 +761,40 @@ private fun FolderCoversScreen(ui: Ui, apply: Boolean) {
                         running = false
                         done = r ?: org.omarchy.music.FolderCovers.Done(0, 0, 0, 0, listOf("Couldn't finish: ${e?.message}"))
                         if (apply && (r?.saved ?: 0) > 0) Music.rescan()
+                    }
+                }
+                if (!running) Pill(if (d == null) "Cancel" else "Done", quiet = d == null) { close() }
+            }
+        }
+    }
+}
+
+
+/** Lyrics files (.lrc): one press, then what it did. */
+@Composable
+private fun LrcScreen(ui: Ui) {
+    val close = { ui.tool = null }
+    var status by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    var done by remember { mutableStateOf<org.omarchy.music.LrcFiles.Done?>(null) }
+    FullScreen("Lyrics files (.lrc)", close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            val d = done
+            Text(when {
+                running -> status.ifEmpty { "Starting…" }
+                d != null -> "%,d lyrics file%s saved · %,d had one already · %,d with no lyrics in the file · %,d couldn't be saved".format(
+                    d.saved, if (d.saved != 1) "s" else "", d.had, d.none, d.failed)
+                else -> "Each song with lyrics in its file gets a .lrc of the same name beside it: its timed lines when it has " +
+                    "them, else its words. Songs with a .lrc already are left as they are."
+            }, style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+            d?.notes?.forEach { Text(it, style = T.sub) }
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                if (!running && d == null) Pill("Start") {
+                    running = true
+                    Music.bg({ org.omarchy.music.LrcFiles.save { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
+                        running = false
+                        done = r ?: org.omarchy.music.LrcFiles.Done(0, 0, 0, 0, listOf("Couldn't finish: ${e?.message}"))
                     }
                 }
                 if (!running) Pill(if (d == null) "Cancel" else "Done", quiet = d == null) { close() }

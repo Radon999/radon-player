@@ -222,6 +222,13 @@ object Lyrics {
         return if (parseLrc(text).isNotEmpty()) Got(null, null, text, "the file") else Got(text, "the file")
     }
 
+    /** The lyrics in track's own file (its tags), or null: nothing looked up anywhere else. It blocks. */
+    fun inFile(ctx: Ctx, t: Track): Got? {
+        val m = songMeta(ctx, Music.lib, t)
+        if (m.file == null) return null
+        return fromFile(m) ?: fromOtherFile(ctx, m)
+    }
+
     /** The lyrics of track, or null if nobody has them. It blocks. */
     fun get(ctx: Ctx, t: Track, refresh: Boolean = false): Got? {
         val m = songMeta(ctx, Music.lib, t)
