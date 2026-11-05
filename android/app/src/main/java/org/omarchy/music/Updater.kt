@@ -56,6 +56,8 @@ object Updater {
     }
 
     private val APK_NAMES = listOf("RadonPlayer.apk", "OmarchyMusic.apk")
+    /** The newest Radon Player Next build (the test app), built from the same code as each release. */
+    private const val NEXT_APK = "https://raw.githubusercontent.com/$REPO/android-work/ci/next/RadonPlayer-Next.apk"
 
     /** Look for a newer release (quiet: no message when there's none, as at start). */
     fun check(quiet: Boolean = true) {
@@ -81,7 +83,9 @@ object Updater {
                 return@bg
             }
             if (latest != tag.removePrefix("v")) Music.toast("Radon Player ${tag.removePrefix("v")} is out: update it in Settings (⚙)")
-            latest = tag.removePrefix("v"); apk = url
+            // Radon Player Next (the test build, an app of its own: org.omarchy.music.next) updates to the newest Next
+            // build: the release's APK is the other app, which Android won't put in its place
+            latest = tag.removePrefix("v"); apk = if (ctx.packageName.endsWith(".next")) NEXT_APK else url
             Music.accountsVersion++
         }
     }
