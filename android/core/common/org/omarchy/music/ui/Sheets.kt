@@ -1212,6 +1212,7 @@ private fun PlaybackLines(ui: Ui) {
     }
     if (onPhone) AutoMonoLines()
     IgnoreBtLines(ui)
+    NewestBtLine()
     Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
@@ -1387,10 +1388,34 @@ private fun IgnoreBtLines(ui: Ui) {
     }
     Text(if (onPhone) "Phones decide how Bluetooth works, so this may not work on every phone. Many play to only one Bluetooth " +
         "device at a time: once the car takes over, your headphones drop out and there's nowhere else to keep the music, so it's " +
-        "left as it is. It never moves the music to the phone's own speaker. When the car is connected through Android Auto, " +
-        "Android Auto's own sound can't be moved"
+        "left as it is. It never moves the music to the phone's own speaker. With Android Auto (wired or wireless) and the car " +
+        "(or Android Auto) picked here, the map, calls and the rest stay on the car's screen while the music and the DJ play on " +
+        "your headphones"
         else "The PC decides its default output; the app looks every few seconds, so the device may have the sound for a moment " +
         "first. The music goes back to the output it was on, as long as that's still there",
+        style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+}
+
+/** Newest Bluetooth device wins: beside Ignore Bluetooth devices, which it works with (an ignored one never wins). */
+@Composable
+private fun NewestBtLine() {
+    val ign = org.omarchy.music.IgnoreBt
+    val on = ign.newestOn
+    Line("Newest Bluetooth device wins", when {
+        !on -> "With two Bluetooth devices connected (an earbud left on the seat and the car), the one that connected last " +
+            "has the music, and its EQ" + if (onPhone) " (Android Auto counts as one)" else ""
+        ign.newestNow.isNotEmpty() -> "${ign.newestNow} connected last, so it has the music" +
+            if (ign.newestWhy.isNotEmpty()) " (not ${ign.newestWhy})" else ""
+        else -> "On: when two are connected, the last to connect has the music. Ignored devices never do"
+    }, on) {
+        Switch(on, { ign.setNewest(it) }, colors = swColors())
+    }
+    Text(if (onPhone) "Apps can't disconnect a Bluetooth device, so the other one stays connected (for calls), but the music " +
+        "and the DJ only play on the newest. If two connected while the app was closed, it can't tell which came last until " +
+        "one reconnects. Samsung's Dual audio (Bluetooth › Advanced) plays to both at once: keep it off for this. Ignore " +
+        "Bluetooth devices comes first: an ignored device never gets the music, even when it's the newest"
+        else "Windows can't be told to disconnect a device, so the other one stays connected, but the music plays on the " +
+        "newest. Ignore Bluetooth devices comes first: an ignored device never gets the music, even when it's the newest",
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
 }
 

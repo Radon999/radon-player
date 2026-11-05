@@ -1048,12 +1048,14 @@ object Music {
             playFrom(djTag(res), 0, radio = false)
             dj = dj.copy(on = true)
             djAnnounce(current())
+            djMakeSpare()
         }
     }
 
     fun djStop() {
         if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
         dj = dj.copy(on = false)
+        djSpare = null; djSpareJob++
         saveState()
     }
 
@@ -1078,7 +1080,7 @@ object Music {
         dj = dj.copy(shown = n)
         toast("DJ · ${set.line}")
         // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
-        djSay(Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "")
+        djSay(djLine(n) ?: return)
     }
 
     /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. With your
@@ -1095,21 +1097,84 @@ object Music {
     private fun djSay(text: String) {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
         val p = player ?: return
-        p.pause()
+        // The song goes on silently under the line (it starts again from the top after): never paused, so Android
+        // keeps the app playing in the background. Paused, with the screen off, Android could let the app go
+        // (stopping the DJ for good) while the voice was still being made.
         if (!djTalking) djVolume = p.volume.takeIf { it > 0.05f } ?: 1f
-        p.volume = 0f   // nothing of the song while the DJ talks (it may have begun loading already)
+        // Nothing heard but her: the player's volume all the way down (it may have begun loading already), no fade
+        // coming up, and the last song's crossfade tail gone. Bit-perfect sends the song untouched, past any volume,
+        // so there it waits paused instead.
+        fadeJob?.cancel(); fadeIn = 0.0
+        dropTail()
+        fadingOut?.let { f -> fadingOut = null; runCatching { f.volume = 0f; f.release() } }
+        p.volume = 0f
+        if (bitPerfectNow()) p.pause()
         djTalking = true
-        Voice.say(text.replace("“", "").replace("”", "")) {
-            // Done talking: the set's first song from its very start (if it's still loading, it starts by itself when ready)
-            if (djTalking) { djTalking = false; player?.let { it.seekTo(0); it.volume = djVolume; it.playWhenReady = true; it.play() } }
+        val mine = ++djTurn
+        lastDjLine = text
+        djSaidAt = now()
+        Voice.say(djClean(text)) { djDone(mine) }
+        // Never stuck: if the voice hasn't finished (or even begun) long after it should have, the music goes on
+        val most = 25_000L + text.length * 90L
+        scope.launch(Dispatchers.Main) { delay(most); if (djTurn == mine && djTalking) { Voice.hush(); djDone(mine) } }
+    }
+
+    private fun djClean(text: String) = text.replace("“", "").replace("”", "")
+
+    /** What the DJ says when set n begins (its line, then its fact). */
+    private fun djLine(n: String): String? = dj.sets[n]?.let { set ->
+        djLines.getOrPut(set.line + "\n" + set.fact) {   // made once (its fillers are picked at random), so the line made ahead is the one said
+            if (djLines.size > 20) djLines.keys.firstOrNull()?.let { djLines.remove(it) }
+            Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "" } }
+    private val djLines = LinkedHashMap<String, String>()
+
+    /** The next set's line made ahead (while this set plays), so the DJ says it the moment the set begins. */
+    private fun djPrepare(songs: List<Track>) {
+        if (!djVoice || Remote.active) return
+        val n = songs.firstOrNull()?.dj?.toString() ?: return
+        djLine(n)?.let { Voice.prepare(djClean(it)) }
+    }
+
+    private var djTurn = 0L          // each line the DJ says (a line that's done late, after a newer one began, is ignored)
+    private var lastDjLine = ""
+    private var djSaidAt = 0.0
+
+    /** Done talking (line mine): the set's first song from its very start (if it's still loading, it starts by itself when ready). */
+    private fun djDone(mine: Long) {
+        if (mine != djTurn || !djTalking) return
+        djTalking = false
+        // The set's song is in: from its very start, heard now. Still loading: it starts, heard, when it's in (play)
+        if (loadedFor != current()?.id) return
+        player?.let { it.seekTo(0); it.volume = djVolume; it.playWhenReady = true; it.play() }
+    }
+    private var loadedFor: String? = null   // the song the player has in now (its id)
+
+    /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
+     *  is never left stuck (talking that never came, a set it was still picking, a set it hadn't introduced yet). */
+    fun sessionPlay() {
+        if (Remote.active) { Remote.cmd("play"); return }
+        val p = player ?: return
+        if (djTalking) {   // a line that never came out (long after it began): say it again; else let it finish
+            if (now() - djSaidAt > 8) djSay(lastDjLine.ifBlank { return djHush() })
+            return
         }
+        if (dj.on && current() != null && p.state == Engine.ENDED && index + 1 >= queue.size) {
+            djWaiting = true; advancing = true; if (djBusy == null) djMore(); return
+        }
+        // A new set that never got its line (the skip landed while it was loading): its line, then the song
+        current()?.dj?.takeIf { it > 0 && dj.on && it.toString() != dj.shown && dj.sets[it.toString()] != null }?.let {
+            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else { djAnnounce(current()); if (!djTalking) p.play() }
+            return
+        }
+        if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
     }
 
     /** The DJ stops talking (Play, Pause, a skip): the music goes on. */
     fun djHush() {
         if (!djTalking) return
         djTalking = false
-        player?.let { it.volume = djVolume; it.playWhenReady = true }
+        // the song heard now if it's in (if it's still loading, it's heard once it's in)
+        player?.let { if (loadedFor == current()?.id) it.volume = djVolume; it.playWhenReady = true }
         Voice.hush()
     }
 
@@ -1132,10 +1197,19 @@ object Music {
                 val songs = djTag(res)
                 queue = queue + songs
                 afterQueueChange()
+                djPrepare(songs)
+                djMakeSpare()
                 if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }   // on to it: the DJ introduces it
-            } else if (wait) { doneAdvancing(); player?.pause() }
+            } else if (wait && dj.on && djRetried < 2) {
+                // Nothing came (a slow lookup, no network for a moment): try again rather than stop
+                djRetried++
+                djWaiting = true
+                scope.launch(Dispatchers.Main) { delay(3000); if (djWaiting && dj.on) djMore() }
+            } else if (wait) { djRetried = 0; doneAdvancing(); player?.pause(); toast("The DJ couldn't pick its next set. Tap Play to try again.") }
+            if (res != null) djRetried = 0
         }
     }
+    private var djRetried = 0
 
     private fun djKind() = dj.sets[current()?.dj.toString()]?.kind
 
@@ -1157,6 +1231,13 @@ object Music {
         if (djBusy != null) return
         if (!dj.on && ask == null) { djStart(); return }
         djReady()
+        // Switch it up: the set made ahead, at once (its line made ahead too), when there is one
+        if (ask == null) djSpare?.takeIf { it.kind != djKind() }?.let { spare ->
+            djSpare = null
+            djWaiting = false
+            djSwitchTo(spare)
+            return
+        }
         djBusy = if (ask != null) "Looking for ${ask.trim()}…" else "Switching it up…"
         val avoid = djKind()
         val coming = coming()
@@ -1168,15 +1249,43 @@ object Music {
                       else "The DJ has nothing else right now" + (err?.let { ": ${it.message?.take(80)}" } ?: "."))
                 return@bg
             }
-            if (!dj.on) dj = Dj.State(on = true, from = dj.from)
-            val songs = djTag(res)
-            val queued = queue.drop(index + 1).filter { it.queued }
-            val keep = if (current() != null) queue.take(index + 1) else emptyList()
-            queue = keep + queued + songs
-            index = keep.size + queued.size
-            radioFrom = null
-            context++
-            loadCurrent()
+            djSwitchTo(res)
+        }
+    }
+
+    /** A new set now, in place of the rest of this one. */
+    private fun djSwitchTo(res: Dj.Built) {
+        if (!dj.on) dj = Dj.State(on = true, from = dj.from)
+        val songs = djTag(res)
+        val queued = queue.drop(index + 1).filter { it.queued }
+        val keep = if (current() != null) queue.take(index + 1) else emptyList()
+        queue = keep + queued + songs
+        index = keep.size + queued.size
+        radioFrom = null
+        context++
+        loadCurrent()
+        djMakeSpare()
+    }
+
+    /** A set made ahead for Switch it up (and its line made ahead), so switching is instant. Made again after each
+     *  new set, so it never repeats what's coming. */
+    private var djSpare: Dj.Built? = null
+    private var djSpareJob = 0
+    private fun djMakeSpare() {
+        if (!dj.on || Remote.active) return
+        djSpare = null
+        val mine = ++djSpareJob
+        val avoid = djKind()
+        val coming = coming()
+        bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
+            if (mine != djSpareJob || res == null || !dj.on) return@bg
+            djSpare = res
+            // Its line, made now (the same words it'll say)
+            if (djVoice) {
+                val line = Spoken.humanize(res.line) + if (res.fact.isNotEmpty()) " " + Spoken.humanize(res.fact, filler = 0.0) else ""
+                djLines[res.line + "\n" + res.fact] = line
+                Voice.prepare(djClean(line))
+            }
         }
     }
 
@@ -2763,6 +2872,7 @@ object Music {
     private var fadingId: String? = null
     private var fadeIn = 0.0
     private var fadeJob: kotlinx.coroutines.Job? = null
+    private var fadingOut: Engine? = null   // a crossfade's ending song, fading out in its own player
 
     private var tail: Engine? = null   // the song ending, ready to carry on fading in a player of its own
     private var tailFor: String? = null
@@ -2833,13 +2943,16 @@ object Music {
                 x.volume = from
                 player?.volume = 0f   // the second player has it now
                 fadeIn = n
+                fadingOut = x
                 trackEnded()
                 val rest = maxOf(0.8, left - 0.5)
                 val steps = (rest * 20).toInt().coerceAtLeast(1)
                 for (k in 1..steps) {
                     delay(50)
+                    if (fadingOut !== x) break   // stopped (the DJ began talking)
                     x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
                 }
+                if (fadingOut === x) fadingOut = null
                 runCatching { x.release() }
             }
         }
@@ -2891,6 +3004,8 @@ object Music {
         artistKey(a.artist) == artistKey(b.artist)
 
     fun trackEnded() {
+        // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
+        if (djTalking) { player?.let { it.seekTo(0); it.play() }; return }
         advancing = true
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
@@ -2918,10 +3033,9 @@ object Music {
         if (Remote.active) { Remote.cmd(if (Remote.status.paused) "play" else "pause"); return }
         val p = player ?: return
         if (current() == null) return
-        if (djTalking) { djHush(); if (!p.isPlaying) p.play(); return }   // tapped while the DJ talks: straight to the music
-        if (p.isPlaying) p.pause() else {
-            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
-        }
+        // Pause while the DJ talks: she stops, and the set's song waits paused at its start
+        if (djTalking) { djHush(); p.pause(); if (loadedFor == current()?.id) p.seekTo(0); return }
+        if (p.isPlaying) p.pause() else sessionPlay()
     }
 
     fun seek(seconds: Double) {
@@ -3051,12 +3165,13 @@ object Music {
             else if (cast != null) castMime(t, uri) else null,
             t.title, t.artist, t.album, art)
         p.load(item, (startAt * 1000).toLong())
+        loadedFor = t.id
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         eqProcessor.songGain = gainOf(t)
         applyEq()   // the song's own EQ on this output, or the usual one
         // The DJ is still talking (a new set): the song waits, loaded and silent, at its start until the DJ is done
         val hold = djTalking && autoplay
-        p.playWhenReady = autoplay && !hold
+        p.playWhenReady = autoplay && !(hold && bitPerfectNow())   // held: silent at its start until the DJ is done (see djSay)
         advancing = false   // buffering for real now
         fadeJob?.cancel()
         if (hold) { fadeIn = 0.0; p.volume = 0f }

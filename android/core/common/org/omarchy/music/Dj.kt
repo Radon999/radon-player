@@ -10,8 +10,8 @@ import kotlin.random.Random
 /** The DJ, like Spotify's, as on the desktop: sets of a few songs, each begun with a line from the DJ,
  *  made from your listening: what you've had on repeat, what you play at this time of day, your
  *  favourites, throwbacks to a year you played something to death, songs you loved and haven't heard
- *  in months, and new ones like yours (Tidal's and YouTube Music's radios), leaving out the ones you
- *  keep skipping. Your history is every play Most played counts: Last.fm's scrobbles, your Spotify
+ *  in months, and new ones like yours (Tidal's and YouTube Music's radios). Skips don't keep a song out
+ *  (you may just not be in the mood for it): they're only counted, for the DJ to tell you about. Your history is every play Most played counts: Last.fm's scrobbles, your Spotify
  *  and Apple Music imports, and the plays here. "Switch it up" starts another kind of set, and you can
  *  ask for one: an artist, a genre, a decade or a vibe. Building a set
  *  blocks (run it in [Music.bg]); [Music] plays them. */
@@ -194,12 +194,12 @@ object Dj {
     // ---- what you like ----
     /** all: your most played songs of all time; recent: of the last 30 days; hour: what you play around this
      *  hour; years: each year's most played; last: when you last played each song (stats key); artists: the
-     *  ones you've played most lately; skipped: songs you keep skipping; moods: the moods (Moods) of what you played
+     *  ones you've played most lately; moods: the moods (Moods) of what you played
      *  in the last 30 days, and moodHour of what you play around this hour, each with how many plays. */
     private class Taste(val mine: Map<Pair<String, String>, Track>, val recent: List<Track>, val all: List<Track>,
                         val artists: List<String>, val last: Map<Pair<String, String>, Long>,
                         val hour: List<Track> = emptyList(), val years: Map<Int, List<Track>> = emptyMap(),
-                        val skipped: Set<Pair<String, String>> = emptySet(), val facts: Facts = Facts(),
+                        val facts: Facts = Facts(),
                         val moods: Map<String, Int> = emptyMap(), val moodHour: Map<String, Int> = emptyMap(),
                         val moodPlays: List<MoodPlay> = emptyList())
 
@@ -261,22 +261,22 @@ object Dj {
 
     private data class Heard(val t: Long, val artist: String, val title: String)
 
-    /** (blocking) Every play Most played counts: your Last.fm scrobbles (else the plays here) and your imports. */
+    /** (blocking) Every play the DJ goes by: your Last.fm scrobbles and your imports; the plays here only without any. */
     private fun history(): List<Heard> {
+        // Last.fm's scrobbles and your imports (Spotify, Apple Music, Deezer, YouTube Music, Tidal): what every count,
+        // set and fact is made from. The plays here only when there's none of those at all (a fallback).
         val out = ArrayList<Heard>()
         if (LastFm.connected) runCatching { Wrapped.allScrobbles(Music.ctx).forEach { out += Heard(it.t, it.artist, it.title) } }
-        // The plays here, always (they're the DJ's own diary of when you played what): with Last.fm on too, only the ones
-        // Last.fm hasn't got, so none counts twice. They never count in Most played or your stats.
-        val near = HashSet<Pair<Pair<String, String>, Long>>()
-        out.forEach { near += Stats.statsKey(it.title, it.artist) to it.t / 900 }
-        for (e in Music.plays.items.values.toList()) for (x in e.at) {
-            val k = Stats.statsKey(e.track.title, e.track.artist)
-            if ((k to x / 900) in near || (k to x / 900 - 1) in near || (k to x / 900 + 1) in near) continue
-            out += Heard(x, e.track.artist, e.track.title)
-        }
         for (p in SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()) out += Heard(p.t, p.artist, p.title)
+        if (out.isEmpty()) out += herePlays()
         return out
     }
+
+    /** The plays here (the app's own diary of when you played what). */
+    private fun herePlays(): List<Heard> = runCatching {
+        Music.plays.items.values.toList().flatMap { e -> e.at.map { Heard(it, e.track.artist, e.track.title) } }
+    }.getOrDefault(emptyList())
+
 
     /** (blocking) Every play (Last.fm, your imports, the plays here) of a song of yours whose mood is known, oldest
      *  first, read again every ten minutes. See [MoodPlays]. */
@@ -343,6 +343,18 @@ object Dj {
                 if (age < 365 * 86_400L && Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1) moodHour.merge(mood, 1, Int::plus)
             }
         }
+        // All time, an artist's and a song's plays are Most played's (Stats): Last.fm and your Spotify, Apple Music,
+        // Deezer, YouTube Music and Tidal imports (with or without a time), an artist's under one name. The plays here
+        // only count when there's nothing from those at all.
+        val anyOutside = Stats.artists.any { it.plays > it.here }
+        fun outside(all: Int, here: Int) = if (anyOutside) all - here else all
+        if (Stats.artists.isNotEmpty()) { artistAll.clear(); Stats.artists.forEach { val n = outside(it.plays, it.here); if (n > 0) artistAll.merge(it.name, n, Int::plus) } }
+        val statSongs = HashMap<Pair<String, String>, Int>()
+        Stats.songs.forEach { statSongs.merge(Stats.statsKey(it.title, it.artist), outside(it.plays, it.here), Int::plus) }
+        statSongs.forEach { (k, n) -> if (n > (count[k] ?: 0)) count[k] = n }
+        // When you last played a song: the plays here too (not counted anywhere), so one you played a minute ago,
+        // before Last.fm has it, isn't picked again straight away
+        for (p in herePlays()) { val k = Stats.statsKey(p.title, p.artist); if (p.t > (last[k] ?: 0L)) last[k] = p.t }
         val yearTop = years.mapNotNull { (y, c) -> c.maxByOrNull { it.value }?.let { (k, n) -> y to (names.getValue(k) to n) } }.toMap()
         val facts = Facts(count, first, artistAll, artistMonth, hours, total, yearTop, if (since == Long.MAX_VALUE) 0 else since, moodMonth,
             years.mapValues { it.value.values.sum() })
@@ -354,16 +366,16 @@ object Dj {
         val rec = songs(recent, 60)
         if (top.isEmpty()) top = (rec + all).map { it.artist.split(",")[0].trim() }.filter { it.isNotEmpty() }
             .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(20).map { it.key }
-        // Skipped more often than heard out, three times or more: left out of the DJ's sets.
-        val skipped = runCatching { Music.songStats.rows().filter { (_, n, f) -> n >= 3 && n > f }
-            .flatMap { (t, _, _) -> listOf(songKey(t), Stats.statsKey(t.title, t.artist)) }.toSet() }.getOrDefault(emptySet())
         return Taste(mine, rec, all, top, last, songs(hour, 80),
-            years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, skipped, facts, moodMonth, moodHour,
+            years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, facts, moodMonth, moodHour,
             moodPlays.sortedBy { it.t }).also { taste = it; tasteAt = now() }
     }
 
     private fun lastPlayed(taste: Taste, t: Track) = taste.last[Stats.statsKey(t.title, t.artist)] ?: 0L
-    private fun ok(taste: Taste, pool: List<Track>) = pool.filter { songKey(it) !in taste.skipped && Stats.statsKey(it.title, it.artist) !in taste.skipped }
+    /** The songs of a pool the DJ may play: all of them. Skips never keep a song out of its sets (you may just not
+     *  be in the mood for it); they're only counted, for Skips and the DJ's facts. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun ok(taste: Taste, pool: List<Track>) = pool
     private fun newToYou(t: Track, known: Set<Pair<String, String>>) = songKey(t) !in known && Stats.statsKey(t.title, t.artist) !in known
 
     private fun known(taste: Taste): Set<Pair<String, String>> = taste.mine.keys + taste.all.map { songKey(it) } + taste.last.keys
@@ -769,7 +781,7 @@ object Dj {
         val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
         val heard = rows.associate { songKey(it.first) to (it.second to it.third) }
         val allRank = taste.all.withIndex().associate { songKey(it.value) to it.index }
-        val artistRank = f.artistAll.entries.sortedByDescending { it.value }.take(5).withIndex().associate { it.value.key to (it.index + 1 to it.value.value) }
+        val artistRank = f.artistAll.entries.sortedByDescending { it.value }.take(5).withIndex().associate { it.value.key.lowercase() to (it.index + 1 to it.value.value) }
         // The songs coming up
         for (s in next.take(4)) {
             val k = Stats.statsKey(s.title, s.artist)
@@ -795,7 +807,7 @@ object Dj {
                     else "${q(s)} is one of your top ten songs of all time. Number ${ordinal(i + 1)}, in fact."
             }
             val lead = s.artist.split(",")[0].trim()
-            artistRank[lead]?.takeIf { it.second >= 20 }?.let { (r, plays) ->
+            artistRank[lead.lowercase()]?.takeIf { it.second >= 20 }?.let { (r, plays) ->
                 out["artist-rank:$lead"] = if (r == 1) "$lead is your number one artist of all time, with ${num(plays)} plays. Of course they made the set."
                     else "$lead is number ${ordinal(r)} on your all time artist list, with ${num(plays)} plays."
             }
@@ -848,12 +860,20 @@ object Dj {
         }
         // Skips
         rows.filter { it.second >= 5 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
-            out["most-skipped"] = "The song you skip the most is ${q(t)}, with ${num(sk)} skips. Don't worry, I'm keeping it out of my sets."
+            out["most-skipped"] = "The song you skip the most is ${q(t)}, with ${num(sk)} skips. No hard feelings though, it stays in the mix for when the mood is right."
         }
         rows.filter { it.second == 0 }.maxByOrNull { it.third }?.takeIf { it.third >= 15 }?.let { (t, _, full) ->
             out["never-skipped"] = "You've never skipped ${q(t)}. ${num(full)} times, start to finish."
         }
         val skips = rows.sumOf { it.second }; val outs = rows.sumOf { it.third }
+        if (skips >= 25) out["skips-all"] = "You've skipped ${num(skips)} songs in all. Don't worry, a skip never keeps a song out of my sets, it just means the mood wasn't right."
+        runCatching { Music.songStats.rows(nowS - 7 * 86_400L) }.getOrNull()?.let { wk ->
+            val n = wk.sumOf { it.second }
+            if (n >= 10) out["skips-week"] = "You've skipped ${num(n)} songs this week. Picky mood lately? That's fine, I'll keep the hits coming."
+            wk.filter { it.second >= 3 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
+                out["skipped-week:${songKey(t)}"] = "This week you skipped ${q(t)} ${num(sk)} times. Not feeling it right now? It'll be back when you are."
+            }
+        }
         if (skips + outs >= 100) out["heard-out"] = "You hear ${outs * 100 / (skips + outs)} percent of songs all the way through. That's commitment."
         val key = NoRepeat.pick(out.keys.toList(), said(FACT_HISTORY), NO_REPEAT) ?: return@runCatching null
         remember(FACT_HISTORY, key)
@@ -1013,9 +1033,10 @@ object Dj {
             gap--
         }
         if (fresh.size < minOf(3, pool.size)) fresh = pool.filter { songKey(it) !in coming }.ifEmpty { pool }
+        // Each song's plays: Last.fm's and your imports' (Most played); the plays here only when there are none of those
         val plays = HashMap<Pair<String, String>, Int>()
-        Music.plays.items.values.forEach { plays[songKey(it.track)] = it.plays }
         taste.all.forEach { plays.merge(songKey(it), it.plays) { a, b -> maxOf(a, b) } }
+        if (plays.isEmpty()) Music.plays.items.values.forEach { plays[songKey(it.track)] = it.plays }
         val recent = taste.recent.map { songKey(it) }.toSet()
         val t = now().toLong()
         fresh = ok(taste, fresh).ifEmpty { fresh }
@@ -1203,7 +1224,7 @@ object Dj {
             val sc = scope
             val got = if (k == "moodmix") setMoodMix(taste, sc?.second)   // one mood, songs you know and new ones
             else if (sc != null && k in setOf("fresh", "like")) {   // new songs, from the ones it plays from
-                val t2 = Taste(taste.mine, sc.second.shuffled().take(20), sc.second, taste.artists, taste.last, skipped = taste.skipped)
+                val t2 = Taste(taste.mine, sc.second.shuffled().take(20), sc.second, taste.artists, taste.last)
                 if (k == "fresh") setFresh(t2) else setLike(t2)
             } else if (sc != null) fromSet(k, taste, coming) else when (k) {
                 "repeat" -> setRepeat(taste)

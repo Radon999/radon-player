@@ -36,4 +36,19 @@ object BtIgnoreRules {
     fun previousAfter(ignoring: Boolean, ignored: Set<String>, intruding: Collection<String>, natural: String?,
                       previous: String?): String? =
         if (ignoring && intruding.any { it in ignored }) previous else natural?.takeIf { it !in ignored }
+
+    /** Newest Bluetooth device wins: when outputs that [compete] are connected together, the one that connected last
+     *  ([since]: when each came, by name), leaving out ignored ones (Ignore Bluetooth devices comes first). Null when
+     *  fewer than two are left to choose between (nothing to decide), or the newest two came at the same moment. */
+    fun newest(compete: Collection<String>, since: Map<String, Long>, ignored: Set<String>): String? {
+        val left = compete.filter { it !in ignored }.distinct()
+        if (left.size < 2) return null
+        val by = left.sortedByDescending { since[it] ?: 0L }
+        // Came together (both there when the app started): no telling which was last, so it doesn't decide
+        return if ((since[by[0]] ?: 0L) == (since[by[1]] ?: 0L)) null else by[0]
+    }
+
+    /** When each output came: kept for the ones still here, now for the new ones. */
+    fun arrivals(was: Map<String, Long>, here: Collection<String>, now: Long): Map<String, Long> =
+        here.distinct().associateWith { was[it] ?: now }
 }

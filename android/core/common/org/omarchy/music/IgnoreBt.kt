@@ -33,6 +33,22 @@ object IgnoreBt {
 
     fun setOn(v: Boolean) { Prefs.set(Prefs.IGNORE_BT, v); apply() }
 
+    /** Newest Bluetooth device wins (beside Ignore Bluetooth devices): with two connected, the one that connected last
+     *  has the music (and its EQ). An ignored one never does. */
+    val newestOn: Boolean get() = Prefs.on(Prefs.NEWEST_BT)
+    fun setNewest(v: Boolean) { Prefs.set(Prefs.NEWEST_BT, v); newestWhy = ""; apply() }
+    /** Which device has the music now because it's the newest ("" when the switch isn't deciding anything). */
+    var newestNow by mutableStateOf("")
+        private set
+    var newestWhy by mutableStateOf("")
+        private set
+    fun newest(name: String, others: String) {
+        if (name == newestNow) return
+        newestNow = name
+        newestWhy = others
+        if (name.isNotEmpty()) Music.toast("$name connected last: the music is on it" + if (others.isNotEmpty()) " (not $others)" else "")
+    }
+
     /** Pick a device to ignore, or stop ignoring it. */
     fun pick(name: String, ignore: Boolean) {
         val l = ignored()

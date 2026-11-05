@@ -58,6 +58,7 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
         val x = ExoPlayer.Builder(ctx, renderers(ctx, eq))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), false)
             .build()
+        BtRoute.withoutFocus(x)
         x.setMediaItem(MediaItem.fromUri(uri), startMs)
         x.volume = 0f
         x.playWhenReady = false

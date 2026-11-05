@@ -38,10 +38,10 @@ object Outputs {
         val am = ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
         val outs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
         fun name(d: android.media.AudioDeviceInfo) = d.productName?.toString()?.takeIf { it.isNotBlank() && it != android.os.Build.MODEL }
+        // Ignore Bluetooth devices is keeping the music on your headphones while the car's connected (Android Auto too): those, for the EQ
+        BtRoute.routed?.let { return it }
         // Android Auto (the truck's screen, over USB or wireless after Bluetooth connects): first, as it carries the sound
         if (carProjecting) return Out("car:Chevrolet", "Chevrolet Colorado · Android Auto", "car")
-        // Ignore Bluetooth devices is keeping the music on your headphones while the car's connected: those, for the EQ
-        BtRoute.routed?.let { return it }
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
             it.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { d ->
             val n = name(d) ?: "Bluetooth"

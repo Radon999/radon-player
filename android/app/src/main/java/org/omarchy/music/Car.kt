@@ -87,7 +87,7 @@ object Car {
 
     val callback = object : MediaLibrarySession.Callback {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
-            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = true; Music.outputChanged() }
+            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = true; runCatching { BtRoute.check() }; Music.outputChanged() }
             val base = super.onConnect(session, controller)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).build())
@@ -96,7 +96,7 @@ object Car {
         }
 
         override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
-            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = Outputs.projecting(Music.ctx); Music.outputChanged() }
+            if (controller.packageName == GEARHEAD) { Outputs.carProjecting = Outputs.projecting(Music.ctx); runCatching { BtRoute.check() }; Music.outputChanged() }
         }
 
         override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand,

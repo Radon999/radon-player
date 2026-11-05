@@ -331,6 +331,9 @@ object Voice {
     }
 
     /** Stop talking now. */
+    /** A line the DJ is about to say, made ahead: the PC's voices make a line in a moment, so nothing to do. */
+    @Suppress("UNUSED_PARAMETER") fun prepare(text: String) {}
+
     fun hush() {
         turn++
         val p = proc; proc = null

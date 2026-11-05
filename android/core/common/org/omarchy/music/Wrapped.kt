@@ -85,7 +85,7 @@ object Wrapped {
         "Deep cuts" to "The best known songs of your artists of the last 90 days that you haven't played yet.",
         "Artists for you" to "Similar artists from Last.fm (else Deezer's related artists) of the artists you play most, all " +
             "time and this month, leaving out the ones you already play.",
-        "Skips" to "Songs you've skipped three times or more, and more often than you heard them out, are kept out of its sets.",
+        "Skips" to "Skipping a song never keeps it out of its sets (you may just not be in the mood for it). It counts your skips to tell you about them: your most skipped song, songs you've never skipped, and how much you hear all the way through.",
         "What it tells you" to "How many times (and hours) you've played a song, when you first played it, that you never (or " +
             "always) skip it, the mood you've been in this month, your artist of the month and of all time, the hour you " +
             "listen most, your plays in all, and a past year's number one.",

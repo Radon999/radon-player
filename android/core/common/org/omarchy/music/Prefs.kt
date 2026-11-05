@@ -59,4 +59,5 @@ object Prefs {
     const val IGNORE_BT = "ignore_bt"            // Ignore Bluetooth devices: the music stays where it was when one connects
     const val IGNORE_BT_DEVICES = "ignore_bt_devices"   // which ones (their names, one per line)
     const val IGNORE_BT_SEEN = "ignore_bt_seen"  // Bluetooth outputs seen before, to pick from (names, one per line)
+    const val NEWEST_BT = "newest_bt"            // Newest Bluetooth device wins: the last one to connect has the music
 }

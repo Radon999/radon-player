@@ -112,23 +112,51 @@ object Voice {
         return com.k2fsa.sherpa.onnx.OfflineTts(null, cfg).also { kokoro = it }
     }
 
-    /** (blocking) text said by Kokoro; false if it couldn't (or was hushed). */
-    private fun sayNatural(text: String, mine: Long): Boolean = runCatching {
+    // ---- lines made ahead (the next set's, while this one plays), so the DJ talks straight away ----
+    private val ahead = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<Any?>>()
+    private val making = Any()   // Kokoro makes one line at a time
+
+    /** (blocking) Kokoro's sound for a line, or null when there's nothing to say. */
+    private fun makeNatural(text: String): com.k2fsa.sherpa.onnx.GeneratedAudio? {
         val plain = java.text.Normalizer.normalize(Pronounce.sayable(text, lexicon()), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
             .replace(Regex("\\s+"), " ").trim()
-        if (plain.isEmpty()) return@runCatching false
-        val audio = engine().generate(plain, DjVoices.kokoroVoice.sid, 1.0f)
+        if (plain.isEmpty()) return null
+        return synchronized(making) { engine().generate(plain, DjVoices.kokoroVoice.sid, 1.0f) }
+    }
+
+    /** Make a line the DJ is about to say (the next set's) now, in the background: when its turn comes it's said at
+     *  once, with no wait for the voice. Only the natural voice and ElevenLabs take time to make; the phone's own voice
+     *  is instant. The last few are kept. */
+    fun prepare(text: String) {
+        if (text.isBlank() || ahead.containsKey(text)) return
+        val elevenOn = DjVoices.elevenOn
+        if (!elevenOn && !(hasNatural && useNatural)) return
+        val f = java.util.concurrent.CompletableFuture<Any?>()
+        if (ahead.size >= 4) ahead.keys.firstOrNull()?.let { ahead.remove(it) }
+        ahead[text] = f
+        Thread {
+            f.complete(runCatching { if (elevenOn) DjVoices.eleven(text, "mp3_44100_128") else makeNatural(text) }.getOrNull())
+        }.apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 }.start()
+    }
+
+    /** (blocking) A line made ahead: waits for it if it's still being made. Null when it wasn't (or failed). */
+    private fun madeAhead(text: String): Any? = ahead.remove(text)?.let { runCatching { it.get(90, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() }
+
+    /** (blocking) text said by Kokoro; false if it couldn't (or was hushed). */
+    private fun sayNatural(text: String, mine: Long): Boolean = runCatching {
+        val audio = (madeAhead(text) as? com.k2fsa.sherpa.onnx.GeneratedAudio) ?: makeNatural(text) ?: return@runCatching false
         if (turn != mine) return@runCatching true
         val rate = audio.sampleRate; val samples = audio.samples
         if (samples.isEmpty()) error("it made no sound")
         val t = android.media.AudioTrack.Builder()
-            .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            .setAudioAttributes(BtRoute.voice(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)).build())
             .setAudioFormat(android.media.AudioFormat.Builder().setEncoding(android.media.AudioFormat.ENCODING_PCM_FLOAT)
                 .setSampleRate(rate).setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO).build())
             .setTransferMode(android.media.AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(maxOf(android.media.AudioTrack.getMinBufferSize(rate, android.media.AudioFormat.CHANNEL_OUT_MONO,
                 android.media.AudioFormat.ENCODING_PCM_FLOAT), rate * 4 / 4)).build()
+        BtRoute.voiceDevice()?.let { runCatching { t.setPreferredDevice(it) } }
         track = t
         try {
             t.play()
@@ -156,18 +184,19 @@ object Voice {
     /** (on a background thread) text said by ElevenLabs; else (it couldn't) by the phone's own voice. */
     private fun sayEleven(text: String, mine: Long, onDone: () -> Unit) {
         Thread {
-            val mp3 = runCatching { DjVoices.eleven(text, "mp3_44100_128") }.onFailure { e ->
+            val mp3 = runCatching { (madeAhead(text) as? ByteArray) ?: DjVoices.eleven(text, "mp3_44100_128") }.onFailure { e ->
                 if (now() - elevenToldAt > 600) { elevenToldAt = now(); Music.toast("ElevenLabs voice: ${e.message?.take(80)}. Using the phone's voice.") }
             }.getOrNull()
             Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                if (turn != mine) return@launch   // hushed (or another line began) while it came: nothing to say
+                if (turn != mine) { onDone(); return@launch }   // hushed (or another line began) while it came: nothing to say
                 if (mp3 == null) { sayTts(text, onDone); return@launch }
                 val ok = runCatching {
                     val f = java.io.File(Music.ctx.cacheDir, "dj-line.mp3")
                     f.writeBytes(mp3)
                     val mp = android.media.MediaPlayer()
-                    mp.setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                    mp.setAudioAttributes(BtRoute.voice(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)).build())
+                    BtRoute.voiceDevice()?.let { runCatching { mp.setPreferredDevice(it) } }
                     mp.setDataSource(f.path)
                     var finished = false
                     val end = { if (!finished) { finished = true; runCatching { mp.release() }; if (player === mp) player = null; onDone() } }

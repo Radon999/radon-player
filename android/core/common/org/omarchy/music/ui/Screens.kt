@@ -510,7 +510,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                 "Your own DJ, made from everything you've played: Last.fm, your Spotify, Apple Music, Deezer, YouTube Music " +
                     "and Tidal imports, and the plays here. Sets of a few songs at a time: what you've had on repeat, what " +
                     "you play at this hour, the mood you've been in, throwbacks, favourites, songs you haven't heard in a while, deep cuts, artists " +
-                    "like yours and new songs from Tidal and YouTube Music, leaving out the ones you keep skipping. Switch " +
+                    "like yours and new songs from Tidal and YouTube Music. Skips are only counted, never used to leave songs out. Switch " +
                     "it up for something else, or ask for an artist, a mood, a genre, a decade or a vibe."
             }, style = if (d.line.isNotEmpty()) T.title else T.body)
             // What the DJ knows: every source and stat it uses (Wrapped.DJ_KNOWS), folded away till asked for
