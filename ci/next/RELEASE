@@ -1,8 +1,0 @@
-v3.2.9
-Radon Player 3.2.9: Update works in Radon Player Next
-## 3.2.9: Update works in Radon Player Next (Windows and Android)
-- **Update works in Radon Player Next:** the test app's Update fetched the release's APK, which is the other app (Radon Player, not Radon Player Next), so Android refused it (INSTALL_FAILED_INVALID_APK, package inconsistent). Radon Player Next now updates to the newest Next build whenever a new release is out.
-
-### Good to know
-- **Android:** install RadonPlayer.apk over 3.2.8 (same signature, your library and settings stay), or tap Update in Settings.
-- **Windows:** Radon-Player-3.2.9.msi installs over 3.2.8, or use Update in Settings.
