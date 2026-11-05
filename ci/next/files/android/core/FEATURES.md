@@ -58,6 +58,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 
 - **Sets:** What you've had on repeat, what you play at this time of day, favorites, throwbacks, songs you loved but forgot, a mood, a genre, and new music like yours. A song doesn't come back for 20 sets. Skips never keep a song out (you may just not be in the mood): they're only counted, for Skips and the DJ's facts about them.
 - **The voice:** Says what's coming and fun facts about your listening, never over a song. The PC has a natural voice; the phone uses its own voice, or downloads the natural one once (about 130 MB) and lets you pick either in DJ › Voice settings, or remove it.
+- **Instant:** The first set is ready before you tap DJ, and three more are kept ready with their lines, so switching category is immediate however fast you skip.
 - **Ask for something:** Type or say an artist, a genre, a decade, a mood or a vibe ("workout").
 - **Play from** everything, or one playlist, folder or album.
 
