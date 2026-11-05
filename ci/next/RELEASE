@@ -1,8 +1,0 @@
-v3.2.11
-Radon Player 3.2.11: Lyrics files
-## 3.2.11: Lyrics files (Windows and Android)
-- **Lyrics files (.lrc) (Settings › Scanner › Lyrics & moods):** saves a .lrc file beside each song that has lyrics in its file, with the song's file name (its timed lines when it has them, else its words, with the title, artist and album at the top), so any player, and the folder wherever you copy it, has them. Works on the PC and on the phone (with All files access); songs with a .lrc already are left as they are.
-
-### Good to know
-- **Android:** install RadonPlayer.apk over 3.2.10 (same signature, your library and settings stay), or tap Update in Settings. Saving .lrc files on the phone needs All files access.
-- **Windows:** Radon-Player-3.2.11.msi installs over 3.2.10, or use Update in Settings.
