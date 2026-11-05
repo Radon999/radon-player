@@ -2,6 +2,19 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.10 · November 2026
+- **Wrapped and lyrics card styles in pictures:** Settings › Personalization's Wrapped style and Lyrics card style menus show what each one looks like (a slide of Wrapped in that style and your look, and a lyrics card in that style): tap one on the phone to see it under it, point at one on the PC.
+
+- **Syncs never touch covers:** Tags & covers match is now Tags match: a sync only fills in missing titles, artists, albums, album artists, genres, years and track numbers (moods sync their own way). It never writes, replaces or takes off a cover; a song with none gets one from Songs without covers.
+
+- **Every scanned song's moods go into its file:** Scan moods worked a song's moods out from what it remembered of it, which could be from before the song was scanned (no moods yet), so it wrote the words' reading into the file but not the moods: about two thirds of your songs. It works them out fresh now, and the Moods tab shows how many scanned songs still need their moods written, with Write moods into the files to do it.
+- **Prevent auto mood scans (Settings › Scanner):** on, the moods stop being edited: every mood already in your files stays as it is and still shows, but no song is scanned (a new one you add waits until you turn it off) and nothing more is written into any file's moods or taken from your other device.
+- **Prevent album cover changes (Settings › Scanner):** on, no sync, scan or auto tagger changes, puts in or takes off a cover in a song's file; only one you pick yourself (the Tagger's Cover) does. Scan tags, Single scan, Fix albums and artists and Covers from folders say so while it's on.
+- **Save covers into folders (Settings › Scanner):** one picture of each album, EP and single saved in its folder beside its songs (cover.jpg, or one for each release when a folder holds several), from a song's own cover, so a lost cover can always be put back.
+- **Covers from folders (Settings › Scanner):** each song with no cover in its file gets its folder's picture (its release's own), so a whole album has its cover again in one go.
+- **A cover you pick goes into your own files:** picking a cover (the Tagger's Cover, Pick a cover, Songs without covers) for your own songs kept it in the app on that device only, so the phone never had the covers you'd picked on the PC (your unreleased songs' covers were only ever in the PC app, never in their files). It now always goes into the songs' files (your own and the app's downloads, MP3, M4A, WAV, FLAC), so it goes wherever the files go; the song playing gets it as soon as another song starts (its file is in use while it plays). For covers picked before, Save covers into folders then Covers from folders on the PC puts them into the files.
+- **Unreleased left alone on the phone too:** the phone looked for the Unreleased folder in the wrong place, so a sync could still reach those songs there; it finds the song's real folder now.
+
 ## 3.2.9 · November 2026
 - **Update works in Radon Player Next:** the test app's Update fetched the release's APK, which is the other app (Radon Player, not Radon Player Next), so Android refused it (INSTALL_FAILED_INVALID_APK, package inconsistent). Radon Player Next now updates to the newest Next build whenever a new release is out.
 

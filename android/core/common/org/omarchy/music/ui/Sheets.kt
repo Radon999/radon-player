@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -341,6 +342,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("Scanner", ui) {
                 Text("Scans that find and fix problems in your music. Run one when something looks wrong; nothing changes until you say so.",
                     style = T.sub, modifier = Modifier.padding(vertical = 8.dp))
+                ProtectLines()
                 SubGroup("Your files", ui) { ToolLines(ui) }
                 SubGroup("Lyrics & moods", ui) { LyricsMoodsLines(ui) }
                 SubGroup("Last.fm & your stats", ui) {
@@ -696,6 +698,24 @@ private fun LoudnessCheckLine(ui: Ui) {
     }
 }
 
+/** Settings › Scanner, at the top: Prevent auto mood scans and Prevent album cover changes. */
+@Composable
+private fun ProtectLines() {
+    val P = org.omarchy.music.Prefs
+    var moods by remember { mutableStateOf(P.on(org.omarchy.music.Moods.PREVENT)) }
+    Line("Prevent auto mood scans", "On: the moods stop being edited. Every mood already in your files stays exactly as " +
+        "it is and still shows, but no song is scanned (a new song you add waits) and nothing more is written into any " +
+        "file's moods, nor taken from your other device. Turn it off to scan again", moods) {
+        Switch(moods, { moods = it; P.set(org.omarchy.music.Moods.PREVENT, it); org.omarchy.music.Moods.version++ }, colors = swColors())
+    }
+    var covers by remember { mutableStateOf(P.on(org.omarchy.music.CoverGuard.PREVENT)) }
+    Line("Prevent album cover changes", "On: no sync, scan or auto tagger changes the cover inside a song's file, and none " +
+        "is put in or taken off. Only a cover you pick yourself (the Tagger's Cover) changes it. A scan that could change " +
+        "covers says so while this is on", covers) {
+        Switch(covers, { covers = it; P.set(org.omarchy.music.CoverGuard.PREVENT, it) }, colors = swColors())
+    }
+}
+
 /** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
 @Composable
 private fun ToolLines(ui: Ui) {
@@ -734,6 +754,16 @@ private fun ToolLines(ui: Ui) {
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }
+    }
+    Line("Save covers into folders", "Saves one picture of each album, EP and single in its folder, beside its songs " +
+        "(cover.jpg; a folder holding several releases gets one for each), from a song's own cover, so a cover lost from the " +
+        "files can always be put back. A release with a picture there already is left as it is" +
+        (if (onPhone) ". On the phone it needs All files access" else ""), false) {
+        Pill("Scan…", quiet = true) { ui.tool = "savecovers" }
+    }
+    Line("Covers from folders", "Puts the cover picture in each song's folder (its album's, EP's or single's) into every song " +
+        "there that has no cover in its file, so they all have it again. Songs with a cover already are left as they are", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "applycovers" }
     }
 }
 
@@ -982,10 +1012,10 @@ private fun TagMatchLine(other: String) {
     val on = P.on(m.ON)
     val mainName = if (m.main == "pc") "the PC" else "the phone"
     val receiver = if (m.main == "pc") "the phone" else "the PC"
-    Line("Tags & covers match", "Fills in what the songs on both devices are missing: their tags (title, artist, album, " +
-        "album artist, genre, year, track) and their album art. The main device sends, the other takes: at each sync $receiver's " +
-        "copies get what $mainName's have and they don't. A tag that's filled in, and a cover a song has, are never changed or " +
-        "taken off by it. Tag edits you make in the Tagger or Edit tags on either still go to both. A song is matched by its ISRC, " +
+    Line("Tags match", "Fills in what the songs on both devices are missing: their tags (title, artist, album, " +
+        "album artist, genre, year, track; moods sync on their own). The main device sends, the other takes: at each sync $receiver's " +
+        "copies get what $mainName's have and they don't. A tag that's filled in is never changed by it, and covers are never " +
+        "synced: a song without one gets it from Songs without covers. Tag edits you make in the Tagger or Edit tags on either still go to both. A song is matched by its ISRC, " +
         "its title and artist, or its file's name, when the lengths agree. On the phone only the songs the app downloaded can be " +
         "changed (Android lets an app change only its own files)", on,
         note = when {
@@ -1279,12 +1309,14 @@ private fun NowPlayingLookLines() {
     }
     // Wrapped's look and the lyrics card's style, here too (they stay in Wrapped and the Lyrics card), so a preset keeps them
     Line("Wrapped style", "How Wrapped's slides look (the same as Style in Wrapped): the ready-made ones, Your look, and yours", false) {
-        ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) }) { Music.chooseWrappedStyle(it) }
+        ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) },
+            preview = { k -> WrapPresetSlide(k, Music.look, Modifier.size(220.dp, 290.dp)) }) { Music.chooseWrappedStyle(it) }
     }
     Line("Lyrics card style", "How lyrics cards look (the same as Style in the Lyrics card box): Your look, Now playing, 30 " +
         "ready-made styles and yours", false) {
         var card by remember { mutableStateOf(LyricsCards.picked()) }
         ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), card, describe = { LyricsCards.describe(it) },
+            preview = { k -> PresetCard(k) },
             menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { LyricsCards.pick(it); card = it }
     }
 }

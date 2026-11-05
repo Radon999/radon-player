@@ -554,6 +554,7 @@ object Moods {
      *  moods from your other device) just has them written. Moods you picked yourself (Tagger) are left as they are.
      *  Stopped, it carries on from the song it stopped at. Nothing writes moods into the files but this scan. */
     fun scan() {
+        if (prevented) { Music.toast("Prevent auto mood scans is on (Settings › Scanner): turn it off to scan"); return }
         if (running || wordsRunning || writing || removing != null) return
         val list = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
         if (list.isEmpty()) return
@@ -588,8 +589,25 @@ object Moods {
     private fun scanned(e: MoodEntry?): Boolean = e != null && e.full && !wordsNeeded(e)
 
     /** The moods to go into a song's file now: yours, else every mood worked out (main first), "" none. */
+    /** Worked out fresh from what's known now, never from the remembered answers: those can be from before the song
+     *  was scanned (when it had no moods), and the scan then wrote nothing into its file (the words' reading went in,
+     *  the moods didn't). */
     private fun moodsFor(t: Track, e: MoodEntry): String =
-        e.picked.ifEmpty { scored(t).take(MoodRules.MOST).joinToString(";") { it.first } }
+        e.picked.ifEmpty { (pathOf(t)?.let { judge(t, it) } ?: NONE).moods.take(MoodRules.MOST).joinToString(";") { it.first } }
+
+    /** Settings › Prevent auto mood scans: on, the moods stop being edited: the ones in the files stay (and show) as they
+     *  are, no song is scanned (a new one waits), nothing more is written into the files' moods or taken from a sync. */
+    const val PREVENT = "prevent_mood_scans"
+    val prevented: Boolean get() = Prefs.on(PREVENT)
+
+    /** Songs scanned whose moods aren't in their files yet (that the app may write): Scan moods writes them. */
+    fun toWrite(): Int = runCatching {
+        load()
+        Music.mySongs().mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }.count { (p, t) ->
+            val e = synchronized(lock) { known[p] } ?: return@count false
+            e.picked.isEmpty() && scanned(e) && canWrite(p) && moodsFor(t, e).let { it.isNotEmpty() && it != e.inFile }
+        }
+    }.getOrDefault(0)
 
     /** The one scan's work: (went through them all, files written). */
     private fun scanWork(list: List<Pair<String, Track>>): Pair<Boolean, Int> {
@@ -938,6 +956,7 @@ object Moods {
      *  Readings by an older word reader are read again (by the new one, or the AI when it's on). again: also read again
      *  by the AI the songs read on the device (Read again with AI); a song the AI has read is never read again. */
     fun readWords(again: Boolean = false) {
+        if (prevented) return
         if (wordsRunning) return
         wordsRunning = true; wordsStop = false
         wordsReading = 0 to 0; wordsNow = ""
@@ -1039,7 +1058,7 @@ object Moods {
 
     /** A song's words' reading written into its file's MOOD_LYRICS tag, if the app may change the file; true if it did. */
     private fun writeWords(p: String, e: MoodEntry): Boolean {
-        if (!canWrite(p) || running) return false   // not while songs are being heard
+        if (!canWrite(p) || running || prevented) return false   // not while songs are being heard
         val ok = runCatching { LyricsTags.writeTags(Music.ctx, p, null, mapOf(MoodTag.MOOD_LYRICS to e.lyr)) }.getOrDefault(false)
         if (ok) {
             val mt = runCatching { AudioTools.modified(p) }.getOrNull()
@@ -1265,6 +1284,7 @@ object Moods {
 
     /** A backup's moods, kept to be given to the songs here once they're read (after the app starts again). */
     fun restoreLater(text: String, fromSync: Boolean = false) {
+        if (fromSync && prevented) return   // Prevent auto mood scans: your moods stay as they are
         runCatching { JSON.decodeFromString(ListSerializer(MoodBackupSong.serializer()), text) }.getOrNull() ?: return
         if (fromSync) {
             // All moods were removed here and the songs haven't been heard again yet: the other device's old moods wait

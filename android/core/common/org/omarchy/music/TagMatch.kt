@@ -7,8 +7,8 @@ import java.io.File
 
 /** Tags & covers match (Settings › Sync): your songs that are on both devices end up with the same tags and the same
  *  album art. You pick the main device (the PC or the phone): at each sync it sends what every song of its says (title,
- *  artist, album, album artist, genre, year, track) and its cover, and the other device fills in what its copy of the
- *  song is missing: a tag that's filled in, and a cover it has, are never changed by it. The main device always sends, the other always takes; tag edits made on either still go both ways (TagSync).
+ *  artist, album, album artist, genre, year, track), and the other device fills in what its copy of the song is
+ *  missing: a tag that's filled in is never changed by it, and covers are never synced at all. The main device always sends, the other always takes; tag edits made on either still go both ways (TagSync).
  *
  *  A song is found on the other device by its ISRC, else its title and artist, else its file's name, as long as the
  *  lengths agree. On the phone only the songs the app downloaded can be changed (Android lets an app write only its own
@@ -143,7 +143,7 @@ object TagMatch {
         }
         val art = LinkedHashMap<String, String>()
         var size = 0
-        if (peer.isNotEmpty()) for ((_, f, r) in list) {
+        if (false) for ((_, f, r) in list) {   // covers never go across (see take)
             if (r.art.isEmpty() || r.art in peerArt || r.art in art) continue
             val b = runCatching { FileTags.cover(Music.ctx, f) }.getOrNull() ?: continue
             val jpeg = runCatching { Covers.jpeg(b) }.getOrNull() ?: continue
@@ -196,19 +196,8 @@ object TagMatch {
                 if (changes.isNotEmpty()) TagSync.quietly {
                     if (runCatching { Tags.write(Music.ctx, f, changes) }.isSuccess) did = true
                 }
-                // The cover only when it's the same album (a single's cover never goes onto the album version)
-                val sameAlbum = norm(e.tags["album"].orEmpty()) == norm((changes["album"] ?: now.tags["album"]).orEmpty())
-                // and only when the song has none here: a cover it has is never replaced or taken off by a sync
-                if (sameAlbum && e.art.isNotEmpty() && now.art.isEmpty()) got.art[e.art]?.let { b64 ->
-                    val jpeg = runCatching { java.util.Base64.getDecoder().decode(b64) }.getOrNull()
-                    // A cover that's already here and looks the same (the same picture saved another way) stays as it is
-                    val mine = if (now.art.isEmpty()) null else runCatching { FileTags.cover(Music.ctx, f) }.getOrNull()
-                    val alike = jpeg != null && mine != null && run {
-                        val a = MusicTools.pictureHash(jpeg); val b = MusicTools.pictureHash(mine)
-                        a != null && b != null && java.lang.Long.bitCount(a xor b) <= 8
-                    }
-                    if (jpeg != null && !alike && runCatching { FileTags.writeCover(Music.ctx, f, jpeg) }.getOrDefault(false)) did = true
-                }
+                // Covers are never synced: a sync never writes, replaces or takes off a song's cover (Songs without covers
+                // and Pick a cover are for that)
                 if (did) {
                     done += f; changed++
                     touched(f)

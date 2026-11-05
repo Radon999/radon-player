@@ -2157,6 +2157,24 @@ object Music {
 
     /** Make source (a picture's web address, or a content:// one you picked) the cover of tracks' album:
      *  into its downloaded FLACs (all but the playing one's), and shown for all of its songs. */
+    /** Covers you picked for the song playing, waiting for its file to be free (written when another song starts). */
+    private val coversWaiting = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+    private fun coverLater(file: String, jpeg: ByteArray) { coversWaiting[file] = jpeg }
+    private fun writeWaitingCovers(except: String?) {
+        val todo = coversWaiting.keys.filter { it != except }
+        if (todo.isEmpty()) return
+        bg({
+            for (f in todo) {
+                val jpeg = coversWaiting.remove(f) ?: continue
+                val ok = CoverGuard.byHand {
+                    if (lib.items.values.any { it.file == f && it.format == "flac" }) runCatching { Covers.write(ctx, f, jpeg); true }.getOrDefault(false)
+                    else FileTags.writeCover(ctx, f, jpeg)
+                }
+                if (ok) TagMatch.touched(f) else logWarn("cover: couldn't put the picked cover into $f")
+            }
+        }) { _, _ -> }
+    }
+
     fun setCover(tracks: List<Track>, source: String, wholeAlbum: Boolean = true, done: () -> Unit = {}) {
         val t = tracks.firstOrNull() ?: return
         val playing = current()?.id
@@ -2171,8 +2189,22 @@ object Music {
             var written = 0
             val failed = ArrayList<String>()
             for (e in album.distinctBy { it.file }) {
-                if (e.id == playing || e.format != "flac" || !Tags.writable(e.file)) continue
-                try { Covers.write(ctx, e.file, jpeg); written++ } catch (x: Exception) { failed += "${e.title}: ${x.message}" }
+                if (e.id == playing) { coverLater(e.file, jpeg); written++; continue }   // its file is playing: right after it
+                if (e.format == "flac" && Tags.writable(e.file)) {
+                    try { CoverGuard.byHand { Covers.write(ctx, e.file, jpeg) }; written++ } catch (x: Exception) { failed += "${e.title}: ${x.message}" }
+                } else if (FileTags.canWrite(e.file)) {   // a download in another format (MP3, M4A…): in its own way
+                    if (CoverGuard.byHand { FileTags.writeCover(ctx, e.file, jpeg) }) written++ else failed += "${e.title}: couldn't put the cover in"
+                }
+            }
+            // Your own files of the album too (MP3, M4A, WAV, FLAC…): the cover goes into them, so it travels with the
+            // files to your other device (picked only in the app, it stayed on this one)
+            val curFile = current()?.let { lib.items[it.id]?.file ?: it.file }
+            for (x in runCatching { mySongs() }.getOrDefault(emptyList())) {
+                val f = x.file?.takeIf { x.isFile && !lib.has(x.id) } ?: continue
+                if (!((wholeAlbum && Covers.albumKey(x) in keys) || x.id in ids)) continue
+                if (!FileTags.canWrite(f)) { failed += "${x.title}: the app can't change its file"; continue }
+                if (f == curFile) { coverLater(f, jpeg); written++; continue }   // playing: written as soon as it stops
+                if (CoverGuard.byHand { FileTags.writeCover(ctx, f, jpeg) }) { written++; TagMatch.touched(f) } else failed += "${x.title}: couldn't put the cover in"
             }
             for (e in album) {   // a new file each time: the old picture stays in the image cache under the old name
                 val art = File(lib.artDir, "${safeName(e.id)}-${randomHex(4)}.jpg").apply { writeBytes(jpeg) }
@@ -2972,6 +3004,9 @@ object Music {
             djAnnounce(t)
             if (index >= queue.size - 2) djMore()
         }
+        // Covers picked while their song played: in now, once the file that was playing is free
+        if (coversWaiting.isNotEmpty()) { val nowFile = lib.items[t.id]?.file ?: t.file
+            scope.launch(Dispatchers.Main) { delay(1500); writeWaitingCovers(nowFile) } }
     }
 
     /** The cover the lock screen, the notification, Android Auto and Windows' media controls show: the same one the app

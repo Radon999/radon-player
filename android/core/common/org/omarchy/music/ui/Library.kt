@@ -244,16 +244,22 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
     val looking = moods.looking
     val left = remember(v, reading == null) { if (reading == null) moods.scanLeft() else 0 to 0L }
     val scanned = remember(v, reading == null) { moods.scannedCount() }
+    val toWrite = remember(v, reading == null) { if (reading == null) moods.toWrite() else 0 }
+    val prevented = moods.prevented
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (reading != null) {
             Chip("Stop", false) { moods.stop() }
             Text("Scanning moods… " + "%,d of %,d".format(reading.first, reading.second) + " · " +
                 (moods.readingLeft?.let { moodsLeft(it) } ?: "working out the time left…"), style = T.sub.copy(color = C.accent))
+        } else if (prevented) {
+            Text("Prevent auto mood scans is on (Settings › Scanner): the moods in your files stay as they are and no song is scanned",
+                style = T.sub.copy(color = C.accent))
         } else if (looking == null && !moods.wordsBusy && moods.removing == null) {
             // With about how long it will take (from how fast the last scan went on this device)
             if (left.first > 0) Chip("Scan moods (%,d song%s, %s)".format(left.first, if (left.first != 1) "s" else "", moodsTime(left.second)) +
                 (if (moods.aiOn()) " · AI" else ""), false) { moods.scan() }
+            else if (toWrite > 0) Chip("Write moods into the files (%,d song%s)".format(toWrite, if (toWrite != 1) "s" else ""), false) { moods.scan() }
             else if (counts.total > 0) Chip("Scan moods (moods into the files)", false) { moods.scan() }
         }
     }
@@ -267,7 +273,10 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             Text("Scan moods hears each song whole and reads its words" + (if (moods.aiOn()) " with the AI" else "") + ", and only " +
                 "once both are done writes its moods into its file. A song is scanned once; Settings › Reset mood and lyrics " +
                 "scans starts over. Stop any time: it carries on from there.", style = T.sub)
-            if (left.first == 0 && scanned >= counts.total) Text("Every song is scanned", style = T.sub.copy(color = C.accent))
+            if (toWrite > 0) Text("%,d scanned song%s still to have %s moods written into %s file%s: Write moods into the files does it".format(
+                toWrite, if (toWrite != 1) "s" else "", if (toWrite != 1) "their" else "its", if (toWrite != 1) "their" else "its",
+                if (toWrite != 1) "s" else ""), style = T.sub.copy(color = C.accent))
+            else if (left.first == 0 && scanned >= counts.total) Text("Every song is scanned", style = T.sub.copy(color = C.accent))
         }
     }
     MoodsWords(ui, counts)

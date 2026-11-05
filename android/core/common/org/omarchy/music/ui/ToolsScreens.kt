@@ -51,6 +51,8 @@ fun ToolScreens(ui: Ui) {
         "movie" -> LiveNamesScreen(ui, movie = true)
         "lone" -> LiveNamesScreen(ui, lone = true)
         "nocover" -> NoCoversScreen(ui)
+        "savecovers" -> FolderCoversScreen(ui, apply = false)
+        "applycovers" -> FolderCoversScreen(ui, apply = true)
         "truth" -> AlbumTruthScreen(ui)
         "empty" -> EmptyFoldersScreen(ui)
         "skip" -> SkipFoldersScreen(ui)
@@ -99,6 +101,8 @@ private fun FixupScreen(ui: Ui) {
     }
     FullScreen("Fix albums and artists", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            if (org.omarchy.music.CoverGuard.prevented) Text(org.omarchy.music.CoverGuard.NOTE, style = T.sub.copy(color = C.accent),
+                modifier = Modifier.padding(bottom = 6.dp))
             val p = plan
             Text(when {
                 report != null -> report!!.first()
@@ -717,4 +721,49 @@ private fun libraryNames(): LibraryNames = remember(Music.musicVersion) {
     val songs = runCatching { Music.mySongs() }.getOrDefault(emptyList())
     LibraryNames(songs.map { it.album.trim() }.filter { it.isNotEmpty() }.distinct().sorted(),
         songs.flatMap { org.omarchy.music.splitArtists(it.artist) }.map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted())
+}
+
+
+/** Save covers into folders / Covers from folders: one press, then what it did. */
+@Composable
+private fun FolderCoversScreen(ui: Ui, apply: Boolean) {
+    val close = { ui.tool = null }
+    var status by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    var done by remember { mutableStateOf<org.omarchy.music.FolderCovers.Done?>(null) }
+    val title = if (apply) "Covers from folders" else "Save covers into folders"
+    FullScreen(title, close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            if (apply && org.omarchy.music.CoverGuard.prevented) Text(org.omarchy.music.CoverGuard.NOTE, style = T.sub.copy(color = C.accent),
+                modifier = Modifier.padding(bottom = 6.dp))
+            val d = done
+            Text(when {
+                running -> status.ifEmpty { "Starting…" }
+                d != null && apply -> "%,d song%s got the cover from %s folder · %,d had one already · %,d folder%s with no cover picture · %,d couldn't be changed".format(
+                    d.saved, if (d.saved != 1) "s" else "", if (d.saved != 1) "their" else "its", d.had, d.none, if (d.none != 1) "s" else "", d.failed)
+                d != null -> "%,d cover%s saved into folders · %,d had one already · %,d with no cover anywhere · %,d couldn't be saved".format(
+                    d.saved, if (d.saved != 1) "s" else "", d.had, d.none, d.failed)
+                apply -> "Each song with no cover in its file gets the cover picture in its folder (its album's, EP's or single's own " +
+                    "picture if the folder holds several). Songs with a cover already are left as they are."
+                else -> "One picture of each album, EP and single goes into its folder beside its songs, taken from a song's own " +
+                    "cover (one a release, however many songs). Releases with a picture there already are left as they are."
+            }, style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+            d?.notes?.forEach { Text(it, style = T.sub) }
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                if (!running && d == null) Pill("Start") {
+                    running = true
+                    Music.bg({
+                        val p: (String) -> Unit = { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } }
+                        if (apply) org.omarchy.music.FolderCovers.apply(p) else org.omarchy.music.FolderCovers.save(p)
+                    }) { r, e ->
+                        running = false
+                        done = r ?: org.omarchy.music.FolderCovers.Done(0, 0, 0, 0, listOf("Couldn't finish: ${e?.message}"))
+                        if (apply && (r?.saved ?: 0) > 0) Music.rescan()
+                    }
+                }
+                if (!running) Pill(if (d == null) "Cancel" else "Done", quiet = d == null) { close() }
+            }
+        }
+    }
 }

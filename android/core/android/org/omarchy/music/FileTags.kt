@@ -113,7 +113,8 @@ object FileTags {
         ?: runCatching { TagScan.read(uri).second }.getOrNull()
     fun hasCover(ctx: Ctx, uri: String) = cover(ctx, uri) != null
     fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean =
-        if (!isDownload(uri) && ownFile(uri) != null) runCatching {
+        if (!CoverGuard.allowed()) false   // Prevent album cover changes
+        else if (!isDownload(uri) && ownFile(uri) != null) runCatching {
             setUp
             val f = ownFile(uri)!!
             if (isWav(f) && runCatching { WavTags.write(f, emptyMap(), jpeg); true }.getOrDefault(false)) {

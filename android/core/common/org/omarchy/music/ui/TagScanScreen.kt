@@ -69,6 +69,8 @@ fun TagScanScreen(ui: Ui) {
         val gs = groups
         val r = report
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            if (org.omarchy.music.CoverGuard.prevented) Text(org.omarchy.music.CoverGuard.NOTE, style = T.sub.copy(color = C.accent),
+                modifier = Modifier.padding(bottom = 6.dp))
             val songs = songs
             when {
                 songs == null -> Text("Looking at your songs…", style = T.sub)

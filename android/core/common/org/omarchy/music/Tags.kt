@@ -107,6 +107,7 @@ object Covers {
 
     /** Put jpeg in the FLAC at uri (one the app made) as its cover, keeping its tags. */
     fun write(ctx: Ctx, uri: String, jpeg: ByteArray) {
+        if (!CoverGuard.allowed()) error("Prevent album cover changes is on")
         TagMatch.touched(uri)
         val cr = ctx
         // A cover only goes into a FLAC: an MP3 or M4A rewritten as one is ruined

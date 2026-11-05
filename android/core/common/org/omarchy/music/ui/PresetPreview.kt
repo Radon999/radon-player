@@ -73,7 +73,7 @@ fun PresetPreview(key: String) {
 
 /** A preset's lyrics card, with sample words (and the playing song's name and cover, when one plays). */
 @Composable
-private fun PresetCard(card: String) {
+internal fun PresetCard(card: String) {
     val song = Music.current() ?: org.omarchy.music.Track("sample", title = "Song title", artist = "Artist")
     val bmp = remember(card, song.id) {
         lyricsCard(listOf("Your words go here", "on the card you share", "in this preset's style"), song,
