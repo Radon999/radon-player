@@ -270,6 +270,8 @@ object Music {
         rescan()
         // Headphones coming and going: their correction comes with them (see outputChanged).
         watchOutputs(ctx) { outputChanged() }
+        // The DJ's first set made ahead while it's off (and made again when it goes stale), so it starts at once
+        scope.launch { delay(20_000); while (true) { runCatching { djWarm() }; delay(10 * 60_000L) } }
         scope.launch {
             while (true) {   // the position, and what counts as played
                 val p = player
@@ -1037,6 +1039,12 @@ object Music {
             }
             Dj.playFrom(got.first, got.second)
         } else Dj.playFrom(null, null)
+        // Made ahead (djWarm): the first set at once, its line made too
+        djFirst?.takeIf { it.src == src && it.withNew == djNew && now() - it.at < FIRST_FRESH }?.let { w ->
+            djFirst = null
+            djBegin(w.set, src)
+            return
+        }
         djBusy = Dj.scope?.let { "Picking your first set from ${it.first}…" } ?: "Picking your first set…"
         bg({ Dj.build(first = true) }) { res, err ->
             djBusy = null
@@ -1044,18 +1052,49 @@ object Music {
                 toast(if (err == null) "The DJ couldn't find songs yet. Play a few, or connect Last.fm." else "The DJ couldn't start: ${err.message?.take(100)}")
                 return@bg
             }
-            dj = Dj.State(from = src)
-            playFrom(djTag(res), 0, radio = false)
-            dj = dj.copy(on = true)
-            djAnnounce(current())
-            djMakeSpare()
+            djBegin(res, src)
+        }
+    }
+
+    private fun djBegin(res: Dj.Built, src: Dj.From?) {
+        dj = Dj.State(from = src)
+        playFrom(djTag(res), 0, radio = false)
+        dj = dj.copy(on = true)
+        djAnnounce(current())
+        djMakeSpare()
+    }
+
+    /** The DJ's first set, made ahead while it's off (with its line), so tapping DJ starts it at once. */
+    private class Warm(val src: Dj.From?, val withNew: Boolean, val set: Dj.Built, val at: Double)
+    private var djFirst: Warm? = null
+    private var djWarming = false
+    private const val FIRST_FRESH = 30 * 60.0   // a first set made ahead is good for half an hour
+
+    /** Make the first set ahead (when the DJ is off and there's none fresh): from where it played from last. */
+    fun djWarm() {
+        if (dj.on || Remote.active || djBusy != null || djWarming) return
+        if (djFirst?.let { now() - it.at < FIRST_FRESH - 120 && it.withNew == djNew } == true) return
+        val src = dj.from?.takeIf { it.kind != "all" } ?: if (!djNew) Dj.From("mine") else null
+        val withNew = djNew
+        runCatching {
+            Dj.withNew = withNew
+            if (src != null) { val got = djSource(src) ?: return; if (got.second.isEmpty()) return; Dj.playFrom(got.first, got.second) }
+            else Dj.playFrom(null, null)
+        }.onFailure { return }
+        djWarming = true
+        bg({ Dj.build(first = true) }) { res, _ ->
+            djWarming = false
+            if (res == null || dj.on) return@bg
+            djFirst = Warm(src, withNew, res, now())
+            djPrepareLine(res)
         }
     }
 
     fun djStop() {
         if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
         dj = dj.copy(on = false)
-        djSpare = null; djSpareJob++
+        djSpares.clear(); djSpareJob++; djSpareBusy = false
+        scope.launch(Dispatchers.Main) { delay(3000); runCatching { djWarm() } }   // ready for next time
         saveState()
     }
 
@@ -1186,10 +1225,21 @@ object Music {
     private fun djMore() {
         if (djBusy != null) return
         djReady()
+        // A set made ahead: queued at once (its line is made already)
+        if (dj.on) (djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull())?.let { spare ->
+            djSpares.remove(spare)
+            val wait = djWaiting; djWaiting = false
+            val songs = djTag(spare)
+            queue = queue + songs
+            afterQueueChange()
+            djFillSpares()
+            if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }
+            return
+        }
         djBusy = "Picking the next set…"
         val ctxNow = context
         val avoid = djKind()
-        val coming = coming()
+        val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
             djBusy = null
             val wait = djWaiting; djWaiting = false
@@ -1198,7 +1248,7 @@ object Music {
                 queue = queue + songs
                 afterQueueChange()
                 djPrepare(songs)
-                djMakeSpare()
+                djFillSpares()
                 if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }   // on to it: the DJ introduces it
             } else if (wait && dj.on && djRetried < 2) {
                 // Nothing came (a slow lookup, no network for a moment): try again rather than stop
@@ -1232,10 +1282,10 @@ object Music {
         if (!dj.on && ask == null) { djStart(); return }
         djReady()
         // Switch it up: the set made ahead, at once (its line made ahead too), when there is one
-        if (ask == null) djSpare?.takeIf { it.kind != djKind() }?.let { spare ->
-            djSpare = null
+        if (ask == null) (djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull())?.let { spare ->
+            djSpares.remove(spare)
             djWaiting = false
-            djSwitchTo(spare)
+            djSwitchTo(spare)   // and the spares are made again (none of them repeats it)
             return
         }
         djBusy = if (ask != null) "Looking for ${ask.trim()}…" else "Switching it up…"
@@ -1264,29 +1314,49 @@ object Music {
         radioFrom = null
         context++
         loadCurrent()
-        djMakeSpare()
+        djFillSpares()   // one more made ahead in place of this one (the others stay ready)
     }
 
-    /** A set made ahead for Switch it up (and its line made ahead), so switching is instant. Made again after each
-     *  new set, so it never repeats what's coming. */
-    private var djSpare: Dj.Built? = null
+    /** Sets made ahead for Switch it up and the set button (each with its line made too), so switching is instant
+     *  however fast you go: [SPARES] are kept ready, made one after another in the background and made again after
+     *  each new set, so they never repeat what's coming. */
+    private val djSpares = ArrayList<Dj.Built>()
     private var djSpareJob = 0
+    private var djSpareBusy = false
+    private const val SPARES = 3
+
     private fun djMakeSpare() {
         if (!dj.on || Remote.active) return
-        djSpare = null
-        val mine = ++djSpareJob
-        val avoid = djKind()
-        val coming = coming()
+        djSpares.clear()
+        djSpareJob++
+        djSpareBusy = false
+        djFillSpares()
+    }
+
+    /** One more set ahead, until there are [SPARES]. */
+    private fun djFillSpares() {
+        if (!dj.on || Remote.active || djSpareBusy || djSpares.size >= SPARES) return
+        djSpareBusy = true
+        val mine = djSpareJob
+        // Not what's coming, nor what the other spares have; a kind other than the last one's
+        val avoid = djSpares.lastOrNull()?.kind ?: djKind()
+        val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
-            if (mine != djSpareJob || res == null || !dj.on) return@bg
-            djSpare = res
-            // Its line, made now (the same words it'll say)
-            if (djVoice) {
-                val line = Spoken.humanize(res.line) + if (res.fact.isNotEmpty()) " " + Spoken.humanize(res.fact, filler = 0.0) else ""
-                djLines[res.line + "\n" + res.fact] = line
-                Voice.prepare(djClean(line))
-            }
+            if (mine != djSpareJob) return@bg   // started again meanwhile
+            djSpareBusy = false
+            if (res == null || !dj.on) return@bg
+            djSpares += res
+            djPrepareLine(res)
+            djFillSpares()
         }
+    }
+
+    /** A set's line, made now (the same words it'll say). */
+    private fun djPrepareLine(res: Dj.Built) {
+        if (!djVoice) return
+        val line = djLines.getOrPut(res.line + "\n" + res.fact) {
+            Spoken.humanize(res.line) + if (res.fact.isNotEmpty()) " " + Spoken.humanize(res.fact, filler = 0.0) else "" }
+        Voice.prepare(djClean(line))
     }
 
     // ---- importing an .m3u8 playlist ----

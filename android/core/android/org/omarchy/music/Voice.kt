@@ -126,13 +126,13 @@ object Voice {
 
     /** Make a line the DJ is about to say (the next set's) now, in the background: when its turn comes it's said at
      *  once, with no wait for the voice. Only the natural voice and ElevenLabs take time to make; the phone's own voice
-     *  is instant. The last few are kept. */
+     *  is instant. The last eight are kept. */
     fun prepare(text: String) {
         if (text.isBlank() || ahead.containsKey(text)) return
         val elevenOn = DjVoices.elevenOn
         if (!elevenOn && !(hasNatural && useNatural)) return
         val f = java.util.concurrent.CompletableFuture<Any?>()
-        if (ahead.size >= 4) ahead.keys.firstOrNull()?.let { ahead.remove(it) }
+        if (ahead.size >= 8) ahead.keys.firstOrNull()?.let { ahead.remove(it) }
         ahead[text] = f
         Thread {
             f.complete(runCatching { if (elevenOn) DjVoices.eleven(text, "mp3_44100_128") else makeNatural(text) }.getOrNull())

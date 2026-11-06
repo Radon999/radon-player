@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.13 · November 2026
+- **The DJ is instant:** its first set is made ahead in the background while the DJ is off (from where it played last, made again every half hour), line and all, so tapping DJ starts it at once. While it plays, three more sets are kept ready, each with its line already made, so Switch it up and the set button change category at once, however fast you go, and the next set at the end of the queue is one of them too. Each one used is replaced in the background.
+
 ## 3.2.12 · November 2026
 - **Newest Bluetooth device wins (Settings › Playback, under Ignore Bluetooth devices):** with two Bluetooth devices connected (an earbud you set down in the truck, then the truck), the one that connected last has the music, the DJ and its own EQ, instead of the one that was there first. Android Auto counts as a device. They work together: a device you ignore never gets the music, even when it's the newest. Apps can't disconnect a device, so the other one stays connected for calls, but nothing plays on it. On the PC too.
 - **Ignore Bluetooth devices works with Android Auto:** with the car ignored, Android Auto (wired or wireless) still took the music, since its sound isn't a Bluetooth output. Now the car's screen keeps the map, calls and the rest, while the music and the DJ's voice play on your headphones (Bluetooth ones you haven't ignored, else wired). It knows the car by its Bluetooth name (also when it's only connected for calls), or pick Android Auto itself in the list. With no headphones connected, the music stays on the car.
