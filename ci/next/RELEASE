@@ -1,0 +1,8 @@
+v3.2.13
+Radon Player 3.2.13: An instant DJ
+## 3.2.13: An instant DJ (Windows and Android)
+- **The DJ is instant:** its first set is made ahead in the background while the DJ is off (from where it played last, made again every half hour), line and all, so tapping DJ starts it at once. While it plays, three more sets are kept ready, each with its line already made, so Switch it up and the set button change category at once, however fast you go, and the next set at the end of the queue is one of them too. Each one used is replaced in the background.
+
+### Good to know
+- **Android:** install RadonPlayer.apk over 3.2.12 (same signature, your library and settings stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.13.msi installs over 3.2.12, or use Update in Settings.
