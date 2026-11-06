@@ -1,9 +1,0 @@
-v3.2.14
-Radon Player 3.2.14: Switch it up everywhere
-## 3.2.14: Switch it up everywhere (Windows and Android)
-- **Switch it up on Now playing and the queue:** while the DJ plays, ✦ at the top of Now playing (beside the set button) and Switch it up over the queue's Continue Playing start a new kind of set at once.
-- **Next is full size again:** in layouts with a side rail, the row of Previous, Play and Next ran out of room and Next was squeezed into a tiny icon in its corner. The three now shrink together to fit (all the same size), and an icon that's ever squeezed is drawn whole in the middle.
-
-### Good to know
-- **Android:** install RadonPlayer.apk over 3.2.13 (same signature, your library and settings stay), or tap Update in Settings.
-- **Windows:** Radon-Player-3.2.14.msi installs over 3.2.13, or use Update in Settings.
