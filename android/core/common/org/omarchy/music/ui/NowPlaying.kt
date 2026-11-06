@@ -412,8 +412,11 @@ private fun NowTop(ui: Ui, n: Now, lay: UiLayout = UiLayouts.current) {
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
         // Playing a DJ set: straight to the DJ's next set (its next category), skipping the rest of this one.
-        if (t != null && t.dj > 0 && Music.shownDj().on)
+        if (t != null && t.dj > 0 && Music.shownDj().on) {
+            // Switch it up: a new kind of set now
+            IconButton(Ico.SPARKLE, LOOK_ACCENT, desc = "Switch it up") { Music.djSwitch() }
             IconButton(Ico.SKIP, LOOK_ACCENT, desc = "Next DJ set") { Music.djNextSet() }
+        }
         // The song's own EQ (Custom EQ…): always here to set one up; red while the song's is in effect here (on this
         // output), the accent when it has one for another output. Left of Mono (on the PC, where Auto mono's button was).
         if (!n.remote && t != null) {
@@ -674,7 +677,7 @@ private fun Transport(n: Now, modes: Boolean, volumeShown: Boolean, onVolume: ()
         IconButton(Ico.SPEAKER, if (volumeShown) WHITE else SOFT, 24.dp, 12.dp, desc = if (volumeShown) "Hide the volume" else "Volume") { onVolume() }
         if (modes) BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             // The five take 244dp at full size; on a narrower phone they all shrink a little so none is cut off.
-            val k = (maxWidth / 244.dp).coerceIn(0.6f, 1f)
+            val k = (maxWidth / 244.dp).coerceIn(0.4f, 1f)
             val rep = if (n.remote) Remote.status.repeat else Music.repeat
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp * k), verticalAlignment = Alignment.CenterVertically) {
                 ModeButton(Ico.SHUFFLE, Music.shuffled, "Shuffle", k) { Music.shuffle() }
@@ -684,11 +687,16 @@ private fun Transport(n: Now, modes: Boolean, volumeShown: Boolean, onVolume: ()
                 ModeButton(if (rep == "one") Ico.REPEAT_ONE else Ico.REPEAT, rep != "off",
                     when (rep) { "one" -> "Repeat one"; "all" -> "Repeat all"; else -> "Repeat off" }, k) { Music.cycleRepeat() }
             }
-        } else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically) {
-            IconButton(Ico.PREV, WHITE, 34.dp, 10.dp) { Music.previous() }
-            IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 48.dp, 12.dp) { Music.togglePause() }
-            IconButton(Ico.NEXT, WHITE, 34.dp, 10.dp) { Music.next() }
+        } else BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            // The three take 200dp at full size; where there's less (a layout with a side rail), they all shrink alike.
+            // Before, the row ran out of room and Next got what was left: a tiny icon in its corner.
+            val k = (maxWidth / 200.dp).coerceIn(0.4f, 1f)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp * k, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(Ico.PREV, WHITE, 34.dp * k, 10.dp * k) { Music.previous() }
+                IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, WHITE, 48.dp * k, 12.dp * k) { Music.togglePause() }
+                IconButton(Ico.NEXT, WHITE, 34.dp * k, 10.dp * k) { Music.next() }
+            }
         }
         IconButton(Ico.VIS, if (visOpen) WHITE else SOFT, 24.dp, 12.dp,
             desc = if (visOpen) "Close the visualizer settings" else "Visualizer settings") { onVisualizer() }
@@ -791,7 +799,10 @@ private fun QueuePane(ui: Ui, n: Now) {
                 item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
                 itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             }
-            item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music", null) {} }
+            // The DJ playing: Switch it up (a new set now, in place of the rest of this one)
+            val djOn = Music.shownDj().on && (t?.dj ?: 0) > 0
+            item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music",
+                if (djOn) "↻  Switch it up" else null) { Music.djSwitch() } }
             if (rest.isEmpty()) item("none") {
                 Text(if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
                     style = T.sub.copy(shadow = LIFT, color = SOFT), modifier = Modifier.padding(vertical = 10.dp))

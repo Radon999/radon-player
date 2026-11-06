@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.14 · November 2026
+- **Switch it up on Now playing and the queue:** while the DJ plays, ✦ at the top of Now playing (beside the set button) and Switch it up over the queue's Continue Playing start a new kind of set at once.
+- **Next is full size again:** in layouts with a side rail, the row of Previous, Play and Next ran out of room and Next was squeezed into a tiny icon in its corner. The three now shrink together to fit (all the same size), and an icon that's ever squeezed is drawn whole in the middle.
+
 ## 3.2.13 · November 2026
 - **The DJ is instant:** its first set is made ahead in the background while the DJ is off (from where it played last, made again every half hour), line and all, so tapping DJ starts it at once. While it plays, three more sets are kept ready, each with its line already made, so Switch it up and the set button change category at once, however fast you go, and the next set at the end of the queue is one of them too. Each one used is replaced in the background.
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
@@ -28,7 +29,12 @@ enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HE
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(size)) { drawIco(ico, color) }
+    // Squeezed narrower (or shorter) than asked: still drawn whole, in the middle (not shrunk into the corner)
+    Canvas(modifier.size(size)) {
+        val box = this.size   // the drawing's (the size parameter is the one asked for)
+        val m = box.minDimension
+        translate((box.width - m) / 2f, (box.height - m) / 2f) { drawIco(ico, color) }
+    }
 }
 
 fun DrawScope.drawIco(ico: Ico, color: Color) {
