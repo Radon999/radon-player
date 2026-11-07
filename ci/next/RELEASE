@@ -1,0 +1,8 @@
+v3.2.17
+Radon Player 3.2.17: Wrapped through Last.fm outages
+## 3.2.17: Wrapped through Last.fm outages (Windows and Android)
+- **Wrapped opens when Last.fm is down:** when Last.fm (or the way to it) was busy for a moment ("HTTP 503… connection timeout"), Wrapped showed only an error. Every request to Last.fm is now asked again twice, a moment apart, before it counts as failed, and if Last.fm still isn't answering, Wrapped opens from the scrobbles saved on this device and your imports (saying so), instead of not at all. Try again later for the newest scrobbles. The DJ and Most played keep their counts through it too.
+
+### Good to know
+- **Android:** install RadonPlayer.apk over 3.2.16 (same signature, your library and settings stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.17.msi installs over 3.2.16, or use Update in Settings.
