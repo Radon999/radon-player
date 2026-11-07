@@ -17,6 +17,17 @@ fun Ctx.uriExists(uri: String): Boolean = try {
     false
 }
 
+/** Whether an address is surely gone (its file isn't there): only that, never a moment's refusal (a permission, a
+ *  busy provider), which made downloads drop out of the list though their files were still there. */
+fun Ctx.uriMissing(uri: String): Boolean = try {
+    if (uri.startsWith("/")) java.io.File(uri).let { f -> !f.exists() && f.parentFile?.canRead() == true }
+    else contentResolver.openFileDescriptor(android.net.Uri.parse(uri), "r")?.use { false } ?: true
+} catch (_: java.io.FileNotFoundException) {
+    true
+} catch (_: Exception) {
+    false
+}
+
 /** A file deleted, by path or content:// address. */
 fun Ctx.deleteUri(uri: String) {
     if (uri.startsWith("/")) java.io.File(uri).delete() else contentResolver.delete(android.net.Uri.parse(uri), null, null)

@@ -32,6 +32,10 @@ object BtRoute {
         private set
     private var previous: String? = null          // the output before the ignored device came (see key)
     private var arrived: Map<String, Long> = emptyMap()   // when each connected device came (Newest Bluetooth device wins)
+    private val gone = HashMap<String, Pair<Long, Long>>()   // devices that just went: (when they came, when they went)
+    private const val BLIP_MS = 90_000L                        // back within this long: the same connection
+    /** A Bluetooth name that's plainly a car's (as Outputs names them). */
+    private val CAR = Regex("(?i)car|auto|sync|uconnect|vw|toyota|ford|honda|bmw|audi|mazda|kia|hyundai|chevy|chevrolet|colorado|silverado|gmc|mylink|nissan|tesla|subaru|jeep|dodge|mercedes|lexus")
 
     /** Where the music's kept now, as Outputs names it (for the EQ): null while it isn't. */
     @Volatile var routed: Outputs.Out? = null
@@ -98,15 +102,43 @@ object BtRoute {
         val carIgnored = auto && IgnoreBt.on && (AUTO in ignored || (bt + calls).any { it in ignored })
         // Newest Bluetooth device wins: of the ones connected (Android Auto too), the last to come has the music. An
         // ignored one never does (Ignore Bluetooth devices first); with fewer than two left, the usual rules decide.
-        val compete = bt + (if (auto) listOf(AUTO) else emptyList())
-        arrived = BtIgnoreRules.arrivals(arrived, compete, System.currentTimeMillis())
+        val nowMs = System.currentTimeMillis()
+        val present = bt + (if (auto) listOf(AUTO) else emptyList())
+        // A device that drops out for a moment and comes back (an earbud taken out, a car reconnecting) keeps when it
+        // first came: before, its blip made it the newest, and the music went back to it a couple of seconds later.
+        for ((k, at) in arrived) if (k !in present) gone[k] = at to nowMs
+        gone.entries.removeAll { nowMs - it.value.second > BLIP_MS }
+        val before = arrived + present.filter { it !in arrived }.mapNotNull { k -> gone[k]?.let { k to it.first } }
+        arrived = BtIgnoreRules.arrivals(before, present, nowMs)
+        // Android Auto is the car: it starts a few seconds after the car's own Bluetooth connects. That car (a Bluetooth
+        // output that came within a minute of it) stands for both, so Android Auto starting never counts as a newer
+        // device (it used to hand the music back to the earbud); the car keeps it, on its Bluetooth.
+        val carBt = if (auto) arrived[AUTO]?.let { a -> bt.filter { kotlin.math.abs((arrived[it] ?: 0L) - a) < 60_000 }
+            .maxByOrNull { arrived[it] ?: 0L } } else null
+        val compete = if (carBt != null) bt else present
+        if (carBt != null) IgnoreBt.learnCar(carBt)
+        // Car always wins: the car (its Bluetooth, else Android Auto) has the music whenever it's here, headphones or not
+        if (IgnoreBt.carFirst) {
+            val known = IgnoreBt.carNames().toSet()
+            val ign = if (IgnoreBt.on) ignored else emptySet()
+            val car = outs.firstOrNull { it.type in BT && key(it) !in ign &&
+                (key(it) == carBt || key(it) in known || CAR.containsMatchIn(key(it) ?: "")) }
+            if (car != null || (auto && !carIgnored)) {
+                use(car)          // the car's Bluetooth; with only Android Auto, where Android puts it (the car)
+                hide(false)
+                val name = car?.let { key(it) } ?: AUTO
+                IgnoreBt.newest(name, compete.filter { it != name && it !in ign && it != AUTO }.joinToString(", "))
+                IgnoreBt.report("", routed?.label ?: name, "")
+                return
+            }
+        }
         if (IgnoreBt.newestOn) {
             val ign = (if (IgnoreBt.on) ignored else emptySet()) + (if (carIgnored) setOf(AUTO) else emptySet())
             val pick = BtIgnoreRules.newest(compete, arrived, ign)
             val d = pick?.takeIf { it != AUTO }?.let { k -> outs.firstOrNull { it.type in BT && key(it) == k } }
             if (pick == AUTO || d != null) {
                 use(d)          // Android Auto: where Android puts it (the car); else the newest device
-                hide(d != null && auto)   // headphones newer than Android Auto: kept from it
+                hide(d != null && auto && pick != carBt)   // headphones newer than Android Auto: kept from it (not the car itself)
                 IgnoreBt.newest(pick!!, compete.filter { it != pick && it !in ign }.joinToString(", "))
                 val here = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).distinct().joinToString(", ") else ""
                 IgnoreBt.report(here, routed?.label ?: if (pick == AUTO) AUTO else "", "")

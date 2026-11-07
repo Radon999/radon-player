@@ -1213,6 +1213,7 @@ private fun PlaybackLines(ui: Ui) {
     if (onPhone) AutoMonoLines()
     IgnoreBtLines(ui)
     NewestBtLine()
+    if (onPhone) CarFirstLine()
     Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
@@ -1394,6 +1395,22 @@ private fun IgnoreBtLines(ui: Ui) {
         else "The PC decides its default output; the app looks every few seconds, so the device may have the sound for a moment " +
         "first. The music goes back to the output it was on, as long as that's still there",
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+}
+
+/** Car always wins (the phone): a failsafe beside Newest Bluetooth device wins. */
+@Composable
+private fun CarFirstLine() {
+    val ign = org.omarchy.music.IgnoreBt
+    val on = ign.carFirst
+    val cars = ign.carNames()
+    Line("Car always wins", when {
+        !on -> "Whenever your car is connected (its Bluetooth or Android Auto), it has the music and its EQ, even with " +
+            "headphones connected too"
+        cars.isNotEmpty() -> "On: ${cars.joinToString(", ")} has the music whenever it's connected"
+        else -> "On: the car has the music whenever it's connected (connect it with Android Auto once so the app knows it)"
+    }, on) {
+        Switch(on, { ign.setCarFirst(it) }, colors = swColors())
+    }
 }
 
 /** Newest Bluetooth device wins: beside Ignore Bluetooth devices, which it works with (an ignored one never wins). */

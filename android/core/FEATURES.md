@@ -56,9 +56,9 @@ Every song gets the moods that fit it, from 12: Happy, Energetic, Party, Hype, C
 
 Short sets built from *your* listening, with a voice between them like a radio host.
 
-- **Sets:** What you've had on repeat, what you play at this time of day, favorites, throwbacks, songs you loved but forgot, a mood, a genre, and new music like yours. A song doesn't come back for 20 sets. Skips never keep a song out (you may just not be in the mood): they're only counted, for Skips and the DJ's facts about them.
-- **The voice:** Says what's coming and fun facts about your listening, never over a song. The PC has a natural voice; the phone uses its own voice, or downloads the natural one once (about 130 MB) and lets you pick either in DJ › Voice settings, or remove it.
-- **Instant:** The first set is ready before you tap DJ, and three more are kept ready with their lines, so switching category is immediate however fast you skip. Switch it up is on Now playing (✦, beside the set button) and over the queue too.
+- **Sets:** What you've had on repeat, what you play at this time of day, favorites, throwbacks, songs you loved but forgot, a mood, a genre, new music like yours, an artist spotlight, an album moment (three in a row, in order), on this day years ago, a decade trip, your one-hit wonders, never skipped, second chances, your unreleased songs and this week's streaks. Each set flows by mood, no artist plays twice in a row (or more than twice in a set, but for an artist's own set), and kinds you haven't heard lately come up more. A song doesn't come back for 20 sets. Skips never keep a song out (you may just not be in the mood): they're only counted, for Skips and the DJ's facts about them.
+- **The voice:** Says what's coming and fun facts about your listening, never over a song: milestones (a song's 100th play) always, greetings for the time and the day, and now and then a word before a song in the middle of a set. The PC has a natural voice; the phone uses its own voice, or downloads the natural one once (about 130 MB) and lets you pick either in DJ › Voice settings, or remove it.
+- **Instant:** The first set is ready before you tap DJ, and three more are kept ready with their lines, so switching category is immediate however fast you skip. Switch it up is on Now playing (✦, beside the set button) and over the queue too. From your headphones: pause, then Next (a double tap) switches it up and plays.
 - **Ask for something:** Type or say an artist, a genre, a decade, a mood or a vibe ("workout").
 - **Play from** everything, or one playlist, folder or album.
 
@@ -81,8 +81,8 @@ Short sets built from *your* listening, with a voice between them like a radio h
 - **Equalizer:** One for each output (speaker, wired headphones, each Bluetooth device, a USB DAC, the car), switched in by itself. 3 to 31 bands, presets, your own presets, and **Auto EQ** headphone correction by name.
 - **Dual volume:** On, a song's own volume and the Boost go together; off, a song with its own volume plays at just that volume, without the Boost.
 - **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows.
-- **Sound quality** (each can be turned off): clip guard, smoothing of harsh loud masters, dither, high-quality resampling, loudness compensation and detail.
-- **Bit-perfect** to a USB DAC (phone) or the PC's sound card, and **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does.
+- **Sound quality:** clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on from the start, each can be turned off), and loudness compensation (off from the start).
+- **Bit-perfect** to a USB DAC (phone) or the PC's sound card, and **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does. **Car always wins** (the phone) is the failsafe: whenever the car is connected, it has the music.
 
 ## Personalization
 

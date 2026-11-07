@@ -8,6 +8,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -767,7 +769,17 @@ fun DownloadsTab(ui: Ui) {
         item {
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "Downloads", songs = songs)) })
             Section("${songs.size} DOWNLOADED SONG${if (songs.size != 1) "S" else ""}")
-            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { SortMenu("downloads", sorts, names = mapOf("order" to "Newest download first")) }
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                SortMenu("downloads", sorts, names = mapOf("order" to "Newest download first"))
+                Spacer(Modifier.width(8.dp))
+                Pill("↻  Refresh", quiet = true) { Music.refreshDownloads() }
+            }
+            // The ones that came from YouTube (Opus): got again from Tidal in FLAC
+            val yt = remember(all) { Music.youtubeDownloads().size }
+            if (yt > 0 || Music.flacing != null) Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(Music.flacing ?: "$yt from YouTube: FLAC from Tidal where it has them, else AAC in place of Opus", style = T.sub, modifier = Modifier.weight(1f))
+                if (Music.flacing == null) Pill("Upgrade") { Music.flacDownloads() }
+            }
         }
         tracks(songs, ui, "downloads") { t -> quality[t.id].orEmpty() }
     }

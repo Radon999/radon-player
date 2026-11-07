@@ -299,19 +299,29 @@ object Music {
      *  be playing, and the position hasn't moved for 2.5 seconds; or 1.5 seconds past its end: it's over, on to the next
      *  (or, on Repeat one, the same song from the start). On both the phone and the PC. */
     private fun endWatch(p: Engine) {
-        val d = p.durationMs.takeIf { it > 0 } ?: (duration * 1000).toLong(); val at = p.positionMs
+        val t = current()
+        // Its length: the player's, or the song's own (its tags', the service's) when that's longer, so a file whose
+        // player underestimates its length (a VBR MP3 without its header, a stream) isn't cut short while it still plays.
+        val engineMs = p.durationMs
+        val songMs = ((t?.duration ?: 0.0) * 1000).toLong()
+        val d = if (engineMs > 0) maxOf(engineMs, if (songMs in engineMs..engineMs + 60_000) songMs else 0L) else songMs
+        val at = p.positionMs
         // Moving on that never finished (it should take a moment): not waited for any longer
         if (advancing) { if (advancingSince == 0L) advancingSince = System.currentTimeMillis() } else advancingSince = 0L
         val busy = advancing && System.currentTimeMillis() - advancingSince < 8000
-        val live = p.playWhenReady && !busy && !Remote.active && current() != null && d > 0
-        val stuck = live && at >= d - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
-        val past = live && at >= d + 1500 && p.state != Engine.IDLE
+        // Only the song that's really in the player: while the next one loads (after a crossfade, the ending one plays
+        // on silently in the player till then), its clock is the last song's, and was read as this one's running past
+        // its end, so a song was skipped before it played.
+        val live = p.playWhenReady && !busy && !Remote.active && t != null && d > 0 && loadedFor == t.id
+        val stuck = live && at >= (if (engineMs > 0) engineMs else d) - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
+        val past = live && at >= d + 1500 && p.state != Engine.IDLE && engineMs > 0
         stuckAt = at
         stuckMs = if (stuck) stuckMs + 500 else 0
         if (stuckMs >= 2500 || past) {
             stuckMs = 0; advancingSince = 0L
-            Crashes.note("“${current()?.title}” ${if (past) "ran on past" else "stopped at"} its end without finishing: " +
-                if (repeat == "one") "played again" else "moved on to the next song")
+            Crashes.note("“${t?.title}” ${if (past) "ran on past" else "stopped at"} its end without finishing: " +
+                (if (repeat == "one") "played again" else "moved on to the next song") +
+                " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
             advancing = false
             trackEnded()
         }
@@ -1115,11 +1125,35 @@ object Music {
     private fun djAnnounce(t: Track?) {
         val n = t?.dj?.toString() ?: return
         val set = dj.sets[n]
-        if (!dj.on || set == null || n == dj.shown) return
+        if (!dj.on || set == null) return
+        if (n == dj.shown) {   // a song in the middle of the set: now and then a word about it, once a set at most
+            val c = djComments.remove(t.id)
+            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c)
+            djCommentAhead()
+            return
+        }
         dj = dj.copy(shown = n)
         toast("DJ · ${set.line}")
+        djCommentAhead()
         // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
         djSay(djLine(n) ?: return)
+    }
+
+    // What the DJ says before a song in the middle of a set (a milestone this play reaches, now and then something
+    // about the song), worked out and its voice made while the song before it plays. "" for nothing.
+    private val djComments = HashMap<String, String>()
+    private val djCommented = HashSet<String>()   // the sets (their numbers) the DJ already spoke in the middle of
+
+    private fun djCommentAhead() {
+        if (!djVoice || !Voice.canSpeak || Remote.active) return
+        val cur = current() ?: return
+        val nxt = queue.getOrNull(index + 1) ?: return
+        val n = nxt.dj.toString()
+        if (nxt.dj <= 0 || nxt.dj != cur.dj || n in djCommented || nxt.id in djComments) return
+        if (djComments.size > 50) djComments.clear()
+        val c = Dj.songComment(nxt)?.let { Spoken.humanize(it, filler = 0.0) }.orEmpty()   // made once, so what's made ahead is what's said
+        djComments[nxt.id] = c
+        if (c.isNotEmpty()) Voice.prepare(djClean(c))
     }
 
     /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. With your
@@ -2310,6 +2344,41 @@ object Music {
     }
     fun chooseVisPreset(p: String) { visPreset = p; saveState() }
     fun chooseWrappedStyle(s: String) { wrappedStyle = s; saveState() }
+    /** Downloads that came from YouTube (Opus), the ones Tidal has now got again in FLAC: Downloads' Get FLAC. */
+    fun youtubeDownloads() = lib.items.values.filter { it.format == "opus" || (it.quality.startsWith("YouTube") && it.id !in flacTried) }
+    private val flacTried = HashSet<String>()   // YouTube AAC downloads looked up on Tidal already (this time the app's open)
+    var flacing by mutableStateOf<String?>(null)
+        private set
+    fun flacDownloads() {
+        if (flacing != null) return
+        val todo = youtubeDownloads().map { it.id }
+        if (todo.isEmpty()) return
+        flacing = "Getting FLAC… 0 of ${todo.size}"
+        bg({
+            var got = 0; var none = 0; var i = 0
+            for (id in todo) {
+                i++
+                scope.launch(Dispatchers.Main) { flacing = "Getting FLAC… $i of ${todo.size}" }
+                if (runCatching { dl.toFlac(id) }.getOrDefault(false)) got++ else none++
+                synchronized(flacTried) { flacTried += id }
+            }
+            got to none
+        }) { r, err ->
+            flacing = null
+            savedVersion++; musicVersion++
+            toast(err?.message?.let { "Couldn't get FLAC: $it" } ?: r?.let { (got, none) ->
+                "$got upgraded (FLAC from Tidal, else AAC)" + if (none > 0) " · $none left as they are" else "" } ?: "")
+        }
+    }
+
+    /** Downloads' Refresh: the list read again (a download that didn't show up comes in). */
+    fun refreshDownloads() {
+        bg({ lib.refresh() }) { n, _ ->
+            savedVersion++; musicVersion++
+            toast(if ((n ?: 0) > 0) "Refreshed: $n more download${if (n != 1) "s" else ""}" else "Downloads are up to date")
+        }
+    }
+
     fun chooseSkipOrder(s: String) { skipOrder = s; saveState() }
     fun chooseSkipPeriod(s: String) { skipPeriod = s; saveState() }
     /** When Skips counts from: a week, a month or a year ago, or all time (0). */
@@ -2874,6 +2943,19 @@ object Music {
         if (i in queue.indices) { index = i; loadCurrent() }
     }
 
+    /** Next from your headphones, the car, the lock screen or the PC's media keys. With the DJ on and the music paused
+     *  (not while the DJ is talking), it switches it up: a new kind of set, which starts playing at once. Pause with your
+     *  headphones, then double tap. Playing, Next skips one song as always. (Two double taps in a row were meant to do
+     *  it before, but earbuds wait after each tap to see if more are coming, so the two came too far apart.) */
+    fun sessionNext() {
+        if (dj.on && !Remote.active && paused && !djTalking && current() != null) {
+            djSwitch()
+            return
+        }
+        next()
+    }
+
+
     fun next() {
         if (Remote.active) { Remote.cmd("next"); return }
         djHush()
@@ -2942,7 +3024,8 @@ object Music {
     private var fadingId: String? = null
     private var fadeIn = 0.0
     private var fadeJob: kotlinx.coroutines.Job? = null
-    private var fadingOut: Engine? = null   // a crossfade's ending song, fading out in its own player
+    private var fadingOut: Engine? = null
+    private var crossTo: String? = null   // the song a crossfade is bringing in   // a crossfade's ending song, fading out in its own player
 
     private var tail: Engine? = null   // the song ending, ready to carry on fading in a player of its own
     private var tailFor: String? = null
@@ -2970,6 +3053,7 @@ object Music {
         val nxt = queue.getOrNull(index + 1) ?: return
         if (Prefs.on(Prefs.SMART_TRANSITIONS) && sameAlbum(t, nxt)) return
         if (dj.on && djVoice && nxt.dj > 0 && nxt.dj != t.dj) return   // a new DJ set next: the DJ talks between them, no fade
+        if (dj.on && djVoice && !djComments[nxt.id].isNullOrEmpty()) return   // the DJ says a word before the next song
         val fadeAt = duration - n
         // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
         if (tail == null && position >= fadeAt - 5 && position < fadeAt) {
@@ -3012,16 +3096,29 @@ object Music {
                 }
                 x.volume = from
                 player?.volume = 0f   // the second player has it now
-                fadeIn = n
+                fadeIn = -1.0   // the next song comes in silent; this fade brings it up, in step with the ending
+                crossTo = queue.getOrNull(index + 1)?.id
                 fadingOut = x
+                val mark = System.currentTimeMillis()
                 trackEnded()
-                val rest = maxOf(0.8, left - 0.5)
-                val steps = (rest * 20).toInt().coerceAtLeast(1)
+                // The ending plays on at full until the next song is really sounding (it takes a moment to load): before,
+                // the ending began fading at once while the next only came up once it had loaded, so for that moment
+                // both were low, a dip that sounded like a cut.
+                val nextId = current()?.id
+                var waited = 0
+                while (fadingOut === x && current()?.id == nextId && waited < 4000 && !(loadedFor == nextId && player?.isPlaying == true)) { delay(20); waited += 20 }
+                if (current()?.id != nextId) fadingOut = null   // skipped meanwhile: the ending stops now
+                val left2 = (if (x.durationMs > 0) (x.durationMs - x.positionMs) / 1000.0 else left - (System.currentTimeMillis() - mark) / 1000.0)
+                val rest = maxOf(0.6, minOf(n, left2 - 0.1))
+                val steps = (rest * 25).toInt().coerceAtLeast(1)
                 for (k in 1..steps) {
-                    delay(50)
-                    if (fadingOut !== x) break   // stopped (the DJ began talking)
-                    x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
+                    delay(40)
+                    if (fadingOut !== x || current()?.id != nextId) break   // stopped (the DJ began talking, or you skipped)
+                    val a = Math.PI / 2 * k / steps
+                    x.volume = from * kotlin.math.cos(a).toFloat()                    // an equal-power crossfade: as this goes down…
+                    if (loadedFor == nextId) player?.volume = kotlin.math.sin(a).toFloat()   // …the next comes up, together
                 }
+                if (loadedFor == nextId && current()?.id == nextId) player?.volume = 1f
                 if (fadingOut === x) fadingOut = null
                 runCatching { x.release() }
             }
@@ -3072,6 +3169,13 @@ object Music {
     /** Songs of one album, one after the other: Smart transitions leaves them to flow into each other. */
     fun sameAlbum(a: Track, b: Track) = a.album.isNotBlank() && norm(albumEdition(a.album).first) == norm(albumEdition(b.album).first) &&
         artistKey(a.artist) == artistKey(b.artist)
+
+    /** The player says its song ended. Ignored while it's already moving on to another song (after a crossfade the
+     *  ending one plays on silently in the player while the next loads, and its end skipped the next song unheard). */
+    fun engineEnded() {
+        if (advancing && loadedFor != null && loadedFor != current()?.id) return
+        trackEnded()
+    }
 
     fun trackEnded() {
         // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
@@ -3245,6 +3349,8 @@ object Music {
         advancing = false   // buffering for real now
         fadeJob?.cancel()
         if (hold) { fadeIn = 0.0; p.volume = 0f }
+        else if (fadeIn < 0 && t.id == crossTo) { fadeIn = 0.0; p.volume = 0f }   // a crossfade brings it up (see maybeCrossfade)
+        else if (fadeIn < 0) { fadeIn = 0.0; p.volume = 1f }   // another song than the one it was fading to (a skip)
         else if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
             val n = fadeIn; fadeIn = 0.0
             p.volume = 0f

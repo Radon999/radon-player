@@ -22,6 +22,8 @@ private fun pathOf(uri: String) = if (uri.startsWith("file://")) java.net.URI(ur
 fun Ctx.openIn(uri: String): java.io.InputStream? = File(pathOf(uri)).takeIf { it.isFile }?.inputStream()
 
 fun Ctx.uriExists(uri: String): Boolean = File(pathOf(uri)).exists()
+/** Whether an address is surely gone (its file isn't there). */
+fun Ctx.uriMissing(uri: String): Boolean = !File(pathOf(uri)).exists()
 
 fun Ctx.deleteUri(uri: String) { File(pathOf(uri)).delete() }
 

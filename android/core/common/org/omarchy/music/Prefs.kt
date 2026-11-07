@@ -11,11 +11,14 @@ object Prefs {
     fun init(ctx: Ctx) {
         if (store != null) return
         store = PrefsStore(ctx, "radon-2").also { values.putAll(it.load()) }
+        // Loudness compensation is off for a new install now; one that had it on from the start (never switched) keeps it
+        if (values.isNotEmpty() && values[LOUDNESS] == null) set(LOUDNESS, true)
     }
 
     /** Switches on from the start (until you turn them off), so a new install sounds its best without a look at
-     *  Settings: Clip guard, Smooth distortion on loud songs, Dither, HQ resampling, Loudness compensation, Detail. */
-    private val ON_AT_FIRST get() = setOf(CLIP_GUARD, SMOOTH_PEAKS, DITHER, HQ_RESAMPLE, LOUDNESS, DETAIL)
+     *  Settings: Clip guard, Smooth distortion on loud songs, Dither, HQ resampling, Detail. (Loudness compensation
+     *  starts off.) */
+    private val ON_AT_FIRST get() = setOf(CLIP_GUARD, SMOOTH_PEAKS, DITHER, HQ_RESAMPLE, DETAIL)
 
     fun on(key: String, default: Boolean = false): Boolean = values[key] as? Boolean ?: (default || key in ON_AT_FIRST)
     fun set(key: String, on: Boolean) { values[key] = on; store?.put(key, on) }
@@ -60,4 +63,6 @@ object Prefs {
     const val IGNORE_BT_DEVICES = "ignore_bt_devices"   // which ones (their names, one per line)
     const val IGNORE_BT_SEEN = "ignore_bt_seen"  // Bluetooth outputs seen before, to pick from (names, one per line)
     const val NEWEST_BT = "newest_bt"            // Newest Bluetooth device wins: the last one to connect has the music
+    const val CAR_FIRST = "car_first"            // Car always wins (the phone): the car has the music whenever it's connected
+    const val CAR_NAMES = "car_bt_names"         // the car's Bluetooth names, learnt when Android Auto starts (one per line)
 }

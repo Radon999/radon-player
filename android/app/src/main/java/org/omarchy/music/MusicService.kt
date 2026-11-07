@@ -53,7 +53,7 @@ class MusicService : MediaLibraryService() {
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) Music.trackEnded()
+                if (state == Player.STATE_ENDED) Music.engineEnded()
                 if (state == Player.STATE_READY) exo.duration.takeIf { it > 0 }?.let { Music.duration = it / 1000.0 }
             }
 
@@ -186,8 +186,8 @@ class MusicService : MediaLibraryService() {
             if (id != null && Car.isCarItem(id)) Car.play(id) else super.setMediaItems(items, resetPosition)
         }
 
-        override fun seekToNext() = Music.next()
-        override fun seekToNextMediaItem() = Music.next()
+        override fun seekToNext() = Music.sessionNext()
+        override fun seekToNextMediaItem() = Music.sessionNext()
         override fun seekToPrevious() = Music.previous()
         override fun seekToPreviousMediaItem() = Music.previous()
         // Play from the headphones, the car or the lock screen: the app's own Play (so the DJ never stays stuck)

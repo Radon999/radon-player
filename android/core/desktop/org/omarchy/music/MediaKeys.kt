@@ -25,7 +25,7 @@ object MediaKeys {
                 Music.scope.launch(Dispatchers.Main) {
                     when (act) {
                         "toggle" -> Music.togglePause()
-                        "next" -> Music.next()
+                        "next" -> Music.sessionNext()
                         "previous" -> Music.previous()
                         "stop" -> if (!Music.paused) Music.togglePause()
                     }

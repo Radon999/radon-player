@@ -130,6 +130,27 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         }
     }
 
+    /** (blocking) A download that came from YouTube got again from Tidal in FLAC (the quality picked), else (an Opus one
+     *  Tidal hasn't got) from YouTube as AAC; its old file deleted once the new one is in. False when neither could be. */
+    fun toFlac(id: String): Boolean {
+        val old = lib.items[id] ?: return false
+        if (!tidal.connected) error("connect Tidal in Settings first")
+        synchronized(active) { if (!active.add(id)) error("already downloading") }
+        try {
+            val uri = try { fromTidal(old.track(), null) } catch (_: NoLosslessMatch) {
+                // Not on Tidal: an Opus download got again as YouTube's AAC (.m4a), which plays and tags everywhere
+                if (old.format != "opus") return false
+                val pick = YouTubeAudio.forDownload(old.track()).firstOrNull { it.ext == "m4a" } ?: return false
+                lib.items.remove(id)
+                try { fromYouTube(old.track(), null, pick) } catch (e: Exception) { lib.items[id] = old; throw e }
+            }
+            if (uri != old.file && lib.items.values.none { it.file == old.file }) runCatching { ctx.deleteUri(old.file) }
+            return true
+        } finally {
+            synchronized(active) { active.remove(id) }
+        }
+    }
+
     /** The quality picked for downloads (Settings › Downloads): "flac24", "flac16" or "mp3". */
     private val quality get() = Prefs.text(Prefs.DL_QUALITY, "flac24").ifEmpty { "flac24" }
 

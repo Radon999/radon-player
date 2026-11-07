@@ -27,7 +27,7 @@ object MediaSession {
                             w == "play" -> if (Music.paused) Music.togglePause()
                             w == "pause" || w == "stop" -> if (!Music.paused) Music.togglePause()
                             w == "toggle" -> Music.togglePause()
-                            w == "next" -> Music.next()
+                            w == "next" -> Music.sessionNext()
                             w == "previous" -> Music.previous()
                             w.startsWith("seek ") -> w.removePrefix("seek ").toDoubleOrNull()?.let { Music.seek(it) }
                         }

@@ -36,6 +36,18 @@ object IgnoreBt {
     /** Newest Bluetooth device wins (beside Ignore Bluetooth devices): with two connected, the one that connected last
      *  has the music (and its EQ). An ignored one never does. */
     val newestOn: Boolean get() = Prefs.on(Prefs.NEWEST_BT)
+
+    /** Car always wins (the phone, a failsafe beside Newest Bluetooth device wins): whenever the car is connected (its
+     *  Bluetooth or Android Auto), it has the music, whatever headphones are connected too. Ignore Bluetooth devices
+     *  still comes first (an ignored car never gets it). */
+    val carFirst: Boolean get() = Prefs.on(Prefs.CAR_FIRST)
+    fun setCarFirst(v: Boolean) { Prefs.set(Prefs.CAR_FIRST, v); apply() }
+    /** The car's Bluetooth names: learnt when Android Auto starts with it, and any name that's plainly a car's. */
+    fun carNames(): List<String> = BtIgnoreRules.parse(Prefs.text(Prefs.CAR_NAMES))
+    fun learnCar(name: String) {
+        val l = carNames()
+        if (name !in l) Prefs.setText(Prefs.CAR_NAMES, BtIgnoreRules.join((l + name).takeLast(5)))
+    }
     fun setNewest(v: Boolean) { Prefs.set(Prefs.NEWEST_BT, v); newestWhy = ""; apply() }
     /** Which device has the music now because it's the newest ("" when the switch isn't deciding anything). */
     var newestNow by mutableStateOf("")

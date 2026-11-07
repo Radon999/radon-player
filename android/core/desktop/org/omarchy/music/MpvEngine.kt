@@ -133,7 +133,7 @@ class MpvEngine(private val main: Boolean = true) : Engine {
             }
             "end-file" -> if (main && e["reason"]?.jsonPrimitive?.content == "eof") {
                 eof = true
-                Music.scope.launch(Dispatchers.Main) { if (Music.player === this@MpvEngine) Music.trackEnded() }
+                Music.scope.launch(Dispatchers.Main) { if (Music.player === this@MpvEngine) Music.engineEnded() }
             } else if (main && e["reason"]?.jsonPrimitive?.content == "error") {
                 Music.scope.launch(Dispatchers.Main) {
                     // A hi-res (DASH) stream mpv couldn't play: CD-quality FLAC (one plain file) from then on.

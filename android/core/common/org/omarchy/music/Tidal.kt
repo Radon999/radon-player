@@ -219,7 +219,13 @@ class Tidal(ctx: Ctx) : Source {
         if (!ok(c, lossy)) return 0.0
         val dur = t.duration
         val cdur = c["duration"].dbl ?: 0.0
-        if (dur > 0 && abs(cdur - dur) > 6) return 0.0
+        // A YouTube Music song is often its music video, longer than the recording (an intro, an outro): it may be
+        // up to half a minute off, as long as its title and artist match closely. Before, anything over 6 seconds
+        // off failed, so its download came from YouTube (Opus) instead of Tidal (FLAC).
+        val video = t.source == "ytm"
+        val tol = if (video) 30.0 else 6.0
+        val off = abs(cdur - dur)
+        if (dur > 0 && off > tol) return 0.0
         val name = tidalTitle(c)
         val album = c.path("album", "title").str ?: ""
         if (VERSION_WORDS.any { w -> hasWord("$title ${t.album}".lowercase(), w) != hasWord("$name $album".lowercase(), w) }) return 0.0
@@ -228,9 +234,10 @@ class Tidal(ctx: Ctx) : Source {
         fun found(a: String) = theirs.maxOfOrNull { similar(a, it) } ?: 0.0
         val lead = artistNames(artists.take(1)).maxOfOrNull { found(it) } ?: 0.0
         if (ts < 0.75 || lead < 0.8) return 0.0
+        if (video && dur > 0 && off > 6 && (ts < 0.9 || lead < 0.9)) return 0.0   // that far off: only a close match
         val ours = artistNames(artists) + featured(title)
         val credits = ours.sumOf { found(it) } / ours.size
-        val closeness = if (dur > 0) 1 - abs(cdur - dur) / 6 else 0.5
+        val closeness = if (dur > 0) 1 - off / tol else 0.5
         val sameAlbum = if (t.album.isNotEmpty() && similar(t.album.lowercase(), album.lowercase()) > 0.8) 0.05 else 0.0
         val hires = if ("HIRES_LOSSLESS" in c.path("mediaMetadata", "tags").list.map { it.str }) 0.04 else 0.0   // of two equal ones, the hi-res
         val onAlbum = if (onSingle(c)) 0.0 else 0.03   // …and the album's over the single's
