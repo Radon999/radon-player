@@ -72,14 +72,27 @@ object LastFm {
         }
         p["format"] = "json"
         val hdr = mapOf("User-Agent" to APP_UA)
-        val res = try {
-            if (post) httpJson(API, hdr, form(*p.map { it.key to it.value }.toTypedArray()))
-            else httpJson(API + "?" + p.entries.joinToString("&") { "${enc(it.key)}=${enc(it.value)}" }, hdr)
-        } catch (e: HttpError) {   // Last.fm explains what went wrong in the body
-            runCatching { JSON.parseToJsonElement(e.body) }.getOrNull()?.takeIf { it["error"] != null } ?: throw e
+        // Last.fm (or the way to it) is busy now and then (a 503, a timeout): asked again twice, a moment apart, before
+        // it counts as failed. Its own temporary errors (8, 11, 16, 29: try again later) the same.
+        var attempt = 0
+        while (true) {
+            try {
+                val res = try {
+                    if (post) httpJson(API, hdr, form(*p.map { it.key to it.value }.toTypedArray()))
+                    else httpJson(API + "?" + p.entries.joinToString("&") { "${enc(it.key)}=${enc(it.value)}" }, hdr)
+                } catch (e: HttpError) {   // Last.fm explains what went wrong in the body
+                    runCatching { JSON.parseToJsonElement(e.body) }.getOrNull()?.takeIf { it["error"] != null } ?: throw e
+                }
+                res["error"].long?.let { throw LastFmError(it.toInt(), res["message"].str ?: "") }
+                return res
+            } catch (e: Exception) {
+                val busy = (e is HttpError && (e.code >= 500 || e.code == 429)) || (e is LastFmError && e.code in setOf(8, 11, 16, 29)) ||
+                    (e is java.io.IOException && e !is HttpError)
+                if (!busy || post || attempt >= 2) throw e
+                attempt++
+                Thread.sleep(if (attempt == 1) 1500L else 4000L)
+            }
         }
-        res["error"].long?.let { throw LastFmError(it.toInt(), res["message"].str ?: "") }
-        return res
     }
 
     /** What to do with a failed call: Last.fm revoked the app (9) signs you out. */

@@ -321,7 +321,7 @@ object Wrapped {
         for ((k, _) in plays.entries.sortedByDescending { it.value }) {
             val key = "${norm(k.first)}|${norm(cleanTitle(k.second))}"
             var sec = known[key] ?: cache[key]
-            if (sec == null && asked < 80 && LastFm.key.isNotEmpty()) {   // Last.fm, for your most played; one request each
+            if (sec == null && asked < 80 && LastFm.key.isNotEmpty() && !lastFmDown) {   // Last.fm, for your most played; one request each
                 asked++
                 sec = runCatching { LastFm.duration(k.first, k.second) }.getOrDefault(0.0)
                 cache[key] = sec
@@ -340,7 +340,7 @@ object Wrapped {
         val cache = readText(file)?.let { runCatching { JSON.decodeFromString(tagSer, it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf()
         val score = LinkedHashMap<String, Double>()
         for ((name, plays) in artists.take(30)) {
-            val all = cache[name.lowercase()] ?: runCatching { LastFm.artistTags(name) }.getOrDefault(emptyList()).also { cache[name.lowercase()] = it }
+            val all = cache[name.lowercase()] ?: if (lastFmDown) continue else runCatching { LastFm.artistTags(name) }.getOrDefault(emptyList()).also { cache[name.lowercase()] = it }
             val tags = all.filter { isGenre(it.first, name) }.take(4)
             val total = tags.sumOf { it.second }.takeIf { it > 0 } ?: 1
             for ((t, c) in tags) score.merge(t.lowercase(), plays.toDouble() * c / total, Double::plus)
@@ -368,8 +368,10 @@ object Wrapped {
         val saved = readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } ?: Saved()
         var rows = saved.rows
         val since = if (saved.until > 0) maxOf(start, saved.until - 14 * 86_400L) else start   // Last.fm takes scrobbles two weeks late
-        if (saved.until < end) {
-            val new = LastFm.recent(since, end) { p, n -> progress("Reading your scrobbles · ${period.name} · page $p of $n") }
+        if (saved.until < end && !lastFmDown) {
+            // Last.fm not answering: the scrobbles kept here (all but the newest), rather than no Wrapped at all
+            val new = try { LastFm.recent(since, end) { p, n -> progress("Reading your scrobbles · ${period.name} · page $p of $n") } }
+                catch (e: Exception) { if (e is LastFmError && e.code !in setOf(8, 11, 16, 29)) throw e; lastFmDown = true; return rows }
             val have = rows.map { it.t to it.title }.toHashSet()
             rows = (rows + new.filter { (it.time to it.title) !in have }.map { Row(it.time, it.artist, it.title, it.album, it.image) })
                 .sortedBy { it.t }
@@ -414,13 +416,48 @@ object Wrapped {
         return (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
     }
 
+    /** Last.fm didn't answer while Wrapped was loading (it showed what's kept here). */
+    @Volatile private var lastFmDown = false
+
+    /** Your Last.fm profile, kept so Wrapped opens (from your saved scrobbles) while Last.fm is down. */
+    @kotlinx.serialization.Serializable
+    private data class KeptProfile(val name: String, val playcount: Int, val registered: Long, val image: String)
+
+    private fun profile(dir: File): LastFm.Profile {
+        val file = File(dir, "${safeName(LastFm.user.lowercase())}-profile.json")
+        return try {
+            if (lastFmDown) throw java.io.IOException("Last.fm isn't answering")
+            LastFm.info().also { p -> runCatching { writeAtomic(file, JSON.encodeToString(KeptProfile.serializer(), KeptProfile(p.name, p.playcount, p.registered, p.image))) } }
+        } catch (e: Exception) {
+            if (e is LastFmError && e.code !in setOf(8, 11, 16, 29)) throw e
+            val k = readText(file)?.let { runCatching { JSON.decodeFromString(KeptProfile.serializer(), it) }.getOrNull() }
+            if (k == null && keptScrobbles(Music.ctx).isEmpty()) throw e
+            lastFmDown = true
+            k?.let { LastFm.Profile(it.name, it.playcount, it.registered, it.image) } ?: LastFm.Profile(LastFm.user, 0, 0, "")
+        }
+    }
+
     /** Everything Wrapped shows for a period. It blocks. */
     fun load(ctx: Ctx, period: Period, progress: (String) -> Unit): Data {
+        lastFmDown = false
+        val data = try { loadNow(ctx, period, progress) } catch (e: Exception) {
+            // Last.fm gave out partway (its totals and top lists for All time): again, from what's kept here
+            val busy = (e is HttpError && (e.code >= 500 || e.code == 429)) || (e is LastFmError && e.code in setOf(8, 11, 16, 29)) ||
+                (e is java.io.IOException && e !is HttpError)
+            if (!busy || !LastFm.connected || lastFmDown) throw e
+            lastFmDown = true
+            loadNow(ctx, period, progress)
+        }
+        if (lastFmDown) Music.toast("Last.fm isn't answering right now, so Wrapped shows the scrobbles saved on this device and your imports. Try again later for the newest.")
+        return data
+    }
+
+    private fun loadNow(ctx: Ctx, period: Period, progress: (String) -> Unit): Data {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
         val spotify = imported().sortedBy { it.t }   // Spotify's, Deezer's, YouTube Music's, Tidal's and Apple Music's plays (and here's)
         if (!fm && spotify.isEmpty()) error("Connect Last.fm or import your Spotify, Apple Music, Deezer, YouTube Music or Tidal history in Settings (⚙), or play some music here first.")
-        val me = if (fm) { progress("Opening your Last.fm…"); LastFm.info() } else null
+        val me = if (fm) { progress("Opening your Last.fm…"); profile(dir) } else null
         val thisYear = LocalDate.now().year
         var firstYear = me?.registered?.takeIf { it > 0 }?.let { local(it).year } ?: thisYear
         spotify.firstOrNull()?.let { firstYear = minOf(firstYear, local(it.t).year) }
@@ -429,7 +466,7 @@ object Wrapped {
         val base = Data(period, user, years, firstYear)
         var data: Data
         var rows: List<Row>
-        if (period == Period.All && spotify.isEmpty()) {   // Last.fm adds it all up: no need to read every scrobble
+        if (period == Period.All && spotify.isEmpty() && !lastFmDown) {   // Last.fm adds it all up: no need to read every scrobble
             val counts = years.reversed().map { y ->
                 progress("Counting your scrobbles · $y")
                 y to LastFm.count(startOf(y), startOf(y + 1))
@@ -467,7 +504,7 @@ object Wrapped {
                 }
                 progress("Comparing with before…")
                 val length = naturalEnd - start   // as far into the period before as this one has gone
-                val prev = if (fm) runCatching { LastFm.count(start - length, start - length + (end - start)) }.getOrNull() else null
+                val prev = if (fm && !lastFmDown) runCatching { LastFm.count(start - length, start - length + (end - start)) }.getOrNull() else null
                 data = data.copy(daily = daily, spanDays = maxOf(1, ((end - start + 86399) / 86400).toInt()),
                     partial = end < naturalEnd - 60, prevCount = prev)
             }
