@@ -1,14 +1,14 @@
-run 42403450831 · Sat Nov  7 19:00:43 UTC 2026
+run 42404310491 · Sat Nov  7 19:10:07 UTC 2026
 PHONE OK
 PC OK
 TESTS: tests="2" failures="0" tests="3" failures="0" tests="7" failures="0" tests="5" failures="0" tests="4" failures="0" tests="7" failures="0" tests="5" failures="0" tests="1" failures="0" tests="4" failures="0" tests="2" failures="0" tests="1" failures="0" tests="3" failures="0" tests="19" failures="0" tests="4" failures="0" tests="5" failures="0" tests="8" failures="0" tests="6" failures="0" tests="5" failures="0" tests="2" failures="0" tests="7" failures="0" tests="7" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="2" failures="0" tests="1" failures="0" tests="8" failures="0" tests="1" failures="0" tests="2" failures="0" tests="9" failures="0" tests="6" failures="0" tests="12" failures="0" tests="2" failures="0" tests="2" failures="0" tests="6" failures="0" tests="3" failures="0" tests="1" failures="0" 
+  double sum;
+  double min;
+  double max;
 }`
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :app:compileReleaseArtProfile
 > Task :desktop:flattenJars
+> Task :app:compileReleaseArtProfile
 
 > Task :desktop:packageUberJarForCurrentOS
 The jar is written to /home/runner/work/radon-player/radon-player/app/android/desktop/build/compose/jars/Radon Player-linux-x64-3.2.16.jar
@@ -25,5 +25,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 58s
+BUILD SUCCESSFUL in 5m 9s
 103 actionable tasks: 103 executed
