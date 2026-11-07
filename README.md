@@ -18,7 +18,7 @@ remote, and the two keep each other in sync.
 
 Get the latest version from the [releases page](https://github.com/Radon999/radon-player/releases):
 
-- **Android:** `OmarchyMusic.apk`. Open it on your phone to install (allow installing from your
+- **Android:** `RadonPlayer.apk` (called `OmarchyMusic.apk` up to 3.0.0). Open it on your phone to install (allow installing from your
   browser or files app when Android asks).
 - **Windows:** `Radon-Player-x.y.z.msi`. Run it to install. Updates after that come from inside
   the app (Settings › Update).

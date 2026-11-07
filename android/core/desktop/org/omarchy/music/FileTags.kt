@@ -10,6 +10,9 @@ object FileTags {
     /** On the PC every file of yours can be fixed, moved and tidied. */
     const val canMove = true
     const val canListFolders = true
+    /** On the PC your own FLACs keep their own writer (Tags.write); this is the phone's. */
+    const val OWN_BY_TAGLIB = false
+    fun writeOwn(uri: String, changes: Map<String, String>): Boolean = false
 
     private val KEYS = mapOf("title" to FieldKey.TITLE, "artist" to FieldKey.ARTIST, "albumartist" to FieldKey.ALBUM_ARTIST,
         "album" to FieldKey.ALBUM, "tracknumber" to FieldKey.TRACK, "date" to FieldKey.YEAR, "genre" to FieldKey.GENRE,
@@ -50,14 +53,14 @@ object FileTags {
 
     fun hasCover(ctx: Ctx, uri: String) = cover(ctx, uri) != null
 
-    fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean =
-        (isWav(uri) && runCatching { WavTags.write(file(uri), emptyMap(), jpeg); true }.getOrDefault(false)) || runCatching {
+    fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean = CoverGuard.allowed() &&   // Prevent album cover changes
+        ((isWav(uri) && runCatching { WavTags.write(file(uri), emptyMap(), jpeg); true }.getOrDefault(false)) || runCatching {
         val af = AudioFileIO.read(file(uri))
         val tag = af.tagOrCreateAndSetDefault
         val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }
         tag.deleteArtworkField(); tag.setField(art)
         af.commit(); true
-    }.getOrDefault(false)
+    }.getOrDefault(false))
 
     /** Move a song to dest (its folders made); the new path, or null. A lyrics file beside it goes with it. */
     fun move(ctx: Ctx, src: String, dest: String): String? = runCatching {

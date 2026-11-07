@@ -69,7 +69,12 @@ object Backup {
             done += name
         }
         val switches = got["switches.json"]
-        if (switches != null) Prefs.restore(BackupMerge.switchesToRestore(switches.decodeToString(), cross))
+        if (switches != null) {
+            // Your own looks, layouts and visualizers made here stay, beside the backup's
+            val made = org.omarchy.music.ui.MadeSync.snapshot()
+            Prefs.restore(BackupMerge.switchesToRestore(switches.decodeToString(), cross))
+            org.omarchy.music.ui.MadeSync.afterRestore(made)
+        }
         else if (!cross) got["switches.xml"]?.let { prefsFile(ctx, PREFS).apply { parentFile?.mkdirs() }.writeBytes(it) }   // an older backup
         if (cross) Prefs.set("adopt_files", true)   // the other device's song files: this one's copies found once it has read its folders
         // Moods: given to the matching songs here once the app has read your music again (see Moods.auto)

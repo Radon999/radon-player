@@ -57,6 +57,12 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     /** Play t without saving it (blocking): the file when it is on the phone, else Tidal's stream. */
     fun stream(t: Track): Ready {
         if (t.isFile) return Ready(t.file!!, onDisk = true)
+        if (t.source == SoundCloud.KEY) {   // its own service: streamed from SoundCloud itself, never matched elsewhere or saved
+            val sc = Music.sources[SoundCloud.KEY] as? SoundCloud ?: error("SoundCloud isn't set up")
+            synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < 600 }?.let { return it.first } }   // its addresses last a while
+            val (uri, q) = sc.stream(t)
+            return Ready(uri, quality = q, lossyFrom = "SoundCloud").also { r -> synchronized(streams) { streams[t.id] = r to now() } }
+        }
         lib.items[t.id]?.let { return Ready(it.file, quality = it.quality, onDisk = true) }
         synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < STREAM_FOR }?.let { return it.first } }
         val ready = find(t)
@@ -112,6 +118,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
      *  it or isn't connected (youtubeToo: Keep, which saves what you play, leaves those). Returns its address. */
     fun download(t: Track, root: String? = null, youtubeToo: Boolean = true): String {
         lib.items[t.id]?.let { return it.file }
+        if (t.source == SoundCloud.KEY) throw NoLosslessMatch("SoundCloud songs can't be downloaded: they only stream")
         synchronized(active) { if (!active.add(t.id)) error("already downloading") }
         try {
             if (tidal.connected) {
@@ -120,6 +127,27 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             return fromYouTube(t, root) ?: throw NoLosslessMatch(if (tidal.connected) "not on Tidal or YouTube Music" else "not on YouTube Music")
         } finally {
             synchronized(active) { active.remove(t.id) }
+        }
+    }
+
+    /** (blocking) A download that came from YouTube got again from Tidal in FLAC (the quality picked), else (an Opus one
+     *  Tidal hasn't got) from YouTube as AAC; its old file deleted once the new one is in. False when neither could be. */
+    fun toFlac(id: String): Boolean {
+        val old = lib.items[id] ?: return false
+        if (!tidal.connected) error("connect Tidal in Settings first")
+        synchronized(active) { if (!active.add(id)) error("already downloading") }
+        try {
+            val uri = try { fromTidal(old.track(), null) } catch (_: NoLosslessMatch) {
+                // Not on Tidal: an Opus download got again as YouTube's AAC (.m4a), which plays and tags everywhere
+                if (old.format != "opus") return false
+                val pick = YouTubeAudio.forDownload(old.track()).firstOrNull { it.ext == "m4a" } ?: return false
+                lib.items.remove(id)
+                try { fromYouTube(old.track(), null, pick) } catch (e: Exception) { lib.items[id] = old; throw e }
+            }
+            if (uri != old.file && lib.items.values.none { it.file == old.file }) runCatching { ctx.deleteUri(old.file) }
+            return true
+        } finally {
+            synchronized(active) { active.remove(id) }
         }
     }
 

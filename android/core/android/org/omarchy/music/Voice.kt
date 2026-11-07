@@ -4,15 +4,16 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** The DJ's voice on the phone: ElevenLabs first when you've pasted your own API key (DjVoices; it spends your
- *  ElevenLabs credits), else (or offline, or out of credits) Android's text-to-speech with the most natural English
- *  voice installed (the "high quality" ones Google's speech engine downloads), a touch lower than its default so it
- *  sounds like a radio host. Kokoro, the PC's natural voice, would need a large native library on the phone, so the
- *  phone keeps the system's voices. */
+ *  ElevenLabs credits), then the PC's natural voice, Kokoro (Kokoro-82M, Apache-2.0, the same "af_heart" voice), run
+ *  on the phone by sherpa-onnx once you've fetched it (about 130 MB, once), else Android's text-to-speech with the most
+ *  natural English voice installed. */
 object Voice {
-    /** Why the PC's natural voice last failed (the phone has none: always ""). */
-    val lastError: String get() = ""
+    /** Why the natural voice last failed ("" when it last worked). */
+    var lastError by androidx.compose.runtime.mutableStateOf("")
 
     private var tts: TextToSpeech? = null
     @Volatile private var ready = false
@@ -22,11 +23,158 @@ object Voice {
 
     val canSpeak get() = true
 
-    /** The PC can fetch a natural (neural) voice; the phone uses Google's natural voices already. */
-    val needsNatural get() = false
-    val hasNatural get() = false
-    const val naturalSize = ""
-    fun getNatural(progress: (String) -> Unit) {}
+    // ---- Kokoro, through sherpa-onnx (Apache-2.0): the voice the PC uses ----
+    private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
+    private const val MODEL_DIR = "kokoro-int8-multi-lang-v1_0"
+    private val dir get() = java.io.File(Music.ctx.filesDir, "dj-voice-kokoro")
+    private val modelDir get() = java.io.File(dir, MODEL_DIR)
+    private fun onnx(): java.io.File? = modelDir.listFiles()?.filter { it.isFile && it.name.endsWith(".onnx") }?.maxByOrNull { it.length() }
+    private fun modelReady() = onnx() != null && java.io.File(modelDir, "voices.bin").isFile && java.io.File(modelDir, "tokens.txt").isFile
+    private var naturalOk by androidx.compose.runtime.mutableStateOf(false)
+
+    /** The natural voice isn't on the phone yet (it can be fetched). */
+    val needsNatural get() = !naturalOk && !modelReady()
+    val hasNatural get() = naturalOk || modelReady()
+    const val naturalSize = "about 130 MB"
+
+    /** The phone: which voice the DJ uses once the natural one is here (on, the default: the natural one; off: the
+     *  phone's own Google voice). */
+    const val USE_NATURAL = "dj_use_natural"
+    private var naturalOn by androidx.compose.runtime.mutableStateOf(Prefs.on(USE_NATURAL, true))
+    val useNatural: Boolean get() = naturalOn
+    fun setUseNatural(on: Boolean) { Prefs.set(USE_NATURAL, on); naturalOn = on }
+    /** Can choose between the two (the natural voice is on the phone). */
+    val canChoose get() = hasNatural
+
+    /** Deletes the natural voice (its own folder only), back to the phone's voice. */
+    fun removeNatural() {
+        runCatching { kokoro?.release() }; kokoro = null
+        dir.deleteRecursively(); naturalOk = false; lexWords = null
+    }
+
+    /** (blocking) Fetch the natural voice (the PC's Kokoro voice, made smaller for phones) and unpack it. */
+    fun getNatural(progress: (String) -> Unit) {
+        dir.mkdirs()
+        val zip = java.io.File(dir, "kokoro.tar.bz2")
+        val c = java.net.URL(MODEL_URL).openConnection() as java.net.HttpURLConnection
+        c.instanceFollowRedirects = true; c.connectTimeout = 20_000; c.readTimeout = 60_000
+        c.setRequestProperty("User-Agent", "RadonPlayer")
+        if (c.responseCode !in 200..299) error("the download failed (${c.responseCode})")
+        val total = c.contentLengthLong
+        c.inputStream.use { ins -> zip.outputStream().use { out ->
+            val buf = ByteArray(1 shl 16); var got = 0L; var shown = -1L
+            while (true) {
+                val k = ins.read(buf); if (k < 0) break
+                out.write(buf, 0, k); got += k
+                val pct = if (total > 0) got * 100 / total else got / 5_000_000
+                if (pct != shown) { shown = pct; progress(if (total > 0) "Getting the voice… $pct%" else "Getting the voice… ${got / 1_000_000} MB") }
+            }
+        } }
+        progress("Unpacking the voice… (a minute or two)")
+        modelDir.deleteRecursively()
+        try {
+            org.apache.commons.compress.archivers.tar.TarArchiveInputStream(
+                org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(zip.inputStream().buffered(1 shl 16))).use { tar ->
+                val root = dir.canonicalPath + java.io.File.separator
+                while (true) {
+                    val e = tar.nextEntry ?: break
+                    val f = java.io.File(dir, e.name)
+                    if (!f.canonicalPath.startsWith(root)) continue   // nothing outside the voice's own folder
+                    if (e.isDirectory) { f.mkdirs(); continue }
+                    f.parentFile?.mkdirs()
+                    f.outputStream().use { tar.copyTo(it) }
+                }
+            }
+        } finally { zip.delete() }
+        if (!modelReady()) error("The voice didn't unpack")
+        naturalOk = true
+    }
+
+    @Volatile private var kokoro: com.k2fsa.sherpa.onnx.OfflineTts? = null
+    @Volatile private var track: android.media.AudioTrack? = null
+
+    /** Kokoro's English dictionary's words (lowercase), read once: a word not in it is respelt ([Pronounce]). */
+    @Volatile private var lexWords: Set<String>? = null
+    private fun lexicon(): Set<String> = lexWords ?: runCatching {
+        java.io.File(modelDir, "lexicon-us-en.txt").useLines { lines ->
+            lines.mapNotNull { l -> l.trim().split(Regex("\\s+"), limit = 2).firstOrNull()?.lowercase()?.takeIf { it.isNotEmpty() } }.toHashSet() }
+    }.getOrDefault(emptySet()).also { if (it.isNotEmpty()) lexWords = it }
+
+    private fun engine(): com.k2fsa.sherpa.onnx.OfflineTts {
+        kokoro?.let { return it }
+        val m = modelDir
+        val lex = listOf("lexicon-us-en.txt", "lexicon-zh.txt").map { java.io.File(m, it) }.filter { it.isFile }.joinToString(",") { it.path }
+        val cfg = com.k2fsa.sherpa.onnx.OfflineTtsConfig(model = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig(
+            kokoro = com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig(model = onnx()!!.path, voices = java.io.File(m, "voices.bin").path,
+                tokens = java.io.File(m, "tokens.txt").path, dataDir = java.io.File(m, "espeak-ng-data").path, lexicon = lex,
+                dictDir = java.io.File(m, "dict").path, lengthScale = 0.92f),
+            numThreads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4), provider = "cpu"))
+        return com.k2fsa.sherpa.onnx.OfflineTts(null, cfg).also { kokoro = it }
+    }
+
+    // ---- lines made ahead (the next set's, while this one plays), so the DJ talks straight away ----
+    private val ahead = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<Any?>>()
+    private val making = Any()   // Kokoro makes one line at a time
+
+    /** (blocking) Kokoro's sound for a line, or null when there's nothing to say. */
+    private fun makeNatural(text: String): com.k2fsa.sherpa.onnx.GeneratedAudio? {
+        val plain = java.text.Normalizer.normalize(Pronounce.sayable(text, lexicon()), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+            .replace(Regex("\\s+"), " ").trim()
+        if (plain.isEmpty()) return null
+        return synchronized(making) { engine().generate(plain, DjVoices.kokoroVoice.sid, 1.0f) }
+    }
+
+    /** Make a line the DJ is about to say (the next set's) now, in the background: when its turn comes it's said at
+     *  once, with no wait for the voice. Only the natural voice and ElevenLabs take time to make; the phone's own voice
+     *  is instant. The last eight are kept. */
+    fun prepare(text: String) {
+        if (text.isBlank() || ahead.containsKey(text)) return
+        val elevenOn = DjVoices.elevenOn
+        if (!elevenOn && !(hasNatural && useNatural)) return
+        val f = java.util.concurrent.CompletableFuture<Any?>()
+        if (ahead.size >= 8) ahead.keys.firstOrNull()?.let { ahead.remove(it) }
+        ahead[text] = f
+        Thread {
+            f.complete(runCatching { if (elevenOn) DjVoices.eleven(text, "mp3_44100_128") else makeNatural(text) }.getOrNull())
+        }.apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 }.start()
+    }
+
+    /** (blocking) A line made ahead: waits for it if it's still being made. Null when it wasn't (or failed). */
+    private fun madeAhead(text: String): Any? = ahead.remove(text)?.let { runCatching { it.get(90, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() }
+
+    /** (blocking) text said by Kokoro; false if it couldn't (or was hushed). */
+    private fun sayNatural(text: String, mine: Long): Boolean = runCatching {
+        val audio = (madeAhead(text) as? com.k2fsa.sherpa.onnx.GeneratedAudio) ?: makeNatural(text) ?: return@runCatching false
+        if (turn != mine) return@runCatching true
+        val rate = audio.sampleRate; val samples = audio.samples
+        if (samples.isEmpty()) error("it made no sound")
+        val t = android.media.AudioTrack.Builder()
+            .setAudioAttributes(BtRoute.voice(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)).build())
+            .setAudioFormat(android.media.AudioFormat.Builder().setEncoding(android.media.AudioFormat.ENCODING_PCM_FLOAT)
+                .setSampleRate(rate).setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO).build())
+            .setTransferMode(android.media.AudioTrack.MODE_STREAM)
+            .setBufferSizeInBytes(maxOf(android.media.AudioTrack.getMinBufferSize(rate, android.media.AudioFormat.CHANNEL_OUT_MONO,
+                android.media.AudioFormat.ENCODING_PCM_FLOAT), rate * 4 / 4)).build()
+        BtRoute.voiceDevice()?.let { runCatching { t.setPreferredDevice(it) } }
+        track = t
+        try {
+            t.play()
+            var i = 0
+            while (i < samples.size && turn == mine) {
+                val k = minOf(4096, samples.size - i)
+                t.write(samples, i, k, android.media.AudioTrack.WRITE_BLOCKING); i += k
+            }
+            // What's still in its buffer, then done
+            if (turn == mine) Thread.sleep(((android.media.AudioTrack.getMinBufferSize(rate, android.media.AudioFormat.CHANNEL_OUT_MONO,
+                android.media.AudioFormat.ENCODING_PCM_FLOAT) / 4) * 1000L / rate).coerceIn(50, 600))
+        } finally { runCatching { t.stop(); t.release() }; if (track === t) track = null }
+        lastError = ""
+        true
+    }.getOrElse { e ->
+        lastError = "${e.javaClass.simpleName}: ${e.message ?: ""}".take(300)
+        false
+    }
 
     // ---- ElevenLabs ----
     @Volatile private var turn = 0L
@@ -36,18 +184,19 @@ object Voice {
     /** (on a background thread) text said by ElevenLabs; else (it couldn't) by the phone's own voice. */
     private fun sayEleven(text: String, mine: Long, onDone: () -> Unit) {
         Thread {
-            val mp3 = runCatching { DjVoices.eleven(text, "mp3_44100_128") }.onFailure { e ->
+            val mp3 = runCatching { (madeAhead(text) as? ByteArray) ?: DjVoices.eleven(text, "mp3_44100_128") }.onFailure { e ->
                 if (now() - elevenToldAt > 600) { elevenToldAt = now(); Music.toast("ElevenLabs voice: ${e.message?.take(80)}. Using the phone's voice.") }
             }.getOrNull()
             Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                if (turn != mine) return@launch   // hushed (or another line began) while it came: nothing to say
+                if (turn != mine) { onDone(); return@launch }   // hushed (or another line began) while it came: nothing to say
                 if (mp3 == null) { sayTts(text, onDone); return@launch }
                 val ok = runCatching {
                     val f = java.io.File(Music.ctx.cacheDir, "dj-line.mp3")
                     f.writeBytes(mp3)
                     val mp = android.media.MediaPlayer()
-                    mp.setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                    mp.setAudioAttributes(BtRoute.voice(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)).build())
+                    BtRoute.voiceDevice()?.let { runCatching { mp.setPreferredDevice(it) } }
                     mp.setDataSource(f.path)
                     var finished = false
                     val end = { if (!finished) { finished = true; runCatching { mp.release() }; if (player === mp) player = null; onDone() } }
@@ -111,7 +260,18 @@ object Voice {
     fun say(text: String, onDone: () -> Unit = {}) {
         val mine = ++turn
         player?.let { mp -> runCatching { mp.stop() }; elevenEnd?.let { e -> elevenEnd = null; e() } }   // one line at a time
+        runCatching { track?.pause(); track?.flush() }
         if (DjVoices.elevenOn) { sayEleven(text, mine, onDone); return }
+        if (hasNatural && useNatural) {   // the PC's voice, here too; the phone's own if it can't
+            Thread {
+                val said = sayNatural(text, mine)
+                Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                    if (turn != mine) { onDone(); return@launch }
+                    if (said) onDone() else sayTts(text, onDone)
+                }
+            }.apply { isDaemon = true }.start()
+            return
+        }
         sayTts(text, onDone)
     }
 
@@ -129,6 +289,7 @@ object Voice {
     /** Stop talking now. */
     fun hush() {
         turn++
+        runCatching { track?.pause(); track?.flush() }
         player?.let { mp -> runCatching { mp.stop() }; elevenEnd?.let { e -> elevenEnd = null; e() } }
         runCatching { tts?.stop() }
         val all = synchronized(done) { done.values.toList().also { done.clear() } }

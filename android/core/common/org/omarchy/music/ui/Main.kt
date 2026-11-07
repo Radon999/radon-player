@@ -24,7 +24,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -92,6 +97,8 @@ fun App() {
     val ui = remember { Ui() }
     Ui.current = ui
     val snack = remember { SnackbarHostState() }
+    // Shuffle presets: a different Personalization preset every 15 minutes
+    LaunchedEffect(Unit) { while (true) { MyPresets.shuffleTick(); kotlinx.coroutines.delay(30_000) } }
     LaunchedEffect(Unit) { for (t in Music.toasts) { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
     LaunchedEffect(Unit) {   // a note with a button (Continue where you left off's Play)
         for ((text, label, act) in Music.offers) {
@@ -164,15 +171,25 @@ fun App() {
         }
     }
 
+    val lay = UiLayouts.current
+    // The ☰ menu slides in from the right in a right-handed layout: the drawer is laid out right to left, its insides
+    // (and the screens) left to right as always.
+    val ltr = androidx.compose.ui.platform.LocalLayoutDirection.current
+    val drawerDir = if (lay.menuRight) androidx.compose.ui.unit.LayoutDirection.Rtl else ltr
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides drawerDir) {
     ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = ui.drawer, scrimColor = Color.Black.copy(alpha = 0.35f),
-        drawerContent = { DrawerSheet(ui) }) {
+        drawerContent = { androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides ltr) { DrawerSheet(ui, lay.menuRight) } }) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides ltr) {
         Box(Modifier.fillMaxSize().background(bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)) {
             if (C.stars) Stars()
+            LookEffects(LookFx.behind(C.fx))   // a look of yours: its effects (rain and snow go over everything, below)
+            val screens: @Composable (Modifier) -> Unit = { m -> Box(m) {
             if (ui.tab == "player" && page == null) {
                 ApplePlayer(ui)
                 if (ui.selecting) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { SelectBar(ui) }
             } else Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 ScreenHeader(ui, page, title)
+                if (lay.mini == MiniKind.TOP && !ui.selecting && !(ui.pickingAlbums && page == null)) MiniPlayer(ui, lay.mini)
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 Box(Modifier.weight(1f).fillMaxWidth().onSizeChanged { ui.width = it.width / density.density }) {
                     if (page != null) PageScreen(ui, page)
@@ -199,10 +216,30 @@ fun App() {
                     when {
                         ui.selecting -> SelectBar(ui)
                         ui.pickingAlbums && page == null -> PickDock(ui)
-                        else -> MiniPlayer(ui)
+                        lay.mini != MiniKind.TOP && lay.mini != MiniKind.NONE -> MiniPlayer(ui, lay.mini)
                     }
                 }
+            } } }
+            // The layout's way around: the ☰ menu alone, a bar along the bottom, a rail down the side or tabs along the top.
+            when (lay.nav) {
+                NavKind.BOTTOM -> Column(Modifier.fillMaxSize()) {
+                    screens(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(WindowInsets.navigationBars))
+                    BottomNav(ui, lay)
+                }
+                NavKind.RAIL -> Row(Modifier.fillMaxSize()) {
+                    val right = lay.x("railSide") == "right"
+                    if (!right) SideRail(ui, lay)
+                    screens(Modifier.weight(1f).fillMaxHeight())
+                    if (right) SideRail(ui, lay)
+                }
+                NavKind.TOP -> Column(Modifier.fillMaxSize()) {
+                    TopTabs(ui, lay)
+                    screens(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(WindowInsets.statusBars))
+                }
+                NavKind.DRAWER -> screens(Modifier.fillMaxSize())
             }
+            // Rain and snow fall over the screens, the seek bar and the buttons (a plain Canvas: taps go through to them)
+            LookEffects(LookFx.over(C.fx))
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp))
             DesktopVolume(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
             Sheets(ui)
@@ -215,12 +252,14 @@ fun App() {
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
         }
+        }
+    }
     }
 }
 
 /** A few stars over the galaxy looks: drawn once, light. */
 @Composable
-private fun Stars() {
+internal fun Stars() {
     val stars = remember {
         val r = java.util.Random(7)
         List(110) { Triple(r.nextFloat(), r.nextFloat(), r.nextFloat()) }
@@ -277,9 +316,10 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
 )
 
 @Composable
-private fun DrawerSheet(ui: Ui) {
+private fun DrawerSheet(ui: Ui, right: Boolean = false) {
     ModalDrawerSheet(drawerContainerColor = if (C.apple) (if (C.gradient != null) C.darker else C.bg) else C.light,
-        drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+        drawerShape = if (right) androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
+            else androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
         modifier = Modifier.width(300.dp)) {
         Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -369,6 +409,7 @@ private fun SourceChips(ui: Ui, modifier: Modifier = Modifier) {
 @Composable
 private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
     val inside = page != null || ui.openMine != null || ui.openList != null || ui.openFolder != null
+    val lay = UiLayouts.current
     Column {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (inside) IconButton(Ico.BACK) {
@@ -378,8 +419,12 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
                     ui.openList != null -> ui.openList = null
                     else -> ui.openFolder = null
                 }
-            } else IconButton(Ico.MENU) { ui.openDrawer() }
-            Text(title, style = T.head.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            } else if (lay.headerMenu && !lay.menuRight) IconButton(Ico.MENU) { ui.openDrawer() }
+            else Spacer(Modifier.width(12.dp))
+            Text(title, style = T.head.copy(fontWeight = FontWeight.Medium).let { st ->
+                    when (lay.x("titleSize")) { "big" -> st.copy(fontSize = st.fontSize * 1.35f, fontWeight = FontWeight.Bold); "small" -> st.copy(fontSize = st.fontSize * 0.82f); else -> st } },
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                textAlign = if (lay.titleCenter) TextAlign.Center else TextAlign.Start,
                 modifier = Modifier.weight(1f).padding(start = 4.dp))
             if (laidOut(ui)) {
                 // On a list, search looks through that list; Search in the menu searches the services.
@@ -394,6 +439,7 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
                 }
             } else if (ui.tab != "search" || page != null) IconButton(Ico.SEARCH) { goTo(ui, "search") }
             IconButton(Ico.SETTINGS) { ui.openSettings() }
+            if (lay.headerMenu && lay.menuRight && !inside) IconButton(Ico.MENU) { ui.openDrawer() }
         }
         if (ui.tab == "search" && page == null) SearchField(ui)
         else if (ui.filter != null && laidOut(ui)) FilterField(ui, title)
@@ -482,37 +528,79 @@ fun now(): Now {
         if (remote) Remote.status.position else Music.position, if (remote) Remote.status.duration else Music.duration, remote)
 }
 
-/** The floating card at the bottom of a list: the song, previous, play/pause, next. A tap goes back to the player. */
+/** The mini player on a list: the song, previous, play/pause, next; a tap goes back to the player. The layout picks how it
+ *  looks: a floating card, a flat bar along the edge, a small pill, or (MiniKind.TOP) a flat bar under the header. */
 @Composable
-private fun MiniPlayer(ui: Ui) {
+private fun MiniPlayer(ui: Ui, kind: MiniKind = MiniKind.FLOAT) {
     val n = now()
     val t = n.t ?: return
     val open = { goTo(ui, "player"); ui.pane = "art" }
-    Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
-        Column(Modifier.fillMaxWidth().shadow(14.dp, R.big, ambientColor = C.accent.copy(alpha = 0.3f), spotColor = C.accent.copy(alpha = 0.3f))
-            .clip(R.big).background(C.light).clickable(onClick = open)
-            .pointerInput(Unit) {
-                var dy = 0f
-                detectVerticalDragGestures(onDragStart = { dy = 0f }, onDragEnd = { if (dy < -40f) open() }) { _, d -> dy += d }
-            }) {
-            Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                ArtImage(if (n.remote) Remote.artModel(t) else artModel(t, 300), 50.dp)
+    val swipe = Modifier.pointerInput(Unit) {
+        var dy = 0f
+        detectVerticalDragGestures(onDragStart = { dy = 0f }, onDragEnd = { if (dy < -40f) open() }) { _, d -> dy += d }
+    }
+    val frac = if (n.dur > 0) (n.pos / n.dur).toFloat().coerceIn(0f, 1f) else 0f
+    val status = if (n.remote) Remote.status.message else Music.status
+    when (kind) {
+        MiniKind.NONE -> Unit
+        MiniKind.PILL -> Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            Row(Modifier.shadow(10.dp, R.pill, ambientColor = C.accent.copy(alpha = 0.3f), spotColor = C.accent.copy(alpha = 0.3f))
+                .clip(R.pill).background(C.light).clickable(onClick = open).then(swipe).padding(start = 6.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(38.dp).clip(R.pill)) { ArtImage(if (n.remote) Remote.artModel(t) else artModel(t, 300), 38.dp) }
+                Text(t.title, style = T.title.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 180.dp).padding(horizontal = 10.dp))
+                Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.size(36.dp)) {   // how far it's got, as a ring around play/pause
+                        drawArc(C.fg.copy(alpha = 0.12f), 0f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f * density))
+                        drawArc(C.accent, -90f, 360f * frac, false, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f * density))
+                    }
+                    IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, C.fg, 18.dp, 6.dp) { Music.togglePause() }
+                }
+                IconButton(Ico.NEXT, C.fg, 18.dp, 8.dp) { Music.next() }
+            }
+        }
+        MiniKind.BAR, MiniKind.TOP -> Column(Modifier.fillMaxWidth().background(C.light.copy(alpha = if (C.isLight) 0.97f else 0.85f))
+            .clickable(onClick = open).then(swipe)) {
+            if (kind == MiniKind.BAR) Box(Modifier.fillMaxWidth().height(2.dp).background(C.fg.copy(alpha = 0.06f))) {
+                Box(Modifier.fillMaxWidth(frac).height(2.dp).background(C.accent))
+            }
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ArtImage(if (n.remote) Remote.artModel(t) else artModel(t, 300), 40.dp)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(t.title, style = T.title.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val status = if (n.remote) Remote.status.message else Music.status
+                    Text(t.title, style = T.title.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(status.ifEmpty { t.artist }, style = T.sub.copy(color = if (status.isNotEmpty()) C.accent else C.muted),
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(Ico.PREV, C.fg, 20.dp, 8.dp) { Music.previous() }
-                if (C.apple) IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, C.fg, 24.dp, 10.dp) { Music.togglePause() }
-                else Box(Modifier.padding(horizontal = 2.dp).size(46.dp).shadow(8.dp, R.pill, ambientColor = C.accent, spotColor = C.accent)
-                    .clip(R.pill).background(C.accent).clickable { Music.togglePause() }, contentAlignment = Alignment.Center) {
-                    Icon(if (n.paused) Ico.PLAY else Ico.PAUSE, Color.White, 20.dp)
-                }
-                IconButton(Ico.NEXT, C.fg, 20.dp, 8.dp) { Music.next() }
+                IconButton(Ico.PREV, C.fg, 18.dp, 8.dp) { Music.previous() }
+                IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, C.accent, 24.dp, 8.dp) { Music.togglePause() }
+                IconButton(Ico.NEXT, C.fg, 18.dp, 8.dp) { Music.next() }
             }
-            Box(Modifier.fillMaxWidth().height(2.dp).background(C.fg.copy(alpha = 0.06f))) {
-                Box(Modifier.fillMaxWidth(if (n.dur > 0) (n.pos / n.dur).toFloat().coerceIn(0f, 1f) else 0f).height(2.dp).background(C.accent))
+            if (kind == MiniKind.TOP) Box(Modifier.fillMaxWidth().height(2.dp).background(C.fg.copy(alpha = 0.06f))) {
+                Box(Modifier.fillMaxWidth(frac).height(2.dp).background(C.accent))
+            }
+        }
+        MiniKind.FLOAT -> Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Column(Modifier.fillMaxWidth().shadow(14.dp, R.big, ambientColor = C.accent.copy(alpha = 0.3f), spotColor = C.accent.copy(alpha = 0.3f))
+                .clip(R.big).background(C.light).clickable(onClick = open).then(swipe)) {
+                Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ArtImage(if (n.remote) Remote.artModel(t) else artModel(t, 300), 50.dp)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(t.title, style = T.title.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(status.ifEmpty { t.artist }, style = T.sub.copy(color = if (status.isNotEmpty()) C.accent else C.muted),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(Ico.PREV, C.fg, 20.dp, 8.dp) { Music.previous() }
+                    if (C.apple) IconButton(if (n.paused) Ico.PLAY else Ico.PAUSE, C.fg, 24.dp, 10.dp) { Music.togglePause() }
+                    else Box(Modifier.padding(horizontal = 2.dp).size(46.dp).shadow(8.dp, R.pill, ambientColor = C.accent, spotColor = C.accent)
+                        .clip(R.pill).background(C.accent).clickable { Music.togglePause() }, contentAlignment = Alignment.Center) {
+                        Icon(if (n.paused) Ico.PLAY else Ico.PAUSE, Color.White, 20.dp)
+                    }
+                    IconButton(Ico.NEXT, C.fg, 20.dp, 8.dp) { Music.next() }
+                }
+                Box(Modifier.fillMaxWidth().height(2.dp).background(C.fg.copy(alpha = 0.06f))) {
+                    Box(Modifier.fillMaxWidth(frac).height(2.dp).background(C.accent))
+                }
             }
         }
     }

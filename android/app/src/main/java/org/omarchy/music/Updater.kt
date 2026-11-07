@@ -44,7 +44,8 @@ object Updater {
     fun init(c: Context) {
         if (::ctx.isInitialized) return
         ctx = c.applicationContext
-        Music.scope.launch { while (true) { delay(10_000); check(); delay(12 * 3600_000L - 10_000) } }
+        // At start: always says how it went (an update, or that this is the newest); then quietly every 12 hours
+        Music.scope.launch { delay(4_000); check(quiet = false); while (true) { delay(12 * 3600_000L); check() } }
     }
 
     private fun parts(v: String) = Regex("\\d+").findAll(v).take(3).map { it.value.toInt() }.toList() + listOf(0, 0, 0)
@@ -53,6 +54,10 @@ object Updater {
         for (i in 0 until 3) if (x[i] != y[i]) return x[i] > y[i]
         return false
     }
+
+    private val APK_NAMES = listOf("RadonPlayer.apk", "OmarchyMusic.apk")
+    /** The newest Radon Player Next build (the test app), built from the same code as each release. */
+    private const val NEXT_APK = "https://raw.githubusercontent.com/$REPO/android-work/ci/next/RadonPlayer-Next.apk"
 
     /** Look for a newer release (quiet: no message when there's none, as at start). */
     fun check(quiet: Boolean = true) {
@@ -66,16 +71,21 @@ object Updater {
             checkedAt = now()
             checkError = err?.let { "couldn't check: ${it.message?.take(60)}" } ?: ""
             Music.accountsVersion++
+            if (err != null && !quiet) Music.toast("Couldn't check for an update (no internet?)")
             val tag = rel["tag_name"].str ?: return@bg
-            if (!newer(tag, version)) { if (!quiet) Music.toast("Radon Player $version is the newest"); return@bg }
-            val url = rel["assets"].list.firstOrNull { it["name"].str == "OmarchyMusic.apk" }?.get("browser_download_url").str
+            if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
+            // The release's APK: RadonPlayer.apk (from the update after 3.0.0), else its old name OmarchyMusic.apk
+            val assets = rel["assets"].list
+            val url = APK_NAMES.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
             if (url == null) {   // the release is still being put up: its APK comes a few minutes after
                 if (!quiet) Music.toast("Radon Player ${tag.removePrefix("v")} is on its way: its Android app isn't up yet")
                 Music.scope.launch { delay(5 * 60_000L); check() }
                 return@bg
             }
             if (latest != tag.removePrefix("v")) Music.toast("Radon Player ${tag.removePrefix("v")} is out: update it in Settings (⚙)")
-            latest = tag.removePrefix("v"); apk = url
+            // Radon Player Next (the test build, an app of its own: org.omarchy.music.next) updates to the newest Next
+            // build: the release's APK is the other app, which Android won't put in its place
+            latest = tag.removePrefix("v"); apk = if (ctx.packageName.endsWith(".next")) NEXT_APK else url
             Music.accountsVersion++
         }
     }

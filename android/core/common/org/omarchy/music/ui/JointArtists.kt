@@ -340,6 +340,8 @@ fun SingleScanScreen(ui: Ui) {
     var typed by remember { mutableStateOf("") }
     FullScreen("Single scan", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            if (org.omarchy.music.CoverGuard.prevented) Text(org.omarchy.music.CoverGuard.NOTE, style = T.sub.copy(color = C.accent),
+                modifier = Modifier.padding(bottom = 6.dp))
             val failed = loaded?.second ?: 0
             Text(when {
                 report != null -> report!!.firstOrNull() ?: ""

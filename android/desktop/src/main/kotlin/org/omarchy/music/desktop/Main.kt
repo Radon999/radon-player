@@ -44,7 +44,6 @@ import org.omarchy.music.ui.Back
 import org.omarchy.music.ui.C
 import org.omarchy.music.ui.Ico
 import org.omarchy.music.ui.Icon
-import org.omarchy.music.ui.MiniPlayer
 import org.omarchy.music.ui.OmarchyTheme
 import org.omarchy.music.ui.PcWindows
 import org.omarchy.music.ui.App
@@ -124,41 +123,18 @@ private fun app(args: Array<String>) = application {
         OmarchyTheme { App() }
     }
     if (PcWindows.mini) Window(onCloseRequest = { PcWindows.mini = false }, title = "Radon Player", icon = AppIcon, alwaysOnTop = true,
-        resizable = true, state = rememberWindowState(size = DpSize(380.dp, 340.dp), position = WindowPosition(Alignment.BottomEnd))) {
+        resizable = true, state = rememberWindowState(size = DpSize(380.dp, 600.dp), position = WindowPosition(Alignment.BottomEnd))) {
         OmarchyTheme { MiniWindow() }
     }
 }
 
-/** The mini player on the PC: the phone's picture-in-picture look, with the buttons under it, always on top. */
+/** The mini player on the PC: Now playing made small (the look, its stars and effects, the visualizer, the cover, the song
+ *  and Now playing's own buttons, the queue and lyrics in the cover's place), always on top. */
 @Composable
 private fun MiniWindow() {
-    var queue by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().background(C.darker)) {
-        // The cover, or (the queue button) Up next in its place, with Shuffle, Repeat, Autoplay and your queue, as the Python app
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            val ui = org.omarchy.music.ui.Ui.current
-            if (queue && ui != null) org.omarchy.music.ui.QueueTab(ui) else MiniPlayer()
-        }
-        // Where the song is (drag to seek), and what plays next, as the Python app's mini player
-        val dur = Music.duration
-        if (dur > 0) androidx.compose.material3.Slider(
-            value = Music.position.toFloat().coerceIn(0f, dur.toFloat()), onValueChange = { Music.seek(it.toDouble()) },
-            valueRange = 0f..dur.toFloat(), modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(24.dp),
-            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent))
-        Music.queue.getOrNull(Music.index + 1)?.let { n ->
-            androidx.compose.material3.Text("Up next: ${n.title} · ${n.artist}", color = C.muted, maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                style = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp)),
-                modifier = Modifier.padding(horizontal = 12.dp))
-        }
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.clickable { Music.previous() }.padding(6.dp)) { Icon(Ico.PREV, C.fg, 24.dp) }
-            Box(Modifier.clickable { Music.togglePause() }.padding(6.dp)) { Icon(if (Music.paused) Ico.PLAY else Ico.PAUSE, C.fg, 28.dp) }
-            Box(Modifier.clickable { Music.next() }.padding(6.dp)) { Icon(Ico.NEXT, C.fg, 24.dp) }
-            Box(Modifier.clickable { queue = !queue }.padding(6.dp)) { Icon(Ico.QUEUE, if (queue) C.accent else C.muted, 22.dp) }
-            Box(Modifier.clickable { PcWindows.mini = false }.padding(6.dp)) { Icon(Ico.UP, C.muted, 22.dp) }
-        }
-    }
+    val ui = org.omarchy.music.ui.Ui.current
+    if (ui != null) org.omarchy.music.ui.MiniNowPlaying(ui) { PcWindows.mini = false }
+    else Box(Modifier.fillMaxSize().background(C.bg))
 }
 
 /** The Python app's keyboard shortcuts: Ctrl+Q quits, Ctrl+, Settings, F9 or Ctrl+M the ☰ menu, Ctrl+F or Ctrl+L search;

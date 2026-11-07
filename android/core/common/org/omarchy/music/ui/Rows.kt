@@ -67,6 +67,7 @@ class Ui {
     var showQueues by mutableStateOf(false)            // the queues switcher is open
     var lyricsSearch by mutableStateOf(false)          // the lyrics' search box is open
     var lyricsCard by mutableStateOf<Pair<org.omarchy.music.Track, org.omarchy.music.Lyrics.Got>?>(null)   // Card: making one of this song's
+    var makerEdit by mutableStateOf<String?>(null)    // the look, layout or visualizer of yours being changed (null: a new one)
     var pane by mutableStateOf("art")                  // what the player shows: art, lyrics, visualizer, queue
     var musicView by mutableStateOf("all")
     var openMine by mutableStateOf<String?>(null)

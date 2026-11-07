@@ -85,7 +85,7 @@ object Wrapped {
         "Deep cuts" to "The best known songs of your artists of the last 90 days that you haven't played yet.",
         "Artists for you" to "Similar artists from Last.fm (else Deezer's related artists) of the artists you play most, all " +
             "time and this month, leaving out the ones you already play.",
-        "Skips" to "Songs you've skipped three times or more, and more often than you heard them out, are kept out of its sets.",
+        "Skips" to "Skipping a song never keeps it out of its sets (you may just not be in the mood for it). It counts your skips to tell you about them: your most skipped song, songs you've never skipped, and how much you hear all the way through.",
         "What it tells you" to "How many times (and hours) you've played a song, when you first played it, that you never (or " +
             "always) skip it, the mood you've been in this month, your artist of the month and of all time, the hour you " +
             "listen most, your plays in all, and a past year's number one.",
@@ -579,6 +579,16 @@ object Wrapped {
                 val name = bareRelease(if (kind == "single") t.album.ifBlank { t.title } else t.album.ifBlank { t.title })
                 val key = norm(cleanTitle(name)) + "|" + norm(lead)
                 (if (kind == "single") singles else eps).getOrPut(key) { Rel(name, lead, t) }.n++
+            }
+        }
+        // A release's tag can call it a single when it's really an EP (or the other way round): the most played of each
+        // checked against what Deezer or Apple Music says it is (looked up once, then remembered), and moved over
+        for ((from, to, kind) in listOf(Triple(singles, eps, "ep"), Triple(eps, singles, "single"))) {
+            for ((key, r) in from.entries.sortedByDescending { it.value.n }.take(TOP * 2).map { it.key to it.value }) {
+                val truth = runCatching { AlbumTruth.kindKnown(r.t.album, r.t.artist) }.getOrNull() ?: continue
+                if (truth == kind) { from.remove(key); val name = bareRelease(r.t.album.ifBlank { r.name })
+                    to.getOrPut(key) { Rel(name, r.artist, r.t) }.n += r.n }
+                else if (truth == "album") from.remove(key)
             }
         }
         fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP).map { r ->

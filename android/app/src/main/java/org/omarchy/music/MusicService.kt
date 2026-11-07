@@ -49,6 +49,7 @@ class MusicService : MediaLibraryService() {
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 Music.paused = !playWhenReady
+                if (!playWhenReady) pausedAt = android.os.SystemClock.elapsedRealtime()
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -185,11 +186,14 @@ class MusicService : MediaLibraryService() {
             if (id != null && Car.isCarItem(id)) Car.play(id) else super.setMediaItems(items, resetPosition)
         }
 
-        override fun seekToNext() = Music.next()
-        override fun seekToNextMediaItem() = Music.next()
+        override fun seekToNext() = Music.sessionNext()
+        override fun seekToNextMediaItem() = Music.sessionNext()
         override fun seekToPrevious() = Music.previous()
         override fun seekToPreviousMediaItem() = Music.previous()
-        override fun play() { if (p is RemotePlayer || p.mediaItemCount > 0) super.play() else Music.togglePause() }
+        // Play from the headphones, the car or the lock screen: the app's own Play (so the DJ never stays stuck)
+        override fun play() { if (p is RemotePlayer || Music.current() == null) super.play() else Music.sessionPlay() }
+        // Pause there while the DJ talks: she stops too, and the music stays paused
+        override fun pause() { if (p !is RemotePlayer && Music.djTalking) Music.djHush(); super.pause() }
 
         // Between songs (one ran out, the next is loading) the session hears "buffering", not "ended":
         // see Music.advancing. The listeners the session adds get the same.
@@ -230,11 +234,27 @@ class MusicService : MediaLibraryService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
+    /** When the music was last paused (elapsed ms). */
+    private var pausedAt = 0L
+    private val later = Handler(android.os.Looper.getMainLooper())
+
+    /** The app stays a foreground music player for [KEEP_PAUSED] after a pause (a pause between the DJ's sets, a call,
+     *  you pausing for a moment): Android doesn't let an app in the background become one again (it said
+     *  "startForegroundService() not allowed" and the music stopped), so Play from the headphones, the car or the
+     *  DJ going on after a pause would fail with the screen off. After that long paused, it lets go as before. */
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        val p = session.player
+        val since = android.os.SystemClock.elapsedRealtime() - pausedAt
+        val keep = startInForegroundRequired || (p.mediaItemCount > 0 && !p.playWhenReady && pausedAt > 0 && since < KEEP_PAUSED &&
+            p.playbackState != Player.STATE_IDLE)
         try {
-            super.onUpdateNotification(session, startInForegroundRequired)
+            super.onUpdateNotification(session, keep)
         } catch (e: Exception) {
             Crashes.note("The music's notification couldn't be shown: ${e.message}")
+        }
+        if (keep && !startInForegroundRequired) {   // let go once it's been paused that long
+            later.removeCallbacksAndMessages(null)
+            later.postDelayed({ this.session?.let { s -> if (!s.player.playWhenReady) onUpdateNotification(s, false) } }, KEEP_PAUSED - since + 1000)
         }
     }
 
@@ -244,7 +264,10 @@ class MusicService : MediaLibraryService() {
         if (p == null || !p.playWhenReady || p.mediaItemCount == 0) stopSelf()
     }
 
+    companion object { private const val KEEP_PAUSED = 10 * 60 * 1000L }
+
     override fun onDestroy() {
+        later.removeCallbacksAndMessages(null)
         LockScreen.unregister(this)
         Music.player = null
         switching?.cancel()

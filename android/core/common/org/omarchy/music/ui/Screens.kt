@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.Arrangement
@@ -77,9 +78,11 @@ fun SearchTab(ui: Ui) {
             else -> {
                 if (res.artists.isNotEmpty()) {
                     item { Section("ARTISTS") }
+                    // Their pictures as on the Artists tab (looked up for the ones not known yet)
+                    item { androidx.compose.runtime.LaunchedEffect(res) { Music.lookUpArtists(res.artists.map { it.title }) } }
                     items(res.artists.size) { i ->
                         val a = res.artists[i]
-                        PlaylistRow(a) { ui.pages += Ui.Page.Artist(a.title, ui.foundIn.takeIf { it in SOURCES }) }
+                        PlaylistRow(a, artistArt(a.title, a.thumb)) { ui.pages += Ui.Page.Artist(a.title, ui.foundIn.takeIf { it in SOURCES }) }
                     }
                 }
                 if (res.albums.isNotEmpty()) {
@@ -179,7 +182,7 @@ fun LibraryTab(ui: Ui) {
                 ActionRow("Open Settings  ›") { ui.openSettings() }
             }
             !src.signedIn -> item {
-                Empty("Not signed in", src.hint)
+                Empty("Not signed in", src.hint + if (key == org.omarchy.music.SoundCloud.KEY) "\n\n${org.omarchy.music.SoundCloud.APART}." else "")
                 ActionRow("Connect ${SOURCES[key]}  ›") { ui.openSettings("Accounts") }
             }
             open == null && ui.openFolder != null && Music.playlistFolders.get(ui.openFolder!!) != null ->
@@ -189,7 +192,8 @@ fun LibraryTab(ui: Ui) {
                 val tracks = open.second?.let { Music.sortedPlaylist(it) }
                 if (tracks == null) item { Section("LOADING…") }
                 else {
-                    item { ListActions(tracks, extra = listOf("Import to my playlists" to { Music.importServicePlaylist(key, open.first) }),
+                    item { ListActions(tracks, extra = if (key == org.omarchy.music.SoundCloud.KEY) emptyList()
+                        else listOf("Import to my playlists" to { Music.importServicePlaylist(key, open.first) }),
                         onDj = { ui.djFrom(Dj.From("songs", name = open.first.title, songs = tracks)) },
                 pin = org.omarchy.music.Pin("service", open.first.id, open.first.title, open.first.sub, open.first.thumb, key)) }
                     if (tracks.isNotEmpty()) item { PlaylistSortChips() }
@@ -198,11 +202,13 @@ fun LibraryTab(ui: Ui) {
             }
             loaded?.second == null -> item { Empty("Loading your library…") }
             else -> {
-                item { SyncLine() }
+                if (key == org.omarchy.music.SoundCloud.KEY) item { Text(org.omarchy.music.SoundCloud.APART + ".", style = T.sub,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+                else item { SyncLine() }
                 if (LastFmOn()) item { ActionRow("✦  Your ${org.omarchy.music.Wrapped.year()} Wrapped  ›") { ui.sheet = "wrapped" } }
                 val lists = loaded.second!!
                 item { ActionRow("＋  New folder") { ui.askName = Triple("New folder", "") { n -> Music.newFolder(n) } } }
-                if (lists.isNotEmpty()) item { ActionRow("⇩  Import all ${lists.size} into my playlists") {
+                if (lists.isNotEmpty() && key != org.omarchy.music.SoundCloud.KEY) item { ActionRow("⇩  Import all ${lists.size} into my playlists") {
                     ui.confirm = ("Import all ${lists.size} of your ${SOURCES[key]} playlists into your playlists here? Their songs stream " +
                         "until you download them: $LONG_PRESS a playlist in Music › Playlists and pick Download. Playlists imported " +
                         "before get just their new songs.") to { Music.importAllServicePlaylists(key, lists) }
@@ -219,9 +225,10 @@ fun LibraryTab(ui: Ui) {
                     }
                 }
                 fun menu(pl: Album) {
-                    ui.choices = pl.title to listOf(pinChoice(org.omarchy.music.Pin("service", pl.id, pl.title, pl.sub, pl.thumb, key)),
+                    ui.choices = pl.title to (if (key == org.omarchy.music.SoundCloud.KEY) listOf(pinChoice(org.omarchy.music.Pin("service", pl.id, pl.title, pl.sub, pl.thumb, key)))
+                        else listOf(pinChoice(org.omarchy.music.Pin("service", pl.id, pl.title, pl.sub, pl.thumb, key)),
                         "Import to my playlists" to { Music.importServicePlaylist(key, pl) },
-                        "Put in a folder…" to { ui.folderFor = FolderItem.service(pl, key) })
+                        "Put in a folder…" to { ui.folderFor = FolderItem.service(pl, key) }))
                 }
                 laidOutItems(shown, ui, key = { "sp-" + shown[it].id + "#" + it }, row = { i ->
                     PlaylistRow(shown[i], onLongClick = { menu(shown[i]) }) { openPl(shown[i]) }
@@ -503,7 +510,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
                 "Your own DJ, made from everything you've played: Last.fm, your Spotify, Apple Music, Deezer, YouTube Music " +
                     "and Tidal imports, and the plays here. Sets of a few songs at a time: what you've had on repeat, what " +
                     "you play at this hour, the mood you've been in, throwbacks, favourites, songs you haven't heard in a while, deep cuts, artists " +
-                    "like yours and new songs from Tidal and YouTube Music, leaving out the ones you keep skipping. Switch " +
+                    "like yours and new songs from Tidal and YouTube Music. Skips are only counted, never used to leave songs out. Switch " +
                     "it up for something else, or ask for an artist, a mood, a genre, a decade or a vibe."
             }, style = if (d.line.isNotEmpty()) T.title else T.body)
             // What the DJ knows: every source and stat it uses (Wrapped.DJ_KNOWS), folded away till asked for
@@ -815,6 +822,30 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
     else { item { PlaylistSortChips() }; tracks(sorted, ui, "mine", playlistId = open.id) }
 }
 
+/** In the DJ's queue only (the DJ on and its song playing): what it said last, the set's category (this song's) and the
+ *  stat it gave, as on the DJ tab. Nothing in any other queue. */
+internal fun djQueueOn(): Boolean {
+    val d = Music.shownDj()
+    val q = Music.shownQueue(); val idx = Music.shownIndex()
+    return d.on && idx in q.indices && q[idx].dj > 0
+}
+
+/** The category of a DJ song in the queue (Throwbacks, On repeat…), or "" for a song the DJ didn't pick. */
+internal fun djKindOf(t: Track): String = if (t.dj > 0) Dj.KINDS[Music.shownDj().kinds[t.dj.toString()]] ?: "" else ""
+
+@Composable
+internal fun DjQueueNote(text: Color = C.fg, soft: Color = C.muted, accent: Color = C.accent, modifier: Modifier = Modifier) {
+    if (!djQueueOn()) return
+    val d = Music.shownDj()
+    val q = Music.shownQueue(); val idx = Music.shownIndex()
+    val kind = djKindOf(q[idx]).ifEmpty { Dj.KINDS[d.kind] ?: "" }
+    Column(modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("DJ" + (if (kind.isNotEmpty()) " · ${kind.uppercase()}" else ""), style = T.section.copy(color = accent))
+        if (d.line.isNotEmpty()) Text(d.line, style = T.title.copy(color = text))
+        if (d.fact.isNotEmpty()) Text(d.fact, style = T.sub.copy(color = accent))
+    }
+}
+
 @Composable
 fun QueueTab(ui: Ui) {
     val q = Music.shownQueue()
@@ -822,8 +853,9 @@ fun QueueTab(ui: Ui) {
     LazyColumn(Modifier.fillMaxSize()) {
         if (!Remote.active) item { QueueHeader(ui) }
         if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@LazyColumn }
+        if (djQueueOn()) item("djnote") { DjQueueNote(modifier = Modifier.padding(horizontal = 12.dp)) }
         item { Section("NOW PLAYING") }
-        item { TrackRow(q[idx], RowPlace(q, idx, "queue", queueIndex = idx), ui) { } }
+        item { TrackRow(q[idx], RowPlace(q, idx, "queue", queueIndex = idx), ui, djKindOf(q[idx])) { } }
         val rest = (idx + 1 until q.size).toList()
         val mine = rest.filter { q[it].queued }
         val next = rest.filter { !q[it].queued }
@@ -838,7 +870,7 @@ fun QueueTab(ui: Ui) {
             item { Section(if (Music.shownRadio()) "UP NEXT · RADIO" else if (Music.shownDj().on) "UP NEXT · DJ" else "UP NEXT") }
             items(next.size, key = { "n${next[it]}" }) { j ->
                 val i = next[j]
-                TrackRow(q[i], RowPlace(q, i, "queue", queueIndex = i), ui) { Music.playIndex(i) }
+                TrackRow(q[i], RowPlace(q, i, "queue", queueIndex = i), ui, if (djQueueOn()) djKindOf(q[i]) else "") { Music.playIndex(i) }
             }
         }
     }

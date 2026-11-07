@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -70,6 +71,11 @@ fun Sheets(ui: Ui) {
     when (ui.sheet) {
         "accounts" -> AccountsSheet(ui)
         "eq" -> EqSheet(ui)
+        "lookmaker" -> LookMaker(ui, ui.makerEdit)
+        "layoutmaker" -> LayoutMaker(ui, ui.makerEdit)
+        "vismaker" -> VisMaker(ui, ui.makerEdit)
+        "wrapmaker" -> WrapMaker(ui, ui.makerEdit)
+        "cardmaker" -> CardMaker(ui, ui.makerEdit)
         "tidal-login" -> WebLogin(Music.tidal.loginUrl(), { it.startsWith(Tidal.REDIRECT) }) { url ->
             ui.sheet = "accounts"; if (url != null) Music.tidalLoggedIn(url)
         }
@@ -86,6 +92,12 @@ fun Sheets(ui: Ui) {
         }
         "spotify-login" -> WebLogin(Services.spotifyLoginUrl(), { it.startsWith(org.omarchy.music.Spotify.REDIRECT) }) { url ->
             ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
+        }
+        "soundcloud-login" -> {
+            val loginAt = remember { (Music.sources[org.omarchy.music.SoundCloud.KEY] as? org.omarchy.music.SoundCloud)?.loginUrl() ?: "about:blank" }
+            WebLogin(loginAt, { it.startsWith(org.omarchy.music.SoundCloud.REDIRECT) }) { url ->
+                ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) org.omarchy.music.SoundCloud.finish(url)
+            }
         }
         "lastfm-login" -> WebLogin(LastFm.authUrl(), { LastFm.authDone(it) }) { url ->
             ui.sheet = "accounts"; LastFm.finishLogin(quiet = url == null)
@@ -170,7 +182,7 @@ private fun AccountsSheet(ui: Ui) {
             if (org.omarchy.music.Startup.supported) StartupLine()
             }
             Group("Personalization", ui) {
-            PersonalizationLines()
+            PersonalizationLines(ui)
             }
             Group("Playback", ui) {
             PlaybackLines(ui)
@@ -178,7 +190,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("Backup", ui) {
             BackupLines(activity)
             }
-            Group("Play on", ui) {
+            Group("Remote & sync", ui) {
             if (org.omarchy.music.RemoteHost.supported) PhoneRemoteLines()
             // ---- play on ----
             else Line("Play on", if (Remote.active) "Music plays on the desktop (${Remote.name}), and this phone is its remote" +
@@ -194,6 +206,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
             SyncLines(ui)
+            SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
             Group("Accounts", ui) {
@@ -215,6 +228,7 @@ private fun AccountsSheet(ui: Ui) {
                 "music folders to play here as your own songs. A file can't sound better than what the service streams.\n" +
                 "Stream and download quality are in Your music.",
                 style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+            ImportNote("playlists")   // how the last playlist import went
             // ---- services ----
             for (key in listOf("ytm", "apple", "deezer")) {
                 val src = Music.sources[key]
@@ -238,6 +252,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Connect") { ui.sheet = "tidal-login" }
             }
             SpotifyLine(ui)
+            SoundCloudLine(ui)
             }
             Group("Your music", ui) {
             // ---- your music ----
@@ -327,6 +342,7 @@ private fun AccountsSheet(ui: Ui) {
             Group("Scanner", ui) {
                 Text("Scans that find and fix problems in your music. Run one when something looks wrong; nothing changes until you say so.",
                     style = T.sub, modifier = Modifier.padding(vertical = 8.dp))
+                ProtectLines()
                 SubGroup("Your files", ui) { ToolLines(ui) }
                 SubGroup("Lyrics & moods", ui) { LyricsMoodsLines(ui) }
                 SubGroup("Last.fm & your stats", ui) {
@@ -451,6 +467,44 @@ private fun SpotifyLine(ui: Ui) {
     }
 }
 
+/** SoundCloud: its own service here. Its songs stream from SoundCloud (AAC, about 160 kbps) and never mix with the others. */
+@Composable
+private fun SoundCloudLine(ui: Ui) {
+    val sc = Music.sources[org.omarchy.music.SoundCloud.KEY] as? org.omarchy.music.SoundCloud
+    Text("Mixing services: songs from Tidal, Spotify, Apple Music, Deezer and YouTube Music can all go together with your own " +
+        "offline music in the same playlists and queues, since they all play through Tidal (or YouTube) and your files.\n\n" +
+        "SoundCloud is different: it's a service of its own in the app. Its songs stream straight from SoundCloud (AAC, about " +
+        "160 kbps, close to YouTube's quality), but SoundCloud's rules for apps like this one mean they can't be downloaded or " +
+        "kept offline, and can't be mixed with other services or your own music: they play in a SoundCloud queue of their " +
+        "own, and can't go in your playlists or favorites (like them on SoundCloud instead).",
+        style = T.sub, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+    when {
+        sc == null -> Line("SoundCloud", "Starting…", false) {}
+        sc.signedIn -> Line("SoundCloud", "Connected" + (if (sc.user.isNotEmpty()) " as ${sc.user}" else "") + ": search, your likes " +
+            "and playlists and artists are under SoundCloud (☰ › the service chips), streaming from SoundCloud", true) {
+            Pill("Disconnect", quiet = true) { org.omarchy.music.SoundCloud.signOut() }
+        }
+        else -> {
+            var cid by remember { mutableStateOf(sc.clientId) }
+            var secret by remember { mutableStateOf("") }
+            Line("SoundCloud", if (sc.ready) "Your SoundCloud app is set up: search works. Sign in to see your likes and playlists" else
+                "SoundCloud needs a free app of your own: tap Make an app, sign in to SoundCloud, register an app with the " +
+                "redirect URI below, then paste its Client ID and Client secret here and tap Connect. Redirect URI:", sc.ready) {}
+            Text(org.omarchy.music.SoundCloud.REDIRECT, style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 4.dp))
+            Field(cid, "Client ID") { cid = it }
+            Field(secret, if (sc.ready) "Client secret (kept: type it only to change it)" else "Client secret", password = true) { secret = it }
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill("Make an app", quiet = true) { org.omarchy.music.Services.open("https://soundcloud.com/you/apps") }
+                Pill(if (sc.ready) "Sign in" else "Connect") {
+                    if (secret.isBlank() && sc.ready && cid.trim() == sc.clientId) ui.sheet = "soundcloud-login"
+                    else if (sc.setClient(cid, secret)) { Music.sourceReady(org.omarchy.music.SoundCloud.KEY, sc, null); ui.sheet = "soundcloud-login" }
+                    else Music.toast("Paste both your app's Client ID and its Client secret")
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun LastFmLine(ui: Ui) {
     if (LastFm.connected) {
@@ -481,8 +535,9 @@ private fun SpotifyHistoryLine(ui: Ui) {
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(140)}"
-                else "Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed("spotify", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("spotify", it); Music.toast("Import worked: $it") }
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Spotify plays added alongside your Last.fm scrobbles in your stats " +
@@ -495,6 +550,7 @@ private fun SpotifyHistoryLine(ui: Ui) {
                 "(Spotify only keeps the last 50), and Sync fetches them now"
             else ". Connect Spotify under Accounts and your latest plays come in on their own too"
     Line("Spotify history", state, h.count > 0) {}
+    ImportNote("spotify")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://www.spotify.com/account/privacy/") }
         if (sp?.signedIn == true) Pill("Sync", quiet = true) {
@@ -523,8 +579,9 @@ private fun AppleHistoryLine() {
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
-                else "Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed("apple", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} Apple Music plays" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("apple", it); Music.toast("Import worked: $it") }
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
@@ -535,6 +592,7 @@ private fun AppleHistoryLine() {
             "of your data › Apple Media Services), then Import the zip when it comes. Or import a library exported from the Music " +
             "app on a computer (File › Library › Export Library…)"
     Line("Apple Music history", state, h.count > 0) {}
+    ImportNote("apple")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://privacy.apple.com/") }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
@@ -554,14 +612,16 @@ private fun ImportLine(h: org.omarchy.music.PlaysImport, getAt: String, howTo: S
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(200)}"
-                else "Added ${"%,d".format(n ?: 0)} ${h.label} plays" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed(h.label, err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} ${h.label} plays" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok(h.label, it); Music.toast("Import worked: $it") }
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} ${h.label} plays added alongside your Last.fm scrobbles in Most " +
         "played, Artists and Wrapped. Importing again only adds plays you didn't have yet" else howTo
     Line("${h.label} history", state, h.count > 0) {}
+    ImportNote(h.label)
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open(getAt) }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
@@ -580,8 +640,9 @@ private fun DeezerHistoryLine() {
     var asking by remember { mutableStateOf(false) }
     val pick = rememberOpenFile { uri ->
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
-            Music.toast(if (err != null) "Couldn't import it: ${err.message?.take(160)}"
-                else "Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "")
+            if (err != null) { org.omarchy.music.ImportNotes.failed("deezer", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else ("Added ${"%,d".format(n ?: 0)} Deezer plays" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("deezer", it); Music.toast("Import worked: $it") }
             if (err == null) org.omarchy.music.Stats.refresh(force = true)
         }
     }
@@ -591,6 +652,7 @@ private fun DeezerHistoryLine() {
             "Last.fm scrobbles (importing it again never adds a play twice). Tap Get the file and download your data from Deezer's privacy settings " +
             "(My account › Privacy settings › My personal data), then Import the .xlsx spreadsheet with your listening history"
     Line("Deezer history", state, h.count > 0) {}
+    ImportNote("deezer")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the file", quiet = true) { Services.open("https://www.deezer.com/account/privacy") }
         if (h.count > 0) Pill("Clear", quiet = true) { asking = true }
@@ -603,6 +665,15 @@ private fun DeezerHistoryLine() {
         text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
         confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** How the last import of this kind went: it worked and what it added, or it failed and why (kept till the next). */
+@Composable
+private fun ImportNote(kind: String) {
+    val (ok, at, text) = org.omarchy.music.ImportNotes.last(kind) ?: return
+    val ago = org.omarchy.music.Sync.ago(at.toLong())
+    Text((if (ok) "\u2713 Last import worked ($ago): " else "\u2717 Last import failed ($ago): ") + text,
+        style = T.sub.copy(color = if (ok) C.green else C.red), modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp))
 }
 
 /** Loudness check (the PC: ffmpeg looks at each song once). */
@@ -624,6 +695,24 @@ private fun LoudnessCheckLine(ui: Ui) {
     }, on) {
         if (flagged.isNotEmpty()) { Pill("Show…", quiet = true) { ui.tool = "quality" }; Spacer(Modifier.width(6.dp)) }
         Switch(on, { Music.setOpt(P.LOUDNESS_CHECK, it); if (it) q.scan() }, colors = swColors())
+    }
+}
+
+/** Settings › Scanner, at the top: Prevent auto mood scans and Prevent album cover changes. */
+@Composable
+private fun ProtectLines() {
+    val P = org.omarchy.music.Prefs
+    var moods by remember { mutableStateOf(P.on(org.omarchy.music.Moods.PREVENT)) }
+    Line("Prevent auto mood scans", "On: the moods stop being edited. Every mood already in your files stays exactly as " +
+        "it is and still shows, but no song is scanned (a new song you add waits) and nothing more is written into any " +
+        "file's moods, nor taken from your other device. Turn it off to scan again", moods) {
+        Switch(moods, { moods = it; P.set(org.omarchy.music.Moods.PREVENT, it); org.omarchy.music.Moods.version++ }, colors = swColors())
+    }
+    var covers by remember { mutableStateOf(P.on(org.omarchy.music.CoverGuard.PREVENT)) }
+    Line("Prevent album cover changes", "On: no sync, scan or auto tagger changes the cover inside a song's file, and none " +
+        "is put in or taken off. Only a cover you pick yourself (the Tagger's Cover) changes it. A scan that could change " +
+        "covers says so while this is on", covers) {
+        Switch(covers, { covers = it; P.set(org.omarchy.music.CoverGuard.PREVENT, it) }, colors = swColors())
     }
 }
 
@@ -666,6 +755,16 @@ private fun ToolLines(ui: Ui) {
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }
     }
+    Line("Save covers into folders", "Saves one picture of each album, EP and single in its folder, beside its songs " +
+        "(cover.jpg; a folder holding several releases gets one for each), from a song's own cover, so a cover lost from the " +
+        "files can always be put back. A release with a picture there already is left as it is" +
+        (if (onPhone) ". On the phone it needs All files access" else ""), false) {
+        Pill("Scan…", quiet = true) { ui.tool = "savecovers" }
+    }
+    Line("Covers from folders", "Puts the cover picture in each song's folder (its album's, EP's or single's) into every song " +
+        "there that has no cover in its file, so they all have it again. Songs with a cover already are left as they are", false) {
+        Pill("Scan…", quiet = true) { ui.tool = "applycovers" }
+    }
 }
 
 /** Scanner › Lyrics & moods: the lyrics scanner (lyrics into the files, then the songs it found none for), reading
@@ -683,21 +782,65 @@ private fun LyricsMoodsLines(ui: Ui) {
         ls.progress != null) {
         Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
     }
-    Line("Moods from lyrics", if (moods.wordsReading != null) "Reading the words… %,d of %,d".format(moods.wordsReading?.first ?: 0, moods.wordsReading?.second ?: 0)
-        else "Reads each song's words for how much they say every mood (sad, romantic, dark…), on this $DEVICE, reading whole " +
-        "lines and sayings (\"wash my blues away\" is relief, not sadness), and counts it together with the sound. Both always " +
-        "count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for Energetic, Party, Chill and " +
-        "Focus, and a hint of sad words counts for less in a clearly upbeat song. With an Anthropic key saved, Claude reads them " +
-        "instead. The result goes into the file (a MOOD_LYRICS tag, nothing else in the file changes) so it's never read again. " +
-        "Also on the Moods tab", moods.wordsReading != null) {
-        if (moods.wordsReading != null) Pill("Stop", quiet = true) { moods.stopWords() } else Pill("Read", quiet = true) { moods.readWords() }
+    Line("Lyrics files (.lrc)", "Saves a .lrc file beside each song that has lyrics in its file, with the same name " +
+        "(timed lines when the song has them, else the words), so any player, and the folder wherever it's copied, has " +
+        "them. Songs with a .lrc already are left as they are" + (if (onPhone) ". On the phone it needs All files access" else ""), false) {
+        Pill("Scan…", quiet = true) { ui.tool = "lrc" }
+    }
+    Line("Moods from lyrics", "Scan moods (the Moods tab) reads each song's words as well as hearing its sound: on this " +
+        "$DEVICE, reading whole lines and sayings (\"wash my blues away\" is relief, not sadness), or by Claude with an Anthropic " +
+        "key saved. Both always count for every mood: the words weigh more for Sad, Romantic and Dark, the sound more for " +
+        "Energetic, Party, Chill and Focus. Only once a song's sound and words are both done are its moods written into its file",
+        moods.reading != null) {
+        if (moods.reading != null) Pill("Stop", quiet = true) { moods.stop() } else Pill("Scan moods", quiet = true) { moods.scan() }
+    }
+    // Starting again: the moods worked out afresh from what was heard (quick), or everything forgotten to scan again
+    Line("Reset mood and lyrics scans", "Moods look wrong after a sync, or songs only have one mood? Reset moods works every " +
+        "song's moods out again from what the scan already heard and read (nothing heard again), dropping moods a sync, a " +
+        "backup or another app brought; the next Scan moods writes them into your files without hearing anything again. Reset sound scan has every song heard again (the lyrics readings kept). Clear my moods forgets the ones you picked. Remove all moods takes every mood out of every file and forgets all the scans found (the sound, the lyrics readings) so Scan moods " +
+        "starts again from the very beginning, your picked moods included. Every reset only ever " +
+        "changes the MOOD tags: artist, album, title and all other tags stay as they are. Each asks before it does anything", false) {}
+    // The buttons under it, not beside it (beside, they squeezed the words into a thin column)
+    moods.removing?.let { (d, n) -> Text("Removing moods from your files… %,d of %,d".format(d, n), style = T.sub.copy(color = C.accent)) }
+    run {
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Pill("Reset moods", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This works every song's moods out again from what the scans already heard and read. Moods " +
+                    "from a sync, a backup or another app are dropped. Nothing is heard again; tap Scan moods on the Moods tab " +
+                    "afterwards to write the new moods into your files. Continue?") to {
+                    moods.resetAll(keepScans = true) { n -> Music.toast("Moods worked out again for %,d songs: Scan moods writes them into the files".format(n)) } }
+            }
+            Pill("Reset sound scan", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This forgets what the sound scans heard for all your songs, so every song " +
+                    "is heard again: run Scan moods on the Moods tab afterwards (it takes as long as the first time). The lyrics " +
+                    "readings and moods you picked yourself stay. Continue?") to {
+                    moods.reset(org.omarchy.music.Moods.RESET_SOUND) { n -> Music.toast("Sound scan reset for %,d songs: run Scan moods on the Moods tab".format(n)) } }
+            }
+            Pill("Clear my moods", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This clears every mood you picked yourself in the Tagger, and what your " +
+                    "fixes taught the scans, so those songs' moods are worked out from their sound and words like the rest. The " +
+                    "next Scan moods rewrites only the MOOD tag of their files (nothing else in them changes). Continue?") to {
+                    moods.clearPicked { n -> Music.toast("Your moods cleared from %,d songs".format(n)) } }
+            }
+            Pill("Remove all moods", quiet = true) {
+                Ui.current?.confirm = ("Are you sure? This takes every mood off every song, for a completely fresh start: the MOOD " +
+                    "tag and the words' reading (MOOD_LYRICS) are removed from all your files (only those two: the artist, album, " +
+                    "title and every other tag stay exactly as they are), and everything the scans found and every mood you " +
+                    "picked yourself is forgotten. Then run Scan moods on the Moods tab to give " +
+                    "every song its moods again from its sound and words; that takes as long as the first time. Continue?") to {
+                    moods.removeAll { changed, left, stuck ->
+                        if (stuck == 0) Music.toast("All moods removed (%,d files changed%s): run Scan moods on the Moods tab"
+                            .format(changed, if (left > 0) ", %,d this ${DEVICE} may not change or the playing song".format(left) else ""))
+                        else Music.toast("Moods removed from %,d files, but %,d still have one (Settings › Problems says which and why)%s"
+                            .format(changed, stuck, if (left > 0) "; %,d this ${DEVICE} may not change or the playing song".format(left) else "")) } }
+            }
+        }
     }
     var on by remember { mutableStateOf(org.omarchy.music.Moods.aiSwitch()) }
     var key by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)) }
     Line("AI reading of lyrics (optional)", "With your own Anthropic API key, the words are read by Claude (claude-haiku-4-5) " +
         "instead of on this $DEVICE (on by itself once a key is saved): it scores every mood and reads what the singer means " +
-        "(irony, a sad story told cheerfully, sayings), using the title and artist too. Songs read on this $DEVICE before can be " +
-        "read again by the AI once (the Moods tab offers it); a song the AI has read is never read again. Each song's title, " +
+        "(irony, a sad story told cheerfully, sayings), using the title and artist too. A song the AI has read is never read again. Each song's title, " +
         "artist and words are sent to Anthropic, and it costs a " +
         "little on your Anthropic account for each song (well under a cent). The key stays on this $DEVICE: it isn't in backups " +
         "or sync, and goes nowhere but Anthropic", on && key.isNotBlank()) {
@@ -714,11 +857,13 @@ private fun LyricsMoodsLines(ui: Ui) {
             "4. Copy the key straight away (it starts with sk-ant-). It's only shown once.\n" +
             "Credits must be added first (step 2), or Anthropic refuses every request. \"Test the key\" below checks both.\n" +
             "5. Paste it in the box below and tap Save.\n" +
-            "6. Tap Read under Moods from lyrics (or on the Moods tab). Songs the AI has read aren't read again; songs read " +
-            "on this $DEVICE before can be read again with the AI once (the Moods tab offers it).\n" +
+            "6. Tap Scan moods on the Moods tab: it reads each song's words with the AI as it hears its sound. Songs the AI " +
+            "has read aren't read again.\n" +
             "Keep the key to yourself: anyone with it can spend your credits. To stop, clear the box and tap Save, or delete " +
             "the key at platform.claude.com.",
             style = T.sub, modifier = Modifier.padding(vertical = 4.dp))
+        var testing by remember { mutableStateOf(false) }
+        var tested by remember { mutableStateOf("") }
         Field(key, "Anthropic API key", password = true) { key = it }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             Pill("Get a key", quiet = true) { Services.open("https://platform.claude.com/settings/keys") }
@@ -729,11 +874,23 @@ private fun LyricsMoodsLines(ui: Ui) {
                 Music.toast(if (key.isBlank()) "Key taken off" else "Key saved: lyrics are read by the AI from now on")
             }
             // One tiny request (a fraction of a cent): says whether the key and the account's credits work
-            Pill("Test the key", quiet = true) {
-                Music.toast("Testing the key…")
-                org.omarchy.music.Moods.testAi { why -> Music.toast(if (why.isEmpty()) "The key works: the AI reads the lyrics" else "The key didn't work: $why") }
+            Pill(if (testing) "Testing…" else "Test the key", quiet = true) {
+                if (!testing) {
+                    if (org.omarchy.music.Moods.cleanKey(key) != org.omarchy.music.Moods.cleanKey(org.omarchy.music.Prefs.text(org.omarchy.music.Moods.AI_KEY)))
+                        org.omarchy.music.Prefs.setText(org.omarchy.music.Moods.AI_KEY, org.omarchy.music.Moods.cleanKey(key))  // tests the key in the box
+                    testing = true; tested = ""
+                    org.omarchy.music.Moods.testAi { why ->
+                        testing = false
+                        tested = if (why.isEmpty()) "✓ The key works: the AI reads the lyrics" else "✗ The key didn't work: $why"
+                        Music.toast(tested)
+                    }
+                }
             }
         }
+        // The answer right here (a toast can hide behind this sheet)
+        if (testing) Text("Testing the key with Anthropic…", style = T.sub)
+        else if (tested.isNotEmpty()) Text(org.omarchy.music.Moods.hideKey(tested),
+            style = T.sub.copy(color = if (tested.startsWith("✓")) C.accent else C.red))
         val status = org.omarchy.music.Moods.aiStatus
         if (status.isNotEmpty()) Text("Last AI problem: ${org.omarchy.music.Moods.hideKey(status)}", style = T.sub.copy(color = C.red))
     }
@@ -798,8 +955,8 @@ private fun SyncLines(ui: Ui) {
         ": " + s.lastText.removePrefix("Synced: ") else "Not synced yet"
     val note = s.busy ?: if (pc && s.waiting) "Waiting for the phone: open Radon Player on it (on the same network) and it syncs " +
         "within 20 seconds" else last
-    Line("Sync with $other", "Syncs by itself each time the phone and PC connect (pairing, opening the app, back on the same Wi-Fi), " +
-        "and whenever you tap Sync now. The app's own stats go across so both show the same: plays, skips, songs heard out and " +
+    Line("Sync with $other", "Syncs only when you tap Sync now (here or on the $other): never by itself. " +
+        "The app's own stats go across so both show the same: plays, skips, songs heard out and " +
         "the listening diary (time listened, playlists, outputs, searches), each counted once however often you sync. Imports " +
         "and Last.fm aren't sent: import them on each device. Songs downloaded on one are downloaded on the other (each once), " +
         "and tag changes you make on one are made to the same songs on the other. " +
@@ -818,10 +975,72 @@ private fun SyncLines(ui: Ui) {
         "you use with each device, so they stay on the device they were made on unless this is on, on both", s.songsOn) {
         Switch(s.songsOn, { s.setSongsOn(it) }, colors = swColors())
     }
+    TagMatchLine(other)
     if (s.undoAt > 0) Line("Undo last sync", "Puts this $DEVICE's data back as it was just before the sync ${s.ago(s.undoAt)} " +
         "(changes made here since go too). The $other keeps its own: undo there too if you want", false) {
         Pill("Undo", quiet = true) { ui.confirm = "Put this $DEVICE's playlists, favorites and settings back as they were before the last sync?" to { s.undo() } }
     }
+}
+
+/** Folders sync leaves alone: their songs never take tags or covers from the other device, nor send theirs. */
+@Composable
+private fun SyncIgnoreLines() {
+    val ig = org.omarchy.music.SyncIgnore
+    var typed by remember { mutableStateOf("") }
+    val pick = rememberFolderPick { path -> if (path != null) ig.add(path) }
+    Line("Folders sync leaves alone", "Put your unreleased music (and any songs only you have the right tags for) in a folder " +
+        "listed here, so a sync never changes their tags or album art. Without it, a sync can take an unreleased song for " +
+        "another song of the same name and give it that song's tags and cover. Add the folder's full path, or just its name " +
+        "(such as Unreleased) to leave alone every folder of that name. This list is kept on this $DEVICE only: add the " +
+        "folder on your other device too. A folder named Unreleased is always left alone on both, listed or not. Their " +
+        "moods still sync", ig.all.isNotEmpty()) {
+        if (pick != null) Pill("Choose\u2026", quiet = true) { pick() }
+    }
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { Field(typed, "A folder, e.g. Unreleased") { typed = it } }
+        Pill("Add") { if (typed.isNotBlank()) { ig.add(typed); typed = "" } }
+    }
+    ig.all.forEach { f ->
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(f, style = T.sub, modifier = Modifier.weight(1f))
+            Pill("Remove", quiet = true) { ig.remove(f) }
+        }
+    }
+}
+
+/** Tags & covers match: the songs on both devices kept with the same tags and album art, the main device's. */
+@Composable
+private fun TagMatchLine(other: String) {
+    val m = org.omarchy.music.TagMatch
+    val P = org.omarchy.music.Prefs
+    var asking by remember { mutableStateOf(false) }
+    val on = P.on(m.ON)
+    val mainName = if (m.main == "pc") "the PC" else "the phone"
+    val receiver = if (m.main == "pc") "the phone" else "the PC"
+    Line("Tags match", "Fills in what the songs on both devices are missing: their tags (title, artist, album, " +
+        "album artist, genre, year, track; moods sync on their own). The main device sends, the other takes: at each sync $receiver's " +
+        "copies get what $mainName's have and they don't. A tag that's filled in is never changed by it, and covers are never " +
+        "synced: a song without one gets it from Songs without covers. Tag edits you make in the Tagger or Edit tags on either still go to both. A song is matched by its ISRC, " +
+        "its title and artist, or its file's name, when the lengths agree. On the phone only the songs the app downloaded can be " +
+        "changed (Android lets an app change only its own files)", on,
+        note = when {
+            !on -> ""
+            m.isMain -> "Main device: this $DEVICE. It sends, the $other takes"
+            else -> "Main device: the $other. It sends, this $DEVICE takes"
+        }) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (on) Pill("Main: ${if (m.main == "pc") "PC" else "phone"}", quiet = true) { asking = true }
+            Switch(on, { v -> if (v) asking = true else P.set(m.ON, false) }, colors = swColors())
+        }
+    }
+    if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
+        title = { Text("Which device leads?", style = T.title) },
+        text = { Text("The main device's tags and album art are put on the other's copies of the same songs at each sync. " +
+            "Pick the one where you edit your tags.", style = T.sub) },
+        confirmButton = { TextButton({ asking = false; P.setText(m.MAIN, "pc"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
+            Text("The PC", color = C.accent) } },
+        dismissButton = { TextButton({ asking = false; P.setText(m.MAIN, "phone"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
+            Text("The phone", color = C.accent) } })
 }
 
 /** Time choice: Most played's Songs time, Albums time and Artists time in hours or in minutes. */
@@ -993,6 +1212,8 @@ private fun PlaybackLines(ui: Ui) {
     }
     if (onPhone) AutoMonoLines()
     IgnoreBtLines(ui)
+    NewestBtLine()
+    if (onPhone) CarFirstLine()
     Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
@@ -1004,48 +1225,106 @@ private fun PlaybackLines(ui: Ui) {
 /** Settings › Personalization (also the Now playing look pane): Look, Theme, the Now playing look's fallback, and Now
  *  playing's background and visualizer. */
 @Composable
-fun PersonalizationLines() {
+fun PersonalizationLines(ui: Ui) {
+    // A preset put on: every line below starts again from the new choices
+    androidx.compose.runtime.key(MyPresets.applied) { PersonalizationBody(ui) }
+}
+
+@Composable
+private fun PersonalizationBody(ui: Ui) {
+            PresetShuffleLines()
             // Every theme and look of the app's screens in one place (the Visualizer's own looks stay on the Visualizer).
-            Text("The Now playing look: the background is the song's album cover, blurred, with the cover's colours over the whole " +
-                "app, and they change with each song. The other looks keep their own colours. Look picks the colours and Theme " +
-                "the style (corners, type, spacing), and any theme goes with any look.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+            Text("Look picks the colours, Theme how things are drawn (corners, type, spacing) and Layout where they are: any of " +
+                "each goes with any other. The Now playing look takes the colours of the song's cover; every other look keeps its " +
+                "own, and Now playing's song name, buttons, seek bar and lyrics are in the look's colour.", style = T.sub, modifier = Modifier.padding(top = 8.dp))
+            PresetLines(ui)
             Line("Look", "How the app is coloured: Light, Dark, Now playing (every screen matches the cover of the song " +
                 "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
                 false, note = Looks.describe(Music.look)) {
-                ChoicePill(Looks.ALL, Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) { Music.chooseLook(it) }
+                // Right-click (or hold) one: ★ Favourite (to the top), or Delete one you made
+                ChoicePill(Favs.sorted(Favs.LOOKS, Looks.ALL), Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
+                    describe = { lookDesc(it) }, preview = { LookPreview(it) }, menu = { k, l -> Favs.menu(Favs.LOOKS, k, l) }) { Music.chooseLook(it) }
             }
             // The app's style, apart from its colours: kept with the other settings (so backups and Sync carry it too).
             val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
             Line("Theme", "How the app is drawn, whatever its colours: its corners, type, spacing, cards and lines",
                 false, note = Themes.ALL[theme]?.desc.orEmpty()) {
-                ChoicePill(Themes.MENU, theme) { org.omarchy.music.Prefs.setText(Themes.PREF, it) }
+                ChoicePill(Favs.sorted(Favs.THEMES, Themes.MENU), theme, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) },
+                    menu = { k, l -> Favs.menu(Favs.THEMES, k, l) }) {
+                    org.omarchy.music.Prefs.setText(Themes.PREF, it) }
             }
-            Line("Fallback for Now playing look", "The Now playing look takes its colours from the song that's playing. " +
-                "This picks the look it uses instead while nothing is playing, such as when you first open the app", false) {
-                // Every look the Look menu has (but Now playing itself), with the same swatches.
-                ChoicePill(Looks.FALLBACK, Music.npFallback, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } }) {
-                    Music.chooseNpFallback(it)
-                }
+            // Where things are on the screen, apart from colours and drawing: any layout goes with any look and theme
+            val lay = UiLayouts.current
+            Line("Layout", "Where things are on the screen: how you get around (the ☰ menu, a bar along the bottom, a rail " +
+                "down the side or tabs along the top), the mini player and how Now playing is arranged. Every layout has every " +
+                "feature: what isn't on its bar is in the ☰ menu", false, note = lay.explain()) {
+                fun of(k: String) = UiLayouts.all().firstOrNull { it.key == k }
+                ChoicePill(Favs.sorted(Favs.LAYOUTS, UiLayouts.MENU), lay.key, describe = { of(it)?.explain().orEmpty() },
+                    preview = { k -> of(k)?.let { LayoutPreview(it) } }, thumb = { k -> of(k)?.let { LayoutThumb(it) } },
+                    later = true, menu = { k, l -> Favs.menu(Favs.LAYOUTS, k, l) }) { UiLayouts.choose(it) }
             }
+            EffectsLines()
             NowPlayingLookLines()
+            MakerLines(ui)
 }
+
+/** Settings › Personalization › Effects: the looks' own effects, or any of them with any look or theme. */
+@Composable
+private fun EffectsLines() {
+    var own by remember { mutableStateOf(LookFx.ownOn()) }
+    var picked by remember { mutableStateOf(LookFx.picked()) }
+    Line("Look's own effects", "On: each look keeps its own effects (the galaxy looks' stars, a look of yours with its " +
+        "effects). Off: no look's own effects; the ones you pick below go with any look or theme instead", own) {
+        Switch(own, { own = it; LookFx.setOwn(it) }, colors = swColors())
+    }
+    if (!own) Line("Effects", "Drawn over the background, behind everything else, with the ready-made looks, any theme " +
+        "and layout (a look you made keeps its own effects). Pick as many as you like; point at one (on the PC) to see it", false) {
+        ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = LookFx.keys(picked),
+            menu = { k, l -> Favs.menu(Favs.EFFECTS, k, l) }) {
+            LookFx.toggle(it); picked = LookFx.picked()
+        }
+    }
+    // Each effect picked: its own colour, if you like
+    if (!own && LookFx.keys(picked).any { it != "stars" }) FxColors(picked) { p ->
+        org.omarchy.music.Prefs.setText(LookFx.PICK, p.joinToString(";")); picked = LookFx.picked(); org.omarchy.music.Music.applyLook()
+    }
+}
+
+/** A look's description for its menu (the Now playing look's own, and yours). */
+private fun lookDesc(k: String): String = Looks.describe(k).ifEmpty {
+    if (k == Looks.NOW_PLAYING) "Every screen takes the colours of the cover of the song that's playing" else "" }
 
 /** Settings › Look for Now playing: its background, and the visualizer behind it. */
 @Composable
 private fun NowPlayingLookLines() {
-    val plain = Vis.plainNow()
-    Line("Now playing background", if (plain) "Plain: a still black background with the cover shown as it is, no blur. The queue " +
-        "and lyrics sit on it too"
-        else "Cover blur: the colours of the song's cover, with the cover itself faintly blurred behind everything, the queue " +
-        "and lyrics too", false) {
-        Chip("Cover blur", !plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "blur") }
-        Spacer(Modifier.width(4.dp))
-        Chip("Plain", plain) { org.omarchy.music.Prefs.setText(Vis.NOW_BG, "plain") }
-    }
     Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
-        ChoicePill(NP_VIS_STYLES, Vis.nowStyle()) { org.omarchy.music.Prefs.setText(Vis.NOW, it) }
+        var now by remember { mutableStateOf(Vis.nowStyle()) }
+        ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, preview = { NowVisPreview(it) },
+            menu = { k, l -> if (k == "slim" || k == "off") emptyList() else Favs.menu(Favs.VIS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
+    }
+    // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button)
+    var dual by remember { mutableStateOf(Vis.nowDual()) }
+    Line("Dual visualizer", "Two at once on Now playing: the one above in the middle (around the cover) and another along " +
+        "the bottom", dual) {
+        Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())
+    }
+    if (dual) Line("Along the bottom", "Dual's style along the bottom of Now playing", false) {
+        var bottom by remember { mutableStateOf(Vis.nowBottom()) }
+        ChoicePill(Vis.BOTTOM_STYLES, bottom, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW_BOTTOM, it); bottom = it }
+    }
+    // Wrapped's look and the lyrics card's style, here too (they stay in Wrapped and the Lyrics card), so a preset keeps them
+    Line("Wrapped style", "How Wrapped's slides look (the same as Style in Wrapped): the ready-made ones, Your look, and yours", false) {
+        ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) },
+            preview = { k -> WrapPresetSlide(k, Music.look, Modifier.size(220.dp, 290.dp)) }) { Music.chooseWrappedStyle(it) }
+    }
+    Line("Lyrics card style", "How lyrics cards look (the same as Style in the Lyrics card box): Your look, Now playing, 30 " +
+        "ready-made styles and yours", false) {
+        var card by remember { mutableStateOf(LyricsCards.picked()) }
+        ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), card, describe = { LyricsCards.describe(it) },
+            preview = { k -> PresetCard(k) },
+            menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { LyricsCards.pick(it); card = it }
     }
 }
 
@@ -1110,10 +1389,50 @@ private fun IgnoreBtLines(ui: Ui) {
     }
     Text(if (onPhone) "Phones decide how Bluetooth works, so this may not work on every phone. Many play to only one Bluetooth " +
         "device at a time: once the car takes over, your headphones drop out and there's nowhere else to keep the music, so it's " +
-        "left as it is. It never moves the music to the phone's own speaker. When the car is connected through Android Auto, " +
-        "Android Auto's own sound can't be moved"
+        "left as it is. It never moves the music to the phone's own speaker. With Android Auto (wired or wireless) and the car " +
+        "(or Android Auto) picked here, the map, calls and the rest stay on the car's screen while the music and the DJ play on " +
+        "your headphones"
         else "The PC decides its default output; the app looks every few seconds, so the device may have the sound for a moment " +
         "first. The music goes back to the output it was on, as long as that's still there",
+        style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+}
+
+/** Car always wins (the phone): a failsafe beside Newest Bluetooth device wins. */
+@Composable
+private fun CarFirstLine() {
+    val ign = org.omarchy.music.IgnoreBt
+    val on = ign.carFirst
+    val cars = ign.carNames()
+    Line("Car always wins", when {
+        !on -> "Whenever your car is connected (its Bluetooth or Android Auto), it has the music and its EQ, even with " +
+            "headphones connected too"
+        cars.isNotEmpty() -> "On: ${cars.joinToString(", ")} has the music whenever it's connected"
+        else -> "On: the car has the music whenever it's connected (connect it with Android Auto once so the app knows it)"
+    }, on) {
+        Switch(on, { ign.setCarFirst(it) }, colors = swColors())
+    }
+}
+
+/** Newest Bluetooth device wins: beside Ignore Bluetooth devices, which it works with (an ignored one never wins). */
+@Composable
+private fun NewestBtLine() {
+    val ign = org.omarchy.music.IgnoreBt
+    val on = ign.newestOn
+    Line("Newest Bluetooth device wins", when {
+        !on -> "With two Bluetooth devices connected (an earbud left on the seat and the car), the one that connected last " +
+            "has the music, and its EQ" + if (onPhone) " (Android Auto counts as one)" else ""
+        ign.newestNow.isNotEmpty() -> "${ign.newestNow} connected last, so it has the music" +
+            if (ign.newestWhy.isNotEmpty()) " (not ${ign.newestWhy})" else ""
+        else -> "On: when two are connected, the last to connect has the music. Ignored devices never do"
+    }, on) {
+        Switch(on, { ign.setNewest(it) }, colors = swColors())
+    }
+    Text(if (onPhone) "Apps can't disconnect a Bluetooth device, so the other one stays connected (for calls), but the music " +
+        "and the DJ only play on the newest. If two connected while the app was closed, it can't tell which came last until " +
+        "one reconnects. Samsung's Dual audio (Bluetooth › Advanced) plays to both at once: keep it off for this. Ignore " +
+        "Bluetooth devices comes first: an ignored device never gets the music, even when it's the newest"
+        else "Windows can't be told to disconnect a device, so the other one stays connected, but the music plays on the " +
+        "newest. Ignore Bluetooth devices comes first: an ignored device never gets the music, even when it's the newest",
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
 }
 
@@ -1245,7 +1564,7 @@ private fun SyncSwitch(key: String) {
 }
 
 @Composable
-private fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, checkedTrackColor = C.accent,
+internal fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, checkedTrackColor = C.accent,
     uncheckedThumbColor = C.muted, uncheckedTrackColor = C.dark, uncheckedBorderColor = C.line)
 
 /** A section of Settings: a row with its name and an arrow that folds it open or shut (all shut when Settings opens). */
@@ -1298,7 +1617,8 @@ private fun Divider() = HorizontalDivider(color = C.line, modifier = Modifier.pa
 fun FullScreen(title: String, close: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
     PlatformBack { close() }
     Column(Modifier.fillMaxSize().background(C.bg).then(C.gradient?.let { Modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(it)) } ?: Modifier)
-        .pointerInput(Unit) { detectTapGestures { } }.statusBarsPadding()) {
+        // Above the phone's own buttons too (Back, Home), so nothing at the bottom is under them
+        .pointerInput(Unit) { detectTapGestures { } }.statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(Ico.BACK, onClick = close)
             Text(title, style = T.head.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), modifier = Modifier.weight(1f).padding(start = 4.dp))
@@ -1505,6 +1825,15 @@ private fun BoostFader(eq: org.omarchy.music.EqSettings) {
             }, style = T.sub)
             if (b > 0) Pill("Off", quiet = true) { Music.setEqBoost(0.0) }
         }
+    }
+    // Dual volume: the Boost and a song's own volume (Volume…) together, or the song's own alone
+    var dual by remember { mutableStateOf(Music.dualVolume()) }
+    val ownNow = Music.current()?.let { Music.gainNow(it) != 0.0 } == true
+    Line("Dual volume", if (dual) "On: a song with its own volume (Volume… in its menu) plays at that volume with the Boost on " +
+        "top, as every other song has the Boost" else "Off: a song with its own volume (Volume… in its menu) plays at just that " +
+        "volume, without the Boost; every other song keeps the Boost" + if (ownNow && b > 0) ". The song playing has its own volume, so the Boost is left out now" else "",
+        dual) {
+        Switch(dual, { dual = it; Music.setDualVolume(it) }, colors = swColors())
     }
 }
 
@@ -2143,5 +2472,68 @@ private fun NameDialog(title: String, start: String, dismiss: () -> Unit, done: 
         text = { Field(name, "Name") { name = it } },
         confirmButton = { TextButton({ if (name.isNotBlank()) done(name.trim()) }) { Text("OK", color = C.accent) } },
         dismissButton = { TextButton(dismiss) { Text("Cancel", color = C.muted) } })
+}
+
+/** Settings › Personalization, at the top: Personalization Preset Shuffle, a different favourite preset every 5, 10, 15 or 30 minutes. */
+@Composable
+private fun PresetShuffleLines() {
+    var on by remember { mutableStateOf(MyPresets.shuffleOn()) }
+    var every by remember { mutableStateOf(MyPresets.shuffleMinutes()) }
+    val favs = MyPresets.shufflePool().size
+    Line("Personalization Preset Shuffle", "On: puts on a different Personalization preset every few minutes. It only " +
+        "shuffles your favourite presets (★: in Personalization presets below, hold one or tap its \u22EF, then Favourite)", on,
+        note = when { !on -> ""; favs == 0 -> "No favourite presets yet: favourite some below and it starts going through them"
+            favs == 1 -> "Only one favourite preset: favourite more below to shuffle between them"
+            else -> "Shuffling your $favs favourite presets every $every minutes" }) {
+        Switch(on, { on = it; MyPresets.setShuffle(it) }, colors = swColors())
+    }
+    if (on) Line("Change every", "How often Personalization Preset Shuffle puts on the next favourite preset", false) {
+        ChoicePill(MyPresets.SHUFFLE_TIMES.map { it.toString() to "$it minutes" }, every.toString()) {
+            every = it.toInt(); MyPresets.setShuffleMinutes(every) }
+    }
+}
+
+/** Settings › Personalization: the presets menu and Save. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PresetLines(ui: Ui) {
+    val presets = MyPresets.all()
+    val editing = MyPresets.editing?.let { MyPresets.of(it) }
+    Line("Personalization presets", "Everything on this tab at once (look, theme, layout, effects and their colours, Now " +
+        "playing's visualizer and Dual, Wrapped's style and the lyrics card's style) saved under a name: pick one to put all of it back. Tap one to see " +
+        "its pictures (Now playing, Wrapped and its lyrics card: swipe through them), tap it again to put it on. Hold one or tap its \u22EF " +
+        "(right-click on the PC) to edit, favourite or delete it", false,
+        note = if (presets.isEmpty()) "None yet: set the tab up the way you like it, then Save" else "") {
+        if (presets.isNotEmpty()) {
+            // The one that matches what's picked now, if one does
+            val here = MyPresets.now("")
+            val current = presets.firstOrNull { p -> p.look == here.look && p.theme == here.theme && p.layout == here.layout &&
+                p.own == here.own && (p.own || p.fx == here.fx) && p.npVis == here.npVis && p.dual == here.dual &&
+                (!p.dual || p.npBottom == here.npBottom) && (p.wrapped.isEmpty() || p.wrapped == here.wrapped) &&
+                (p.card.isEmpty() || p.card == here.card) && (p.visColor.isEmpty() || p.visColor == here.visColor) }?.key.orEmpty()
+            val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to MyPresets.label(it) })
+            ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current,
+                describe = { MyPresets.describe(it) }, twice = true, preview = { k -> if (k.isNotEmpty()) PresetPreview(k) },
+                menu = { k, l -> if (k.isEmpty()) emptyList() else Favs.menu(Favs.PRESETS, k, l) }) { if (it.isNotEmpty()) MyPresets.apply(it) }
+        }
+    }
+    androidx.compose.foundation.layout.FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (editing != null) {
+            Pill("Save changes to “${editing.name}”") {
+                ui.askName = Triple("Name this preset", editing.name) { n: String ->
+                    MyPresets.save(n, editing.key); MyPresets.editing = null; Music.toast("Saved “${n.trim()}”") }
+            }
+            Pill("Save as new") {
+                ui.askName = Triple("Name this preset", editing.name + " 2") { n: String ->
+                    MyPresets.save(n); MyPresets.editing = null; Music.toast("Saved “${n.trim()}”") }
+            }
+            Pill("Cancel", quiet = true) { MyPresets.editing = null }
+        } else Pill("Save as a preset") {
+            ui.askName = Triple("Name this preset", "My preset ${MyPresets.mine().size + 1}") { n: String ->
+                MyPresets.save(n); Music.toast("Saved “${n.trim()}”: it's in Personalization presets") }
+        }
+    }
+    if (editing != null) Text("Editing “${editing.name}”: change anything on this tab, then Save changes", style = T.sub,
+        modifier = Modifier.padding(bottom = 8.dp))
 }
 

@@ -16,7 +16,7 @@ class MoodRulesTest {
         assertTrue(j.moods.size in 2..MoodRules.MOST)
         assertEquals(j.moods.sortedByDescending { it.second }, j.moods)
         val top = j.moods.first().second
-        assertTrue(j.moods.drop(1).all { it.second >= MoodRules.FITS && it.second >= MoodRules.NEAR_TOP * top })
+        assertTrue(j.moods.drop(1).all { it.second >= MoodRules.FITS_HEARD && it.second >= MoodRules.NEAR_TOP_HEARD * top })   // heard: the looser line
         // Every mood has a score, the ones that fit and the ones that don't.
         assertTrue(j.scores.keys.containsAll(j.moods.map { it.first }))
         assertTrue(j.scores.values.all { it in 0.0..1.0 })

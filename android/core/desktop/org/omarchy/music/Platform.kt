@@ -22,6 +22,8 @@ private fun pathOf(uri: String) = if (uri.startsWith("file://")) java.net.URI(ur
 fun Ctx.openIn(uri: String): java.io.InputStream? = File(pathOf(uri)).takeIf { it.isFile }?.inputStream()
 
 fun Ctx.uriExists(uri: String): Boolean = File(pathOf(uri)).exists()
+/** Whether an address is surely gone (its file isn't there). */
+fun Ctx.uriMissing(uri: String): Boolean = !File(pathOf(uri)).exists()
 
 fun Ctx.deleteUri(uri: String) { File(pathOf(uri)).delete() }
 
@@ -104,7 +106,7 @@ fun watchOutputs(ctx: Ctx, changed: () -> Unit) {
 }
 fun headphonesName(ctx: Ctx): String = Outputs.now(ctx).takeIf { it.kind != "speaker" }?.label?.substringBefore(" (") ?: ""
 
-fun xmlParser(): org.xmlpull.v1.XmlPullParser = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser()
+fun xmlParser(): org.xmlpull.v1.XmlPullParser = org.kxml2.io.KXmlParser()   // directly: the factory looks for it by a service file a packaged app may not find
 
 fun toJpeg(b: ByteArray): ByteArray? {
     val img = runCatching { javax.imageio.ImageIO.read(b.inputStream()) }.getOrNull() ?: return null

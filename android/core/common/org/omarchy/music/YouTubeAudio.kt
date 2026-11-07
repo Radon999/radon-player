@@ -73,13 +73,15 @@ object YouTubeAudio {
      *  .opus file as it is, no re-encoding) or "m4a" (AAC, kept as it comes). */
     class Pick(val url: String, val label: String, val ext: String)
 
-    /** (blocking) For a download: YouTube's audio, the best first (see [best]), each Opus (WebM) or AAC (M4A) stream
+    /** (blocking) For a download: YouTube's audio, AAC first, then Opus (see [best]), each Opus (WebM) or AAC (M4A) stream
      *  the app can save as it is, so a later one stands in if the first fails. Empty if YouTube Music hasn't got it.
      *  YouTube has no lossless audio: this is the most it has, saved without converting (which would only lose). */
     fun forDownload(t: Track): List<Pick> {
         val vid = if (t.source == "ytm") t.id else search(t) ?: return emptyList()
         val all = best(vid)
-        return (all.filter { isOpus(it) || isAac(it) }.take(1) + all.filter { isAac(it) }.take(1)).distinct().map { a ->
+        // AAC (.m4a) first: it plays and tags everywhere, as your M4As do (YouTube's best AAC, 256 kbps where offered,
+        // else 128). Opus (.opus) only when YouTube has no AAC of it, or the AAC won't come.
+        return (all.filter { isAac(it) }.take(1) + all.filter { isOpus(it) }.take(1)).distinct().map { a ->
             Pick(a.content, label(a), if (isAac(a)) "m4a" else "webm")
         }
     }

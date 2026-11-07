@@ -24,8 +24,11 @@ object Updater {
     /** Look now (quietly) and every 12 hours. */
     fun startTimer() {
         Thread({
-            Thread.sleep(20_000)
-            while (true) { Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { check(announce = true) }; Thread.sleep(12 * 3600_000L) }
+            Thread.sleep(5_000)
+            // At start: always says how it went (an update, or that this is the newest); then quietly every 12 hours
+            var first = true
+            while (true) { val q = !first; first = false
+                Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { check(quiet = q, announce = true) }; Thread.sleep(12 * 3600_000L) }
         }, "update-check").apply { isDaemon = true }.start()
     }
 
@@ -50,8 +53,9 @@ object Updater {
             checkedAt = System.currentTimeMillis()
             checkError = err?.let { "couldn't check: ${it.message?.take(60)}" } ?: ""
             Music.accountsVersion++
+            if (err != null && !quiet) Music.toast("Couldn't check for an update (no internet?)")
             val tag = rel["tag_name"].str ?: return@bg
-            if (!newer(tag, version)) { if (!quiet) Music.toast("Radon Player $version is the newest"); return@bg }
+            if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
             latest = tag.removePrefix("v"); page = rel["html_url"].str
             installer = rel["assets"].list.firstOrNull { (it["name"].str ?: "").endsWith(".msi", true) }?.get("browser_download_url").str
             if (announce) Music.toast("Radon Player ${latest} is out: Settings › Update")

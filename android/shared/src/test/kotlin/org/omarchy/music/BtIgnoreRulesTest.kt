@@ -39,4 +39,22 @@ class BtIgnoreRulesTest {
         assertNull(BtIgnoreRules.previousAfter(false, car, listOf("Chevy"), "Chevy", "XM6"))
         assertNull(BtIgnoreRules.previousAfter(true, car, emptyList(), null, "XM6"))
     }
+
+    @Test fun newestWins() {
+        val at = mapOf("Buds" to 100L, "Truck" to 200L)
+        assertEquals("Truck", BtIgnoreRules.newest(listOf("Buds", "Truck"), at, emptySet()))
+        // Ignored first: the truck is ignored, so nothing to choose between
+        assertNull(BtIgnoreRules.newest(listOf("Buds", "Truck"), at, setOf("Truck")))
+        // One device: nothing to decide
+        assertNull(BtIgnoreRules.newest(listOf("Buds"), at, emptySet()))
+        // Came together: no telling
+        assertNull(BtIgnoreRules.newest(listOf("Buds", "Truck"), mapOf("Buds" to 5L, "Truck" to 5L), emptySet()))
+        // Three, the newest ignored: the next newest
+        assertEquals("Truck", BtIgnoreRules.newest(listOf("Buds", "Truck", "Speaker"), at + ("Speaker" to 300L), setOf("Speaker")))
+    }
+
+    @Test fun arrivalsKeepTheirTime() {
+        val was = mapOf("Buds" to 100L, "Gone" to 50L)
+        assertEquals(mapOf("Buds" to 100L, "Truck" to 900L), BtIgnoreRules.arrivals(was, listOf("Buds", "Truck"), 900L))
+    }
 }

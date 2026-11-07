@@ -21,6 +21,18 @@ val keystore = Properties().apply {
         .takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
+// sherpa-onnx (Apache-2.0): runs the DJ's natural voice, Kokoro, on the phone as on the PC. Its Android library is
+// fetched once from its own release and kept beside the build.
+val sherpaAar: File = rootProject.file("build/sherpa/sherpa-onnx-static-link-onnxruntime-2.0.1.aar").also { f ->
+    if (!f.isFile) {
+        f.parentFile.mkdirs()
+        val part = File(f.path + ".part")
+        uri("https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-static-link-onnxruntime-2.0.1.aar")
+            .toURL().openStream().use { input -> part.outputStream().use { out -> input.copyTo(out) } }
+        part.renameTo(f)
+    }
+}
+
 android {
     namespace = "org.omarchy.music"
     compileSdk = 35
@@ -29,8 +41,10 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 30000   // major·10000 + minor·100 + patch
-        versionName = "3.0.0"
+        versionCode = 30215   // major·10000 + minor·100 + patch
+        versionName = "3.2.15"
+        // The DJ's natural voice (sherpa-onnx's library): only the phones' own processors, to keep the app small
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
         buildConfigField("String", "TIDAL_CLIENT_SECRET", "\"${tidal.getProperty("client_secret", "")}\"")
     }
@@ -84,11 +98,15 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.0-rc01")
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-dash:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")     // SoundCloud streams (HLS)
     implementation("androidx.media3:media3-session:$media3")
     implementation("androidx.media3:media3-cast:$media3")          // Cast: a Chromecast, Google speaker or TV
     implementation("androidx.mediarouter:mediarouter:1.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation(files(sherpaAar))                                      // the DJ's natural voice (Kokoro)
+    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("net.jthink:jaudiotagger:3.0.1")   // your own files' tags on the phone (All files access), any format         // unpacking the voice (.tar.bz2)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")

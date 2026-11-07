@@ -52,6 +52,12 @@ object Voice {
     private fun modelReady() = java.io.File(modelDir, "model.onnx").isFile && java.io.File(modelDir, "voices.bin").isFile &&
         java.io.File(modelDir, "tokens.txt").isFile && java.io.File(modelDir, "espeak-ng-data").isDirectory
 
+    /** The PC always uses the natural voice once it's here (the choice is the phone's). */
+    val useNatural get() = true
+    fun setUseNatural(on: Boolean) {}
+    val canChoose get() = false
+    fun removeNatural() {}
+
     /** The natural voice is on this PC. */
     val hasNatural get() = windows && exe() != null && modelReady()
 
@@ -325,6 +331,9 @@ object Voice {
     }
 
     /** Stop talking now. */
+    /** A line the DJ is about to say, made ahead: the PC's voices make a line in a moment, so nothing to do. */
+    @Suppress("UNUSED_PARAMETER") fun prepare(text: String) {}
+
     fun hush() {
         turn++
         val p = proc; proc = null

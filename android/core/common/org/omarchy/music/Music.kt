@@ -173,9 +173,11 @@ object Music {
     fun chooseReplayGain(mode: String) { replayGain = mode; saveState(); toast(if (mode == "off") "ReplayGain off" else "ReplayGain: by $mode, from the next song") }
 
 
-    var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": your first music folder
+    var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": Music/Artists/
     /** Where downloads go: the folder you picked, else the first folder the Music tab reads. */
-    fun downloadFolder(): String = downloadDir.ifEmpty { folders.firstOrNull() ?: "Music/" }
+    /** Where downloads go: each in its artist's folder there (Music/Artists/Sody/…) unless you picked another. */
+    fun downloadFolder(): String = downloadDir.ifEmpty { DEFAULT_DOWNLOADS }
+    const val DEFAULT_DOWNLOADS = "Music/Artists/"
     var dupeAction by mutableStateOf("ask")    // a download you have already: ask, keep (both) or replace
     var dupePrompt by mutableStateOf<Pair<List<Track>, List<Pair<Track, List<Track>>>>?>(null)   // asking about copies
     var trashJob by mutableStateOf<TrashJob?>(null)   // your files Android is asked to put in its trash
@@ -235,6 +237,8 @@ object Music {
         if (::ctx.isInitialized) return
         ctx = appCtx(c)
         Prefs.init(ctx)
+        org.omarchy.music.ui.MyLooks.hook()   // the looks you made, known to the Look menu before the saved look is checked
+        bg({ SoundCloud(ctx) }) { src, err -> sourceReady(SoundCloud.KEY, src, err) }   // its own service: streams only
         // The theme (Settings › Personalization › Theme) is read from the settings, as Compose state, so a change redraws
         org.omarchy.music.ui.Themes.source = { Prefs.text(org.omarchy.music.ui.Themes.PREF, org.omarchy.music.ui.Themes.STANDARD) }
         loadDownloadQuality()
@@ -266,6 +270,8 @@ object Music {
         rescan()
         // Headphones coming and going: their correction comes with them (see outputChanged).
         watchOutputs(ctx) { outputChanged() }
+        // The DJ's first set made ahead while it's off (and made again when it goes stale), so it starts at once
+        scope.launch { delay(20_000); while (true) { runCatching { djWarm() }; delay(10 * 60_000L) } }
         scope.launch {
             while (true) {   // the position, and what counts as played
                 val p = player
@@ -285,19 +291,28 @@ object Music {
 
     private var stuckMs = 0
     private var stuckAt = -1L
+    private var advancingSince = 0L
 
     /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
-     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next. Within its last
-     *  1.5 seconds, still meant to be playing, and the position hasn't moved for 2.5 seconds: it's over, on to the next. */
+     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
+     *  runs on past the end (with Repeat one it then never started again). Within its last 1.5 seconds, still meant to
+     *  be playing, and the position hasn't moved for 2.5 seconds; or 1.5 seconds past its end: it's over, on to the next
+     *  (or, on Repeat one, the same song from the start). On both the phone and the PC. */
     private fun endWatch(p: Engine) {
-        val d = p.durationMs; val at = p.positionMs
-        val stuck = p.playWhenReady && !advancing && !Remote.active && current() != null && d > 0 && at >= d - 1500 &&
-            (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
+        val d = p.durationMs.takeIf { it > 0 } ?: (duration * 1000).toLong(); val at = p.positionMs
+        // Moving on that never finished (it should take a moment): not waited for any longer
+        if (advancing) { if (advancingSince == 0L) advancingSince = System.currentTimeMillis() } else advancingSince = 0L
+        val busy = advancing && System.currentTimeMillis() - advancingSince < 8000
+        val live = p.playWhenReady && !busy && !Remote.active && current() != null && d > 0
+        val stuck = live && at >= d - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
+        val past = live && at >= d + 1500 && p.state != Engine.IDLE
         stuckAt = at
         stuckMs = if (stuck) stuckMs + 500 else 0
-        if (stuckMs >= 2500) {
-            stuckMs = 0
-            Crashes.note("“${current()?.title}” stopped at its end without finishing: moved on to the next song")
+        if (stuckMs >= 2500 || past) {
+            stuckMs = 0; advancingSince = 0L
+            Crashes.note("“${current()?.title}” ${if (past) "ran on past" else "stopped at"} its end without finishing: " +
+                if (repeat == "one") "played again" else "moved on to the next song")
+            advancing = false
             trackEnded()
         }
     }
@@ -395,6 +410,14 @@ object Music {
         wrappedStyle = st.wrapped_style
         skipOrder = st.skip_order.takeIf { it in setOf("most", "least", "heard") } ?: "most"
         downloadDir = st.download_dir
+        // 3.0.1: downloads that went straight into Music/ go to Music/Artists/ from now on (once; pick another after)
+        if (!Prefs.on("downloads_to_artists")) {
+            Prefs.set("downloads_to_artists", true)
+            if (downloadDir.trim().trimEnd('/', '\\').let { it.isNotEmpty() && it.equals("Music", true) }) {
+                downloadDir = ""
+                scope.launch(Dispatchers.Main) { saveState() }   // kept: the state file says Music/Artists/ from now on
+            }
+        }
         dupeAction = st.dupe_action.takeIf { it in setOf("ask", "keep", "replace") } ?: "ask"
         eq = st.eq
         applyEq()
@@ -1016,6 +1039,12 @@ object Music {
             }
             Dj.playFrom(got.first, got.second)
         } else Dj.playFrom(null, null)
+        // Made ahead (djWarm): the first set at once, its line made too
+        djFirst?.takeIf { it.src == src && it.withNew == djNew && now() - it.at < FIRST_FRESH }?.let { w ->
+            djFirst = null
+            djBegin(w.set, src)
+            return
+        }
         djBusy = Dj.scope?.let { "Picking your first set from ${it.first}…" } ?: "Picking your first set…"
         bg({ Dj.build(first = true) }) { res, err ->
             djBusy = null
@@ -1023,16 +1052,49 @@ object Music {
                 toast(if (err == null) "The DJ couldn't find songs yet. Play a few, or connect Last.fm." else "The DJ couldn't start: ${err.message?.take(100)}")
                 return@bg
             }
-            dj = Dj.State(from = src)
-            playFrom(djTag(res), 0, radio = false)
-            dj = dj.copy(on = true)
-            djAnnounce(current())
+            djBegin(res, src)
+        }
+    }
+
+    private fun djBegin(res: Dj.Built, src: Dj.From?) {
+        dj = Dj.State(from = src)
+        playFrom(djTag(res), 0, radio = false)
+        dj = dj.copy(on = true)
+        djAnnounce(current())
+        djMakeSpare()
+    }
+
+    /** The DJ's first set, made ahead while it's off (with its line), so tapping DJ starts it at once. */
+    private class Warm(val src: Dj.From?, val withNew: Boolean, val set: Dj.Built, val at: Double)
+    private var djFirst: Warm? = null
+    private var djWarming = false
+    private const val FIRST_FRESH = 30 * 60.0   // a first set made ahead is good for half an hour
+
+    /** Make the first set ahead (when the DJ is off and there's none fresh): from where it played from last. */
+    fun djWarm() {
+        if (dj.on || Remote.active || djBusy != null || djWarming) return
+        if (djFirst?.let { now() - it.at < FIRST_FRESH - 120 && it.withNew == djNew } == true) return
+        val src = dj.from?.takeIf { it.kind != "all" } ?: if (!djNew) Dj.From("mine") else null
+        val withNew = djNew
+        runCatching {
+            Dj.withNew = withNew
+            if (src != null) { val got = djSource(src) ?: return; if (got.second.isEmpty()) return; Dj.playFrom(got.first, got.second) }
+            else Dj.playFrom(null, null)
+        }.onFailure { return }
+        djWarming = true
+        bg({ Dj.build(first = true) }) { res, _ ->
+            djWarming = false
+            if (res == null || dj.on) return@bg
+            djFirst = Warm(src, withNew, res, now())
+            djPrepareLine(res)
         }
     }
 
     fun djStop() {
         if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
         dj = dj.copy(on = false)
+        djSpares.clear(); djSpareJob++; djSpareBusy = false
+        scope.launch(Dispatchers.Main) { delay(3000); runCatching { djWarm() } }   // ready for next time
         saveState()
     }
 
@@ -1043,7 +1105,9 @@ object Music {
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
         dj = dj.copy(sets = sets)
         val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
-        Dj.used += (b.songs + songs).map { songKey(it) }
+            // Only my songs: never a stream, whatever the set found
+            .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
+        Dj.played((b.songs + songs).map { songKey(it) })   // not again for the next 20 sets
         return songs.map { it.copy(dj = n) }
     }
 
@@ -1051,11 +1115,35 @@ object Music {
     private fun djAnnounce(t: Track?) {
         val n = t?.dj?.toString() ?: return
         val set = dj.sets[n]
-        if (!dj.on || set == null || n == dj.shown) return
+        if (!dj.on || set == null) return
+        if (n == dj.shown) {   // a song in the middle of the set: now and then a word about it, once a set at most
+            val c = djComments.remove(t.id)
+            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c)
+            djCommentAhead()
+            return
+        }
         dj = dj.copy(shown = n)
         toast("DJ · ${set.line}")
+        djCommentAhead()
         // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
-        djSay(Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "")
+        djSay(djLine(n) ?: return)
+    }
+
+    // What the DJ says before a song in the middle of a set (a milestone this play reaches, now and then something
+    // about the song), worked out and its voice made while the song before it plays. "" for nothing.
+    private val djComments = HashMap<String, String>()
+    private val djCommented = HashSet<String>()   // the sets (their numbers) the DJ already spoke in the middle of
+
+    private fun djCommentAhead() {
+        if (!djVoice || !Voice.canSpeak || Remote.active) return
+        val cur = current() ?: return
+        val nxt = queue.getOrNull(index + 1) ?: return
+        val n = nxt.dj.toString()
+        if (nxt.dj <= 0 || nxt.dj != cur.dj || n in djCommented || nxt.id in djComments) return
+        if (djComments.size > 50) djComments.clear()
+        val c = Dj.songComment(nxt)?.let { Spoken.humanize(it, filler = 0.0) }.orEmpty()   // made once, so what's made ahead is what's said
+        djComments[nxt.id] = c
+        if (c.isNotEmpty()) Voice.prepare(djClean(c))
     }
 
     /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. With your
@@ -1072,40 +1160,130 @@ object Music {
     private fun djSay(text: String) {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
         val p = player ?: return
-        p.pause()
+        // The song goes on silently under the line (it starts again from the top after): never paused, so Android
+        // keeps the app playing in the background. Paused, with the screen off, Android could let the app go
+        // (stopping the DJ for good) while the voice was still being made.
         if (!djTalking) djVolume = p.volume.takeIf { it > 0.05f } ?: 1f
-        p.volume = 0f   // nothing of the song while the DJ talks (it may have begun loading already)
+        // Nothing heard but her: the player's volume all the way down (it may have begun loading already), no fade
+        // coming up, and the last song's crossfade tail gone. Bit-perfect sends the song untouched, past any volume,
+        // so there it waits paused instead.
+        fadeJob?.cancel(); fadeIn = 0.0
+        dropTail()
+        fadingOut?.let { f -> fadingOut = null; runCatching { f.volume = 0f; f.release() } }
+        p.volume = 0f
+        if (bitPerfectNow()) p.pause()
         djTalking = true
-        Voice.say(text.replace("“", "").replace("”", "")) {
-            // Done talking: the set's first song from its very start (if it's still loading, it starts by itself when ready)
-            if (djTalking) { djTalking = false; player?.let { it.seekTo(0); it.volume = djVolume; it.playWhenReady = true; it.play() } }
+        val mine = ++djTurn
+        lastDjLine = text
+        djSaidAt = now()
+        Voice.say(djClean(text)) { djDone(mine) }
+        // Never stuck: if the voice hasn't finished (or even begun) long after it should have, the music goes on
+        val most = 25_000L + text.length * 90L
+        scope.launch(Dispatchers.Main) { delay(most); if (djTurn == mine && djTalking) { Voice.hush(); djDone(mine) } }
+    }
+
+    private fun djClean(text: String) = text.replace("“", "").replace("”", "")
+
+    /** What the DJ says when set n begins (its line, then its fact). */
+    private fun djLine(n: String): String? = dj.sets[n]?.let { set ->
+        djLines.getOrPut(set.line + "\n" + set.fact) {   // made once (its fillers are picked at random), so the line made ahead is the one said
+            if (djLines.size > 20) djLines.keys.firstOrNull()?.let { djLines.remove(it) }
+            Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "" } }
+    private val djLines = LinkedHashMap<String, String>()
+
+    /** The next set's line made ahead (while this set plays), so the DJ says it the moment the set begins. */
+    private fun djPrepare(songs: List<Track>) {
+        if (!djVoice || Remote.active) return
+        val n = songs.firstOrNull()?.dj?.toString() ?: return
+        djLine(n)?.let { Voice.prepare(djClean(it)) }
+    }
+
+    private var djTurn = 0L          // each line the DJ says (a line that's done late, after a newer one began, is ignored)
+    private var lastDjLine = ""
+    private var djSaidAt = 0.0
+
+    /** Done talking (line mine): the set's first song from its very start (if it's still loading, it starts by itself when ready). */
+    private fun djDone(mine: Long) {
+        if (mine != djTurn || !djTalking) return
+        djTalking = false
+        // The set's song is in: from its very start, heard now. Still loading: it starts, heard, when it's in (play)
+        if (loadedFor != current()?.id) return
+        player?.let { it.seekTo(0); it.volume = djVolume; it.playWhenReady = true; it.play() }
+    }
+    private var loadedFor: String? = null   // the song the player has in now (its id)
+
+    /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
+     *  is never left stuck (talking that never came, a set it was still picking, a set it hadn't introduced yet). */
+    fun sessionPlay() {
+        if (Remote.active) { Remote.cmd("play"); return }
+        val p = player ?: return
+        if (djTalking) {   // a line that never came out (long after it began): say it again; else let it finish
+            if (now() - djSaidAt > 8) djSay(lastDjLine.ifBlank { return djHush() })
+            return
         }
+        if (dj.on && current() != null && p.state == Engine.ENDED && index + 1 >= queue.size) {
+            djWaiting = true; advancing = true; if (djBusy == null) djMore(); return
+        }
+        // A new set that never got its line (the skip landed while it was loading): its line, then the song
+        current()?.dj?.takeIf { it > 0 && dj.on && it.toString() != dj.shown && dj.sets[it.toString()] != null }?.let {
+            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else { djAnnounce(current()); if (!djTalking) p.play() }
+            return
+        }
+        if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
     }
 
     /** The DJ stops talking (Play, Pause, a skip): the music goes on. */
     fun djHush() {
         if (!djTalking) return
         djTalking = false
-        player?.let { it.volume = djVolume; it.playWhenReady = true }
+        // the song heard now if it's in (if it's still loading, it's heard once it's in)
+        player?.let { if (loadedFor == current()?.id) it.volume = djVolume; it.playWhenReady = true }
         Voice.hush()
     }
+
+    /** You skipped (or a song ended) at the end of the DJ's queue while its next set was still being picked: it
+     *  goes on to that set as soon as it's ready (never to ∞'s radio, which isn't the DJ's). */
+    private var djWaiting = false
 
     /** Near the end of the queue: the DJ's next set after it. */
     private fun djMore() {
         if (djBusy != null) return
         djReady()
+        // A set made ahead: queued at once (its line is made already)
+        if (dj.on) (djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull())?.let { spare ->
+            djSpares.remove(spare)
+            val wait = djWaiting; djWaiting = false
+            val songs = djTag(spare)
+            queue = queue + songs
+            afterQueueChange()
+            djFillSpares()
+            if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }
+            return
+        }
         djBusy = "Picking the next set…"
         val ctxNow = context
         val avoid = djKind()
-        val coming = coming()
+        val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
             djBusy = null
+            val wait = djWaiting; djWaiting = false
             if (res != null && ctxNow == context && dj.on) {
-                queue = queue + djTag(res)
+                val songs = djTag(res)
+                queue = queue + songs
                 afterQueueChange()
-            }
+                djPrepare(songs)
+                djFillSpares()
+                if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }   // on to it: the DJ introduces it
+            } else if (wait && dj.on && djRetried < 2) {
+                // Nothing came (a slow lookup, no network for a moment): try again rather than stop
+                djRetried++
+                djWaiting = true
+                scope.launch(Dispatchers.Main) { delay(3000); if (djWaiting && dj.on) djMore() }
+            } else if (wait) { djRetried = 0; doneAdvancing(); player?.pause(); toast("The DJ couldn't pick its next set. Tap Play to try again.") }
+            if (res != null) djRetried = 0
         }
     }
+    private var djRetried = 0
 
     private fun djKind() = dj.sets[current()?.dj.toString()]?.kind
 
@@ -1127,26 +1305,82 @@ object Music {
         if (djBusy != null) return
         if (!dj.on && ask == null) { djStart(); return }
         djReady()
+        // Switch it up: the set made ahead, at once (its line made ahead too), when there is one
+        if (ask == null) (djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull())?.let { spare ->
+            djSpares.remove(spare)
+            djWaiting = false
+            djSwitchTo(spare)   // and the spares are made again (none of them repeats it)
+            return
+        }
         djBusy = if (ask != null) "Looking for ${ask.trim()}…" else "Switching it up…"
         val avoid = djKind()
         val coming = coming()
         bg({ if (ask != null) Dj.ask(ask) else Dj.build(avoid = avoid, coming = coming) }) { res, err ->
             djBusy = null
+            djWaiting = false
             if (res == null) {
                 toast(if (ask != null) "The DJ found nothing for “${ask.trim()}”. Try an artist, a genre, a decade or a vibe."
                       else "The DJ has nothing else right now" + (err?.let { ": ${it.message?.take(80)}" } ?: "."))
                 return@bg
             }
-            if (!dj.on) dj = Dj.State(on = true, from = dj.from)
-            val songs = djTag(res)
-            val queued = queue.drop(index + 1).filter { it.queued }
-            val keep = if (current() != null) queue.take(index + 1) else emptyList()
-            queue = keep + queued + songs
-            index = keep.size + queued.size
-            radioFrom = null
-            context++
-            loadCurrent()
+            djSwitchTo(res)
         }
+    }
+
+    /** A new set now, in place of the rest of this one. */
+    private fun djSwitchTo(res: Dj.Built) {
+        if (!dj.on) dj = Dj.State(on = true, from = dj.from)
+        val songs = djTag(res)
+        val queued = queue.drop(index + 1).filter { it.queued }
+        val keep = if (current() != null) queue.take(index + 1) else emptyList()
+        queue = keep + queued + songs
+        index = keep.size + queued.size
+        radioFrom = null
+        context++
+        loadCurrent()
+        djFillSpares()   // one more made ahead in place of this one (the others stay ready)
+    }
+
+    /** Sets made ahead for Switch it up and the set button (each with its line made too), so switching is instant
+     *  however fast you go: [SPARES] are kept ready, made one after another in the background and made again after
+     *  each new set, so they never repeat what's coming. */
+    private val djSpares = ArrayList<Dj.Built>()
+    private var djSpareJob = 0
+    private var djSpareBusy = false
+    private const val SPARES = 3
+
+    private fun djMakeSpare() {
+        if (!dj.on || Remote.active) return
+        djSpares.clear()
+        djSpareJob++
+        djSpareBusy = false
+        djFillSpares()
+    }
+
+    /** One more set ahead, until there are [SPARES]. */
+    private fun djFillSpares() {
+        if (!dj.on || Remote.active || djSpareBusy || djSpares.size >= SPARES) return
+        djSpareBusy = true
+        val mine = djSpareJob
+        // Not what's coming, nor what the other spares have; a kind other than the last one's
+        val avoid = djSpares.lastOrNull()?.kind ?: djKind()
+        val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
+        bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
+            if (mine != djSpareJob) return@bg   // started again meanwhile
+            djSpareBusy = false
+            if (res == null || !dj.on) return@bg
+            djSpares += res
+            djPrepareLine(res)
+            djFillSpares()
+        }
+    }
+
+    /** A set's line, made now (the same words it'll say). */
+    private fun djPrepareLine(res: Dj.Built) {
+        if (!djVoice) return
+        val line = djLines.getOrPut(res.line + "\n" + res.fact) {
+            Spoken.humanize(res.line) + if (res.fact.isNotEmpty()) " " + Spoken.humanize(res.fact, filler = 0.0) else "" }
+        Voice.prepare(djClean(line))
     }
 
     // ---- importing an .m3u8 playlist ----
@@ -1221,7 +1455,7 @@ object Music {
 
     /** The services a song an import didn't find can be looked for on: [(key, name)]. */
     fun reportSources(): List<Pair<String, String>> =
-        SOURCES.filter { (k, _) -> sources[k]?.let { k != "tidal" || it.signedIn } == true }.toList()
+        SOURCES.filter { (k, _) -> k != SoundCloud.KEY && sources[k]?.let { k != "tidal" || it.signedIn } == true }.toList()
 
     /** Put t, found for m, back where m was in the playlist id; placed: the ones put back already (m joins them). */
     fun placeMissed(id: String, m: Missed, t: Track, placed: MutableList<Missed>): Boolean {
@@ -1237,13 +1471,15 @@ object Music {
         importing = "Reading the playlist…"
         bg({ importM3u(uri) }) { res, err ->
             importing = null
-            if (res == null) { toast("Couldn't import it: ${err?.message?.take(100)}"); return@bg }
+            if (res == null) { val why = err?.let { ImportNotes.why(it) } ?: "nothing could be read from it"
+                ImportNotes.failed("playlists", RuntimeException("the playlist file: $why")); toast("Import failed: $why"); return@bg }
             val (name, tracks, missed) = res
             val id = lists.create(name).id
             lists.add(id, tracks)
             musicVersion++
             missed.forEach { logWarn("import $name: not found: ${it.name} (${it.why})") }
-            toast("Imported “$name”: ${tracks.size} songs" + if (missed.isNotEmpty()) " (${missed.size} not found)" else "")
+            ("Imported “$name”: ${tracks.size} songs" + if (missed.isNotEmpty()) " (${missed.size} not found)" else "").let {
+                ImportNotes.ok("playlists", it); toast("Import worked: $it") }
             if (missed.isNotEmpty()) importReport = ImportReport(id, name, missed)
         }
     }
@@ -1266,6 +1502,7 @@ object Music {
             QualityCheck.scan()   // Loudness check: the songs new or changed since
             bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
             runCatching { Moods.auto() }   // Moods: read the songs new or changed since, in the background
+            TagMatch.refreshSoon()   // Tags & covers match: what the new or changed songs say
         }
     }
 
@@ -1308,7 +1545,10 @@ object Music {
                 if (e.id in tried || e.format == "m4a" || !Tags.writable(e.file)) continue
                 tried += e.id
                 val g = runCatching { GenreLookup.of(e.artist, e.title, e.album) }.getOrDefault("")
-                if (g.isNotEmpty() && runCatching { Tags.write(ctx, e.file, mapOf("genre" to g)) }.isSuccess) {
+                // Not sent to your other device: it only fills a missing genre here, never changes one it has
+                var wrote = false
+                if (g.isNotEmpty()) TagSync.quietly { wrote = runCatching { Tags.write(ctx, e.file, mapOf("genre" to g)) }.isSuccess }
+                if (wrote) {
                     lib.update(e.id) { it.copy(genre = g) }; done++
                 }
             }
@@ -1650,29 +1890,40 @@ object Music {
      *  songs streaming as they are until you download them. A playlist of yours with the same name gets the songs it
      *  hasn't got (importing again brings in what was added there since). */
     fun importServicePlaylist(key: String, pl: Album, quiet: Boolean = false, done: ((Int) -> Unit)? = null) {
+        if (key == SoundCloud.KEY) { if (!quiet) toast(SoundCloud.APART); done?.invoke(-1); return }
         val src = sources[key] ?: run { toast("Sign in to ${SOURCES[key]} first"); return }
         if (!quiet) toast("Importing “${pl.title}”…")
         bg({ src.playlist(pl.id) }) { tracks, err ->
-            if (tracks == null) { if (!quiet) toast("Couldn't import “${pl.title}”: ${err?.message?.take(100)}"); done?.invoke(-1); return@bg }
+            if (tracks == null) {
+                val why = err?.let { ImportNotes.why(it) } ?: "the service sent nothing back"
+                if (!quiet) { ImportNotes.failed("playlists", RuntimeException("“${pl.title}” from ${SOURCES[key]}: $why")); toast("Import failed: $why") }
+                done?.invoke(-1); return@bg
+            }
             val name = pl.title.ifBlank { "${SOURCES[key]} playlist" }
             val mine = lists.all().firstOrNull { it.name.equals(name, ignoreCase = true) }
             val id = mine?.id ?: lists.create(name).id
             val n = lists.add(id, tracks)
             musicVersion++
-            if (!quiet) toast(if (mine == null) "Imported “$name”: $n songs. Open it in your playlists to download it"
-                else "“$name” was imported already: $n new song${if (n != 1) "s" else ""} added")
+            if (!quiet) (if (mine == null) "Imported “$name” from ${SOURCES[key]}: $n songs. Open it in your playlists to download it"
+                else "“$name” was imported already: $n new song${if (n != 1) "s" else ""} added").let { ImportNotes.ok("playlists", it); toast("Import worked: $it") }
             done?.invoke(n)
         }
     }
 
     /** Every playlist of yours on that service imported, one after another. */
     fun importAllServicePlaylists(key: String, lists: List<Album>) {
+        if (key == SoundCloud.KEY) { toast(SoundCloud.APART); return }
         val todo = lists
         if (todo.isEmpty()) return
         toast("Importing ${todo.size} ${SOURCES[key]} playlists…")
         var i = 0; var songs = 0; var failed = 0
         fun next() {
-            if (i >= todo.size) { toast("Imported ${todo.size - failed} playlists ($songs songs)" + if (failed > 0) ", $failed couldn't be read" else ""); return }
+            if (i >= todo.size) {
+                val text = "Imported ${todo.size - failed} of ${todo.size} ${SOURCES[key]} playlists ($songs songs)" + if (failed > 0) ", $failed couldn't be read" else ""
+                if (failed == todo.size) ImportNotes.failed("playlists", RuntimeException("none of the ${todo.size} ${SOURCES[key]} playlists could be read"))
+                else ImportNotes.ok("playlists", text)
+                toast(if (failed == todo.size) "Import failed: none of the playlists could be read" else "Import worked: $text"); return
+            }
             importServicePlaylist(key, todo[i++], quiet = true) { n -> if (n < 0) failed++ else songs += n; next() }
         }
         next()
@@ -1702,6 +1953,8 @@ object Music {
 
     fun addToPlaylist(id: String, tracks: List<Track>) {
         val pl = lists.get(id) ?: return
+        if (tracks.any { it.source == SoundCloud.KEY }) toast("SoundCloud songs can't go in your playlists: like them on SoundCloud instead")
+        @Suppress("NAME_SHADOWING") val tracks = tracks.filter { it.source != SoundCloud.KEY }
         if (tracks.isEmpty()) return
         val n = lists.add(id, tracks)
         toast(when {
@@ -1758,7 +2011,8 @@ object Music {
     // ---- downloads ----
     fun download(tracks: List<Track>, checked: Boolean = false) {
         val waiting = downloads.map { it.id }.toSet()
-        val new = tracks.filter { !it.isFile && !lib.has(it.id) && it.id !in waiting }
+        if (tracks.isNotEmpty() && tracks.all { it.source == SoundCloud.KEY }) { toast("SoundCloud songs can't be downloaded: they only stream"); return }
+        val new = tracks.filter { !it.isFile && !lib.has(it.id) && it.id !in waiting && it.source != SoundCloud.KEY }
         if (new.isEmpty()) { toast("Those are downloaded already"); return }
         if (!checked && dupeAction != "keep") {
             val dupes = new.mapNotNull { t -> copiesOf(t).takeIf { it.isNotEmpty() }?.let { t to it } }
@@ -1830,6 +2084,7 @@ object Music {
     /** Whether a song may be saved without asking (Keep, or a service's sync): yes unless you have it
      *  already and Copies says Ask (then it streams; Download asks). With Replace, your copy goes once it's in. */
     fun autoSaveOk(t: Track): Boolean {
+        if (t.source == SoundCloud.KEY) return false   // never saved: SoundCloud songs only stream
         if (dupeAction == "keep" || lib.has(t.id)) return true
         val copies = copiesOf(t)
         if (copies.isEmpty()) return true
@@ -2022,6 +2277,17 @@ object Music {
 
     // ---- favorites, a song's volume, moods by hand, looks ----
     fun setFavorite(tracks: List<Track>, on: Boolean? = null) {
+        if (tracks.any { it.source == SoundCloud.KEY }) {   // its own service: liked on SoundCloud, not mixed into your favorites
+            val sc = tracks.filter { it.source == SoundCloud.KEY }
+            val src = sources[SoundCloud.KEY]
+            if (sc.size == 1 && src?.signedIn == true) {
+                val t0 = sc[0]; val like = t0.id !in liked
+                liked = if (like) liked + t0.id else liked - t0.id
+                bg({ src.rate(t0, like) }) { _, err -> if (err != null) toast("SoundCloud said: ${err.message?.take(80)}") }
+                toast(if (like) "Liked on SoundCloud" else "Not liked on SoundCloud any more")
+            } else toast("SoundCloud songs can't go in your favorites: like them on SoundCloud (sign in under Settings › Accounts)")
+        }
+        @Suppress("NAME_SHADOWING") val tracks = tracks.filter { it.source != SoundCloud.KEY }
         if (tracks.isEmpty()) return
         val star = on ?: !favorites.has(tracks[0])
         favorites.set(tracks, star)
@@ -2035,6 +2301,7 @@ object Music {
         if (tracks.isEmpty()) return
         gains.set(tracks, db, output)
         current()?.let { eqProcessor.songGain = gainOf(it) }
+        applyEq()   // Dual volume off: the Boost goes or comes back with the song's own volume
         val v = gains.saved(tracks[0], output) ?: 0.0
         val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
         val where = if (output == null) "" else " on ${outLabel(output)}"
@@ -2045,6 +2312,7 @@ object Music {
     /** Songs' own volumes always apply (the old Song volume changes switch is gone): this re-applies the playing song's. */
     fun refreshSongVolume() {
         current()?.let { eqProcessor.songGain = gainOf(it) }
+        applyEq()
         musicVersion++
     }
 
@@ -2062,9 +2330,45 @@ object Music {
     fun applyLook() {
         if (look == "nowplaying") org.omarchy.music.ui.Looks.applyCover(coverRgb, npFallback)
         else org.omarchy.music.ui.Looks.apply(look)
+        org.omarchy.music.ui.LookFx.override()   // Personalization › Effects: your own pick over the look's
     }
     fun chooseVisPreset(p: String) { visPreset = p; saveState() }
     fun chooseWrappedStyle(s: String) { wrappedStyle = s; saveState() }
+    /** Downloads that came from YouTube (Opus), the ones Tidal has now got again in FLAC: Downloads' Get FLAC. */
+    fun youtubeDownloads() = lib.items.values.filter { it.format == "opus" || (it.quality.startsWith("YouTube") && it.id !in flacTried) }
+    private val flacTried = HashSet<String>()   // YouTube AAC downloads looked up on Tidal already (this time the app's open)
+    var flacing by mutableStateOf<String?>(null)
+        private set
+    fun flacDownloads() {
+        if (flacing != null) return
+        val todo = youtubeDownloads().map { it.id }
+        if (todo.isEmpty()) return
+        flacing = "Getting FLAC… 0 of ${todo.size}"
+        bg({
+            var got = 0; var none = 0; var i = 0
+            for (id in todo) {
+                i++
+                scope.launch(Dispatchers.Main) { flacing = "Getting FLAC… $i of ${todo.size}" }
+                if (runCatching { dl.toFlac(id) }.getOrDefault(false)) got++ else none++
+                synchronized(flacTried) { flacTried += id }
+            }
+            got to none
+        }) { r, err ->
+            flacing = null
+            savedVersion++; musicVersion++
+            toast(err?.message?.let { "Couldn't get FLAC: $it" } ?: r?.let { (got, none) ->
+                "$got upgraded (FLAC from Tidal, else AAC)" + if (none > 0) " · $none left as they are" else "" } ?: "")
+        }
+    }
+
+    /** Downloads' Refresh: the list read again (a download that didn't show up comes in). */
+    fun refreshDownloads() {
+        bg({ lib.refresh() }) { n, _ ->
+            savedVersion++; musicVersion++
+            toast(if ((n ?: 0) > 0) "Refreshed: $n more download${if (n != 1) "s" else ""}" else "Downloads are up to date")
+        }
+    }
+
     fun chooseSkipOrder(s: String) { skipOrder = s; saveState() }
     fun chooseSkipPeriod(s: String) { skipPeriod = s; saveState() }
     /** When Skips counts from: a week, a month or a year ago, or all time (0). */
@@ -2091,6 +2395,24 @@ object Music {
 
     /** Make source (a picture's web address, or a content:// one you picked) the cover of tracks' album:
      *  into its downloaded FLACs (all but the playing one's), and shown for all of its songs. */
+    /** Covers you picked for the song playing, waiting for its file to be free (written when another song starts). */
+    private val coversWaiting = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+    private fun coverLater(file: String, jpeg: ByteArray) { coversWaiting[file] = jpeg }
+    private fun writeWaitingCovers(except: String?) {
+        val todo = coversWaiting.keys.filter { it != except }
+        if (todo.isEmpty()) return
+        bg({
+            for (f in todo) {
+                val jpeg = coversWaiting.remove(f) ?: continue
+                val ok = CoverGuard.byHand {
+                    if (lib.items.values.any { it.file == f && it.format == "flac" }) runCatching { Covers.write(ctx, f, jpeg); true }.getOrDefault(false)
+                    else FileTags.writeCover(ctx, f, jpeg)
+                }
+                if (ok) TagMatch.touched(f) else logWarn("cover: couldn't put the picked cover into $f")
+            }
+        }) { _, _ -> }
+    }
+
     fun setCover(tracks: List<Track>, source: String, wholeAlbum: Boolean = true, done: () -> Unit = {}) {
         val t = tracks.firstOrNull() ?: return
         val playing = current()?.id
@@ -2105,8 +2427,22 @@ object Music {
             var written = 0
             val failed = ArrayList<String>()
             for (e in album.distinctBy { it.file }) {
-                if (e.id == playing || e.format != "flac" || !Tags.writable(e.file)) continue
-                try { Covers.write(ctx, e.file, jpeg); written++ } catch (x: Exception) { failed += "${e.title}: ${x.message}" }
+                if (e.id == playing) { coverLater(e.file, jpeg); written++; continue }   // its file is playing: right after it
+                if (e.format == "flac" && Tags.writable(e.file)) {
+                    try { CoverGuard.byHand { Covers.write(ctx, e.file, jpeg) }; written++ } catch (x: Exception) { failed += "${e.title}: ${x.message}" }
+                } else if (FileTags.canWrite(e.file)) {   // a download in another format (MP3, M4A…): in its own way
+                    if (CoverGuard.byHand { FileTags.writeCover(ctx, e.file, jpeg) }) written++ else failed += "${e.title}: couldn't put the cover in"
+                }
+            }
+            // Your own files of the album too (MP3, M4A, WAV, FLAC…): the cover goes into them, so it travels with the
+            // files to your other device (picked only in the app, it stayed on this one)
+            val curFile = current()?.let { lib.items[it.id]?.file ?: it.file }
+            for (x in runCatching { mySongs() }.getOrDefault(emptyList())) {
+                val f = x.file?.takeIf { x.isFile && !lib.has(x.id) } ?: continue
+                if (!((wholeAlbum && Covers.albumKey(x) in keys) || x.id in ids)) continue
+                if (!FileTags.canWrite(f)) { failed += "${x.title}: the app can't change its file"; continue }
+                if (f == curFile) { coverLater(f, jpeg); written++; continue }   // playing: written as soon as it stops
+                if (CoverGuard.byHand { FileTags.writeCover(ctx, f, jpeg) }) { written++; TagMatch.touched(f) } else failed += "${x.title}: couldn't put the cover in"
             }
             for (e in album) {   // a new file each time: the old picture stays in the image cache under the old name
                 val art = File(lib.artDir, "${safeName(e.id)}-${randomHex(4)}.jpg").apply { writeBytes(jpeg) }
@@ -2142,12 +2478,48 @@ object Music {
         musicVersion++
     }
 
+    /** The folder a song's file belongs in once its artist or album changed (Artists/<Artist>/<Album>/, EPs and singles in
+     *  their own folders, as downloads are), or null to leave it where it is. Downloads always go there (under the download
+     *  folder); a file of yours only when it sat where its old artist and album put it, in an Artists folder (so folders you
+     *  arranged yourself, like unreleased songs, stay as they are). On the phone only the app's own downloads can move. */
+    private fun releaseFolder(file: String, download: Boolean, oldArtist: String, oldAlbum: String, artist: String, album: String): String? {
+        if (artist.isBlank()) return null
+        val f = file.replace('\\', '/')
+        if (f.startsWith("content:")) return if (download) downloadPlace(downloadFolder(), artist, album, null, null, "x").first else null
+        if (!FileTags.canMove) return null
+        val root = if (download) org.omarchy.music.ui.fullFolderPath(downloadFolder().trimEnd('/')).replace('\\', '/')
+        else {
+            val parts = f.split('/'); val i = parts.lastIndexOf(ARTISTS)
+            if (i < 0) return null
+            val r = parts.take(i + 1).joinToString("/")
+            val was = downloadPlace(r, oldArtist, oldAlbum, null, null, "x").first
+            if (!f.substringBeforeLast('/').plus("/").equals(was, ignoreCase = true)) return null
+            r
+        }
+        if (!download && MusicTools.skip.any { inFolders(f, listOf(it)) }) return null
+        return downloadPlace(root, artist, album, null, null, "x").first
+    }
+
+    /** Tag changes to the song that was playing, by its id: written once another song is on (or none). */
+    private val heldTags = LinkedHashMap<String, Pair<Track, LinkedHashMap<String, String>>>()
+    private fun writeHeldTags() {
+        if (heldTags.isEmpty()) return
+        val cur = current()?.id
+        val ready = heldTags.filterKeys { it != cur }
+        ready.keys.forEach { heldTags.remove(it) }
+        for ((t, ch) in ready.values) editTags(listOf(t), ch)
+    }
+
     /** Write changes {field: value} into the tags of tracks' downloaded FLACs, and show the new
      *  names wherever the songs are. The playing song is left alone: its file is being read. */
     fun editTags(tracks: List<Track>, changes: Map<String, String>, renameFiles: Boolean = false) {
         val playing = current()?.id
         val todo = tracks.filter { Tags.editableAny(it) != null && it.id != playing }
-        if (todo.size < tracks.count { Tags.editableAny(it) != null }) toast("The playing song is left as it is: edit it once it's over")
+        // The playing song's file is being read: its changes wait, and are written the moment it ends
+        tracks.firstOrNull { it.id == playing && Tags.editableAny(it) != null }?.let { t ->
+            heldTags.getOrPut(t.id) { t to LinkedHashMap() }.second.putAll(changes)
+            toast("“${t.title}” is playing: its new tags are saved as soon as it ends")
+        }
         if (todo.isEmpty() || changes.isEmpty()) return
         bg({
             val renamed = HashMap<String, Triple<String, String, String>>()
@@ -2159,10 +2531,18 @@ object Music {
                 val c = try { Tags.write(ctx, file, changes) } catch (x: Exception) { failed += "${t.title}: ${x.message}"; continue }
                 if (changes.keys.any { it.equals("genre", true) }) noteGenre(file, c["GENRE"]?.firstOrNull() ?: "")
                 val title = c["TITLE"]?.firstOrNull() ?: e?.title ?: t.title
-                if (renameFiles && FileTags.canMove && title != (e?.title ?: t.title))
-                    renamedFile(file, e?.title ?: t.title, title)?.let { moves += file.replace('\\', '/') to it.replace('\\', '/') }
                 val artist = c["ARTIST"]?.joinToString(", ")?.ifEmpty { null } ?: "Unknown artist"
                 val album = c["ALBUM"]?.firstOrNull() ?: ""
+                var dest: String? = if (renameFiles && FileTags.canMove && title != (e?.title ?: t.title))
+                    renamedFile(file, e?.title ?: t.title, title) else null
+                // A new artist or album: the file goes to that artist's and album's folder (made if it isn't there)
+                if (changes.keys.any { it.lowercase() in setOf("artist", "album", "albumartist") }) {
+                    val lead = (c["ALBUMARTIST"]?.firstOrNull()?.takeIf { it.isNotBlank() } ?: artist).split(",")[0].trim()
+                    releaseFolder(file, e != null, (e?.artist ?: t.artist).split(",")[0].trim(), e?.album ?: t.album, lead, album)?.let { folder ->
+                        dest = if (file.startsWith("content:")) folder else folder + (dest ?: file).replace('\\', '/').substringAfterLast('/')
+                    }
+                }
+                dest?.let { d -> if (!d.replace('\\', '/').equals(file.replace('\\', '/'), ignoreCase = true)) moves += file.replace('\\', '/') to d.replace('\\', '/') }
                 if (e == null) { renamed[t.id] = Triple(title, artist, album); continue }
                 lib.items.values.filter { it.file == e.file }.forEach { same ->
                     lib.update(same.id) { it.copy(title = title, artist = artist, album = album, genre = c["GENRE"]?.firstOrNull() ?: "") }
@@ -2173,7 +2553,7 @@ object Music {
             if (moves.isNotEmpty()) {
                 val (n, bad) = MusicTools.moveFiles(moves.distinct())
                 if (bad.isNotEmpty()) failed += bad
-                else if (n > 0) scope.launch(kotlinx.coroutines.Dispatchers.Main) { toast("Renamed $n file${if (n != 1) "s" else ""}") }
+                else if (n > 0) scope.launch(kotlinx.coroutines.Dispatchers.Main) { toast("$n file${if (n != 1) "s" else ""} moved to match ${if (n != 1) "their" else "its"} tags") }
             }
             renamed to failed
         }) { res, err ->
@@ -2290,7 +2670,7 @@ object Music {
     /** Download every song in your playlists and favourites, on each service you sync, in FLAC. */
     fun syncLibrary() {
         if (!tidal.connected) return
-        val srcs = sources.filter { (k, s) -> s.signedIn && syncSources[k] == true }.values.toList()
+        val srcs = sources.filter { (k, s) -> s.signedIn && syncSources[k] == true && k != SoundCloud.KEY }.values.toList()   // SoundCloud's are never saved
         if (srcs.isEmpty()) return
         if (syncing) { syncAgain = true; return }
         syncing = true
@@ -2353,6 +2733,13 @@ object Music {
 
     /** Play tracks[i], then the rest of tracks; the songs you queued come first. */
     fun playFrom(tracks: List<Track>, i: Int, radio: Boolean) {
+        // SoundCloud is a service of its own: its songs play in a queue of SoundCloud songs only, and other songs never
+        // share a queue with them (SoundCloud's rules)
+        val tapped = tracks.getOrNull(i)
+        if (tapped != null && tracks.any { (it.source == SoundCloud.KEY) != (tapped.source == SoundCloud.KEY) }) {
+            val apart = tracks.filter { (it.source == SoundCloud.KEY) == (tapped.source == SoundCloud.KEY) }
+            playFrom(apart, apart.indexOf(tapped).coerceAtLeast(0), radio); return
+        }
         if (Remote.active) { Remote.playFrom(tracks, i, radio); return }
         ListenLog.picked(tracks.getOrNull(i), listName)   // Wrapped's Most searched: a song tapped in search results
         val newQueue = multiQueue && listName.isNotEmpty() && listName != queueName
@@ -2451,6 +2838,14 @@ object Music {
 
     /** "next" plays the songs right after this one, "queue" after the songs you queued before. */
     fun enqueue(tracks: List<Track>, how: String = "queue") {
+        val cur = current()
+        if (cur != null && tracks.any { (it.source == SoundCloud.KEY) != (cur.source == SoundCloud.KEY) }) {
+            toast(if (cur.source == SoundCloud.KEY) "A SoundCloud queue holds SoundCloud songs only: play this to start a queue of its own"
+                else "SoundCloud songs play in a queue of their own: play one to start it")
+            val fit = tracks.filter { (it.source == SoundCloud.KEY) == (cur.source == SoundCloud.KEY) }
+            if (fit.isEmpty()) return
+            enqueue(fit, how); return
+        }
         if (Remote.active) { Remote.enqueue(tracks, how); return }
         val ts = localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
@@ -2509,7 +2904,7 @@ object Music {
 
     /** ∞: a couple of songs before the end, songs like the last one, so there's no gap. */
     private fun autoplaySoon() {
-        if (autoplay && repeat == "off" && queue.isNotEmpty() && queue.size - index <= 2 && radioFrom != queue.last().id)
+        if (autoplay && !dj.on && repeat == "off" && queue.isNotEmpty() && queue.size - index <= 2 && radioFrom != queue.last().id)
             extendRadio(queue.last())
     }
 
@@ -2538,6 +2933,22 @@ object Music {
         if (i in queue.indices) { index = i; loadCurrent() }
     }
 
+    /** Next from the headphones, the car or the lock screen. While the DJ plays, a quadruple tap on headphones (which
+     *  they send as two Nexts, a double tap each) switches it up: a second Next within [SWITCH_TAPS] ms starts a new
+     *  kind of set instead of skipping again. */
+    fun sessionNext() {
+        val t = System.currentTimeMillis()
+        if (dj.on && (current()?.dj ?: 0) > 0 && t - lastSessionNext < SWITCH_TAPS) {
+            lastSessionNext = 0L
+            djSwitch()
+            return
+        }
+        lastSessionNext = t
+        next()
+    }
+    private var lastSessionNext = 0L
+    private const val SWITCH_TAPS = 1300L
+
     fun next() {
         if (Remote.active) { Remote.cmd("next"); return }
         djHush()
@@ -2548,6 +2959,8 @@ object Music {
                 index = 0; loadCurrent()
             }
             repeat == "off" && nextQueue() != null -> switchQueue(nextQueue()!!.id)   // this queue is done: your next one goes on
+            // The DJ's queue is done (you skipped to its end): its next set, not ∞'s radio of streams
+            dj.on -> { djWaiting = true; if (djBusy == null) djMore() }
             else -> {
                 ended = true
                 val more = autoplay && repeat == "off" && current() != null
@@ -2604,6 +3017,8 @@ object Music {
     private var fadingId: String? = null
     private var fadeIn = 0.0
     private var fadeJob: kotlinx.coroutines.Job? = null
+    private var fadingOut: Engine? = null
+    private var crossTo: String? = null   // the song a crossfade is bringing in   // a crossfade's ending song, fading out in its own player
 
     private var tail: Engine? = null   // the song ending, ready to carry on fading in a player of its own
     private var tailFor: String? = null
@@ -2631,6 +3046,7 @@ object Music {
         val nxt = queue.getOrNull(index + 1) ?: return
         if (Prefs.on(Prefs.SMART_TRANSITIONS) && sameAlbum(t, nxt)) return
         if (dj.on && djVoice && nxt.dj > 0 && nxt.dj != t.dj) return   // a new DJ set next: the DJ talks between them, no fade
+        if (dj.on && djVoice && !djComments[nxt.id].isNullOrEmpty()) return   // the DJ says a word before the next song
         val fadeAt = duration - n
         // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
         if (tail == null && position >= fadeAt - 5 && position < fadeAt) {
@@ -2673,14 +3089,30 @@ object Music {
                 }
                 x.volume = from
                 player?.volume = 0f   // the second player has it now
-                fadeIn = n
+                fadeIn = -1.0   // the next song comes in silent; this fade brings it up, in step with the ending
+                crossTo = queue.getOrNull(index + 1)?.id
+                fadingOut = x
+                val mark = System.currentTimeMillis()
                 trackEnded()
-                val rest = maxOf(0.8, left - 0.5)
-                val steps = (rest * 20).toInt().coerceAtLeast(1)
+                // The ending plays on at full until the next song is really sounding (it takes a moment to load): before,
+                // the ending began fading at once while the next only came up once it had loaded, so for that moment
+                // both were low, a dip that sounded like a cut.
+                val nextId = current()?.id
+                var waited = 0
+                while (fadingOut === x && current()?.id == nextId && waited < 4000 && !(loadedFor == nextId && player?.isPlaying == true)) { delay(20); waited += 20 }
+                if (current()?.id != nextId) fadingOut = null   // skipped meanwhile: the ending stops now
+                val left2 = (if (x.durationMs > 0) (x.durationMs - x.positionMs) / 1000.0 else left - (System.currentTimeMillis() - mark) / 1000.0)
+                val rest = maxOf(0.6, minOf(n, left2 - 0.1))
+                val steps = (rest * 25).toInt().coerceAtLeast(1)
                 for (k in 1..steps) {
-                    delay(50)
-                    x.volume = from * kotlin.math.cos(Math.PI / 2 * k / steps).toFloat()   // an even crossfade: as this goes down…
+                    delay(40)
+                    if (fadingOut !== x || current()?.id != nextId) break   // stopped (the DJ began talking, or you skipped)
+                    val a = Math.PI / 2 * k / steps
+                    x.volume = from * kotlin.math.cos(a).toFloat()                    // an equal-power crossfade: as this goes down…
+                    if (loadedFor == nextId) player?.volume = kotlin.math.sin(a).toFloat()   // …the next comes up, together
                 }
+                if (loadedFor == nextId && current()?.id == nextId) player?.volume = 1f
+                if (fadingOut === x) fadingOut = null
                 runCatching { x.release() }
             }
         }
@@ -2732,11 +3164,13 @@ object Music {
         artistKey(a.artist) == artistKey(b.artist)
 
     fun trackEnded() {
+        // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
+        if (djTalking) { player?.let { it.seekTo(0); it.play() }; return }
         advancing = true
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
         finishing = true
-        if (repeat == "one") loadCurrent() else next()
+        if (repeat == "one") { resumeAt = 0.0; position = 0.0; loadCurrent() } else next()   // Repeat one: from its very start
         if (ended && !(autoplay && repeat == "off")) doneAdvancing()
     }
 
@@ -2759,10 +3193,9 @@ object Music {
         if (Remote.active) { Remote.cmd(if (Remote.status.paused) "play" else "pause"); return }
         val p = player ?: return
         if (current() == null) return
-        if (djTalking) { djHush(); if (!p.isPlaying) p.play(); return }   // tapped while the DJ talks: straight to the music
-        if (p.isPlaying) p.pause() else {
-            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
-        }
+        // Pause while the DJ talks: she stops, and the set's song waits paused at its start
+        if (djTalking) { djHush(); p.pause(); if (loadedFor == current()?.id) p.seekTo(0); return }
+        if (p.isPlaying) p.pause() else sessionPlay()
     }
 
     fun seek(seconds: Double) {
@@ -2793,6 +3226,7 @@ object Music {
 
     fun loadCurrent(autoplay: Boolean = true) {
         val c = current() ?: return
+        if (heldTags.isNotEmpty()) scope.launch(Dispatchers.Main) { delay(1500); writeHeldTags() }   // the song that was playing: its tag changes, once its file is free
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
         val t0 = if (Remote.active) c else localOf(c)
@@ -2839,11 +3273,14 @@ object Music {
         }
         saveState()
         // Keep a radio going: near the end of the queue, ask for more like the last song.
-        if (radioFrom != null && index >= queue.size - 2) extendRadio(queue.last())
+        if (radioFrom != null && !dj.on && index >= queue.size - 2) extendRadio(queue.last())
         if (dj.on) {
             djAnnounce(t)
             if (index >= queue.size - 2) djMore()
         }
+        // Covers picked while their song played: in now, once the file that was playing is free
+        if (coversWaiting.isNotEmpty()) { val nowFile = lib.items[t.id]?.file ?: t.file
+            scope.launch(Dispatchers.Main) { delay(1500); writeWaitingCovers(nowFile) } }
     }
 
     /** The cover the lock screen, the notification, Android Auto and Windows' media controls show: the same one the app
@@ -2884,18 +3321,22 @@ object Music {
         val art = if (cast == null) nowArt(t) else t.thumb.takeIf { it.isNotEmpty() }?.let { sizedThumb(it, 544) }
         // Casting: the device fetches the song itself: a stream as it is, a file of the phone's from here over the network.
         val uri = if (cast != null && !ready.uri.startsWith("http")) PhoneShare.forCast(t, castHost) ?: ready.uri else ready.uri
-        val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (cast != null) castMime(t, uri) else null,
+        val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (t.source == SoundCloud.KEY) "application/x-mpegURL"
+            else if (cast != null) castMime(t, uri) else null,
             t.title, t.artist, t.album, art)
         p.load(item, (startAt * 1000).toLong())
+        loadedFor = t.id
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         eqProcessor.songGain = gainOf(t)
         applyEq()   // the song's own EQ on this output, or the usual one
         // The DJ is still talking (a new set): the song waits, loaded and silent, at its start until the DJ is done
         val hold = djTalking && autoplay
-        p.playWhenReady = autoplay && !hold
+        p.playWhenReady = autoplay && !(hold && bitPerfectNow())   // held: silent at its start until the DJ is done (see djSay)
         advancing = false   // buffering for real now
         fadeJob?.cancel()
         if (hold) { fadeIn = 0.0; p.volume = 0f }
+        else if (fadeIn < 0 && t.id == crossTo) { fadeIn = 0.0; p.volume = 0f }   // a crossfade brings it up (see maybeCrossfade)
+        else if (fadeIn < 0) { fadeIn = 0.0; p.volume = 1f }   // another song than the one it was fading to (a skip)
         else if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
             val n = fadeIn; fadeIn = 0.0
             p.volume = 0f
@@ -2954,9 +3395,17 @@ object Music {
     private fun applyEq() {
         val s = songEqNow()
         songEqActive = s != null
-        eqProcessor.update(if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
-            custom = s.custom, count = s.count, boost = s.boost))
+        val e = if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
+            custom = s.custom, count = s.count, boost = s.boost)
+        // Dual volume off: a song with its own volume (Volume…) plays at that volume alone, without the Boost on top
+        eqProcessor.update(if (!dualVolume() && eqProcessor.songGain != 1.0) e.copy(boost = 0.0) else e)
     }
+
+    /** Dual volume (Equalizer): on, the Boost and a song's own volume go together; off, a song with its own volume
+     *  plays at just that one (the songs without one keep the Boost). */
+    fun dualVolume() = Prefs.on(DUAL_VOLUME, true)
+    fun setDualVolume(on: Boolean) { Prefs.set(DUAL_VOLUME, on); applyEq(); musicVersion++ }
+    private const val DUAL_VOLUME = "eq_dual_volume"
 
     /** Custom EQ…: e (null: take it away) for tracks, on the output playing now. */
     fun setSongEq(tracks: List<Track>, e: OutputEq?) {

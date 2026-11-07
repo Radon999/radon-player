@@ -1,6 +1,8 @@
 package org.omarchy.music.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -60,6 +63,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -94,39 +98,116 @@ private val GLOW: List<Color> get() = listOf(MAGENTA, CYAN, YELLOW, C.red, MAGEN
 private val NEON_SLIDE = listOf(MAGENTA, CYAN, Color(0xFF1FFF6E), YELLOW, Color(0xFFFF2A6D), BLUE, CYAN, ORANGE)
 private val NEON_GLOW = listOf(CYAN, MAGENTA, BLUE, MAGENTA, CYAN, MAGENTA, Color(0xFF1FFF6E), MAGENTA)
 
-/** Wrapped's styles: Classic (the one it had, and the default), Neon, Minimal, Paper, Mono, and a neon
- *  one per colour (black slides lit by it). */
+/** A Wrapped style you made (Settings › Personalization › Make your own › Wrapped): its colours (the background, text,
+ *  muted text, accent, and a colour for each slide in turn), how the slides glow, its type, corners, covers, bars, and
+ *  the stars and effects drawn behind every slide. */
+data class MyWrap(val key: String, val name: String, val bg: Long, val fg: Long, val muted: Long, val accent: Long,
+                  val slides: List<Long>, val gradients: Boolean = true, val glow: Float = 0.5f, val neonText: Boolean = false,
+                  val heavy: Boolean = true, val textScale: Float = 1f, val corners: Int = 6, val roundCovers: Boolean = false,
+                  val fx: Set<String> = emptySet(), val stars: Boolean = false, val bar: Float = 5f, val tiles: Boolean = true,
+                  val coverSize: Float = 1f, val spacing: Float = 1f) {
+    fun encode() = listOf(key, name.replace('|', '/'), bg.toString(16), fg.toString(16), muted.toString(16), accent.toString(16),
+        slides.joinToString(",") { it.toString(16) }, gradients, glow, neonText, heavy, textScale, corners, roundCovers,
+        fx.joinToString(","), stars, bar, tiles, coverSize, spacing).joinToString("|")
+}
+
+/** The Wrapped styles you made, kept with the settings (Sync and backups carry them, added to the other device's). */
+object MyWraps {
+    const val PREF = "my_wrapped"
+    private var from = "\u0000"; private var cache: List<MyWrap> = emptyList()
+    fun all(): List<MyWrap> {
+        val text = org.omarchy.music.Prefs.text(PREF)
+        if (text != from) {
+            cache = text.lines().mapNotNull { l -> runCatching { val p = l.split("|")
+                MyWrap(p[0], p[1], p[2].toLong(16), p[3].toLong(16), p[4].toLong(16), p[5].toLong(16),
+                    p[6].split(",").filter { it.isNotBlank() }.map { it.toLong(16) }.ifEmpty { listOf(p[5].toLong(16)) },
+                    p[7].toBoolean(), p[8].toFloat(), p[9].toBoolean(), p[10].toBoolean(), p[11].toFloat(), p[12].toInt(), p[13].toBoolean(),
+                    p.getOrElse(14) { "" }.split(",").filter { it.isNotBlank() }.toSet(), p.getOrElse(15) { "false" }.toBoolean(),
+                    p.getOrElse(16) { "5" }.toFloat(), p.getOrElse(17) { "true" }.toBoolean(), p.getOrElse(18) { "1" }.toFloat(),
+                    p.getOrElse(19) { "1" }.toFloat()) }.getOrNull() }
+            from = text
+        }
+        return cache
+    }
+    fun style(key: String): MyWrap? = all().firstOrNull { it.key == key }
+    fun save(w: MyWrap): MyWrap {
+        val keyed = if (w.key.startsWith("mywrap-")) w else w.copy(key = "mywrap-" + System.currentTimeMillis().toString(36))
+        org.omarchy.music.Prefs.setText(PREF, (all().filter { it.key != keyed.key } + keyed).joinToString("\n") { it.encode() })
+        return keyed
+    }
+    fun delete(key: String) {
+        MadeSync.forget(key)
+        org.omarchy.music.Prefs.setText(PREF, all().filter { it.key != key }.joinToString("\n") { it.encode() })
+        if (Music.wrappedStyle == key) Music.chooseWrappedStyle("classic")
+    }
+    /** The one being made: Wrapped's preview in the maker draws this. */
+    var draft by mutableStateOf<MyWrap?>(null)
+}
+
+/** Wrapped's styles: Classic (the one it had, and the default), Your look (the app's look in use, its stars and effects
+ *  too), Neon, Minimal, Paper, Mono, a neon one per colour (black slides lit by it), and the ones you made. */
 object WS {
-    val STYLES: List<Pair<String, String>> = listOf("classic" to "Classic", "neon" to "Neon", "minimal" to "Minimal",
-        "paper" to "Paper", "mono" to "Mono") + Looks.NEON.map { (k, v) -> k to "Neon ${v.first.lowercase()}" }
+    val STYLES: List<Pair<String, String>> get() = listOf("classic" to "Classic", "look" to "Your look", "neon" to "Neon",
+        "minimal" to "Minimal", "paper" to "Paper", "mono" to "Mono") + Looks.NEON.map { (k, v) -> k to "Neon ${v.first.lowercase()}" } +
+        MyWraps.all().map { it.key to "${it.name} (yours)" }
     private val style get() = Music.wrappedStyle
-    private val neon get() = Looks.NEON[style]?.second
-    private val black get() = style == "neon" || style == "mono" || neon != null
-    val bg: Color get() = if (style == "paper") Color(0xFFF2EBDD) else if (black) Color.Black else C.darker
-    val fg: Color get() = when { style == "paper" -> Color(0xFF1F1A14); style == "mono" -> Color.White; black -> Color(0xFFF5F2F2); else -> C.fg }
-    val muted: Color get() = when { style == "paper" -> Color(0xFF6D6354); style == "mono" -> Color(0xFFB0B0B0)
+    private val my: MyWrap? get() = MyWraps.draft ?: if (style.startsWith("mywrap-")) MyWraps.style(style) else null
+    private val look get() = my == null && style == "look"
+    private val neon get() = if (my != null || look) null else Looks.NEON[style]?.second
+    private val black get() = my == null && !look && (style == "neon" || style == "mono" || neon != null)
+    val bg: Color get() = my?.let { Color(it.bg) } ?: if (look) C.bg else if (style == "paper") Color(0xFFF2EBDD) else if (black) Color.Black else C.darker
+    val fg: Color get() = my?.let { Color(it.fg) } ?: when { look -> C.fg; style == "paper" -> Color(0xFF1F1A14); style == "mono" -> Color.White; black -> Color(0xFFF5F2F2); else -> C.fg }
+    val muted: Color get() = my?.let { Color(it.muted) } ?: when { look -> C.muted; style == "paper" -> Color(0xFF6D6354); style == "mono" -> Color(0xFFB0B0B0)
         neon != null -> lerp(Color(0xFF9A9A9A), neon!!, 0.3f); else -> C.muted }
-    val accent: Color get() = when (style) { "paper" -> Color(0xFFC2410C); "mono" -> Color.White; "minimal" -> C.fg
+    val accent: Color get() = my?.let { Color(it.accent) } ?: if (look) C.accent else when (style) { "paper" -> Color(0xFFC2410C); "mono" -> Color.White; "minimal" -> C.fg
         "neon" -> CYAN; else -> neon ?: C.accent }
-    val card: Color get() = if (style == "paper") Color.White.copy(alpha = 0.55f) else if (black) Color.Black else C.bg
+    val card: Color get() = if (my != null || look) fg.copy(alpha = 0.06f) else if (style == "paper") Color.White.copy(alpha = 0.55f) else if (black) Color.Black else C.bg
     val line: Color get() = if (neon != null) neon!!.copy(alpha = 0.55f) else fg.copy(alpha = 0.15f)
-    val shadow: Shadow? get() = if (style == "neon" || neon != null) Shadow(accent.copy(alpha = 0.85f), blurRadius = 18f) else null
-    val gradients get() = style !in setOf("minimal", "paper", "mono")
-    val tintAlpha get() = if (neon != null) 0.20f else if (style == "neon") 0.30f else 0.5f
-    fun tint(i: Int): Color = neon ?: if (style == "neon") NEON_SLIDE[i % 8] else SLIDE[i % 8]
-    fun glow(i: Int): Color = neon ?: if (style == "neon") NEON_GLOW[i % 8] else GLOW[i % 8]
+    val shadow: Shadow? get() = if (my?.neonText == true || (look && C.glow) || (my == null && !look && (style == "neon" || neon != null)))
+        Shadow(accent.copy(alpha = 0.85f), blurRadius = 18f) else null
+    val gradients get() = my?.gradients ?: (look || style !in setOf("minimal", "paper", "mono"))
+    val tintAlpha get() = my?.glow ?: if (look) 0.35f else if (neon != null) 0.20f else if (style == "neon") 0.30f else 0.5f
+    fun tint(i: Int): Color = my?.let { Color(it.slides[i % it.slides.size]) }
+        ?: if (look) hueStep(C.accent, i) else neon ?: if (style == "neon") NEON_SLIDE[i % 8] else SLIDE[i % 8]
+    fun glow(i: Int): Color = my?.let { Color(it.slides[(i + 1) % it.slides.size]) }
+        ?: if (look) hueStep(C.accent, i + 3) else neon ?: if (style == "neon") NEON_GLOW[i % 8] else GLOW[i % 8]
+    /** The look's accent turned round the colour wheel a little for each slide, so the slides differ but stay its colours. */
+    private fun hueStep(c: Color, i: Int): Color {
+        val hsv = FloatArray(3); android_like_hsv(c, hsv)
+        return Color.hsv((hsv[0] + (i % 8) * 24f) % 360f, hsv[1].coerceIn(0.35f, 1f), hsv[2].coerceIn(0.5f, 1f))
+    }
+    private fun android_like_hsv(c: Color, out: FloatArray) {
+        val r = c.red; val g = c.green; val b = c.blue
+        val max = maxOf(r, g, b); val min = minOf(r, g, b); val d = max - min
+        out[0] = when { d == 0f -> 0f; max == r -> 60f * (((g - b) / d) % 6f); max == g -> 60f * ((b - r) / d + 2f); else -> 60f * ((r - g) / d + 4f) }.let { if (it < 0) it + 360f else it }
+        out[1] = if (max == 0f) 0f else d / max; out[2] = max
+    }
+    // The finer choices of a style you made (the built-in ones as they always were)
+    val scale: Float get() = my?.textScale ?: 1f
+    val heavy: Boolean get() = my?.heavy ?: true
+    val corner: Int get() = my?.corners ?: 6
+    val roundCovers: Boolean get() = my?.roundCovers ?: false
+    val bar: Float get() = my?.bar ?: 5f
+    val tiles: Boolean get() = my?.tiles ?: true
+    val coverSize: Float get() = my?.coverSize ?: 1f
+    val spacing: Float get() = my?.spacing ?: 1f
+    /** The stars and effects behind every slide: yours, or the look's with Your look. */
+    val fx: Set<String> get() = my?.fx ?: if (look) C.fx else emptySet()
+    val stars: Boolean get() = my?.stars ?: (look && C.stars)
 }
 private val KINDS = listOf("week" to "Week", "month" to "Month", "year" to "Year", "all" to "All time")
 
 private object W {
-    val kicker get() = T.body.copy(color = WS.fg.copy(alpha = 0.72f), fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp, fontSize = 11.sp)
-    val big get() = T.body.copy(color = WS.fg, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 32.sp)
-    val huge get() = T.body.copy(color = WS.fg, fontSize = 48.sp, fontWeight = FontWeight.Black, lineHeight = 54.sp, shadow = WS.shadow)
-    val sub get() = T.body.copy(color = WS.fg.copy(alpha = 0.85f), fontSize = 14.sp)
-    val small get() = T.body.copy(color = WS.muted, fontSize = 11.5.sp)
-    val rank get() = T.body.copy(color = WS.accent, fontWeight = FontWeight.Black, fontSize = 16.sp, shadow = WS.shadow)
-    val name get() = T.body.copy(color = WS.fg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-    val mid get() = T.body.copy(color = WS.fg, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
+    private fun k(v: Float) = (v * WS.scale).sp
+    private fun wt(heavy: FontWeight, light: FontWeight) = if (WS.heavy) heavy else light
+    val kicker get() = T.body.copy(color = WS.fg.copy(alpha = 0.72f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.SemiBold), letterSpacing = 2.sp, fontSize = k(11f))
+    val big get() = T.body.copy(color = WS.fg, fontSize = k(27f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), lineHeight = k(32f))
+    val huge get() = T.body.copy(color = WS.fg, fontSize = k(48f), fontWeight = wt(FontWeight.Black, FontWeight.Light), lineHeight = k(54f), shadow = WS.shadow)
+    val sub get() = T.body.copy(color = WS.fg.copy(alpha = 0.85f), fontSize = k(14f))
+    val small get() = T.body.copy(color = WS.muted, fontSize = k(11.5f))
+    val rank get() = T.body.copy(color = WS.accent, fontWeight = wt(FontWeight.Black, FontWeight.Medium), fontSize = k(16f), shadow = WS.shadow)
+    val name get() = T.body.copy(color = WS.fg, fontWeight = wt(FontWeight.Bold, FontWeight.Normal), fontSize = k(14f))
+    val mid get() = T.body.copy(color = WS.fg, fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), fontSize = k(19f))
 }
 
 private fun n(i: Int) = "%,d".format(i)
@@ -135,6 +216,8 @@ private class Slide(val color: Int, val content: @Composable ColumnScope.() -> U
 
 /** The space a slide has on screen (the summary card fills it), in the slide's own (scaled) dp. */
 private val LocalSlideSize = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.unit.DpSize(400.dp, 800.dp) }
+/** Drawn small in Make your own Wrapped (no room kept for the phone's buttons). */
+private val LocalSlideInPreview = androidx.compose.runtime.compositionLocalOf { false }
 /** How many times bigger the slide is drawn (see [slideScale]). */
 private val LocalSlideScale = androidx.compose.runtime.compositionLocalOf { 1f }
 
@@ -163,9 +246,12 @@ private fun SlideScaled(w: Dp, h: Dp, content: @Composable () -> Unit) {
 private fun SlideColumn(spacing: Dp, centred: Boolean, content: @Composable ColumnScope.() -> Unit) {
     val room = LocalSlideSize.current
     val k = LocalSlideScale.current
+    // Clear of the phone's buttons at the bottom too (Share… was under them): their height, read from the app's window
+    // when the full-screen Wrapped doesn't get it; none in Make your own Wrapped's pictures
+    val nav = if (LocalSlideInPreview.current) 0.dp else navBarBottom() / k
     FitHeight {
         Column(Modifier.widthIn(max = SLIDE_MAX_WIDTH + 56.dp).fillMaxWidth().heightIn(min = room.height)
-            .padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 24.dp),
+            .padding(bottom = nav).padding(start = 28.dp, end = 28.dp, top = 112.dp / k, bottom = 24.dp),
             verticalArrangement = if (centred) Arrangement.spacedBy(spacing, Alignment.CenterVertically) else Arrangement.spacedBy(spacing),
             content = content)
     }
@@ -310,6 +396,9 @@ fun WrappedScreen(onClose: () -> Unit) {
                                 scope.launch { pager.animateScrollToPage(to) }
                             }
                         }) {
+                        // The style's stars and effects behind the slide (yours, or the look's with Your look)
+                        if (WS.stars) Stars()
+                        if (WS.fx.isNotEmpty()) LookEffects(WS.fx, accent = WS.accent, fg = WS.fg, bg = WS.bg)   // in the Wrapped style's colours
                         CompositionLocalProvider(LocalSharing provides Sharing({ menu = true }, busy)) {
                             // Bigger in a big window (the PC's): the slide fills it. A long slide (a top 15) scrolls; a
                             // short one sits in the middle as before
@@ -357,18 +446,9 @@ fun WrappedScreen(onClose: () -> Unit) {
                     Text(if (about) "Slides" else "What counts", style = T.tab.copy(fontSize = 12.sp, color = WS.fg), modifier = Modifier.clip(CircleShape)
                         .background(WS.fg.copy(alpha = 0.12f)).pointerInput(about) { detectTapGestures { about = !about } }
                         .padding(horizontal = 12.dp, vertical = 8.dp))
-                    Box {
-                        var styles by remember { mutableStateOf(false) }
-                        Text("Style", style = T.tab.copy(fontSize = 12.sp, color = WS.fg), modifier = Modifier.clip(CircleShape)
-                            .background(WS.fg.copy(alpha = 0.12f)).pointerInput(Unit) { detectTapGestures { styles = true } }
-                            .padding(horizontal = 12.dp, vertical = 8.dp))
-                        DropdownMenu(styles, { styles = false }, containerColor = C.light) {
-                            WS.STYLES.forEach { (k, name) ->
-                                DropdownMenuItem({ Text((if (Music.wrappedStyle == k) "● " else "   ") + name, style = T.body) },
-                                    { styles = false; Music.chooseWrappedStyle(k) })
-                            }
-                        }
-                    }
+                    // The styles: hold one down (or its ⋯, or right-click) to favourite it, or edit or delete one you made
+                    ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, prefix = "Style: ",
+                        menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) }) { Music.chooseWrappedStyle(it) }
                     Text("✕", style = T.title.copy(color = WS.fg), modifier = Modifier.clip(CircleShape).background(WS.bg.copy(alpha = 0.4f))
                         .pointerInput(Unit) { detectTapGestures { onClose() } }.padding(horizontal = 11.dp, vertical = 7.dp))
                 }
@@ -468,7 +548,7 @@ private object MyCopies {
 @Composable
 private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
     val model = picModel(art)
-    Box(Modifier.size(size).clip(if (round) CircleShape else RoundedCornerShape(4.dp)).background(C.light)) {
+    Box(Modifier.size(size * WS.coverSize).clip(if (round || WS.roundCovers) CircleShape else RoundedCornerShape(WS.corner.coerceAtMost(40).dp * 0.7f)).background(C.light)) {
         if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
     }
 }
@@ -476,11 +556,12 @@ private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
 @Composable
 private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = null, start: Int = 1, meter: Boolean = false) {
     val top = (items.maxOfOrNull { it.third } ?: 0).coerceAtLeast(1)
-    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // A long list (a top 15) a little tighter, so all of it fits on one screen
+    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy((if (items.size > 10) 8.dp else 12.dp) * WS.spacing)) {
         items.forEachIndexed { i, (name, sub, plays) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${i + start}", style = W.rank, modifier = Modifier.widthIn(min = 26.dp))
-                art?.let { Pic(it.getOrNull(i), if (items.size > 6) 38.dp else 44.dp) }
+                art?.let { Pic(it.getOrNull(i), if (items.size > 10) 34.dp else if (items.size > 6) 38.dp else 44.dp) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(name, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (sub.isNotEmpty()) Text(sub, style = W.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -495,7 +576,7 @@ private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = 
 /** A thin bar, filled as far as fraction (0..1). */
 @Composable
 private fun Meter(fraction: Float) {
-    Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(WS.fg.copy(alpha = 0.12f))) {
+    Box(Modifier.fillMaxWidth().height(WS.bar.dp).clip(RoundedCornerShape(50)).background(WS.fg.copy(alpha = 0.12f))) {
         Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(50)).background(WS.accent))
     }
 }
@@ -511,8 +592,8 @@ private fun Stats(tiles: List<Pair<String, String>>) {
         tiles.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { (value, what) ->
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(WS.fg.copy(alpha = 0.07f))
-                        .border(1.dp, WS.fg.copy(alpha = 0.10f), RoundedCornerShape(6.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(WS.corner.dp)).background(WS.fg.copy(alpha = if (WS.tiles) 0.07f else 0f))
+                        .border(1.dp, WS.fg.copy(alpha = if (WS.tiles) 0.10f else 0f), RoundedCornerShape(WS.corner.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
                         Text(value, style = W.mid, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(what, style = W.small)
                     }
@@ -945,10 +1026,13 @@ private fun releaseSlides(d: Wrapped.Data): List<Slide> {
     listOf(Triple("YOUR TOP SINGLES", d.singles, 3), Triple("YOUR TOP EPS", d.eps, 5)).forEach { (head, list, color) ->
         if (list.isNotEmpty()) out += Slide(color) {
             Text(head, style = W.kicker)
-            Pic(list[0].pic, 150.dp)
-            Text(list[0].name, style = W.big)
-            Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
-            if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)
+            if (list.size <= 6) {   // a few: the top one big
+                Pic(list[0].pic, 150.dp)
+                Text(list[0].name, style = W.big)
+                Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
+                if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)
+            } else   // a full top 15: one list, as the top songs, so all of it fits on one screen
+                Ranked(list.map { Triple(it.name, it.artist, it.plays) }, list.map { it.pic }, meter = true)
         }
     }
     return out
@@ -1131,4 +1215,174 @@ private fun WhatCounts(diarySince: Long) {
 object WrappedAsk {
     @Volatile var period: Wrapped.Period? = null
     fun take(): Wrapped.Period? = period.also { period = null }
+}
+
+
+/** Your Wrapped (this year's) to try a style on, for Make your own Wrapped's pictures; loaded once. */
+private var previewData by mutableStateOf<Wrapped.Data?>(null)
+private var previewLoading = false
+
+/** Make your own Wrapped's pictures: every slide of your Wrapped (this year's) in the style being made, small, to swipe
+ *  left and right through; the sample slide (fallback) until yours has loaded, or when there's nothing to show yet. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun WrapSlidesPreview(modifier: Modifier, fallback: @Composable () -> Unit) {
+    LaunchedEffect(Unit) {
+        if (previewData == null && !previewLoading) {
+            previewLoading = true
+            Music.bg({ Wrapped.load(Music.ctx, Wrapped.Period.Year(Wrapped.year())) { } }) { d, _ ->
+                previewLoading = false
+                if (d != null && !d.empty) previewData = d
+            }
+        }
+    }
+    val d = previewData
+    if (d == null) { Box(modifier) { fallback() }; return }
+    val slides = remember(d) { if (d.period == Wrapped.Period.All) allTime(d) else periodSlides(d) }
+    val pager = rememberPagerState { slides.size }
+    val scope = rememberCoroutineScope()
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val fullW = 400.dp; val fullH = 780.dp   // drawn at a phone's size, then shrunk into the picture
+            val k = minOf(maxWidth / fullW, maxHeight / fullH)
+            HorizontalPager(pager, Modifier.fillMaxSize(), pageSpacing = 10.dp) { i ->
+                val sl = slides[i]
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.requiredSize(fullW, fullH).graphicsLayer(scaleX = k, scaleY = k).clip(RoundedCornerShape(28.dp))) {
+                        BoxWithConstraints(Modifier.fillMaxSize()) {
+                            val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+                            val tint = WS.tint(sl.color); val glow = WS.glow(sl.color); val g = if (WS.gradients) 1f else 0f
+                            Box(Modifier.fillMaxSize().background(WS.bg)
+                                .background(Brush.linearGradient(0f to tint.copy(alpha = WS.tintAlpha * g), 0.62f to WS.bg.copy(alpha = 0f),
+                                    start = Offset(w * 0.4f, 0f), end = Offset(w * 0.6f + h * 0.27f, h)))
+                                .background(Brush.radialGradient(listOf(glow.copy(alpha = 0.30f * g), Color.Transparent),
+                                    center = Offset(w * 0.92f, h * 0.08f), radius = maxOf(w, h) * 0.38f))
+                                .background(Brush.radialGradient(listOf(tint.copy(alpha = 0.22f * g), Color.Transparent),
+                                    center = Offset(0f, h), radius = maxOf(w, h) * 0.45f))) {
+                                if (WS.stars) Stars()
+                                if (WS.fx.isNotEmpty()) LookEffects(WS.fx, accent = WS.accent, fg = WS.fg, bg = WS.bg)
+                                CompositionLocalProvider(LocalSlideInPreview provides true) {
+                                    SlideScaled(fullW, fullH) { SlideColumn(10.dp, centred = true, content = sl.content) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("\u2039", style = T.title.copy(color = C.accent), modifier = Modifier.clip(CircleShape)
+                .pointerInput(Unit) { detectTapGestures { scope.launch { pager.animateScrollToPage((pager.currentPage - 1).coerceAtLeast(0)) } } }
+                .padding(horizontal = 12.dp, vertical = 2.dp))
+            Text("Slide ${pager.currentPage + 1} of ${slides.size} \u00B7 swipe for the others", style = T.sub)
+            Text("\u203A", style = T.title.copy(color = C.accent), modifier = Modifier.clip(CircleShape)
+                .pointerInput(Unit) { detectTapGestures { scope.launch { pager.animateScrollToPage((pager.currentPage + 1).coerceAtMost(slides.size - 1)) } } }
+                .padding(horizontal = 12.dp, vertical = 2.dp))
+        }
+    }
+}
+
+/** Make your own Wrapped's picture: a slide in the style being made (MyWraps.draft), with its colours, glow, type, covers,
+ *  bars, tiles, stars and effects; i: which slide colour it shows. */
+@Composable
+fun WrapStylePreview(i: Int, modifier: Modifier) {
+    BoxWithConstraints(modifier.clip(RoundedCornerShape(18.dp)).background(WS.bg)) {
+        val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+        val tint = WS.tint(i); val glow = WS.glow(i); val g = if (WS.gradients) 1f else 0f
+        Box(Modifier.fillMaxSize()
+            .background(Brush.linearGradient(0f to tint.copy(alpha = WS.tintAlpha * g), 0.62f to WS.bg.copy(alpha = 0f),
+                start = Offset(w * 0.4f, 0f), end = Offset(w * 0.6f + h * 0.27f, h)))
+            .background(Brush.radialGradient(listOf(glow.copy(alpha = 0.30f * g), Color.Transparent), center = Offset(w * 0.92f, h * 0.08f), radius = maxOf(w, h) * 0.38f))
+            .background(Brush.radialGradient(listOf(tint.copy(alpha = 0.22f * g), Color.Transparent), center = Offset(0f, h), radius = maxOf(w, h) * 0.45f))) {
+            if (WS.stars) Stars()
+            if (WS.fx.isNotEmpty()) LookEffects(WS.fx, accent = WS.accent, fg = WS.fg, bg = WS.bg)   // in the Wrapped style's colours
+            Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp * WS.spacing)) {
+                Text("YOUR TOP SONGS", style = W.kicker)
+                Text("Your year in music", style = W.big)
+                Text("12,480 minutes", style = W.huge.copy(fontSize = W.huge.fontSize * 0.6f, lineHeight = W.huge.lineHeight * 0.6f))
+                Ranked(listOf(Triple("A song you love", "Its artist", 120), Triple("Another one", "Someone else", 84), Triple("And a third", "A band", 52)),
+                    listOf(null, null, null), meter = true)
+                Stats(listOf("214" to "artists", "38" to "day streak"))
+            }
+        }
+    }
+}
+
+/** A Wrapped style's colours worked out for any look (not only the one in use), for a preset's picture: what WS gives
+ *  for the style in use, for style with look's colours. */
+private class WrapPal(val bg: Color, val fg: Color, val muted: Color, val accent: Color, val gradients: Boolean, val tintAlpha: Float,
+                      val tint: Color, val glow: Color, val shadow: Shadow?, val heavy: Boolean, val scale: Float, val round: Boolean,
+                      val bar: Float, val fx: Set<String>, val stars: Boolean)
+
+private fun wrapPal(style: String, c: Looks.LookColors): WrapPal {
+    val my = if (style.startsWith("mywrap-")) MyWraps.style(style) else null
+    if (my != null) return WrapPal(Color(my.bg), Color(my.fg), Color(my.muted), Color(my.accent), my.gradients, my.glow,
+        Color(my.slides[0]), Color(my.slides[1 % my.slides.size]), if (my.neonText) Shadow(Color(my.accent).copy(alpha = 0.85f), blurRadius = 18f) else null,
+        my.heavy, my.textScale, my.roundCovers, my.bar, my.fx, my.stars)
+    val look = style == "look"
+    val neon = if (look) null else Looks.NEON[style]?.second
+    val black = !look && (style == "neon" || style == "mono" || neon != null)
+    val darker = lerp(c.bg, Color.Black, if (c.bg.luminance() > 0.5f) 0.07f else 0.45f)
+    val bg = if (look) c.bg else if (style == "paper") Color(0xFFF2EBDD) else if (black) Color.Black else darker
+    val fg = when { look -> c.fg; style == "paper" -> Color(0xFF1F1A14); style == "mono" -> Color.White; black -> Color(0xFFF5F2F2); else -> c.fg }
+    val muted = when { look -> c.muted; style == "paper" -> Color(0xFF6D6354); style == "mono" -> Color(0xFFB0B0B0)
+        neon != null -> lerp(Color(0xFF9A9A9A), neon, 0.3f); else -> c.muted }
+    val accent = if (look) c.accent else when (style) { "paper" -> Color(0xFFC2410C); "mono" -> Color.White; "minimal" -> c.fg
+        "neon" -> CYAN; else -> neon ?: c.accent }
+    val shadow = if ((look && c.glow) || (!look && (style == "neon" || neon != null))) Shadow(accent.copy(alpha = 0.85f), blurRadius = 18f) else null
+    val gradients = look || style !in setOf("minimal", "paper", "mono")
+    val tintAlpha = if (look) 0.35f else if (neon != null) 0.20f else if (style == "neon") 0.30f else 0.5f
+    val tint = if (look) c.accent else neon ?: if (style == "neon") NEON_SLIDE[0] else c.accent
+    val glow = if (look) c.accent else neon ?: if (style == "neon") NEON_GLOW[0] else MAGENTA
+    return WrapPal(bg, fg, muted, accent, gradients, tintAlpha, tint, glow, shadow, true, 1f, false, 5f,
+        if (look) c.fx else emptySet(), look && c.stars)
+}
+
+/** A preset's Wrapped: one slide (your top songs) in its Wrapped style and look, as a picture to swipe to. */
+@Composable
+fun WrapPresetSlide(style: String, look: String, modifier: Modifier) {
+    val c = remember(look) { Looks.colors(look) }
+    val p = wrapPal(style, c)
+    fun k(v: Float) = (v * p.scale).sp
+    val wt = { heavy: FontWeight, light: FontWeight -> if (p.heavy) heavy else light }
+    BoxWithConstraints(modifier.clip(RoundedCornerShape(18.dp)).background(p.bg)) {
+        val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+        val g = if (p.gradients) 1f else 0f
+        Box(Modifier.fillMaxSize()
+            .background(Brush.linearGradient(0f to p.tint.copy(alpha = p.tintAlpha * g), 0.62f to p.bg.copy(alpha = 0f),
+                start = Offset(w * 0.4f, 0f), end = Offset(w * 0.6f + h * 0.27f, h)))
+            .background(Brush.radialGradient(listOf(p.glow.copy(alpha = 0.30f * g), Color.Transparent), center = Offset(w * 0.92f, h * 0.08f), radius = maxOf(w, h) * 0.38f))
+            .background(Brush.radialGradient(listOf(p.tint.copy(alpha = 0.22f * g), Color.Transparent), center = Offset(0f, h), radius = maxOf(w, h) * 0.45f))) {
+            if (p.stars) Stars()
+            if (p.fx.isNotEmpty()) LookEffects(p.fx, accent = p.accent, fg = p.fg, bg = p.bg)
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)) {
+                Text("YOUR TOP SONGS", style = T.body.copy(color = p.fg.copy(alpha = 0.72f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.SemiBold),
+                    letterSpacing = 2.sp, fontSize = k(10f)))
+                Text("Your year in music", style = T.body.copy(color = p.fg, fontSize = k(21f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), lineHeight = k(25f)))
+                Text("12,480 minutes", style = T.body.copy(color = p.fg, fontSize = k(27f), fontWeight = wt(FontWeight.Black, FontWeight.Light),
+                    lineHeight = k(31f), shadow = p.shadow))
+                listOf(Triple("A song you love", "Its artist", 1f), Triple("Another one", "Someone else", 0.7f), Triple("And a third", "A band", 0.43f))
+                    .forEachIndexed { i, (song, who, part) ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("${i + 1}", style = T.body.copy(color = p.accent, fontWeight = wt(FontWeight.Black, FontWeight.Medium), fontSize = k(14f), shadow = p.shadow))
+                            Box(Modifier.size(30.dp).clip(if (p.round) CircleShape else RoundedCornerShape(6.dp))
+                                .background(Brush.linearGradient(listOf(p.accent, p.tint.copy(alpha = 0.6f), p.bg))))
+                            Column(Modifier.weight(1f)) {
+                                Text(song, style = T.body.copy(color = p.fg, fontWeight = wt(FontWeight.Bold, FontWeight.Normal), fontSize = k(12f)), maxLines = 1)
+                                Text(who, style = T.body.copy(color = p.muted, fontSize = k(10f)), maxLines = 1)
+                                Box(Modifier.padding(top = 3.dp).fillMaxWidth(part).height((p.bar * 0.8f).dp).clip(RoundedCornerShape(3.dp)).background(p.accent))
+                            }
+                        }
+                    }
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("214" to "artists", "38" to "day streak").forEach { (n, what) ->
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(p.fg.copy(alpha = 0.07f)).padding(8.dp)) {
+                            Text(n, style = T.body.copy(color = p.fg, fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), fontSize = k(16f), shadow = p.shadow))
+                            Text(what, style = T.body.copy(color = p.muted, fontSize = k(10f)))
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

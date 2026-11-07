@@ -34,7 +34,7 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
     override fun seekTo(ms: Long) = p.seekTo(ms)
 
     override fun load(item: PlayItem, startMs: Long) {
-        val art = item.art?.let { if (it.startsWith("/")) android.net.Uri.fromFile(java.io.File(it)) else android.net.Uri.parse(it) }
+        val art = ArtProvider.uri(ctx, item.art)   // content:// so Android Auto can show it (it can't open file://)
         val mi = MediaItem.Builder().setUri(item.uri).setMediaId(item.id)
             .apply { item.mime?.let { setMimeType(it) } }
             .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).setArtist(item.artist).setAlbumTitle(item.album)
@@ -58,6 +58,7 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
         val x = ExoPlayer.Builder(ctx, renderers(ctx, eq))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), false)
             .build()
+        BtRoute.withoutFocus(x)
         x.setMediaItem(MediaItem.fromUri(uri), startMs)
         x.volume = 0f
         x.playWhenReady = false

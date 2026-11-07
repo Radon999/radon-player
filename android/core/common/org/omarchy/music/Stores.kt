@@ -38,10 +38,11 @@ class Library(private val ctx: Ctx) {
         readText(missingFile)?.let { runCatching { JSON.decodeFromString(missingSer, it) }.getOrNull() }?.toMutableMap()
             ?: mutableMapOf()
 
-    /** Drop the songs whose file was deleted by hand (off the main thread: it opens each). */
+    /** Drop the songs whose file was deleted by hand (off the main thread: it opens each). Only ones surely gone: one
+     *  the phone just wouldn't open for a moment stays (it used to drop out of Downloads). */
     @Synchronized
     fun prune() {
-        val gone = items.filterValues { !uriExists(ctx, it.file) }.keys
+        val gone = items.filterValues { it.file.isNotEmpty() && ctx.uriMissing(it.file) }.keys
         if (gone.isNotEmpty()) {
             gone.forEach { items.remove(it) }
             save()
@@ -50,6 +51,18 @@ class Library(private val ctx: Ctx) {
 
     @Synchronized
     fun save() = writeAtomic(file, JSON.encodeToString(ser, items))
+
+    /** Downloads' Refresh: what's saved in library.json read again and added to what's known (none dropped), and any
+     *  whose file is surely gone taken off. Off the main thread. Returns how many came in. */
+    @Synchronized
+    fun refresh(): Int {
+        val disk = readText(file)?.let { runCatching { JSON.decodeFromString(ser, it) }.getOrNull() } ?: emptyMap()
+        var n = 0
+        for ((k, e) in disk) if (k !in items) { items[k] = e; n++ }
+        prune()
+        if (n > 0) save()
+        return n
+    }
 
     fun has(id: String) = items.containsKey(id)
     fun file(id: String) = items[id]?.file

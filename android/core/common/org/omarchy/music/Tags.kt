@@ -11,7 +11,8 @@ object Tags {
 
     /** Whether the app can change the file: on the phone the FLACs it downloaded (content:// addresses it made), on the
      *  PC any file of yours it may write, as the Python app. */
-    fun writable(file: String) = file.startsWith("content://") || FileTags.canWrite(file)
+    fun writable(file: String) = FileTags.canWrite(file)   // on the phone: only the FLACs it downloaded (any content:// was let through,
+                                                            // and a sync then wrote FLAC tags into MP3s and M4As, ruining them)
 
     /** The FLAC of the song's that can be edited, or null: a download of the app's, or (on the PC) a FLAC of your own. */
     fun editable(t: Track): String? {
@@ -21,6 +22,8 @@ object Tags {
 
     /** Edit tags… also takes your own MP3, M4A and Ogg files on the PC (their tags through FileTags), as the Python app. */
     fun editableAny(t: Track): String? = editable(t) ?: t.file?.takeIf {
+        t.isFile && !Music.lib.has(t.id) && FileTags.OWN_BY_TAGLIB && FileTags.canWrite(it)   // the phone: your own files, with All files access
+    } ?: t.file?.takeIf {
         t.isFile && !Music.lib.has(t.id) && !it.startsWith("content:") &&
             it.substringAfterLast('.').lowercase() in setOf("mp3", "m4a", "mp4", "aac", "ogg", "opus", "wma", "aiff", "aif", "wav", "dsf") &&
             FileTags.canWrite(it)
@@ -51,18 +54,27 @@ object Tags {
     }
 
     fun read(ctx: Ctx, uris: List<String>): Map<String, String?> = common(uris.map { u ->
-        if (!u.startsWith("content:") && !isFlac(ctx, u)) asComments(FileTags.read(ctx, u) ?: emptyMap())
+        if (FileTags.OWN_BY_TAGLIB && Music.lib.items.values.none { it.file == u }) asComments(FileTags.read(ctx, u) ?: emptyMap())
+        else if (!u.startsWith("content:") && !isFlac(ctx, u)) asComments(FileTags.read(ctx, u) ?: emptyMap())
         else runCatching { ctx.openIn(u)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }
             .getOrDefault(emptyMap())
     })
 
     /** Write changes into the FLAC at uri (blocking); returns its comments as they are now. */
     fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Map<String, List<String>> {
+        TagMatch.touched(uri)   // read again for Tags & covers match
+        // The phone: your own file (not a download), in its own format, with All files access
+        if (FileTags.OWN_BY_TAGLIB && Music.lib.items.values.none { it.file == uri }) {
+            if (!FileTags.writeOwn(uri, changes)) error("couldn't write its tags (Settings › Tagger: allow All files access)")
+            return asComments(FileTags.read(ctx, uri) ?: emptyMap())
+        }
         if (!uri.startsWith("content:") && !isFlac(ctx, uri)) {   // an MP3, M4A… of yours on the PC
             if (!FileTags.write(ctx, uri, changes)) error("couldn't write its tags")
             return asComments(FileTags.read(ctx, uri) ?: emptyMap())
         }
         val cr = ctx
+        // Only ever rewritten as a FLAC when it is one: anything else is left exactly as it is
+        if (!isFlac(ctx, uri)) error("only FLAC files can have their tags changed here")
         val before = runCatching { cr.openIn(uri)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }.getOrNull()
         val tmp = File.createTempFile("tags", ".flac", ctx.cacheDir)
         try {
@@ -95,7 +107,12 @@ object Covers {
 
     /** Put jpeg in the FLAC at uri (one the app made) as its cover, keeping its tags. */
     fun write(ctx: Ctx, uri: String, jpeg: ByteArray) {
+        if (!CoverGuard.allowed()) error("Prevent album cover changes is on")
+        TagMatch.touched(uri)
         val cr = ctx
+        // A cover only goes into a FLAC: an MP3 or M4A rewritten as one is ruined
+        val flac = runCatching { cr.openIn(uri)!!.use { val b = ByteArray(4); it.read(b) == 4 && String(b, Charsets.ISO_8859_1) == "fLaC" } }.getOrDefault(false)
+        if (!flac) error("only FLAC files can take a cover here")
         val tmp = File.createTempFile("cover", ".flac", ctx.cacheDir)
         try {
             cr.openIn(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }

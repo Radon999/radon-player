@@ -10,14 +10,15 @@ import kotlin.random.Random
 /** The DJ, like Spotify's, as on the desktop: sets of a few songs, each begun with a line from the DJ,
  *  made from your listening: what you've had on repeat, what you play at this time of day, your
  *  favourites, throwbacks to a year you played something to death, songs you loved and haven't heard
- *  in months, and new ones like yours (Tidal's and YouTube Music's radios), leaving out the ones you
- *  keep skipping. Your history is every play Most played counts: Last.fm's scrobbles, your Spotify
+ *  in months, and new ones like yours (Tidal's and YouTube Music's radios). Skips don't keep a song out
+ *  (you may just not be in the mood for it): they're only counted, for the DJ to tell you about. Your history is every play Most played counts: Last.fm's scrobbles, your Spotify
  *  and Apple Music imports, and the plays here. "Switch it up" starts another kind of set, and you can
  *  ask for one: an artist, a genre, a decade or a vibe. Building a set
  *  blocks (run it in [Music.bg]); [Music] plays them. */
 object Dj {
     const val SET = 6   // songs in a set
-    val ORDER = listOf("repeat", "fresh", "hour", "throwback", "discover", "mood", "deep", "rediscover", "fresh", "favorites", "genre", "like", "discover", "moodmix")
+    val ORDER = listOf("repeat", "fresh", "hour", "throwback", "discover", "mood", "spotlight", "deep", "rediscover", "yearago", "fresh",
+        "favorites", "album", "genre", "decade", "like", "neverskip", "discover", "streak", "onehit", "moodmix", "second", "unreleased")
     /** Playing from songs you picked (a playlist, a folder, an album): sets of only those. */
     val FROM_ORDER = listOf("loved", "unplayed", "hour", "mood", "artist", "throwback", "mix")
     // …and with new songs too: sets of new ones like them in between.
@@ -27,7 +28,9 @@ object Dj {
         "genre" to "Your genre", "like" to "More like this", "ask" to "You asked", "loved" to "Your favourites",
         "unplayed" to "Not played yet", "artist" to "One artist", "mix" to "Mix", "hour" to "This time of day",
         "rediscover" to "Rediscover", "favorites" to "Your favourites", "discover" to "Artists for you", "mood" to "Your mood",
-        "moodmix" to "Mood mix")
+        "moodmix" to "Mood mix", "spotlight" to "Artist spotlight", "album" to "Album moment", "yearago" to "On this day",
+        "decade" to "Decade trip", "onehit" to "One-hit wonders", "neverskip" to "Never skipped", "second" to "Second chances",
+        "unreleased" to "Unreleased corner", "streak" to "Streaks")
     /** Words in a request and the Last.fm tags they mean. */
     val WORDS = mapOf(
         "chill" to listOf("chill", "chillout"), "chilled" to listOf("chill", "chillout"), "relax" to listOf("chill", "relaxing"),
@@ -108,7 +111,35 @@ object Dj {
         if (h in 5..11) "Good morning" else if (h in 12..16) "Good afternoon" else if (h in 17..22) "Good evening" else "Hey, night owl"
 
     /** The DJ's hello on the first set, for the time of day, a different one each time. */
-    fun hello(h: Int = LocalTime.now().hour): String =
+    fun hello(h: Int = LocalTime.now().hour): String = dayHello(h) ?: hourHello(h)
+
+    /** Half the time on a day with a feel of its own (Friday night, the weekend, Monday morning), a hello for it. */
+    private fun dayHello(h: Int): String? {
+        if (Random.nextBoolean()) return null
+        val d = java.time.LocalDate.now().dayOfWeek
+        return when {
+            d == java.time.DayOfWeek.FRIDAY && h in 17..23 -> say("hello-friday",
+                "Happy Friday night! It's your DJ, and the weekend starts right now.",
+                "It's Friday night, and your DJ is here. Let's make it a good one.",
+                "Friday night, finally. Your DJ here, with the music to match.")
+            (d == java.time.DayOfWeek.SATURDAY || d == java.time.DayOfWeek.SUNDAY) && h in 6..12 -> say("hello-weekend-morning",
+                "Happy ${if (d == java.time.DayOfWeek.SATURDAY) "Saturday" else "Sunday"}! It's your DJ. No alarms, just music.",
+                "Weekend morning, no rush. Your DJ here, taking it easy with you.",
+                "Good morning, and happy weekend. It's your DJ.")
+            d == java.time.DayOfWeek.SATURDAY && h in 17..23 -> say("hello-saturday-night",
+                "Saturday night! Your DJ is here and ready.",
+                "It's Saturday night. Your DJ here. Let's turn it up.")
+            d == java.time.DayOfWeek.SUNDAY && h in 17..23 -> say("hello-sunday-night",
+                "Sunday evening, the calm before the week. Your DJ here.",
+                "Hey, it's Sunday night. Your DJ, here to stretch the weekend out a little longer.")
+            d == java.time.DayOfWeek.MONDAY && h in 5..11 -> say("hello-monday",
+                "Good morning, and happy Monday. It's your DJ. We've got this.",
+                "Monday morning. Your DJ here, to make it a little easier.")
+            else -> null
+        }
+    }
+
+    private fun hourHello(h: Int): String =
         if (h in 5..11) say("hello-morning",
             "Good morning! It's your DJ, and I've got your soundtrack ready.",
             "Morning! Your DJ here. Let's ease into the day.",
@@ -182,7 +213,10 @@ object Dj {
         val t = now()
         val usable = order.distinct().filter { t - (dead["$key:$it"] ?: -1e12) > 600 }
         val w = NoRepeat.window(NO_REPEAT, usable.size, 2)
-        var tries = NoRepeat.order(order.filter { it in usable }, said(key), w) + order.distinct().filter { it !in usable }
+        // Kinds you've heard less of lately are likelier: one played none of the last 40 sets counts three times over
+        val h = said(key)
+        val boosted = order.filter { it in usable }.flatMap { k -> val n = h.count { it == k }; List(if (n == 0) 3 else if (n <= 1) 2 else 1) { k } }
+        var tries = NoRepeat.order(boosted, h, w) + order.distinct().filter { it !in usable }
         if (avoid != null) tries = tries.filter { it != avoid } + tries.filter { it == avoid }
         return tries
     }
@@ -194,25 +228,63 @@ object Dj {
     // ---- what you like ----
     /** all: your most played songs of all time; recent: of the last 30 days; hour: what you play around this
      *  hour; years: each year's most played; last: when you last played each song (stats key); artists: the
-     *  ones you've played most lately; skipped: songs you keep skipping; moods: the moods (Moods) of what you played
+     *  ones you've played most lately; moods: the moods (Moods) of what you played
      *  in the last 30 days, and moodHour of what you play around this hour, each with how many plays. */
     private class Taste(val mine: Map<Pair<String, String>, Track>, val recent: List<Track>, val all: List<Track>,
                         val artists: List<String>, val last: Map<Pair<String, String>, Long>,
                         val hour: List<Track> = emptyList(), val years: Map<Int, List<Track>> = emptyMap(),
-                        val skipped: Set<Pair<String, String>> = emptySet(), val facts: Facts = Facts(),
+                        val facts: Facts = Facts(),
                         val moods: Map<String, Int> = emptyMap(), val moodHour: Map<String, Int> = emptyMap(),
-                        val moodPlays: List<MoodPlay> = emptyList())
+                        val moodPlays: List<MoodPlay> = emptyList(),
+                        val dayAgo: Map<Int, List<Track>> = emptyMap(), val streak: List<Pair<Track, Int>> = emptyList())
 
     /** What the DJ knows to tell you about: every song's plays and first play, your artists all told and this month,
      *  the hours you listen at, how many plays in all, each year's number one and plays, the moods of this month's plays. */
     private class Facts(val count: Map<Pair<String, String>, Int> = emptyMap(), val first: Map<Pair<String, String>, Long> = emptyMap(),
                         val artistAll: Map<String, Int> = emptyMap(), val artistMonth: Map<String, Int> = emptyMap(),
                         val hours: IntArray = IntArray(24), val total: Int = 0, val yearTop: Map<Int, Pair<Heard, Int>> = emptyMap(),
-                        val since: Long = 0, val moodMonth: Map<String, Int> = emptyMap(), val yearPlays: Map<Int, Int> = emptyMap())
+                        val since: Long = 0, val moodMonth: Map<String, Int> = emptyMap(), val yearPlays: Map<Int, Int> = emptyMap(),
+                        val artistFirst: Map<String, Long> = emptyMap(), val monthPlays: Int = 0)
 
     private var taste: Taste? = null
     private var tasteAt = 0.0
-    val used: MutableSet<Pair<String, String>> = ConcurrentHashMap.newKeySet()   // song keys the DJ has played since the app started
+    /** How many sets go by before a song the DJ played can come back: in the meantime every set (a mood, This time
+     *  of day, your favourites…) takes another song of its kind in its place. */
+    const val SONG_GAP = 20
+    private const val RECENT_SETS = "dj_recent_sets"
+    private val recentLock = Any()
+    private var recentSets: ArrayDeque<List<String>>? = null   // the last SONG_GAP sets' songs, oldest first ("title|artist")
+
+    /** Song keys of what the DJ played in its last [SONG_GAP] sets (kept across restarts): never picked again till then. */
+    @Volatile var used: Set<Pair<String, String>> = emptySet()
+        private set
+
+    private fun recent(): ArrayDeque<List<String>> = recentSets ?: ArrayDeque<List<String>>().also { q ->
+        Prefs.text(RECENT_SETS).split('\u0001').filter { it.isNotBlank() }.forEach { set -> q += set.split('\n').filter { it.isNotBlank() } }
+        while (q.size > SONG_GAP) q.removeFirst()
+        recentSets = q
+        used = q.flatten().map { it.substringBeforeLast('|') to it.substringAfterLast('|') }.toHashSet()
+    }
+
+    /** A set the DJ is about to play: its songs (keys) can't come back for [SONG_GAP] sets. */
+    fun played(keys: Collection<Pair<String, String>>) {
+        val text = synchronized(recentLock) {
+            val q = recent()
+            q += keys.map { "${it.first}|${it.second}" }.distinct()
+            while (q.size > SONG_GAP) q.removeFirst()
+            used = q.flatten().map { it.substringBeforeLast('|') to it.substringAfterLast('|') }.toHashSet()
+            q.joinToString("\u0001") { it.joinToString("\n") }
+        }
+        Prefs.setText(RECENT_SETS, text)
+    }
+
+    /** Song keys of the last n sets. */
+    private fun usedInLast(n: Int): Set<Pair<String, String>> = synchronized(recentLock) {
+        recent().toList().takeLast(n).flatten().map { it.substringBeforeLast('|') to it.substringAfterLast('|') }.toHashSet()
+    }
+
+    /** (on starting) What the last sets played, read in. */
+    fun loadRecent() { synchronized(recentLock) { recent() } }
     @Volatile var scope: Pair<String, List<Track>>? = null   // (name, songs) the DJ plays from; null: everything
         private set
 
@@ -225,22 +297,22 @@ object Dj {
 
     private data class Heard(val t: Long, val artist: String, val title: String)
 
-    /** (blocking) Every play Most played counts: your Last.fm scrobbles (else the plays here) and your imports. */
+    /** (blocking) Every play the DJ goes by: your Last.fm scrobbles and your imports; the plays here only without any. */
     private fun history(): List<Heard> {
+        // Last.fm's scrobbles and your imports (Spotify, Apple Music, Deezer, YouTube Music, Tidal): what every count,
+        // set and fact is made from. The plays here only when there's none of those at all (a fallback).
         val out = ArrayList<Heard>()
         if (LastFm.connected) runCatching { Wrapped.allScrobbles(Music.ctx).forEach { out += Heard(it.t, it.artist, it.title) } }
-        // The plays here, always (they're the DJ's own diary of when you played what): with Last.fm on too, only the ones
-        // Last.fm hasn't got, so none counts twice. They never count in Most played or your stats.
-        val near = HashSet<Pair<Pair<String, String>, Long>>()
-        out.forEach { near += Stats.statsKey(it.title, it.artist) to it.t / 900 }
-        for (e in Music.plays.items.values.toList()) for (x in e.at) {
-            val k = Stats.statsKey(e.track.title, e.track.artist)
-            if ((k to x / 900) in near || (k to x / 900 - 1) in near || (k to x / 900 + 1) in near) continue
-            out += Heard(x, e.track.artist, e.track.title)
-        }
         for (p in SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()) out += Heard(p.t, p.artist, p.title)
+        if (out.isEmpty()) out += herePlays()
         return out
     }
+
+    /** The plays here (the app's own diary of when you played what). */
+    private fun herePlays(): List<Heard> = runCatching {
+        Music.plays.items.values.toList().flatMap { e -> e.at.map { Heard(it, e.track.artist, e.track.title) } }
+    }.getOrDefault(emptyList())
+
 
     /** (blocking) Every play (Last.fm, your imports, the plays here) of a song of yours whose mood is known, oldest
      *  first, read again every ten minutes. See [MoodPlays]. */
@@ -282,6 +354,13 @@ object Dj {
         val moodPlays = ArrayList<MoodPlay>()
         val moodMonth = HashMap<String, Int>()
         val moodHour = HashMap<String, Int>()
+        // On this day in past years (within three days), the days of the last week each song was played on, each
+        // artist's first play, and this calendar month's plays
+        val today = java.time.LocalDate.now(zone)
+        val dayAgo = HashMap<Int, HashMap<Pair<String, String>, Int>>()
+        val days = HashMap<Pair<String, String>, HashSet<Long>>()
+        val artistFirst = HashMap<String, Long>()
+        var monthPlays = 0
         for (p in history()) {
             if (p.t <= 0) continue
             total++
@@ -300,6 +379,13 @@ object Dj {
             val lead = p.artist.split(",")[0].trim()
             if (lead.isNotEmpty()) { artistAll.merge(lead, 1, Int::plus); if (age < 30 * 86_400L) artistMonth.merge(lead, 1, Int::plus) }
             hours[at.hour]++
+            val d = at.toLocalDate()
+            val ya = today.year - d.year
+            if (ya in 1..15 && kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(d.plusYears(ya.toLong()), today)) <= 3)
+                dayAgo.getOrPut(ya) { HashMap() }.merge(k, 1, Int::plus)
+            if (age < 7 * 86_400L) days.getOrPut(k) { HashSet() } += d.toEpochDay()
+            if (lead.isNotEmpty()) artistFirst[lead] = minOf(artistFirst[lead] ?: Long.MAX_VALUE, p.t)
+            if (d.year == today.year && d.month == today.month) monthPlays++
             val mood = moodOf.getOrPut(k) { mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
             if (mood != null) {
                 moodPlays += MoodPlay(p.t, mood, "${k.first}\t${k.second}")
@@ -307,27 +393,44 @@ object Dj {
                 if (age < 365 * 86_400L && Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1) moodHour.merge(mood, 1, Int::plus)
             }
         }
+        // All time, an artist's and a song's plays are Most played's (Stats): Last.fm and your Spotify, Apple Music,
+        // Deezer, YouTube Music and Tidal imports (with or without a time), an artist's under one name. The plays here
+        // only count when there's nothing from those at all.
+        val anyOutside = Stats.artists.any { it.plays > it.here }
+        fun outside(all: Int, here: Int) = if (anyOutside) all - here else all
+        if (Stats.artists.isNotEmpty()) { artistAll.clear(); Stats.artists.forEach { val n = outside(it.plays, it.here); if (n > 0) artistAll.merge(it.name, n, Int::plus) } }
+        val statSongs = HashMap<Pair<String, String>, Int>()
+        Stats.songs.forEach { statSongs.merge(Stats.statsKey(it.title, it.artist), outside(it.plays, it.here), Int::plus) }
+        statSongs.forEach { (k, n) -> if (n > (count[k] ?: 0)) count[k] = n }
+        // When you last played a song: the plays here too (not counted anywhere), so one you played a minute ago,
+        // before Last.fm has it, isn't picked again straight away
+        for (p in herePlays()) { val k = Stats.statsKey(p.title, p.artist); if (p.t > (last[k] ?: 0L)) last[k] = p.t }
         val yearTop = years.mapNotNull { (y, c) -> c.maxByOrNull { it.value }?.let { (k, n) -> y to (names.getValue(k) to n) } }.toMap()
         val facts = Facts(count, first, artistAll, artistMonth, hours, total, yearTop, if (since == Long.MAX_VALUE) 0 else since, moodMonth,
-            years.mapValues { it.value.values.sum() })
+            years.mapValues { it.value.values.sum() }, artistFirst, monthPlays)
         fun songs(c: Map<Pair<String, String>, Int>, n: Int) = c.entries.sortedByDescending { it.value }.take(n)
             .map { (k, v) -> val p = names.getValue(k); Music.fmSong(p.title, p.artist, "", mine).copy(plays = v) }
-        var all = runCatching { Music.mostPlayed().take(300) }.getOrDefault(emptyList())
-        if (all.isEmpty()) all = Music.plays.items.values.sortedByDescending { it.plays }.take(300).map { it.track.copy(plays = it.plays) }
+        // Every song: all you've played, most played first, then every song of yours you haven't played yet
+        var all = runCatching { Music.mostPlayed() }.getOrDefault(emptyList())
+        if (all.isEmpty()) all = Music.plays.items.values.sortedByDescending { it.plays }.map { it.track.copy(plays = it.plays) }
+        val inAll = all.mapTo(HashSet()) { songKey(it) }
+        all = all + runCatching { Music.mySongs() }.getOrDefault(emptyList()).filter { inAll.add(songKey(it)) }
         var top = artists.entries.sortedByDescending { it.value }.map { it.key }.filter { it.isNotEmpty() }.take(20)
         val rec = songs(recent, 60)
         if (top.isEmpty()) top = (rec + all).map { it.artist.split(",")[0].trim() }.filter { it.isNotEmpty() }
             .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(20).map { it.key }
-        // Skipped more often than heard out, three times or more: left out of the DJ's sets.
-        val skipped = runCatching { Music.songStats.rows().filter { (_, n, f) -> n >= 3 && n > f }
-            .flatMap { (t, _, _) -> listOf(songKey(t), Stats.statsKey(t.title, t.artist)) }.toSet() }.getOrDefault(emptySet())
-        return Taste(mine, rec, all, top, last, songs(hour, 80),
-            years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, skipped, facts, moodMonth, moodHour,
-            moodPlays.sortedBy { it.t }).also { taste = it; tasteAt = now() }
+        val streak = days.filter { it.value.size >= 4 }.entries.sortedByDescending { it.value.size * 1000 + (recent[it.key] ?: 0) }.take(40)
+            .map { (k, ds) -> val p = names.getValue(k); Music.fmSong(p.title, p.artist, "", mine).copy(plays = count[k] ?: 0) to ds.size }
+        return Taste(mine, rec, all, top, last, songs(hour, 120),
+            years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, facts, moodMonth, moodHour,
+            moodPlays.sortedBy { it.t }, dayAgo.filter { it.value.values.sum() >= 8 }.mapValues { songs(it.value, 40) }, streak).also { taste = it; tasteAt = now() }
     }
 
     private fun lastPlayed(taste: Taste, t: Track) = taste.last[Stats.statsKey(t.title, t.artist)] ?: 0L
-    private fun ok(taste: Taste, pool: List<Track>) = pool.filter { songKey(it) !in taste.skipped && Stats.statsKey(it.title, it.artist) !in taste.skipped }
+    /** The songs of a pool the DJ may play: all of them. Skips never keep a song out of its sets (you may just not
+     *  be in the mood for it); they're only counted, for Skips and the DJ's facts. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun ok(taste: Taste, pool: List<Track>) = pool
     private fun newToYou(t: Track, known: Set<Pair<String, String>>) = songKey(t) !in known && Stats.statsKey(t.title, t.artist) !in known
 
     private fun known(taste: Taste): Set<Pair<String, String>> = taste.mine.keys + taste.all.map { songKey(it) } + taste.last.keys
@@ -353,7 +456,10 @@ object Dj {
             "Your heavy rotation, coming right up. First, ${q(s)}.",
             "These are the songs you can't stop playing. Honestly? I get it.",
             "On repeat, and for good reason. ${names(songs, 3)}. Sing along, nobody's listening.",
-            "If it's been stuck in your head lately, it's probably in this set. ${q(s)} kicks it off.")
+            "If it's been stuck in your head lately, it's probably in this set. ${q(s)} kicks it off.",
+            "Your current obsessions, all in one place. ${q(s)} leads the way.",
+            "You've worn these out lately, and I'm not about to stop you. ${q(s)} first.",
+            "The songs living rent free in your head right now. Starting with ${q(s)} by ${by(s)}.")
     }
 
     /** A year you played something to death: that year's most played, the ones you haven't played in two months. */
@@ -362,7 +468,7 @@ object Dj {
         val thisYear = java.time.LocalDate.now().year
         for (y in taste.years.keys.filter { it < thisYear }.shuffled()) {
             val pool = ok(taste, taste.years.getValue(y)).filter { t - lastPlayed(taste, it) > 60 * 86_400L }
-            val songs = pick(pool.take(40), SET, used)
+            val songs = pick(pool.take(80), SET, used)
             if (songs.size < 3) continue
             val s = songs[0]
             val n = num(s.plays)
@@ -371,12 +477,16 @@ object Dj {
                     "Let's take it back to $y, when ${q(s)} was basically your whole personality. $n plays, to be exact.",
                     "Remember $y? You had ${q(s)} on replay, $n times.",
                     "The time machine is warmed up. Destination, $y, and ${q(s)}, which you played $n times.",
-                    "A quick trip back to $y. ${q(s)} was on constant rotation back then, with $n plays.")
+                    "A quick trip back to $y. ${q(s)} was on constant rotation back then, with $n plays.",
+                    "Back to $y we go. ${q(s)} got $n plays from you that year. Let's make it one more.",
+                    "If $y had a theme song for you, it was ${q(s)}. $n plays!")
                 else say("throwback",
                     "Throwback to $y, starting with ${q(s)} by ${by(s)}.",
                     "Going back to $y now, with the songs you were into back then.",
                     "Let's dust off $y. Starting with ${q(s)}.",
-                    "Remember $y? These were your songs.")
+                    "Remember $y? These were your songs.",
+                    "Flashback time: $y. ${names(songs, 3)}.",
+                    "A little nostalgia never hurt. Here's your $y, starting with ${q(s)}.")
         }
         return null
     }
@@ -385,8 +495,8 @@ object Dj {
     private fun setRediscover(taste: Taste): Pair<List<Track>, String>? {
         val t = now().toLong()
         val recent = taste.recent.map { songKey(it) }.toSet()
-        val pool = ok(taste, taste.all).filter { songKey(it) !in recent && t - lastPlayed(taste, it) > 90 * 86_400L }
-        val songs = pick(pool.take(120), SET, used)
+        val pool = ok(taste, taste.all).filter { it.plays >= 3 && songKey(it) !in recent && t - lastPlayed(taste, it) > 90 * 86_400L }
+        val songs = pick(pool, SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
         val since = lastPlayed(taste, s).takeIf { it > 0 }?.let { "since ${month(it)}" } ?: "in ages"
@@ -396,12 +506,15 @@ object Dj {
             "Some old favourites you haven't heard $since. Starting with ${q(s)}.",
             "Let's dig up a few you used to love. You haven't played ${q(s)} $since.",
             "Here's one that's been gathering dust. ${q(s)}, $times plays, and nothing $since.",
-            "Rediscovery time! These used to be big for you, starting with ${q(s)} by ${by(s)}.")
+            "Rediscovery time! These used to be big for you, starting with ${q(s)} by ${by(s)}.",
+            "Long time no hear. ${q(s)} by ${by(s)}, not played $since.",
+            "From the back of the shelf: ${q(s)}. You loved it once, $times plays, but not $since.",
+            "Let's bring back a few you forgot about. ${q(s)} first.")
     }
 
     /** What you usually play around this hour. */
     private fun setHour(taste: Taste): Pair<List<Track>, String>? {
-        val songs = pick(ok(taste, taste.hour.take(40)), SET, used)
+        val songs = pick(ok(taste, taste.hour.take(60)), SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
         val h = LocalTime.now().hour
@@ -413,7 +526,10 @@ object Dj {
             "I've noticed what you like $whenText. Starting with ${q(s)}.",
             "Right on schedule. These are your go to songs $whenText.",
             "Your $part regulars are here, led by ${q(s)} by ${by(s)}.",
-            "Same time, same vibe. ${names(songs, 3)}, just how you like it $whenText.")
+            "Same time, same vibe. ${names(songs, 3)}, just how you like it $whenText.",
+            "Clockwork. Around now you usually reach for ${q(s)}, so here it is.",
+            "Your $part soundtrack, as usual. ${names(songs, 3)}.",
+            "I know what time it is. ${q(s)} time.")
     }
 
     /** The moods you've been in: what you've played lately, and what you play around this hour counted double; a
@@ -446,12 +562,14 @@ object Dj {
                 "You're usually in a $adj mood $whenText, so here's more of that, starting with ${q(s)}.",
                 "Something $adj, like you usually go for $whenText: ${names(songs, 3)}.",
                 "Around this time you tend to go $adj. I'm not judging, I'm matching. ${q(s)} first.",
-                "${adj.replaceFirstChar { it.uppercase() }} $whenText? That's your thing. Here's ${q(s)} by ${by(s)}.")
+                "${adj.replaceFirstChar { it.uppercase() }} $whenText? That's your thing. Here's ${q(s)} by ${by(s)}.",
+                "You lean $adj $whenText, so I'll lean with you. ${q(s)} first.")
             else say("mood",
                 "Lately you've been in a $adj mood. Let's keep it going with ${q(s)} by ${by(s)}.",
                 "You've been playing a lot of $adj songs lately, so here are a few more: ${names(songs, 3)}.",
                 "I'm picking up a $adj vibe from you lately. Here's ${q(s)} to match.",
-                "Feeling $adj? Your recent plays say yes. ${q(s)} is up first.")
+                "Feeling $adj? Your recent plays say yes. ${q(s)} is up first.",
+                "Your recent plays have a $adj feel to them. Let's keep that going with ${names(songs, 3)}.")
     }
 
     // ---- Mood mix: one mood at a time, a different one each time ----
@@ -587,7 +705,9 @@ object Dj {
             "Straight from your favourites: ${names(songs, 3)}. You starred these for a reason.",
             "Only the best now, your starred songs. Starting with ${q(s)}.",
             "You gave these a star, so I'm giving them the spotlight. ${q(s)} first.",
-            "Favourites time. No skips needed, ${q(s)} leads the way.")
+            "Favourites time. No skips needed, ${q(s)} leads the way.",
+            "The ones you saved for a reason. ${q(s)} by ${by(s)} first.",
+            "All killer, no filler. Your favourites, starting with ${q(s)}.")
     }
 
     private fun setFresh(taste: Taste): Pair<List<Track>, String>? {
@@ -608,7 +728,10 @@ object Dj {
             "Here's some music you haven't heard yet, because you've been playing $from.",
             "Fresh finds, inspired by $from. Skip if they're not for you, I won't take it personally.",
             "New music alert. If you like $from, these should feel right at home.",
-            "Let's try something new. I went looking for songs like $from, and I think I found some gems.")
+            "Let's try something new. I went looking for songs like $from, and I think I found some gems.",
+            "New songs incoming. You've been playing $from, so these are for you.",
+            "I went digging for new stuff in the world of $from. Here's what I found.",
+            "Ready for something you've never heard? Inspired by $from.")
     }
 
     private fun setDeep(taste: Taste): Pair<List<Track>, String>? {
@@ -622,7 +745,9 @@ object Dj {
                 "You play a lot of $who, but have you heard these? Let's go deeper.",
                 "You know the hits from $who. Now for the ones only real fans know.",
                 "Beyond the big ones. Here's the $who you haven't heard yet.",
-                "Time to dig into the $who catalogue. Trust me, there's treasure in here.")
+                "Time to dig into the $who catalogue. Trust me, there's treasure in here.",
+                "Let's go past the singles. More $who, all new to you.",
+                "There's more to $who than the songs you know. Here's proof.")
         }
         return null
     }
@@ -644,7 +769,9 @@ object Dj {
             "Some $tag, since you've been playing $a so much.",
             "You've had $a on a lot lately, so let's lean into some $tag.",
             "A little $tag for you. If you like $a, you'll feel right at home.",
-            "Genre of the moment: $tag. Blame $a for this one.")
+            "Genre of the moment: $tag. Blame $a for this one.",
+            "Since $a is on your mind, let's explore some more $tag.",
+            "A detour into $tag, courtesy of $a.")
     }
 
     /** Radio of what's playing (or, when no service has one of it, of a song you play a lot). */
@@ -657,7 +784,9 @@ object Dj {
                 "If you liked ${q(seed)}, you'll like where this is going.",
                 "Let's stay in the world of ${q(seed)}, with a few songs that sound just like it.",
                 "Riffing on ${q(seed)} now. Same energy, new songs.",
-                "Inspired by ${q(seed)} by ${by(seed)}. Let's ride this wave.")
+                "Inspired by ${q(seed)} by ${by(seed)}. Let's ride this wave.",
+                "${q(seed)} started something. Here's more in that vein.",
+                "Same lane as ${q(seed)}, new songs. Let's go.")
         }
         return null
     }
@@ -676,7 +805,8 @@ object Dj {
                 "Some $name from your music, since you've been playing a lot of it lately.",
                 "You've been on a real $name kick lately. Here's more from your own collection.",
                 "Let's dig through your $name, starting with ${q(songs[0])}.",
-                "Your music, your genre. A little $name, coming up.")
+                "Your music, your genre. A little $name, coming up.",
+                "A $name run, straight from your library.")
         }
         return null
     }
@@ -733,12 +863,40 @@ object Dj {
         val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
         val heard = rows.associate { songKey(it.first) to (it.second to it.third) }
         val allRank = taste.all.withIndex().associate { songKey(it.value) to it.index }
-        val artistRank = f.artistAll.entries.sortedByDescending { it.value }.take(5).withIndex().associate { it.value.key to (it.index + 1 to it.value.value) }
+        val artistRank = f.artistAll.entries.sortedByDescending { it.value }.take(5).withIndex().associate { it.value.key.lowercase() to (it.index + 1 to it.value.value) }
+        // A milestone coming up (a song's 100th play…) is always told
+        for (s in next.take(4)) {
+            val n = (f.count[Stats.statsKey(s.title, s.artist)] ?: 0) + 1
+            if (n in MILESTONES) {
+                val key = "milestone:${songKey(s)}:$n"
+                if (key !in said(FACT_HISTORY)) {
+                    remember(FACT_HISTORY, key)
+                    return@runCatching say("fact-milestone",
+                        "Milestone alert! Coming up is your ${num(n)}th play of ${q(s)}. Let's celebrate.",
+                        "Big one in this set: ${q(s)} hits ${num(n)} plays. Congratulations to you both.",
+                        "Get ready, ${q(s)} is about to reach ${num(n)} plays. That's a milestone.")
+                }
+            }
+        }
+        val topMood = f.moodMonth.maxByOrNull { it.value }?.takeIf { it.value >= 15 }?.key
+        val streakDays = taste.streak.associate { songKey(it.first) to it.second }
+        val yearAgo = taste.dayAgo[1].orEmpty().map { songKey(it) }.toSet()
         // The songs coming up
         for (s in next.take(4)) {
             val k = Stats.statsKey(s.title, s.artist)
             val id = "${k.first}|${k.second}"
             val n = f.count[k] ?: 0
+            streakDays[songKey(s)]?.let { d -> out["streak:$id"] = "You've played ${q(s)} on $d of the last seven days. That's a streak, and I'm keeping it alive." }
+            if (songKey(s) in yearAgo) out["year-ago:$id"] = "One year ago this week, you were playing ${q(s)} too. Some things never change."
+            if (topMood != null && runCatching { Moods.of(s) }.getOrNull() == topMood)
+                out["mood-next:$id"] = "${q(s)} is a ${Moods.adjective(topMood)} one, which fits, since that's been your mood this month."
+            s.artist.split(",")[0].trim().takeIf { it.isNotEmpty() }?.let { a ->
+                f.artistFirst[a]?.let { t ->
+                    val m = f.artistMonth[a] ?: 0
+                    if (nowS - t > 3 * 365 * 86_400L) out["artist-since:$a"] = "You've been listening to $a since ${month(t)}. That's loyalty."
+                    else if (nowS - t < 30 * 86_400L && m >= 10) out["artist-new:$a"] = "You only found $a this month, and you've already played them ${num(m)} times."
+                }
+            }
             val dur = s.duration.takeIf { it > 0 } ?: taste.mine[songKey(s)]?.duration ?: 0.0
             if (n >= 8 && dur > 0) {
                 val h = n * dur / 3600
@@ -759,7 +917,7 @@ object Dj {
                     else "${q(s)} is one of your top ten songs of all time. Number ${ordinal(i + 1)}, in fact."
             }
             val lead = s.artist.split(",")[0].trim()
-            artistRank[lead]?.takeIf { it.second >= 20 }?.let { (r, plays) ->
+            artistRank[lead.lowercase()]?.takeIf { it.second >= 20 }?.let { (r, plays) ->
                 out["artist-rank:$lead"] = if (r == 1) "$lead is your number one artist of all time, with ${num(plays)} plays. Of course they made the set."
                     else "$lead is number ${ordinal(r)} on your all time artist list, with ${num(plays)} plays."
             }
@@ -799,6 +957,12 @@ object Dj {
             if (night >= 10) out["night-share"] = "About $night percent of your listening happens after midnight. Night owl, confirmed."
             if (early >= 25) out["morning-share"] = "About $early percent of your music happens before 10 AM. Early bird energy."
         }
+        if (f.monthPlays >= 100) out["month-plays"] = say("fact-month-plays",
+            "You've played ${num(f.monthPlays)} songs so far this month. Busy ears.",
+            "${num(f.monthPlays)} plays this month and counting. I'm keeping track.")
+        f.artistFirst.entries.filter { nowS - it.value < 30 * 86_400L && (f.artistMonth[it.key] ?: 0) >= 15 }.maxByOrNull { f.artistMonth[it.key] ?: 0 }?.let { (a, _) ->
+            out["new-artist-month"] = "Your big discovery this month? $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them."
+        }
         if (f.total >= 1000) out["total-plays"] = "I've counted ${num(f.total)} plays of yours. That's a lot of music."
         val years = (nowS - f.since) / (365 * 86_400L)
         if (f.since > 0 && years >= 2) out["since"] = "Your listening history goes back to ${month(f.since)}. That's over ${num(years.toInt())} years of music, and I've been reading all of it."
@@ -812,12 +976,20 @@ object Dj {
         }
         // Skips
         rows.filter { it.second >= 5 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
-            out["most-skipped"] = "The song you skip the most is ${q(t)}, with ${num(sk)} skips. Don't worry, I'm keeping it out of my sets."
+            out["most-skipped"] = "The song you skip the most is ${q(t)}, with ${num(sk)} skips. No hard feelings though, it stays in the mix for when the mood is right."
         }
         rows.filter { it.second == 0 }.maxByOrNull { it.third }?.takeIf { it.third >= 15 }?.let { (t, _, full) ->
             out["never-skipped"] = "You've never skipped ${q(t)}. ${num(full)} times, start to finish."
         }
         val skips = rows.sumOf { it.second }; val outs = rows.sumOf { it.third }
+        if (skips >= 25) out["skips-all"] = "You've skipped ${num(skips)} songs in all. Don't worry, a skip never keeps a song out of my sets, it just means the mood wasn't right."
+        runCatching { Music.songStats.rows(nowS - 7 * 86_400L) }.getOrNull()?.let { wk ->
+            val n = wk.sumOf { it.second }
+            if (n >= 10) out["skips-week"] = "You've skipped ${num(n)} songs this week. Picky mood lately? That's fine, I'll keep the hits coming."
+            wk.filter { it.second >= 3 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
+                out["skipped-week:${songKey(t)}"] = "This week you skipped ${q(t)} ${num(sk)} times. Not feeling it right now? It'll be back when you are."
+            }
+        }
         if (skips + outs >= 100) out["heard-out"] = "You hear ${outs * 100 / (skips + outs)} percent of songs all the way through. That's commitment."
         val key = NoRepeat.pick(out.keys.toList(), said(FACT_HISTORY), NO_REPEAT) ?: return@runCatching null
         remember(FACT_HISTORY, key)
@@ -960,21 +1132,311 @@ object Dj {
             "Time to find you a new favourite. Meet $both. You play a lot of $like, so trust me on this one.",
             "Fans of $like tend to love $a. Let's see if you do too.",
             "I've got a good feeling about this one. $a, for the $like fan in you.",
-            "New artist alert! Say hello to $both. You can thank $like for this one.")
+            "New artist alert! Say hello to $both. You can thank $like for this one.",
+            "Someone you should know: $a. Big $like energy.",
+            "Let me introduce you to $both. If $like is your thing, you're in for a treat.")
     }
+
+    // ---- more kinds of set (3.2.15) ----
+    private fun leadOf(t: Track) = t.artist.split(",")[0].trim()
+    private fun mySongs(): List<Track> = runCatching { Music.mySongs() }.getOrDefault(emptyList())
+    private fun playsOf(taste: Taste, t: Track) = taste.facts.count[Stats.statsKey(t.title, t.artist)] ?: 0
+
+    // A song file's release year and track number, read from its tags once and kept (dj-tags.txt): for Decade trip and
+    // Album moment. A file read once is never read again.
+    private val tagInfo = ConcurrentHashMap<String, Pair<Int, Int>>()
+    @Volatile private var tagInfoLoaded = false
+    private val tagFile get() = java.io.File(Music.ctx.filesDir, "dj-tags.txt")
+    private fun tagsLoaded() {
+        if (tagInfoLoaded) return
+        tagInfoLoaded = true
+        runCatching { tagFile.readLines().forEach { l ->
+            val p = l.split('\t'); if (p.size == 3) tagInfo[p[0]] = (p[1].toIntOrNull() ?: 0) to (p[2].toIntOrNull() ?: 0) } }
+    }
+    private fun saveTags() = runCatching {
+        tagFile.writeText(tagInfo.entries.joinToString("\n") { "${it.key}\t${it.value.first}\t${it.value.second}" })
+    }
+    /** (year, track number) of your song (0 where its tags don't say), reading its file the first time; null when it
+     *  isn't a file or can't be read. */
+    private fun tagOf(t: Track): Pair<Int, Int>? {
+        val f = t.file ?: return null
+        tagsLoaded()
+        tagInfo[f]?.let { return it }
+        val tags = runCatching { FileTags.read(Music.ctx, f) }.getOrNull() ?: return null
+        val year = Regex("(19|20)\\d\\d").find(tags["date"].orEmpty())?.value?.toIntOrNull() ?: 0
+        val no = trackNo(tags["tracknumber"]).takeIf { it in 1..999 } ?: 0
+        return (year to no).also { tagInfo[f] = it }
+    }
+
+    /** Artist spotlight: one artist you love, a few of their songs you play most and a few you hardly do. */
+    private fun setSpotlight(taste: Taste): Pair<List<Track>, String>? {
+        val byArtist = mySongs().groupBy { norm(leadOf(it)) }
+        val cands = taste.facts.artistAll.entries.sortedByDescending { it.value }.take(25)
+            .filter { (byArtist[norm(it.key)]?.size ?: 0) >= 5 }.shuffled()
+        for ((a, n) in cands.take(4)) {
+            val theirs = byArtist[norm(a)].orEmpty().filter { songKey(it) !in used }.sortedByDescending { playsOf(taste, it) }
+            val hits = pick(theirs.take(10), 3, used)
+            val deep = pick(theirs.drop(10).ifEmpty { theirs.drop(3) }.shuffled(), 2, used + hits.map { songKey(it) })
+            val songs = (hits + deep).distinctBy { songKey(it) }
+            if (songs.size < 4) continue
+            val s = songs[0]
+            return songs to say("spotlight",
+                "Artist spotlight: $a. You've played them ${num(n)} times, so here's a mix of the big ones and a few deeper cuts, starting with ${q(s)}.",
+                "Let's give $a the stage for a few songs. Some favourites, some you don't play as much, and ${q(s)} goes first.",
+                "Spotlight on $a now. ${num(n)} plays tell me you're a fan. Here's ${q(s)}.",
+                "It's a $a moment. The hits, the hidden ones, the lot. Starting with ${q(s)}.",
+                "Five songs, one artist: $a. Let's go, with ${q(s)}.")
+        }
+        return null
+    }
+
+    /** Album moment: three in a row from an album of yours you play a lot, in the album's order. */
+    private fun setAlbum(taste: Taste): Pair<List<Track>, String>? {
+        val groups = mySongs().filter { it.album.isNotBlank() }.groupBy { norm(it.album) + "|" + norm(leadOf(it)) }.values.filter { it.size >= 4 }
+        val ranked = groups.sortedByDescending { g -> g.sumOf { playsOf(taste, it) } }.take(15).shuffled()
+        var read = 0
+        for (g in ranked.take(4)) {
+            val withNo = g.take(30).map { t -> if (read < 40) { read++; t to (tagOf(t)?.second ?: 0) } else t to 0 }
+            if (withNo.count { it.second > 0 } < 3) continue
+            val ordered = withNo.filter { it.second > 0 }.sortedBy { it.second }.map { it.first }
+            // Three in a row, the run you play most (none the DJ played lately)
+            val runs = (0..ordered.size - 3).map { i -> ordered.subList(i, i + 3) }.filter { r -> r.none { songKey(it) in used } }
+            val run = runs.maxByOrNull { r -> r.sumOf { playsOf(taste, it) } + Random.nextInt(20) } ?: continue
+            saveTags()
+            val s = run[0]
+            val album = s.album
+            return run to say("album",
+                "An album moment: three in a row from $album by ${by(s)}, in order, the way it was meant to be heard.",
+                "Let's sit with $album for a bit. Three straight from the record, starting with ${q(s)}.",
+                "Album time. From $album, back to back: ${q(s)} and the two that follow it.",
+                "No shuffling for this one. $album by ${by(s)}, three songs in a row.")
+        }
+        if (read > 0) saveTags()
+        return null
+    }
+
+    /** One year ago today (or two, or five): what you were playing around this date back then. */
+    private fun setYearAgo(taste: Taste): Pair<List<Track>, String>? {
+        for (ya in taste.dayAgo.keys.shuffled()) {
+            val songs = pick(ok(taste, taste.dayAgo.getValue(ya)).take(30), SET, used)
+            if (songs.size < 3) continue
+            val s = songs[0]
+            val ago = if (ya == 1) "One year ago" else "${ordinal(ya).replaceFirstChar { it.uppercase() }} years ago"
+            return songs to say("yearago",
+                "$ago this week, this is what you were listening to. Starting with ${q(s)} by ${by(s)}.",
+                "Flashback to this week, ${ago.lowercase()}. You had ${q(s)} on.",
+                "$ago today, give or take a few days, these were your songs. ${q(s)} first.",
+                "On this week ${ago.lowercase()}: ${names(songs, 3)}. Bring back any memories?")
+        }
+        return null
+    }
+
+    private const val DECADE_HISTORY = "dj_decade_history"
+    /** Decade trip: your songs released in one decade (their files' year), a different decade from last time. */
+    private fun setDecade(taste: Taste): Pair<List<Track>, String>? {
+        val mine = mySongs()
+        if (mine.size < 20) return null
+        tagsLoaded()
+        // What's known already, plus a few more files read each time (so it learns your whole library over time)
+        var read = 0
+        val sample = mine.shuffled().take(400).mapNotNull { t ->
+            val known = t.file?.let { tagInfo[it] }
+            val info = known ?: if (read < 60) { read++; tagOf(t) } else null
+            info?.first?.takeIf { it in 1950..2100 }?.let { t to it / 10 * 10 }
+        }
+        if (read > 0) saveTags()
+        val byDecade = sample.groupBy({ it.second }, { it.first }).filter { it.value.size >= 8 }
+        if (byDecade.isEmpty()) return null
+        val decade = MoodTally.moodOrder(byDecade.keys.map { it.toString() }, said(DECADE_HISTORY)).firstOrNull()?.toIntOrNull()
+            ?: byDecade.keys.random()
+        val songs = pick(ok(taste, byDecade.getValue(decade)).shuffled(), SET, used)
+        if (songs.size < 3) return null
+        remember(DECADE_HISTORY, decade.toString())
+        val d = if (decade < 2000) "the ${decade % 100}s" else "the ${decade}s"
+        val s = songs[0]
+        return songs to say("decade",
+            "Let's take a trip to $d. Everything in this set came out back then, starting with ${q(s)}.",
+            "Decade trip! We're heading to $d with ${q(s)} by ${by(s)}.",
+            "Set the dial to $d. Your music from that decade, starting with ${q(s)}.",
+            "A little time travel: $d, straight from your collection.")
+    }
+
+    /** One-hit wonders of yours: artists you have only a song or two from. */
+    private fun setOneHit(taste: Taste): Pair<List<Track>, String>? {
+        val few = mySongs().groupBy { norm(leadOf(it)) }.values.filter { it.size in 1..2 }.flatten()
+        if (few.size < 6) return null
+        val songs = pick(ok(taste, few).shuffled(), SET, used).distinctBy { norm(leadOf(it)) }
+        if (songs.size < 3) return null
+        val s = songs[0]
+        return songs to say("onehit",
+            "Your one hit wonders: artists you've only got a song or two from. Starting with ${q(s)} by ${by(s)}.",
+            "Some artists only made it into your music once. Here's a few of them, like ${by(s)}.",
+            "The lone stars of your library. One song each, starting with ${q(s)}.",
+            "Single appearances only. ${names(songs, 3)}, each the only one of theirs you have.")
+    }
+
+    /** Never skipped: songs you've always heard to the end. */
+    private fun setNeverSkipped(taste: Taste): Pair<List<Track>, String>? {
+        val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
+        val pool = rows.filter { (_, sk, full) -> sk == 0 && full >= 3 }.sortedByDescending { it.third }
+            .map { (t, _, _) -> taste.mine[songKey(t)] ?: t }
+        val songs = pick(ok(taste, pool).take(80), SET, used)
+        if (songs.size < 3) return null
+        val s = songs[0]
+        return songs to say("neverskip",
+            "Songs you've never skipped. Not once. Starting with ${q(s)}.",
+            "Every one of these, you've always heard to the end. ${q(s)} first.",
+            "Zero skips between them. These are the keepers, starting with ${q(s)} by ${by(s)}.",
+            "Start to finish, every time. Here's ${names(songs, 3)}.")
+    }
+
+    /** Second chances: songs you skip a lot, played in a different set, in case the mood's right this time. */
+    private fun setSecondChance(taste: Taste): Pair<List<Track>, String>? {
+        val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
+        val pool = rows.filter { (_, sk, full) -> sk >= 3 && sk >= full }.map { (t, _, _) -> taste.mine[songKey(t)] ?: t }
+        val songs = pick(ok(taste, pool).shuffled(), SET, used)
+        if (songs.size < 3) return null
+        val s = songs[0]
+        return songs to say("second",
+            "Second chances. These are ones you usually skip, but maybe today's the day. ${q(s)} first.",
+            "Hear me out. You skip these a lot, but I think the mood might be right this time. Starting with ${q(s)}.",
+            "A few songs that never get a fair shot. Let's give ${q(s)} one more try.",
+            "Second chance round. If one still isn't for you, skip away, no hard feelings.")
+    }
+
+    /** Unreleased corner: songs from your Unreleased folders. */
+    private fun setUnreleased(taste: Taste): Pair<List<Track>, String>? {
+        val paths = runCatching { Music.local.paths }.getOrDefault(emptyMap())
+        val pool = mySongs().filter { t -> (paths[t.file ?: ""] ?: t.file ?: "").contains("unreleased", ignoreCase = true) }
+        val songs = pick(ok(taste, pool).shuffled(), SET, used)
+        if (songs.size < 3) return null
+        val s = songs[0]
+        return songs to say("unreleased",
+            "Welcome to the unreleased corner. Songs you won't find anywhere else, starting with ${q(s)}.",
+            "Off the record now. Some unreleased ones from your vault, like ${q(s)} by ${by(s)}.",
+            "From the vault: unreleased tracks only. ${q(s)} first.",
+            "These never came out officially, but they're in your music. Here's ${q(s)}.")
+    }
+
+    /** Listening streaks: songs you've played on most days this past week. */
+    private fun setStreak(taste: Taste): Pair<List<Track>, String>? {
+        val days = taste.streak.associate { songKey(it.first) to it.second }
+        val songs = pick(ok(taste, taste.streak.map { it.first }), SET, used)
+        if (songs.size < 3) return null
+        val s = songs[0]
+        val n = days[songKey(s)] ?: 4
+        return songs to say("streak",
+            "You've played ${q(s)} on $n of the last seven days. That's a streak. Here it is, with a few more you can't put down.",
+            "Streak alert! ${q(s)} has been on almost every day this week. Let's keep it going.",
+            "These are the songs you've played day after day this week, starting with ${q(s)}.",
+            "Every day this week, practically. ${names(songs, 3)}. On a streak, and I'm not stopping it.")
+    }
+
+    // ---- variety, and a mood arc, for every set ----
+    /** How much energy a mood has (1 calm … 10 hype), for a set's arc. */
+    private val ENERGY = mapOf("Calm" to 1, "Sad" to 2, "Dreamy" to 3, "Chill" to 3, "Focus" to 4, "Romantic" to 4, "Dark" to 5,
+        "Happy" to 6, "Energetic" to 8, "Intense" to 8, "Party" to 9, "Hype" to 10)
+
+    /** The set's songs after its first (the one its line names) in an arc by their moods: building up from a calm
+     *  first song, easing down from a loud one, so it flows. Unchanged when few of them have a mood. */
+    private fun arc(songs: List<Track>): List<Track> {
+        if (songs.size < 3) return songs
+        val e = songs.associate { songKey(it) to runCatching { Moods.of(it) }.getOrNull()?.let { m -> ENERGY[m] } }
+        if (e.values.count { it != null } < 3) return songs
+        val known = e.values.filterNotNull().sorted()
+        val mid = known[known.size / 2]
+        val start = e[songKey(songs[0])] ?: mid
+        val rest = songs.drop(1).sortedBy { (e[songKey(it)] ?: mid) * if (start >= 6) -1 else 1 }
+        return listOf(songs[0]) + rest
+    }
+
+    /** No artist twice in a row, and (but for an artist's own sets) at most two of an artist in a set. The first song
+     *  stays first. */
+    private fun spread(songs: List<Track>, cap: Boolean): List<Track> {
+        if (songs.size < 3) return songs
+        val counts = HashMap<String, Int>()
+        val kept = songs.filter { t -> val a = norm(leadOf(t)); val n = (counts[a] ?: 0) + 1; counts[a] = n; !cap || n <= 2 }
+            .let { if (it.size >= minOf(4, songs.size)) it else songs }   // too few left: the set as it was
+        val out = ArrayList<Track>(); val left = kept.toMutableList()
+        out += left.removeAt(0)
+        while (left.isNotEmpty()) {
+            val prev = norm(leadOf(out.last()))
+            val i = left.indexOfFirst { norm(leadOf(it)) != prev }.takeIf { it >= 0 } ?: 0
+            out += left.removeAt(i)
+        }
+        return out
+    }
+
+    // ---- what the DJ says about the time, and between songs ----
+    /** Now and then, a word about the day before a set's line ("Friday night, let's go."), "" most of the time. */
+    private fun timeFlavor(): String {
+        if (Random.nextInt(10) >= 3) return ""
+        val n = java.time.LocalDateTime.now()
+        val h = n.hour
+        return when {
+            n.dayOfWeek == java.time.DayOfWeek.FRIDAY && h >= 17 -> say("t-fri", "It's Friday night. Let's go.", "Friday night, and the weekend starts now.", "Happy Friday!")
+            n.dayOfWeek == java.time.DayOfWeek.SATURDAY -> say("t-sat", "Saturday, no rush.", "It's the weekend, so let's enjoy it.", "Saturday vibes, coming right up.")
+            n.dayOfWeek == java.time.DayOfWeek.SUNDAY && h < 13 -> say("t-sun", "Easy Sunday morning.", "Lazy Sunday? I've got you.", "Sunday mornings are for good music.")
+            n.dayOfWeek == java.time.DayOfWeek.MONDAY && h in 5..11 -> say("t-mon", "Monday morning. Let's ease into the week.", "New week, fresh start.", "Mondays are better with music.")
+            h in 0..3 -> say("t-late", "It's late, but we're still going.", "Past midnight, and the music's still on.", "Late night, keeping you company.")
+            h in 5..7 -> say("t-early", "Early start today.", "Up with the sun, I see.")
+            else -> ""
+        }
+    }
+
+    private val MILESTONES = listOf(25, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000)
+
+    /** (quick: from what's known already, nothing loaded) What the DJ might say before a song in the middle of a set:
+     *  a milestone this play reaches (always), else now and then something about the song (your top ten, never skipped,
+     *  a new obsession, an old friend). Null for nothing. */
+    fun songComment(t: Track): String? = runCatching {
+        val taste = Dj.taste ?: return null
+        val f = taste.facts
+        val k = Stats.statsKey(t.title, t.artist)
+        val n = f.count[k] ?: 0
+        val mk = "milestone:${songKey(t)}:${n + 1}"
+        if (n + 1 in MILESTONES && mk !in said(FACT_HISTORY)) {
+            remember(FACT_HISTORY, mk)
+            return "Big moment: this is your ${num(n + 1)}th play of ${q(t)}. Here's to ${num(n + 1)} more."
+        }
+        if (Random.nextInt(10) >= 3) return null
+        val out = LinkedHashMap<String, String>()
+        val id = songKey(t).toString()
+        taste.all.indexOfFirst { songKey(it) == songKey(t) }.takeIf { it in 0..9 && n >= 10 }?.let { i ->
+            out["c-top:$id"] = if (i == 0) "Your number one song of all time, coming up." else "This one's in your all time top ten. Number ${ordinal(i + 1)}."
+        }
+        Music.songStats.rows().firstOrNull { songKey(it.first) == songKey(t) }?.let { (_, sk, full) ->
+            if (sk == 0 && full >= 8) out["c-never:$id"] = "You've never skipped this one. ${num(full)} times, start to finish."
+        }
+        f.first[k]?.let { first ->
+            val days = ((now().toLong() - first) / 86_400L).toInt()
+            if (days in 1..21 && n >= 5) out["c-crush:$id"] = "You found this one $days days ago and you've played it ${num(n)} times already."
+            if (days >= 730) out["c-old:$id"] = "An old friend: you first played this back in ${month(first)}."
+        }
+        val key = NoRepeat.pick(out.keys.toList(), said(FACT_HISTORY), NO_REPEAT) ?: return null
+        remember(FACT_HISTORY, key)
+        out.getValue(key)
+    }.getOrNull()
+
 
     // ---- playing from songs you picked ----
     /** A set of kind from the songs the DJ plays from, or null. coming: the song keys still to come in the queue. */
     private fun fromSet(kind: String, taste: Taste, coming: Set<Pair<String, String>>): Pair<List<Track>, String>? {
         val (name, pool) = scope ?: return null
         var fresh = pool.filter { songKey(it) !in used }
-        if (fresh.size < minOf(3, pool.size)) {   // all of them played: around again, but not with songs still to come
-            fresh = pool.filter { songKey(it) !in coming }
-            if (fresh.size < minOf(3, pool.size)) fresh = pool
+        // Fewer songs than 20 sets take: the ones played longest ago come back first, never the last few sets' or ones
+        // still to come
+        var gap = SONG_GAP - 1
+        while (fresh.size < minOf(3, pool.size) && gap > 0) {
+            val lately = usedInLast(gap)
+            fresh = pool.filter { songKey(it) !in lately && songKey(it) !in coming }
+            gap--
         }
+        if (fresh.size < minOf(3, pool.size)) fresh = pool.filter { songKey(it) !in coming }.ifEmpty { pool }
+        // Each song's plays: Last.fm's and your imports' (Most played); the plays here only when there are none of those
         val plays = HashMap<Pair<String, String>, Int>()
-        Music.plays.items.values.forEach { plays[songKey(it.track)] = it.plays }
         taste.all.forEach { plays.merge(songKey(it), it.plays) { a, b -> maxOf(a, b) } }
+        if (plays.isEmpty()) Music.plays.items.values.forEach { plays[songKey(it.track)] = it.plays }
         val recent = taste.recent.map { songKey(it) }.toSet()
         val t = now().toLong()
         fresh = ok(taste, fresh).ifEmpty { fresh }
@@ -1073,12 +1535,12 @@ object Dj {
         // A mood ("something chill"): the ones of them with that mood
         Moods.fromWords(text)?.takeIf { words.size <= 2 }?.let { mood ->
             val hits = pool.filter { mood in Moods.all(it) }
-            val songs = pick(hits.filter { songKey(it) !in used }.shuffled() + hits.shuffled(), SET, emptySet())
+            val songs = pick(hits.shuffled(), SET, used)   // none of the last sets' songs: others of the mood in their place
             if (songs.size >= minOf(3, hits.size) && songs.isNotEmpty())
                 return Built("ask", songs, "From $name, something ${Moods.adjective(mood)}: “${songs[0].title}” by ${names(songs.take(1))} first.")
         }
         val hits = pool.filter { t -> val all = norm("${t.title} ${t.artist} ${t.album} ${genreOf(t)}"); words.all { it in all } }
-        val songs = pick(hits.filter { songKey(it) !in used }.shuffled() + hits.shuffled(), SET, emptySet())
+        val songs = pick(hits.shuffled(), SET, used)
         if (songs.isEmpty()) return null
         return Built("ask", songs, "From $name, you asked for ${text.trim()}: “${songs[0].title}” by ${names(songs.take(1))} first.")
     }
@@ -1090,6 +1552,7 @@ object Dj {
     private fun askAny(text: String): Built? {
         val sc = scope ?: return askAll(text)
         askFrom(text)?.let { return it }
+        if (!withNew) return null   // Only my songs: nothing from anywhere else
         return askAll(text)?.let { it.copy(line = "There's nothing like that in ${sc.first}, so from everywhere: ${it.line}") }
     }
 
@@ -1151,6 +1614,7 @@ object Dj {
      *  when no other has. first: the DJ's first set, with its hello. coming: the song keys still to come in the
      *  queue. Null if there are none. */
     fun build(kind: String? = null, avoid: String? = null, first: Boolean = false, coming: Set<Pair<String, String>> = emptySet()): Built? {
+        loadRecent()   // the last sets' songs (kept across restarts), so none comes back too soon
         val taste = loadTaste()
         val sc0 = scope
         val order = if (sc0 != null) (if (withNew) FROM_NEW_ORDER else FROM_ORDER) else ORDER
@@ -1160,7 +1624,7 @@ object Dj {
             val sc = scope
             val got = if (k == "moodmix") setMoodMix(taste, sc?.second)   // one mood, songs you know and new ones
             else if (sc != null && k in setOf("fresh", "like")) {   // new songs, from the ones it plays from
-                val t2 = Taste(taste.mine, sc.second.shuffled().take(20), sc.second, taste.artists, taste.last, skipped = taste.skipped)
+                val t2 = Taste(taste.mine, sc.second.shuffled().take(20), sc.second, taste.artists, taste.last)
                 if (k == "fresh") setFresh(t2) else setLike(t2)
             } else if (sc != null) fromSet(k, taste, coming) else when (k) {
                 "repeat" -> setRepeat(taste)
@@ -1174,6 +1638,15 @@ object Dj {
                 "rediscover" -> setRediscover(taste)
                 "favorites" -> setFavorites(taste)
                 "discover" -> setDiscover(taste)
+                "spotlight" -> setSpotlight(taste)
+                "album" -> setAlbum(taste)
+                "yearago" -> setYearAgo(taste)
+                "decade" -> setDecade(taste)
+                "onehit" -> setOneHit(taste)
+                "neverskip" -> setNeverSkipped(taste)
+                "second" -> setSecondChance(taste)
+                "unreleased" -> setUnreleased(taste)
+                "streak" -> setStreak(taste)
                 else -> null
             }
             if (got == null) {   // can't make one now: tried after the others for a while, and not counted
@@ -1182,11 +1655,14 @@ object Dj {
             }
             dead.remove("$key:$k")
             if (k in order) remember(key, k)   // asked for or picked, it played: kept out of the next few
-            val line = if (first) hello() + " " + got.second else got.second
+            // Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row (nor more
+            // than twice in a set, but for an artist's own set); an album moment stays in the album's order
+            val songs = if (k == "album") got.first else spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover"))
+            val line = if (first) hello() + " " + got.second else timeFlavor().let { if (it.isEmpty()) got.second else "$it ${got.second}" }
             // Now and then (and never on the first set: that has its hello) something the DJ knows about you
-            val fact = if (!first && Random.nextInt(5) < 2) fact(got.first) ?: "" else ""
+            val fact = if (!first && Random.nextInt(5) < 2) fact(songs) ?: "" else ""
             // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
-            return Built(k, Music.localsOf(got.first), line, fact)
+            return Built(k, Music.localsOf(songs), line, fact)
         }
         return null
     }

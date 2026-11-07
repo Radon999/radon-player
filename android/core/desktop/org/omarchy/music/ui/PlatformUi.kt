@@ -441,3 +441,7 @@ fun rememberVoiceInput(onText: (String) -> Unit): (() -> Unit)? {
         }
     }
 }
+
+/** The phone's buttons at the bottom of the screen: none on the PC. */
+@Composable
+fun navBarBottom(): androidx.compose.ui.unit.Dp = 0.dp
