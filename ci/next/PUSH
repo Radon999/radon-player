@@ -1,0 +1,4 @@
+radon-player
+Radon Player 3.2.23: The versions scan never gets stuck
+
+Clean and explicit versions gives each song a time limit, so one slow or damaged file can no longer stop the scan, and Stop works at once.
