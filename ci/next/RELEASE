@@ -1,8 +1,0 @@
-v3.2.20
-Radon Player 3.2.20: The next song right on time
-## 3.2.20: The next song right on time (Windows and Android)
-- **The next song comes as soon as one ends:** on the phone, nearly every song "ran on past its end" (Problems): the music had finished, but the player went on "playing" a second or two of nothing before the next song, and the app had to step in. Two reasons, both fixed. A cover picture kept in the file as a one-frame video (as many downloads have it) held the player going after the sound had ended; the player now takes only the sound. And the app now knows the moment a song's last sound has been played, so it moves on then even if the player is slow to say it's done, without a note in Problems.
-
-### Good to know
-- **Android:** install RadonPlayer-Next.apk over Radon Player Next (same app, same signature: your library, settings and stats stay), or tap Update in Settings.
-- **Windows:** Radon-Player-3.2.20.msi installs over 3.2.19, or use Update in Settings.
