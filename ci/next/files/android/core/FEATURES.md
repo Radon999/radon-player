@@ -73,7 +73,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 ## Lyrics
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
-- **Lyrics card:** Tick up to 15 lines for a picture to share or save. Its **Style** menu has Your look (the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above), Now playing (as the Now playing screen looks, in the cover's colours), 30 ready-made styles, and your own.
+- **Lyrics card:** Tick up to 25 lines for a picture to share or save. Its **Style** menu has Your look (the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above), Now playing (as the Now playing screen looks, in the cover's colours), 30 ready-made styles, and your own.
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
 ## Sound
