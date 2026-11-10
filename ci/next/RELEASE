@@ -1,0 +1,8 @@
+v3.2.22
+Radon Player 3.2.22: Songs play to their real end
+## 3.2.22: Songs play to their real end (Windows and Android)
+- **Songs play to their real end:** the few songs still noted as "ran on past its end" (Problems) were files whose music really runs a second or more longer than their length says. Some MP3s and M4As only estimate their length, and the app cut them off 1.5 seconds past that estimate. Now the app checks whether music is still coming out: if it is, the song plays to its real end, its bar running on with it, and the next song starts then, with no note. Only a song that's really stopped making sound is moved on from.
+
+### Good to know
+- **Android:** install RadonPlayer-Next.apk over Radon Player Next (same app, same signature: your library, settings and stats stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.22.msi installs over 3.2.21, or use Update in Settings.
