@@ -1,0 +1,8 @@
+v3.2.23
+Radon Player 3.2.23: The versions scan never gets stuck
+## 3.2.23: The versions scan never gets stuck (Windows and Android)
+- **Clean and explicit versions never gets stuck:** the scan could stop for good partway through (seen at 2,875 of 3,280), when one song never finished being looked at: a damaged file the tag reader went round and round on, or a lookup that never answered. Each song now gets a time limit (45 seconds, or 6 minutes with Listen on); one that takes longer is left out and the scan goes on, saying how many were left out (Check all again tries them again). Stop now works at once, and the screen shows the song being looked at.
+
+### Good to know
+- **Android:** install RadonPlayer-Next.apk over Radon Player Next (same app, same signature: your library, settings and stats stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.23.msi installs over 3.2.22, or use Update in Settings.
