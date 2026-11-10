@@ -28,6 +28,11 @@ object VersionScan {
     }
 
     val hits = mutableStateListOf<Hit>()
+    /** The song being looked at now, and how many were let go for taking too long (see [start]). */
+    var checking by mutableStateOf<String?>(null)
+        private set
+    var skipped by mutableStateOf(0)
+        private set
     var checked by mutableStateOf(0)
         private set
     var total by mutableStateOf(0)
@@ -69,7 +74,7 @@ object VersionScan {
     fun start(fresh: Boolean = false) {
         if (running) return
         if (!Music.tidal.connected) { error = "Connect Tidal in Settings first: the versions are looked up on Tidal"; return }
-        stop = false; running = true; error = null; hits.clear(); state.clear(); checked = 0
+        stop = false; running = true; error = null; hits.clear(); state.clear(); checked = 0; skipped = 0
         listenOn = listen
         val want = Music.dl.explicitWanted()
         wanted = want
@@ -79,17 +84,35 @@ object VersionScan {
             loadCache()
             if (fresh) synchronized(cache) { cache.clear() }
             var n = 0
+            // Each song on a worker of its own, given a time limit: one that hangs (a damaged file the tag reader loops
+            // on, a network call that never answers) is let go and marked to be skipped, so the scan always goes on
+            // (it got stuck on one before), and Stop works at once.
+            val pool = java.util.concurrent.Executors.newCachedThreadPool { r -> Thread(r, "versions").apply { isDaemon = true } }
             for (t in songs) {
                 if (stop) break
-                val h = runCatching { check(t, want) }.getOrNull()
+                checking = "${t.title} — ${t.artist.split(",")[0]}"
+                val job = pool.submit<Hit?> { runCatching { check(t, want) }.getOrNull() }
+                val limit = System.currentTimeMillis() + (if (listen) 6 * 60_000L else 45_000L)
+                var h: Hit? = null
+                while (true) {
+                    try { h = job.get(500, java.util.concurrent.TimeUnit.MILLISECONDS); break }
+                    catch (_: java.util.concurrent.TimeoutException) {
+                        if (stop || System.currentTimeMillis() > limit) {
+                            job.cancel(true)
+                            if (!stop) { synchronized(cache) { cache[keyOf(t)] = "u!" }; skipped++ }
+                            break
+                        }
+                    } catch (_: Exception) { break }
+                }
                 n++
                 val done = n
                 Music.scope.launch(Dispatchers.Main) { if (h != null) hits += h; checked = done }
                 if (n % 40 == 0) saveCache()
             }
             saveCache()
+            pool.shutdownNow()
         }) { _, e ->
-            running = false
+            running = false; checking = null
             if (e != null) error = "The scan stopped: ${e.message?.take(120)}"
         }
     }

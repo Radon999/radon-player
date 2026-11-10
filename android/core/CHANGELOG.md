@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.23 · November 2026
+- **Clean and explicit versions never gets stuck:** the scan could stop for good partway through (seen at 2,875 of 3,280), when one song never finished being looked at: a damaged file the tag reader went round and round on, or a lookup that never answered. Each song now gets a time limit (45 seconds, or 6 minutes with Listen on); one that takes longer is left out and the scan goes on, saying how many were left out (Check all again tries them again). Stop now works at once, and the screen shows the song being looked at.
+
 ## 3.2.22 · November 2026
 - **Songs play to their real end:** the few songs still noted as "ran on past its end" (Problems) were files whose music really runs a second or more longer than their length says. Some MP3s and M4As only estimate their length, and the app cut them off 1.5 seconds past that estimate. Now the app checks whether music is still coming out: if it is, the song plays to its real end, its bar running on with it, and the next song starts then, with no note. Only a song that's really stopped making sound is moved on from.
 

@@ -838,7 +838,10 @@ private fun VersionsScreen(ui: Ui) {
                         "explicit versions. Much surer, much slower (it applies from the next song)", style = T.sub, modifier = Modifier.weight(1f))
                     androidx.compose.material3.Switch(deep, { deep = it; vs.listen = it }, colors = swColors())
                 }
-                vs.hearing?.let { Text("Listening to $it…", style = T.sub, modifier = Modifier.padding(bottom = 4.dp)) }
+                (vs.hearing?.let { "Listening to $it…" } ?: vs.checking?.takeIf { vs.running }?.let { "Looking at $it…" })
+                    ?.let { Text(it, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 4.dp)) }
+                if (vs.skipped > 0) Text("${vs.skipped} song${if (vs.skipped != 1) "s" else ""} took too long to look at and were left out " +
+                    "(Check all again tries them again)", style = T.sub, modifier = Modifier.padding(bottom = 4.dp))
                 Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (vs.running) "Checking your songs… %,d of %,d · %,d found".format(vs.checked, vs.total, vs.hits.size)
                         else if (vs.total > 0) "Checked %,d songs · %,d found".format(vs.checked, vs.hits.size) else "",
