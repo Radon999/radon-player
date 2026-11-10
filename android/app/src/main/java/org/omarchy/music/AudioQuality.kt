@@ -23,13 +23,20 @@ object AudioQuality {
      *  happened, in words (for Settings and the EQ). Off: let Android mix again. */
     fun applyBitPerfect(ctx: Context, on: Boolean, rate: Int, bits: Int): String {
         val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (Build.VERSION.SDK_INT < 34) return if (on) "Bit-perfect needs Android 14 or later" else ""
+        if (!on) { UsbDirect.closeAll() }
+        if (on && UsbDirect.active) return UsbDirect.note
+        if (on && UsbDirect.device() != null && !UsbDirect.androidHasBitPerfect() && UsbNative.loaded)
+            return if (UsbDirect.wanted()) UsbDirect.note.ifEmpty { "Bit-perfect: straight to ${UsbDirect.device()?.productName ?: "the DAC"}, around Android" }
+                else UsbDirect.note.ifEmpty { "Bit-perfect: allow Radon Player to use the DAC" }
+        if (Build.VERSION.SDK_INT < 34) return if (on) "Bit-perfect needs Android 14 or later, or a USB DAC" else ""
         val dac = usbDac(am)
         if (!on) { if (dac != null) runCatching { am.clearPreferredMixerAttributes(media, dac) }; return "" }
         dac ?: return "Bit-perfect is for a USB DAC: plug one in (Bluetooth and the phone's speaker always mix)"
         val all = runCatching { am.getSupportedMixerAttributes(dac) }.getOrDefault(emptyList())
             .filter { it.mixerBehavior == android.media.AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT }
-        if (all.isEmpty()) return "${dac.productName} doesn't offer bit-perfect playback to Android"
+        // Android lists bit-perfect modes only where the phone's own audio system supports them (Pixels do; Samsung's
+        // and many others' don't, for any DAC): none listed is the phone's limit, not the DAC's.
+        if (all.isEmpty()) return "This phone doesn't offer bit-perfect playback to USB DACs (Android mixes the sound first), so ${dac.productName} gets the phone's mix, not the file untouched"
         val atRate = all.filter { it.format.sampleRate == rate || rate <= 0 }
         // The player hands over floats (lossless for 16- and 24-bit), so float first, then the deepest PCM.
         val pick = atRate.firstOrNull { it.format.encoding == android.media.AudioFormat.ENCODING_PCM_FLOAT }

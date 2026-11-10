@@ -29,10 +29,10 @@ import org.omarchy.music.Music
 import org.omarchy.music.Track
 
 /** A lyrics card, as the desktop draws it: the lines you tick, big, on the cover's colour, with the cover,
- *  title and artist; 1080×1350, to share or save. */
+ *  title and artist; 1080×1350 (1080×1920 for more than 15 lines), to share or save. */
 fun lyricsCard(lines: List<String>, t: Track, style: MyCard? = LyricsCards.of(LyricsCards.picked()),
                nowPlaying: Boolean = LyricsCards.picked() == LyricsCards.NOW): ImageBitmap {
-    val w = 1080; val h = 1350; val pad = 96f
+    val w = 1080; val h = if (lines.size > 15) 1920 else 1350; val pad = 96f   // more than 15 lines: a tall (story-sized) card, so they stay readable
     val pt = Painter(w, h)
     val artPath = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() }
     val art = artPath?.let { runCatching { decodeImage(java.io.File(it).readBytes()) }.getOrNull() }
@@ -104,9 +104,10 @@ fun lyricsCard(lines: List<String>, t: Track, style: MyCard? = LyricsCards.of(Ly
     pt.text("L Y R I C S", 26f, true, soft, cardLeft + 48f, cardTop + 40f, cardRight - cardLeft - 96f)
     val body = lines.joinToString("\n")
     val inner = cardRight - cardLeft - 96f
-    val size = (if (body.length < 120) 64f else if (body.length < 220) 56f else if (body.length < 380) 46f else if (body.length < 520) 40f else 34f).let { if (lines.size > 12) minOf(it, 40f) else if (lines.size > 9) minOf(it, 48f) else it }
-    val bh = pt.blockHeight(body, size, false, inner, spacing = 14f)
+    var size = (if (body.length < 120) 64f else if (body.length < 220) 56f else if (body.length < 380) 46f else if (body.length < 520) 40f else 34f).let { if (lines.size > 18) minOf(it, 32f) else if (lines.size > 12) minOf(it, 40f) else if (lines.size > 9) minOf(it, 48f) else it }
     val room = cardBottom - (cardTop + 110f) - 40f
+    while (size > 20f && pt.blockHeight(body, size, false, inner, spacing = 14f) > room) size -= 2f   // up to 25 lines: smaller type so they all fit
+    val bh = pt.blockHeight(body, size, false, inner, spacing = 14f)
     val y = cardTop + 110f + maxOf(0f, (room - bh) / 2f)
     pt.block(body, size, false, words, cardLeft + 48f, y, inner, spacing = 14f)
     pt.text("Radon Player", 30f, true, if (plain) ink(coverAccent, 200) else if (coverLook) white(140) else ink(C.accent, 200), pad, h - 72f, w - 2 * pad)
@@ -139,11 +140,11 @@ private fun styledCard(pt: Painter, w: Int, h: Int, pad: Float, lines: List<Stri
     pt.text("L Y R I C S", 26f, true, ink(c.soft, 230), cardLeft + 48f, cardTop + 40f, cardRight - cardLeft - 96f)
     val body = lines.joinToString("\n")
     val inner = cardRight - cardLeft - 96f
-    val base = (if (body.length < 120) 64f else if (body.length < 220) 56f else if (body.length < 380) 46f else if (body.length < 520) 40f else 34f).let { if (lines.size > 12) minOf(it, 40f) else if (lines.size > 9) minOf(it, 48f) else it }
+    val base = (if (body.length < 120) 64f else if (body.length < 220) 56f else if (body.length < 380) 46f else if (body.length < 520) 40f else 34f).let { if (lines.size > 18) minOf(it, 32f) else if (lines.size > 12) minOf(it, 40f) else if (lines.size > 9) minOf(it, 48f) else it }
     val room = cardBottom - (cardTop + 110f) - 40f
     // Bigger type only as far as the words still fit on the card
     var size = base * c.textScale.coerceIn(0.7f, 1.4f)
-    while (size > 24f && pt.blockHeight(body, size, c.heavy, inner, spacing = 14f) > room) size -= 2f
+    while (size > 20f && pt.blockHeight(body, size, c.heavy, inner, spacing = 14f) > room) size -= 2f
     val bh = pt.blockHeight(body, size, c.heavy, inner, spacing = 14f)
     val y = cardTop + 110f + maxOf(0f, (room - bh) / 2f)
     pt.block(body, size, c.heavy, ink(c.words, 255), cardLeft + 48f, y, inner, spacing = 14f)
@@ -151,15 +152,16 @@ private fun styledCard(pt: Painter, w: Int, h: Int, pad: Float, lines: List<Stri
     return pt.img
 }
 
-/** Lyrics card…: tick up to 15 lines, see the card, then share or save it. */
+/** Lyrics card…: tick up to 25 lines, see the card, then share or save it. */
 @Composable
 fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
     val words = remember(got) {
         (got.plain ?: Lyrics.parseLrc(got.synced).joinToString("\n") { it.second })
             .lines().filter { it.isNotBlank() && !(it.startsWith("[") && it.endsWith("]")) }
     }
-    val picked = remember(got) { mutableStateListOf<String>() }
-    val lines = picked.ifEmpty { words.take(1) }
+    // The lines ticked, by their place in the song: a line sung more than once (a chorus) is ticked on its own each time
+    val picked = remember(got) { mutableStateListOf<Int>() }
+    val lines = picked.map { words[it] }.ifEmpty { words.take(1) }
     // The card's style: Your look, a ready-made one or yours (the last one picked stays)
     var styleKey by remember { mutableStateOf(LyricsCards.picked()) }
     val mine = LyricsCards.mine()
@@ -169,15 +171,15 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
         title = { Text("Lyrics card", style = T.head) },
         text = {
             Column {
-                Image(bmp, "The card", Modifier.size(208.dp, 260.dp).align(Alignment.CenterHorizontally))
-                Text("Tick the lines for the card (up to 15):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+                Image(bmp, "The card", Modifier.size(208.dp, (208f * bmp.height / bmp.width).dp).align(Alignment.CenterHorizontally))
+                Text("Tick the lines for the card (up to 25):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
                 LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(words.size) { i ->
                         val wd = words[i]
-                        val on = wd in picked
+                        val on = i in picked
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(on, { if (it) { if (picked.size < 15) picked += wd } else picked -= wd },
-                                enabled = on || picked.size < 15, colors = box)
+                            Checkbox(on, { if (it) { if (picked.size < 25) picked += i } else picked.remove(i) },
+                                enabled = on || picked.size < 25, colors = box)
                             Text(wd, style = T.body)
                         }
                     }

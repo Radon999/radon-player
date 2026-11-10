@@ -86,11 +86,11 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
          *  peak repair goes first, so resampling and the EQ get the rebuilt peaks and its 3 dB of room. */
         fun renderers(ctx: Ctx, eq: EqProcessor) = object : DefaultRenderersFactory(ctx) {
             override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                EqSink(DefaultAudioSink.Builder(context)
+                EqSink(UsbAudioSink(DefaultAudioSink.Builder(context)   // bit-perfect straight to a USB DAC: see UsbDirect
                     .setAudioProcessors(arrayOf(PeakRepairProcessor(eq), ResampleProcessor(context), eq))
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .build(), eq)
+                    .build()), eq)
         }.setEnableAudioFloatOutput(true)
     }
 }

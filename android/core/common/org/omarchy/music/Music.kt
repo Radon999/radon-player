@@ -158,7 +158,18 @@ object Music {
 
     /** Bit-perfect is in force: on the PC whenever it's on; on the phone only while a USB DAC is the output (on the
      *  speaker, Bluetooth or in the car the EQ and the rest go on working). */
-    fun bitPerfectNow() = bitPerfect && (platformName != "android" || outputNow.kind == "usb")
+    fun bitPerfectNow() = bitPerfect && (platformName != "android" || outputNow.kind == "usb" || usbDirect)
+
+    /** The phone streams straight to the USB DAC itself (UsbDirect), around Android: Android may no longer list the DAC as
+     *  the output then, but bit-perfect is still in force. */
+    @Volatile var usbDirect = false
+
+    /** The song playing, loaded again where it is: bit-perfect turned on (or the DAC allowed) takes effect at once. */
+    fun replayForBitPerfect() {
+        if (current() == null || Remote.active || cast != null) return
+        val at = position; val wasPlaying = !paused
+        resumeAt = at; loadCurrent(autoplay = wasPlaying)
+    }
 
     fun chooseBitPerfect(on: Boolean) {
         bitPerfect = on
@@ -166,7 +177,9 @@ object Music {
         if (on) eqProcessor.rgGain = 1.0
         current()?.let { t -> playbackOf(t).let { (sp, pi) -> player?.setSpeed(sp, pi) } }
         val rate = player?.audioRate ?: 0; val bits = player?.audioBits ?: 0
-        bg({ dacNote = AudioQuality.applyBitPerfect(ctx, on, rate, bits) })
+        bg({ dacNote = AudioQuality.applyBitPerfect(ctx, on, rate, bits) }) { _, _ ->
+            if (platformName == "android") replayForBitPerfect()   // the song goes (or stops going) straight to the DAC now
+        }
         saveState()
     }
 
@@ -3080,12 +3093,18 @@ object Music {
         // volume for the moment the second took to start, a doubled (6 dB louder) blip at the start of every crossfade.
         x.volume = 0f
         x.onceSounding {
+            tailSounded = x
             if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@onceSounding }
             scope.launch {
                 // Its sound takes a moment to reach the speakers after it says it's playing: wait for that, then hand
                 // over gently, this one going down as the second comes up (an equal-power blend over a third of a
                 // second), so there's never a moment of silence (the old instant swap left a short cut) nor both at once.
                 delay(200)
+                if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@launch }
+                // It started a moment after it was told to, so it's behind the song as you hear it: handing over then
+                // played the last half second or so again (a word heard twice before the fade). Line it up first, still
+                // silent; if it can't be lined up, no crossfade this once: the song ends as usual, nothing repeated.
+                if (!alignTail(x, t.id)) { runCatching { x.release() }; return@launch }
                 if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@launch }
                 val swap = 7
                 for (k in 1..swap) {
@@ -3127,8 +3146,43 @@ object Music {
         tail = null; tailFor = null
         scope.launch {   // if it never got going, move on anyway
             delay(1800)
-            if (fadingId == t.id && current()?.id == t.id && !x.isPlaying) { fadeIn = 0.0; runCatching { x.release() }; trackEnded() }
+            if (fadingId == t.id && current()?.id == t.id && tailSounded !== x) { fadeIn = 0.0; runCatching { x.release() }; trackEnded() }
         }
+    }
+
+    private var tailSounded: Engine? = null   // the crossfade's second player once it got going (lined up or not, it's handled)
+
+    /** Puts crossfade's second player (silent) at exactly the place the song is sounding now, so the handover repeats
+     *  nothing: it measures how far behind (or ahead) it is, seeks it that far on plus the moment a seek takes, and
+     *  measures again, until they're within a few hundredths of a second. false if it can't (the song moved on). */
+    private suspend fun alignTail(x: Engine, id: String): Boolean {
+        var est = -1L   // how long a seek holds it up, learned from each try
+        repeat(6) {
+            val d = tailLag(x, id) ?: return false
+            if (kotlin.math.abs(d) <= 40) return true
+            if (est < 0) est = d.coerceIn(0L, 1500L) else est = (est + d).coerceIn(0L, 1500L)
+            val p = player ?: return false
+            if (p.durationMs > 0 && p.positionMs + est > p.durationMs - 1500) return false   // too near the end now
+            x.seekTo(p.positionMs + est)
+        }
+        return (tailLag(x, id) ?: return false).let { kotlin.math.abs(it) <= 40 }
+    }
+
+    /** How far the second player is behind the song as it sounds (ms; less than 0: ahead), once it's really moving. */
+    private suspend fun tailLag(x: Engine, id: String): Long? {
+        var waited = 0
+        while (true) {
+            if (fadingId != id || current()?.id != id) return null
+            val a = x.positionMs
+            delay(150); waited += 150
+            val b = x.positionMs
+            if (x.isPlaying && b - a in 90L..260L) break
+            if (waited > 2500) return null
+        }
+        val p = player ?: return null
+        if (!p.isPlaying) return null
+        val ds = (1..5).map { delay(20); p.positionMs - x.positionMs }.sorted()
+        return ds[2]
     }
 
     /** Smart shuffle (Settings › Playback): each song's weight, more for the ones you love (play a lot) that you haven't

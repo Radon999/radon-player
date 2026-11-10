@@ -36,6 +36,7 @@ class MusicService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         Music.init(this)
+        UsbDirect.init(this)
         val renderers = ExoEngine.renderers(this, Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
         val exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
@@ -270,6 +271,7 @@ class MusicService : MediaLibraryService() {
         later.removeCallbacksAndMessages(null)
         LockScreen.unregister(this)
         Music.player = null
+        UsbDirect.closeAll()   // the DAC back to Android
         switching?.cancel()
         players.forEach { it.release() }
         session?.release()

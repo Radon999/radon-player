@@ -73,7 +73,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 ## Lyrics
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
-- **Lyrics card:** Tick up to 15 lines for a picture to share or save. Its **Style** menu has Your look (the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above), Now playing (as the Now playing screen looks, in the cover's colours), 30 ready-made styles, and your own.
+- **Lyrics card:** Tick up to 25 lines for a picture to share or save. Its **Style** menu has Your look (the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above), Now playing (as the Now playing screen looks, in the cover's colours), 30 ready-made styles, and your own.
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
 ## Sound
@@ -82,7 +82,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 - **Dual volume:** On, a song's own volume and the Boost go together; off, a song with its own volume plays at just that volume, without the Boost.
 - **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows.
 - **Sound quality:** clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on from the start, each can be turned off), and loudness compensation (off from the start).
-- **Bit-perfect** to a USB DAC (phone) or the PC's sound card, and **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does. **Car always wins** (the phone) is the failsafe: whenever the car is connected, it has the music.
+- **Bit-perfect** to a USB DAC (phone) or the PC's sound card. On phones whose Android has no bit-perfect mode (Samsung's), Radon Player takes the DAC over and streams each song to it itself, untouched at its own sample rate and bit depth (after you allow it to use the DAC; the phone's volume buttons set the DAC's own volume, and while it holds the DAC other apps can't play through it). Also **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does. **Car always wins** (the phone) is the failsafe: whenever the car is connected, it has the music.
 
 ## Personalization
 

@@ -41,8 +41,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 30217   // major·10000 + minor·100 + patch
-        versionName = "3.2.17"
+        versionCode = 30218   // major·10000 + minor·100 + patch
+        versionName = "3.2.18"
         // The DJ's natural voice (sherpa-onnx's library): only the phones' own processors, to keep the app small
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
@@ -75,6 +75,9 @@ android {
     }
     // The shared core (common to the phone and the PC) and the phone's side of it
     sourceSets["main"].java.srcDirs("../core/common", "../core/android")
+    // Bit-perfect straight to a USB DAC: the streaming to the DAC's endpoint (src/main/cpp/usbaudio.c)
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt") } }
+    ndkVersion = "27.2.12479018"
     buildFeatures {
         compose = true
         buildConfig = true

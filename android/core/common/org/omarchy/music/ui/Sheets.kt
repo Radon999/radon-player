@@ -1481,7 +1481,9 @@ fun TransitionSwitches() {
 private fun SoundQuality(ui: Ui) {
     Line("Bit-perfect", Music.dacNote.ifEmpty {
         if (onPhone) "Sends each song to your USB DAC (an external sound card) exactly as it is, at its own " +
-            "sample rate, for the purest sound. Nothing changes it: no EQ, no song volume, no speed. Needs Android 14 and a USB DAC"
+            "sample rate, for the purest sound. Nothing changes it: no EQ, no song volume, no speed. On phones whose Android " +
+            "mixes all sound first (most Samsungs), the app takes the DAC over and streams to it itself (allow it once when asked): " +
+            "other apps aren't heard through the DAC meanwhile, and the volume buttons set the DAC's own volume"
         else "Sends each song to your sound card or DAC exactly as it is, at its own sample rate, for the " +
             "purest sound. It uses exclusive mode, so no other sound on the PC is heard while it plays, and nothing changes the " +
             "music: no EQ, no song volume, no speed. It turns itself off when you close the window, quit or unplug a sound device, so other apps are heard again" },
