@@ -1,9 +1,0 @@
-v3.2.19
-Radon Player 3.2.19: Updates install over Radon Player Next
-## 3.2.19: Updates install over Radon Player Next (Windows and Android)
-- **Updates always install over Radon Player Next:** 3.2.18's release was built as the other app ("Radon Player", a different app to Android), so Update in Settings couldn't install it and the file from GitHub installed beside Radon Player Next, without your settings and stats. Every release is now Radon Player Next, the same app, as RadonPlayer-Next.apk: it installs over the one you have and keeps everything. Update also checks the file is for this same app before installing, and turns down one that isn't instead of installing it beside it.
-- Everything from 3.2.18 is in it too: true bit-perfect to a USB DAC on Samsung phones, crossfade that never repeats the end of a song, and lyrics cards with up to 25 lines (repeated lines tick on their own).
-
-### Good to know
-- **Android:** install RadonPlayer-Next.apk over Radon Player Next (same app, same signature: your library, settings and stats stay), or tap Update in Settings. If you installed 3.2.18's RadonPlayer.apk, that's a separate app ("Radon Player"); you can uninstall it, Radon Player Next isn't touched.
-- **Windows:** Radon-Player-3.2.19.msi installs over 3.2.18, or use Update in Settings.
