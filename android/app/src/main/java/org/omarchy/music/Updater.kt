@@ -56,6 +56,8 @@ object Updater {
     }
 
     private val APK_NAMES = listOf("RadonPlayer.apk", "OmarchyMusic.apk")
+    /** The release's file for Radon Player Next, the app kept on the phone: every release has it from 3.2.19. */
+    private const val NEXT_NAME = "RadonPlayer-Next.apk"
     /** The newest Radon Player Next build (the test app), built from the same code as each release. */
     private const val NEXT_APK = "https://raw.githubusercontent.com/$REPO/android-work/ci/next/RadonPlayer-Next.apk"
 
@@ -76,16 +78,19 @@ object Updater {
             if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
             // The release's APK: RadonPlayer.apk (from the update after 3.0.0), else its old name OmarchyMusic.apk
             val assets = rel["assets"].list
-            val url = APK_NAMES.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
+            // Radon Player Next (org.omarchy.music.next) takes only its own file: the release's RadonPlayer-Next.apk
+            val names = if (ctx.packageName.endsWith(".next")) listOf(NEXT_NAME) + APK_NAMES else APK_NAMES
+            val url = names.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
             if (url == null) {   // the release is still being put up: its APK comes a few minutes after
                 if (!quiet) Music.toast("Radon Player ${tag.removePrefix("v")} is on its way: its Android app isn't up yet")
                 Music.scope.launch { delay(5 * 60_000L); check() }
                 return@bg
             }
             if (latest != tag.removePrefix("v")) Music.toast("Radon Player ${tag.removePrefix("v")} is out: update it in Settings (⚙)")
-            // Radon Player Next (the test build, an app of its own: org.omarchy.music.next) updates to the newest Next
-            // build: the release's APK is the other app, which Android won't put in its place
-            latest = tag.removePrefix("v"); apk = if (ctx.packageName.endsWith(".next")) NEXT_APK else url
+            // Radon Player Next updates from the release's RadonPlayer-Next.apk; a release from before 3.2.19 has only the
+            // other app (org.omarchy.music), which Android won't put in its place, so then the newest Next build
+            latest = tag.removePrefix("v")
+            apk = if (ctx.packageName.endsWith(".next") && !url.endsWith("/$NEXT_NAME")) NEXT_APK else url
             Music.accountsVersion++
         }
     }
@@ -124,6 +129,11 @@ object Updater {
                 if (!r.isSuccessful) throw HttpError(r.code, "", url)
                 file.outputStream().use { out -> r.body!!.byteStream().copyTo(out) }
             }
+            // Only ever this same app (same name, same package), so it installs over it and keeps your settings and
+            // stats: a file for the other app (Radon Player vs Radon Player Next) is turned down here, not installed
+            // beside it.
+            val got = ctx.packageManager.getPackageArchiveInfo(file.path, 0)?.packageName
+            if (got != null && got != ctx.packageName) { file.delete(); throw IllegalStateException("that file is for $got, not this app (${ctx.packageName}); nothing was changed") }
             val installer = ctx.packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
                 .apply { setAppPackageName(ctx.packageName) }
