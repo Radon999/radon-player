@@ -102,6 +102,13 @@ class Chromaprint(sampleRate: Int, channels: Int) {
         for (i in 0 until remainder) leftover[leftoverSize++] = pcm[pos + length - remainder + i]
     }
 
+    /** Flushes the pipeline and returns the fingerprint itself, one 32-bit word for every ~0.124 s of sound (for
+     *  comparing two recordings frame by frame: Clean and explicit versions' Listen). Use this or [finish], not both. */
+    fun raw(): IntArray {
+        if (bufferOffset > 0) resample()
+        return fingerprint.copyOf(fingerprintSize)
+    }
+
     /** Flushes the pipeline and returns the compressed base64 fingerprint. */
     fun finish(): String {
         if (bufferOffset > 0) resample()

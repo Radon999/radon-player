@@ -298,6 +298,7 @@ private fun AccountsSheet(ui: Ui) {
             }
             StreamQualityLine()
             DownloadQualityLine()
+            VersionLine()
             OtherServicesLine()
             Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} with full tags, sorted " +
                 "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/" +
@@ -751,6 +752,19 @@ private fun ToolLines(ui: Ui) {
         (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
         Pill("Scan…", quiet = true) { ui.tool = "genres" }
     }
+    Line("Clean and explicit versions", "Finds songs you have in the other version from the one picked in Your music › " +
+        "Clean or explicit: set to Explicit, the clean versions of songs that have an explicit one; set to Clean, the explicit " +
+        "ones that have a clean one (looked up on Tidal; it needs Tidal connected). You can play your song and the version " +
+        "that would replace it to check, then replace it (the other version downloaded, your old file deleted) or leave it. " +
+        "Listen (the switch): songs whose version isn't certain (nothing tells, or only their tags, name or length) are heard " +
+        "in full beside Tidal's clean and explicit versions, which tells them apart much more surely but takes a lot longer " +
+        "(a few seconds to a minute a song, and it streams both versions)", false) {
+        var deep by remember { mutableStateOf(org.omarchy.music.VersionScan.listen) }
+        Text("Listen", style = T.sub, modifier = Modifier.padding(end = 4.dp))
+        Switch(deep, { deep = it; org.omarchy.music.VersionScan.listen = it }, colors = swColors())
+        Spacer(Modifier.width(6.dp))
+        Pill("Scan…", quiet = true) { ui.tool = "versions" }
+    }
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }
@@ -1105,6 +1119,27 @@ private fun DownloadQualityLine() {
                 names.forEach { (k, l) ->
                     androidx.compose.material3.DropdownMenuItem({ Text(l, style = T.body.copy(color = if (k == Music.downloadQuality) C.accent else C.fg)) },
                         { open = false; Music.chooseDownloadQuality(k) })
+                }
+            }
+        }
+    }
+}
+
+/** Clean or explicit: which version of a song downloads come as, where Tidal has both (a song with one version comes as
+ *  it is). Scanner › Clean and explicit versions goes by it too. */
+@Composable
+private fun VersionLine() {
+    var v by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Prefs.DL_VERSION, "explicit").ifEmpty { "explicit" }) }
+    Line("Clean or explicit", "Explicit: every song you download comes as its explicit version where Tidal has a clean " +
+        "one too. Clean: the clean version where there's one (songs with only one version come as they are). Scanner › " +
+        "Clean and explicit versions finds the songs you have in the other version and replaces them, going by this", true) {
+        Box {
+            var open by remember { mutableStateOf(false) }
+            Pill("${if (v == "clean") "Clean" else "Explicit"} ▾", quiet = true) { open = true }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                listOf("explicit" to "Explicit", "clean" to "Clean").forEach { (k, l) ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(l, style = T.body.copy(color = if (k == v) C.accent else C.fg)) },
+                        { open = false; v = k; org.omarchy.music.Prefs.setText(org.omarchy.music.Prefs.DL_VERSION, k) })
                 }
             }
         }

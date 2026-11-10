@@ -59,6 +59,7 @@ object Prefs {
     const val LOCK_SCREEN = "lock_screen_player"
     const val NOTIF_HINTED = "notif_hinted"
     const val DL_QUALITY = "dl_quality"          // downloads: "flac24" (hi-res where Tidal has it), "flac16", "mp3" (320 kbps)
+    const val DL_VERSION = "dl_version"          // downloads: "explicit" (the explicit version where there are two) or "clean"
     const val IGNORE_BT = "ignore_bt"            // Ignore Bluetooth devices: the music stays where it was when one connects
     const val IGNORE_BT_DEVICES = "ignore_bt_devices"   // which ones (their names, one per line)
     const val IGNORE_BT_SEEN = "ignore_bt_seen"  // Bluetooth outputs seen before, to pick from (names, one per line)

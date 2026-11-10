@@ -34,6 +34,9 @@ private val NOISE_BRACKETS = Regex(
     "[(\\[][^)\\]]*\\b(official|video|audio|lyrics?|visuali[sz]er|hd|4k|mv|remaster(ed)?|feat|ft|with" +
         "|original|album version|explicit|clean|single version)\\b[^)\\]]*[)\\]]"
 )
+// "Song - Clean", "Song - Explicit Version": the clean or explicit version is the same song (its plays together)
+private val VERSION_DASH = Regex("\\s[-–]\\s(explicit|clean|edited|censored|uncensored|dirty)( version| edit)?\\s*$")
+private val VERSION_BRACKETS = Regex("[(\\[]\\s*(edited|censored|uncensored|dirty)( version| edit)?\\s*[)\\]]")
 private val NOISE_DASH = Regex("\\s[-–]\\s[^-–]*\\b(official|video|audio|lyrics?|remaster(ed)?)\\b.*$")
 private val FEAT_TAIL = Regex("\\b(feat|ft)\\b\\.?\\s.*$")
 // No Unicode flag ("?U"): Android's ICU regex rejects it, and its \b knows Unicode letters anyway.
@@ -44,6 +47,8 @@ fun cleanTitle(s: String): String {
     var t = s.lowercase()
     t = NOISE_BRACKETS.replace(t, " ")
     t = NOISE_DASH.replace(t, " ")
+    t = VERSION_DASH.replace(t, " ")
+    t = VERSION_BRACKETS.replace(t, " ")
     t = FEAT_TAIL.replace(t, " ")
     return squash(NON_WORD.replace(t, " "))
 }

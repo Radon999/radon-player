@@ -28,6 +28,17 @@ object FileTags {
         KEYS.mapValues { (_, k) -> runCatching { tag.getAll(k).filter { it.isNotBlank() }.joinToString(", ") }.getOrDefault("") }
     }.getOrNull()
 
+    /** A song file's ISRC and what its tags say of it: explicit (true), clean (false) or nothing (null), for Clean
+     *  and explicit versions; null if it can't be read. */
+    fun versionTags(uri: String): Pair<String?, Boolean?>? = runCatching {
+        if (isWav(uri)) return@runCatching null
+        val tag = AudioFileIO.read(file(uri)).tag ?: return@runCatching null
+        val isrc = runCatching { tag.getFirst(FieldKey.ISRC) }.getOrNull()?.trim()?.takeIf { it.length >= 12 }
+        val adv = listOf("ITUNESADVISORY", "EXPLICIT", "rtng").firstNotNullOfOrNull { k ->
+            runCatching { tag.getFirst(k) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() } }
+        isrc to VersionScan.advisory(adv)
+    }.getOrNull()
+
     /** WAVs are tagged by WavTags (their ID3 and LIST INFO chunks), which keeps the studio chunks some have
      *  (bext, regn, DGDA…) that the tag library chokes on. */
     private fun isWav(uri: String) = uri.substringAfterLast('.').equals("wav", true)

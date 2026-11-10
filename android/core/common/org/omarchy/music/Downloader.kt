@@ -166,12 +166,28 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         return where to name.substringBeforeLast('.') + "." + ext
     }
 
-    private fun fromTidal(t: Track, root: String?): String {
+    /** Clean or explicit (Settings › Your music): true when downloads should be the explicit version. */
+    fun explicitWanted() = Prefs.text(Prefs.DL_VERSION, "explicit") != "clean"
+
+    /** (blocking) Save Tidal's track c (a version Clean and explicit versions picked), as song t; returns its address. */
+    fun downloadTidal(t: Track, c: JsonElement): String {
+        if (!tidal.connected) error("connect Tidal in Settings first")
+        synchronized(active) { if (!active.add(t.id)) error("already downloading") }
+        try { return fromTidal(t, null, c) } finally { synchronized(active) { active.remove(t.id) } }
+    }
+
+    private fun fromTidal(t: Track, root: String?, exact: JsonElement? = null): String {
         val q = quality
         val aac = q == "mp3" && !CAN_MP3   // the phone: Tidal's own 320 kbps (AAC) in place of MP3
-        val found = tidal.resolve(t, lossy = aac) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
+        val found = exact ?: tidal.resolve(t, lossy = aac) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
         // Saved from the artist's own album (deluxe first), else EP, else single; a compilation only if nothing else has it
-        val match = runCatching { tidal.bestRelease(found, aac, t.album) }.getOrDefault(found)
+        var match = runCatching { tidal.bestRelease(found, aac, t.album) }.getOrDefault(found)
+        // Clean or explicit (Settings › Your music): the other version of the song when this one isn't the one wanted
+        // and Tidal has it (a song with only one version is saved as it is)
+        val want = explicitWanted()
+        if (exact == null && match["explicit"].bool == !want) runCatching {
+            tidal.versionOf(Tidal.trackFromTidal(match).copy(album = t.album.ifEmpty { match.path("album", "title").str ?: "" }), want, aac)
+        }.getOrNull()?.let { alt -> match = runCatching { tidal.bestRelease(alt, aac, t.album) }.getOrDefault(alt) }
         val tid = match["id"].long ?: 0
         if (q != "mp3") lib.byTidal(tid)?.let { same ->
             // Already saved from another service: the same file serves both.

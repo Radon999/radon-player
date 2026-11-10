@@ -38,7 +38,7 @@ object ScanIgnore {
 
     /** Every scan's hidden things: the scans' names (Fix albums and artists, Live, Soundtrack notes, songs alone in an
      *  album, Songs without covers, Empty folders, Albums EPs and singles). */
-    val SCANS = listOf("fixup", "live", "movie", "lone", "nocover", "empty", "truth", "genres")
+    val SCANS = listOf("fixup", "live", "movie", "lone", "nocover", "empty", "truth", "genres", "versions")
 
     /** How many things are hidden across every scan. */
     fun total(): Int = SCANS.sumOf { count(it) }

@@ -158,6 +158,23 @@ object AudioTools {
         return song.result()
     }
 
+    /** (blocking) The whole song's raw fingerprint (Chromaprint's words, ~8 a second), for Clean and explicit versions'
+     *  Listen; null if it couldn't be heard or [stop] said to stop. */
+    fun wholePrint(path: String, stop: () -> Boolean): IntArray? {
+        var cp: Chromaprint? = null
+        var shorts = ShortArray(16384)
+        try {
+            decode(path, 0) { buf, count, r, ch ->
+                if (stop()) throw Stopped()
+                val c = cp ?: Chromaprint(r, ch).also { cp = it }
+                if (shorts.size < count) shorts = ShortArray(count)
+                for (k in 0 until count) shorts[k] = Math.round(buf[k] * 32768f).coerceIn(-32768, 32767).toShort()
+                c.feed(shorts, count)
+            }
+        } catch (_: Stopped) { return null }
+        return cp?.raw()?.takeIf { it.isNotEmpty() }
+    }
+
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two minutes. */
     fun fingerprint(path: String, secs: Int): Pair<String, Int> {
         var cp: Chromaprint? = null

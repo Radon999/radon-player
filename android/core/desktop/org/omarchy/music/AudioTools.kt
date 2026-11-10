@@ -98,10 +98,25 @@ object AudioTools {
      *  minutes. ffmpeg decodes (to WAV, for its rate and channels) and the app's own Chromaprint hears it, as on the phone,
      *  so any ffmpeg does (not only one built with chromaprint); it makes the same fingerprint ffmpeg's would. */
     fun fingerprint(path: String, secs: Int): Pair<String, Int> {
-        val p = ProcessBuilder(ffmpeg(), "-v", "error", "-nostdin", "-i", path, "-t", "120", "-ac", "2", "-f", "wav", "-acodec", "pcm_s16le", "-")
+        val cp = hear(path, 120) { false } ?: error("couldn't hear the song")
+        val fp = cp.finish()
+        if (fp.isEmpty()) error("couldn't hear the song")
+        return fp to secs
+    }
+
+    /** (blocking) The whole song's raw fingerprint (Chromaprint's words, ~8 a second), for Clean and explicit versions'
+     *  Listen; null if it couldn't be heard or [stop] said to stop. */
+    fun wholePrint(path: String, stop: () -> Boolean): IntArray? = hear(path, 0, stop)?.raw()?.takeIf { it.isNotEmpty() }
+
+    /** The song (its first [maxSecs], 0: all of it) through Chromaprint: ffmpeg decodes it to WAV, the app hears it. */
+    private fun hear(path: String, maxSecs: Int, stop: () -> Boolean): Chromaprint? {
+        val args = mutableListOf(ffmpeg(), "-v", "error", "-nostdin", "-i", path)
+        if (maxSecs > 0) args += listOf("-t", maxSecs.toString())
+        args += listOf("-vn", "-ac", "2", "-f", "wav", "-acodec", "pcm_s16le", "-")
+        val p = ProcessBuilder(args)
             .redirectInput(ProcessBuilder.Redirect.from(File(if (windows) "NUL" else "/dev/null")))
             .redirectError(ProcessBuilder.Redirect.DISCARD).start()
-        val fp = try {
+        return try {
             val ins = java.io.DataInputStream(p.inputStream.buffered(1 shl 16))
             fun le(b: ByteArray, o: Int, n: Int) = (0 until n).fold(0) { acc, k -> acc or ((b[o + k].toInt() and 255) shl (8 * k)) }
             fun word(): ByteArray = ByteArray(4).also { ins.readFully(it) }
@@ -116,14 +131,13 @@ object AudioTools {
             val cp = Chromaprint(rate, ch)
             val bytes = ByteArray(32768); val shorts = ShortArray(16384)
             while (true) {
+                if (stop()) return null
                 var n = ins.read(bytes); if (n <= 0) break
                 if (n % 2 == 1) { if (ins.read(bytes, n, 1) == 1) n++ else n-- }
                 for (k in 0 until n / 2) shorts[k] = ((bytes[2 * k].toInt() and 255) or (bytes[2 * k + 1].toInt() shl 8)).toShort()
                 cp.feed(shorts, n / 2)
             }
-            cp.finish()
-        } catch (_: java.io.EOFException) { "" } finally { p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS); p.destroy() }
-        if (fp.isEmpty()) error("couldn't hear the song")
-        return fp to secs
+            cp
+        } catch (_: java.io.EOFException) { null } finally { p.destroy(); p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS) }
     }
 }

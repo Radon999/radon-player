@@ -64,6 +64,14 @@ class NamesTest {
     @Test fun sameSongAnywhere() {
         assertEquals(statsKey("Heavydirtysoul", "Twenty One Pilots"), statsKey("Heavydirtysoul (Remastered)", "twenty one pilots feat. X"))
         assertEquals("kflay", statsKey("Song", "K.Flay").second)
+        // Clean and explicit versions are one song: their plays count together
+        for (v in listOf("Song (Clean)", "Song [Explicit]", "Song (Clean Version)", "Song (Explicit Version)", "Song (Edited)",
+            "Song - Clean", "Song - Explicit Version", "Song (Censored)"))
+            assertEquals(v, statsKey("Song", "Artist"), statsKey(v, "Artist"))
+        // …but a remix by Clean Bandit, or a song named Come Clean, is its own
+        assertFalse(statsKey("Song", "Artist") == statsKey("Song - Clean Bandit Remix", "Artist"))
+        assertTrue("clean" in statsKey("Come Clean", "Hilary Duff").first)
+        assertFalse(statsKey("Song", "Artist") == statsKey("Song (Dirty South Remix)", "Artist"))
         assertEquals("0:42", fmtTime(42.0))
     }
 }

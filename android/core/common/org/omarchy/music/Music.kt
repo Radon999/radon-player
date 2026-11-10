@@ -1589,6 +1589,16 @@ object Music {
         }
     }
 
+    /** Clean and explicit versions: song old replaced by new (just downloaded): the new one takes its place in the
+     *  queue, your playlists and favorites, and the old one is out of your music. */
+    fun versionReplaced(old: Track, new: Track) {
+        relink(mapOf(old.id to new))
+        local.files = local.files.filter { it.id != old.id }
+        // Its plays here go to the new one (Most played already counts both as one song: their names agree)
+        bg({ plays.merge(setOf(old.id), new.slim()) })
+        savedVersion++; musicVersion++
+    }
+
     /** Songs whose files moved: each old one (by id) becomes the new one in the queue, your playlists and favorites. */
     private fun relink(moved: Map<String, Track>) {
         if (moved.isEmpty()) return

@@ -35,6 +35,7 @@ import org.omarchy.music.FixupSong
 import org.omarchy.music.LiveName
 import org.omarchy.music.MusicTools
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
@@ -60,6 +61,7 @@ fun ToolScreens(ui: Ui) {
         "quality" -> QualityScreen(ui)
         "genres" -> GenreNamesScreen(ui)
         "lyrics" -> LyricsScanScreen(ui)
+        "versions" -> VersionsScreen(ui)
     }
     ui.identifyFor?.let { IdentifyDialog(ui, it) }
 }
@@ -798,6 +800,88 @@ private fun LrcScreen(ui: Ui) {
                     }
                 }
                 if (!running) Pill(if (d == null) "Cancel" else "Done", quiet = d == null) { close() }
+            }
+        }
+    }
+}
+
+/** Scanner › Clean and explicit versions: your songs in the other version from the one picked (Your music › Clean or
+ *  explicit), each with the version it would become; play either to check, then replace it or leave it. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun VersionsScreen(ui: Ui) {
+    val vs = org.omarchy.music.VersionScan
+    val ig = org.omarchy.music.ScanIgnore
+    ig.version
+    LaunchedEffect(Unit) { if (!vs.running && vs.hits.isEmpty()) vs.start() }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vs.stopPreview() } }
+    // The old file goes once the wanted version is in: a download at once, your own file once Android (or Windows'
+    // Recycle Bin) has it; the new one then takes its place everywhere.
+    var asking by remember { mutableStateOf<Pair<org.omarchy.music.VersionScan.Hit, org.omarchy.music.Track>?>(null) }
+    val remove = rememberFileRemoval(trash = true) { ok ->
+        asking?.let { (h, n) -> vs.replaced(h, n, ok) }
+        asking = null
+    }
+    val want = if (vs.wanted) "explicit" else "clean"
+    val have = if (vs.wanted) "clean" else "explicit"
+    FullScreen("Clean and explicit versions", { vs.stopPreview(); ui.tool = null }) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            item {
+                Text("Your music › Clean or explicit is set to ${want.replaceFirstChar { it.uppercase() }}, so this finds the songs you " +
+                    "have as their $have version where Tidal has the $want one. Play yours and the $want version to check it's the " +
+                    "same song, then Replace (the $want version is downloaded and your old file deleted) or Leave it.",
+                    style = T.sub, modifier = Modifier.padding(vertical = 8.dp))
+                vs.error?.let { Text(it, style = T.body.copy(color = C.red), modifier = Modifier.padding(bottom = 6.dp)) }
+                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    var deep by remember { mutableStateOf(vs.listen) }
+                    Text("Listen to the songs: the ones whose version isn't certain are heard in full beside Tidal's clean and " +
+                        "explicit versions. Much surer, much slower (it applies from the next song)", style = T.sub, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(deep, { deep = it; vs.listen = it }, colors = swColors())
+                }
+                vs.hearing?.let { Text("Listening to $it…", style = T.sub, modifier = Modifier.padding(bottom = 4.dp)) }
+                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (vs.running) "Checking your songs… %,d of %,d · %,d found".format(vs.checked, vs.total, vs.hits.size)
+                        else if (vs.total > 0) "Checked %,d songs · %,d found".format(vs.checked, vs.hits.size) else "",
+                        style = T.sub, modifier = Modifier.weight(1f))
+                    if (vs.running) Pill("Stop", quiet = true) { vs.stopScan() }
+                    else {
+                        Pill("Look again", quiet = true) { vs.start() }
+                        Spacer(Modifier.width(6.dp))
+                        Pill("Check all again", quiet = true) { vs.start(fresh = true) }
+                    }
+                }
+                HiddenLine(ui, org.omarchy.music.VersionScan.SCAN)
+                if (!vs.running && vs.total > 0 && vs.hits.isEmpty() && vs.error == null)
+                    Text("No $have versions found that Tidal has as $want", style = T.body, modifier = Modifier.padding(vertical = 12.dp))
+            }
+            items(vs.hits.filter { !ig.has(org.omarchy.music.VersionScan.SCAN, vs.keyOf(it.song)) }, key = { it.song.id }) { h ->
+                val t = h.song
+                val n = h.otherTrack
+                val st = vs.state[t.id]
+                ScanSong(t, t.title, t.artist + (if (t.album.isNotEmpty()) " · ${t.album}" else "")) {
+                    Text("Yours is the ${if (h.explicitNow) "explicit" else "clean"} version (${h.how}). Would become: “${n.title}” · " +
+                        "${n.album} · ${org.omarchy.music.fmtTime(n.duration)}, the $want version", style = T.sub)
+                    st?.let { Text(it, style = T.body.copy(color = if (it.startsWith("Replaced")) C.accent else C.fg), modifier = Modifier.padding(top = 2.dp)) }
+                    androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val mine = vs.previewing == t.id
+                        val theirs = vs.previewing == t.id + "|new"
+                        Chip(if (mine) "■ Stop" else "▶ Yours", mine) { vs.preview(h, mine = true) }
+                        Chip(if (theirs) "■ Stop" else "▶ The $want version", theirs) { vs.preview(h, mine = false) }
+                        if (mine || theirs) { Chip("‹ 15 s", false) { vs.skip(-15_000) }; Chip("15 s ›", false) { vs.skip(15_000) } }
+                        if (st == null || (!st.startsWith("Replaced") && st != "Downloading…" && !st.startsWith("The "))) {
+                            Pill("Replace") {
+                                vs.download(h) { newT ->
+                                    when {
+                                        Music.lib.has(t.id) -> Music.bg({ Music.lib.remove(t.id) }) { _, _ -> vs.replaced(h, newT, true) }
+                                        Music.phoneFile(t) != null -> { asking = h to newT; remove(listOf(t.file!!)) }
+                                        else -> vs.replaced(h, newT, false)
+                                    }
+                                }
+                            }
+                            Pill("Leave it", quiet = true) { if (vs.previewing?.startsWith(t.id) == true) vs.stopPreview(); ig.add(org.omarchy.music.VersionScan.SCAN, vs.keyOf(t)) }
+                        }
+                    }
+                }
             }
         }
     }

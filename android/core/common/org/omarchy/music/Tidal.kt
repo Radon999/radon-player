@@ -214,6 +214,42 @@ class Tidal(ctx: Ctx) : Source {
         return best
     }
 
+    // ---- clean and explicit (Your music › Clean or explicit; Scanner › Clean and explicit versions) ----
+    /** Whether Tidal's track id is the explicit version (null: Tidal doesn't say). */
+    fun explicitOf(id: Long): Boolean? = runCatching { trackJson(id)["explicit"].bool }.getOrNull()
+
+    /** Whether the recording with this ISRC is explicit (a clean edit has an ISRC of its own), or null if Tidal hasn't it. */
+    fun explicitByIsrc(isrc: String): Boolean? = runCatching {
+        api("tracks", mapOf("filter[isrc]" to isrc), base = OPENAPI).get("data").list.firstNotNullOfOrNull { d ->
+            d.path("attributes", "explicit").bool ?: d["id"].long?.let { explicitOf(it) }
+        }
+    }.getOrNull()
+
+    /** Every version Tidal has of song t, clean and explicit alike (its name, artist and length agree; not a live
+     *  recording, a remix or the like), the closest first. */
+    fun versions(t: Track, lossy: Boolean = true): List<JsonElement> {
+        val artists = t.artist.split(",")
+        val lead = artists[0].trim()
+        val found = LinkedHashMap<Long, Pair<JsonElement, Double>>()
+        for (q in listOf("$lead ${cleanTitle(t.title)}", "$lead ${bareTitle(t.title)}").distinct()) {
+            for (c in api("search", mapOf("query" to q, "types" to "TRACKS", "limit" to 25)).path("tracks", "items").list) {
+                val id = c["id"].long ?: continue
+                if (id in found) continue
+                val s = score(t.copy(source = "file"), artists, t.title, c, lossy)
+                if (s >= 0.75) found[id] = c to s
+            }
+            if (found.values.any { it.first["explicit"].bool == true } && found.values.any { it.first["explicit"].bool == false }) break
+        }
+        return found.values.sortedByDescending { it.second }.map { it.first }
+    }
+
+    /** Song t's explicit version (explicit) or clean one, on Tidal: the same album's first. Null if Tidal has none. */
+    fun versionOf(t: Track, explicit: Boolean, lossy: Boolean = true, among: List<JsonElement>? = null): JsonElement? {
+        val album = albumBase(t.album)
+        return (among ?: versions(t, lossy)).filter { it["explicit"].bool == explicit && ok(it, lossy) }
+            .sortedBy { album.isNotEmpty() && albumBase(it.path("album", "title").str ?: "") != album }.firstOrNull()
+    }
+
     /** How sure we are that c is the song, 0 (it isn't) .. ~1. */
     private fun score(t: Track, artists: List<String>, title: String, c: JsonElement, lossy: Boolean): Double {
         if (!ok(c, lossy)) return 0.0
