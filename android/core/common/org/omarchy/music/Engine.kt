@@ -36,6 +36,9 @@ interface Engine {
     /** The song's last sound has been played (all of it out of the speakers), though the player may not have said it
      *  ended yet. false where it can't be told (the PC's mpv says so itself). */
     val audioEnded: Boolean get() = false
+    /** There's still music coming out (the player is still handing it over, or its last sound is still playing out):
+     *  a song whose file runs longer than its length says is still playing, not run on. null: can't be told (mpv). */
+    val audioPlaying: Boolean? get() = null
     /** Run once when this one starts sounding. */
     fun onceSounding(run: () -> Unit)
     /** Done with it (a tail). */

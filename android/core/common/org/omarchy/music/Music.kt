@@ -293,7 +293,7 @@ object Music {
                     val step = now - position
                     position = now
                     if (step in 0.0..1.5) { listened(step); ListenLog.heard(step) }   // (Wrapped's diary of listening time)
-                    p.durationMs.takeIf { it > 0 }?.let { duration = it / 1000.0 }
+                    p.durationMs.takeIf { it > 0 }?.let { duration = maxOf(it / 1000.0, now) }   // a file longer than it says: its bar goes on to its real end
                     maybeCrossfade(p)
                 }
                 if (p != null) endWatch(p)
@@ -328,7 +328,10 @@ object Music {
         // its end, so a song was skipped before it played.
         val live = p.playWhenReady && !busy && !Remote.active && t != null && d > 0 && loadedFor == t.id
         val stuck = live && at >= (if (engineMs > 0) engineMs else d) - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
-        val past = live && at >= d + 1500 && p.state != Engine.IDLE && engineMs > 0
+        // Past its end: only when no music is coming out any more. A file whose music runs on longer than its length says
+        // (some MP3s and M4As, whose length is only an estimate) is still playing, so it plays to its real end, not cut
+        // off 1.5 seconds past the length (that was nearly every "ran on past its end" left); a minute over is the limit.
+        val past = live && at >= d + 1500 && p.state != Engine.IDLE && engineMs > 0 && (p.audioPlaying != true || at >= d + 60_000)
         stuckAt = at
         // Its music has all been played out, but the player hasn't said it ended: on to the next now (a moment's wait in
         // case the player's own end is just coming), not 1.5 seconds past the end, and nothing for Problems.

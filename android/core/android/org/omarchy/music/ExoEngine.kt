@@ -26,6 +26,7 @@ class ExoEngine(val p: Player, private val ctx: Ctx, private val eq: EqProcessor
         }
     }
     override val audioEnded get() = eq?.sinkEnded == true
+    override val audioPlaying: Boolean? get() = eq?.let { (!it.sinkEos && System.currentTimeMillis() - it.sinkFedAt < 1500) || (it.sinkEos && !it.sinkEnded) }
 
     override val isPlaying get() = p.isPlaying
     override val positionMs get() = p.currentPosition

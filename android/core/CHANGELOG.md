@@ -2,11 +2,13 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.22 · November 2026
+- **Songs play to their real end:** the few songs still noted as "ran on past its end" (Problems) were files whose music really runs a second or more longer than their length says. Some MP3s and M4As only estimate their length, and the app cut them off 1.5 seconds past that estimate. Now the app checks whether music is still coming out: if it is, the song plays to its real end, its bar running on with it, and the next song starts then, with no note. Only a song that's really stopped making sound is moved on from.
+
 ## 3.2.21 · November 2026
 - **Clean or explicit** (Settings › Your music, under Download quality): Explicit downloads every song as its explicit version wherever Tidal has a clean one too; Clean downloads the clean version where there's one. Songs with only one version come as they are.
 - **Clean and explicit versions** (Settings › Scanner › Your files): finds the songs you have in the other version from the one you picked, such as clean edits from another app when you want explicit. It tells which version a song is from Tidal (for songs saved from it), its ISRC, its tags, its name, or its length when Tidal's two versions differ in length, and leaves alone a song nothing tells about. Each one found shows the version it would become; play yours and that one to check they're the same song, then Replace (the wanted version downloaded, your old file deleted, into the trash or Recycle Bin, and the new one put in its place in your queue and playlists) or Leave it. It needs Tidal connected, and remembers what it found, so the next scan is quick.
 - **Listen, for Clean and explicit versions** (the switch beside the scan, and on its screen): songs whose version isn't certain (nothing tells, or only their tags, name or length) are heard in full beside Tidal's clean and explicit versions, comparing their sound where the two differ (the changed words), so a clean song isn't missed. It's much slower (a few seconds to a minute a song; both versions are streamed at low quality to hear them), so it's off unless you turn it on. Look again carries on from what earlier scans found; Check all again starts over.
-
 - **Clean and explicit versions are one song in your stats:** Most played, Artists, Wrapped and the DJ count a song's clean and explicit versions together, however they're named ("Song (Clean)", "Song [Explicit]", "Song - Clean Version", "Song (Edited)"…), so switching versions never splits its plays. A song replaced by the scan brings its plays here with it too.
 
 ## 3.2.20 · November 2026
