@@ -69,6 +69,8 @@ object Outputs {
 /** The EQ in the player: a cascade of biquads per channel, in double precision. New
  *  settings swap the coefficients in without resetting the filters, so there's no gap. */
 class EqProcessor : BaseAudioProcessor() {
+    /** Set by its player's EqSink: the song's last sound has been played out (see Engine.audioEnded). */
+    @Volatile var sinkEnded = false
     private class Stage(val c: DoubleArray, val state: Array<DoubleArray>)
 
     @Volatile private var settings = EqSettings()

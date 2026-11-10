@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top. Everything the app does is in **Features**.
 
+## 3.2.20 · November 2026
+- **The next song comes as soon as one ends:** on the phone, nearly every song "ran on past its end" (Problems): the music had finished, but the player went on "playing" a second or two of nothing before the next song, and the app had to step in. Two reasons, both fixed. A cover picture kept in the file as a one-frame video (as many downloads have it) held the player going after the sound had ended; the player now takes only the sound. And the app now knows the moment a song's last sound has been played, so it moves on then even if the player is slow to say it's done, without a note in Problems.
+
 ## 3.2.19 · November 2026
 - **Updates always install over Radon Player Next:** 3.2.18's release was built as the other app ("Radon Player", a different app to Android), so Update in Settings couldn't install it and the file from GitHub installed beside Radon Player Next, without your settings and stats. Every release is now Radon Player Next, the same app, as RadonPlayer-Next.apk: it installs over the one you have and keeps everything. Update also checks the file is for this same app before installing, and turns down one that isn't instead of installing it beside it.
 

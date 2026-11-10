@@ -33,6 +33,9 @@ interface Engine {
     /** A second player of the same kind, the song at uri ready and paused at startMs, silent: crossfade's ending song.
      *  null where there's none to be had (a cast device). */
     fun tail(uri: String, startMs: Long): Engine?
+    /** The song's last sound has been played (all of it out of the speakers), though the player may not have said it
+     *  ended yet. false where it can't be told (the PC's mpv says so itself). */
+    val audioEnded: Boolean get() = false
     /** Run once when this one starts sounding. */
     fun onceSounding(run: () -> Unit)
     /** Done with it (a tail). */

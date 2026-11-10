@@ -12,9 +12,20 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 
 /** The phone's engine: an ExoPlayer (or the cast device's player) under the app. */
-class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
+class ExoEngine(val p: Player, private val ctx: Ctx, private val eq: EqProcessor? = null) : Engine {
     // Ignore Bluetooth devices: this player plays where the music's kept too (not the cast device's: it has no output here)
-    init { (p as? ExoPlayer)?.let { BtRoute.attach(it) } }
+    init {
+        (p as? ExoPlayer)?.let { BtRoute.attach(it) }
+        // Sound only: a cover picture stored in a file as a one-frame video (or an image or lyrics track) kept the player
+        // "playing" after the music had ended, its clock running on past the song's end for a second or two before
+        // the next song came (Problems: "ran on past its end", nearly every song).
+        runCatching {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).setTrackTypeDisabled(C.TRACK_TYPE_IMAGE, true)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+        }
+    }
+    override val audioEnded get() = eq?.sinkEnded == true
 
     override val isPlaying get() = p.isPlaying
     override val positionMs get() = p.currentPosition
@@ -63,7 +74,7 @@ class ExoEngine(val p: Player, private val ctx: Ctx) : Engine {
         x.volume = 0f
         x.playWhenReady = false
         x.prepare()
-        return ExoEngine(x, ctx)
+        return ExoEngine(x, ctx, eq)
     }
 
     override fun onceSounding(run: () -> Unit) {

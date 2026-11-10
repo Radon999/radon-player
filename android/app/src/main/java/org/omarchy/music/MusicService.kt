@@ -131,7 +131,7 @@ class MusicService : MediaLibraryService() {
                 runCatching { PlayerWidget.update(this@MusicService) }
             }
         }
-        Music.player = ExoEngine(exo, this)
+        Music.player = ExoEngine(exo, this, Music.eqProcessor)
         Music.playerReady()
         LockScreen.register(this)
     }

@@ -37,7 +37,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     override fun supportsFormat(format: Format): Boolean = getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
 
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
-        pending = false
+        pending = false; eos = false; eq.sinkEnded = false
         inEncoding = inputFormat.pcmEncoding
         if (inputFormat.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && hiRes(inEncoding) && !Music.bitPerfectNow()) {
             toShort = if (inEncoding == C.ENCODING_PCM_24BIT) 3 else 4
@@ -96,7 +96,15 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
         return done
     }
 
+    // The song's end handed in (playToEndOfStream) and all of it played out: told to the app (Engine.audioEnded), so it
+    // moves on the moment the music's over even when the player is slow to say it ended.
+    private var eos = false
+    override fun playToEndOfStream() { eos = true; super.playToEndOfStream() }
+    override fun isEnded(): Boolean { val e = super.isEnded(); eq.sinkEnded = eos && e; return e }
+    override fun reset() { eos = false; eq.sinkEnded = false; super.reset() }
+
     override fun flush() {
+        eos = false; eq.sinkEnded = false
         pending = false
         if (float) eq.resetFloat()
         super.flush()

@@ -303,6 +303,7 @@ object Music {
     }
 
     private var stuckMs = 0
+    private var audioDoneMs = 0
     private var stuckAt = -1L
     private var advancingSince = 0L
 
@@ -329,6 +330,10 @@ object Music {
         val stuck = live && at >= (if (engineMs > 0) engineMs else d) - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
         val past = live && at >= d + 1500 && p.state != Engine.IDLE && engineMs > 0
         stuckAt = at
+        // Its music has all been played out, but the player hasn't said it ended: on to the next now (a moment's wait in
+        // case the player's own end is just coming), not 1.5 seconds past the end, and nothing for Problems.
+        audioDoneMs = if (live && p.audioEnded && p.state == Engine.READY && at >= d - 5000) audioDoneMs + 500 else 0
+        if (audioDoneMs >= 1000) { audioDoneMs = 0; stuckMs = 0; advancingSince = 0L; advancing = false; trackEnded(); return }
         stuckMs = if (stuck) stuckMs + 500 else 0
         if (stuckMs >= 2500 || past) {
             stuckMs = 0; advancingSince = 0L
