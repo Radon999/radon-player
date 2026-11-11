@@ -61,7 +61,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 - **The voice:** Says what's coming and fun facts about your listening, never over a song: milestones (a song's 100th play) always, greetings for the time and the day, and now and then a word before a song in the middle of a set. The PC has a natural voice; the phone uses its own voice, or downloads the natural one once (about 130 MB) and lets you pick either in DJ › Voice settings, or remove it.
 - **Instant:** The first set is ready before you tap DJ, and three more are kept ready with their lines, so switching category is immediate however fast you skip. Switch it up is on Now playing (✦, beside the set button) and over the queue too. From your headphones: pause, then Next (a double tap) switches it up and plays.
 - **Ask for something:** Type or say an artist, a genre, a decade, a mood or a vibe ("workout").
-- **Play from** everything, or one playlist, folder or album.
+- **Play from** everything, or one playlist, folder or album. Every kind of set works there too (On repeat, throwbacks, the mood sets, an artist spotlight…), of only its songs, plus a few made for it (Not played yet, One artist, Mix); with new songs on, new ones like its songs come in too.
 
 ## Stats & Wrapped
 
