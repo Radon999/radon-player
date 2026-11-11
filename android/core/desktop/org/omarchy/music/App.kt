@@ -25,6 +25,7 @@ object PcApp {
         Services.start(c)
         RemoteHost.init(c)   // the phone remote, if it was on
         MediaKeys.start()
+        DacPeqWin.start()   // a FiiO DAC's own EQ presets, switched from the Equalizer
         Discord.init()
         MediaSession.start()   // Windows' media controls: the flyout, widgets and wallpapers see what's playing
         Updater.startTimer()   // a new release: looked for at start and every 12 hours

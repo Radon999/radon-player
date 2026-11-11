@@ -37,6 +37,7 @@ class MusicService : MediaLibraryService() {
         super.onCreate()
         Music.init(this)
         UsbDirect.init(this)
+        DacPeqUsb.init(this)
         val renderers = ExoEngine.renderers(this, Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
         val exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)

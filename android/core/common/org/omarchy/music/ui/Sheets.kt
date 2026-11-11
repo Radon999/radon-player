@@ -1512,6 +1512,7 @@ private fun SoundQuality(ui: Ui) {
         Music.bitPerfect) {
         Switch(Music.bitPerfect, { Music.chooseBitPerfect(it) }, colors = swColors())
     }
+    DacEqRow()
     val P = org.omarchy.music.Prefs
     Line("Clip guard", "When a song's volume or the EQ would push the loudest moments (peaks) past the " +
         "maximum level, a limiter gently holds them down instead of letting them crackle. It only ever touches a peak that would " +
@@ -1652,6 +1653,42 @@ fun FullScreen(title: String, close: () -> Unit, actions: @Composable () -> Unit
     }
 }
 
+/** The DAC's own EQ (the presets set up in FiiO Control, kept in the DAC): on or off, and which preset, switched from
+ *  here; shown while a DAC the app can switch is plugged in (a FiiO KA17). */
+@Composable
+private fun DacEqRow() {
+    val D = org.omarchy.music.DacPeq
+    LaunchedEffect(Unit) { D.refresh() }
+    val dac = D.dac ?: return
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(R.card).background(C.light).border(1.dp, C.line, R.card)
+        .padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text("$dac's own EQ", style = T.body)
+                Text(when {
+                    !D.allowed -> "Allow the app to use the DAC, and its EQ presets (set up in FiiO Control) can be switched here"
+                    D.busy -> "Switching…"
+                    D.preset == null -> "Its PEQ presets, from FiiO Control: turn it off for speakers, say"
+                    D.preset == D.OFF -> "Off: the DAC plays without its EQ"
+                    else -> "On: ${D.name(D.preset)}"
+                }, style = T.sub)
+            }
+            if (!D.allowed) Pill("Allow") { D.ask() }
+            else Switch(D.preset != null && D.preset != D.OFF, { D.turn(it) }, enabled = !D.busy, colors = swColors())
+        }
+        if (D.allowed) Box(Modifier.padding(top = 6.dp)) {
+            var open by remember { mutableStateOf(false) }
+            Chip("Preset: ${D.name(D.preset)} ▾", false) { if (!D.busy) open = true }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                (listOf(D.OFF to "Off (no EQ)") + D.PRESETS).forEach { (id, n) ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(if (id == D.preset) "$n ✓" else n, style = T.body) }, { open = false; D.choose(id) })
+                }
+            }
+        }
+        if (D.note.isNotEmpty()) Text(D.note, style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
 /** The equalizer: each output (the speaker, headphones, your car, earbuds, USB) has its own, used as soon
  *  as the sound goes there; 3, 5, 10, 15 or 31 bands; a correction for your headphones; bass and treble. */
 @Composable
@@ -1668,6 +1705,7 @@ private fun EqSheet(ui: Ui) {
         Switch(eq.on, { Music.setEqOn(it) }, colors = swColors())
     }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
+          DacEqRow()
           if (compact) {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box {
