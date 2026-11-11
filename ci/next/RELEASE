@@ -1,0 +1,8 @@
+v3.2.25
+Radon Player 3.2.25: Your DAC's own EQ, switched from the app
+## 3.2.25: Your DAC's own EQ, switched from the app (Windows and Android)
+- **Switch your DAC's own EQ from the app:** with a FiiO KA17 plugged in, the Equalizer (and Settings › Sound quality, under Bit-perfect) shows the DAC's own EQ: a switch to turn it off (for a speaker, say) and back on, and which of its presets is used (USER1–3, the FiiO ones, or Off). The presets themselves are set up in FiiO Control and stay in the DAC; the app only picks one, over the DAC's USB control channel as FiiO Control does, so it works with bit-perfect on or off, on the phone (allow the app to use the DAC once) and the PC.
+
+### Good to know
+- **Android:** install RadonPlayer-Next.apk over Radon Player Next (same app, same signature: your library, settings and stats stay), or tap Update in Settings.
+- **Windows:** Radon-Player-3.2.25.msi installs over 3.2.24, or use Update in Settings.
