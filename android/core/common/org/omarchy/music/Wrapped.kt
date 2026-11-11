@@ -241,6 +241,51 @@ object Wrapped {
     private fun startOf(y: Int) = LocalDate.of(y, 1, 1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
     private fun epoch(d: LocalDate) = d.atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
 
+    /** Your own copy of a played song, by its name and artist: the same song (name and lead artist), else, when the
+     *  play names an artist you've no songs by and just one of your songs has that name, that one (Last.fm, or a
+     *  service, had put the play under the wrong artist: "What I Live For" by Juice WRLD shown as Lil Mboiz's, with its
+     *  cover). Wrapped shows what's on your device, and only what isn't here as the history has it. */
+    private class Local {
+        private val byKey = HashMap<Pair<String, String>, Track>()
+        private val byTitle = HashMap<String, MutableList<Track>>()
+        private val artists = HashSet<String>()
+        init {
+            for (t in runCatching { Music.mySongs() }.getOrDefault(emptyList())) {
+                val k = Stats.statsKey(t.title, t.artist)
+                byKey.putIfAbsent(k, t); artists += k.second
+                val l = byTitle.getOrPut(k.first) { ArrayList() }
+                if (l.none { Stats.statsKey(it.title, it.artist) == k }) l += t
+            }
+        }
+        val empty get() = byKey.isEmpty()
+        fun of(title: String, artist: String): Track? {
+            val k = Stats.statsKey(title, artist)
+            byKey[k]?.let { return it }
+            if (k.second in artists) return null   // an artist you have: a song of theirs you haven't got
+            return byTitle[k.first]?.singleOrNull()
+        }
+    }
+
+    /** Plays put under your own copy's name and artist (see Local). */
+    private fun localRows(rows: List<Row>, local: Local): List<Row> = if (local.empty) rows else rows.map { r ->
+        val t = local.of(r.title, r.artist) ?: return@map r
+        if (t.title == r.title && t.artist == r.artist) r else r.copy(title = t.title, artist = t.artist, album = t.album.ifBlank { r.album })
+    }
+
+    /** The top songs as your own copies (see Local): the same song counted once, its plays added up, its file kept. */
+    private fun localSongs(songs: List<Song>, local: Local): List<Song> {
+        if (local.empty) return songs
+        val out = LinkedHashMap<Pair<String, String>, Song>()
+        for (s in songs) {
+            val t = local.of(s.title, s.artist)
+            val m = if (t != null) s.copy(title = t.title, artist = t.artist, file = t.file ?: s.file,
+                art = if (Stats.statsKey(t.title, t.artist) == Stats.statsKey(s.title, s.artist)) s.art else "") else s
+            val k = Stats.statsKey(m.title, m.artist)
+            out[k] = out[k]?.let { it.copy(plays = it.plays + m.plays, first = listOfNotNull(it.first, m.first).minOrNull()) } ?: m
+        }
+        return out.values.sortedByDescending { it.plays }
+    }
+
     private fun yearStats(base: Data, rows: List<Row>): Data {
         val artists = LinkedHashMap<String, Int>(); val songs = LinkedHashMap<Pair<String, String>, Int>()
         val albums = LinkedHashMap<Pair<String, String>, Int>()
@@ -466,6 +511,7 @@ object Wrapped {
         val base = Data(period, user, years, firstYear)
         var data: Data
         var rows: List<Row>
+        val local = Local()
         if (period == Period.All && spotify.isEmpty() && !lastFmDown) {   // Last.fm adds it all up: no need to read every scrobble
             val counts = years.reversed().map { y ->
                 progress("Counting your scrobbles · $y")
@@ -478,7 +524,7 @@ object Wrapped {
                 songs = LastFm.top("track", TOP).map { Song(it.name, it.artist, it.plays, it.image) },
                 albums = LastFm.top("album", TOP).map { AlbumPlays(it.name, it.artist, it.plays, it.image) },
                 minutes = Math.round(me.playcount * 3.5).toInt())   // about three and a half minutes a song
-            rows = keptScrobbles(ctx).sortedBy { it.t }   // what's kept here already, for the pages worked out from plays
+            rows = localRows(keptScrobbles(ctx).sortedBy { it.t }, local)   // what's kept here already, for the pages worked out from plays
             if (rows.isNotEmpty()) {
                 val y = yearStats(base, rows)
                 data = data.copy(hours = y.hours, weekdays = y.weekdays, streak = y.streak, days = y.days, busiest = y.busiest,
@@ -489,6 +535,7 @@ object Wrapped {
                 withSpotify(if (fm) years.reversed().flatMap { scrobbles(dir, Period.Year(it), progress) } else emptyList(), Long.MIN_VALUE, Long.MAX_VALUE)
             else withSpotify(if (fm) scrobbles(dir, period, progress) else emptyList(), epoch(period.start()), epoch(period.end()))
             if (rows.isEmpty()) return base.copy(empty = true)
+            rows = localRows(rows, local)
             data = yearStats(base, rows)
             if (period != Period.All) {
                 val start = epoch(period.start()); val naturalEnd = epoch(period.end())
@@ -536,6 +583,7 @@ object Wrapped {
         data = data.copy(type = runCatching { listenerType(dir, data, from, to) }.getOrNull())
         progress("Looking through your library…")
         data = data.copy(library = runCatching { library() }.getOrNull())
+        data = data.copy(songs = localSongs(data.songs, local))
         progress("Getting the pictures…")
         // Every song and album row: the cover inside your own file of it first (read from the file as it is now, so a
         // cover you re-saved shows), then a cover saved for it, Last.fm's, then Deezer's (looked up only when needed).

@@ -220,10 +220,17 @@ class Tidal(ctx: Ctx) : Source {
 
     /** Whether the recording with this ISRC is explicit (a clean edit has an ISRC of its own), or null if Tidal hasn't it. */
     fun explicitByIsrc(isrc: String): Boolean? = runCatching {
-        api("tracks", mapOf("filter[isrc]" to isrc), base = OPENAPI).get("data").list.firstNotNullOfOrNull { d ->
+        // Every track Tidal has with the ISRC: some releases put the clean and the explicit version under one ISRC,
+        // and the first one found (often the explicit) decided before, so clean songs were taken for explicit ones,
+        // for certain, and never listened to. Both found: it can't be told this way (null).
+        val flags = api("tracks", mapOf("filter[isrc]" to isrc), base = OPENAPI).get("data").list.mapNotNull { d ->
             d.path("attributes", "explicit").bool ?: d["id"].long?.let { explicitOf(it) }
-        }
+        }.distinct()
+        flags.singleOrNull()
     }.getOrNull()
+
+    /** A Tidal track's explicit flag and ISRC. */
+    fun explicitAndIsrc(id: Long): Pair<Boolean?, String?>? = runCatching { trackJson(id).let { it["explicit"].bool to it["isrc"].str } }.getOrNull()
 
     /** Every version Tidal has of song t, clean and explicit alike (its name, artist and length agree; not a live
      *  recording, a remix or the like), the closest first. */

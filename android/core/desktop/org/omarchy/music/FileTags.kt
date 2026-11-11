@@ -36,7 +36,7 @@ object FileTags {
         val isrc = runCatching { tag.getFirst(FieldKey.ISRC) }.getOrNull()?.trim()?.takeIf { it.length >= 12 }
         val adv = listOf("ITUNESADVISORY", "EXPLICIT", "rtng").firstNotNullOfOrNull { k ->
             runCatching { tag.getFirst(k) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() } }
-        isrc to VersionScan.advisory(adv)
+        isrc to advisory(adv)
     }.getOrNull()
 
     /** WAVs are tagged by WavTags (their ID3 and LIST INFO chunks), which keeps the studio chunks some have

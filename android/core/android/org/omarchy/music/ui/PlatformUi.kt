@@ -173,6 +173,7 @@ object SpectrumHub {
     private var session = 0
     @Volatile private var heard = 0L
     private var watch: kotlinx.coroutines.Job? = null
+    private var tap: kotlinx.coroutines.Job? = null
     private var onFail: (String) -> Unit = {}
 
     private fun sessionNow() = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? androidx.media3.exoplayer.ExoPlayer)?.audioSessionId ?: 0
@@ -183,9 +184,25 @@ object SpectrumHub {
         if (users > 1) return
         open()
         watch?.cancel()
+        // Bit-perfect straight to a USB DAC: Android's visualizer hears nothing, so the bars come from the app's own
+        // output (AudioTap), about 30 times a second
+        tap?.cancel()
+        tap = Music.scope.launch {
+            var wasTap = false
+            while (true) {
+                kotlinx.coroutines.delay(33)
+                if (!org.omarchy.music.AudioTap.active) { if (wasTap) { wasTap = false; target.fill(0f) }; continue }
+                wasTap = true
+                if (vis != null) close()
+                val f = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { org.omarchy.music.AudioTap.fft() } ?: continue
+                org.omarchy.music.Spectrum.bands(f, org.omarchy.music.AudioTap.rate).copyInto(target)
+                heard = System.currentTimeMillis()
+            }
+        }
         watch = Music.scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(700)
+                if (org.omarchy.music.AudioTap.active) continue
                 val s = sessionNow()
                 val playing = !Music.paused && Music.player?.isPlaying == true
                 // A new sound (another player), none yet, or quiet for 3 seconds while music plays: opened again
@@ -198,6 +215,7 @@ object SpectrumHub {
         users = (users - 1).coerceAtLeast(0)
         if (users > 0) return
         watch?.cancel(); watch = null
+        tap?.cancel(); tap = null
         close()
         target.fill(0f)
     }
@@ -209,6 +227,7 @@ object SpectrumHub {
 
     private fun open() {
         close()
+        if (org.omarchy.music.AudioTap.active) return   // the app's own output has it (see acquire)
         session = sessionNow()
         heard = System.currentTimeMillis()
         if (session == 0) return   // no player's sound yet: tried again in a moment

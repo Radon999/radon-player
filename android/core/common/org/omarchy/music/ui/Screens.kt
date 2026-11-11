@@ -1365,13 +1365,33 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
             "“… discovered”, to download or let go.") }
         return
     }
+    // Select (hold one, or Select): then tap to pick more, and delete (or download) them together, as in Playlists
+    val picking = ui.pickingIn("discovery")
+    val picked = ui.albumsPicked
+    item(key = "disc-bar") {
+        if (picking) PickBar(ui, "discovery playlists", listOf(
+            "Delete…" to {
+                val ids = picked.keys.toList()
+                ui.confirm = ("Delete ${ids.size} discovery playlist${if (ids.size != 1) "s" else ""}? " +
+                    ids.mapNotNull { Music.lists.get(it)?.name }.joinToString(", ") { "“$it”" } + ". The songs you have stay in your music.") to {
+                    ids.forEach { Music.deletePlaylist(it) }; picked.clear(); ui.pickingAlbums = false }
+            },
+            "Download" to { Music.downloadPlaylists(picked.keys.toList()) },
+            "Select all" to { pairs.forEach { (_, d, f) -> listOfNotNull(d, f).forEach { picked[it.id] = it.tracks } } },
+        ))
+        else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick("discovery") } }
+    }
     for ((artist, disc, found) in pairs) {
         item(key = "dh-$artist") { Section(artist.uppercase()) }
         listOfNotNull(disc, found).forEach { pl ->
             item(key = "dp-${pl.id}") {
                 val cover = pl.tracks.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
                 PlaylistRow(Album(pl.id, pl.name, (if (pl === disc) "Songs to hear" else "Heard to the end: open it to review them") +
-                    " · ${pl.tracks.size}"), cover?.let { artModel(it) }) { ui.openMine = pl.id }
+                    " · ${pl.tracks.size}"), cover?.let { artModel(it) },
+                    onLongClick = { if (picking) picked[pl.id] = pl.tracks else ui.startPick("discovery", pl.id, pl.tracks) },
+                    checked = if (picking) pl.id in picked else null) {
+                    if (picking) { if (pl.id in picked) picked.remove(pl.id) else picked[pl.id] = pl.tracks } else ui.openMine = pl.id
+                }
             }
         }
     }

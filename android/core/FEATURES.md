@@ -23,7 +23,7 @@ Radon Player plays your own music files and the streaming services you use, toge
 Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid, with its own search and sort, remembered.
 
 - **My music, Albums, EPs, Singles, Artists, Genres and Folders,** from your files and downloads. An album shows **Missing from this album** to download the rest.
-- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways.
+- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways. The **Discovery** screen lists every artist's discovery playlists; hold one (or Select) to pick several and delete or download them together.
 - **Playlists:** Make, sort, fold into folders, import and export (.m3u8). **Smart playlists** fill themselves by rules (genre, mood, plays, format, skips, length…), with ready-made ones.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items at the top of the menu.
 - **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists, then play, queue, download, tag or delete them together.
@@ -83,7 +83,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 - **Dual volume:** On, a song's own volume and the Boost go together; off, a song with its own volume plays at just that volume, without the Boost.
 - **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows.
 - **Sound quality:** clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on from the start, each can be turned off), and loudness compensation (off from the start).
-- **Bit-perfect** to a USB DAC (phone) or the PC's sound card. On phones whose Android has no bit-perfect mode (Samsung's), Radon Player takes the DAC over and streams each song to it itself, untouched at its own sample rate and bit depth (after you allow it to use the DAC; the phone's volume buttons set the DAC's own volume, and while it holds the DAC other apps can't play through it). Also **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does. **Car always wins** (the phone) is the failsafe: whenever the car is connected, it has the music.
+- **Bit-perfect** to a USB DAC (phone) or the PC's sound card. On phones whose Android has no bit-perfect mode (Samsung's), Radon Player takes the DAC over and streams each song to it itself, untouched at its own sample rate and bit depth (after you allow it to use the DAC; the phone's volume buttons set the DAC's own volume, and while it holds the DAC other apps can't play through it). **Bass and Treble with bit-perfect** (Equalizer, phone and PC) keeps just the equalizer's Bass and Treble working with bit-perfect on, with headroom so nothing clips; at 0 dB the music is untouched again. Also **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does. **Car always wins** (the phone) is the failsafe: whenever the car is connected, it has the music.
 
 ## Personalization
 
@@ -114,8 +114,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 ## Tags & tidying
 
 - **Tagger:** A song's tags (with **Find tags online**, which shows every change first), cover, info, lyrics, mood, and which tab a release goes in (Albums, EPs or Singles). Changed artist or album? Its file moves to match. On the phone it works on any of your files once you allow All files access.
-- **Scanner tools** (Settings › Scanner): Fix genre names, Duplicates, Upgrade to FLAC, Clean and explicit versions, Songs without covers, Identify by sound and Similar artists.
-- **Clean and explicit versions** (Scanner): finds songs you have in the other version from the one you picked (a clean edit when you want explicit, or the other way round) where Tidal has yours. Play your song and the version that would replace it to check, then Replace (downloaded, your old file deleted) or Leave it. **Listen** (a switch) hears songs whose version isn't certain in full beside Tidal's two versions: slower, but surer.
+- **Scanner tools** (Settings › Scanner): Fix genre names, Duplicates, Upgrade to FLAC, Songs without covers, Identify by sound and Similar artists.
 - **PC only:** Fix albums and artists, Empty folders, and folders to leave alone.
 
 ## Phone + PC together

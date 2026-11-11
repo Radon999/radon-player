@@ -72,7 +72,7 @@ object FileTags {
         val isrc = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.ISRC) }.getOrNull()?.trim()?.takeIf { it.length >= 12 }
         val adv = listOf("ITUNESADVISORY", "EXPLICIT", "rtng").firstNotNullOfOrNull { k ->
             runCatching { tag.getFirst(k) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() } }
-        isrc to VersionScan.advisory(adv)
+        isrc to advisory(adv)
     }.getOrNull()
 
     /** Your own file's tags written in its own format ("" clears a field); true if it worked. */

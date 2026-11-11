@@ -23,7 +23,7 @@ object AudioQuality {
      *  happened, in words (for Settings and the EQ). Off: let Android mix again. */
     fun applyBitPerfect(ctx: Context, on: Boolean, rate: Int, bits: Int): String {
         val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (!on) { UsbDirect.closeAll() }
+        if (!on) { UsbDirect.closeAll(); UsbDirect.failures = 0 }
         if (on && UsbDirect.active) return UsbDirect.note
         if (on && UsbDirect.device() != null && !UsbDirect.androidHasBitPerfect() && UsbNative.loaded)
             return if (UsbDirect.wanted()) UsbDirect.note.ifEmpty { "Bit-perfect: straight to ${UsbDirect.device()?.productName ?: "the DAC"}, around Android" }

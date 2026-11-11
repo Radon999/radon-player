@@ -76,7 +76,7 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile var sinkEos = false
     private class Stage(val c: DoubleArray, val state: Array<DoubleArray>)
 
-    @Volatile private var settings = EqSettings()
+    @Volatile var settings = EqSettings(); private set
     @Volatile private var stages: List<Stage> = emptyList()
     @Volatile private var gain = 1.0
     @Volatile private var boostGain = 1.0   // Boost (Equalizer): always with the limiter

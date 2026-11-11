@@ -24,6 +24,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (MusicApp.safeMode) { showCrash(); return }
+        // The volume buttons are the music's here, always: with bit-perfect streaming straight to a USB DAC Android hears
+        // nothing playing, and they changed the ringer instead of the music (and the DAC)
+        volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)

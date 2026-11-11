@@ -752,19 +752,6 @@ private fun ToolLines(ui: Ui) {
         (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
         Pill("Scan…", quiet = true) { ui.tool = "genres" }
     }
-    Line("Clean and explicit versions", "Finds songs you have in the other version from the one picked in Your music › " +
-        "Clean or explicit: set to Explicit, the clean versions of songs that have an explicit one; set to Clean, the explicit " +
-        "ones that have a clean one (looked up on Tidal; it needs Tidal connected). You can play your song and the version " +
-        "that would replace it to check, then replace it (the other version downloaded, your old file deleted) or leave it. " +
-        "Listen (the switch): songs whose version isn't certain (nothing tells, or only their tags, name or length) are heard " +
-        "in full beside Tidal's clean and explicit versions, which tells them apart much more surely but takes a lot longer " +
-        "(a few seconds to a minute a song, and it streams both versions)", false) {
-        var deep by remember { mutableStateOf(org.omarchy.music.VersionScan.listen) }
-        Text("Listen", style = T.sub, modifier = Modifier.padding(end = 4.dp))
-        Switch(deep, { deep = it; org.omarchy.music.VersionScan.listen = it }, colors = swColors())
-        Spacer(Modifier.width(6.dp))
-        Pill("Scan…", quiet = true) { ui.tool = "versions" }
-    }
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
         "(searched for you, or a picture of your own)", false) {
         Pill("Scan…", quiet = true) { ui.tool = "nocover" }
@@ -1726,10 +1713,20 @@ private fun EqSheet(ui: Ui) {
           } else {
             if (Music.bitPerfect) Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(R.card).background(C.light)
                 .border(1.dp, C.red, R.card).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Bit-perfect is on, so the equalizer and each song's volume are bypassed and your DAC gets " +
+                Text(if (Music.bpTones) "Bit-perfect is on: only Bass and Treble (under Bass and treble) are heard, the rest of the " +
+                    "equalizer and each song's volume are bypassed. With both at 0 dB the DAC gets the music untouched."
+                    else "Bit-perfect is on, so the equalizer and each song's volume are bypassed and your DAC gets " +
                     "the music untouched. Switch bit-perfect off to hear the settings here.", style = T.sub, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 Pill("Turn off", quiet = true) { Music.chooseBitPerfect(false) }
+            }
+            if (Music.bitPerfect) Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Bass and Treble with bit-perfect", style = T.body)
+                    Text("Just the two tone controls, on the samples as they go to the DAC (not bit-perfect while either isn't 0 dB)", style = T.sub)
+                }
+                androidx.compose.material3.Switch(Music.bpTones, { Music.chooseBpTones(it) },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = C.accent))
             }
             // The output these settings are for.
             val key = eq.output.ifEmpty { Music.outputNow.key }

@@ -23,6 +23,72 @@ object Voice {
 
     val canSpeak get() = true
 
+    /** Bit-perfect with the app streaming straight to a USB DAC (UsbDirect, set up by the app): Android can't play
+     *  through the DAC then, so the voice went nowhere (and the DJ never finished). While dacOn, every voice is made
+     *  into samples and handed to dac (samples, rate, channels, still wanted) to be heard through the DAC. */
+    @Volatile var dac: ((FloatArray, Int, Int, () -> Boolean) -> Boolean)? = null
+    @Volatile var dacOn: () -> Boolean = { false }
+    /** How the line went to the DAC (UsbDirect.lastSpeak), for the note below. */
+    @Volatile var dacReport: () -> String = { "" }
+    private var dacNotes = 0
+    /** With bit-perfect on, the first few lines each leave a note in Problems saying how they went to the DAC, so a
+     *  voice that isn't heard can be told apart (sent but not heard, or never sent and why). */
+    private fun dacNote(how: String, sent: Boolean) {
+        if (!Music.bitPerfect || dacNotes >= 4) return
+        dacNotes++
+        Crashes.note("DJ voice with bit-perfect ($how): " + (if (sent) "through the DAC · ${dacReport()}" else
+            "not through the DAC (${if (dacOn()) dacReport() else "the DAC isn't the app's now"}): Android's way"))
+    }
+
+    /** (blocking) A sound file (MP3, WAV) as float samples: (samples, rate, channels), or null. */
+    private fun decode(path: String): Triple<FloatArray, Int, Int>? = runCatching {
+        val ex = android.media.MediaExtractor(); ex.setDataSource(path)
+        val track = (0 until ex.trackCount).firstOrNull { ex.getTrackFormat(it).getString(android.media.MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
+            ?: run { ex.release(); return@runCatching null }
+        ex.selectTrack(track)
+        val fmt = ex.getTrackFormat(track)
+        var rate = fmt.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE)
+        var ch = fmt.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+        val codec = android.media.MediaCodec.createDecoderByType(fmt.getString(android.media.MediaFormat.KEY_MIME)!!)
+        codec.configure(fmt, null, null, 0); codec.start()
+        val out = java.io.ByteArrayOutputStream()
+        var float = false
+        val info = android.media.MediaCodec.BufferInfo()
+        var inDone = false; var outDone = false
+        while (!outDone) {
+            if (!inDone) {
+                val i = codec.dequeueInputBuffer(10_000)
+                if (i >= 0) {
+                    val n = ex.readSampleData(codec.getInputBuffer(i)!!, 0)
+                    if (n < 0) { codec.queueInputBuffer(i, 0, 0, 0, android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM); inDone = true }
+                    else { codec.queueInputBuffer(i, 0, n, ex.sampleTime, 0); ex.advance() }
+                }
+            }
+            val o = codec.dequeueOutputBuffer(info, 10_000)
+            if (o == android.media.MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                val f = codec.outputFormat
+                rate = f.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE); ch = f.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+                float = f.containsKey(android.media.MediaFormat.KEY_PCM_ENCODING) &&
+                    f.getInteger(android.media.MediaFormat.KEY_PCM_ENCODING) == android.media.AudioFormat.ENCODING_PCM_FLOAT
+            } else if (o >= 0) {
+                val b = codec.getOutputBuffer(o)!!
+                val bytes = ByteArray(info.size); b.position(info.offset); b.get(bytes); out.write(bytes)
+                codec.releaseOutputBuffer(o, false)
+                if (info.flags and android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outDone = true
+            }
+        }
+        codec.stop(); codec.release(); ex.release()
+        val bb = java.nio.ByteBuffer.wrap(out.toByteArray()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val samples = if (float) FloatArray(bb.remaining() / 4) { bb.float } else FloatArray(bb.remaining() / 2) { bb.short / 32768f }
+        Triple(samples, rate, ch)
+    }.getOrNull()
+
+    /** (blocking) A voice file heard through the DAC; false when it couldn't be (then Android's way). */
+    private fun dacFile(path: String, mine: Long): Boolean {
+        val (s, rate, ch) = decode(path) ?: return false
+        return dac?.invoke(s, rate, ch) { turn == mine } == true
+    }
+
     // ---- Kokoro, through sherpa-onnx (Apache-2.0): the voice the PC uses ----
     private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
     private const val MODEL_DIR = "kokoro-int8-multi-lang-v1_0"
@@ -148,6 +214,8 @@ object Voice {
         if (turn != mine) return@runCatching true
         val rate = audio.sampleRate; val samples = audio.samples
         if (samples.isEmpty()) error("it made no sound")
+        if (dacOn() && dac?.invoke(samples, rate, 1) { turn == mine } == true) { dacNote("natural voice", true); lastError = ""; return@runCatching true }
+        dacNote("natural voice", false)
         val t = android.media.AudioTrack.Builder()
             .setAudioAttributes(BtRoute.voice(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
                 .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)).build())
@@ -187,6 +255,13 @@ object Voice {
             val mp3 = runCatching { (madeAhead(text) as? ByteArray) ?: DjVoices.eleven(text, "mp3_44100_128") }.onFailure { e ->
                 if (now() - elevenToldAt > 600) { elevenToldAt = now(); Music.toast("ElevenLabs voice: ${e.message?.take(80)}. Using the phone's voice.") }
             }.getOrNull()
+            // Through the DAC (bit-perfect straight to it): decoded here and heard there
+            if (mp3 != null && turn == mine && dacOn()) {
+                val f = java.io.File(Music.ctx.cacheDir, "dj-line-dac.mp3")
+                val ok = runCatching { f.writeBytes(mp3); dacFile(f.path, mine) }.getOrDefault(false)
+                dacNote("ElevenLabs", ok)
+                if (ok) { Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { onDone() }; return@Thread }
+            } else if (mp3 != null) dacNote("ElevenLabs", false)
             Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 if (turn != mine) { onDone(); return@launch }   // hushed (or another line began) while it came: nothing to say
                 if (mp3 == null) { sayTts(text, onDone); return@launch }
@@ -281,6 +356,20 @@ object Voice {
         if (!ready) { synchronized(waiting) { waiting += text to onDone }; return }
         if (tts == null) { onDone(); return }
         val id = "dj${n++}"
+        if (!dacOn()) dacNote("phone's voice", false)
+        if (dacOn()) {   // through the DAC: the line made into a file, then heard there
+            val mine = turn
+            val f = java.io.File(Music.ctx.cacheDir, "dj-line-tts.wav")
+            synchronized(done) { done[id] = {
+                Thread {
+                    val ok = turn == mine && f.isFile && runCatching { dacFile(f.path, mine) }.getOrDefault(false)
+                    dacNote("phone's voice", ok)
+                    Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { onDone() }
+                }.apply { isDaemon = true }.start()
+            } }
+            if (tts?.synthesizeToFile(text, android.os.Bundle(), f, id) != TextToSpeech.SUCCESS) finish(id)
+            return
+        }
         synchronized(done) { done[id] = onDone }
         val p = android.os.Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_MUSIC) }
         if (tts?.speak(text, TextToSpeech.QUEUE_FLUSH, p, id) != TextToSpeech.SUCCESS) finish(id)

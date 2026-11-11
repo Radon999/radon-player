@@ -259,6 +259,7 @@ object Music {
         QualityCheck.init(ctx)
         TagScan.Done.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
+        bpTones = Prefs.on(Prefs.BP_TONES)
         eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
         applySound()
         lib = Library(ctx)
@@ -3701,6 +3702,15 @@ object Music {
     }
     /** Boost: dB louder than normal (0-12) on everything, kept for this output. */
     fun setEqBoost(db: Double) = setEq { it.copy(boost = (kotlin.math.round(db.coerceIn(0.0, Eq.BOOST_MAX) * 2) / 2)) }
+
+    /** Bit-perfect, but the equalizer's Bass and Treble heard anyway (Equalizer): the rest stays untouched. */
+    var bpTones by mutableStateOf(false)
+    fun chooseBpTones(on: Boolean) {
+        bpTones = on; Prefs.set(Prefs.BP_TONES, on)
+        eqProcessor.update(eq)   // the PC's filters again
+        toast(if (on) "Bass and Treble on with bit-perfect (the rest of the sound untouched)" else "Bit-perfect: every sample untouched again")
+    }
+    fun bpTonesNow() = bitPerfect && bpTones && eq.on && (eq.bass != 0.0 || eq.treble != 0.0)
 
     fun setEqTone(name: String, gain: Double) = setEq {
         if (name == "bass") it.copy(bass = Eq.clamp(gain), on = true) else it.copy(treble = Eq.clamp(gain), on = true)

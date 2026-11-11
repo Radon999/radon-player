@@ -40,7 +40,7 @@ class MusicService : MediaLibraryService() {
         val renderers = ExoEngine.renderers(this, Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
         val exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
-            .setHandleAudioBecomingNoisy(true)
+            .setHandleAudioBecomingNoisy(false)   // its own, below: bit-perfect taking the DAC isn't an unplug
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         exo.addListener(object : Player.Listener {
@@ -49,6 +49,11 @@ class MusicService : MediaLibraryService() {
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                // Bit-perfect taking the USB DAC over makes Android think the DAC was unplugged ("becoming noisy"), which
+                // paused the music; that pause is undone (a real unplug still pauses)
+                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY && UsbDirect.tookOverLately() && UsbDirect.device() != null) {
+                    exo.play(); return
+                }
                 Music.paused = !playWhenReady
                 if (!playWhenReady) pausedAt = android.os.SystemClock.elapsedRealtime()
             }
@@ -81,6 +86,14 @@ class MusicService : MediaLibraryService() {
                 // The sound output refused the song (an audio error, as Android Auto's output gave on some songs): tried
                 // again at once without HQ resampling, before anything is said. Noted in Settings › Problems.
                 val id = Music.current()?.id
+                // Streaming straight to a USB DAC (bit-perfect): noted with how the DAC was set up, the DAC handed back to
+                // Android, and the song tried again (after two failures, through Android: see UsbDirect.failed)
+                if (Music.usbDirect || UsbDirect.active) {
+                    Crashes.caught(error, "Bit-perfect to the USB DAC failed on “${Music.current()?.title}” (${error.errorCodeName}) · ${UsbDirect.lastSetup}")
+                    UsbDirect.failed(error.errorCodeName)
+                    exo.prepare(); exo.play()
+                    return
+                }
                 val audio = error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ||
                     error.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED ||
                     (error as? androidx.media3.exoplayer.ExoPlaybackException)?.type == androidx.media3.exoplayer.ExoPlaybackException.TYPE_RENDERER
@@ -95,11 +108,23 @@ class MusicService : MediaLibraryService() {
                 // The song's file isn't where it was (moved or renamed): your copy of it found, linked everywhere, played
                 else if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND && Music.fileGone()) Unit
                 else {
+                    Crashes.caught(error, "Couldn't play “${Music.current()?.title}” (${error.errorCodeName})")
                     Music.toast("Couldn't play “${Music.current()?.title}”: ${error.errorCodeName}")
                     Music.paused = true
                 }
             }
         })
+        // Headphones unplugged (Android's "becoming noisy"): paused, as ExoPlayer did, except when it's bit-perfect taking
+        // the USB DAC from Android or handing it back, which Android takes for the DAC being unplugged (that paused every
+        // song a second in). Unplugging the DAC while the app has it: see UsbDirect.
+        androidx.core.content.ContextCompat.registerReceiver(this, object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) {
+                if (UsbDirect.ownsOrJustMoved() && UsbDirect.device() != null) {
+                    return
+                }
+                if (exo.playWhenReady) exo.pause()
+            }
+        }, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val local = queueAware(exo)
@@ -194,7 +219,12 @@ class MusicService : MediaLibraryService() {
         // Play from the headphones, the car or the lock screen: the app's own Play (so the DJ never stays stuck)
         override fun play() { if (p is RemotePlayer || Music.current() == null) super.play() else Music.sessionPlay() }
         // Pause there while the DJ talks: she stops too, and the music stays paused
-        override fun pause() { if (p !is RemotePlayer && Music.djTalking) Music.djHush(); super.pause() }
+        override fun pause() {
+            // Some phones send a Pause when the USB DAC "goes away" (bit-perfect taking it from Android looks like an
+            // unplug): one in the first seconds after the app took it is that, not you, and is left alone
+            if (p !is RemotePlayer && UsbDirect.active && UsbDirect.sinceTakeover() < 4000) return
+            if (p !is RemotePlayer && Music.djTalking) Music.djHush(); super.pause()
+        }
 
         // Between songs (one ran out, the next is loading) the session hears "buffering", not "ended":
         // see Music.advancing. The listeners the session adds get the same.

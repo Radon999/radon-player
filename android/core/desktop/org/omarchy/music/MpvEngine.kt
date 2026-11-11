@@ -262,7 +262,14 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     /** The filters for the settings as they are now (the same as the Python app's apply_eq). */
     private fun graph(): String {
         val q = Music.eqProcessor
-        if (q.bypass) return ""
+        if (q.bypass) {
+            // Bit-perfect, with Bass and Treble kept (Equalizer): just the two shelves, with the room they need
+            if (!Music.bpTonesNow()) return ""
+            val s = q.settings
+            val fs = listOf(Filter("ls", 100.0, s.bass, 0.71), Filter("hs", 8000.0, s.treble, 0.71)).filter { it.gain != 0.0 }
+            return (listOf("volume=volume=${"%.2f".format(java.util.Locale.US, Eq.preamp(fs))}dB:precision=double") + fs.map { f ->
+                (if (f.kind == "ls") "lowshelf" else "highshelf") + "=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}" }).joinToString(",")
+        }
         val s = q.settings
         val parts = ArrayList<String>()
         // Smooth distortion on loud songs: 3 dB of room first, before the EQ and mpv's resampling, so boosts and in-between
