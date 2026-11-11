@@ -23,7 +23,7 @@ Radon Player plays your own music files and the streaming services you use, toge
 Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid, with its own search and sort, remembered.
 
 - **My music, Albums, EPs, Singles, Artists, Genres and Folders,** from your files and downloads. An album shows **Missing from this album** to download the rest.
-- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways.
+- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways. The **Discovery** screen lists every artist's discovery playlists; hold one (or Select) to pick several and delete or download them together.
 - **Playlists:** Make, sort, fold into folders, import and export (.m3u8). **Smart playlists** fill themselves by rules (genre, mood, plays, format, skips, length…), with ready-made ones.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items at the top of the menu.
 - **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists, then play, queue, download, tag or delete them together.
