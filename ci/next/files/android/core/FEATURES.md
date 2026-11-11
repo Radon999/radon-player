@@ -115,7 +115,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 - **Tagger:** A song's tags (with **Find tags online**, which shows every change first), cover, info, lyrics, mood, and which tab a release goes in (Albums, EPs or Singles). Changed artist or album? Its file moves to match. On the phone it works on any of your files once you allow All files access.
 - **Scanner tools** (Settings › Scanner): Fix genre names, Duplicates, Upgrade to FLAC, Clean and explicit versions, Songs without covers, Identify by sound and Similar artists.
-- **Clean and explicit versions** (Scanner): finds songs you have in the other version from the one you picked (a clean edit when you want explicit, or the other way round) where Tidal has yours. Play your song and the version that would replace it to check, then Replace (downloaded, your old file deleted) or Leave it. **Listen** (a switch) hears songs whose version isn't certain in full beside Tidal's two versions: slower, but surer.
+- **Clean and explicit versions** (Scanner): finds songs you have in the other version from the one you picked (a clean edit when you want explicit, or the other way round) where Tidal has yours. Play your song and the version that would replace it to check, then Replace (downloaded, your old file deleted) or Leave it. It listens: songs whose version Tidal doesn't know for sure are heard in full beside Tidal's two versions, in the background (it takes a while). Folders can be left out (Unreleased ones are at first).
 - **PC only:** Fix albums and artists, Empty folders, and folders to leave alone.
 
 ## Phone + PC together
