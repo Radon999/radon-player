@@ -1061,6 +1061,7 @@ object Music {
     fun djStart(from: Dj.From? = null) {
         if (Remote.active) { Remote.djStart(from); return }
         if (djBusy != null) return
+        if (repeat == "all") { repeat = "off"; saveState() }   // the DJ goes on to its next set (Repeat one still works)
         Dj.withNew = djNew
         val src = (from ?: dj.from)?.takeIf { it.kind != "all" } ?: if (!djNew) Dj.From("mine") else null   // only yours: all you have
         if (src != null) {
@@ -1139,7 +1140,7 @@ object Music {
         val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
             // Only my songs: never a stream, whatever the set found
             .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
-        Dj.played((b.songs + songs).map { songKey(it) })   // not again for the next 20 sets
+        Dj.played(b.songs + songs)   // none again for the next 300 songs
         return songs.map { it.copy(dj = n) }
     }
 
@@ -2924,6 +2925,7 @@ object Music {
     }
 
     private fun extendRadio(t: Track, keepUntil: Int? = null) {
+        if (dj.on) return   // the DJ makes its own sets: ∞ never adds to them
         radioFrom = t.id
         val ctxNow = context
         bg({ localsOf(radioTracks(t)) }) { res, err ->   // the radio's songs you have play from your copies
@@ -2951,7 +2953,11 @@ object Music {
     }
 
     @JvmName("chooseAutoplay")
-    fun setAutoplay(on: Boolean) { autoplay = on; saveState(); if (on) autoplaySoon() }
+    fun setAutoplay(on: Boolean) {
+        autoplay = on; saveState()
+        if (dj.on) toast("Autoplay ${if (on) "on" else "off"}: it isn't used while the DJ plays (the DJ makes its own sets), only once you stop the DJ")
+        else if (on) autoplaySoon()
+    }
 
     /** The queue's Clear: the songs you queued by hand go (what plays on from the list stays). */
     fun clearQueued() {
@@ -2993,13 +2999,14 @@ object Music {
         djHush()
         when {
             index + 1 < queue.size -> { index++; loadCurrent(); autoplaySoon() }
+            // The DJ's queue is done (you skipped to its end, or a set ran out): its next set, not ∞'s radio of streams,
+            // round again (Repeat all is the DJ's next set) or your next queue
+            dj.on -> { djWaiting = true; if (djBusy == null) djMore() }
             repeat == "all" && queue.isNotEmpty() -> {
                 if (shuffled) { queue = shuffleSongs(queue, after = current()); afterQueueChange() }   // round again in a new order
                 index = 0; loadCurrent()
             }
             repeat == "off" && nextQueue() != null -> switchQueue(nextQueue()!!.id)   // this queue is done: your next one goes on
-            // The DJ's queue is done (you skipped to its end): its next set, not ∞'s radio of streams
-            dj.on -> { djWaiting = true; if (djBusy == null) djMore() }
             else -> {
                 ended = true
                 val more = autoplay && repeat == "off" && current() != null
@@ -3254,6 +3261,7 @@ object Music {
         // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
         if (djTalking) { player?.let { it.seekTo(0); it.play() }; return }
         advancing = true
+        if (dj.on) djKeepGoing()
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
         finishing = true
@@ -3261,15 +3269,40 @@ object Music {
         if (ended && !(autoplay && repeat == "off")) doneAdvancing()
     }
 
+    /** The DJ never just stops after a song: if, a few seconds after one ran out, the player is still at an end (the
+     *  next set being picked never came, a stream couldn't be got back, the next song never started), with no line
+     *  being said and no set still being picked, on it goes: the next song (a new set at the end of the queue), or the
+     *  song it moved to, loaded again. A pause mid-song is yours, and is left alone. */
+    private fun djKeepGoing() {
+        val at = index
+        scope.launch(Dispatchers.Main) {
+            for (i in 0 until 8) {
+                delay(5000)
+                val p = player ?: return@launch
+                if (!dj.on || Remote.active || cast != null) return@launch
+                if (djTalking || djBusy != null) continue   // a line being said, or the next set being picked: more time
+                if (index != at && loadedFor != current()?.id && i < 7) continue   // the next song still being got (a slow stream)
+                if (index == at && streaming && i < 2) continue   // a stream that broke being got back
+                if (!(p.state == Engine.ENDED || p.state == Engine.IDLE || !p.hasItem)) return@launch   // playing, or paused by you
+                Crashes.note("DJ: the music had stopped after a song (${if (index == at) "still on it" else "the next one hadn't started"}); went on")
+                if (index == at) next() else loadCurrent()
+                return@launch
+            }
+        }
+    }
+
     fun cycleRepeat() {
         if (Remote.active) { Remote.cmd("repeat"); return }
-        repeat = mapOf("off" to "all", "all" to "one", "one" to "off")[repeat]!!
+        // With the DJ: just Repeat one (a song you want again before the DJ goes on) or off; Repeat all means nothing
+        // to the DJ, whose sets go on and on
+        repeat = if (dj.on) (if (repeat == "one") "off" else "one") else mapOf("off" to "all", "all" to "one", "one" to "off")[repeat]!!
         saveState()
     }
 
     /** Shuffle what's coming up; the songs you queued stay first, in your order. */
     fun shuffle() {
         if (Remote.active) { Remote.cmd("shuffle"); return }
+        if (dj.on) { toast("The DJ plays each set in its own order, so shuffle isn't used with the DJ"); return }
         val rest = queue.drop(index + 1)
         queue = queue.take(index + 1) + rest.filter { it.queued } + shuffleSongs(rest.filter { !it.queued })
         shuffled = true

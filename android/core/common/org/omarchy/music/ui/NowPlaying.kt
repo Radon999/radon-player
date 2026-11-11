@@ -804,7 +804,7 @@ private fun QueuePane(ui: Ui, n: Now) {
             item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music",
                 if (djOn) "↻  Switch it up" else null) { Music.djSwitch() } }
             if (rest.isEmpty()) item("none") {
-                Text(if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
+                Text(if (Music.shownDj().on) "The DJ's next set comes next" else if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
                     style = T.sub.copy(shadow = LIFT, color = SOFT), modifier = Modifier.padding(vertical = 10.dp))
             }
             itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }

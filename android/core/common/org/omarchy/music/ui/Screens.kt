@@ -505,7 +505,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
     item(key = "dj") {
         val focus = LocalFocusManager.current
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("DJ" + (Dj.KINDS[d.kind]?.let { " · ${it.uppercase()}" } ?: ""), style = T.section)
+            Text("DJ" + (Dj.kindName(d.kind)?.let { " · ${it.uppercase()}" } ?: ""), style = T.section)
             Text(d.line.ifEmpty {
                 "Your own DJ, made from everything you've played: Last.fm, your Spotify, Apple Music, Deezer, YouTube Music " +
                     "and Tidal imports, and the plays here. Sets of a few songs at a time: what you've had on repeat, what " +
@@ -605,7 +605,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
     item { Section("FROM THE DJ") }
     items(coming.size, key = { "dj${coming[it]}" }) { j ->
         val i = coming[j]
-        TrackRow(q[i], RowPlace(q, i, "queue", queueIndex = i), ui, Dj.KINDS[d.kinds[q[i].dj.toString()]] ?: "") { Music.playIndex(i) }
+        TrackRow(q[i], RowPlace(q, i, "queue", queueIndex = i), ui, Dj.kindName(d.kinds[q[i].dj.toString()]) ?: "") { Music.playIndex(i) }
     }
 }
 
@@ -831,14 +831,14 @@ internal fun djQueueOn(): Boolean {
 }
 
 /** The category of a DJ song in the queue (Throwbacks, On repeat…), or "" for a song the DJ didn't pick. */
-internal fun djKindOf(t: Track): String = if (t.dj > 0) Dj.KINDS[Music.shownDj().kinds[t.dj.toString()]] ?: "" else ""
+internal fun djKindOf(t: Track): String = if (t.dj > 0) Dj.kindName(Music.shownDj().kinds[t.dj.toString()]) ?: "" else ""
 
 @Composable
 internal fun DjQueueNote(text: Color = C.fg, soft: Color = C.muted, accent: Color = C.accent, modifier: Modifier = Modifier) {
     if (!djQueueOn()) return
     val d = Music.shownDj()
     val q = Music.shownQueue(); val idx = Music.shownIndex()
-    val kind = djKindOf(q[idx]).ifEmpty { Dj.KINDS[d.kind] ?: "" }
+    val kind = djKindOf(q[idx]).ifEmpty { Dj.kindName(d.kind) ?: "" }
     Column(modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("DJ" + (if (kind.isNotEmpty()) " · ${kind.uppercase()}" else ""), style = T.section.copy(color = accent))
         if (d.line.isNotEmpty()) Text(d.line, style = T.title.copy(color = text))
