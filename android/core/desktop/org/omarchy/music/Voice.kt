@@ -316,11 +316,12 @@ object Voice {
     }
 
     /** Say text out loud; done once it's said (or couldn't be, or was hushed). */
-    fun say(text: String, done: () -> Unit = {}) {
+    fun say(text: String, onStart: () -> Unit = {}, done: () -> Unit = {}) {
         if (!canSpeak) { done(); return }
         hush()
         val mine = ++turn
         onDone = done
+        onStart()   // the PC makes a line in a moment: as good as begun
         Thread {
             if (hasNatural) removePiper()   // the old voice, if it's still there
             val said = (DjVoices.elevenOn && sayEleven(text, mine)) ||

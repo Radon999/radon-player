@@ -79,7 +79,7 @@ Short sets built from *your* listening, with a voice between them like a radio h
 
 ## Sound
 
-- **Equalizer:** One for each output (speaker, wired headphones, each Bluetooth device, a USB DAC, the car), switched in by itself. 3 to 31 bands, presets, your own presets, and **Auto EQ** headphone correction by name.
+- **Equalizer:** One for each output (speaker, wired headphones, each Bluetooth device, a USB DAC, the car), switched in by itself. 3 to 31 bands, presets, your own presets, and **Auto EQ** headphone correction by name. Each output keeps everything as you left it (its correction, bands, Bass and Treble, Boost and the rest), even across a sync with the PC (only a later change there comes across); a correction is only ever used when you pick it, never by itself.
 - **Dual volume:** On, a song's own volume and the Boost go together; off, a song with its own volume plays at just that volume, without the Boost.
 - **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows.
 - **Sound quality:** clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on from the start, each can be turned off), and loudness compensation (off from the start).

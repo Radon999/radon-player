@@ -236,5 +236,9 @@ data class MyPreset(val name: String, val bands: List<Double>)
 @Serializable
 data class OutputEq(val label: String = "", val on: Boolean = false, val headphones: String = "off", val preset: String = "flat",
                     val bands: List<Double> = List(10) { 0.0 }, val custom: List<Double> = List(10) { 0.0 },
-                    val bass: Double = 0.0, val treble: Double = 0.0, val count: Int = 10, val boost: Double = 0.0)
+                    val bass: Double = 0.0, val treble: Double = 0.0, val count: Int = 10, val boost: Double = 0.0,
+                    val at: Long = 0) {   // when you last changed it (ms; 0: before 3.2.27): a sync keeps the newer of two
+    /** The same settings (when it was changed and its name aside). */
+    fun sameAs(o: OutputEq?) = o != null && copy(label = "", at = 0) == o.copy(label = "", at = 0)
+}
 

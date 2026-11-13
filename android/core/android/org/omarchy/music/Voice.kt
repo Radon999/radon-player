@@ -19,6 +19,7 @@ object Voice {
     @Volatile private var ready = false
     private val waiting = ArrayList<Pair<String, () -> Unit>>()
     private val done = HashMap<String, () -> Unit>()
+    private val starts = HashMap<String, () -> Unit>()
     private var n = 0
 
     val canSpeak get() = true
@@ -180,14 +181,36 @@ object Voice {
 
     // ---- lines made ahead (the next set's, while this one plays), so the DJ talks straight away ----
     private val ahead = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<Any?>>()
-    private val making = Any()   // Kokoro makes one line at a time
+    // Kokoro makes one line at a time, on a thread of its own: a line to be said now goes ahead of every line being
+    // made ahead (the sets made ahead each have one), so the DJ never waits behind lines for later
+    private class Job(val text: String, val now: Boolean, val seq: Long, val f: java.util.concurrent.CompletableFuture<Any?>)
+    private val jobs = java.util.concurrent.PriorityBlockingQueue<Job>(16, compareBy<Job>({ if (it.now) 0 else 1 }, { it.seq }))
+    private val jobSeq = java.util.concurrent.atomic.AtomicLong()
+    private val maker by lazy {
+        Thread {
+            while (true) {
+                val j = runCatching { jobs.take() }.getOrNull() ?: continue
+                if (j.f.isDone) continue   // said already (or let go)
+                j.f.complete(runCatching { makeNatural0(j.text) }.getOrNull())
+            }
+        }.apply { isDaemon = true; priority = Thread.NORM_PRIORITY; start() }
+    }
+    private fun queue(text: String, now: Boolean, f: java.util.concurrent.CompletableFuture<Any?>) {
+        maker; jobs.add(Job(text, now, jobSeq.incrementAndGet(), f))
+    }
 
-    /** (blocking) Kokoro's sound for a line, or null when there's nothing to say. */
+    /** (blocking) Kokoro's sound for a line, said now (ahead of the lines being made ahead), or null. */
     private fun makeNatural(text: String): com.k2fsa.sherpa.onnx.GeneratedAudio? {
+        val f = java.util.concurrent.CompletableFuture<Any?>()
+        queue(text, true, f)
+        return runCatching { f.get(90, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() as? com.k2fsa.sherpa.onnx.GeneratedAudio
+    }
+
+    private fun makeNatural0(text: String): com.k2fsa.sherpa.onnx.GeneratedAudio? {
         val plain = java.text.Normalizer.normalize(Pronounce.sayable(text, lexicon()), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
             .replace(Regex("\\s+"), " ").trim()
         if (plain.isEmpty()) return null
-        return synchronized(making) { engine().generate(plain, DjVoices.kokoroVoice.sid, 1.0f) }
+        return engine().generate(plain, DjVoices.kokoroVoice.sid, 1.0f)
     }
 
     /** Make a line the DJ is about to say (the next set's) now, in the background: when its turn comes it's said at
@@ -200,13 +223,25 @@ object Voice {
         val f = java.util.concurrent.CompletableFuture<Any?>()
         if (ahead.size >= 8) ahead.keys.firstOrNull()?.let { ahead.remove(it) }
         ahead[text] = f
+        if (!elevenOn) { queue(text, false, f); return }
         Thread {
-            f.complete(runCatching { if (elevenOn) DjVoices.eleven(text, "mp3_44100_128") else makeNatural(text) }.getOrNull())
+            f.complete(runCatching { DjVoices.eleven(text, "mp3_44100_128") }.getOrNull())
         }.apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 }.start()
     }
 
     /** (blocking) A line made ahead: waits for it if it's still being made. Null when it wasn't (or failed). */
-    private fun madeAhead(text: String): Any? = ahead.remove(text)?.let { runCatching { it.get(90, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() }
+    private fun madeAhead(text: String): Any? = ahead.remove(text)?.let { f ->
+        if (!f.isDone && !DjVoices.elevenOn) queue(text, true, f)   // still waiting its turn: made next
+        runCatching { f.get(90, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull()
+    }
+
+    /** Run on the main thread, waited for (at most a second): the music turned down just as the voice begins. */
+    private fun began(cb: () -> Unit) {
+        val l = java.util.concurrent.CountDownLatch(1)
+        Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { runCatching(cb); l.countDown() }
+        runCatching { l.await(1, java.util.concurrent.TimeUnit.SECONDS) }
+    }
+    @Volatile private var onStart: () -> Unit = {}
 
     /** (blocking) text said by Kokoro; false if it couldn't (or was hushed). */
     private fun sayNatural(text: String, mine: Long): Boolean = runCatching {
@@ -214,6 +249,8 @@ object Voice {
         if (turn != mine) return@runCatching true
         val rate = audio.sampleRate; val samples = audio.samples
         if (samples.isEmpty()) error("it made no sound")
+        began(onStart)
+        if (turn != mine) return@runCatching true
         if (dacOn() && dac?.invoke(samples, rate, 1) { turn == mine } == true) { dacNote("natural voice", true); lastError = ""; return@runCatching true }
         dacNote("natural voice", false)
         val t = android.media.AudioTrack.Builder()
@@ -258,7 +295,7 @@ object Voice {
             // Through the DAC (bit-perfect straight to it): decoded here and heard there
             if (mp3 != null && turn == mine && dacOn()) {
                 val f = java.io.File(Music.ctx.cacheDir, "dj-line-dac.mp3")
-                val ok = runCatching { f.writeBytes(mp3); dacFile(f.path, mine) }.getOrDefault(false)
+                val ok = runCatching { f.writeBytes(mp3); began(onStart); turn == mine && dacFile(f.path, mine) }.getOrDefault(false)
                 dacNote("ElevenLabs", ok)
                 if (ok) { Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { onDone() }; return@Thread }
             } else if (mp3 != null) dacNote("ElevenLabs", false)
@@ -280,6 +317,7 @@ object Voice {
                     mp.prepare()
                     player = mp
                     elevenEnd = end
+                    runCatching(onStart)
                     mp.start()
                 }.isSuccess
                 if (!ok) sayTts(text, onDone)
@@ -318,7 +356,10 @@ object Voice {
             if (ready) w.forEach { (s, d) -> sayTts(s, d) } else w.forEach { it.second() }
         }
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {}
+            override fun onStart(id: String?) {
+                val cb = synchronized(starts) { starts.remove(id ?: "") } ?: return
+                began(cb)
+            }
             override fun onDone(id: String?) { finish(id) }
             @Deprecated("old API") override fun onError(id: String?) { finish(id) }
             override fun onError(id: String?, code: Int) { finish(id) }
@@ -332,8 +373,9 @@ object Voice {
     }
 
     /** Say text out loud; onDone once it's said (or couldn't be). */
-    fun say(text: String, onDone: () -> Unit = {}) {
+    fun say(text: String, onStart: () -> Unit = {}, onDone: () -> Unit = {}) {
         val mine = ++turn
+        this.onStart = onStart
         player?.let { mp -> runCatching { mp.stop() }; elevenEnd?.let { e -> elevenEnd = null; e() } }   // one line at a time
         runCatching { track?.pause(); track?.flush() }
         if (DjVoices.elevenOn) { sayEleven(text, mine, onDone); return }
@@ -362,6 +404,7 @@ object Voice {
             val f = java.io.File(Music.ctx.cacheDir, "dj-line-tts.wav")
             synchronized(done) { done[id] = {
                 Thread {
+                    if (turn == mine && f.isFile) began(onStart)
                     val ok = turn == mine && f.isFile && runCatching { dacFile(f.path, mine) }.getOrDefault(false)
                     dacNote("phone's voice", ok)
                     Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { onDone() }
@@ -371,6 +414,8 @@ object Voice {
             return
         }
         synchronized(done) { done[id] = onDone }
+        val st = onStart
+        synchronized(starts) { starts[id] = st }
         val p = android.os.Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_MUSIC) }
         if (tts?.speak(text, TextToSpeech.QUEUE_FLUSH, p, id) != TextToSpeech.SUCCESS) finish(id)
     }

@@ -1151,7 +1151,7 @@ object Music {
         if (!dj.on || set == null) return
         if (n == dj.shown) {   // a song in the middle of the set: now and then a word about it, once a set at most
             val c = djComments.remove(t.id)
-            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c)
+            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c, hold = false)
             djCommentAhead()
             return
         }
@@ -1190,29 +1190,47 @@ object Music {
 
     /** The DJ talks between sets, never over a song: the new set's first song waits at its very start, silent, until
      *  the DJ is done, then plays from the beginning. */
-    private fun djSay(text: String) {
+    /** The DJ says text. hold (a new set's line): the set's song waits silent at its start until she's done. Not hold
+     *  (a word in the middle of a set): the song plays on as usual until her voice is ready, and only then is it turned
+     *  down (it starts again from the top after); a word whose voice isn't ready soon is left unsaid. Either way the
+     *  music never waits long on a voice that's slow to come: a new set's line that hasn't started within a few seconds
+     *  is let go and the song plays. */
+    private fun djSay(text: String, hold: Boolean = true) {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
+        if (player == null) return
+        val mine = ++djTurn
+        lastDjLine = text
+        djSaidAt = now()
+        var started = false
+        if (hold) { djQuiet(); djTalking = true }
+        Voice.say(djClean(text), onStart = {
+            if (djTurn == mine) {
+                started = true
+                if (!djTalking) { djQuiet(); djTalking = true; djSaidAt = now() }
+            }
+        }) { djDone(mine) }
+        // Never stuck: a voice that hasn't begun within a few seconds (being made, a slow network) is let go, and one
+        // that hasn't finished long after it should have is cut short; the music goes on
+        scope.launch(Dispatchers.Main) {
+            delay(if (hold) 7_000L else 12_000L)
+            if (djTurn == mine && !started) { Voice.hush(); if (djTalking) djDone(mine) }
+        }
+        val most = 25_000L + text.length * 90L
+        scope.launch(Dispatchers.Main) { delay(most); if (djTurn == mine && djTalking) { Voice.hush(); djDone(mine) } }
+    }
+
+    /** The music silent under the DJ's voice: the player's volume all the way down (it may have begun loading already),
+     *  no fade coming up, and the last song's crossfade tail gone. The song goes on silently under the line (it starts
+     *  again from the top after): never paused, so Android keeps the app playing in the background. Bit-perfect sends
+     *  the song untouched, past any volume, so there it waits paused instead. */
+    private fun djQuiet() {
         val p = player ?: return
-        // The song goes on silently under the line (it starts again from the top after): never paused, so Android
-        // keeps the app playing in the background. Paused, with the screen off, Android could let the app go
-        // (stopping the DJ for good) while the voice was still being made.
         if (!djTalking) djVolume = p.volume.takeIf { it > 0.05f } ?: 1f
-        // Nothing heard but her: the player's volume all the way down (it may have begun loading already), no fade
-        // coming up, and the last song's crossfade tail gone. Bit-perfect sends the song untouched, past any volume,
-        // so there it waits paused instead.
         fadeJob?.cancel(); fadeIn = 0.0
         dropTail()
         fadingOut?.let { f -> fadingOut = null; runCatching { f.volume = 0f; f.release() } }
         p.volume = 0f
         if (bitPerfectNow()) p.pause()
-        djTalking = true
-        val mine = ++djTurn
-        lastDjLine = text
-        djSaidAt = now()
-        Voice.say(djClean(text)) { djDone(mine) }
-        // Never stuck: if the voice hasn't finished (or even begun) long after it should have, the music goes on
-        val most = 25_000L + text.length * 90L
-        scope.launch(Dispatchers.Main) { delay(most); if (djTurn == mine && djTalking) { Voice.hush(); djDone(mine) } }
     }
 
     private fun djClean(text: String) = text.replace("“", "").replace("”", "")
@@ -3500,7 +3518,15 @@ object Music {
 
     // ---- the equalizer ----
     fun setEq(f: (EqSettings) -> EqSettings) {
-        eq = f(eq)
+        var n = f(eq)
+        // The output the settings are for keeps them as they are now, always (not only when the sound moves away), with
+        // when they last changed: so a sync carries the latest, and never brings older ones back over yours
+        if (n.perOutput && n.output.isNotEmpty()) {
+            val old = n.outputs[n.output]
+            val mine = n.toOutput(old?.label?.ifEmpty { null } ?: outLabel(n.output))
+            if (!mine.sameAs(old)) n = n.copy(outputs = n.outputs + (n.output to mine.copy(at = System.currentTimeMillis())))
+        }
+        eq = n
         applyEq()
         saveState()
     }
@@ -3638,9 +3664,9 @@ object Music {
             val keys = got.map { (e, _) -> "ae:" + norm("${e.name} ${e.source}").replace(" ", "-") }
             setEq { s -> s.copy(profiles = s.profiles + got.zip(keys).map { (p, k) ->
                 k to AutoEq.profileOf("${p.first.name} · ${p.first.source.ifEmpty { "AutoEq" }}", p.second) }) }
-            if (eq.devices[dev] == null || eq.headphones == "off") setEqHeadphones(keys[0])
+            // Kept among your corrections, not used: you pick one (under Headphones) if you want it
             toast("${got[0].first.name}: ${got.size} correction${if (got.size != 1) "s" else ""} collected (" +
-                got.joinToString(", ") { it.first.source.ifEmpty { "AutoEq" } } + ")")
+                got.joinToString(", ") { it.first.source.ifEmpty { "AutoEq" } } + "): pick one under Headphones to use it")
             done(got.size)
         }
     }
@@ -3663,20 +3689,11 @@ object Music {
     var output by mutableStateOf("")   // the headphones the sound goes to now ("" for the phone's own speaker)
         private set
 
-    /** The sound goes somewhere else: use the correction you used there last time, or say AutoEq has one. */
+    /** The sound goes somewhere else: that output's own EQ, just as you left it (its headphones correction only if you
+     *  picked one for it, its Boost…). A correction is never picked for you: the Equalizer says when AutoEq has one. */
     fun outputChanged() {
         switchEqOutput()
-        val dev = AutoEq.output(ctx)
-        if (dev == output) return
-        output = dev
-        if (dev.isEmpty()) return
-        val known = eq.devices[dev]
-        if (known != null && known in Eq.headphones(eq)) {
-            if (known != eq.headphones) { setEqHeadphones(known, remember = false); toast("$dev: using ${Eq.headphones(eq)[known]?.first}") }
-            return
-        }
-        // New headphones: every correction AutoEq has for them, collected (the closest one used)
-        collectCorrections(dev, quiet = true)
+        output = AutoEq.output(ctx)
     }
     fun setEqPreset(key: String) = setEq { it.copy(preset = key, bands = Eq.presetOf(it, key, it.count) ?: it.custom.takeIf { c -> c.size == it.count }
         ?: List(it.count) { 0.0 }, on = true) }
@@ -3698,7 +3715,8 @@ object Music {
         if (key == eq.output) return
         val isNew = eq.outputs[key] == null
         setEq { e ->
-            val saved = e.outputs + (e.output.ifEmpty { "speaker" } to e.toOutput(e.outputs[e.output]?.label ?: outLabel(e.output)))
+            val k = e.output.ifEmpty { "speaker" }
+            val saved = e.outputs + (k to e.toOutput(e.outputs[e.output]?.label ?: outLabel(e.output)).copy(at = e.outputs[k]?.at ?: 0))
             e.copy(outputs = saved).withOutput(key, saved[key])
         }
         if (isNew && key == CAR) setEqPreset("colorado")   // the truck, set up before it's been driven with: its tuning
@@ -3725,7 +3743,7 @@ object Music {
         val was = eq.output
         val isNew = eq.outputs[o.key] == null
         setEq { e ->
-            val saved = (if (was.isNotEmpty()) e.outputs + (was to e.toOutput(e.outputs[was]?.label ?: outLabel(was))) else e.outputs)
+            val saved = (if (was.isNotEmpty()) e.outputs + (was to e.toOutput(e.outputs[was]?.label ?: outLabel(was)).copy(at = e.outputs[was]?.at ?: 0)) else e.outputs)
             val mine = saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
             e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
         }

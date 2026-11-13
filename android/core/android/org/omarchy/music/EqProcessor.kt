@@ -26,6 +26,7 @@ object Outputs {
     /** Android Auto is on (wired over USB or wireless): the sound goes to the car through it, not as a Bluetooth
      *  or USB audio device, so Android names no output for it. That's the Chevy, with its own EQ. */
     @Volatile var carProjecting = false
+    @Volatile private var lastUsb: Out? = null   // the USB DAC last seen (for while bit-perfect has it)
 
     /** Whether Android Auto is connected now, wired or wireless: what Android Auto tells apps (androidx's CarConnection
      *  reads the same: 2 is projection). */
@@ -50,8 +51,11 @@ object Outputs {
         }
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE }?.let { d ->
             val n = name(d) ?: "USB"
-            return Out("usb:$n", "$n (USB)", "usb")
+            return Out("usb:$n", "$n (USB)", "usb").also { lastUsb = it }
         }
+        // Bit-perfect has the USB DAC (the app took it from Android, so Android no longer lists it): still the DAC, with
+        // its own EQ and Boost, not the phone's speaker
+        if (Music.usbDirect) lastUsb?.let { return it }
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET }?.let { return Out("headset", "Headset (jack, with mic)", "wired") }
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES }?.let { return Out("wired", "Headphones (jack)", "wired") }
         return Out("speaker", "Built-in speaker", "speaker")

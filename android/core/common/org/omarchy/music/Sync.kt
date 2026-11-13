@@ -433,12 +433,16 @@ object Sync {
     /** This device's equalizer with the synced parts in: Sound presets, corrections, the portable outputs' EQs (and
      *  their corrections). Its own outputs stay; if the one playing now is a synced one that changed, it's heard. */
     private fun withEq(e: EqSettings, got: EqSettings): EqSettings {
-        val outs = e.outputs.filterKeys { !SyncRules.portableOutput(it) } + got.outputs.filterKeys { SyncRules.portableOutput(it) }
+        // An output both devices have (Bluetooth headphones, the USB DAC, the car): the one changed last, never an older
+        // one over yours (with no time on either, yours stays)
+        val theirsOk = got.outputs.filter { (k, o) -> SyncRules.portableOutput(k) && o.at > (e.outputs[k]?.at ?: -1L) &&
+            !(o.at == 0L && e.outputs.containsKey(k)) }
+        val outs = e.outputs + theirsOk
         val devs = e.devices.filterKeys { !SyncRules.portableOutput(it) } + got.devices.filterKeys { SyncRules.portableOutput(it) }
         val n = e.copy(myPresets = got.myPresets, profiles = got.profiles, devices = devs, outputs = outs, perOutput = got.perOutput)
         val cur = e.output
         val theirs = outs[cur]
-        return if (cur.isNotEmpty() && SyncRules.portableOutput(cur) && theirs != null && theirs != e.toOutput(theirs.label)) n.withOutput(cur, theirs) else n
+        return if (cur.isNotEmpty() && SyncRules.portableOutput(cur) && theirs != null && !theirs.sameAs(e.toOutput(theirs.label))) n.withOutput(cur, theirs) else n
     }
 
     // ---- zips ----
