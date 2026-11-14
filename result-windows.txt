@@ -1,9 +1,10 @@
-commit ea6015b7f6f8305bf268173bdb4a617b8a1bb78e · run 43597463082 · Sat Nov 14 13:16:10 UTC 2026
+commit d7df5e1a609901622e8ff1102864fbebe468e946 · run 43598277511 · Sat Nov 14 13:27:13 UTC 2026
 PC TESTS ON WINDOWS: 5 suites, tests 31, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.6 s of speech in 1.8 s (with loading the voice); then 4.9 s of speech in 1.0 s (5.0x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.0 s of speech in 2.0 s (with loading the voice); then 4.4 s of speech in 1.4 s (3.1x real time)
 WINDOWS INSTALLER: Radon Player-3.2.28.msi, 94M
 --- errors
 --- the end of the log
+w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:25 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
 w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
 w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:80:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
@@ -11,7 +12,6 @@ w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music
 > Task :desktop:classes
 > Task :desktop:jar
 > Task :desktop:compileTestKotlin
-
 > Task :desktop:packageMsi
 The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-3.2.28.msi
 
@@ -27,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 57s
+BUILD SUCCESSFUL in 5m 14s
 21 actionable tasks: 21 executed
