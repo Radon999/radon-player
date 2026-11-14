@@ -297,12 +297,48 @@ object Music {
                     maybeCrossfade(p)
                 }
                 if (p != null) endWatch(p)
+                changeWatch(p)
                 delay(500)
             }
         }
     }
 
     private val endWatcher = EndWatch()
+
+    // ---- a song change that took too long, written down (Settings › Problems) ----
+    // From a song ending by itself to the next one sounding should take a moment. When it takes more than 2.5 seconds
+    // (the DJ on the phone stopped after every song heard to its end: the plan's D16), each step it went through and
+    // when (milliseconds from the song's end) is noted, so the step that held it up can be read. The first 12 only.
+    private var changeAt = 0L
+    private val changeSteps = ArrayList<String>()
+    private var changeNotes = 0
+    private var changeLate = false
+    private var endHow = ""      // what said the song was over (the player, the watch, a crossfade)
+    private var fadeNote = ""    // how the last crossfade went, if it gave up
+    /** A step of a song change, from the phone's player (MusicService). */
+    fun trace(what: String) = step(what)
+    private fun step(what: String) {
+        if (changeAt == 0L) return
+        if (changeSteps.size < 60) changeSteps += "${System.currentTimeMillis() - changeAt} $what"
+    }
+    private fun changeBegins(how: String) {
+        changeAt = System.currentTimeMillis(); changeSteps.clear(); changeLate = false
+        val p = player
+        step("$how${fadeNote.also { fadeNote = "" }}: dj=${dj.on} song=${index + 1}/${queue.size} at=${"%.1f".format(position)}/${"%.1f".format(duration)} state=${p?.state} " +
+            "pwr=${p?.playWhenReady} advancing=$advancing streaming=$streaming fading=${fadingId != null} talking=$djTalking busy=${djBusy ?: "-"} loadedFor=${if (loadedFor == current()?.id) "this" else "other"}")
+    }
+    private fun changeWatch(p: Engine?) {
+        if (changeAt == 0L) return
+        val took = System.currentTimeMillis() - changeAt
+        val there = p != null && p.isPlaying && loadedFor == current()?.id && !advancing
+        if (!there && took > 20_000 && !changeLate) { changeLate = true; step("still not playing: state=${p?.state} pwr=${p?.playWhenReady} hasItem=${p?.hasItem} advancing=$advancing paused=$paused") }
+        if (!there && took < 120_000) return
+        if ((took > 2500 || !there) && changeNotes < 12) {
+            changeNotes++
+            Crashes.note("A song change took ${"%.1f".format(took / 1000.0)} s${if (!there) " and never played" else ""}: " + changeSteps.joinToString(" | "))
+        }
+        changeAt = 0L
+    }
 
     /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
      *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
@@ -323,12 +359,13 @@ object Music {
         when (verdict) {
             EndWatch.Verdict.PLAYING -> {}
             // Its music has all been played out, but the player hasn't said it ended: on to the next, nothing for Problems
-            EndWatch.Verdict.AUDIO_DONE -> { advancing = false; trackEnded() }
+            EndWatch.Verdict.AUDIO_DONE -> { advancing = false; endHow = "its music was all played out (the watch)"; trackEnded() }
             EndWatch.Verdict.STUCK, EndWatch.Verdict.PAST -> {
                 Crashes.note("“${t?.title}” ${if (verdict == EndWatch.Verdict.PAST) "ran on past" else "stopped at"} its end without finishing: " +
                     (if (repeat == "one") "played again" else "moved on to the next song") +
                     " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
                 advancing = false
+                endHow = "the watch: $verdict"
                 trackEnded()
             }
         }
@@ -1206,11 +1243,12 @@ object Music {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
         if (player == null) return
         val mine = ++djTurn
+        step("the DJ has a line (${text.length} letters)")
         lastDjLine = text
         djSaidAt = now()
         var started = false
         Voice.say(djClean(text), onStart = {
-            if (djTurn == mine) { started = true; djTalking = true; djSaidAt = now(); djDuck(true) }
+            if (djTurn == mine) { started = true; djTalking = true; djSaidAt = now(); step("the DJ's voice began"); djDuck(true) }
         }) { djDone(mine) }
         // A voice that hasn't begun within a while (being made, a slow network) is let go; one that hasn't finished
         // long after it should have is cut short. The music never waits either way.
@@ -3025,6 +3063,7 @@ object Music {
         if (Remote.active) { Remote.cmd("next"); return }
         djHush()
         val other = nextQueue()
+        step("next: ${QueueRules.after(index, queue.size, dj.on, repeat, other != null)}")
         when (QueueRules.after(index, queue.size, dj.on, repeat, other != null)) {
             QueueRules.After.NEXT_SONG -> { index++; loadCurrent(); autoplaySoon() }
             // The DJ's queue is done (you skipped to its end, or a set ran out): its next set, not ∞'s radio of streams,
@@ -3158,7 +3197,7 @@ object Music {
                 // It started a moment after it was told to, so it's behind the song as you hear it: handing over then
                 // played the last half second or so again (a word heard twice before the fade). Line it up first, still
                 // silent; if it can't be lined up, no crossfade this once: the song ends as usual, nothing repeated.
-                if (!alignTail(x, t.id)) { runCatching { x.release() }; return@launch }
+                if (!alignTail(x, t.id)) { fadeNote = " (after a crossfade that couldn't be lined up)"; runCatching { x.release() }; return@launch }
                 if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@launch }
                 val swap = 7
                 for (k in 1..swap) {
@@ -3173,6 +3212,7 @@ object Music {
                 crossTo = queue.getOrNull(index + 1)?.id
                 fadingOut = x
                 val mark = System.currentTimeMillis()
+                endHow = "crossfade"
                 trackEnded()
                 // The ending plays on at full until the next song is really sounding (it takes a moment to load): before,
                 // the ending began fading at once while the next only came up once it had loaded, so for that moment
@@ -3200,7 +3240,7 @@ object Music {
         tail = null; tailFor = null
         scope.launch {   // if it never got going, move on anyway
             delay(1800)
-            if (fadingId == t.id && current()?.id == t.id && tailSounded !== x) { fadeIn = 0.0; runCatching { x.release() }; trackEnded() }
+            if (fadingId == t.id && current()?.id == t.id && tailSounded !== x) { fadeIn = 0.0; runCatching { x.release() }; endHow = "a crossfade whose second player never got going"; trackEnded() }
         }
     }
 
@@ -3281,15 +3321,17 @@ object Music {
     /** The player says its song ended. Ignored while it's already moving on to another song (after a crossfade the
      *  ending one plays on silently in the player while the next loads, and its end skipped the next song unheard). */
     fun engineEnded() {
-        if (advancing && loadedFor != null && loadedFor != current()?.id) return
+        if (advancing && loadedFor != null && loadedFor != current()?.id) { step("the player's ENDED left alone (moving on already)"); return }
+        endHow = "the player said ENDED"
         trackEnded()
     }
 
     fun trackEnded() {
+        changeBegins(endHow.ifEmpty { "song ended" }); endHow = ""
         // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
         advancing = true
         if (dj.on) djKeepGoing()
-        if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
+        if (streaming && duration > 0 && position < duration - 5) { step("taken for a stream that broke"); streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
         finishing = true
         if (repeat == "one") { resumeAt = 0.0; position = 0.0; loadCurrent() } else next()   // Repeat one: from its very start
@@ -3311,6 +3353,7 @@ object Music {
                 if (index != at && loadedFor != current()?.id && i < 7) continue   // the next song still being got (a slow stream)
                 if (index == at && streaming && i < 2) continue   // a stream that broke being got back
                 if (!(p.state == Engine.ENDED || p.state == Engine.IDLE || !p.hasItem)) return@launch   // playing, or paused by you
+                step("the DJ's watchdog went on (state ${p.state}, hasItem ${p.hasItem})")
                 Crashes.note("DJ: the music had stopped after a song (${if (index == at) "still on it" else "the next one hadn't started"}); went on")
                 if (index == at) next() else loadCurrent()
                 return@launch
@@ -3373,6 +3416,7 @@ object Music {
 
     fun loadCurrent(autoplay: Boolean = true) {
         val c = current() ?: return
+        step("load “${c.title.take(30)}” play=$autoplay")
         if (heldTags.isNotEmpty()) scope.launch(Dispatchers.Main) { delay(1500); writeHeldTags() }   // the song that was playing: its tag changes, once its file is free
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
@@ -3405,6 +3449,7 @@ object Music {
             else ({ try { dl.download(t, youtubeToo = false) } catch (_: Exception) {}; dl.stream(t) })   // no FLAC to keep (or saving failed): stream what there is
         bg(work) { ready, err ->
             if (seq != loadSeq) return@bg   // you moved on while it loaded
+            step(if (err != null || ready == null) "couldn't get it: ${err?.message?.take(60)}" else "got it${if (player == null) " (no player yet)" else ""}")
             status = ""
             if (err != null || ready == null) {
                 toast(if (err is NoLosslessMatch) "Skipped “${t.title}”: ${err.message}" else "Couldn't get “${t.title}”: ${err?.message}")
@@ -3422,8 +3467,10 @@ object Music {
         // Keep a radio going: near the end of the queue, ask for more like the last song.
         if (radioFrom != null && !dj.on && index >= queue.size - 2) extendRadio(queue.last())
         if (dj.on) {
+            step("the DJ's part begins")
             djAnnounce(t)
             if (index >= queue.size - 2) djMore()
+            step("the DJ's part done")
         }
         // Covers picked while their song played: in now, once the file that was playing is free
         if (coversWaiting.isNotEmpty()) { val nowFile = lib.items[t.id]?.file ?: t.file
@@ -3471,6 +3518,7 @@ object Music {
         val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (t.source == SoundCloud.KEY) "application/x-mpegURL"
             else if (cast != null) castMime(t, uri) else null,
             t.title, t.artist, t.album, art)
+        step("into the player (at ${startAt.toInt()} s, play=$autoplay, state before ${p.state})")
         p.load(item, (startAt * 1000).toLong())
         loadedFor = t.id
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }

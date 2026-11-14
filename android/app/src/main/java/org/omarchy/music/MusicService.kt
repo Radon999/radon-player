@@ -46,6 +46,7 @@ class MusicService : MediaLibraryService() {
             .build()
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                Music.trace("player: playing=$isPlaying (held back: ${exo.playbackSuppressionReason})")
                 Music.paused = !exo.playWhenReady
             }
 
@@ -60,6 +61,7 @@ class MusicService : MediaLibraryService() {
             }
 
             override fun onPlaybackStateChanged(state: Int) {
+                Music.trace("player: state $state")   // 1 idle, 2 buffering, 3 ready, 4 ended
                 if (state == Player.STATE_ENDED) Music.engineEnded()
                 if (state == Player.STATE_READY) exo.duration.takeIf { it > 0 }?.let { Music.duration = it / 1000.0 }
             }
@@ -87,6 +89,7 @@ class MusicService : MediaLibraryService() {
                 // The sound output refused the song (an audio error, as Android Auto's output gave on some songs): tried
                 // again at once without HQ resampling, before anything is said. Noted in Settings › Problems.
                 val id = Music.current()?.id
+                Music.trace("player: error ${error.errorCodeName}")
                 // Streaming straight to a USB DAC (bit-perfect): noted with how the DAC was set up, the DAC handed back to
                 // Android, and the song tried again (after two failures, through Android: see UsbDirect.failed)
                 if (Music.usbDirect || UsbDirect.active) {
