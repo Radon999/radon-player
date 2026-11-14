@@ -80,6 +80,8 @@ object Spoken {
         var s = " " + text.trim() + " "
         // Quotes and clutter out
         s = s.replace(Regex("[“”\"«»]"), "").replace(CLUTTER, "").replace(DASH_CLUTTER, "")
+        // Names written in a way no voice reads right (AC/DC, CHVRCHES, R.E.M., U2), before their signs are touched
+        s = SpeechPrep.names(s)
         // Symbols said as words
         s = s.replace(Regex("(?<=[\\s(\\[])(feat|ft)\\.?\\s", RegexOption.IGNORE_CASE), "featuring ")
             .replace(Regex("\\s*[(\\[]([^)\\]]*)[)\\]]"), ", $1,")   // "(featuring X)": said as an aside
@@ -115,6 +117,8 @@ object Spoken {
             }
         }
         s = s.replace("half a hours", "half an hour")
+        // Capitals: words said as words (HUMBLE), initials spelt on purpose (AJR), never by accident
+        s = SpeechPrep.capitals(s)
         // Contractions
         for ((re, to) in CONTRACT) s = s.replace(re, to)
         // Shorter sentences: a colon or semicolon ends one; a breath before "but"
