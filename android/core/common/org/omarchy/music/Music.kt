@@ -84,12 +84,13 @@ object Music {
     private var pendingLoad: (() -> Unit)? = null
 
     // ---- what the screens show ----
-    var queue by mutableStateOf(listOf<Track>())
+    // The queue's own state is the playback service's (PlaybackCore); these names hand on to it.
+    var queue: List<Track> get() = PlaybackCore.queue; set(v) { PlaybackCore.queue = v }
     // Multiple queues: playing from another list (a folder, an album, an artist, a playlist…) starts a queue
     // of its own; the one you were in is kept, where you were in it, to go back to.
-    var queues by mutableStateOf(listOf<SavedQueue>())   // the other queues, the last one used first
-    var queueName by mutableStateOf("")
-    var queueId = ""
+    var queues: List<SavedQueue> get() = PlaybackCore.queues; set(v) { PlaybackCore.queues = v }   // the other queues, the last one used first
+    var queueName: String get() = PlaybackCore.queueName; set(v) { PlaybackCore.queueName = v }
+    var queueId: String get() = PlaybackCore.queueId; set(v) { PlaybackCore.queueId = v }
     var multiQueue by mutableStateOf(true)
     var listName = ""   // where songs are picked from now (the screen's name): a new queue is called that
     var resumeAt = 0.0
@@ -97,14 +98,14 @@ object Music {
     var lyricsToFiles by mutableStateOf(true)
     private var lastLoaded: Track? = null
     private var lyricsWarned = false
-    var index by mutableStateOf(-1)
+    var index: Int get() = PlaybackCore.index; set(v) { PlaybackCore.index = v }
     var paused by mutableStateOf(true)
     var position by mutableStateOf(0.0)
     var nowFormat by mutableStateOf("")     // what the player says it's playing: "FLAC 24-bit/96 kHz"
     var nowFormatOf = ""                    // …for this song
     var micAsked = false                    // the bars' permission was asked for once (Now playing)
     var duration by mutableStateOf(0.0)
-    var repeat by mutableStateOf("off")
+    var repeat: String get() = PlaybackCore.repeat; set(v) { PlaybackCore.repeat = v }
     var source by mutableStateOf("ytm")
     var status by mutableStateOf("")
     var liked by mutableStateOf(setOf<String>())
@@ -124,7 +125,7 @@ object Music {
     var musicSort by mutableStateOf("title")   // how the Music tab's All is sorted: title, artist, album, added
     var searchIn by mutableStateOf("tidal")    // where the search bar searches: tidal, ytm, local
     var apiKeys by mutableStateOf(mapOf<String, String>())   // Settings: keys of yours (see API_KEYS)
-    var shuffled = false   // the queue was shuffled: repeat-all shuffles it again
+    var shuffled: Boolean get() = PlaybackCore.shuffled; set(v) { PlaybackCore.shuffled = v }   // the queue was shuffled: repeat-all shuffles it again
     val tabSorts = androidx.compose.runtime.mutableStateMapOf<String, String>()   // each tab's sort (sortOf)
     val tabPicks = androidx.compose.runtime.mutableStateMapOf<String, String>()   // song file -> the tab you put it in (Tagger › Tab)
     var playlistSort by mutableStateOf("order")   // how a playlist's songs are listed (PLAYLIST_SORTS)
@@ -230,7 +231,7 @@ object Music {
     val sourceErrors = mutableStateMapOf<String, String>()
     private val likes = HashMap<String, Set<String>>()
 
-    private var radioFrom: String? = null
+    private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context = 0
     private var loadSeq = 0
     private var streamRetry = -1
@@ -2829,8 +2830,8 @@ object Music {
     }
 
     // ---- the queue ----
-    fun current(): Track? = queue.getOrNull(index)
-    fun isRadio() = radioFrom != null
+    fun current(): Track? = PlaybackCore.current()
+    fun isRadio() = PlaybackCore.isRadio()
 
     // What the screens show as playing: the phone's, or the desktop's while it's the remote.
     fun shownQueue() = if (Remote.active) Remote.status.queue else queue
