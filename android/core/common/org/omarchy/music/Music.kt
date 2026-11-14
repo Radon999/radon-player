@@ -2846,7 +2846,7 @@ object Music {
         if (name == queueName && queueId.isNotEmpty()) return
         if (queue.isNotEmpty() && index >= 0 && queueName.isNotEmpty()) {
             val keep = SavedQueue(queueId.ifEmpty { randomHex(6) }, queueName, queue.map { it.copy(queued = false) }, index, livePosition(), now())
-            queues = (listOf(keep) + queues.filter { it.id != keep.id && it.name != keep.name }).take(MAX_QUEUES)
+            queues = QueueRules.putAside(queues, keep, MAX_QUEUES)
         }
         queueId = queues.firstOrNull { it.name == name }?.id ?: randomHex(6)
         queues = queues.filter { it.name != name }
@@ -2860,7 +2860,7 @@ object Music {
         if (queue.isNotEmpty() && index >= 0) {
             val keep = SavedQueue(queueId.ifEmpty { randomHex(6) }, queueName.ifEmpty { "Queue" }, queue.map { it.copy(queued = false) }, index, livePosition(), now())
             // The queue you leave takes the place of the one you go to: the order you put them in stays.
-            queues = queues.filter { it.id != keep.id }.map { if (it.id == id) keep else it }
+            queues = QueueRules.swap(queues, keep, id)
         } else queues = queues.filter { it.id != id }
         queue = q.tracks
         index = q.index.coerceIn(0, maxOf(0, q.tracks.size - 1))
@@ -3038,17 +3038,18 @@ object Music {
     fun next() {
         if (Remote.active) { Remote.cmd("next"); return }
         djHush()
-        when {
-            index + 1 < queue.size -> { index++; loadCurrent(); autoplaySoon() }
+        val other = nextQueue()
+        when (QueueRules.after(index, queue.size, dj.on, repeat, other != null)) {
+            QueueRules.After.NEXT_SONG -> { index++; loadCurrent(); autoplaySoon() }
             // The DJ's queue is done (you skipped to its end, or a set ran out): its next set, not ∞'s radio of streams,
             // round again (Repeat all is the DJ's next set) or your next queue
-            dj.on -> { djWaiting = true; if (djBusy == null) djMore() }
-            repeat == "all" && queue.isNotEmpty() -> {
+            QueueRules.After.DJ_SET -> { djWaiting = true; if (djBusy == null) djMore() }
+            QueueRules.After.ROUND_AGAIN -> {
                 if (shuffled) { queue = shuffleSongs(queue, after = current()); afterQueueChange() }   // round again in a new order
                 index = 0; loadCurrent()
             }
-            repeat == "off" && nextQueue() != null -> switchQueue(nextQueue()!!.id)   // this queue is done: your next one goes on
-            else -> {
+            QueueRules.After.NEXT_QUEUE -> switchQueue(other!!.id)   // this queue is done: your next one goes on
+            QueueRules.After.END -> {
                 ended = true
                 val more = autoplay && repeat == "off" && current() != null
                 if (more && advancing) extendRadio(current()!!)   // ∞: songs like it, and on it goes (it stays "playing" meanwhile)
@@ -3061,12 +3062,12 @@ object Music {
     }
 
     /** The next of your other queues with songs still to play (the last one used first), or null. */
-    fun nextQueue(): SavedQueue? = if (!multiQueue) null else queues.firstOrNull { it.id != queueId && it.index < it.tracks.size - 1 }
+    fun nextQueue(): SavedQueue? = if (!multiQueue) null else QueueRules.next(queues, queueId)
 
     fun previous() {
         djHush()
         if (Remote.active) { Remote.cmd("prev"); return }
-        if (position >= 10 || index <= 0) {   // ⏮: the start of the song; in its first 10 seconds, the song before
+        if (QueueRules.previousRestarts(position, index)) {   // ⏮: the start of the song; in its first 10 seconds, the song before
             player?.seekTo(0)
             val t = current()
             if (t != null && listen?.let { it.sent || it.counted } == true) beginListen(t)   // listening again counts again
