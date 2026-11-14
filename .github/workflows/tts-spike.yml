@@ -1,0 +1,68 @@
+# The voice-engine check (docs/rebuild/RADON_REBUILD_PLAN.md, Phase 6a): Pocket TTS run for real through sherpa-onnx
+# 2.0.1 (the library the phone app already has for Kokoro), on this runner's processor: does it run, how fast, at what
+# sample rate, and what does it sound like. Nothing of the app is built. The result (result-tts.txt) and one spoken line
+# (tts-sample-pocket.wav) go to the rebuild-ci branch.
+name: Voice engine check
+on:
+  push:
+    branches: [rebuild]
+    paths: [".github/workflows/tts-spike.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  pocket:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the library and the voice
+        run: |
+          curl -sSL -o s.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-linux-x64-shared.tar.bz2
+          curl -sSL -o m.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
+          tar xjf s.tar.bz2 && tar xjf m.tar.bz2
+          ls -la; du -sh sherpa-onnx-pocket-tts-int8-2026-01-26; ls -la sherpa-onnx-pocket-tts-int8-2026-01-26 sherpa-onnx-pocket-tts-int8-2026-01-26/test_wavs || true
+      - name: Say three of the DJ's lines
+        run: |
+          S=$(ls -d sherpa-onnx-v2.0.1-linux-x64-shared*/ | head -1); M=sherpa-onnx-pocket-tts-int8-2026-01-26
+          export LD_LIBRARY_PATH="$PWD/${S}lib:$LD_LIBRARY_PATH"
+          REF=$(ls $M/test_wavs/*.wav | head -1)
+          say() { # threads, steps, out, text
+            local t0=$(date +%s.%N)
+            "${S}bin/sherpa-onnx-offline-tts" --pocket-lm-flow=$M/lm_flow.int8.onnx --pocket-lm-main=$M/lm_main.int8.onnx \
+              --pocket-encoder=$M/encoder.onnx --pocket-decoder=$M/decoder.int8.onnx --pocket-text-conditioner=$M/text_conditioner.onnx \
+              --pocket-vocab-json=$M/vocab.json --pocket-token-scores-json=$M/token_scores.json --reference-audio="$REF" \
+              --num-threads=$1 --num-steps=$2 --output-filename=$3 "$4" > run.log 2>&1; local code=$?
+            local t1=$(date +%s.%N)
+            python3 - "$3" "$t0" "$t1" "$1" "$2" "$code" <<'EOF'
+          import sys, wave, os
+          f, t0, t1, th, steps, code = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), sys.argv[4], sys.argv[5], sys.argv[6]
+          if not os.path.isfile(f):
+              print(f"{os.path.basename(f)}: NOT MADE (exit {code}, {th} threads, {steps} steps)")
+          else:
+              w = wave.open(f); d = w.getnframes() / w.getframerate(); took = t1 - t0
+              print(f"{os.path.basename(f)}: {w.getframerate()} Hz, {w.getnchannels()} ch, {8 * w.getsampwidth()}-bit, {d:.1f} s of speech made in {took:.1f} s "
+                    f"(with loading the voice: {d / took:.1f}x real time; {th} threads, {steps} steps)")
+          EOF
+            grep -iE "elapsed|rtf|real-time|duration|error" run.log | head -6
+          }
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            echo "POCKET TTS through sherpa-onnx 2.0.1, on $(nproc) cores: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)"
+            echo "voice files: $(du -sh $M | cut -f1) on disk; reference voice: $(basename "$REF")"
+            say 2 5 a.wav "Good evening. Let's settle in with some music."
+            say 2 5 b.wav "Off the back of the shelf... Souvlaki Space Station. Forty plays, and nothing since March twenty twenty-four."
+            say 4 5 c.wav "Three in a row from Loveless by My Bloody Valentine, in order, the way the record runs."
+            say 2 2 d.wav "Three in a row from Loveless by My Bloody Valentine, in order, the way the record runs."
+            echo "--- the last run's own words"; tail -12 run.log
+          } > result-tts.txt 2>&1 || true
+          cat result-tts.txt
+      - name: Keep it (the rebuild-ci branch)
+        if: always()
+        run: |
+          here="$PWD"; r="$(mktemp -d)"; cd "$r" && git init -q
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+          if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+          cp "$here/result-tts.txt" result-tts.txt
+          cp "$here/b.wav" tts-sample-pocket.wav 2>/dev/null || true
+          git add -A
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: voice engine check for ${GITHUB_SHA::7}" || true
+          git push -q origin rebuild-ci || (git pull -q --rebase origin rebuild-ci && git push -q origin rebuild-ci) || true
