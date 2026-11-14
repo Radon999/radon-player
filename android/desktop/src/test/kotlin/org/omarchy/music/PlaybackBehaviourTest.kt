@@ -236,4 +236,36 @@ class PlaybackBehaviourTest {
         assertEquals(0L, engine.loads.last().startMs)
         ui { Music.repeat = "off" }
     }
+
+    /** A song counts as played (Recently played, Most played) once half of it has been heard, not before. */
+    @Test fun aPlayCountsOnceHalfTheSongIsHeard() {
+        val songs = start("half")
+        engine.durationMs = 6000
+        fun counted() = ui { Music.plays.items.values.any { it.track.title == songs[0].title } }
+        Thread.sleep(1200)
+        assertFalse("not a second into a six-second song", counted())
+        until("it counted as played") { counted() }
+        assertTrue("only once half of it was heard (at ${engine.positionMs} ms)", engine.positionMs >= 2700)
+    }
+
+    /** Going on from a song part way through is a skip; from its last seconds, it isn't (it was as good as heard). */
+    @Test fun leavingASongPartWayIsASkipButNotInItsLastSeconds() {
+        val songs = start("skips")
+        fun skips(t: Track) = Music.songStats.rows().firstOrNull { it.first.title == t.title }?.second ?: 0
+        engine.durationMs = 200_000
+        until("a couple of seconds of the first heard") { engine.positionMs >= 2000 }
+        ui { Music.next() }
+        until("the second song loaded") { engine.loads.lastOrNull()?.id == songs[1].id }
+        until("the first counted as skipped") { skips(songs[0]) == 1 }
+        // The second: left a second before its end
+        engine.durationMs = 200_000
+        val from = engine.positionMs
+        until("a couple of seconds of the second heard") { engine.positionMs >= from + 2000 }
+        engine.positionMs = 199_000
+        ui { Music.position = 199.0; Music.next() }
+        until("the third song loaded") { engine.loads.lastOrNull()?.id == songs[2].id }
+        Thread.sleep(800)   // (a skip would have been written by now)
+        assertEquals("left in its last second: no skip", 0, skips(songs[1]))
+        assertEquals(1, skips(songs[0]))
+    }
 }
