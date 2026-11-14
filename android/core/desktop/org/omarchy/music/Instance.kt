@@ -73,6 +73,7 @@ object Instance {
   wrapped [YEAR|month|week|all]     your year (month, week or every year) in music
   source youtube|tidal|apple|spotify|mine   switch the library you browse and search
   tag [all]                         tag the saved songs not tagged yet (or all of them) now
+  dj [off|switch]                   start the DJ, stop it, or have it switch to a new set now
   status                            what's playing and what's next
   hide | quit                       hide the window, or stop the music and quit
   --tidal-login | --lastfm-login | --spotify-login   open that sign-in"""
@@ -84,6 +85,7 @@ object Instance {
             append(if (t == null) "Nothing playing" else "${if (Music.paused) "Paused" else "Playing"}: ${t.title} · ${t.artist}" +
                 (if (t.album.isNotEmpty()) " · ${t.album}" else "") + " (${fmtTime(Music.position)} of ${fmtTime(Music.duration)})")
             Music.queue.drop(Music.index + 1).take(5).forEachIndexed { i, n -> append("\n${if (i == 0) "Next" else "    "}: ${n.title} · ${n.artist}") }
+            if (Music.dj.on) append("\nDJ: on" + (Music.dj.sets[Music.dj.shown]?.let { " · ${Dj.kindName(it.kind) ?: it.kind} · ${it.line}" } ?: ""))
         }
     }.getOrDefault("Nothing playing")
 
@@ -168,6 +170,13 @@ object Instance {
                 else { Music.browseLocal = false; Music.setSource(key); Music.toast("Browsing ${SOURCES[key]}") }
             }
             "tag" -> { Tagger.start(full = rest.equals("all", true)); Music.toast("Tagging your saved songs…") }
+            // The DJ: on (as its button), off, or a new set now (Switch it up)
+            "dj" -> when (rest.lowercase()) {
+                "", "on", "start" -> if (!Music.dj.on) Music.djStart()
+                "off", "stop" -> Music.djStop()
+                "switch", "next" -> Music.djSwitch()
+                else -> Music.toast("dj, dj off or dj switch")
+            }
             "hide" -> hide()
             "quit" -> quit()
         }
