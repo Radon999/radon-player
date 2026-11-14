@@ -154,6 +154,48 @@ object Dj {
     /** A set of what you play at this time of day, made in another part of the day: no longer right, to be let go. */
     fun stale(b: Built): Boolean = b.kind == "hour" && b.timeKey.isNotEmpty() && b.timeKey != timeKey()
 
+    /** The four types of set a kind belongs to (docs/rebuild/RADON_REBUILD_PLAN.md, 2.3): how its break is framed.
+     *  Every kind keeps its own rule for picking songs; none is added or taken away. */
+    enum class SetType { TIME_AND_MOOD, NOSTALGIA_PULL, SONIC_BRIDGE, FRESH_DROP }
+
+    fun typeOf(kind: String): SetType = when {
+        kind.startsWith("mood:") || kind in setOf("hour", "repeat", "streak", "mood", "moodmix") -> SetType.TIME_AND_MOOD
+        kind in setOf("like", "genre", "ask") -> SetType.SONIC_BRIDGE
+        kind in setOf("fresh", "deep", "discover", "unplayed") -> SetType.FRESH_DROP
+        else -> SetType.NOSTALGIA_PULL
+    }
+
+    /** A set about to be queued behind the song after, with the thread from that song to its first one said before
+     *  its line, when there is one that's known of both songs (see [thread]) and the break stays within MOST_WORDS.
+     *  Not for the first set (it has its hello) nor a set that opens with a word about the day. */
+    fun bridged(b: Built, after: Track?): Built {
+        val next = b.songs.firstOrNull()
+        if (after == null || next == null || b.first || b.opener.isNotEmpty()) return b
+        val t = runCatching { thread(after, next) }.getOrDefault("")
+        if (t.isEmpty() || wordsSaid(t) + wordsSaid(b.line) + wordsSaid(b.fact) > MOST_WORDS) return b
+        return b.copy(line = "$t ${b.line}")
+    }
+
+    /** What links the song before a set to the set's first song, as the DJ says it, or "": the same artist, a genre
+     *  both files are tagged with, or the same decade (both files' year). Only what the songs' own tags say: nothing
+     *  about how they sound is claimed. (Looked up, never read from a file here: this runs on the app's own thread.) */
+    private fun thread(a: Track, n: Track): String {
+        val artist = leadOf(a)
+        if (artist.isNotEmpty() && norm(artist) == norm(leadOf(n)))
+            return say("bridge-artist", "Staying with $artist for a moment.", "More $artist to start.")
+        fun genres(t: Track) = genreParts(runCatching { Music.genreOf(t) }.getOrDefault("").takeIf { it != "Unknown genre" } ?: "").map { it.lowercase() }
+        val theirs = genres(n).toSet()
+        genres(a).firstOrNull { it in theirs }?.let { g ->
+            return say("bridge-genre", "Staying with $g.", "More $g from here.", "Keeping the $g going.") }
+        fun decade(t: Track) = t.file?.let { tagInfo[it] }?.first?.takeIf { it in 1950..2100 }?.let { it / 10 * 10 }
+        val d = decade(a)
+        if (d != null && d == decade(n)) {
+            val said = if (d < 2000) "the ${d % 100}s" else "the ${d}s"
+            return say("bridge-decade", "Staying in $said.", "Still in $said for this next one.")
+        }
+        return ""
+    }
+
     fun greeting(h: Int = clock().hour) =
         if (h in 5..11) "Good morning" else if (h in 12..16) "Good afternoon" else if (h in 17..22) "Good evening" else "Hey, night owl"
 

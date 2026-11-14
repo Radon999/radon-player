@@ -78,6 +78,47 @@ class DjBehaviourTest {
         assertTrue("sets were made ($built)", built > 5)
     }
 
+    /** Every kind of set belongs to one of the four types of set, and only one; no kind was added or taken away. */
+    @Test fun everyKindOfSetHasItsType() {
+        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("hour"))
+        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("repeat"))
+        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("mood:Sad+Dark"))
+        assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("throwback"))
+        assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("rediscover"))
+        assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("album"))
+        assertEquals(Dj.SetType.SONIC_BRIDGE, Dj.typeOf("like"))
+        assertEquals(Dj.SetType.SONIC_BRIDGE, Dj.typeOf("genre"))
+        assertEquals(Dj.SetType.FRESH_DROP, Dj.typeOf("fresh"))
+        assertEquals(Dj.SetType.FRESH_DROP, Dj.typeOf("unplayed"))
+        val kinds = Dj.ORDER + Dj.FROM_ORDER + Dj.FROM_NEW_ORDER + "ask"
+        assertEquals("the kinds there were", 26 + 3, (Dj.ORDER + listOf("unplayed", "artist", "mix")).distinct().size)
+        val byType = kinds.distinct().groupBy { Dj.typeOf(it) }
+        assertEquals("all four types have kinds", 4, byType.size)
+    }
+
+    /** A set queued behind a song by the same artist as its first song says so before its line (the thread between
+     *  them); with nothing known to link the two songs, and for the first set, its line is as it was. Only what the
+     *  songs' tags share is ever said. */
+    @Test fun theThreadFromTheSongBeforeIsSaidOnlyWhenThereIsOne() {
+        Harness.ctx
+        Dj.playFrom("the test songs", Harness.songs(40, from = 600))
+        Dj.clock = { java.time.LocalDateTime.of(2026, 11, 11, 14, 0) }   // a Wednesday afternoon: no word about the day
+        val b = try { Dj.build(kind = "mix")!! } finally { Dj.clock = { java.time.LocalDateTime.now() } }
+        assertEquals("", b.opener)
+        val first = b.songs[0]
+        val sameArtist = Track("before-1", "ytm", "The song before", first.artist)
+        val linked = Dj.bridged(b, sameArtist)
+        assertTrue(linked.line, linked.line.endsWith(b.line) && linked.line.length > b.line.length)
+        assertTrue(linked.line, linked.line.removeSuffix(b.line).contains(first.artist))
+        assertEquals(b.songs, linked.songs)
+        val stranger = Track("before-2", "ytm", "Another song before", "Somebody Else Entirely")
+        assertEquals("nothing known links them: nothing is claimed", b.line, Dj.bridged(b, stranger).line)
+        assertEquals("no song before it", b.line, Dj.bridged(b, null).line)
+        val opening = Dj.build(kind = "mix", first = true)!!
+        assertEquals("the first set has its hello", opening.line, Dj.bridged(opening, Track("before-3", "ytm", "x", opening.songs[0].artist)).line)
+        Dj.discard(b.id); Dj.discard(opening.id)
+    }
+
     /** Stays: songs the DJ played aren't picked again while they're among its last ones (the 300-song gap, fewer
      *  when it plays from few songs), and they're kept across restarts (Prefs, dj_recent_songs). */
     @Test fun songsTheDjPlayedDontComeBackYet() {

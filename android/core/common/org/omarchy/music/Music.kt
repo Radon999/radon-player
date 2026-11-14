@@ -1154,8 +1154,10 @@ object Music {
     }
 
     /** The set's songs marked as set n of the DJ's (n: the next number), with its line. */
-    private fun djTag(made: Dj.Built): List<Track> {
-        val b = Dj.asOfNow(made)   // made ahead, maybe in another part of the day: its hello is for now
+    private fun djTag(made: Dj.Built, after: Track? = null): List<Track> {
+        // Made ahead, maybe in another part of the day: its hello is for now. Queued behind a song (after): the thread
+        // from that song to its first one, when their tags share one (the same artist, genre or decade).
+        val b = Dj.bridged(Dj.asOfNow(made), after)
         val n = (dj.sets.keys.mapNotNull { it.toIntOrNull() }.maxOrNull() ?: 0) + 1
         var sets = dj.sets + (n.toString() to Dj.Info(b.kind, b.line, b.fact))
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
@@ -1315,9 +1317,10 @@ object Music {
         if (dj.on) djSpare()?.let { spare ->
             djSpares.remove(spare)
             val wait = djWaiting; djWaiting = false
-            val songs = djTag(spare)
+            val songs = djTag(spare, queue.lastOrNull())
             queue = queue + songs
             afterQueueChange()
+            djPrepare(songs)   // its line as it'll be said now (a thread from the song before may have been added)
             djFillSpares()
             if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }
             return
@@ -1330,7 +1333,7 @@ object Music {
             djBusy = null
             val wait = djWaiting; djWaiting = false
             if (res != null && ctxNow == context && dj.on) {
-                val songs = djTag(res)
+                val songs = djTag(res, queue.lastOrNull())
                 queue = queue + songs
                 afterQueueChange()
                 djPrepare(songs)
