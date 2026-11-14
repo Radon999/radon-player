@@ -74,5 +74,5 @@ object DjVoices {
     fun setKokoroVoice(id: String) = Prefs.setText(KOKORO_VOICE, id)
 
     /** What the DJ says to try a voice. */
-    const val SAMPLE = "Hey, it's your DJ. This is how I sound now. Pretty good, right? Alright, back to the music."
+    const val SAMPLE = "Hey. This is how I sound... not bad, right? Alright, back to the music."
 }

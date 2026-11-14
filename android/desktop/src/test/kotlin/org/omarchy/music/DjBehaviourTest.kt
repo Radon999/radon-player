@@ -113,15 +113,23 @@ class DjBehaviourTest {
         for (i in 0..last.size - n) assertEquals("each kind once in any $n sets in a row: $kinds", n, last.subList(i, i + n).distinct().size)
     }
 
-    /** A fault by the rebuild's rules for how the DJ talks (never naming itself), as it is today: the first set's
-     *  hello always says "DJ" ("It's your DJ", "Your DJ here"). Turned round when the hellos are rewritten. */
-    @Test fun fault_theFirstLineNamesItselfTheDj() {
+    /** The DJ never names itself (it was: the first set's hello always said "It's your DJ" or "Your DJ here"; the
+     *  hellos are rewritten), and a break is 45 words at most, as said out loud. */
+    @Test fun theFirstLineNeverNamesTheDjAndABreakIs45WordsAtMost() {
         Harness.ctx
         Dj.playFrom("the test songs", Harness.songs(40, from = 400))
-        repeat(12) {
+        fun words(b: Dj.Built) = Spoken.humanize(b.line + " " + b.fact, filler = 0.0).split(Regex("\\s+")).count { it.isNotBlank() }
+        repeat(40) {
             val b = Dj.build(kind = "mix", first = true)
             assertNotNull(b)
-            assertTrue(b!!.line, "DJ" in b.line)
+            assertFalse(b!!.line, Regex("\\bDJ\\b").containsMatchIn(b.line))
+            assertTrue("${words(b)} words: ${b.line} ${b.fact}", words(b) <= Dj.MOST_WORDS)
+            Dj.discard(b.id)
+        }
+        for (kind in listOf("mix", "onehit", "unplayed")) repeat(30) {
+            val b = Dj.build(kind = kind) ?: return@repeat
+            assertTrue("${words(b)} words: ${b.line} ${b.fact}", words(b) <= Dj.MOST_WORDS)
+            Dj.discard(b.id)
         }
     }
 

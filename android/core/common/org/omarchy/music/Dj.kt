@@ -17,6 +17,11 @@ import kotlin.random.Random
  *  blocks (run it in [Music.bg]); [Music] plays them. */
 object Dj {
     const val SET = 6   // songs in a set
+    /** The most words in one break (a set's line with its hello and its fact), as said out loud: about 15 seconds. */
+    const val MOST_WORDS = 45
+    private val SPACES = Regex("\\s+")
+    /** How many words text is when it's said (numbers and symbols as words, see Spoken). */
+    private fun wordsSaid(text: String): Int = if (text.isBlank()) 0 else Spoken.humanize(text, filler = 0.0).split(SPACES).count { it.isNotBlank() }
     /** The mood sets: one for each of these (moods alike share one), "mood:" and its moods joined by "+"
      *  ("mood:Energetic+Party+Hype"). Songs of any of its moods; the DJ says which ("let's switch it up: some happy songs"). */
     val MOOD_GROUPS = listOf(listOf("Energetic", "Party", "Hype"), listOf("Happy", "Chill", "Calm"), listOf("Dreamy"),
@@ -161,51 +166,51 @@ object Dj {
         val d = clock().dayOfWeek
         return when {
             d == java.time.DayOfWeek.FRIDAY && h in 17..23 -> say("hello-friday",
-                "Happy Friday night! It's your DJ, and the weekend starts right now.",
-                "It's Friday night, and your DJ is here. Let's make it a good one.",
-                "Friday night, finally. Your DJ here, with the music to match.")
+                "Happy Friday evening... you made it. Let's ease into the weekend.",
+                "It's Friday night. Nothing to do now but listen.",
+                "Friday night, finally... here's the music to match.")
             (d == java.time.DayOfWeek.SATURDAY || d == java.time.DayOfWeek.SUNDAY) && h in 6..12 -> say("hello-weekend-morning",
-                "Happy ${if (d == java.time.DayOfWeek.SATURDAY) "Saturday" else "Sunday"}! It's your DJ. No alarms, just music.",
-                "Weekend morning, no rush. Your DJ here, taking it easy with you.",
-                "Good morning, and happy weekend. It's your DJ.")
+                "Happy ${if (d == java.time.DayOfWeek.SATURDAY) "Saturday" else "Sunday"}. No alarms... just music.",
+                "Weekend morning, no rush. Let's take it easy.",
+                "Good morning, and happy weekend. I've got the first few.")
             d == java.time.DayOfWeek.SATURDAY && h in 17..23 -> say("hello-saturday-night",
-                "Saturday night! Your DJ is here and ready.",
-                "It's Saturday night. Your DJ here. Let's turn it up.")
+                "Saturday night. Let's give it some weight.",
+                "It's Saturday night, and it's wide open. Let's turn it up a little.")
             d == java.time.DayOfWeek.SUNDAY && h in 17..23 -> say("hello-sunday-night",
-                "Sunday evening, the calm before the week. Your DJ here.",
-                "Hey, it's Sunday night. Your DJ, here to stretch the weekend out a little longer.")
+                "Sunday evening... the calm before the week.",
+                "Hey, it's Sunday night. Let's stretch the weekend out a little longer.")
             d == java.time.DayOfWeek.MONDAY && h in 5..11 -> say("hello-monday",
-                "Good morning, and happy Monday. It's your DJ. We've got this.",
-                "Monday morning. Your DJ here, to make it a little easier.")
+                "Good morning, and happy Monday. We'll take it one song at a time.",
+                "Monday morning. Let's make it a little easier.")
             else -> null
         }
     }
 
     private fun hourHello(h: Int): String =
         if (h in 5..11) say("hello-morning",
-            "Good morning! It's your DJ, and I've got your soundtrack ready.",
-            "Morning! Your DJ here. Let's ease into the day.",
-            "Good morning, it's your DJ. Coffee is optional, music is not.",
-            "Rise and shine, it's your DJ. I picked these just for you.",
-            "Good morning! Your DJ is in the building, and so are your songs.")
+            "Good morning. I've got a few ready for you.",
+            "Morning. Let's ease into the day.",
+            "Good morning... coffee's up to you, the music's on me.",
+            "Morning... I pulled these with you in mind.",
+            "Good morning. Let's start easy and see where it goes.")
         else if (h in 12..16) say("hello-afternoon",
-            "Good afternoon! It's your DJ, here to get you through the rest of the day.",
-            "Hey, good afternoon. Your DJ here, with your afternoon pick me up.",
-            "Afternoon! It's your DJ. Let's keep the day moving.",
-            "Good afternoon, it's your DJ. I've been saving these for you.",
-            "Hey there, your DJ here. An afternoon slump? Not on my watch.")
+            "Good afternoon. Here's something to carry you through the rest of the day.",
+            "Hey, good afternoon. A little lift for the back half of the day.",
+            "Afternoon. Let's keep the day moving.",
+            "Good afternoon... I've been saving these for you.",
+            "Hey there. If the afternoon's dragging, this should help.")
         else if (h in 17..22) say("hello-evening",
-            "Good evening! It's your DJ. Let's wind the day down right.",
-            "Evening! Your DJ here, and the night is just getting started.",
-            "Good evening, it's your DJ. Kick back, I've got the music.",
-            "Hey, good evening. Your DJ here, ready when you are.",
-            "Evening, friend. It's your DJ, with a little something for tonight.")
+            "Good evening. Let's wind the day down right.",
+            "Evening... and the night's only getting started.",
+            "Good evening. Kick back, I've got the music.",
+            "Hey, good evening. Ready when you are.",
+            "Evening, friend. A little something for tonight.")
         else say("hello-night",
-            "Hey, night owl. It's your DJ, keeping you company.",
-            "Still up? Me too. It's your DJ.",
-            "A late night session? Love that. Your DJ here.",
-            "Hey, night owl, your DJ here. Let's keep it going.",
-            "It's late, and the music is still on. Your DJ here.")
+            "Hey, night owl. I'll keep you company.",
+            "Still up? Me too.",
+            "A late one tonight? Good. Let's keep it low.",
+            "Hey, night owl. Let's keep it going.",
+            "It's late, and the music's still on.")
 
     // ---- not saying the same thing twice ----
     // What the DJ said lately, kept (Prefs) so a restart doesn't start it over: the kinds of set played (from
@@ -579,12 +584,12 @@ object Dj {
             "Here's what you've had on repeat lately, starting with ${q(s)} by ${by(s)}.",
             "You know these ones by heart. ${names(songs, 3)}, all on heavy rotation.",
             "Your heavy rotation, coming right up. First, ${q(s)}.",
-            "These are the songs you can't stop playing. Honestly? I get it.",
-            "On repeat, and for good reason. ${names(songs, 3)}. Sing along, nobody's listening.",
+            "These are the ones you can't stop playing... and I get it.",
+            "On repeat, and for good reason. ${names(songs, 3)}. Go on, sing along.",
             "If it's been stuck in your head lately, it's probably in this set. ${q(s)} kicks it off.",
             "Your current obsessions, all in one place. ${q(s)} leads the way.",
             "You've worn these out lately, and I'm not about to stop you. ${q(s)} first.",
-            "The songs living rent free in your head right now. Starting with ${q(s)} by ${by(s)}.")
+            "The ones stuck in your head right now. Starting with ${q(s)} by ${by(s)}.")
     }
 
     /** A year you played something to death: that year's most played, the ones you haven't played in two months. */
@@ -598,13 +603,13 @@ object Dj {
             val s = songs[0]
             val n = num(s.plays)
             return songs to if (s.plays > 1) say("throwback-plays",
-                    "Throwback to $y! You played ${q(s)} $n times that year.",
-                    "Let's take it back to $y, when ${q(s)} was basically your whole personality. $n plays, to be exact.",
+                    "Back to $y. You played ${q(s)} $n times that year.",
+                    "Let's take it back to $y. You had ${q(s)} on constantly... $n plays that year.",
                     "Remember $y? You had ${q(s)} on replay, $n times.",
-                    "The time machine is warmed up. Destination, $y, and ${q(s)}, which you played $n times.",
+                    "Going back to $y for a minute... and ${q(s)}, which you played $n times.",
                     "A quick trip back to $y. ${q(s)} was on constant rotation back then, with $n plays.",
                     "Back to $y we go. ${q(s)} got $n plays from you that year. Let's make it one more.",
-                    "If $y had a theme song for you, it was ${q(s)}. $n plays!")
+                    "If $y had one song for you, it was ${q(s)}. $n plays.")
                 else say("throwback",
                     "Throwback to $y, starting with ${q(s)} by ${by(s)}.",
                     "Going back to $y now, with the songs you were into back then.",
@@ -631,7 +636,7 @@ object Dj {
             "Some old favourites you haven't heard $since. Starting with ${q(s)}.",
             "Let's dig up a few you used to love. You haven't played ${q(s)} $since.",
             "Here's one that's been gathering dust. ${q(s)}, $times plays, and nothing $since.",
-            "Rediscovery time! These used to be big for you, starting with ${q(s)} by ${by(s)}.",
+            "These used to be big for you... starting with ${q(s)} by ${by(s)}.",
             "Long time no hear. ${q(s)} by ${by(s)}, not played $since.",
             "From the back of the shelf: ${q(s)}. You loved it once, $times plays, but not $since.",
             "Let's bring back a few you forgot about. ${q(s)} first.")
@@ -652,7 +657,7 @@ object Dj {
             "Right on schedule. These are your go to songs $whenText.",
             "Your $part regulars are here, led by ${q(s)} by ${by(s)}.",
             "Same time, same vibe. ${names(songs, 3)}, just how you like it $whenText.",
-            "Clockwork. Around now you usually reach for ${q(s)}, so here it is.",
+            "Around now you usually reach for ${q(s)}... so here it is.",
             "Your $part soundtrack, as usual. ${names(songs, 3)}.",
             "I know what time it is. ${q(s)} time.")
     }
@@ -715,7 +720,7 @@ object Dj {
             "Happy" -> say(key, *switchUp("happy, chill", s),
                 "Hey, let's switch it up. Something happy and easy now, starting with ${q(s)}.",
                 "Let's keep it light. Happy, chill and calm, with ${q(s)} first.",
-                "Good vibes only for a bit. ${q(s)} kicks it off.")
+                "Something easy and bright for a bit. ${q(s)} first.")
             "Sad" -> say(key, *switchUp("sad, dark", s),
                 "Hey, let's switch it up. Something sad and dark now, starting with ${q(s)}.",
                 "Lights down. A few of the heavier ones, ${q(s)} first.",
@@ -726,13 +731,13 @@ object Dj {
 
     private fun moodIntro(mood: String, s: Track): String = when (mood) {
         "Happy" -> say("moodmix-Happy", *switchUp(mood, s), "Let's lift things up a little. A happy run, starting with ${q(s)}.",
-            "Sun's out, at least in here. Some happy ones, kicking off with ${q(s)}.", "Time for a mood boost. Happy songs only, and ${q(s)} goes first.")
+            "A little sun in here. Some happy ones, starting with ${q(s)}.", "Time for a mood boost. Happy songs only, and ${q(s)} goes first.")
         "Energetic" -> say("moodmix-Energetic", *switchUp(mood, s), "Let's pick up the pace. Energy up, starting with ${q(s)}.",
             "Okay, let's get moving. ${q(s)} gets us going.", "Shake off the slump. This one's all energy, and ${q(s)} leads the way.")
         "Party" -> say("moodmix-Party", *switchUp(mood, s), "Let's turn this into a party. ${q(s)} first, so turn it up.",
-            "Party mode, on. We're starting with ${q(s)}.", "If you're not dancing yet, give it a minute. ${q(s)} is up.")
+            "Let's call it a party. We're starting with ${q(s)}.", "If you're not dancing yet, give it a minute. ${q(s)} is up.")
         "Hype" -> say("moodmix-Hype", *switchUp(mood, s), "Let's get hyped. ${q(s)}, and it only goes up from here.",
-            "Hype mode. Hold on tight, ${q(s)} is first.", "Energy check. We're going full hype, with ${q(s)}.")
+            "Turning it all the way up. ${q(s)} is first.", "We're going full hype now, with ${q(s)}.")
         "Chill" -> say("moodmix-Chill", *switchUp(mood, s), "Let's go somewhere chill. ${q(s)}, then a few more to sink into.",
             "Time to slow it down and get comfy. ${q(s)} first.", "Deep breath. Something chill now, starting with ${q(s)}.")
         "Calm" -> say("moodmix-Calm", *switchUp(mood, s), "Let's bring it way down. Calm and easy, starting with ${q(s)}.",
@@ -742,13 +747,13 @@ object Dj {
         "Focus" -> say("moodmix-Focus", *switchUp(mood, s), "Heads down, let's focus. ${q(s)}, and a few more to get you in the zone.",
             "Getting things done? I've got you. Focus mode, starting with ${q(s)}.", "No distractions, just flow. ${q(s)} first.")
         "Romantic" -> say("moodmix-Romantic", *switchUp(mood, s), "Let's set the mood. Something romantic, starting with ${q(s)}.",
-            "A little romantic stretch now. ${q(s)} first.", "Candles optional. Romantic songs, starting with ${q(s)}.")
+            "A little romantic stretch now. ${q(s)} first.", "Lights low. Romantic songs, starting with ${q(s)}.")
         "Sad" -> say("moodmix-Sad", *switchUp(mood, s), "Let's sit with our feelings for a bit. Something sad, starting with ${q(s)}.",
-            "Sometimes you just need a sad song. Here's ${q(s)}.", "Okay, tissues ready? A few sad ones, ${q(s)} first.")
+            "Sometimes you just need a sad song. Here's ${q(s)}.", "A few sad ones now... ${q(s)} first.")
         "Dark" -> say("moodmix-Dark", *switchUp(mood, s), "Let's go somewhere darker. ${q(s)} opens the way.",
             "Lights down. Something dark now, starting with ${q(s)}.", "Into the shadows for a bit. ${q(s)} first.")
         "Intense" -> say("moodmix-Intense", *switchUp(mood, s), "Let's turn it up. Something intense, starting with ${q(s)}.",
-            "Brace yourself, it's getting intense. ${q(s)} first.", "No holding back now. ${q(s)} kicks it off.")
+            "It's about to get intense. ${q(s)} first.", "No holding back now. ${q(s)} kicks it off.")
         else -> say("moodmix-other", *switchUp(mood, s), "Let's change the mood. Something ${Moods.adjective(mood)}, starting with ${q(s)}.",
             "New mood, coming up. A ${Moods.adjective(mood)} run, starting with ${q(s)}.")
     }
@@ -848,7 +853,7 @@ object Dj {
             "You gave these a star, so I'm giving them the spotlight. ${q(s)} first.",
             "Favourites time. No skips needed, ${q(s)} leads the way.",
             "The ones you saved for a reason. ${q(s)} by ${by(s)} first.",
-            "All killer, no filler. Your favourites, starting with ${q(s)}.")
+            "Nothing but favourites now, starting with ${q(s)}.")
     }
 
     private fun setFresh(taste: Taste): Pair<List<Track>, String>? {
@@ -867,9 +872,9 @@ object Dj {
         return songs to say("fresh",
             "Something new for you, picked from $from. Let's see what you think.",
             "Here's some music you haven't heard yet, because you've been playing $from.",
-            "Fresh finds, inspired by $from. Skip if they're not for you, I won't take it personally.",
-            "New music alert. If you like $from, these should feel right at home.",
-            "Let's try something new. I went looking for songs like $from, and I think I found some gems.",
+            "A few new ones, close to $from. Skip anything that isn't you.",
+            "Something new. If you like $from, these should feel right at home.",
+            "Let's try something new. I went looking near $from... and a few stood out.",
             "New songs incoming. You've been playing $from, so these are for you.",
             "I went digging for new stuff in the world of $from. Here's what I found.",
             "Ready for something you've never heard? Inspired by $from.")
@@ -886,7 +891,7 @@ object Dj {
                 "You play a lot of $who, but have you heard these? Let's go deeper.",
                 "You know the hits from $who. Now for the ones only real fans know.",
                 "Beyond the big ones. Here's the $who you haven't heard yet.",
-                "Time to dig into the $who catalogue. Trust me, there's treasure in here.",
+                "Time to dig into the $who catalogue... there's good stuff down here.",
                 "Let's go past the singles. More $who, all new to you.",
                 "There's more to $who than the songs you know. Here's proof.")
         }
@@ -1013,8 +1018,8 @@ object Dj {
                 if (key !in said(FACT_HISTORY)) {
                     remember(FACT_HISTORY, key)
                     return@runCatching say("fact-milestone",
-                        "Milestone alert! Coming up is your ${num(n)}th play of ${q(s)}. Let's celebrate.",
-                        "Big one in this set: ${q(s)} hits ${num(n)} plays. Congratulations to you both.",
+                        "Small thing... coming up is your ${num(n)}th play of ${q(s)}.",
+                        "One to notice in this set... ${q(s)} is about to hit ${num(n)} plays.",
                         "Get ready, ${q(s)} is about to reach ${num(n)} plays. That's a milestone.")
                 }
             }
@@ -1034,27 +1039,27 @@ object Dj {
             s.artist.split(",")[0].trim().takeIf { it.isNotEmpty() }?.let { a ->
                 f.artistFirst[a]?.let { t ->
                     val m = f.artistMonth[a] ?: 0
-                    if (nowS - t > 3 * 365 * 86_400L) out["artist-since:$a"] = "You've been listening to $a since ${month(t)}. That's loyalty."
+                    if (nowS - t > 3 * 365 * 86_400L) out["artist-since:$a"] = "You've been listening to $a since ${month(t)}. That's a long time."
                     else if (nowS - t < 30 * 86_400L && m >= 10) out["artist-new:$a"] = "You only found $a this month, and you've already played them ${num(m)} times."
                 }
             }
             val dur = s.duration.takeIf { it > 0 } ?: taste.mine[songKey(s)]?.duration ?: 0.0
             if (n >= 8 && dur > 0) {
                 val h = n * dur / 3600
-                if (h >= 1) out["hours:$id"] = "Did you know? You've spent about ${hoursText(h)} hours listening to ${q(s)}. That's ${num(n)} plays."
+                if (h >= 1) out["hours:$id"] = "You've spent about ${hoursText(h)} hours with ${q(s)}. That's ${num(n)} plays."
                 else out["minutes:$id"] = "You've played ${q(s)} ${num(n)} times. That's about ${(n * dur / 60).toInt()} minutes of it."
             }
             f.first[k]?.let { t ->
                 val days = ((nowS - t) / 86_400L).toInt()
-                if (nowS - t > 2 * 365 * 86_400L) out["first:$id"] = "Fun fact: you first played ${q(s)} way back in ${month(t)}."
-                else if (days in 1..21 && n >= 5) out["crush:$id"] = "You only found ${q(s)} $days days ago, and you've already played it ${num(n)} times. Someone has a new favourite."
+                if (nowS - t > 2 * 365 * 86_400L) out["first:$id"] = "You first played ${q(s)} way back in ${month(t)}."
+                else if (days in 1..21 && n >= 5) out["crush:$id"] = "You only found ${q(s)} $days days ago, and you've already played it ${num(n)} times."
             }
             heard[songKey(s)]?.let { (sk, full) ->
                 if (full >= 8 && sk == 0) out["never-skipped:$id"] = "You've heard ${q(s)} all the way through ${num(full)} times, and you've never skipped it. Not once."
-                else if (sk >= 4 && sk > full) out["skipped:$id"] = "Real talk: you've skipped ${q(s)} ${num(sk)} times. Let's see if it wins you over today."
+                else if (sk >= 4 && sk > full) out["skipped:$id"] = "You've skipped ${q(s)} ${num(sk)} times. Let's see if it lands today."
             }
             allRank[songKey(s)]?.takeIf { it < 10 && n >= 10 }?.let { i ->
-                out["top-ten:$id"] = if (i == 0) "Heads up: ${q(s)} is your most played song of all time. Number one!"
+                out["top-ten:$id"] = if (i == 0) "${q(s)} is your most played song of all time. Number one."
                     else "${q(s)} is one of your top ten songs of all time. Number ${ordinal(i + 1)}, in fact."
             }
             val lead = s.artist.split(",")[0].trim()
@@ -1069,17 +1074,17 @@ object Dj {
             out["mood-month"] = "Lately you've mostly played ${Moods.adjective(m)} songs. That's ${n * 100 / moodPlays} percent of what you played from your own music this month."
         }
         taste.moodHour.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (m, _) ->
-            out["mood-hour"] = "Around this time of day, you usually go for something ${Moods.adjective(m)}. I took notes."
+            out["mood-hour"] = "Around this time of day, you usually go for something ${Moods.adjective(m)}."
         }
         moodFacts(taste, nowS, out)
         // Your artists and songs
         val byMonth = f.artistMonth.entries.sortedByDescending { it.value }
-        byMonth.getOrNull(0)?.takeIf { it.value >= 10 }?.let { (a, n) -> out["top-artist-month"] = "Your most played artist this month? $a, with ${num(n)} plays. No surprise there." }
+        byMonth.getOrNull(0)?.takeIf { it.value >= 10 }?.let { (a, n) -> out["top-artist-month"] = "Your most played artist this month? $a, with ${num(n)} plays." }
         byMonth.getOrNull(1)?.takeIf { it.value >= 8 }?.let { (b, n) ->
-            out["second-artist-month"] = "Your number two artist this month is $b, with ${num(n)} plays. ${byMonth[0].key} had better watch out."
+            out["second-artist-month"] = "Your number two artist this month is $b, with ${num(n)} plays... not far behind ${byMonth[0].key}."
         }
         f.artistAll.maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { (a, n) -> out["top-artist-all"] = "All time, you've played $a ${num(n)} times. They're your number one." }
-        if (f.artistAll.size >= 50) out["artists-count"] = "You've listened to ${num(f.artistAll.size)} different artists. Variety is the spice of life."
+        if (f.artistAll.size >= 50) out["artists-count"] = "You've listened to ${num(f.artistAll.size)} different artists. That's a wide shelf."
         if (f.count.size >= 200) out["songs-count"] = "You've played ${num(f.count.size)} different songs. That's a seriously deep library."
         taste.recent.firstOrNull()?.takeIf { it.plays >= 5 }?.let { s ->
             out["top-song-month"] = "Your most played song this month? ${q(s)} by ${by(s)}, with ${num(s.plays)} plays."
@@ -1091,29 +1096,29 @@ object Dj {
             out["top-genre-month"] = "Your top genre lately is $g. You've played more of it than anything else this month."
         }
         // When you listen
-        f.hours.withIndex().maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { out["peak-hour"] = "You listen to the most music around ${hourName(it.index)}. I see you." }
+        f.hours.withIndex().maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { out["peak-hour"] = "You do most of your listening around ${hourName(it.index)}." }
         if (f.total >= 200) {
             val night = (0..4).sumOf { f.hours[it] } * 100 / f.total
             val early = (5..9).sumOf { f.hours[it] } * 100 / f.total
-            if (night >= 10) out["night-share"] = "About $night percent of your listening happens after midnight. Night owl, confirmed."
-            if (early >= 25) out["morning-share"] = "About $early percent of your music happens before 10 AM. Early bird energy."
+            if (night >= 10) out["night-share"] = "About $night percent of your listening happens after midnight."
+            if (early >= 25) out["morning-share"] = "About $early percent of your music happens before 10 AM."
         }
         if (f.monthPlays >= 100) out["month-plays"] = say("fact-month-plays",
-            "You've played ${num(f.monthPlays)} songs so far this month. Busy ears.",
-            "${num(f.monthPlays)} plays this month and counting. I'm keeping track.")
+            "You've played ${num(f.monthPlays)} songs so far this month.",
+            "${num(f.monthPlays)} plays this month, and it's not over.")
         f.artistFirst.entries.filter { nowS - it.value < 30 * 86_400L && (f.artistMonth[it.key] ?: 0) >= 15 }.maxByOrNull { f.artistMonth[it.key] ?: 0 }?.let { (a, _) ->
             out["new-artist-month"] = "Your big discovery this month? $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them."
         }
-        if (f.total >= 1000) out["total-plays"] = "I've counted ${num(f.total)} plays of yours. That's a lot of music."
+        if (f.total >= 1000) out["total-plays"] = "That's ${num(f.total)} plays, all told. A lot of music."
         val years = (nowS - f.since) / (365 * 86_400L)
-        if (f.since > 0 && years >= 2) out["since"] = "Your listening history goes back to ${month(f.since)}. That's over ${num(years.toInt())} years of music, and I've been reading all of it."
+        if (f.since > 0 && years >= 2) out["since"] = "You've been at this since ${month(f.since)}... over ${num(years.toInt())} years of music."
         // Your years
         val thisYear = java.time.LocalDate.now().year
         for ((y, top) in f.yearTop) if (y < thisYear && top.second >= 10)
             out["year-top:$y"] = "Your number one song of $y was “${top.first.title}” by ${top.first.artist.split(",")[0].trim()}, with ${num(top.second)} plays."
         f.yearPlays.takeIf { it.size >= 2 }?.maxByOrNull { it.value }?.takeIf { it.value >= 500 }?.let { (y, n) ->
             out["busiest-year"] = if (y == thisYear) "This is your biggest year for music yet, with ${num(n)} plays so far. Keep it up."
-                else "Your biggest year for music was $y, with ${num(n)} plays. Think you can beat it?"
+                else "Your biggest year for music was $y, with ${num(n)} plays."
         }
         // Skips
         rows.filter { it.second >= 5 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
@@ -1131,7 +1136,7 @@ object Dj {
                 out["skipped-week:${songKey(t)}"] = "This week you skipped ${q(t)} ${num(sk)} times. Not feeling it right now? It'll be back when you are."
             }
         }
-        if (skips + outs >= 100) out["heard-out"] = "You hear ${outs * 100 / (skips + outs)} percent of songs all the way through. That's commitment."
+        if (skips + outs >= 100) out["heard-out"] = "You hear ${outs * 100 / (skips + outs)} percent of songs all the way through."
         val key = NoRepeat.pick(out.keys.toList(), said(FACT_HISTORY), NO_REPEAT) ?: return@runCatching null
         remember(FACT_HISTORY, key)
         out.getValue(key)
@@ -1163,7 +1168,7 @@ object Dj {
             out["mood-any:$m"] = say("fact-mood-any",
                 "Here's one: ${MoodTally.percent(all, m)} percent of what you play from your music is ${adj(m)}. That's ${num(n)} plays.",
                 "${m.replaceFirstChar { it.uppercase() }} songs: ${num(n)} plays all told" + (if (mo > 0) ", and ${num(mo)} this month." else ", but none this month."),
-                "Mood check: you've played ${num(n)} ${adj(m)} songs, ${MoodTally.percent(all, m)} percent of your listening.",
+                "You've played ${num(n)} ${adj(m)} songs, ${MoodTally.percent(all, m)} percent of your listening.",
                 "This month you've played ${num(mo)} ${adj(m)} songs" + (if (month.values.sum() > 0) ", ${MoodTally.percent(month, m)} percent of the month." else "."))
         }
         MoodTally.top(all, minPlays = 100)?.let { (m, n) ->
@@ -1196,7 +1201,7 @@ object Dj {
             }
         // Hype's share
         val hype = MoodTally.percent(all, "Hype")
-        if (all.values.sum() >= 100 && hype >= 5) out["mood-hype"] = if (hype >= 25) "About $hype percent of your listening is Hype. You don't do quiet, do you?"
+        if (all.values.sum() >= 100 && hype >= 5) out["mood-hype"] = if (hype >= 25) "About $hype percent of your listening is Hype. You like it loud."
             else "About $hype percent of your music is Hype. Just enough to keep things moving."
         // A mood you've drifted away from
         MoodTally.neglected(all, month)?.let { m ->
@@ -1281,12 +1286,12 @@ object Dj {
         val both = if (picked.size > 1) "$a and ${picked[1].first}" else a
         return songs to say("discover",
             "Here's someone new I think you'll like: $a. If you're into $like, this is right up your alley.",
-            "Time to find you a new favourite. Meet $both. You play a lot of $like, so trust me on this one.",
+            "Here's someone for you... $both. You play a lot of $like, so this should sit right.",
             "Fans of $like tend to love $a. Let's see if you do too.",
             "I've got a good feeling about this one. $a, for the $like fan in you.",
-            "New artist alert! Say hello to $both. You can thank $like for this one.",
+            "Someone new... $both. That's $like's doing.",
             "Someone you should know: $a. Big $like energy.",
-            "Let me introduce you to $both. If $like is your thing, you're in for a treat.")
+            "Let me play you $both. If $like is your thing, give this a few minutes.")
     }
 
     // ---- more kinds of set (3.2.15) ----
@@ -1342,7 +1347,7 @@ object Dj {
             return songs to say(if (n >= 20) "spotlight" else "spotlight-few",
                 "Artist spotlight: $a. You've played them ${num(n)} times, so here's a mix of the big ones and a few deeper cuts, starting with ${q(s)}.",
                 "Let's give $a the stage for a few songs. Some favourites, some you don't play as much, and ${q(s)} goes first.",
-                if (n >= 20) "Spotlight on $a now. ${num(n)} plays tell me you're a fan. Here's ${q(s)}." else "Spotlight on $a now, from your library. Here's ${q(s)}.",
+                if (n >= 20) "Spotlight on $a now... ${num(n)} plays and counting. Here's ${q(s)}." else "Spotlight on $a now, from your library. Here's ${q(s)}.",
                 "It's a $a moment. The hits, the hidden ones, the lot. Starting with ${q(s)}.",
                 "Five songs, one artist: $a. Let's go, with ${q(s)}.")
         }
@@ -1415,7 +1420,7 @@ object Dj {
         val s = songs[0]
         return songs to say("decade",
             "Let's take a trip to $d. Everything in this set came out back then, starting with ${q(s)}.",
-            "Decade trip! We're heading to $d with ${q(s)} by ${by(s)}.",
+            "Heading to $d now, with ${q(s)} by ${by(s)}.",
             "Set the dial to $d. Your music from that decade, starting with ${q(s)}.",
             "A little time travel: $d, straight from your collection.")
     }
@@ -1430,7 +1435,7 @@ object Dj {
         return songs to say("onehit",
             "Your one hit wonders: artists you've only got a song or two from. Starting with ${q(s)} by ${by(s)}.",
             "Some artists only made it into your music once. Here's a few of them, like ${by(s)}.",
-            "The lone stars of your library. One song each, starting with ${q(s)}.",
+            "One song each, and that's all you needed. Starting with ${q(s)}.",
             "Single appearances only. ${names(songs, 3)}, each the only one of theirs you have.")
     }
 
@@ -1469,7 +1474,7 @@ object Dj {
         val s = songs[0]
         return songs to say("second",
             "Second chances. These are ones you usually skip, but maybe today's the day. ${q(s)} first.",
-            "Hear me out. You skip these a lot, but I think the mood might be right this time. Starting with ${q(s)}.",
+            "You skip these a lot... but the mood might be right this time. Starting with ${q(s)}.",
             "A few songs that never get a fair shot. Let's give ${q(s)} one more try.",
             "Second chance round. If one still isn't for you, skip away, no hard feelings.")
     }
@@ -1497,7 +1502,7 @@ object Dj {
         val n = days[songKey(s)] ?: 4
         return songs to say("streak",
             "You've played ${q(s)} on $n of the last seven days. That's a streak. Here it is, with a few more you can't put down.",
-            "Streak alert! ${q(s)} has been on almost every day this week. Let's keep it going.",
+            "${q(s)} has been on almost every day this week. Let's keep it going.",
             "These are the songs you've played day after day this week, starting with ${q(s)}.",
             "Every day this week, practically. ${names(songs, 3)}. On a streak, and I'm not stopping it.")
     }
@@ -1544,7 +1549,7 @@ object Dj {
         val n = clock()
         val h = n.hour
         return when {
-            n.dayOfWeek == java.time.DayOfWeek.FRIDAY && h >= 17 -> say("t-fri", "It's Friday night. Let's go.", "Friday night, and the weekend starts now.", "Happy Friday!")
+            n.dayOfWeek == java.time.DayOfWeek.FRIDAY && h >= 17 -> say("t-fri", "It's Friday night. Let's go.", "Friday night, and the weekend starts now.", "Happy Friday.")
             n.dayOfWeek == java.time.DayOfWeek.SATURDAY -> say("t-sat", "Saturday, no rush.", "It's the weekend, so let's enjoy it.", "Saturday vibes, coming right up.")
             n.dayOfWeek == java.time.DayOfWeek.SUNDAY && h < 13 -> say("t-sun", "Easy Sunday morning.", "Lazy Sunday? I've got you.", "Sunday mornings are for good music.")
             n.dayOfWeek == java.time.DayOfWeek.MONDAY && h in 5..11 -> say("t-mon", "Monday morning. Let's ease into the week.", "New week, fresh start.", "Mondays are better with music.")
@@ -1567,7 +1572,7 @@ object Dj {
         val mk = "milestone:${songKey(t)}:${n + 1}"
         if (n + 1 in MILESTONES && mk !in said(FACT_HISTORY)) {
             remember(FACT_HISTORY, mk)
-            return "Big moment: this is your ${num(n + 1)}th play of ${q(t)}. Here's to ${num(n + 1)} more."
+            return "This is your ${num(n + 1)}th play of ${q(t)}. Here's to ${num(n + 1)} more."
         }
         if (Random.nextInt(10) >= 3) return null
         val out = LinkedHashMap<String, String>()
@@ -1617,7 +1622,7 @@ object Dj {
                 songs = fresh.filter { playsOf(taste, it) > 0 }.sortedByDescending { playsOf(taste, it) }.take(150).shuffled().take(n)
                 if (songs.isNotEmpty()) line = say("from-loved",
                     "From $name, the ones you keep coming back to, like ${q(songs[0])} by ${by(songs[0])}.",
-                    "The best of $name, by your count. ${q(songs[0])} is up first.",
+                    "The best of $name, the way you play it. ${q(songs[0])} first.",
                     "Your top picks from $name, starting with ${q(songs[0])}.",
                     "These are the songs from $name you play the most. No surprises, just the good stuff.")
             }
@@ -1667,7 +1672,7 @@ object Dj {
                 if (songs.isNotEmpty()) line = say("from-mix",
                     "More from $name: ${names(songs, 3)}.",
                     "A bit of everything from $name. ${q(songs[0])} kicks it off.",
-                    "Shuffling through $name. Up next, ${q(songs[0])} by ${by(songs[0])}.",
+                    "Back into $name... ${q(songs[0])}, by ${by(songs[0])}.",
                     "Back to $name with a mix. ${names(songs, 3)}.")
             }
         }
@@ -1836,10 +1841,16 @@ object Dj {
             // Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row (nor more
             // than twice in a set, but for an artist's own set); an album moment stays in the album's order
             val songs = if (k == "album") got.first else spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover"))
-            val opener = if (first) hello() else timeFlavor()
-            val line = if (opener.isEmpty()) got.second else "$opener ${got.second}"
+            var opener = if (first) hello() else timeFlavor()
+            var line = if (opener.isEmpty()) got.second else "$opener ${got.second}"
+            // A break is MOST_WORDS words at most, as said: a word about the day goes first if it's over (a hello stays)
+            if (!first && opener.isNotEmpty() && wordsSaid(line) > MOST_WORDS) { opener = ""; line = got.second }
             // Now and then (and never on the first set: that has its hello) something the DJ knows about you
-            val fact = if (!first && Random.nextInt(5) < 2) fact(songs) ?: "" else ""
+            var fact = if (!first && Random.nextInt(5) < 2) fact(songs) ?: "" else ""
+            if (fact.isNotEmpty() && wordsSaid(line) + wordsSaid(fact) > MOST_WORDS) {   // no room for it: told another time
+                fact = ""
+                synchronized(lock) { holds.removeAll { it.set == id && it.key == FACT_HISTORY } }
+            }
             // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
             return Built(k, Music.localsOf(songs), line, fact, id, opener, first, timeKey())
         }
