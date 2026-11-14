@@ -1,0 +1,99 @@
+# A test build of the PC app from the rebuild branch, for the owner to try: a folder that runs without installing
+# and keeps its own files (android/desktop/test-build/Start test build.cmd), so the installed app and its data stay as
+# they are. Nothing is published: it's kept with this run (Actions, signed in) for a few days. Made when ci/TEST_BUILD
+# changes. Where to get it is written to the rebuild-ci branch (result-testbuild.txt).
+name: Test build (PC)
+on:
+  push:
+    branches: [rebuild]
+    paths: [ci/TEST_BUILD]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: mpv and ffmpeg, for the app to bring its own
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=android/desktop/resources/windows; mkdir -p "$D"
+          T="$(cygpath -u "$RUNNER_TEMP")"
+          A=$(gh release view -R shinchiro/mpv-winbuild-cmake --json assets -q '.assets[].name' | grep -E '^mpv-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z$' | head -1)
+          echo "mpv: $A"
+          gh release download -R shinchiro/mpv-winbuild-cmake -p "$A" -D "$T"
+          7z e -y "$T/$A" -o"$D" mpv.exe > /dev/null
+          curl -sSfL --retry 4 -o "$T/ff.zip" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          7z e -y "$T/ff.zip" -o"$D" ffmpeg.exe -r > /dev/null
+          ls -la "$D"
+      - name: Tidal's app keys
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python android/tools/tidal-keys.sh
+      - name: Build the app's folder
+        working-directory: android
+        run: ./gradlew --no-daemon :desktop:createDistributable > ../build-test.log 2>&1 || true
+      - name: The starter and the DJ's voice
+        id: pack
+        run: |
+          APP="android/desktop/build/compose/binaries/main/app/Radon Player"
+          if [ -f "$APP/Radon Player.exe" ]; then
+            cp "android/desktop/test-build/Start test build.cmd" "$APP/"
+            T="$(cygpath -u "$RUNNER_TEMP")"
+            curl -sSL --retry 4 --retry-all-errors -o "$T/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2 \
+              && mkdir -p "$APP/voice" && (cd "$APP/voice" && (tar xjf "$T/voice.tar.bz2" || /c/Windows/System32/tar.exe -xf "$(cygpath -w "$T/voice.tar.bz2")")) || true
+            echo "built=yes" >> "$GITHUB_OUTPUT"
+            ls "$APP"; ls "$APP/voice" || true; ls "$APP/app/resources" || true
+          fi
+      - uses: actions/upload-artifact@v4
+        id: keep
+        if: steps.pack.outputs.built == 'yes'
+        with:
+          name: RadonPlayer-test-build
+          path: android/desktop/build/compose/binaries/main/app/Radon Player
+          retention-days: 14
+          compression-level: 6
+      - name: Say how it went (the rebuild-ci branch)
+        if: always()
+        run: |
+          APP="android/desktop/build/compose/binaries/main/app/Radon Player"
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            if [ "${{ steps.pack.outputs.built }}" = "yes" ]; then echo "TEST BUILD: made"; else echo "TEST BUILD: not made"; fi
+            echo "DOWNLOAD: ${{ steps.keep.outputs.artifact-url }}"
+            echo "RUN: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "MPV: $(find "$APP" -name mpv.exe 2>/dev/null | head -1)"
+            echo "FFMPEG: $(find "$APP" -name ffmpeg.exe 2>/dev/null | head -1)"
+            echo "VOICE: $(ls "$APP/voice" 2>/dev/null | head -1)"
+            echo "SIZE: $(du -sh "$APP" 2>/dev/null | cut -f1)"
+            echo "--- errors"
+            grep -E "^e: |error:|What went wrong|FAILED" -A6 build-test.log | grep -v "^w: " | head -60
+            echo "--- the end of the log"
+            tail -15 build-test.log
+          } > result-testbuild.txt || true
+          cat result-testbuild.txt
+          here="$PWD"
+          for try in 1 2 3; do
+            r="$(mktemp -d)"; cd "$r" && git init -q
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+            if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+            cp "$here/result-testbuild.txt" result-testbuild.txt
+            git add -A
+            git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: test build for ${GITHUB_SHA::7}" || true
+            if git push -q origin rebuild-ci; then break; fi
+            cd "$here"; sleep 15
+          done

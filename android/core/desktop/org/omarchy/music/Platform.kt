@@ -11,7 +11,8 @@ class Ctx(val filesDir: File, val cacheDir: File) {
     companion object {
         val pc: Ctx by lazy {
             val home = File(System.getProperty("user.home"))
-            val base = System.getenv("APPDATA")?.let { File(it, "Radon Player") } ?: File(home, ".local/share/radon-player")
+            // RADON_DATA: a folder of its own (a test build beside the installed app, which keeps its own untouched)
+            val base = System.getenv("RADON_DATA")?.takeIf { it.isNotBlank() }?.let { File(it) } ?: System.getenv("APPDATA")?.let { File(it, "Radon Player") } ?: File(home, ".local/share/radon-player")
             Ctx(base.apply { mkdirs() }, File(base, "cache").apply { mkdirs() })
         }
     }
