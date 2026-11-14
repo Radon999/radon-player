@@ -1,23 +1,21 @@
-commit 92503b0913256b2f657ca357ebf252e3718af13b · run 43617042116 · Sat Nov 14 16:47:14 UTC 2026
+commit 1a98767de205d33476db5d0a28e2eec4fc0feb7f · run 43618069679 · Sat Nov 14 16:58:41 UTC 2026
 SHARED TESTS: 43 suites, 209 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 5 suites, 37 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 1.5 s (with loading the voice); then 4.6 s of speech in 1.2 s (3.9x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 1.6 s (with loading the voice); then 5.0 s of speech in 1.3 s (3.8x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 --- errors
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
 --- the end of the log
 > Task :desktop:classes
 > Task :app:bundleDebugClassesToCompileJar
 > Task :app:bundleDebugClassesToRuntimeJar
 > Task :desktop:jar
-> Task :desktop:compileTestKotlin
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
+> Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
 The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
 
