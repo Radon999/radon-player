@@ -25,8 +25,21 @@ class ExoEngine(val p: Player, private val ctx: Ctx, private val eq: EqProcessor
                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
         }
     }
-    override val audioEnded get() = eq?.sinkEnded == true
-    override val audioPlaying: Boolean? get() = eq?.let { (!it.sinkEos && System.currentTimeMillis() - it.sinkFedAt < 1500) || (it.sinkEos && !it.sinkEnded) }
+    // The music is all played out: the output says so, or (an output that never says so: seen over Bluetooth with the
+    // DJ on, where every song heard to its end was followed by a minute of nothing) the song's end was handed to it half
+    // a second ago or more and the player's clock has reached the song's length.
+    override val audioEnded: Boolean get() {
+        val e = eq ?: return false
+        if (e.sinkEnded) return true
+        val d = p.duration
+        return e.sinkEos && System.currentTimeMillis() - e.sinkEosAt >= 500 && d > 0 && p.currentPosition >= d - 50
+    }
+    // Music is still coming out: the output took more of it in the last second and a half, or the song's end was handed
+    // to it under four seconds ago and it hasn't played out (what it still holds is a second or so, never a minute).
+    override val audioPlaying: Boolean? get() = eq?.let {
+        val now = System.currentTimeMillis()
+        (!it.sinkEos && now - it.sinkFedAt < 1500) || (it.sinkEos && !it.sinkEnded && now - it.sinkEosAt < 4000)
+    }
 
     override val isPlaying get() = p.isPlaying
     override val positionMs get() = p.currentPosition

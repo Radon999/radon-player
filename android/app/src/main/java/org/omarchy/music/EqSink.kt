@@ -51,8 +51,17 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
         super.configure(inputFormat, specifiedBufferSize, outputChannels)
     }
 
+    // "Fed" only when the output really took some of it. The player hands the same buffer in again and again while the
+    // output takes nothing (seen over Bluetooth with the DJ on): that counted as music still coming out, so a song that
+    // was over was waited on for a whole minute before the next one played.
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
-        eq.sinkFedAt = System.currentTimeMillis()
+        val before = buffer.remaining()
+        val done = feed(buffer, presentationTimeUs, encodedAccessUnitCount)
+        if (done || buffer.remaining() != before) eq.sinkFedAt = System.currentTimeMillis()
+        return done
+    }
+
+    private fun feed(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
         if (toShort > 0) return handleShort(buffer, presentationTimeUs, encodedAccessUnitCount)
         if (!float || (!pending && eq.idle())) return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
         if (!pending) {   // a new buffer: through the EQ once, into out
@@ -100,7 +109,10 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     // The song's end handed in (playToEndOfStream) and all of it played out: told to the app (Engine.audioEnded), so it
     // moves on the moment the music's over even when the player is slow to say it ended.
     private var eos = false
-    override fun playToEndOfStream() { eos = true; eq.sinkEos = true; super.playToEndOfStream() }
+    override fun playToEndOfStream() {
+        if (!eos) eq.sinkEosAt = System.currentTimeMillis()   // (the player calls this over and over until it's played out)
+        eos = true; eq.sinkEos = true; super.playToEndOfStream()
+    }
     override fun isEnded(): Boolean { val e = super.isEnded(); eq.sinkEnded = eos && e; return e }
     override fun reset() { eos = false; eq.sinkEos = false; eq.sinkEnded = false; super.reset() }
 

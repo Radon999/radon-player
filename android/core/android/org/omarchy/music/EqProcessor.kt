@@ -78,6 +78,9 @@ class EqProcessor : BaseAudioProcessor() {
     /** When its player last handed the sink music (ms), and whether the song's end has been handed in: see Engine.audioPlaying. */
     @Volatile var sinkFedAt = 0L
     @Volatile var sinkEos = false
+    /** When the song's end was handed to the sound output (the clock's milliseconds): all of it is on its way out then,
+     *  and what's left to hear is only what the output still holds, a second or so. */
+    @Volatile var sinkEosAt = 0L
     private class Stage(val c: DoubleArray, val state: Array<DoubleArray>)
 
     @Volatile var settings = EqSettings(); private set
