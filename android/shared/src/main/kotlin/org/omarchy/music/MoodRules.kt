@@ -121,14 +121,27 @@ object MoodRules {
 
     private fun clamp(v: Double, lo: Double = 0.0, hi: Double = 1.0) = v.coerceIn(lo, hi)
 
+    // The scales the sound's numbers are read on: from quiet to loud, dull to bright, sparse to busy, no beat to a clear
+    // one. Set (November 2026) from what a real collection of 3,300 songs measures, its lowest to its highest twentieth.
+    // Before, "loud" ended at -10 dB, which four records in five are louder than (so nearly every song came out
+    // Energetic, Hype and Intense, and almost none Calm or Chill), and "busy" at 5 notes a second, the middle of the
+    // collection. See docs/rebuild/MOOD_SCAN_REVIEW.md.
+    private const val LOUD_LO = -14.0; private const val LOUD_HI = -5.0
+    private const val BRIGHT_LO = 1300.0; private const val BRIGHT_HI = 2650.0
+    private const val BUSY_LO = 3.4; private const val BUSY_HI = 6.0
+    private const val BEAT_LO = 0.2; private const val BEAT_HI = 0.68
+    /** How much the words count next to the tags and the sound (1.3 until November 2026: with more, the moods set by
+     *  hand were matched better). */
+    private const val WORDS_K = 1.7
+
     /** What the sound alone suggests: each mood's fit (0–1), from simple rules a person can check. */
     fun fromSound(f: SoundFeatures): Map<String, Double> {
-        val e = clamp((f.loud + 28) / 18)                                  // energy: -28 dB quiet … -10 dB loud
+        val e = clamp((f.loud - LOUD_LO) / (LOUD_HI - LOUD_LO))            // energy: quiet … loud
         val fast = if (f.bpm <= 0) 0.5 else clamp((f.bpm - 85) / 55)       // 85 BPM slow … 140 BPM fast
         val slow = 1 - fast
-        val b = clamp((f.bright - 1000) / 2500)                            // warm and dark … bright and sharp
-        val d = clamp(f.onsets / 5)                                        // sparse … busy (notes and hits a second)
-        val beat = clamp(f.beat * 2)                                       // no steady beat … a clear one
+        val b = clamp((f.bright - BRIGHT_LO) / (BRIGHT_HI - BRIGHT_LO))    // warm and dark … bright and sharp
+        val d = clamp((f.onsets - BUSY_LO) / (BUSY_HI - BUSY_LO))          // sparse … busy (notes and hits a second)
+        val beat = clamp((f.beat - BEAT_LO) / (BEAT_HI - BEAT_LO))         // no steady beat … a clear one
         // even … big swings in loudness (within the part heard; for a whole song, from part to part too)
         val r = clamp(maxOf((f.range - 6) / 14, (f.vary - 2) / 6))
         val up = clamp(f.major); val down = clamp(-f.major)                // major key … minor key
@@ -176,12 +189,13 @@ object MoodRules {
     const val FITS = 0.40
     /** …and at least this share of the song's top score (so a song with one very clear mood isn't in many weak ones). */
     const val NEAR_TOP = 0.45
-    /** A song that's been heard (its sound is known, so its scores are well founded) also gets the other moods that fit
-     *  fairly well: at least this score and this share of its top one. Songs used to come out with only their main mood. */
-    const val FITS_HEARD = 0.26
-    const val NEAR_TOP_HEARD = 0.30
+    /** A song that's been heard: its other moods must score this much and come close to its top one (this share of
+     *  it). At 0.26 and 0.30 (until November 2026) nearly every song came out in five moods, which says little about
+     *  any of them. */
+    const val FITS_HEARD = 0.40
+    const val NEAR_TOP_HEARD = 0.70
     /** The most moods a song is in (a song in more says little about any of them). */
-    const val MOST = 5
+    const val MOST = 4
     /** Words that say a mood at least this much (0–1) count even against a sound that says otherwise. */
     const val STRONG_WORDS = 0.6
 
@@ -194,17 +208,17 @@ object MoodRules {
 
     /** What the sound says in a few plain numbers: energy, fast, major, minor, bright (each 0–1). */
     private class Cues(f: SoundFeatures) {
-        val e = clamp((f.loud + 28) / 18)
+        val e = clamp((f.loud - LOUD_LO) / (LOUD_HI - LOUD_LO))
         val fast = if (f.bpm <= 0) 0.5 else clamp((f.bpm - 85) / 55)
         val up = clamp(f.major); val down = clamp(-f.major)
-        val b = clamp((f.bright - 1000) / 2500)
+        val b = clamp((f.bright - BRIGHT_LO) / (BRIGHT_HI - BRIGHT_LO))
         /** Clearly upbeat (loud, quick, and major or bright): 0 not at all … 1 plainly. */
         val upbeat = clamp((minOf(e, fast) - 0.4) / 0.3) * clamp((maxOf(up, b) - 0.1) / 0.4)
         /** Clearly downbeat (quiet, slow, and minor or dark): 0 … 1. */
         val downbeat = clamp((minOf(1 - e, 1 - fast) - 0.35) / 0.3) * clamp((maxOf(down, 1 - b) - 0.3) / 0.4)
         /** How glad the sound is, -1 … 1. */
         val valence = (0.6 * f.major + 0.5 * (b - 0.5) + 0.4 * (fast - 0.5)).coerceIn(-1.0, 1.0)
-        val energy = (0.5 * e + 0.3 * fast + 0.2 * clamp(f.onsets / 5)).coerceIn(0.0, 1.0)
+        val energy = (0.5 * e + 0.3 * fast + 0.2 * clamp((f.onsets - BUSY_LO) / (BUSY_HI - BUSY_LO))).coerceIn(0.0, 1.0)
     }
 
     /** A song's moods, worked out: [scores], every mood's fit (0–1); [moods], the ones that fit, best first, each with
@@ -275,7 +289,7 @@ object MoodRules {
                 }
                 // Against a sound that plainly says otherwise, a hint counts for less, but never for nothing.
                 val k = maxOf(LEAST_SAY, if (v >= STRONG_WORDS) 1 - 0.35 * against else 1 - against)
-                score.merge(m, 1.3 * wordsWeight(m) * v * k, Double::plus)
+                score.merge(m, WORDS_K * wordsWeight(m) * v * k, Double::plus)
             }
             // Do the sound and the words agree? By how glad each is (the words' only when they say enough).
             if (cues != null && words != null && !words.instrumental) {
