@@ -43,6 +43,7 @@ class PlaybackGapsTest {
             Music.lyricsToFiles = false
             Music.autoplay = false
             Music.repeat = "off"
+            Music.clearQueued()   // (songs another test left waiting in the queue would come along)
             Music.playFrom(songs, at, radio = false)
         }
         until("the song at $at loaded") { engine.loads.lastOrNull()?.id == songs[at].id }
@@ -99,7 +100,7 @@ class PlaybackGapsTest {
             val theirs1 = Track("svc-owned-2", "tidal", mine[1].title, mine[1].artist)
             val notMine = Track("svc-else-1", "tidal", "A song nobody here has", "Somebody else")
             // Picked from a list: your copy is what goes into the queue, and what plays
-            ui { Music.playFrom(listOf(theirs0, notMine, others[0]), 0, radio = false) }
+            ui { Music.clearQueued(); Music.playFrom(listOf(theirs0, notMine, others[0]), 0, radio = false) }
             until("your own file loaded") { engine.loads.lastOrNull()?.id == mine[0].id }
             assertEquals(mine[0].file, engine.loads.last().uri)
             assertEquals(listOf(mine[0].id, "svc-else-1", others[0].id), Music.queue.map { it.id })
@@ -147,6 +148,8 @@ class PlaybackGapsTest {
         ui { Music.playFrom(other, 0, radio = false) }
         until("the picked song loaded") { engine.loads.lastOrNull()?.id == other[0].id }
         assertEquals(listOf(other[0].id, extra[0].id, extra[1].id, extra[3].id, other[1].id), Music.queue.map { it.id })
+        ui { Music.clearQueued() }   // (nothing left waiting for the next test)
+        assertEquals(listOf(other[0].id, other[1].id), Music.queue.map { it.id })
     }
 
     /** The queue is written down (state.json) as it always was, and after a restart it's back: the same songs, the
@@ -221,7 +224,7 @@ class PlaybackGapsTest {
             Music.keepPlayed = false; Music.lyricsToFiles = false; Music.autoplay = false; Music.repeat = "off"
         }
         try {
-            ui { Music.playFrom(listOf(f[0], slow, f[1]), 0, radio = false) }
+            ui { Music.clearQueued(); Music.playFrom(listOf(f[0], slow, f[1]), 0, radio = false) }
             until("the first song loaded") { engine.loads.lastOrNull()?.id == f[0].id }
             ui { Music.next() }
             Thread.sleep(300)
