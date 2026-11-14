@@ -27,7 +27,7 @@ yet: every row is unverified there.
 | A load that fails: skip after 1.5 s | covered | P `aSongThatCantBeGotIsSkippedAfterAMoment` | With a stand-in for the services (`Downloader.standIn`, null in the app) |
 | A stream that breaks: one retry from the same place, then the next song | covered | P `aStreamThatBreaksIsGotBackOnceFromTheSamePlace` | Same |
 | A song that ends is counted as heard to the end | covered | P `aSongThatEndsIsCountedAsHeardOut` | |
-| Skip counting: leaving part way is a skip, in its last seconds it isn't | covered | P `leavingASongPartWayIsASkipButNotInItsLastSeconds` | Going back isn't a skip, a song under a second in isn't: not yet |
+| Skip counting: leaving part way is a skip, in its last seconds it isn't | covered | P `leavingASongPartWayIsASkipButNotInItsLastSeconds` | Going back isn't a skip: P `goingBackToTheSongBeforeIsNotASkip`. The rule itself: S `PlayRulesTest` |
 | A play counts at half the song | covered | P `aPlayCountsOnceHalfTheSongIsHeard` | The Last.fm rule (half, or four minutes): not yet (needs a Last.fm stand-in) |
 | A song stuck at its end moves on by itself | covered | P `aSongStuckAtItsEndMovesOnByItself` | Ran past its end, audio drained: not yet |
 | Crossfade: the ending in a second player, the next comes in, ends at full volume | covered | P `crossfadeFadesTheEndingOutInAPlayerOfItsOwnWhileTheNextComesIn` | The shape of the fade itself: not yet |

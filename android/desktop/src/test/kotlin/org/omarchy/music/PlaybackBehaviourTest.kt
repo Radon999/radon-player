@@ -269,6 +269,18 @@ class PlaybackBehaviourTest {
         assertEquals(1, skips(songs[0]))
     }
 
+    /** Going back to the song before (Previous in a song's first seconds) is not a skip of the one you left. */
+    @Test fun goingBackToTheSongBeforeIsNotASkip() {
+        val songs = start("back-skip", at = 1)
+        engine.durationMs = 200_000
+        until("a couple of seconds heard") { engine.positionMs >= 2000 && ui { Music.position >= 1.5 } }
+        ui { Music.previous() }
+        until("the song before loaded") { engine.loads.lastOrNull()?.id == songs[0].id }
+        Thread.sleep(800)   // (a skip would have been written by now)
+        assertEquals(0, Music.songStats.rows().firstOrNull { it.first.title == songs[1].title }?.second ?: 0)
+        assertEquals(0, Music.index)
+    }
+
     /** The app's switches as the tests want them, with a stand-in for the services (what a song that isn't a file
      *  plays from, or the error getting it). */
     private fun withServices(standIn: (Track) -> Downloader.Ready, run: () -> Unit) {
