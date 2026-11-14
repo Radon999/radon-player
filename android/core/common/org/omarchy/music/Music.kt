@@ -33,6 +33,7 @@ object Music {
             override val busy: String? get() = djBusy
             override val musicDucked: Boolean get() = ducked
             override val duckVolume: Float get() = DUCK
+            override fun talksBefore(t: Track, next: Track) = dj.on && djVoice && ((next.dj > 0 && next.dj != t.dj) || !djComments[next.id].isNullOrEmpty())
             override fun otherSongsPicked() { dj = dj.copy(on = false) }
             override fun hush() = djHush()
             override fun songLoading(t: Track) { djAnnounce(t); if (index >= queue.size - 2) djMore() }
@@ -302,8 +303,6 @@ object Music {
     // From a song ending by itself to the next one sounding should take a moment. When it takes more than 2.5 seconds
     // (the DJ on the phone stopped after every song heard to its end: the plan's D16), each step it went through and
     // when (milliseconds from the song's end) is noted, so the step that held it up can be read. The first 12 only.
-    private var endHow: String get() = PlaybackCore.endHow; set(v) { PlaybackCore.endHow = v }      // what said the song was over (the player, the watch, a crossfade)
-    private var fadeNote: String get() = PlaybackCore.fadeNote; set(v) { PlaybackCore.fadeNote = v }    // how the last crossfade went, if it gave up
     /** A step of a song change, from the phone's player (MusicService). */
     fun trace(what: String) = step(what)
     private fun step(what: String) = PlaybackCore.step(what)
@@ -2857,157 +2856,8 @@ object Music {
     /** Done moving on (playing the next song, or stopped): the notification gets the player's real state. */
     private fun doneAdvancing() = PlaybackCore.doneAdvancing()
 
-    // ---- 2.0: song crossfade ----
-    private var fadingId: String? get() = PlaybackCore.fadingId; set(v) { PlaybackCore.fadingId = v }
-    private var fadeIn: Double get() = PlaybackCore.fadeIn; set(v) { PlaybackCore.fadeIn = v }
-    private var fadeJob: kotlinx.coroutines.Job? get() = PlaybackCore.fadeJob; set(v) { PlaybackCore.fadeJob = v }
-    private var fadingOut: Engine? get() = PlaybackCore.fadingOut; set(v) { PlaybackCore.fadingOut = v }   // a crossfade's ending song, fading out in its own player
-    private var crossTo: String? get() = PlaybackCore.crossTo; set(v) { PlaybackCore.crossTo = v }   // the song a crossfade is bringing in
 
-    private var tail: Engine? = null   // the song ending, ready to carry on fading in a player of its own
-    private var tailFor: String? = null
 
-    private fun dropTail() {
-        tail?.let { runCatching { it.release() } }
-        tail = null; tailFor = null
-    }
-
-    /** Crossfade (Equalizer › Crossfade): the last seconds of a song fade out while the next fades in. A few seconds
-     *  before, a second player gets the song ending ready, paused at the same place; at the fade it takes over from
-     *  the same moment (only once it's really playing does this one move on), so there's no gap: the ending song
-     *  gets quieter while the next one comes up from quiet, both at once. Not with bit-perfect, Repeat one, streams,
-     *  casting, or (Smart transitions) between songs of one album, which flow into each other. */
-    internal fun maybeCrossfade(p: Engine) {
-        val t = current()
-        if (t == null || CrossfadeRules.unavailable(Prefs.on(Prefs.CROSSFADE), bitPerfect, repeat == "one", Remote.active, cast != null, streaming, ducked)) {
-            if (tail != null && tailFor != fadingId) dropTail()
-            return
-        }
-        if (fadingId == t.id) return
-        if (tailFor != null && tailFor != t.id) dropTail()   // moved on (skipped) before it faded
-        val n = Prefs.num(Prefs.CROSSFADE_SECS, 6f).toDouble()
-        val fadeAt = CrossfadeRules.fadeAt(duration, n) ?: return
-        val nxt = queue.getOrNull(index + 1) ?: return
-        // A new DJ set next (the DJ talks between them), or the DJ says a word before the next song: no fade
-        val djTalks = dj.on && djVoice && ((nxt.dj > 0 && nxt.dj != t.dj) || !djComments[nxt.id].isNullOrEmpty())
-        if (CrossfadeRules.keptApart(sameAlbum(t, nxt), Prefs.on(Prefs.SMART_TRANSITIONS), djTalks)) return
-        // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
-        if (CrossfadeRules.getReady(position, fadeAt, tail != null)) {
-            val uri = p.currentUri ?: return
-            runCatching {
-                val x = p.tail(uri, (fadeAt * 1000).toLong()) ?: return
-                tail = x; tailFor = t.id
-            }
-            return
-        }
-        val x = tail ?: return
-        if (position < fadeAt) return
-        if (x.state != Engine.READY) {   // not ready in time: no crossfade this once, just the usual change
-            if (position > duration - 1) dropTail()
-            return
-        }
-        // Take over: the second player plays on from this moment, at this volume; once it's really playing, this one
-        // moves on to the next song (coming up from quiet), and the ending fades out over the same seconds.
-        fadingId = t.id
-        val from = p.volume.coerceAtLeast(0.05f)
-        val left = maxOf(1.0, minOf(n, duration - position))
-        x.seekTo(p.positionMs + 40)
-        // Silent until it's really playing, then the two swap in one go: before, both played the ending at full
-        // volume for the moment the second took to start, a doubled (6 dB louder) blip at the start of every crossfade.
-        x.volume = 0f
-        x.onceSounding {
-            tailSounded = x
-            if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@onceSounding }
-            scope.launch {
-                // Its sound takes a moment to reach the speakers after it says it's playing: wait for that, then hand
-                // over gently, this one going down as the second comes up (an equal-power blend over a third of a
-                // second), so there's never a moment of silence (the old instant swap left a short cut) nor both at once.
-                delay(200)
-                if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@launch }
-                // It started a moment after it was told to, so it's behind the song as you hear it: handing over then
-                // played the last half second or so again (a word heard twice before the fade). Line it up first, still
-                // silent; if it can't be lined up, no crossfade this once: the song ends as usual, nothing repeated.
-                if (!alignTail(x, t.id)) { fadeNote = " (after a crossfade that couldn't be lined up)"; runCatching { x.release() }; return@launch }
-                if (fadingId != t.id || current()?.id != t.id) { runCatching { x.release() }; return@launch }
-                val swap = 7
-                for (k in 1..swap) {
-                    delay(45)
-                    val a = (Math.PI / 2 * k / swap)
-                    x.volume = from * kotlin.math.sin(a).toFloat()
-                    player?.volume = from * kotlin.math.cos(a).toFloat()
-                }
-                x.volume = from
-                player?.volume = 0f   // the second player has it now
-                fadeIn = -1.0   // the next song comes in silent; this fade brings it up, in step with the ending
-                crossTo = queue.getOrNull(index + 1)?.id
-                fadingOut = x
-                val mark = System.currentTimeMillis()
-                endHow = "crossfade"
-                trackEnded()
-                // The ending plays on at full until the next song is really sounding (it takes a moment to load): before,
-                // the ending began fading at once while the next only came up once it had loaded, so for that moment
-                // both were low, a dip that sounded like a cut.
-                val nextId = current()?.id
-                var waited = 0
-                while (fadingOut === x && current()?.id == nextId && waited < 4000 && !(loadedFor == nextId && player?.isPlaying == true)) { delay(20); waited += 20 }
-                if (current()?.id != nextId) fadingOut = null   // skipped meanwhile: the ending stops now
-                val left2 = (if (x.durationMs > 0) (x.durationMs - x.positionMs) / 1000.0 else left - (System.currentTimeMillis() - mark) / 1000.0)
-                val rest = maxOf(0.6, minOf(n, left2 - 0.1))
-                val steps = (rest * 25).toInt().coerceAtLeast(1)
-                for (k in 1..steps) {
-                    delay(40)
-                    if (fadingOut !== x || current()?.id != nextId) break   // stopped (the DJ began talking, or you skipped)
-                    val a = Math.PI / 2 * k / steps
-                    x.volume = from * kotlin.math.cos(a).toFloat()                    // an equal-power crossfade: as this goes down…
-                    if (loadedFor == nextId) player?.volume = kotlin.math.sin(a).toFloat()   // …the next comes up, together
-                }
-                if (loadedFor == nextId && current()?.id == nextId) player?.volume = 1f
-                if (fadingOut === x) fadingOut = null
-                runCatching { x.release() }
-            }
-        }
-        x.play()
-        tail = null; tailFor = null
-        scope.launch {   // if it never got going, move on anyway
-            delay(1800)
-            if (fadingId == t.id && current()?.id == t.id && tailSounded !== x) { fadeIn = 0.0; runCatching { x.release() }; endHow = "a crossfade whose second player never got going"; trackEnded() }
-        }
-    }
-
-    private var tailSounded: Engine? = null   // the crossfade's second player once it got going (lined up or not, it's handled)
-
-    /** Puts crossfade's second player (silent) at exactly the place the song is sounding now, so the handover repeats
-     *  nothing: it measures how far behind (or ahead) it is, seeks it that far on plus the moment a seek takes, and
-     *  measures again, until they're within a few hundredths of a second. false if it can't (the song moved on). */
-    private suspend fun alignTail(x: Engine, id: String): Boolean {
-        var est = -1L   // how long a seek holds it up, learned from each try
-        repeat(6) {
-            val d = tailLag(x, id) ?: return false
-            if (kotlin.math.abs(d) <= 40) return true
-            if (est < 0) est = d.coerceIn(0L, 1500L) else est = (est + d).coerceIn(0L, 1500L)
-            val p = player ?: return false
-            if (p.durationMs > 0 && p.positionMs + est > p.durationMs - 1500) return false   // too near the end now
-            x.seekTo(p.positionMs + est)
-        }
-        return (tailLag(x, id) ?: return false).let { kotlin.math.abs(it) <= 40 }
-    }
-
-    /** How far the second player is behind the song as it sounds (ms; less than 0: ahead), once it's really moving. */
-    private suspend fun tailLag(x: Engine, id: String): Long? {
-        var waited = 0
-        while (true) {
-            if (fadingId != id || current()?.id != id) return null
-            val a = x.positionMs
-            delay(150); waited += 150
-            val b = x.positionMs
-            if (x.isPlaying && b - a in 90L..260L) break
-            if (waited > 2500) return null
-        }
-        val p = player ?: return null
-        if (!p.isPlaying) return null
-        val ds = (1..5).map { delay(20); p.positionMs - x.positionMs }.sorted()
-        return ds[2]
-    }
 
     /** Smart shuffle (Settings › Playback): each song's weight, more for the ones you love (play a lot) that you haven't
      *  heard in a while; null (plain chance) with it off. */
