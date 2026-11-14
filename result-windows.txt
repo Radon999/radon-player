@@ -1,31 +1,6 @@
-commit 050fad2d14e3bad20fdd2cacc5c8de6f3dd1b966 · run 43569540115 · Sat Nov 14 07:18:37 UTC 2026
-PC TESTS ON WINDOWS: 5 suites, tests 31, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 1.8 s (with loading the voice); then 4.6 s of speech in 1.2 s (3.8x real time)
-WINDOWS INSTALLER: Radon Player-3.2.28.msi, 94M
+commit 8aca5498e7c402a08583789c250e1083fdd54240 · run 43583498305 · Sat Nov 14 10:09:57 UTC 2026
+PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
+THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
+WINDOWS INSTALLER: not built
 --- errors
 --- the end of the log
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:25 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:80:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:compileTestKotlin
-> Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-3.2.28.msi
-
-> Task :desktop:compileTestJava NO-SOURCE
-> Task :desktop:testClasses
-D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
-OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
-> Task :desktop:test
-
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
-
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
-
-For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-
-BUILD SUCCESSFUL in 4m 43s
-21 actionable tasks: 21 executed
