@@ -1,27 +1,27 @@
-commit aac72cc12a7935b6f5fbfdfe3d00b235b6c166e1 · run 43620415698 · Sat Nov 14 17:25:16 UTC 2026
-SHARED TESTS: 43 suites, 209 tests, 0 failed
+commit 4818b20258162cee778e24750cf5d4516cb9820f · run 43620668026 · Sat Nov 14 17:37:19 UTC 2026
+SHARED TESTS: 44 suites, 213 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 5 suites, 37 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 1.5 s (with loading the voice); then 4.4 s of speech in 1.2 s (3.8x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.7 s (with loading the voice); then 4.3 s of speech in 1.3 s (3.2x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 --- errors
 --- the end of the log
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:685:9 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1105:13 Condition is always 'true'.
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1232:66 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1232:143 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:25 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:80:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-
-> Task :desktop:compileJava NO-SOURCE
 > Task :desktop:classes
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
 > Task :desktop:jar
+
+> Task :app:compileDebugUnitTestKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
 The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
 
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
 > Task :desktop:test
@@ -35,5 +35,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 31s
+BUILD SUCCESSFUL in 5m 34s
 59 actionable tasks: 59 executed
