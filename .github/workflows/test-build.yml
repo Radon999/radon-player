@@ -13,7 +13,7 @@ permissions:
 jobs:
   # The phone: a test app of its own ("Radon Rebuild Test", org.omarchy.music.rebuild), which installs beside Radon
   # Player Next and never over it, so the owner's app, settings and stats stay as they are. Signed with the build's
-  # own throwaway key (not the owner's): it can't update any other app, and isn't meant to.
+  # own test-only key (not the owner's): it can't update any other app, and isn't meant to.
   phone:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +29,9 @@ jobs:
           OMARCHY_MUSIC_PYTHON=python3 android/tools/tidal-keys.sh
       - name: A test app of its own
         run: |
+          # Always the same key (android/app/test-build/rebuild-test.keystore: made for this test app alone, of no use
+          # for anything else), so a newer test build installs over the one before and keeps its settings
+          mkdir -p ~/.android && cp android/app/test-build/rebuild-test.keystore ~/.android/debug.keystore
           sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.rebuild"/' android/app/build.gradle.kts
           sed -i 's/android:label="Radon Player"/android:label="Radon Rebuild Test"/' android/app/src/main/AndroidManifest.xml
           grep -n 'applicationId' android/app/build.gradle.kts; grep -c 'Radon Rebuild Test' android/app/src/main/AndroidManifest.xml
