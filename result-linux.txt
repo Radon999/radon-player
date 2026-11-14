@@ -1,27 +1,33 @@
-commit 715fd5696c1bcd2c5ae5a6cdcf66f23db7fbc3f5 · run 43610657450 · Sat Nov 14 15:36:44 UTC 2026
+commit 673d3a1bd8de5e2b118e46599544605f61fc91d5 · run 43612373814 · Sat Nov 14 15:56:17 UTC 2026
 SHARED TESTS: 43 suites, 209 tests, 0 failed
-APP TESTS: 20 suites, 56 tests, 0 failed
+APP TESTS: 20 suites, 56 tests, 1 failed
+  FAILED org.omarchy.music.YouTubeAudioTest.findsAudio
 PC TESTS (the app's logic, started without a window): 5 suites, 37 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.5 s (with loading the voice); then 5.0 s of speech in 1.3 s (3.8x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 2.0 s (with loading the voice); then 4.7 s of speech in 1.8 s (2.7x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 --- errors
+org.omarchy.music.YouTubeAudioTest > findsAudio FAILED
+    org.schabi.newpipe.extractor.exceptions.ParsingException at YouTubeAudioTest.kt:10
+
+--
+> Task :app:testDebugUnitTest FAILED
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
+--
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///home/runner/work/radon-player/radon-player/android/app/build/reports/tests/testDebugUnitTest/index.html
+--
+BUILD FAILED in 4m 55s
+59 actionable tasks: 59 executed
 --- the end of the log
-> Task :desktop:classes
-> Task :app:bundleDebugClassesToRuntimeJar
-> Task :app:bundleDebugClassesToCompileJar
-> Task :desktop:jar
+org.omarchy.music.YouTubeAudioTest > findsAudio FAILED
+    org.schabi.newpipe.extractor.exceptions.ParsingException at YouTubeAudioTest.kt:10
 
-> Task :app:compileDebugUnitTestKotlin
-w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+56 tests completed, 1 failed
 
-> Task :desktop:compileTestKotlin
-> Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
-
-> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
-> Task :app:processDebugUnitTestJavaRes
-> Task :app:testDebugUnitTest
+> Task :app:testDebugUnitTest FAILED
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
 > Task :desktop:test
@@ -29,11 +35,20 @@ The distribution is written to /home/runner/work/radon-player/radon-player/andro
 /home/runner/work/sherpa-onnx/sherpa-onnx/sherpa-onnx/jni/offline-tts.cc:operator():550 config:
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx", lm_main="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx", encoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx", decoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx", text_conditioner="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx", vocab_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json", token_scores_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///home/runner/work/radon-player/radon-player/android/app/build/reports/tests/testDebugUnitTest/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
 You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 42s
+BUILD FAILED in 4m 55s
 59 actionable tasks: 59 executed
