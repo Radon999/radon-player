@@ -17,13 +17,15 @@ yet: every row is unverified there.
 |---|---|---|---|
 | Playing a song loads it and plays | covered | P `PlaybackBehaviourTest.playingASongLoadsItAndPlays` | Own files only |
 | Next | covered | P `nextPlaysTheNextSong` | |
-| A song skipped while loading never reaches the player | covered | P `aSongSkippedWhileItLoadsIsNeverLoaded` | |
+| A song skipped while loading never reaches the player | covered | P `aSongSkippedWhileItLoadsIsNeverLoaded`, `PlaybackGapsTest.aStreamSkippedWhileItIsStillBeingGotNeverPlays` | A file, and a stream that is slow to come |
 | Queue ends: player pauses, stays on the song | covered | P `theQueueEndingStopsThePlayer` | Autoplay off, no other queue |
 | Repeat one restarts from 0 | covered | P `repeatOnePlaysTheSongAgainFromItsStart` | |
 | Previous: well into a song restarts it; in its first 10 s goes back | covered | P `previousWellIntoASongStartsItAgain`, `previousAtASongsStartGoesToTheSongBefore` | That going back isn't counted as a skip: not yet |
-| Repeat all goes round to the first song | covered | P `repeatAllGoesRoundToTheFirstSong` | Reshuffling on the way round: not yet |
+| Repeat all goes round to the first song; shuffled, in a new order | covered | P `repeatAllGoesRoundToTheFirstSong`, `PlaybackGapsTest.repeatAllGoesRoundInANewOrderWhenShuffled` | |
 | After the queue: next saved queue, Autoplay radio | not yet | | Radio needs a service stand-in |
-| Your copy first (`localOf`) | not yet | | |
+| Your copy first (`localOf`) | covered | P `PlaybackGapsTest.aSongYouHaveYourselfPlaysFromYourOwnCopy` | Picked from a list, and in a queue kept from before. Same album first, then FLAC (`bestCopy`): not yet |
+| Play next goes ahead of what you queued, Add to queue behind it; queued songs come along when other songs are picked | covered | P `PlaybackGapsTest.playNextGoesAheadOfWhatYouQueuedAndAddToQueueBehindIt` | |
+| The queue after a restart: the same songs, place, Repeat, name and other queues; the song in the player, not playing | covered | P `PlaybackGapsTest.theQueueComesBackAfterARestart` | Reads `state.json` as written and back in. A song that must come from a service (waits for the player): not yet |
 | A load that fails: skip after 1.5 s | covered | P `aSongThatCantBeGotIsSkippedAfterAMoment` | With a stand-in for the services (`Downloader.standIn`, null in the app) |
 | A stream that breaks: one retry from the same place, then the next song | covered | P `aStreamThatBreaksIsGotBackOnceFromTheSamePlace` | Same |
 | A song that ends is counted as heard to the end | covered | P `aSongThatEndsIsCountedAsHeardOut` | |
@@ -38,13 +40,32 @@ yet: every row is unverified there.
 | Android: stays a foreground service between songs | blocked | | Needs a phone, screen off |
 | Cast, phone remote | not yet | | |
 
-**Phase 9 (the playback service), begun 14 November 2026.** Moved out of `Music.kt` so far, each a part of its own
-with its own tests and `Music` calling it, nothing behaving differently: what counts as a play, a scrobble and a skip
-(S `PlayRulesTest`); what comes after a song, what Previous does, how other queues are kept (S `QueueRulesTest`); the
-watch for a song stuck at its end (S `EndWatchTest`); when a song fades into the next and when it doesn't (S
-`CrossfadeRulesTest`; run in the real PC app at `4818b20`: two songs faded into the next six seconds before their
-end, and two songs of one album followed each other with no fade, as Smart transitions has it). Still in `Music.kt`: the queue's own state, loading and moving
-on (`loadCurrent`, `play`, `next`, `trackEnded`), crossfade, saved state.
+**Phase 9 (the playback service), done 14 November 2026 (`68e5074`).** The queue and playback are out of `Music.kt`
+(3,868 lines before the phase, 3,289 after) with nothing behaving differently. The rules are in the shared code, each
+tested alone: what counts as a play, a scrobble and a skip (S `PlayRulesTest`); what comes after a song, what Previous
+does, how other queues are kept (S `QueueRulesTest`); the watch for a song stuck at its end (S `EndWatchTest`); when a
+song fades into the next and when it doesn't (S `CrossfadeRulesTest`). The doing is `PlaybackCore`
+(`core/common/.../PlaybackCore.kt`, about 800 lines), moved in six steps, each checked on Linux and Windows before
+the next: the queue's own state; starting, switching and changing queues; loading a song and moving on (next,
+previous, a song's end, a stream that breaks, what counts as played, the radio); the clock and the end watch;
+crossfade; the queue's part of `state.json` (same names, same file). `Music` keeps every name the screens, the
+phone's service and the remote use and hands on to it. Of the DJ the core knows only `PlaybackCore.DjSide` (ten
+questions and requests, answered by the DJ's part of `Music`). **Not done, on purpose:** it is an object on the main
+thread, as `Music` is, not yet the actor with a mailbox and snapshots the plan describes (rules R-S1 and R-S2: that
+changes how every screen reads the queue, a step of its own); it still asks `Music` for the app's own things (your
+music, the services, the settings file, the player); the DJ's own part (`djAnnounce`, `djMore`, `djSwitch`, the
+voice) stays in `Music` until the DJ becomes its own service. Untouched: the phone's foreground rule between songs
+(`advancing`, the masked ENDED in `MusicService`), `ExoEngine`, `EqSink`, the USB path, what any DJ line says.
+
+**Run in the real PC app after the move (14 November 2026; after the load-and-advance step `2fe1c31`, after the
+crossfade step `90073f3`, and the finished code `68e5074`; `android/tools/pc-test`).** The same each time, and the
+same as before the move: three short songs left alone hand over by themselves, two with a crossfade about six
+seconds before the end and two of one album with no fade; skip; Previous both ways; pause and play; the queue from
+the run before back after a restart, paused; the DJ starts, its sets follow, Switch it up, a song under the DJ left
+to its end hands over (one of the DJ's own files faded into the next; a streamed one changed at its end with no
+fade, as the rule for streams has it), the DJ stopped leaves the music playing; `problems.txt` gained no line.
+Judged by what the app reports, not by ear. Nothing run on a phone: there the move is covered only by the app
+compiling and its own tests.
 
 **Run in the real PC app (14 November 2026, the code as of `0b94078`, in a copy of a test build with its own data,
 driven through the app's own command socket: `android/tools/pc-test`).** All as they should be: a song left to end
