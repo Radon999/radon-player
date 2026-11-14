@@ -1,47 +1,32 @@
-commit e981d96c8b092070ff905833dfaa034b86cc386b · run 43551109606 · Sat Nov 14 03:25:22 UTC 2026
+commit 4a7235b76f546d7c31f44309389b29bad74259b4 · run 43551744250 · Sat Nov 14 03:35:57 UTC 2026
 SHARED TESTS: 37 suites, 168 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
-PC TESTS (the app's logic, started without a window): 1 suites, 7 tests, 1 failed
-  FAILED org.omarchy.music.DjBehaviourTest.fault_aSetNeverPlayedStillUsesUpItsKindsTurn
+PC TESTS (the app's logic, started without a window): 1 suites, 7 tests, 0 failed
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 70M
 --- errors
-org.omarchy.music.DjBehaviourTest > fault_aSetNeverPlayedStillUsesUpItsKindsTurn FAILED
-    java.lang.AssertionError
-        at org.junit.Assert.fail(Assert.java:87)
---
-> Task :desktop:test FAILED
-
-FAILURE: Build failed with an exception.
---
-* What went wrong:
-Execution failed for task ':desktop:test'.
-> There were failing tests. See the report at: file:///home/runner/work/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
---
-BUILD FAILED in 4m 55s
-59 actionable tasks: 59 executed
 --- the end of the log
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :desktop:compileTestKotlin
 
-org.omarchy.music.DjBehaviourTest > fault_aSetNeverPlayedStillUsesUpItsKindsTurn FAILED
-    java.lang.AssertionError
-        at org.junit.Assert.fail(Assert.java:87)
-        at org.junit.Assert.assertTrue(Assert.java:42)
-        at org.junit.Assert.assertFalse(Assert.java:65)
-        at org.junit.Assert.assertFalse(Assert.java:75)
-        at org.omarchy.music.DjBehaviourTest.fault_aSetNeverPlayedStillUsesUpItsKindsTurn(DjBehaviourTest.kt:132)
+> Task :app:compileDebugUnitTestKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
-7 tests completed, 1 failed
+> Task :desktop:packageDeb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
 
-> Task :desktop:test FAILED
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':desktop:test'.
-> There were failing tests. See the report at: file:///home/runner/work/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
-
-* Try:
-> Run with --scan to get full insights.
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
+> Task :desktop:test
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -49,5 +34,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 4m 55s
+BUILD SUCCESSFUL in 4m 51s
 59 actionable tasks: 59 executed
