@@ -78,7 +78,8 @@ yet: every row is unverified there.
 | Behaviour | Status | Test | Notes |
 |---|---|---|---|
 | Numbers, years, symbols, contractions said as words | covered | S `SpokenTest` | |
-| Words the voice doesn't know are respelt | covered | S `PronounceTest` | Two cases only |
+| Names and capitals made sayable: stylised names, initials spelt on purpose, words in capitals as words, Roman numbers, letter-number names | covered (new) | S `SpeechPrepTest` | In `Spoken.humanize`, for any voice. The list of stylised names is short (about 30) and grows as wrong ones are heard. Not heard through the voice yet |
+| Words Kokoro didn't know were respelt (`Pronounce`) | no longer used | S `PronounceTest` (still runs) | Pocket TTS has no word list to miss from. The code is kept, unused, until that is confirmed by ear |
 | Line length (45 words) and banned phrases | not yet | | New rules; a check over every line comes with the rewrite |
 | The natural voice is Pocket TTS (was Kokoro), on the phone and the PC, Linux too | changed at the owner's request | P `PocketVoiceTest.theVoiceSpeaksALine` (Linux and Windows, made for real) | The phone's side compiles and is **not run**. The voice it copies is the model's own sample |
 | Voice made ahead, one line at a time, hush | partly | same (a line stopped before it starts makes nothing) | Made ahead on the PC too now. The queue and the cache: not yet |
