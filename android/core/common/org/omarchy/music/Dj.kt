@@ -740,7 +740,7 @@ object Dj {
         "Intense" -> say("moodmix-Intense", *switchUp(mood, s), "Something with weight now, starting with ${q(s)}.",
             "An intense set coming. ${q(s)} first.", "Nothing held back for the next few. ${q(s)} opens.")
         else -> say("moodmix-other", *switchUp(mood, s), "Let's change the mood. Something ${Moods.adjective(mood)}, starting with ${q(s)}.",
-            "A ${Moods.adjective(mood)} set now, starting with ${q(s)}.")
+            "${withArticle(Moods.adjective(mood), true)} set now, starting with ${q(s)}.")
     }
 
     /** Mood mix: one mood (a different one from last time, rotating through them all), songs in it you know (yours, or
@@ -899,7 +899,7 @@ object Dj {
         return songs to say("genre",
             "Some $tag, since you've been playing so much $a.",
             "You've had $a on a lot lately, so let's stay with $tag.",
-            "A $tag set. If you like $a, this is the same neighbourhood.",
+            "${withArticle(tag, true)} set. If you like $a, this is the same neighbourhood.",
             "$tag for the next few. You can trace this one back to $a.",
             "With $a in your ears lately, here's more $tag.",
             "Following $a a little further into $tag.")
@@ -936,7 +936,7 @@ object Dj {
                 "Some $name from your collection. You've been playing a lot of it lately.",
                 "You've been deep in $name lately. Here's more of yours.",
                 "Let's go through your $name, starting with ${q(songs[0])}.",
-                "A $name set, all from your own shelves.",
+                "${withArticle(name, true)} set, all from your own shelves.",
                 "$name for the next few, from your collection.")
         }
         return null
@@ -1020,7 +1020,7 @@ object Dj {
             streakDays[songKey(s)]?.let { d -> out["streak:$id"] = "You've played ${q(s)} on $d of the last seven days. It's in this set too." }
             if (songKey(s) in yearAgo) out["year-ago:$id"] = "A year ago this week you were playing ${q(s)} as well."
             if (topMood != null && runCatching { Moods.of(s) }.getOrNull() == topMood)
-                out["mood-next:$id"] = "${q(s)} is a ${Moods.adjective(topMood)} one, the mood you've played most this month."
+                out["mood-next:$id"] = "${q(s)} is ${withArticle(Moods.adjective(topMood))} one, the mood you've played most this month."
             s.artist.split(",")[0].trim().takeIf { it.isNotEmpty() }?.let { a ->
                 f.artistFirst[a]?.let { t ->
                     val m = f.artistMonth[a] ?: 0

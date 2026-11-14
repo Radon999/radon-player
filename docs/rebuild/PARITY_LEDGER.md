@@ -110,6 +110,18 @@ DJ stopped leaves the music playing; nothing written to Problems. Judged by what
 | The DJ never stalls (`djKeepGoing`) | not yet | | |
 | Facts and milestones | not yet | | |
 
+**Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
+are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
+`TasteRulesTest`: a song's plays, first and last; one song however its artist is written; the last 30 and 90 days;
+around this hour, round midnight; on this day in past years; the days of the last week; this month; moods). One
+thing is quicker with the same result: a song with no mood was asked for its mood at every one of its plays, now
+once. What is made is kept by `KeptFresh` (S `KeptFreshTest`): under ten minutes old it is used as it is, as before;
+older, it is **still used at once while a new one is made in the background** (before: whoever asked waited for the
+whole history to be read again); the first time, or past half an hour (so "what you play around this hour" is never
+from another part of the day), the asker waits as before. A new one that fails leaves the old one in place. **Not
+done:** `Stats`, `Wrapped` and smart shuffle still add up for themselves; the rest of `loadTaste` (the songs lists,
+Most played's counts laid over) is still in `Dj.kt`; nothing compared against a real history; not run on a phone.
+
 ## The DJ's voice and speech
 
 | Behaviour | Status | Test | Notes |
