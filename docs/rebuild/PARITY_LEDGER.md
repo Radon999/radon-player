@@ -30,7 +30,8 @@ yet: every row is unverified there.
 | Skip counting (its three conditions) | not yet | | |
 | A play counts at half the song; Last.fm rule | not yet | | |
 | A song stuck at its end moves on by itself | covered | P `aSongStuckAtItsEndMovesOnByItself` | Ran past its end, audio drained: not yet |
-| Crossfade and its exclusions | not yet | | Needs a second stand-in player (`tail`) |
+| Crossfade: the ending in a second player, the next comes in, ends at full volume | covered | P `crossfadeFadesTheEndingOutInAPlayerOfItsOwnWhileTheNextComesIn` | The shape of the fade itself: not yet |
+| No crossfade on Repeat one or with bit-perfect | covered | P `noCrossfadeOnRepeatOneOrWithBitPerfect` | Streams, casting, same album, before a DJ set or comment, while ducked: not yet |
 | Saved queues (Queues on) | not yet | | |
 | Shuffle, smart shuffle | partly | A `ShuffleTest` | The weights only |
 | Per-song speed, volume, EQ | partly | A `SongSpeedsTest`, S `SongGainsTest` | Storage only |
@@ -58,7 +59,9 @@ yet: every row is unverified there.
 | Line names a song its set lacks (C-1) | fault pinned | P `fault_theLineCanNameASongTheSetNoLongerHas` | |
 | Unplayed set uses up its kind's turn (C-4) | fault pinned | P `fault_aSetNeverPlayedStillUsesUpItsKindsTurn` | Facts, spotlight, decade histories: not yet |
 | Hello names itself "DJ" | fault pinned | P `fault_theFirstLineNamesItselfTheDj` | |
-| Stale "more like", greeting, time words (C-2, C-3) | not yet | | Needs a clock that can be set |
+| The first set is made ahead: starting the DJ is instant | covered | P `DjFlowTest.fault_aFirstSetMadeAheadGreetsWithTheTimeItWasMadeAt` | |
+| A set made ahead greets with the time it was made at (C-3) | fault pinned | same | Uses `Dj.clock`, the one seam added to the app so far |
+| Stale "more like" (C-2), stale time words in later sets | not yet | | "More like" needs a service stand-in |
 | Three sets kept ready; Switch it up is instant | not yet | | |
 | Ask for something | partly | A `DjTest` | Words only |
 | Each of the 26 kinds of set: its own rule | not yet | | Most need a listening history stand-in |
