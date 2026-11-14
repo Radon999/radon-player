@@ -1,11 +1,11 @@
-commit dfc81023ac2f4a8bc9ebeb6fbe6564c4361b9422 · run 43592215500 · Sat Nov 14 12:00:39 UTC 2026
+commit e3063433e2333752af963166f84b886026cf573c · run 43596703121 · Sat Nov 14 12:54:47 UTC 2026
 PHONE TEST APP: made, 82M
 package: name='org.omarchy.music.rebuild' versionCode='30228' versionName='3.2.28' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
 minSdkVersion:'29'
 V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
-V2 Signer: certificate SHA-256 digest: ccfc49fddc2fa295c6b52d2f40c398063d7a0f43b60e46e0a2f2cb3f16eb3b66
-V2 Signer: certificate SHA-1 digest: 3aa998f88158c5b66f4fa704db2e481ca3cf1c79
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43592215500/artifacts/14113261043
+V2 Signer: certificate SHA-256 digest: 7744d3e0a297b82302229846685147eb8f55b3bf693f89f92454ff73516ee4b8
+V2 Signer: certificate SHA-1 digest: 0b96d910b0e5ed21573419ca12570aa540224bba
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43596703121/artifacts/14115166945
 --- errors
 --- the end of the log
 > Task :app:compileReleaseArtProfile
@@ -21,5 +21,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m
+BUILD SUCCESSFUL in 4m 56s
 95 actionable tasks: 95 executed
