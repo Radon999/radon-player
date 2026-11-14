@@ -1,7 +1,7 @@
-commit 6db9ad6dde36440d064bb853db792687768bad63 · run 43559042204 · Sat Nov 14 04:59:55 UTC 2026
+commit 1bf68229d3946e1fca620183b31f40ecc3926dbb · run 43559649460 · Sat Nov 14 05:10:41 UTC 2026
 SHARED TESTS: 37 suites, 168 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
-PC TESTS (the app's logic, started without a window): 3 suites, 26 tests, 0 failed
+PC TESTS (the app's logic, started without a window): 3 suites, 27 tests, 0 failed
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 70M
 --- errors
@@ -10,8 +10,8 @@ LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 70M
 > Task :app:processDebugJavaRes
 > Task :desktop:compileJava NO-SOURCE
 > Task :desktop:classes
-> Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
 > Task :desktop:jar
 > Task :desktop:compileTestKotlin
 
@@ -34,5 +34,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 49s
+BUILD SUCCESSFUL in 5m 15s
 59 actionable tasks: 59 executed
