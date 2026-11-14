@@ -1,24 +1,46 @@
-commit 83795041c5c2e6b5ef0cde77a3f4f3df933c4d01 · run 43557259877 · Sat Nov 14 04:45:12 UTC 2026
-PC TESTS ON WINDOWS: 3 suites, tests 26, failed 0
+commit 8a4c696e163054f741729f8650027c7735380605 · run 43558052571 · Sat Nov 14 04:54:27 UTC 2026
+PC TESTS ON WINDOWS: 3 suites, tests 26, failed 1
 WINDOWS INSTALLER: Radon Player-3.2.28.msi, 76M
 --- errors
+org.omarchy.music.DjBehaviourTest > songsTheDjPlayedDontComeBackYet FAILED
+    java.io.FileNotFoundException: C:\Users\RUNNER~1\AppData\Local\Temp\radon-test3521108938425470415\radon-2.json.tmp (The process cannot access the file because it is being used by another process)
+        at java.base/java.io.FileOutputStream.open0(Native Method)
+        at java.base/java.io.FileOutputStream.open(FileOutputStream.java:289)
+        at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:230)
+        at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:179)
+        at kotlin.io.FilesKt__FileReadWriteKt.writeText(FileReadWrite.kt:141)
+--
+> Task :desktop:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+--
+BUILD FAILED in 3m 32s
+21 actionable tasks: 21 executed
 --- the end of the log
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:80:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Voice.kt:86:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Voice.kt:109:26 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+        at org.omarchy.music.Prefs.setText(Prefs.kt:28)
+        at org.omarchy.music.Dj.played(Dj.kt:311)
+        at org.omarchy.music.DjBehaviourTest.songsTheDjPlayedDontComeBackYet(DjBehaviourTest.kt:89)
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:compileTestKotlin
+26 tests completed, 1 failed
 
-> Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-3.2.28.msi
+> Task :desktop:test FAILED
 
-> Task :desktop:compileTestJava NO-SOURCE
-> Task :desktop:testClasses
-> Task :desktop:test
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -26,5 +48,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 12s
+BUILD FAILED in 3m 32s
 21 actionable tasks: 21 executed
