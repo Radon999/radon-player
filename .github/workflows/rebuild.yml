@@ -26,7 +26,7 @@ jobs:
         run: |
           chmod +x gradlew
           # packageDeb: Linux is a target again, so its installer must at least build (it isn't tested or published)
-          ./gradlew --no-daemon --continue :shared:test :app:testDebugUnitTest :desktop:compileKotlin :desktop:packageDeb > "$RUNNER_TEMP/build.log" 2>&1 || true
+          ./gradlew --no-daemon --continue :shared:test :app:testDebugUnitTest :desktop:test :desktop:packageDeb > "$RUNNER_TEMP/build.log" 2>&1 || true
       - name: Say how it went
         if: always()
         run: |
@@ -50,6 +50,7 @@ jobs:
             echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
             echo "SHARED TESTS: $(count android/shared/build/test-results/test)"
             echo "APP TESTS: $(count android/app/build/test-results/testDebugUnitTest)"
+            echo "PC TESTS (the app's logic, started without a window): $(count android/desktop/build/test-results/test)"
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi

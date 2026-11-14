@@ -55,6 +55,14 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
+// The tests start the app's logic without a window (DjBehaviourTest's Harness): no screen needed, and a home folder
+// of their own, so nothing of yours (your Music folder, the app's own files) is read or touched.
+tasks.withType<Test> {
+    systemProperty("java.awt.headless", "true")
+    systemProperty("user.home", layout.buildDirectory.dir("test-home").get().asFile.apply { mkdirs() }.path)
+    testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+}
+
 compose.desktop {
     application {
         mainClass = "org.omarchy.music.desktop.MainKt"
