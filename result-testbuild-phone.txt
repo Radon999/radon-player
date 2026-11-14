@@ -1,0 +1,25 @@
+commit 54ec6cab56c7f7d72b64ef556c9e55d03e77d013 · run 43590938112 · Sat Nov 14 11:43:46 UTC 2026
+PHONE TEST APP: made, 82M
+package: name='org.omarchy.music.rebuild' versionCode='30228' versionName='3.2.28' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+minSdkVersion:'29'
+V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
+V2 Signer: certificate SHA-256 digest: 2a36dbf54326cb0888548a07b6f6be0f45491998b43e19bba899372d01cc20e0
+V2 Signer: certificate SHA-1 digest: 092d7d311539c056a9a649b7aaeba30fef733d49
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43590938112/artifacts/14111974082
+--- errors
+--- the end of the log
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 5m 40s
+95 actionable tasks: 95 executed
