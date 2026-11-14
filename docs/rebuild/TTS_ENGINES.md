@@ -39,3 +39,28 @@ a web page says so and it wasn't confirmed here.
   Pocket TTS in it and Chatterbox Turbo added when it's proven.
 - **Before either ships:** a reference voice (or a few) the app may use; Pocket TTS timed on the owner's phone; the
   credit line CC BY 4.0 requires, in the app's about text.
+
+## The owner's decision (14 November 2026)
+
+**Pocket TTS only, on the phone and the PC. No second engine, and so no engine dropdown.** Chatterbox Turbo is not
+built: it would have taken longer and brought its own problems (above) for one more voice on one platform. This
+replaces the plan's rule R-T1 and decision D11.
+
+## Built
+
+- **Phone** (`core/android/.../Voice.kt`): Pocket TTS in place of Kokoro, through the same library. Compiles; **not
+  run on a phone**.
+- **PC, Windows and Linux** (`core/desktop/.../Voice.kt`): Pocket TTS inside the app, through sherpa-onnx's Java
+  library (`desktop/build.gradle.kts`). `PocketVoiceTest` makes it speak for real in the checks. On the Linux build
+  server, with the voice loaded, a 5-second line took 0.9 seconds (5.4 times faster than real time); the first line,
+  loading the voice too, took 1.1 seconds.
+- Lines are made ahead on the PC too now, and the music is turned down when the voice starts, not when the line starts
+  being made (the plan's C-7).
+
+## Still open
+
+- The voice it's modelled on is the recording the model brings (`test_wavs/bria.wav`). The app needs its own.
+- Timing on the owner's phone.
+- The credit CC BY 4.0 asks for, in the app; `FEATURES.md` still says "about 130 MB" for the phone's download.
+- On the phone the choice "The phone's own" voice (Android's) is kept as it was, and is still what speaks when Pocket
+  TTS can't.

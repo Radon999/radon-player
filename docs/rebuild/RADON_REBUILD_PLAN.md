@@ -553,7 +553,7 @@ A **parity ledger** (one file in the repository) has one row per inventory item:
 | D8 | Status wording and an optional "never alter samples" switch | Reword the status; no switch | The DJ keeps talking over direct output |
 | D9 | Limiter knee width | 3 dB | Slightly earlier, gentler gain reduction |
 | D10 | Mix headroom | Trim voice by 1 dB on in-app mixes | Voice is 1 dB quieter on USB than on the standard path |
-| D11 | Dropdown default engine on desktop | Pocket TTS | Smaller first download |
+| D11 | Voice engines | **Decided (14 November 2026): Pocket TTS only, on the phone and the PC; Chatterbox Turbo is not built and there is no engine dropdown.** This replaces rule R-T1 | See `TTS_ENGINES.md` |
 | D12 | ElevenLabs code (disabled today) | Not ported; settings keys preserved | Cannot be re-enabled without new work |
 
 ---

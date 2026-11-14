@@ -80,10 +80,11 @@ yet: every row is unverified there.
 | Numbers, years, symbols, contractions said as words | covered | S `SpokenTest` | |
 | Words the voice doesn't know are respelt | covered | S `PronounceTest` | Two cases only |
 | Line length (45 words) and banned phrases | not yet | | New rules; a check over every line comes with the rewrite |
-| Voice made ahead, one line at a time, hush | not yet | | |
+| The natural voice is Pocket TTS (was Kokoro), on the phone and the PC, Linux too | changed at the owner's request | P `PocketVoiceTest.theVoiceSpeaksALine` (Linux and Windows, made for real) | The phone's side compiles and is **not run**. The voice it copies is the model's own sample |
+| Voice made ahead, one line at a time, hush | partly | same (a line stopped before it starts makes nothing) | Made ahead on the PC too now. The queue and the cache: not yet |
 | Ducking (standard, 320 ms) | not yet | | |
 | USB DAC: voice mixed in, duck slope, 4 s stall | blocked | | Needs a phone and a DAC; the maths is tested once native |
-| Desktop: ducks before the voice exists (C-7) | not yet | | |
+| Desktop: the music is turned down when the voice starts (C-7) | **fixed**, changed by rule R-A2 | none yet | By the code: `onStart` runs when the sound begins. Not tested (needs a sound device) |
 
 ## Everything else
 
