@@ -38,6 +38,12 @@ yet: every row is unverified there.
 | Android: stays a foreground service between songs | blocked | | Needs a phone, screen off |
 | Cast, phone remote | not yet | | |
 
+**Phase 9 (the playback service), begun 14 November 2026.** Moved out of `Music.kt` so far, each a part of its own
+with its own tests and `Music` calling it, nothing behaving differently: what counts as a play, a scrobble and a skip
+(S `PlayRulesTest`); what comes after a song, what Previous does, how other queues are kept (S `QueueRulesTest`); the
+watch for a song stuck at its end (S `EndWatchTest`). Still in `Music.kt`: the queue's own state, loading and moving
+on (`loadCurrent`, `play`, `next`, `trackEnded`), crossfade, saved state.
+
 ## The DJ
 
 | Behaviour | Status | Test | Notes |
