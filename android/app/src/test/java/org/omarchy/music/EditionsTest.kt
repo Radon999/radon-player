@@ -14,8 +14,11 @@ class EditionsTest {
         assertEquals("Ten" to "10th Anniversary Edition", albumEdition("Ten - 10th Anniversary Edition"))
         assertEquals("Smithereens" to "Deluxe", albumEdition("Smithereens - Deluxe"))
         for (same in listOf("Death Race For Love (Sessions)", "Death Race For Love (Bonus Track Version)", "Persona",
-            "Mercury - Acts 1 & 2", "Folklore (Deluxe Sessions)", "Thing (Expanded Edition)"))
+            "Mercury - Acts 1 & 2", "Folklore (Deluxe Sessions)"))
             assertEquals(same, "", albumEdition(same).second)
+        // Any edition counts now ("Full Moon Edition", an expanded one): the test still said an expanded one didn't
+        assertEquals("Thing" to "Expanded Edition", albumEdition("Thing (Expanded Edition)"))
+        assertEquals("Thing" to "Full Moon Edition", albumEdition("Thing (Full Moon Edition)"))
     }
 
     @Test fun singles() {
