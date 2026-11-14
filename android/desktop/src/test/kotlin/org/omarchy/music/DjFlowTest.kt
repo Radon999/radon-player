@@ -102,10 +102,10 @@ class DjFlowTest {
     }
 
     /** Stays: with the DJ off, its first set is made ahead, so starting it is instant.
-     *  C-3 (a fault, as it is today): that set's hello was written when the set was made, so it greets with the time
-     *  it was made at, not the time it's heard: made in the morning, started in the afternoon, it still says morning.
-     *  (A Wednesday, which has no hello of its own, so the hello is the hour's.) */
-    @Test fun fault_aFirstSetMadeAheadGreetsWithTheTimeItWasMadeAt() {
+     *  C-3, fixed (it was: that set's hello was written when the set was made, so it greeted with the time it was made
+     *  at: made in the morning, started in the afternoon, it still said good morning). Now it greets with the time
+     *  it's started at. (A Wednesday, which has no hello of its own, so the hello is the hour's.) */
+    @Test fun aFirstSetMadeAheadGreetsWithTheTimeItIsStartedAt() {
         val morning = java.time.LocalDateTime.of(2026, 11, 11, 9, 0)
         Dj.clock = { morning }
         try {
@@ -117,8 +117,10 @@ class DjFlowTest {
             Harness.ui { Music.djStart(); atOnce = Music.dj.on }
             assertTrue("the first set made ahead starts the DJ at once", atOnce)
             val line = Music.shownDj().line
-            assertTrue("at three in the afternoon it didn't greet with the morning: is C-3 fixed? Then turn this test round. It said: $line",
+            assertFalse("at three in the afternoon it greeted with the morning: $line",
                 Regex("morning|rise and shine", RegexOption.IGNORE_CASE).containsMatchIn(line))
+            assertTrue("it greets with the afternoon: $line", line.contains("afternoon", ignoreCase = true))
+            assertTrue("and still introduces its set: $line", line.length > 60)
         } finally { Dj.clock = { java.time.LocalDateTime.now() } }
     }
 

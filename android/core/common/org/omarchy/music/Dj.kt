@@ -82,8 +82,12 @@ object Dj {
     data class Shown(val on: Boolean = false, val busy: String = "", val kind: String = "", val line: String = "",
                      val kinds: Map<String, String> = emptyMap(), val from: String = "", val fact: String = "")
 
-    /** A set made. id: its own number, for what it holds until it's played ([commit]) or let go ([discard]). */
-    data class Built(val kind: String, val songs: List<Track>, val line: String, val fact: String = "", val id: Long = 0)
+    /** A set made. id: its own number, for what it holds until it's played ([commit]) or let go ([discard]).
+     *  opener: the hello (first: the DJ's first set) or the word about the day its line begins with, "" for none, and
+     *  timeKey: the part of the day it was made in ([timeKey]), so a set made ahead isn't said with another time's
+     *  words ([asOfNow], [stale]). */
+    data class Built(val kind: String, val songs: List<Track>, val line: String, val fact: String = "", val id: Long = 0,
+                     val opener: String = "", val first: Boolean = false, val timeKey: String = "")
 
     // ---- the parts that don't need the app ----
 
@@ -124,6 +128,26 @@ object Dj {
 
     /** The time the DJ goes by for what it says about the hour and the day (the clock's; a test sets its own). */
     @Volatile var clock: () -> java.time.LocalDateTime = { java.time.LocalDateTime.now() }
+
+    /** The day and the part of it now (morning, afternoon, evening, night: as the hellos split it). */
+    private fun timeKey(): String {
+        val n = clock(); val h = n.hour
+        return "${n.dayOfWeek} " + if (h in 5..11) "morning" else if (h in 12..16) "afternoon" else if (h in 17..22) "evening" else "night"
+    }
+
+    /** A set made ahead, as it should be said now. Its hello and its word about the day were written when it was made
+     *  (the first set up to half an hour before it's started, the sets kept ready longer): in another part of the day
+     *  now, the first set gets a new hello, and any other set loses its word about the day. (Before, a set made in the
+     *  morning still said good morning in the afternoon.) */
+    fun asOfNow(b: Built): Built {
+        if (b.opener.isEmpty() || b.timeKey.isEmpty() || b.timeKey == timeKey()) return b
+        val body = b.line.removePrefix(b.opener).trim()
+        val opener = if (b.first) hello() else ""
+        return b.copy(line = if (opener.isEmpty()) body else "$opener $body", opener = opener, timeKey = timeKey())
+    }
+
+    /** A set of what you play at this time of day, made in another part of the day: no longer right, to be let go. */
+    fun stale(b: Built): Boolean = b.kind == "hour" && b.timeKey.isNotEmpty() && b.timeKey != timeKey()
 
     fun greeting(h: Int = clock().hour) =
         if (h in 5..11) "Good morning" else if (h in 12..16) "Good afternoon" else if (h in 17..22) "Good evening" else "Hey, night owl"
@@ -1812,11 +1836,12 @@ object Dj {
             // Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row (nor more
             // than twice in a set, but for an artist's own set); an album moment stays in the album's order
             val songs = if (k == "album") got.first else spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover"))
-            val line = if (first) hello() + " " + got.second else timeFlavor().let { if (it.isEmpty()) got.second else "$it ${got.second}" }
+            val opener = if (first) hello() else timeFlavor()
+            val line = if (opener.isEmpty()) got.second else "$opener ${got.second}"
             // Now and then (and never on the first set: that has its hello) something the DJ knows about you
             val fact = if (!first && Random.nextInt(5) < 2) fact(songs) ?: "" else ""
             // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
-            return Built(k, Music.localsOf(songs), line, fact, id)
+            return Built(k, Music.localsOf(songs), line, fact, id, opener, first, timeKey())
         }
         } finally { outNow.set(null); building.set(null) }
         return null

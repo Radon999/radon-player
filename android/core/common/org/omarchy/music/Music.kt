@@ -1094,7 +1094,7 @@ object Music {
             Dj.playFrom(got.first, got.second, whole = true)
         }
         // Made ahead (djWarm): the first set at once, its line made too
-        djFirst?.takeIf { it.src == src && it.withNew == djNew && now() - it.at < FIRST_FRESH }?.let { w ->
+        djFirst?.takeIf { it.src == src && it.withNew == djNew && now() - it.at < FIRST_FRESH && !Dj.stale(it.set) }?.let { w ->
             djFirst = null
             djBegin(w.set, src)
             return
@@ -1154,7 +1154,8 @@ object Music {
     }
 
     /** The set's songs marked as set n of the DJ's (n: the next number), with its line. */
-    private fun djTag(b: Dj.Built): List<Track> {
+    private fun djTag(made: Dj.Built): List<Track> {
+        val b = Dj.asOfNow(made)   // made ahead, maybe in another part of the day: its hello is for now
         val n = (dj.sets.keys.mapNotNull { it.toIntOrNull() }.maxOrNull() ?: 0) + 1
         var sets = dj.sets + (n.toString() to Dj.Info(b.kind, b.line, b.fact))
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
@@ -1311,7 +1312,7 @@ object Music {
         if (djBusy != null) return
         djReady()
         // A set made ahead: queued at once (its line is made already)
-        if (dj.on) (djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull())?.let { spare ->
+        if (dj.on) djSpare()?.let { spare ->
             djSpares.remove(spare)
             val wait = djWaiting; djWaiting = false
             val songs = djTag(spare)
@@ -1368,7 +1369,7 @@ object Music {
         if (!dj.on && ask == null) { djStart(); return }
         djReady()
         // Switch it up: the set made ahead, at once (its line made ahead too), when there is one
-        if (ask == null) (djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull())?.let { spare ->
+        if (ask == null) djSpare()?.let { spare ->
             djSpares.remove(spare)
             djWaiting = false
             djSwitchTo(spare)   // and the spares are made again (none of them repeats it)
@@ -1407,6 +1408,13 @@ object Music {
      *  however fast you go: [SPARES] are kept ready, made one after another in the background and made again after
      *  each new set, so they never repeat what's coming. */
     private val djSpares = ArrayList<Dj.Built>()
+
+    /** A set kept ready, to play now: of another kind than the one playing, if there is one. A set of what you play at
+     *  this time of day that was made in another part of the day is let go first (it's no longer this time of day). */
+    private fun djSpare(): Dj.Built? {
+        djSpares.filter { Dj.stale(it) }.forEach { Dj.discard(it.id); djSpares.remove(it) }
+        return djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull()
+    }
     private var djSpareJob = 0
     private var djSpareBusy = false
     private const val SPARES = 3
