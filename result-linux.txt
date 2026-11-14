@@ -1,16 +1,16 @@
-commit 95679699fed7512acb46852691cfd8de022a136c · run 43604447318 · Sat Nov 14 14:32:00 UTC 2026
+commit c81b8fb483976ed65179a2ab5543e816b4a61832 · run 43606098949 · Sat Nov 14 14:46:13 UTC 2026
 SHARED TESTS: 43 suites, 209 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 5 suites, 36 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 2.2 s (with loading the voice); then 4.6 s of speech in 1.9 s (2.5x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 1.9 s of speech in 1.8 s (with loading the voice); then 4.5 s of speech in 1.4 s (3.3x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 --- errors
 --- the end of the log
 > Task :app:compileDebugJavaWithJavac
 > Task :app:processDebugJavaRes
-> Task :app:bundleDebugClassesToCompileJar
 > Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
@@ -35,5 +35,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 3s
+BUILD SUCCESSFUL in 5m 18s
 59 actionable tasks: 59 executed
