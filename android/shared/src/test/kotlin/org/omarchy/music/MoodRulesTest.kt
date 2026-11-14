@@ -25,6 +25,20 @@ class MoodRulesTest {
         assertEquals(j.moods, MoodRules.decide(pop, "Pop", mapOf("dance" to 1.0, "summer" to 0.5, "love" to 0.4)))
     }
 
+    /** The sound is read on the scale records really have (docs/rebuild/MOOD_SCAN_REVIEW.md): a quiet, slow, sparse
+     *  record of today (-12.5 dB) sounds calm, not energetic, and a loud, fast, busy one the other way round. On the
+     *  scale before, both were "as loud as it gets", and nearly every song came out Energetic. */
+    @Test fun loudnessIsReadOnTheScaleRecordsHave() {
+        val quiet = MoodRules.fromSound(SoundFeatures(loud = -12.5, range = 12.0, bpm = 88.0, beat = 0.25, bright = 1500.0, onsets = 3.6, major = 0.1))
+        val loud = MoodRules.fromSound(SoundFeatures(loud = -6.0, range = 8.0, bpm = 140.0, beat = 0.6, bright = 2500.0, onsets = 5.8, major = 0.1))
+        assertTrue(quiet.getValue("Calm") > quiet.getValue("Energetic") + 0.5)
+        assertTrue(loud.getValue("Energetic") > loud.getValue("Calm") + 0.5)
+        assertTrue(loud.getValue("Energetic") - quiet.getValue("Energetic") > 0.5)
+        assertTrue(loud.getValue("Intense") > quiet.getValue("Intense") + 0.4)
+        // And a song is in four moods at most, each close to its top one
+        assertTrue(MoodRules.MOST <= 4 && MoodRules.NEAR_TOP_HEARD >= 0.7)
+    }
+
     @Test fun oneClearMoodIsNotSpreadThin() {
         // Only a genre: one mood, not a handful of weak ones.
         assertEquals(listOf("Intense"), MoodRules.decide(null, "Death Metal").map { it.first }.take(1))

@@ -1,7 +1,7 @@
 # The mood scan: a review (decision D14)
 
 The owner asked (14 November 2026) whether the way each song's mood is worked out can be made more accurate, or is
-best left alone. This is what was measured, and what is proposed. **Nothing in the mood rules was changed.**
+best left alone. This is what was measured, what was proposed, and (further down) what was then changed.
 
 ## How it was measured
 
@@ -47,7 +47,26 @@ Rescaling spreads the moods far better and makes the sound a somewhat better jud
 slightly worse, and capping at three moods trades finding fewer of the owner's moods for giving fewer wrong ones. With
 17 songs neither difference means much.
 
-## Proposed, in order
+## What was changed (14 November 2026, on the owner's word)
+
+The owner said to make the changes, and that the moods already in the files may be lost (Reset moods writes the new
+ones). Each change was tried by itself first, against the owner's 17 hand-set songs and against the 75 songs that
+people gave a mood word on Last.fm ("chill", "sad", "happy"...), those tags kept out of what the rules were shown.
+
+| Change | Kept? | Why |
+|---|---|---|
+| The sound read on the scale records really have (loud -14 to -5 dB, bright 1,300 to 2,650, busy 3.4 to 6 notes a second, beat 0.2 to 0.68) | **Yes** | Energetic on 98% of songs became 55%; Calm 2% became 9%, Chill 5% became 13%. The song's main mood matched what people called it for 36% of songs, from 28% |
+| The words counted for more (1.7, from 1.3) | **Yes** | The main mood matched the owner's own for 17 of 17 songs (16 before), and more of the owner's moods were found |
+| Fewer moods: four at most, each at least 0.40 and 70% of the top one | **Yes** | 3.5 moods a song, from 4.9. Of the moods given, 85% are ones the owner chose (78% before); the price is that 68% of the owner's moods are found (84% before) |
+| The major-or-minor key counted for less in Happy, Sad and Dark | **No** | Tried at 0.4 of its weight: no better against people's tags, slightly worse against the owner's songs. Left as it was |
+| Scales taken from each library's own songs | **No** | The phone and the PC would then give the same song different moods, and a song's mood would shift as the collection grew. One fixed scale, set from this collection, instead |
+
+The checks are small (17 and 75 songs), so these numbers say "better", not "how much better". Fixing a song's moods
+in the Tagger still teaches the app, as before.
+
+**To get the new moods into the files:** Reset moods, in the app, once this is in a build.
+
+## What was proposed before the changes
 
 1. **Don't change the rules yet.** A change rewrites the mood tag in every one of the owner's files at the next scan;
    that needs better proof than this.
