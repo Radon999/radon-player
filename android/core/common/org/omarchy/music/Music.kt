@@ -2791,13 +2791,13 @@ object Music {
         if (ls.sent && ls.counted) return
         ls.played += seconds
         val dur = duration.takeIf { it > 0 } ?: ls.track.duration
-        if (!ls.counted && ls.played >= (if (dur > 0) dur / 2 else PLAY_AFTER.toDouble())) {   // a play: half the song heard
+        if (!ls.counted && PlayRules.countsAsPlay(ls.played, dur, PLAY_AFTER.toDouble())) {   // a play: half the song heard
             ls.counted = true
             plays.add(ls.track)
             lib.played(ls.id)
             musicVersion++
         }
-        if (!ls.sent && dur > 30 && ls.played >= minOf(dur / 2, 240.0)) {
+        if (!ls.sent && PlayRules.scrobbles(ls.played, dur)) {
             ls.sent = true
             val start = ls.start
             bg({ LastFm.scrobble(ls.track, start) })
@@ -3080,7 +3080,7 @@ object Music {
         finishing = false; goingBack = false
         if (ls == null || fin || back) return
         val dur = duration.takeIf { it > 0 } ?: ls.track.duration
-        if (ls.played >= 1 && dur > SongStats.SKIP_LEFT * 2 && position < dur - SongStats.SKIP_LEFT) {
+        if (PlayRules.isSkip(ls.played, dur, position, SongStats.SKIP_LEFT.toDouble())) {
             bg({ songStats.skipped(ls.track) }) { _, _ -> musicVersion++ }
         }
     }
