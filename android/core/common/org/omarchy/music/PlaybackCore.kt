@@ -567,4 +567,59 @@ object PlaybackCore {
             play(t, ready, wasPlaying, pos)
         }
     }
+
+    // ---- the clock ----
+    /** Twice a second, for as long as the app runs: where the song is, what counts as played, a crossfade coming up,
+     *  a song stuck at its end, a song change that's taking too long. Started once, by [Music.init]. */
+    fun start() {
+        Music.scope.launch {
+            while (true) {   // the position, and what counts as played
+                val p = Music.player
+                if (p != null && p.isPlaying) {
+                    val now = p.positionMs / 1000.0
+                    val moved = now - position
+                    position = now
+                    if (moved in 0.0..1.5) { listened(moved); ListenLog.heard(moved) }   // (Wrapped's diary of listening time)
+                    p.durationMs.takeIf { it > 0 }?.let { duration = maxOf(it / 1000.0, now) }   // a file longer than it says: its bar goes on to its real end
+                    Music.maybeCrossfade(p)
+                }
+                if (p != null) endWatch(p)
+                changeWatch(p)
+                delay(500)
+            }
+        }
+    }
+
+    private val endWatcher = EndWatch()
+
+    /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
+     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
+     *  runs on past the end (with Repeat one it then never started again). Within its last 1.5 seconds, still meant to
+     *  be playing, and the position hasn't moved for 2.5 seconds; or 1.5 seconds past its end: it's over, on to the next
+     *  (or, on Repeat one, the same song from the start). On both the phone and the PC. */
+    private fun endWatch(p: Engine) {
+        val t = current()
+        // Its length: the player's, or the song's own (its tags', the service's) when that's longer, so a file whose
+        // player underestimates its length (a VBR MP3 without its header, a stream) isn't cut short while it still plays.
+        val engineMs = p.durationMs
+        val songMs = ((t?.duration ?: 0.0) * 1000).toLong()
+        val at = p.positionMs
+        // The watching itself is EndWatch's (the rules alone, tested by themselves); here, what's done about it
+        val verdict = endWatcher.look(System.currentTimeMillis(), engineMs, songMs, at, playWhenReady = p.playWhenReady, advancing = advancing,
+            remote = Remote.active, loaded = t != null && loadedFor == t.id, ready = p.state == Engine.READY, buffering = p.state == Engine.BUFFERING,
+            idle = p.state == Engine.IDLE, audioPlaying = p.audioPlaying, audioEnded = p.audioEnded)
+        when (verdict) {
+            EndWatch.Verdict.PLAYING -> {}
+            // Its music has all been played out, but the player hasn't said it ended: on to the next, nothing for Problems
+            EndWatch.Verdict.AUDIO_DONE -> { advancing = false; endHow = "its music was all played out (the watch)"; trackEnded() }
+            EndWatch.Verdict.STUCK, EndWatch.Verdict.PAST -> {
+                Crashes.note("“${t?.title}” ${if (verdict == EndWatch.Verdict.PAST) "ran on past" else "stopped at"} its end without finishing: " +
+                    (if (repeat == "one") "played again" else "moved on to the next song") +
+                    " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
+                advancing = false
+                endHow = "the watch: $verdict"
+                trackEnded()
+            }
+        }
+    }
 }

@@ -294,25 +294,9 @@ object Music {
         watchOutputs(ctx) { outputChanged() }
         // The DJ's first set made ahead while it's off (and made again when it goes stale), so it starts at once
         scope.launch { delay(20_000); while (true) { runCatching { djWarm() }; delay(10 * 60_000L) } }
-        scope.launch {
-            while (true) {   // the position, and what counts as played
-                val p = player
-                if (p != null && p.isPlaying) {
-                    val now = p.positionMs / 1000.0
-                    val step = now - position
-                    position = now
-                    if (step in 0.0..1.5) { listened(step); ListenLog.heard(step) }   // (Wrapped's diary of listening time)
-                    p.durationMs.takeIf { it > 0 }?.let { duration = maxOf(it / 1000.0, now) }   // a file longer than it says: its bar goes on to its real end
-                    maybeCrossfade(p)
-                }
-                if (p != null) endWatch(p)
-                changeWatch(p)
-                delay(500)
-            }
-        }
+        PlaybackCore.start()   // the clock of what's playing: the position, what counts as played, crossfade, the watches
     }
 
-    private val endWatcher = EndWatch()
 
     // ---- a song change that took too long, written down (Settings › Problems) ----
     // From a song ending by itself to the next one sounding should take a moment. When it takes more than 2.5 seconds
@@ -323,38 +307,6 @@ object Music {
     /** A step of a song change, from the phone's player (MusicService). */
     fun trace(what: String) = step(what)
     private fun step(what: String) = PlaybackCore.step(what)
-    private fun changeWatch(p: Engine?) = PlaybackCore.changeWatch(p)
-
-    /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
-     *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
-     *  runs on past the end (with Repeat one it then never started again). Within its last 1.5 seconds, still meant to
-     *  be playing, and the position hasn't moved for 2.5 seconds; or 1.5 seconds past its end: it's over, on to the next
-     *  (or, on Repeat one, the same song from the start). On both the phone and the PC. */
-    private fun endWatch(p: Engine) {
-        val t = current()
-        // Its length: the player's, or the song's own (its tags', the service's) when that's longer, so a file whose
-        // player underestimates its length (a VBR MP3 without its header, a stream) isn't cut short while it still plays.
-        val engineMs = p.durationMs
-        val songMs = ((t?.duration ?: 0.0) * 1000).toLong()
-        val at = p.positionMs
-        // The watching itself is EndWatch's (the rules alone, tested by themselves); here, what's done about it
-        val verdict = endWatcher.look(System.currentTimeMillis(), engineMs, songMs, at, playWhenReady = p.playWhenReady, advancing = advancing,
-            remote = Remote.active, loaded = t != null && loadedFor == t.id, ready = p.state == Engine.READY, buffering = p.state == Engine.BUFFERING,
-            idle = p.state == Engine.IDLE, audioPlaying = p.audioPlaying, audioEnded = p.audioEnded)
-        when (verdict) {
-            EndWatch.Verdict.PLAYING -> {}
-            // Its music has all been played out, but the player hasn't said it ended: on to the next, nothing for Problems
-            EndWatch.Verdict.AUDIO_DONE -> { advancing = false; endHow = "its music was all played out (the watch)"; trackEnded() }
-            EndWatch.Verdict.STUCK, EndWatch.Verdict.PAST -> {
-                Crashes.note("“${t?.title}” ${if (verdict == EndWatch.Verdict.PAST) "ran on past" else "stopped at"} its end without finishing: " +
-                    (if (repeat == "one") "played again" else "moved on to the next song") +
-                    " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
-                advancing = false
-                endHow = "the watch: $verdict"
-                trackEnded()
-            }
-        }
-    }
 
     fun toast(text: String) { toasts.trySend(text) }
 
@@ -2790,10 +2742,6 @@ object Music {
 
     // ---- what counts as played ----
 
-    /** A song counts as played (Recent, Most played) after PLAY_AFTER seconds; Last.fm gets
-     *  it once you've listened to half of it (or four minutes). */
-    private fun listened(seconds: Double) = PlaybackCore.listened(seconds)
-
     // ---- the queue ----
     fun current(): Track? = PlaybackCore.current()
     fun isRadio() = PlaybackCore.isRadio()
@@ -2929,7 +2877,7 @@ object Music {
      *  the same moment (only once it's really playing does this one move on), so there's no gap: the ending song
      *  gets quieter while the next one comes up from quiet, both at once. Not with bit-perfect, Repeat one, streams,
      *  casting, or (Smart transitions) between songs of one album, which flow into each other. */
-    private fun maybeCrossfade(p: Engine) {
+    internal fun maybeCrossfade(p: Engine) {
         val t = current()
         if (t == null || CrossfadeRules.unavailable(Prefs.on(Prefs.CROSSFADE), bitPerfect, repeat == "one", Remote.active, cast != null, streaming, ducked)) {
             if (tail != null && tailFor != fadingId) dropTail()
