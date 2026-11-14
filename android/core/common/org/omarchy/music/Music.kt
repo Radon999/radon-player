@@ -29,7 +29,15 @@ object Music {
     init {
         PlaybackCore.djSide = object : PlaybackCore.DjSide {
             override val on: Boolean get() = dj.on
+            override val talking: Boolean get() = djTalking
+            override val busy: String? get() = djBusy
+            override val musicDucked: Boolean get() = ducked
+            override val duckVolume: Float get() = DUCK
             override fun otherSongsPicked() { dj = dj.copy(on = false) }
+            override fun hush() = djHush()
+            override fun songLoading(t: Track) { djAnnounce(t); if (index >= queue.size - 2) djMore() }
+            override fun queueRanOut() { djWaiting = true; if (djBusy == null) djMore() }
+            override fun songEnded() = djKeepGoing()
         }
     }
 
@@ -56,12 +64,12 @@ object Music {
         get() = cast ?: localPlayer
         set(v) {
             localPlayer = v
-            if (v != null) pendingLoad?.let { pendingLoad = null; it() }
+            if (v != null) PlaybackCore.pendingLoad?.let { PlaybackCore.pendingLoad = null; it() }
         }
 
     var castHost = ""   // the cast device's address (the phone's files are served to it)
 
-    private fun castMime(t: Track, uri: String): String {
+    internal fun castMime(t: Track, uri: String): String {
         val name = (t.file ?: lib.items[t.id]?.file ?: uri).substringBefore('?').lowercase()
         return when {
             name.endsWith(".mp3") -> "audio/mpeg"; name.endsWith(".m4a") || name.endsWith(".aac") -> "audio/mp4"
@@ -89,7 +97,6 @@ object Music {
         toast(if (platformName == "android") "Playing on this phone" else "Playing on this PC")
         if (current() != null) { resumeAt = at; loadCurrent(autoplay = wasPlaying) }
     }
-    private var pendingLoad: (() -> Unit)? = null
 
     // ---- what the screens show ----
     // The queue's own state is the playback service's (PlaybackCore); these names hand on to it.
@@ -101,18 +108,17 @@ object Music {
     var queueId: String get() = PlaybackCore.queueId; set(v) { PlaybackCore.queueId = v }
     var multiQueue: Boolean get() = PlaybackCore.multiQueue; set(v) { PlaybackCore.multiQueue = v }
     var listName: String get() = PlaybackCore.listName; set(v) { PlaybackCore.listName = v }   // where songs are picked from now (the screen's name): a new queue is called that
-    var resumeAt = 0.0
+    var resumeAt: Double get() = PlaybackCore.resumeAt; set(v) { PlaybackCore.resumeAt = v }
     // Lyrics into the files: what's found for a song goes into its own tags once it's done playing.
     var lyricsToFiles by mutableStateOf(true)
-    private var lastLoaded: Track? = null
     private var lyricsWarned = false
     var index: Int get() = PlaybackCore.index; set(v) { PlaybackCore.index = v }
-    var paused by mutableStateOf(true)
-    var position by mutableStateOf(0.0)
+    var paused: Boolean get() = PlaybackCore.paused; set(v) { PlaybackCore.paused = v }
+    var position: Double get() = PlaybackCore.position; set(v) { PlaybackCore.position = v }
     var nowFormat by mutableStateOf("")     // what the player says it's playing: "FLAC 24-bit/96 kHz"
     var nowFormatOf = ""                    // …for this song
     var micAsked = false                    // the bars' permission was asked for once (Now playing)
-    var duration by mutableStateOf(0.0)
+    var duration: Double get() = PlaybackCore.duration; set(v) { PlaybackCore.duration = v }
     var repeat: String get() = PlaybackCore.repeat; set(v) { PlaybackCore.repeat = v }
     var source by mutableStateOf("ytm")
     var status by mutableStateOf("")
@@ -209,15 +215,14 @@ object Music {
     var upgradeKept by mutableStateOf<List<Pair<Track, String>>?>(null)   // kept as good already: replace anyway?
     @Volatile var upgradeStop = false
     private val replaceAfter = HashMap<String, List<Track>>()   // a download's id -> your copies to put away once it's in
-    private var finishing = false    // the song playing ran out on its own (not a skip)
-    private var goingBack = false    // Previous: going back isn't skipping
+    private var goingBack: Boolean get() = PlaybackCore.goingBack; set(v) { PlaybackCore.goingBack = v }    // Previous: going back isn't skipping
 
     /** Your files to put in Android's trash (it asks you), and the songs that take their places. */
     data class TrashJob(val tracks: List<Track>, val replacements: Map<String, Track> = emptyMap(), val what: String = "")
     private var searchBeforeLocal = "tidal"     // where the search looked before
     var importing by mutableStateOf<String?>(null)   // an .m3u8 being read: how far
     var importReport by mutableStateOf<ImportReport?>(null)   // what the last one didn't find, to look for
-    var streaming by mutableStateOf(false)
+    var streaming: Boolean get() = PlaybackCore.streaming; set(v) { PlaybackCore.streaming = v }
     var downloads by mutableStateOf(listOf<Track>())
     var syncing by mutableStateOf(false)
     var syncTracks by mutableStateOf(listOf<Track>())
@@ -241,18 +246,13 @@ object Music {
 
     private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
-    private var loadSeq = 0
-    private var streamRetry = -1
     private var ended: Boolean get() = PlaybackCore.ended; set(v) { PlaybackCore.ended = v }
-    private var restorePending = false
+    private var restorePending: Boolean get() = PlaybackCore.restorePending; set(v) { PlaybackCore.restorePending = v }
     private var downloading = false
     var downloadNote by mutableStateOf("")   // "Downloading in FLAC · 3 of 40" while a Download runs
         private set
     private var syncAgain = false
 
-    private class Listen(val id: String, val track: Track, var played: Double = 0.0, var counted: Boolean = false,
-                         var sent: Boolean = true, val start: Double = now())
-    private var listen: Listen? = null
 
     fun init(c: Ctx) {
         if (::ctx.isInitialized) return
@@ -318,36 +318,12 @@ object Music {
     // From a song ending by itself to the next one sounding should take a moment. When it takes more than 2.5 seconds
     // (the DJ on the phone stopped after every song heard to its end: the plan's D16), each step it went through and
     // when (milliseconds from the song's end) is noted, so the step that held it up can be read. The first 12 only.
-    private var changeAt = 0L
-    private val changeSteps = ArrayList<String>()
-    private var changeNotes = 0
-    private var changeLate = false
-    private var endHow = ""      // what said the song was over (the player, the watch, a crossfade)
-    private var fadeNote = ""    // how the last crossfade went, if it gave up
+    private var endHow: String get() = PlaybackCore.endHow; set(v) { PlaybackCore.endHow = v }      // what said the song was over (the player, the watch, a crossfade)
+    private var fadeNote: String get() = PlaybackCore.fadeNote; set(v) { PlaybackCore.fadeNote = v }    // how the last crossfade went, if it gave up
     /** A step of a song change, from the phone's player (MusicService). */
     fun trace(what: String) = step(what)
-    private fun step(what: String) {
-        if (changeAt == 0L) return
-        if (changeSteps.size < 60) changeSteps += "${System.currentTimeMillis() - changeAt} $what"
-    }
-    private fun changeBegins(how: String) {
-        changeAt = System.currentTimeMillis(); changeSteps.clear(); changeLate = false
-        val p = player
-        step("$how${fadeNote.also { fadeNote = "" }}: dj=${dj.on} song=${index + 1}/${queue.size} at=${"%.1f".format(position)}/${"%.1f".format(duration)} state=${p?.state} " +
-            "pwr=${p?.playWhenReady} advancing=$advancing streaming=$streaming fading=${fadingId != null} talking=$djTalking busy=${djBusy ?: "-"} loadedFor=${if (loadedFor == current()?.id) "this" else "other"}")
-    }
-    private fun changeWatch(p: Engine?) {
-        if (changeAt == 0L) return
-        val took = System.currentTimeMillis() - changeAt
-        val there = p != null && p.isPlaying && loadedFor == current()?.id && !advancing
-        if (!there && took > 20_000 && !changeLate) { changeLate = true; step("still not playing: state=${p?.state} pwr=${p?.playWhenReady} hasItem=${p?.hasItem} advancing=$advancing paused=$paused") }
-        if (!there && took < 120_000) return
-        if ((took > 2500 || !there) && changeNotes < 12) {
-            changeNotes++
-            Crashes.note("A song change took ${"%.1f".format(took / 1000.0)} s${if (!there) " and never played" else ""}: " + changeSteps.joinToString(" | "))
-        }
-        changeAt = 0L
-    }
+    private fun step(what: String) = PlaybackCore.step(what)
+    private fun changeWatch(p: Engine?) = PlaybackCore.changeWatch(p)
 
     /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
      *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
@@ -518,12 +494,7 @@ object Music {
     }
 
     /** Called once the playback service is up: a song restored from Tidal can load now. */
-    fun playerReady() {
-        if (restorePending) {
-            restorePending = false
-            loadCurrent(autoplay = false)
-        }
-    }
+    fun playerReady() = PlaybackCore.playerReady()
 
     // ---- your music ----
     /** Every song you have: downloaded here (once each) and in your folders. */
@@ -1311,7 +1282,7 @@ object Music {
         djTalking = false
         djDuck(false)   // the music back up, where it is
     }
-    private var loadedFor: String? = null   // the song the player has in now (its id)
+    private var loadedFor: String? get() = PlaybackCore.loadedFor; set(v) { PlaybackCore.loadedFor = v }   // the song the player has in now (its id)
 
     /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
      *  is never left stuck (talking that never came, a set it was still picking, a set it hadn't introduced yet). */
@@ -1735,7 +1706,7 @@ object Music {
 
     /** A song file that isn't on this device (from the other one's backup, or since gone) in the queue: the same
      *  song of yours here plays in its place, else the service's. */
-    private fun standIn(t: Track, autoplay: Boolean) {
+    internal fun standIn(t: Track, autoplay: Boolean) {
         val at = index
         fun swap(n: Track) {
             if (index != at || current()?.id != t.id) return
@@ -2436,7 +2407,7 @@ object Music {
     /** The change t plays with here and now (dB): its own for this output, else its every-output one (0: none). */
     fun gainNow(t: Track): Double = gains.get(t, outputNow.key)
 
-    private fun gainOf(t: Track) = Math.pow(10.0, gainNow(t) / 20)
+    internal fun gainOf(t: Track) = Math.pow(10.0, gainNow(t) / 20)
 
 
 
@@ -2515,6 +2486,11 @@ object Music {
     /** Covers you picked for the song playing, waiting for its file to be free (written when another song starts). */
     private val coversWaiting = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
     private fun coverLater(file: String, jpeg: ByteArray) { coversWaiting[file] = jpeg }
+    /** A song (t) is being loaded: covers picked while their song played go in now, once the file that was playing is free. */
+    internal fun waitingCoversSoon(t: Track) {
+        if (coversWaiting.isNotEmpty()) { val nowFile = lib.items[t.id]?.file ?: t.file
+            scope.launch(Dispatchers.Main) { delay(1500); writeWaitingCovers(nowFile) } }
+    }
     private fun writeWaitingCovers(except: String?) {
         val todo = coversWaiting.keys.filter { it != except }
         if (todo.isEmpty()) return
@@ -2579,7 +2555,7 @@ object Music {
         }
     }
 
-    private fun playbackOf(t: Track): Pair<Float, Float> = if (bitPerfect) 1f to 1f else speeds.get(t).let { s ->
+    internal fun playbackOf(t: Track): Pair<Float, Float> = if (bitPerfect) 1f to 1f else speeds.get(t).let { s ->
         s.speed.toFloat() to (if (s.pitch) s.speed.toFloat() else 1f)
     }
 
@@ -2619,6 +2595,8 @@ object Music {
 
     /** Tag changes to the song that was playing, by its id: written once another song is on (or none). */
     private val heldTags = LinkedHashMap<String, Pair<Track, LinkedHashMap<String, String>>>()
+    /** A song is being loaded: the song that was playing gets its tag changes, once its file is free. */
+    internal fun heldTagsSoon() { if (heldTags.isNotEmpty()) scope.launch(Dispatchers.Main) { delay(1500); writeHeldTags() } }
     private fun writeHeldTags() {
         if (heldTags.isEmpty()) return
         val cur = current()?.id
@@ -2811,31 +2789,10 @@ object Music {
     }
 
     // ---- what counts as played ----
-    private fun beginListen(t: Track) {
-        listen = Listen(t.id, t, sent = !LastFm.connected)
-        ListenLog.begin(t)   // Wrapped: where it's played from, shuffled or not, on which output
-        if (LastFm.connected) bg({ LastFm.nowPlaying(t) })
-    }
 
     /** A song counts as played (Recent, Most played) after PLAY_AFTER seconds; Last.fm gets
      *  it once you've listened to half of it (or four minutes). */
-    private fun listened(seconds: Double) {
-        val ls = listen ?: return
-        if (ls.sent && ls.counted) return
-        ls.played += seconds
-        val dur = duration.takeIf { it > 0 } ?: ls.track.duration
-        if (!ls.counted && PlayRules.countsAsPlay(ls.played, dur, PLAY_AFTER.toDouble())) {   // a play: half the song heard
-            ls.counted = true
-            plays.add(ls.track)
-            lib.played(ls.id)
-            musicVersion++
-        }
-        if (!ls.sent && PlayRules.scrobbles(ls.played, dur)) {
-            ls.sent = true
-            val start = ls.start
-            bg({ LastFm.scrobble(ls.track, start) })
-        }
-    }
+    private fun listened(seconds: Double) = PlaybackCore.listened(seconds)
 
     // ---- the queue ----
     fun current(): Track? = PlaybackCore.current()
@@ -2893,7 +2850,7 @@ object Music {
 
     fun unqueueMany(indices: Collection<Int>) = PlaybackCore.unqueueMany(indices)
 
-    private fun radioTracks(t: Track): List<Track> {
+    internal fun radioTracks(t: Track): List<Track> {
         var last: Throwable? = null
         for (key in listOf(t.source, source, "ytm", "tidal").distinct()) {
             val src = sources[key] ?: continue
@@ -2905,33 +2862,8 @@ object Music {
         return emptyList()
     }
 
-    internal fun extendRadio(t: Track, keepUntil: Int? = null) {
-        if (dj.on) return   // the DJ makes its own sets: ∞ never adds to them
-        radioFrom = t.id
-        val ctxNow = context
-        bg({ localsOf(radioTracks(t)) }) { res, err ->   // the radio's songs you have play from your copies
-            if (ctxNow != context || err != null || res.isNullOrEmpty()) { if (ended) doneAdvancing(); return@bg }
-            var q = queue
-            if (keepUntil != null) {
-                // A song picked from results: its radio replaces the rest of the results (not your queue).
-                val cut = maxOf(keepUntil, index)
-                q = q.take(cut + 1) + q.drop(cut + 1).filter { it.queued }
-            }
-            val ids = q.map { it.id }.toMutableSet()
-            val songs = q.map { songKey(it) }.toMutableSet()
-            q = q + res.filter { ids.add(it.id) && songs.add(songKey(it)) }
-            queue = q
-            afterQueueChange()
-            if (ended && index + 1 < queue.size) next()   // it had stopped at the end: on it goes
-            else if (ended) doneAdvancing()
-        }
-    }
-
     /** ∞: a couple of songs before the end, songs like the last one, so there's no gap. */
-    private fun autoplaySoon() {
-        if (autoplay && !dj.on && repeat == "off" && queue.isNotEmpty() && queue.size - index <= 2 && radioFrom != queue.last().id)
-            extendRadio(queue.last())
-    }
+    private fun autoplaySoon() = PlaybackCore.autoplaySoon()
 
     @JvmName("chooseAutoplay")
     fun setAutoplay(on: Boolean) {
@@ -2961,79 +2893,28 @@ object Music {
     }
 
 
-    fun next() {
-        if (Remote.active) { Remote.cmd("next"); return }
-        djHush()
-        val other = nextQueue()
-        step("next: ${QueueRules.after(index, queue.size, dj.on, repeat, other != null)}")
-        when (QueueRules.after(index, queue.size, dj.on, repeat, other != null)) {
-            QueueRules.After.NEXT_SONG -> { index++; loadCurrent(); autoplaySoon() }
-            // The DJ's queue is done (you skipped to its end, or a set ran out): its next set, not ∞'s radio of streams,
-            // round again (Repeat all is the DJ's next set) or your next queue
-            QueueRules.After.DJ_SET -> { djWaiting = true; if (djBusy == null) djMore() }
-            QueueRules.After.ROUND_AGAIN -> {
-                if (shuffled) { queue = shuffleSongs(queue, after = current()); afterQueueChange() }   // round again in a new order
-                index = 0; loadCurrent()
-            }
-            QueueRules.After.NEXT_QUEUE -> switchQueue(other!!.id)   // this queue is done: your next one goes on
-            QueueRules.After.END -> {
-                ended = true
-                val more = autoplay && repeat == "off" && current() != null
-                if (more && advancing) extendRadio(current()!!)   // ∞: songs like it, and on it goes (it stays "playing" meanwhile)
-                else {
-                    doneAdvancing(); player?.pause()
-                    if (more) current()?.let { extendRadio(it) }
-                }
-            }
-        }
-    }
+    fun next() = PlaybackCore.next()
 
     /** The next of your other queues with songs still to play (the last one used first), or null. */
     fun nextQueue(): SavedQueue? = PlaybackCore.nextQueue()
 
-    fun previous() {
-        djHush()
-        if (Remote.active) { Remote.cmd("prev"); return }
-        if (QueueRules.previousRestarts(position, index)) {   // ⏮: the start of the song; in its first 10 seconds, the song before
-            player?.seekTo(0)
-            val t = current()
-            if (t != null && listen?.let { it.sent || it.counted } == true) beginListen(t)   // listening again counts again
-        } else { index--; goingBack = true; loadCurrent() }
-    }
-
-    /** The song playing is about to change: count it as skipped, unless it ran out on its own or you went back. */
-    private fun noteLeaving() {
-        val ls = listen
-        val fin = finishing; val back = goingBack
-        finishing = false; goingBack = false
-        if (ls == null || fin || back) return
-        val dur = duration.takeIf { it > 0 } ?: ls.track.duration
-        if (PlayRules.isSkip(ls.played, dur, position, SongStats.SKIP_LEFT.toDouble())) {
-            bg({ songStats.skipped(ls.track) }) { _, _ -> musicVersion++ }
-        }
-    }
+    fun previous() = PlaybackCore.previous()
 
     /** A song ran out and the next one is on its way: to the notification (and Android) it's still
      *  playing, so the app stays a foreground music player between songs. Were it "ended" for that
      *  moment, Android would take the app out of the foreground, and with the screen off it can't come
      *  back: a minute later Android closed it (the app "crashing" every couple of songs). */
-    @Volatile var advancing = false
-        private set
+    var advancing: Boolean get() = PlaybackCore.advancing; private set(v) { PlaybackCore.advancing = v }
 
     /** Done moving on (playing the next song, or stopped): the notification gets the player's real state. */
-    private fun doneAdvancing() {
-        if (!advancing) return
-        advancing = false
-        val p = player ?: return
-        if (p.state == Engine.ENDED) p.pause()   // nothing came: it stops, and Android hears it
-    }
+    private fun doneAdvancing() = PlaybackCore.doneAdvancing()
 
     // ---- 2.0: song crossfade ----
-    private var fadingId: String? = null
-    private var fadeIn = 0.0
-    private var fadeJob: kotlinx.coroutines.Job? = null
-    private var fadingOut: Engine? = null
-    private var crossTo: String? = null   // the song a crossfade is bringing in   // a crossfade's ending song, fading out in its own player
+    private var fadingId: String? get() = PlaybackCore.fadingId; set(v) { PlaybackCore.fadingId = v }
+    private var fadeIn: Double get() = PlaybackCore.fadeIn; set(v) { PlaybackCore.fadeIn = v }
+    private var fadeJob: kotlinx.coroutines.Job? get() = PlaybackCore.fadeJob; set(v) { PlaybackCore.fadeJob = v }
+    private var fadingOut: Engine? get() = PlaybackCore.fadingOut; set(v) { PlaybackCore.fadingOut = v }   // a crossfade's ending song, fading out in its own player
+    private var crossTo: String? get() = PlaybackCore.crossTo; set(v) { PlaybackCore.crossTo = v }   // the song a crossfade is bringing in
 
     private var tail: Engine? = null   // the song ending, ready to carry on fading in a player of its own
     private var tailFor: String? = null
@@ -3221,23 +3102,9 @@ object Music {
 
     /** The player says its song ended. Ignored while it's already moving on to another song (after a crossfade the
      *  ending one plays on silently in the player while the next loads, and its end skipped the next song unheard). */
-    fun engineEnded() {
-        if (advancing && loadedFor != null && loadedFor != current()?.id) { step("the player's ENDED left alone (moving on already)"); return }
-        endHow = "the player said ENDED"
-        trackEnded()
-    }
+    fun engineEnded() = PlaybackCore.engineEnded()
 
-    fun trackEnded() {
-        changeBegins(endHow.ifEmpty { "song ended" }); endHow = ""
-        // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
-        advancing = true
-        if (dj.on) djKeepGoing()
-        if (streaming && duration > 0 && position < duration - 5) { step("taken for a stream that broke"); streamBroke(); return }   // the network went away mid-song
-        current()?.let { t -> bg({ songStats.heardOut(t) }); discovered(t) }
-        finishing = true
-        if (repeat == "one") { resumeAt = 0.0; position = 0.0; loadCurrent() } else next()   // Repeat one: from its very start
-        if (ended && !(autoplay && repeat == "off")) doneAdvancing()
-    }
+    fun trackEnded() = PlaybackCore.trackEnded()
 
     /** The DJ never just stops after a song: if, a few seconds after one ran out, the player is still at an end (the
      *  next set being picked never came, a stream couldn't be got back, the next song never started), with no line
@@ -3297,78 +3164,14 @@ object Music {
         }
     }
 
-    internal fun afterQueueChange() {
-        saveState()
-        prefetch()
-    }
+    private fun afterQueueChange() = PlaybackCore.afterQueueChange()
 
-    fun loadCurrent(autoplay: Boolean = true) {
-        val c = current() ?: return
-        step("load “${c.title.take(30)}” play=$autoplay")
-        if (heldTags.isNotEmpty()) scope.launch(Dispatchers.Main) { delay(1500); writeHeldTags() }   // the song that was playing: its tag changes, once its file is free
-        // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
-        // kept from before you had it too): never the service's stream of it.
-        val t0 = if (Remote.active) c else localOf(c)
-        if (t0 !== c) {
-            queue = queue.toMutableList().also { it[index] = t0 }
-            if (radioFrom == c.id) radioFrom = t0.id
-        }
-        val t = t0.copy(queued = false)   // playing now, not waiting in your queue
-        if (t0.queued) queue = queue.toMutableList().also { it[index] = t }
-        if (t.isFile && !fileHere(t)) { standIn(t, autoplay); return }   // the other device's song file (a backup's)
-        if (autoplay) noteLeaving()
-        finishing = false; goingBack = false
-        restorePending = false
-        ended = false
-        listen = null
-        // The song before this one is done: its lyrics can go into its file now (never into the one playing).
-        lastLoaded?.let { prev -> if (prev.id != t.id) lyricsIntoFile(prev) }
-        lastLoaded = t
-        if (lyricsToFiles && !Remote.active) bg({ Lyrics.get(ctx, t) })   // found while it plays, kept for later
-        val seq = ++loadSeq
-        val at = resumeAt
-        resumeAt = 0.0
-        position = at
-        duration = t.duration
-        val onDisk = lib.has(t.id) || t.isFile
-        streaming = !(onDisk || (keepPlayed && autoSaveOk(t)))
-        status = if (onDisk) "" else if (keepPlayed) "Downloading FLAC…" else "Loading the stream…"
-        val work: () -> Downloader.Ready = if (streaming || onDisk) ({ dl.stream(t) })
-            else ({ try { dl.download(t, youtubeToo = false) } catch (_: Exception) {}; dl.stream(t) })   // no FLAC to keep (or saving failed): stream what there is
-        bg(work) { ready, err ->
-            if (seq != loadSeq) return@bg   // you moved on while it loaded
-            step(if (err != null || ready == null) "couldn't get it: ${err?.message?.take(60)}" else "got it${if (player == null) " (no player yet)" else ""}")
-            status = ""
-            if (err != null || ready == null) {
-                toast(if (err is NoLosslessMatch) "Skipped “${t.title}”: ${err.message}" else "Couldn't get “${t.title}”: ${err?.message}")
-                if (autoplay) scope.launch { delay(1500); if (seq == loadSeq) next() } else { paused = true; doneAdvancing() }
-                return@bg
-            }
-            if (!ready.onDisk) streaming = true   // Keep found no FLAC to save: it streams
-            val start = { play(t, ready, autoplay, at) }
-            if (player == null) pendingLoad = start else start()
-            if (autoplay) beginListen(t)
-            savedVersion++
-            prefetch()
-        }
-        saveState()
-        // Keep a radio going: near the end of the queue, ask for more like the last song.
-        if (radioFrom != null && !dj.on && index >= queue.size - 2) extendRadio(queue.last())
-        if (dj.on) {
-            step("the DJ's part begins")
-            djAnnounce(t)
-            if (index >= queue.size - 2) djMore()
-            step("the DJ's part done")
-        }
-        // Covers picked while their song played: in now, once the file that was playing is free
-        if (coversWaiting.isNotEmpty()) { val nowFile = lib.items[t.id]?.file ?: t.file
-            scope.launch(Dispatchers.Main) { delay(1500); writeWaitingCovers(nowFile) } }
-    }
+    fun loadCurrent(autoplay: Boolean = true) = PlaybackCore.loadCurrent(autoplay)
 
     /** The cover the lock screen, the notification, Android Auto and Windows' media controls show: the same one the app
      *  shows (the download's, one you picked in the Tagger or Pick a cover, the service's), else the file's own (FLAC, MP3,
      *  M4A, WAV) or its folder's cover.jpg / folder.jpg, saved as a picture in the cache once per song. */
-    private fun nowArt(t: Track): String? {
+    internal fun nowArt(t: Track): String? {
         lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() }?.let { return it }
         val name = t.album.ifEmpty { t.title }
         // A cover from the web: its copy on disk once it's been loaded (kept the first time), not downloaded again.
@@ -3398,67 +3201,8 @@ object Music {
         return out
     }
 
-    private fun play(t: Track, ready: Downloader.Ready, autoplay: Boolean, startAt: Double = 0.0) {
-        val p = player ?: return
-        val art = if (cast == null) nowArt(t) else t.thumb.takeIf { it.isNotEmpty() }?.let { sizedThumb(it, 544) }
-        // Casting: the device fetches the song itself: a stream as it is, a file of the phone's from here over the network.
-        val uri = if (cast != null && !ready.uri.startsWith("http")) PhoneShare.forCast(t, castHost) ?: ready.uri else ready.uri
-        val item = PlayItem(uri, t.id, if (ready.isDash) "application/dash+xml" else if (t.source == SoundCloud.KEY) "application/x-mpegURL"
-            else if (cast != null) castMime(t, uri) else null,
-            t.title, t.artist, t.album, art)
-        step("into the player (at ${startAt.toInt()} s, play=$autoplay, state before ${p.state})")
-        p.load(item, (startAt * 1000).toLong())
-        loadedFor = t.id
-        playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
-        eqProcessor.songGain = gainOf(t)
-        applyEq()   // the song's own EQ on this output, or the usual one
-        // Never held for the DJ: she talks over the song, turned down under her (see djSay)
-        p.playWhenReady = autoplay
-        advancing = false   // buffering for real now
-        fadeJob?.cancel()
-        if (ducked && !bitPerfectNow()) { fadeIn = 0.0; p.volume = DUCK }
-        else if (fadeIn < 0 && t.id == crossTo) { fadeIn = 0.0; p.volume = 0f }   // a crossfade brings it up (see maybeCrossfade)
-        else if (fadeIn < 0) { fadeIn = 0.0; p.volume = 1f }   // another song than the one it was fading to (a skip)
-        else if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
-            val n = fadeIn; fadeIn = 0.0
-            p.volume = 0f
-            fadeJob = scope.launch {
-                val steps = (n * 20).toInt().coerceAtLeast(1)
-                for (i in 1..steps) { delay(50); p.volume = kotlin.math.sin(Math.PI / 2 * i / steps).toFloat() }   // …the next comes up
-                p.volume = 1f
-            }
-        } else p.volume = 1f
-    }
-
-    /** The next two songs' streams looked up while this one plays, so they start straight away. */
-    private fun prefetch() {
-        for (k in 1..2) {
-            val nxt = queue.getOrNull(index + k) ?: return
-            if (lib.has(nxt.id) || nxt.isFile) continue
-            if (keepPlayed && autoSaveOk(nxt)) bg({ dl.download(nxt, youtubeToo = false) }) { _, _ -> savedVersion++ } else bg({ dl.stream(nxt) })
-        }
-    }
-
     /** Tidal's stream stopped short: look it up again and carry on from the same place, once per song. */
-    fun streamBroke() {
-        val t = current() ?: return
-        if (!streaming) return
-        val seq = loadSeq
-        val pos = position
-        val wasPlaying = player?.playWhenReady == true
-        if (streamRetry == seq) {
-            toast("Lost the stream of “${t.title}”")
-            if (wasPlaying) next()
-            return
-        }
-        streamRetry = seq
-        dl.forgetStream(t.id)
-        bg({ dl.stream(t) }) { ready, err ->
-            if (seq != loadSeq) return@bg
-            if (err != null || ready == null) { toast("Couldn't get “${t.title}” back: ${err?.message}"); return@bg }
-            play(t, ready, wasPlaying, pos)
-        }
-    }
+    fun streamBroke() = PlaybackCore.streamBroke()
 
     // ---- the equalizer ----
     fun setEq(f: (EqSettings) -> EqSettings) {
@@ -3482,7 +3226,7 @@ object Music {
 
     /** What the EQ plays: this output's, or the playing song's own for this output (its correction, Sound and Boost; the
      *  bass and treble, crossfeed, dither and the rest stay as they are). */
-    private fun applyEq() {
+    internal fun applyEq() {
         val s = songEqNow()
         songEqActive = s != null
         val e = if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
