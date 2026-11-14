@@ -1,15 +1,8 @@
-commit 673d3a1bd8de5e2b118e46599544605f61fc91d5 · run 43612373814 · Sat Nov 14 16:01:32 UTC 2026
+commit 6f210f6ea2f3d3307b9dccf1edfa2af3d8139b60 · run 43612779066 · Sat Nov 14 16:13:25 UTC 2026
 PC TESTS ON WINDOWS: 5 suites, tests 37, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 1.6 s (with loading the voice); then 4.9 s of speech in 1.2 s (4.3x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 2.1 s (with loading the voice); then 4.4 s of speech in 1.4 s (3.1x real time)
 WINDOWS INSTALLER: Radon Player-3.2.28.msi, 94M
 --- errors
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-
-> Task :ui-common:assembleDesktopMainResources
-> Task :ui-common:desktopProcessResources
-> Task :desktop:assembleMainResources
-> Task :desktop:writeBuildInfo
 --- the end of the log
 w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:80:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
@@ -34,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 18s
+BUILD SUCCESSFUL in 5m 1s
 21 actionable tasks: 21 executed
