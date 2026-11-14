@@ -23,7 +23,7 @@ jobs:
           java-version: "21"
       - name: The DJ's voice, for its test (PocketVoiceTest)
         run: |
-          curl -sSL -o "$RUNNER_TEMP/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
+          curl -sSL --retry 4 --retry-all-errors -o "$RUNNER_TEMP/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
           tar xjf "$RUNNER_TEMP/voice.tar.bz2" -C "$RUNNER_TEMP" && echo "RADON_VOICE_DIR=$RUNNER_TEMP/sherpa-onnx-pocket-tts-int8-2026-01-26" >> "$GITHUB_ENV" || true
       - name: Test and compile
         working-directory: android
@@ -93,7 +93,7 @@ jobs:
       - name: The DJ's voice, for its test (PocketVoiceTest)
         run: |
           T="$(cygpath -u "$RUNNER_TEMP")"
-          curl -sSL -o "$T/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
+          curl -sSL --retry 4 --retry-all-errors -o "$T/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
           (cd "$T" && (tar xjf voice.tar.bz2 || /c/Windows/System32/tar.exe -xf voice.tar.bz2)) && echo "RADON_VOICE_DIR=$(cygpath -w "$T/sherpa-onnx-pocket-tts-int8-2026-01-26")" >> "$GITHUB_ENV" || true
       - name: Test and build the installer
         working-directory: android
