@@ -28,6 +28,25 @@ object Harness {
         c
     }
 
+    /** On the app's own thread, as the screens call it. */
+    fun <T> ui(block: () -> T): T = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) { block() }
+
+    /** Waits (8 s at most) for something the app does a moment later, on its own threads. */
+    fun until(what: String, ok: () -> Boolean) {
+        val end = System.currentTimeMillis() + 8000
+        while (System.currentTimeMillis() < end) { if (ok()) return; Thread.sleep(25) }
+        throw AssertionError("waited 8 s for: $what (index ${Music.index} of ${Music.queue.size}, DJ ${Music.dj.on}, busy ${Music.djBusy})")
+    }
+
+    /** Song files of the test's own (empty: nothing is decoded), each by its own artist: nothing is looked up. */
+    fun files(tag: String, n: Int): List<Track> {
+        val dir = java.io.File(ctx.filesDir, "songs-$tag").apply { mkdirs() }
+        return (1..n).map { i ->
+            val f = java.io.File(dir, "$tag-$i.flac").apply { writeBytes(ByteArray(0)) }
+            Track("file-$tag-$i", "file", "Filed $tag $i", "Band $tag $i", file = f.path)
+        }
+    }
+
     /** Songs for the DJ to play from, each by its own artist. */
     fun songs(n: Int, from: Int = 1): List<Track> = (from until from + n).map { Track("test-$it", "ytm", "Song number $it", "Artist $it") }
 }
