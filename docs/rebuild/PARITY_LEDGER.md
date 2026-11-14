@@ -41,7 +41,9 @@ yet: every row is unverified there.
 **Phase 9 (the playback service), begun 14 November 2026.** Moved out of `Music.kt` so far, each a part of its own
 with its own tests and `Music` calling it, nothing behaving differently: what counts as a play, a scrobble and a skip
 (S `PlayRulesTest`); what comes after a song, what Previous does, how other queues are kept (S `QueueRulesTest`); the
-watch for a song stuck at its end (S `EndWatchTest`). Still in `Music.kt`: the queue's own state, loading and moving
+watch for a song stuck at its end (S `EndWatchTest`); when a song fades into the next and when it doesn't (S
+`CrossfadeRulesTest`; run in the real PC app at `4818b20`: two songs faded into the next six seconds before their
+end, and two songs of one album followed each other with no fade, as Smart transitions has it). Still in `Music.kt`: the queue's own state, loading and moving
 on (`loadCurrent`, `play`, `next`, `trackEnded`), crossfade, saved state.
 
 **Run in the real PC app (14 November 2026, the code as of `0b94078`, in a copy of a test build with its own data,
