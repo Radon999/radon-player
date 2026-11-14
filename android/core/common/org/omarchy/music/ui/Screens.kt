@@ -265,7 +265,7 @@ fun ListActions(tracks: List<Track>, extra: List<Pair<String, () -> Unit>> = emp
         if (tracks.isNotEmpty()) {
             Pill("Play") { Music.playList(tracks) }
             Pill("Shuffle") { Music.playList(tracks, shuffled = true) }
-            if (onDj != null) Pill("DJ", quiet = true, onClick = onDj)
+            // (the DJ always plays from your whole library: Music › DJ)
             if (tracks.any { !it.isFile && !Music.lib.has(it.id) }) Pill("Download", quiet = true) { Music.download(tracks) }
         }
         if (pin != null) PinPill(pin)
@@ -525,42 +525,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.djView(ui: Ui, ask: S
             }
             if (d.fact.isNotEmpty()) Text(d.fact, style = T.sub.copy(color = C.accent))
             if (d.busy.isNotEmpty()) Text(d.busy, style = T.sub)
-            Box {
-                var menu by remember { mutableStateOf(false) }
-                // Choose a folder… (the PC): any folder, even outside your music folders, its songs read for the DJ
-                val folderPick = rememberFolderPick { path ->
-                    if (path == null) return@rememberFolderPick
-                    Music.bg({
-                        java.io.File(path).walkTopDown().filter { it.isFile }.take(5000)
-                            .mapNotNull { f -> Music.local.trackOf(f.path) }.toList()
-                    }) { songs, _ ->
-                        if (songs.isNullOrEmpty()) Music.toast("No songs in that folder")
-                        else ui.djFrom(Dj.From("songs", name = java.io.File(path).name, songs = songs))
-                    }
-                }
-                Pill("From: ${d.from.ifEmpty { "everything" }}  ▾", quiet = true) { menu = true }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    val pick = { f: Dj.From -> menu = false; ui.djFrom(f) }
-                    if (folderPick != null) DropdownMenuItem(text = { Text("Choose a folder…", style = T.body) }, onClick = { menu = false; folderPick() })
-                    val item = @Composable { label: String, f: Dj.From ->
-                        DropdownMenuItem(text = { Text(label, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { pick(f) })
-                    }
-                    item("Everything: your history and new songs", Dj.From("all"))
-                    item("All your music · ${Music.mySongs().size}", Dj.From("mine"))
-                    // The folders your songs are in, under the ones you picked, with how many each holds.
-                    val counts = Music.local.paths.values.groupingBy { it }.eachCount()
-                    val tops = Music.folders.filter { f -> counts.keys.any { it.startsWith(f) } }
-                    for (top in tops) {
-                        item("${top.trimEnd('/')} · ${counts.filterKeys { it.startsWith(top) }.values.sum()}", Dj.From("folder", path = top))
-                        val subs = counts.keys.filter { it.startsWith(top) && it != top }.map { top + it.removePrefix(top).substringBefore('/') + "/" }.distinct().sorted()
-                        for (sub in subs) item("      ${sub.removePrefix(top).trimEnd('/')} · ${counts.filterKeys { it.startsWith(sub) }.values.sum()}", Dj.From("folder", path = sub))
-                    }
-                    Music.lists.all().filter { it.tracks.isNotEmpty() }.forEach { item("${it.name} · ${it.tracks.size}", Dj.From("playlist", id = it.id)) }
-                    // Smart playlists, with the songs they have now (worked out once Smart playlists has been opened)
-                    Music.lists.smart().forEach { pl -> org.omarchy.music.SmartLists.songs(pl)?.takeIf { it.isNotEmpty() }
-                        ?.let { item("${pl.name} · ${it.size}", Dj.From("songs", name = pl.name, songs = it)) } }
-                }
-            }
+            // The DJ always plays from your whole library: your files, downloads and saved songs, and your playlists' songs
+            Text("From your library", style = T.sub)
             Box {
                 var menu by remember { mutableStateOf(false) }
                 Pill((if (Music.djNew) "Include new songs" else "Only my songs") + "  ▾", quiet = true) { menu = true }

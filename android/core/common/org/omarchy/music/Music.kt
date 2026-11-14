@@ -222,8 +222,7 @@ object Music {
     /** Only my songs (off), or new ones too (on): the DJ starts again with it. */
     fun chooseDjNew(on: Boolean) {
         djNew = on; Dj.withNew = on; saveState()
-        val src = dj.from?.let { if (on && it.kind == "mine") Dj.From("all") else it }
-        if (dj.on) djStart(src ?: Dj.From("all")) else dj = dj.copy(from = src)
+        if (dj.on) djStart() else dj = dj.copy(from = DJ_LIBRARY)
     }
     var djBusy by mutableStateOf<String?>(null)   // the DJ picking a set: what it's doing
 
@@ -1033,6 +1032,7 @@ object Music {
 
     /** What the DJ plays from, as [Dj.From] keeps it: (name, songs), or null if it's gone. */
     fun djSource(f: Dj.From?): Pair<String, List<Track>>? = when (f?.kind) {
+        "library" -> LIBRARY to librarySongs()
         "playlist" -> lists.get(f.id)?.let { it.name to it.tracks }
         "folder" -> djFromName(f) to mySongs().filter { (local.paths[it.file] ?: "").startsWith(f.path) }
         "mine" -> "your music" to mySongs()
@@ -1042,16 +1042,30 @@ object Music {
 
     fun djFromName(f: Dj.From?): String = when (f?.kind) {
         null, "all" -> ""
+        "library" -> LIBRARY
         "playlist" -> lists.get(f.id)?.name ?: "a playlist that's gone"
         "folder" -> f.path.trimEnd('/').substringAfterLast('/').ifEmpty { f.path }
         "mine" -> "your music"
         else -> f.name.ifEmpty { "these songs" }
     }
 
-    /** The DJ playing from what dj.from says (after a restart, say). */
+    /** What the DJ always plays from: every song of yours, in one group (see [librarySongs]). */
+    val DJ_LIBRARY = Dj.From("library")
+    private const val LIBRARY = "your library"
+
+    /** Every song in your library, for the DJ: your own files, your downloads and the songs you saved, and every song
+     *  in your playlists (streams too), each once. */
+    fun librarySongs(): List<Track> {
+        val seen = HashSet<Pair<String, String>>()
+        val mine = mySongs().filter { seen.add(songKey(it)) }
+        val listed = runCatching { lists.all().flatMap { it.tracks } }.getOrDefault(emptyList()).filter { seen.add(songKey(it)) }
+        return mine + localsOf(listed)
+    }
+
+    /** The DJ playing from your library (after a restart, say). */
     private fun djReady() {
-        if (dj.from == null || Dj.scope != null) return
-        djSource(dj.from)?.takeIf { it.second.isNotEmpty() }?.let { Dj.playFrom(it.first, it.second) }
+        if (Dj.scope != null) return
+        djSource(DJ_LIBRARY)?.takeIf { it.second.isNotEmpty() }?.let { Dj.playFrom(it.first, it.second, whole = true) }
     }
 
     private fun coming() = queue.drop(maxOf(0, index)).map { songKey(it) }.toSet()
@@ -1063,15 +1077,16 @@ object Music {
         if (djBusy != null) return
         if (repeat == "all") { repeat = "off"; saveState() }   // the DJ goes on to its next set (Repeat one still works)
         Dj.withNew = djNew
-        val src = (from ?: dj.from)?.takeIf { it.kind != "all" } ?: if (!djNew) Dj.From("mine") else null   // only yours: all you have
-        if (src != null) {
+        // Always your whole library, as one group of songs (whatever it was asked to play from before)
+        val src = DJ_LIBRARY
+        run {
             val got = djSource(src)
             if (got == null || got.second.isEmpty()) {
-                toast("There are no songs in ${got?.first ?: "that"} for the DJ to play")
+                toast("There are no songs in your library for the DJ to play")
                 return
             }
-            Dj.playFrom(got.first, got.second)
-        } else Dj.playFrom(null, null)
+            Dj.playFrom(got.first, got.second, whole = true)
+        }
         // Made ahead (djWarm): the first set at once, its line made too
         djFirst?.takeIf { it.src == src && it.withNew == djNew && now() - it.at < FIRST_FRESH }?.let { w ->
             djFirst = null
@@ -1107,12 +1122,11 @@ object Music {
     fun djWarm() {
         if (dj.on || Remote.active || djBusy != null || djWarming) return
         if (djFirst?.let { now() - it.at < FIRST_FRESH - 120 && it.withNew == djNew } == true) return
-        val src = dj.from?.takeIf { it.kind != "all" } ?: if (!djNew) Dj.From("mine") else null
+        val src = DJ_LIBRARY
         val withNew = djNew
         runCatching {
             Dj.withNew = withNew
-            if (src != null) { val got = djSource(src) ?: return; if (got.second.isEmpty()) return; Dj.playFrom(got.first, got.second) }
-            else Dj.playFrom(null, null)
+            val got = djSource(src) ?: return; if (got.second.isEmpty()) return; Dj.playFrom(got.first, got.second, whole = true)
         }.onFailure { return }
         djWarming = true
         bg({ Dj.build(first = true) }) { res, _ ->
@@ -1151,7 +1165,7 @@ object Music {
         if (!dj.on || set == null) return
         if (n == dj.shown) {   // a song in the middle of the set: now and then a word about it, once a set at most
             val c = djComments.remove(t.id)
-            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c, hold = false)
+            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c)
             djCommentAhead()
             return
         }
@@ -1186,51 +1200,44 @@ object Music {
     var djTalking by mutableStateOf(false)
         private set
 
-    private var djVolume = 1f
 
-    /** The DJ talks between sets, never over a song: the new set's first song waits at its very start, silent, until
-     *  the DJ is done, then plays from the beginning. */
-    /** The DJ says text. hold (a new set's line): the set's song waits silent at its start until she's done. Not hold
-     *  (a word in the middle of a set): the song plays on as usual until her voice is ready, and only then is it turned
-     *  down (it starts again from the top after); a word whose voice isn't ready soon is left unsaid. Either way the
-     *  music never waits long on a voice that's slow to come: a new set's line that hasn't started within a few seconds
-     *  is let go and the song plays. */
-    private fun djSay(text: String, hold: Boolean = true) {
+    /** The DJ says text over the music, like a radio DJ: the song never waits or starts again; it's turned down (ducked)
+     *  while she talks and comes back up when she's done. Bit-perfect to a USB DAC, her voice is mixed into the stream with
+     *  the music turned down under it (see UsbDirect.speak). A line whose voice isn't ready soon is left unsaid. */
+    private fun djSay(text: String) {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
         if (player == null) return
         val mine = ++djTurn
         lastDjLine = text
         djSaidAt = now()
         var started = false
-        if (hold) { djQuiet(); djTalking = true }
         Voice.say(djClean(text), onStart = {
-            if (djTurn == mine) {
-                started = true
-                if (!djTalking) { djQuiet(); djTalking = true; djSaidAt = now() }
-            }
+            if (djTurn == mine) { started = true; djTalking = true; djSaidAt = now(); djDuck(true) }
         }) { djDone(mine) }
-        // Never stuck: a voice that hasn't begun within a few seconds (being made, a slow network) is let go, and one
-        // that hasn't finished long after it should have is cut short; the music goes on
-        scope.launch(Dispatchers.Main) {
-            delay(if (hold) 7_000L else 12_000L)
-            if (djTurn == mine && !started) { Voice.hush(); if (djTalking) djDone(mine) }
-        }
+        // A voice that hasn't begun within a while (being made, a slow network) is let go; one that hasn't finished
+        // long after it should have is cut short. The music never waits either way.
+        scope.launch(Dispatchers.Main) { delay(15_000L); if (djTurn == mine && !started) Voice.hush() }
         val most = 25_000L + text.length * 90L
         scope.launch(Dispatchers.Main) { delay(most); if (djTurn == mine && djTalking) { Voice.hush(); djDone(mine) } }
     }
 
-    /** The music silent under the DJ's voice: the player's volume all the way down (it may have begun loading already),
-     *  no fade coming up, and the last song's crossfade tail gone. The song goes on silently under the line (it starts
-     *  again from the top after): never paused, so Android keeps the app playing in the background. Bit-perfect sends
-     *  the song untouched, past any volume, so there it waits paused instead. */
-    private fun djQuiet() {
+    /** How loud the music is under the DJ's voice (of its usual). */
+    private const val DUCK = 0.25f
+    private var ducked = false
+    private var duckJob: kotlinx.coroutines.Job? = null
+
+    /** The music turned down under the DJ (on) or back up (off), over a moment. Bit-perfect, the DAC's stream does it
+     *  itself as it mixes her voice in. */
+    private fun djDuck(on: Boolean) {
         val p = player ?: return
-        if (!djTalking) djVolume = p.volume.takeIf { it > 0.05f } ?: 1f
-        fadeJob?.cancel(); fadeIn = 0.0
-        dropTail()
-        fadingOut?.let { f -> fadingOut = null; runCatching { f.volume = 0f; f.release() } }
-        p.volume = 0f
-        if (bitPerfectNow()) p.pause()
+        if (on == ducked) return
+        ducked = on
+        duckJob?.cancel()
+        if (bitPerfectNow()) { if (!on) p.volume = 1f; return }
+        val from = p.volume; val to = if (on) DUCK else 1f
+        duckJob = scope.launch {
+            for (i in 1..8) { delay(40); p.volume = from + (to - from) * i / 8 }
+        }
     }
 
     private fun djClean(text: String) = text.replace("“", "").replace("”", "")
@@ -1257,9 +1264,7 @@ object Music {
     private fun djDone(mine: Long) {
         if (mine != djTurn || !djTalking) return
         djTalking = false
-        // The set's song is in: from its very start, heard now. Still loading: it starts, heard, when it's in (play)
-        if (loadedFor != current()?.id) return
-        player?.let { it.seekTo(0); it.volume = djVolume; it.playWhenReady = true; it.play() }
+        djDuck(false)   // the music back up, where it is
     }
     private var loadedFor: String? = null   // the song the player has in now (its id)
 
@@ -1268,16 +1273,13 @@ object Music {
     fun sessionPlay() {
         if (Remote.active) { Remote.cmd("play"); return }
         val p = player ?: return
-        if (djTalking) {   // a line that never came out (long after it began): say it again; else let it finish
-            if (now() - djSaidAt > 8) djSay(lastDjLine.ifBlank { return djHush() })
-            return
-        }
+        if (djTalking) djHush()   // she stops; the music (never stopped for her) carries on
         if (dj.on && current() != null && p.state == Engine.ENDED && index + 1 >= queue.size) {
             djWaiting = true; advancing = true; if (djBusy == null) djMore(); return
         }
         // A new set that never got its line (the skip landed while it was loading): its line, then the song
         current()?.dj?.takeIf { it > 0 && dj.on && it.toString() != dj.shown && dj.sets[it.toString()] != null }?.let {
-            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else { djAnnounce(current()); if (!djTalking) p.play() }
+            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else { djAnnounce(current()); p.play() }
             return
         }
         if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
@@ -1287,9 +1289,8 @@ object Music {
     fun djHush() {
         if (!djTalking) return
         djTalking = false
-        // the song heard now if it's in (if it's still loading, it's heard once it's in)
-        player?.let { if (loadedFor == current()?.id) it.volume = djVolume; it.playWhenReady = true }
         Voice.hush()
+        djDuck(false)
     }
 
     /** You skipped (or a song ended) at the end of the DJ's queue while its next set was still being picked: it
@@ -3099,7 +3100,7 @@ object Music {
      *  casting, or (Smart transitions) between songs of one album, which flow into each other. */
     private fun maybeCrossfade(p: Engine) {
         val t = current()
-        if (t == null || !Prefs.on(Prefs.CROSSFADE) || bitPerfect || repeat == "one" || Remote.active || cast != null || streaming) {
+        if (t == null || !Prefs.on(Prefs.CROSSFADE) || bitPerfect || repeat == "one" || Remote.active || cast != null || streaming || ducked) {
             if (tail != null && tailFor != fadingId) dropTail()
             return
         }
@@ -3277,7 +3278,6 @@ object Music {
 
     fun trackEnded() {
         // The song ran out silently under a long line: it waits at its start for the DJ (never skipped)
-        if (djTalking) { player?.let { it.seekTo(0); it.play() }; return }
         advancing = true
         if (dj.on) djKeepGoing()
         if (streaming && duration > 0 && position < duration - 5) { streamBroke(); return }   // the network went away mid-song
@@ -3332,7 +3332,7 @@ object Music {
         val p = player ?: return
         if (current() == null) return
         // Pause while the DJ talks: she stops, and the set's song waits paused at its start
-        if (djTalking) { djHush(); p.pause(); if (loadedFor == current()?.id) p.seekTo(0); return }
+        if (djTalking) { djHush(); p.pause(); return }
         if (p.isPlaying) p.pause() else sessionPlay()
     }
 
@@ -3467,12 +3467,11 @@ object Music {
         playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         eqProcessor.songGain = gainOf(t)
         applyEq()   // the song's own EQ on this output, or the usual one
-        // The DJ is still talking (a new set): the song waits, loaded and silent, at its start until the DJ is done
-        val hold = djTalking && autoplay
-        p.playWhenReady = autoplay && !(hold && bitPerfectNow())   // held: silent at its start until the DJ is done (see djSay)
+        // Never held for the DJ: she talks over the song, turned down under her (see djSay)
+        p.playWhenReady = autoplay
         advancing = false   // buffering for real now
         fadeJob?.cancel()
-        if (hold) { fadeIn = 0.0; p.volume = 0f }
+        if (ducked && !bitPerfectNow()) { fadeIn = 0.0; p.volume = DUCK }
         else if (fadeIn < 0 && t.id == crossTo) { fadeIn = 0.0; p.volume = 0f }   // a crossfade brings it up (see maybeCrossfade)
         else if (fadeIn < 0) { fadeIn = 0.0; p.volume = 1f }   // another song than the one it was fading to (a skip)
         else if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away

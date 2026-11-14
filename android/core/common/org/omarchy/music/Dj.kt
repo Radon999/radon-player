@@ -43,7 +43,7 @@ object Dj {
         "unplayed" to "Not played yet", "artist" to "One artist", "mix" to "Mix", "hour" to "This time of day",
         "rediscover" to "Rediscover", "favorites" to "Your favourites", "discover" to "Artists for you", "mood" to "Your mood",
         "moodmix" to "Mood mix", "spotlight" to "Artist spotlight", "album" to "Album moment", "yearago" to "On this day",
-        "decade" to "Decade trip", "onehit" to "One-hit wonders", "neverskip" to "Never skipped", "second" to "Second chances",
+        "decade" to "Decade trip", "onehit" to "One-hit wonders", "neverskip" to "Not skipped this month", "second" to "Second chances",
         "unreleased" to "Unreleased corner", "streak" to "Streaks")
     /** Words in a request and the Last.fm tags they mean. */
     val WORDS = mapOf(
@@ -183,6 +183,7 @@ object Dj {
     // What the DJ said lately, kept (Prefs) so a restart doesn't start it over: the kinds of set played (from
     // everything, and from songs you picked), the facts told, and each line's shuffle bag.
     private const val KIND_HISTORY = "dj_kind_history"
+    private const val SPOT_HISTORY = "dj_spotlight_history"   // the artists in the spotlight lately
     private const val FROM_HISTORY = "dj_kind_history_from"
     private const val FACT_HISTORY = "dj_fact_history"
     private const val LINE_BAGS = "dj_line_bags"
@@ -321,8 +322,13 @@ object Dj {
     @Volatile var scope: Pair<String, List<Track>>? = null   // (name, songs) the DJ plays from; null: everything
         private set
 
-    /** Play only songs (named name: a playlist, a folder), or with null everything. */
-    fun playFrom(name: String?, songs: List<Track>?) {
+    /** Your whole library (the DJ's one group of songs): the new songs' sets go by your listening, as from everything. */
+    @Volatile var whole = false
+        private set
+
+    /** Play only songs (named name: your library), or with null everything. */
+    fun playFrom(name: String?, songs: List<Track>?, whole: Boolean = false) {
+        this.whole = whole && songs != null
         // A playlist's songs from a service that you have yourself: your copies (file, tags, cover) from the start
         scope = if (name != null && !songs.isNullOrEmpty()) name to Music.localsOf(songs) else null
         dead.clear()   // other songs: every kind may work again
@@ -1078,6 +1084,17 @@ object Dj {
                 "The mood of the week in your plays? ${m}. ${MoodTally.percent(week, m)} percent of what you played from your music.",
                 "If this week had a mood, it'd be $m. You played ${num(n)} ${adj(m)} songs.")
         }
+        // Now and then a mood other than your top one: any mood you've played enough of, picked at random each time
+        // (each is its own fact, so they take turns), so you hear how much of everything you play, not just the most
+        for (m in all.filter { it.value >= 15 }.keys.shuffled().take(3)) {
+            val n = all.getValue(m)
+            val mo = month[m] ?: 0
+            out["mood-any:$m"] = say("fact-mood-any",
+                "Here's one: ${MoodTally.percent(all, m)} percent of what you play from your music is ${adj(m)}. That's ${num(n)} plays.",
+                "${m.replaceFirstChar { it.uppercase() }} songs: ${num(n)} plays all told" + (if (mo > 0) ", and ${num(mo)} this month." else ", but none this month."),
+                "Mood check: you've played ${num(n)} ${adj(m)} songs, ${MoodTally.percent(all, m)} percent of your listening.",
+                "This month you've played ${num(mo)} ${adj(m)} songs" + (if (month.values.sum() > 0) ", ${MoodTally.percent(month, m)} percent of the month." else "."))
+        }
         MoodTally.top(all, minPlays = 100)?.let { (m, n) ->
             out["mood-all"] = "All time, the mood you play most is $m. That's ${num(n)} plays, and ${MoodTally.percent(all, m)} percent of your music."
         }
@@ -1233,9 +1250,16 @@ object Dj {
 
     /** Artist spotlight: one artist you love, a few of their songs you play most and a few you hardly do. */
     private fun setSpotlight(taste: Taste): Pair<List<Track>, String>? {
-        val byArtist = mySongs().groupBy { norm(leadOf(it)) }
-        val cands = taste.facts.artistAll.entries.sortedByDescending { it.value }.take(25)
-            .filter { (byArtist[norm(it.key)]?.size ?: 0) >= 5 }.shuffled()
+        // Any artist in your library with five songs or more, at random (the ones you play more a little likelier), and
+        // none of the last ones in the spotlight until most of the others have had a turn
+        val byArtist = mySongs().groupBy { norm(leadOf(it)) }.filterKeys { it.isNotEmpty() }
+        val names = byArtist.mapValues { (_, songs) -> songs.groupingBy { leadOf(it) }.eachCount().maxByOrNull { it.value }?.key ?: leadOf(songs[0]) }
+        val plays = taste.facts.artistAll.entries.associate { norm(it.key) to it.value }
+        val all = byArtist.filter { it.value.size >= 5 }.keys.toList()
+        val lately = said(SPOT_HISTORY).takeLast(maxOf(0, minOf(40, all.size - 3))).toSet()
+        val cands = (all.filter { it !in lately }.ifEmpty { all })
+            .map { k -> k to Math.pow(Random.nextDouble(), 1.0 / (1.0 + kotlin.math.ln(1.0 + (plays[k] ?: 0)) / 3)) }
+            .sortedByDescending { it.second }.map { (k, _) -> names.getValue(k) to (plays[k] ?: 0) }
         for ((a, n) in cands.take(4)) {
             val theirs = byArtist[norm(a)].orEmpty().filter { songKey(it) !in used }.sortedByDescending { playsOf(taste, it) }
             val hits = pick(theirs.take(10), 3, used)
@@ -1243,10 +1267,11 @@ object Dj {
             val songs = (hits + deep).distinctBy { songKey(it) }
             if (songs.size < 4) continue
             val s = songs[0]
-            return songs to say("spotlight",
+            remember(SPOT_HISTORY, norm(a), keep = 60)
+            return songs to say(if (n >= 20) "spotlight" else "spotlight-few",
                 "Artist spotlight: $a. You've played them ${num(n)} times, so here's a mix of the big ones and a few deeper cuts, starting with ${q(s)}.",
                 "Let's give $a the stage for a few songs. Some favourites, some you don't play as much, and ${q(s)} goes first.",
-                "Spotlight on $a now. ${num(n)} plays tell me you're a fan. Here's ${q(s)}.",
+                if (n >= 20) "Spotlight on $a now. ${num(n)} plays tell me you're a fan. Here's ${q(s)}." else "Spotlight on $a now, from your library. Here's ${q(s)}.",
                 "It's a $a moment. The hits, the hidden ones, the lot. Starting with ${q(s)}.",
                 "Five songs, one artist: $a. Let's go, with ${q(s)}.")
         }
@@ -1338,19 +1363,30 @@ object Dj {
             "Single appearances only. ${names(songs, 3)}, each the only one of theirs you have.")
     }
 
-    /** Never skipped: songs you've always heard to the end. */
+    /** Not skipped this month: songs you've played this month and heard to the end every time. */
     private fun setNeverSkipped(taste: Taste): Pair<List<Track>, String>? {
-        val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
-        val pool = rows.filter { (_, sk, full) -> sk == 0 && full >= 3 }.sortedByDescending { it.third }
-            .map { (t, _, _) -> taste.mine[songKey(t)] ?: t }
-        val songs = pick(ok(taste, pool).take(80), SET, used)
+        // Only songs you've played this month, heard to the end every time (not one skip this month); each month they all
+        // count again, so a song you once skipped isn't out for good. The more often you've heard one out (and the fewer
+        // times you've ever skipped it), the likelier it comes up. Early in the month, with few plays yet, the last 30
+        // days instead.
+        val zone = java.time.ZoneId.systemDefault()
+        val monthStart = java.time.LocalDate.now(zone).withDayOfMonth(1).atStartOfDay(zone).toEpochSecond()
+        fun heardOut(since: Long) = runCatching { Music.songStats.rows(since) }.getOrDefault(emptyList()).filter { it.second == 0 && it.third >= 1 }
+        var rows = heardOut(monthStart)
+        if (rows.size < 12) rows = heardOut(now().toLong() - 30 * 86_400L)
+        val pool = rows.map { (t, _, full) ->
+                val (sk, all) = Music.songStats.get(t)
+                val w = full * (0.5 + 0.5 * (1 - SongStats.rate(sk, all)))
+                (taste.mine[songKey(t)] ?: t) to Math.pow(Random.nextDouble(), 1.0 / w.coerceAtLeast(0.01))
+            }.sortedByDescending { it.second }.map { it.first }
+        val songs = ok(taste, pool).filter { songKey(it) !in used }.take(SET)
         if (songs.size < 3) return null
         val s = songs[0]
         return songs to say("neverskip",
-            "Songs you've never skipped. Not once. Starting with ${q(s)}.",
-            "Every one of these, you've always heard to the end. ${q(s)} first.",
-            "Zero skips between them. These are the keepers, starting with ${q(s)} by ${by(s)}.",
-            "Start to finish, every time. Here's ${names(songs, 3)}.")
+            "Songs you've played this month and haven't skipped once. Starting with ${q(s)}.",
+            "Every time these came on this month, you heard them to the end. ${q(s)} first.",
+            "Zero skips this month between them. These are the keepers, starting with ${q(s)} by ${by(s)}.",
+            "Not a single skip this month. Here's ${names(songs, 3)}.")
     }
 
     /** Second chances: songs you skip a lot, played in a different set, in case the mood's right this time. */
@@ -1694,7 +1730,8 @@ object Dj {
                 // (songs like them, their artists)
                 val keys = HashSet<Pair<String, String>>()
                 sc.second.forEach { keys += songKey(it); keys += Stats.statsKey(it.title, it.artist) }
-                if (k in NEW_KINDS) {
+                if (k in NEW_KINDS && whole) regularSet(k, taste)   // new songs like what you listen to
+                else if (k in NEW_KINDS) {
                     val artists = sc.second.groupingBy { it.artist.split(",")[0].trim() }.eachCount().entries
                         .filter { it.key.isNotEmpty() }.sortedByDescending { it.value }.map { it.key }.take(20)
                     regularSet(k, Taste(taste.mine, sc.second.shuffled().take(20), sc.second, artists, taste.last, taste.hour, taste.years,

@@ -64,6 +64,9 @@ class UsbAudioSink(inner: AudioSink) : ForwardingAudioSink(inner) {
         super.configure(inputFormat, specifiedBufferSize, outputChannels)
     }
 
+    private var duck = 1.0   // the music's gain under the DJ's voice (1: as it is)
+    private val DUCK = 0.25
+
     private fun clearState() { startUs = C.TIME_UNSET; ended = false; pending = false; outRead = 0; restarts = 0 }
 
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
@@ -127,6 +130,13 @@ class UsbAudioSink(inner: AudioSink) : ForwardingAudioSink(inner) {
         val tone = tones.ready(rate, channels)
         var ch = 0
         var mono = 0f
+        // The DJ's voice over the music (see UsbDirect.speak): mixed in, the music eased down under it and back up after
+        var voice = UsbDirect.voice
+        if (voice != null && UsbDirect.voiceRate != rate) { UsbDirect.voice = null; voice = null }   // another rate now: she stops
+        val vStart = voice
+        var vPos = UsbDirect.voicePos
+        val vFrames = (voice?.size ?: 0) / 2
+        val ease = 1.0 / (rate * 0.12)   // about a tenth of a second to go down or up
         repeat(samples) {
             var l: Int = when (inEnc) {   // the sample, left-justified in 32 bits
                 C.ENCODING_PCM_16BIT -> b.short.toInt() shl 16
@@ -136,6 +146,13 @@ class UsbAudioSink(inner: AudioSink) : ForwardingAudioSink(inner) {
             }
             if (tone) l = tones.run(ch, l, g.toDouble())
             else if (g != 1f) l = (l * g.toDouble()).roundToLong().coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+            if (voice != null || duck != 1.0) {
+                val talking = voice != null && vPos < vFrames
+                if (ch == 0) duck = if (talking) maxOf(DUCK, duck - ease) else minOf(1.0, duck + ease)
+                val vs = if (talking) voice!![vPos * 2 + (ch % 2)] * g.toDouble() * 2147483647.0 else 0.0
+                l = (l * duck + vs).roundToLong().coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+                if (talking && ch + 1 >= channels) { vPos++; if (vPos >= vFrames) { UsbDirect.voice = null; voice = null } }
+            }
             mono += l / 2147483648f
             if (ch + 1 >= channels) AudioTap.push(mono / channels).also { mono = 0f }   // for the visualizers
             ch = if (ch + 1 >= channels) 0 else ch + 1
@@ -145,6 +162,7 @@ class UsbAudioSink(inner: AudioSink) : ForwardingAudioSink(inner) {
                 else -> out.putInt(l)
             }
         }
+        if (vStart != null && UsbDirect.voice.let { it == null || it === vStart }) UsbDirect.voicePos = vPos
         out.flip()
         AudioTap.lag = { pendingFrames() }
         AudioTap.pushed(rate)

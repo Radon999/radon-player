@@ -482,6 +482,55 @@ object UsbDirect {
      *  (-1..1, channels interleaved) at rate; they go to the DAC at its rate and sample size, at the phone's volume.
      *  Blocking; false when the DAC isn't the app's (then Android plays it as before). Stops early once go is false. */
     fun speak(samples: FloatArray, rate: Int, channels: Int, go: () -> Boolean): Boolean {
+        // The music playing: her voice mixed into it as it goes to the DAC, the music turned down under her (as a radio
+        // DJ talks over the song), so nothing waits or starts again. The music not flowing for a while (stopped,
+        // paused): the rest of the line said on its own, as below.
+        val dc0 = dac
+        val r0 = dc0?.rateNow ?: 0
+        if (active && stream != 0L && sinkPlaying && r0 > 0) {
+            val ch = maxOf(1, channels)
+            val frames = samples.size / ch
+            if (frames == 0) return true
+            val step = rate.toDouble() / r0
+            val outFrames = (frames / step).toInt()
+            val v = FloatArray(outFrames * 2)
+            for (k in 0 until outFrames) {
+                val pos = k * step
+                val i = pos.toInt().coerceAtMost(frames - 1); val f = (pos - i).toFloat()
+                val j = (i + 1).coerceAtMost(frames - 1)
+                for (c in 0 until 2) {
+                    val sc = if (ch == 1) 0 else minOf(c, ch - 1)
+                    v[k * 2 + c] = samples[i * ch + sc] * (1 - f) + samples[j * ch + sc] * f
+                }
+            }
+            voicePos = 0; voiceRate = r0; voice = v
+            var last = -1; var still = 0
+            while (go() && voice === v) {
+                Thread.sleep(20)
+                val p = voicePos
+                if (p == last) still += 20 else { still = 0; last = p }
+                if (still > 4000) break
+            }
+            if (voice !== v) { lastSpeak = "${outFrames * 1000L / r0} ms of voice mixed over the music (${khz(r0)} kHz)"; return true }
+            val done = voicePos
+            voice = null
+            if (!go()) return true
+            // The music stopped flowing under her: the rest of the line on its own
+            val from = ((done * step).toInt().coerceAtMost(frames)) * ch
+            if (from >= samples.size) return true
+            return speakAlone(samples.copyOfRange(from, samples.size), rate, channels, go)
+        }
+        return speakAlone(samples, rate, channels, go)
+    }
+
+    /** The DJ's voice over the music (bit-perfect): stereo frames at [voiceRate], mixed in by the sink as it sends the
+     *  music (see UsbAudioSink.convert), which turns the music down under it; null once it's all been mixed in. */
+    @Volatile var voice: FloatArray? = null
+    @Volatile var voiceRate = 0
+    @Volatile var voicePos = 0   // frames of it mixed in so far
+
+    /** The voice alone to the DAC, the music held for it (the DJ before the first song, or with the music stopped). */
+    private fun speakAlone(samples: FloatArray, rate: Int, channels: Int, go: () -> Boolean): Boolean {
         // No stream yet (the DJ before the first song, or between songs): one set up for the voice, at the rate the
         // DAC was last at (else 48 kHz), which the next song takes over (or sets up again at its own)
         if (!(active && stream != 0L)) {
