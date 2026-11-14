@@ -90,19 +90,19 @@ object Voice {
         return dac?.invoke(s, rate, ch) { turn == mine } == true
     }
 
-    // ---- Kokoro, through sherpa-onnx (Apache-2.0): the voice the PC uses ----
-    private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
-    private const val MODEL_DIR = "kokoro-int8-multi-lang-v1_0"
-    private val dir get() = java.io.File(Music.ctx.filesDir, "dj-voice-kokoro")
+    // ---- Pocket TTS (Kyutai's, CC BY 4.0), through sherpa-onnx (Apache-2.0): the voice the PC uses ----
+    // (Before 3.3 it was Kokoro, in "dj-voice-kokoro": deleted once this one is in.)
+    private const val MODEL_URL = DjVoices.POCKET_URL
+    private const val MODEL_DIR = DjVoices.POCKET_DIR
+    private val dir get() = java.io.File(Music.ctx.filesDir, "dj-voice-pocket")
     private val modelDir get() = java.io.File(dir, MODEL_DIR)
-    private fun onnx(): java.io.File? = modelDir.listFiles()?.filter { it.isFile && it.name.endsWith(".onnx") }?.maxByOrNull { it.length() }
-    private fun modelReady() = onnx() != null && java.io.File(modelDir, "voices.bin").isFile && java.io.File(modelDir, "tokens.txt").isFile
+    private fun modelReady() = DjVoices.pocketReady(modelDir)
     private var naturalOk by androidx.compose.runtime.mutableStateOf(false)
 
     /** The natural voice isn't on the phone yet (it can be fetched). */
     val needsNatural get() = !naturalOk && !modelReady()
     val hasNatural get() = naturalOk || modelReady()
-    const val naturalSize = "about 130 MB"
+    const val naturalSize = DjVoices.POCKET_SIZE
 
     /** The phone: which voice the DJ uses once the natural one is here (on, the default: the natural one; off: the
      *  phone's own Google voice). */
@@ -116,13 +116,13 @@ object Voice {
     /** Deletes the natural voice (its own folder only), back to the phone's voice. */
     fun removeNatural() {
         runCatching { kokoro?.release() }; kokoro = null
-        dir.deleteRecursively(); naturalOk = false; lexWords = null
+        dir.deleteRecursively(); naturalOk = false; like = null
     }
 
     /** (blocking) Fetch the natural voice (the PC's Kokoro voice, made smaller for phones) and unpack it. */
     fun getNatural(progress: (String) -> Unit) {
         dir.mkdirs()
-        val zip = java.io.File(dir, "kokoro.tar.bz2")
+        val zip = java.io.File(dir, "pocket.tar.bz2")
         val c = java.net.URL(MODEL_URL).openConnection() as java.net.HttpURLConnection
         c.instanceFollowRedirects = true; c.connectTimeout = 20_000; c.readTimeout = 60_000
         c.setRequestProperty("User-Agent", "RadonPlayer")
@@ -155,27 +155,27 @@ object Voice {
         } finally { zip.delete() }
         if (!modelReady()) error("The voice didn't unpack")
         naturalOk = true
+        // The voice from before (Kokoro, about 130 MB): the app's own folder of it, and nothing else
+        runCatching { java.io.File(Music.ctx.filesDir, "dj-voice-kokoro").takeIf { it.isDirectory }?.deleteRecursively() }
     }
 
     @Volatile private var kokoro: com.k2fsa.sherpa.onnx.OfflineTts? = null
     @Volatile private var track: android.media.AudioTrack? = null
 
-    /** Kokoro's English dictionary's words (lowercase), read once: a word not in it is respelt ([Pronounce]). */
-    @Volatile private var lexWords: Set<String>? = null
-    private fun lexicon(): Set<String> = lexWords ?: runCatching {
-        java.io.File(modelDir, "lexicon-us-en.txt").useLines { lines ->
-            lines.mapNotNull { l -> l.trim().split(Regex("\\s+"), limit = 2).firstOrNull()?.lowercase()?.takeIf { it.isNotEmpty() } }.toHashSet() }
-    }.getOrDefault(emptySet()).also { if (it.isNotEmpty()) lexWords = it }
+    /** The recording the voice is modelled on (its samples and their rate), read once. */
+    @Volatile private var like: Pair<FloatArray, Int>? = null
+    private fun voiceLike(): Pair<FloatArray, Int> = like
+        ?: (wavSamples(java.io.File(modelDir, DjVoices.POCKET_VOICE).readBytes()) ?: error("The voice's recording couldn't be read")).also { like = it }
 
     private fun engine(): com.k2fsa.sherpa.onnx.OfflineTts {
         kokoro?.let { return it }
-        val m = modelDir
-        val lex = listOf("lexicon-us-en.txt", "lexicon-zh.txt").map { java.io.File(m, it) }.filter { it.isFile }.joinToString(",") { it.path }
+        fun p(name: String) = java.io.File(modelDir, name).path
+        // Two threads: with four, a four-core processor made speech half as fast (docs/rebuild/TTS_ENGINES.md)
         val cfg = com.k2fsa.sherpa.onnx.OfflineTtsConfig(model = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig(
-            kokoro = com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig(model = onnx()!!.path, voices = java.io.File(m, "voices.bin").path,
-                tokens = java.io.File(m, "tokens.txt").path, dataDir = java.io.File(m, "espeak-ng-data").path, lexicon = lex,
-                dictDir = java.io.File(m, "dict").path, lengthScale = 0.92f),
-            numThreads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4), provider = "cpu"))
+            pocket = com.k2fsa.sherpa.onnx.OfflineTtsPocketModelConfig(lmFlow = p(DjVoices.POCKET_LM_FLOW), lmMain = p(DjVoices.POCKET_LM_MAIN),
+                encoder = p(DjVoices.POCKET_ENCODER), decoder = p(DjVoices.POCKET_DECODER), textConditioner = p(DjVoices.POCKET_TEXT),
+                vocabJson = p(DjVoices.POCKET_VOCAB), tokenScoresJson = p(DjVoices.POCKET_SCORES)),
+            numThreads = 2, provider = "cpu"))
         return com.k2fsa.sherpa.onnx.OfflineTts(null, cfg).also { kokoro = it }
     }
 
@@ -207,10 +207,11 @@ object Voice {
     }
 
     private fun makeNatural0(text: String): com.k2fsa.sherpa.onnx.GeneratedAudio? {
-        val plain = java.text.Normalizer.normalize(Pronounce.sayable(text, lexicon()), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
-            .replace(Regex("\\s+"), " ").trim()
+        val plain = DjVoices.plain(text)
         if (plain.isEmpty()) return null
-        return engine().generate(plain, DjVoices.kokoroVoice.sid, 1.0f)
+        val ref = voiceLike()
+        return engine().generateWithConfig(plain, com.k2fsa.sherpa.onnx.GenerationConfig(referenceAudio = ref.first,
+            referenceSampleRate = ref.second, numSteps = DjVoices.POCKET_STEPS))
     }
 
     /** Make a line the DJ is about to say (the next set's) now, in the background: when its turn comes it's said at

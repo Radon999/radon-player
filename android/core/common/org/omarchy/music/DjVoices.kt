@@ -61,17 +61,32 @@ object DjVoices {
         } finally { c.disconnect() }
     }
 
-    // ---- Kokoro (the PC's free natural voice) ----
-    const val KOKORO_VOICE = "dj_kokoro_voice"
+    // ---- Pocket TTS (Kyutai): the DJ's natural voice, the same on the phone and the PC ----
+    // Run by sherpa-onnx (its package of the model, made smaller: int8), fetched once. It speaks in the voice of a
+    // short recording: the one the package brings, until the app has voices of its own. 24 kHz, one channel.
+    const val POCKET_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2"
+    const val POCKET_DIR = "sherpa-onnx-pocket-tts-int8-2026-01-26"
+    const val POCKET_SIZE = "about 95 MB"
+    const val POCKET_LM_FLOW = "lm_flow.int8.onnx"
+    const val POCKET_LM_MAIN = "lm_main.int8.onnx"
+    const val POCKET_ENCODER = "encoder.onnx"
+    const val POCKET_DECODER = "decoder.int8.onnx"
+    const val POCKET_TEXT = "text_conditioner.onnx"
+    const val POCKET_VOCAB = "vocab.json"
+    const val POCKET_SCORES = "token_scores.json"
+    /** The recording the voice is modelled on (in the model's folder). */
+    const val POCKET_VOICE = "test_wavs/bria.wav"
+    /** How many steps the voice takes to make each piece of sound (more: better and slower; sherpa-onnx's own choice). */
+    const val POCKET_STEPS = 5
 
-    /** Kokoro's voices offered (name in the model, its speaker number in kokoro-multi-lang-v1_0, what it sounds like). */
-    data class KokoroVoice(val id: String, val sid: Int, val label: String)
+    /** The voice is all there in dir (the model's folder). */
+    fun pocketReady(dir: java.io.File): Boolean = listOf(POCKET_LM_FLOW, POCKET_LM_MAIN, POCKET_ENCODER, POCKET_DECODER, POCKET_TEXT,
+        POCKET_VOCAB, POCKET_SCORES, POCKET_VOICE).all { java.io.File(dir, it).isFile }
 
-    /** The DJ's one voice: Heart, a female voice that sounds like a person. */
-    val KOKORO_VOICES = listOf(KokoroVoice("af_heart", 3, "Female"))
-
-    val kokoroVoice: KokoroVoice get() = KOKORO_VOICES[0]
-    fun setKokoroVoice(id: String) = Prefs.setText(KOKORO_VOICE, id)
+    private val MARKS = Regex("\\p{M}+")
+    private val SPACES = Regex("\\s+")
+    /** text as it's given to the voice: plain letters (é is e), on one line. */
+    fun plain(text: String): String = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(MARKS, "").replace(SPACES, " ").trim()
 
     /** What the DJ says to try a voice. */
     const val SAMPLE = "Hey. This is how I sound... not bad, right? Alright, back to the music."

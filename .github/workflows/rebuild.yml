@@ -21,6 +21,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - name: The DJ's voice, for its test (PocketVoiceTest)
+        run: |
+          curl -sSL -o "$RUNNER_TEMP/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
+          tar xjf "$RUNNER_TEMP/voice.tar.bz2" -C "$RUNNER_TEMP" && echo "RADON_VOICE_DIR=$RUNNER_TEMP/sherpa-onnx-pocket-tts-int8-2026-01-26" >> "$GITHUB_ENV" || true
       - name: Test and compile
         working-directory: android
         run: |
@@ -51,6 +55,7 @@ jobs:
             echo "SHARED TESTS: $(count android/shared/build/test-results/test)"
             echo "APP TESTS: $(count android/app/build/test-results/testDebugUnitTest)"
             echo "PC TESTS (the app's logic, started without a window): $(count android/desktop/build/test-results/test)"
+            echo "THE DJ'S VOICE (Pocket TTS, made for real): $(grep -ho 'POCKET VOICE:[^<]*' android/desktop/build/test-results/test/*.xml 2>/dev/null | head -1 || true)$(grep -l 'PocketVoiceTest' android/desktop/build/test-results/test/*.xml 2>/dev/null | xargs -r grep -o 'skipped="[1-9]' | head -1 | sed 's/.*/ (skipped: the voice was not fetched)/')"
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
@@ -85,6 +90,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - name: The DJ's voice, for its test (PocketVoiceTest)
+        run: |
+          T="$(cygpath -u "$RUNNER_TEMP")"
+          curl -sSL -o "$T/voice.tar.bz2" https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2
+          (cd "$T" && (tar xjf voice.tar.bz2 || /c/Windows/System32/tar.exe -xf voice.tar.bz2)) && echo "RADON_VOICE_DIR=$(cygpath -w "$T/sherpa-onnx-pocket-tts-int8-2026-01-26")" >> "$GITHUB_ENV" || true
       - name: Test and build the installer
         working-directory: android
         run: |
@@ -98,6 +108,7 @@ jobs:
             t=$(grep -ho 'tests="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
             f=$(grep -ho '\(failures\|errors\)="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
             echo "PC TESTS ON WINDOWS: $n suites, tests $t, failed $f"
+            echo "THE DJ'S VOICE ON WINDOWS: $(grep -ho 'POCKET VOICE:[^<]*' android/desktop/build/test-results/test/*.xml 2>/dev/null | head -1 || echo 'not made (skipped or failed)')"
             msi=$(ls android/desktop/build/compose/binaries/main/msi/*.msi 2>/dev/null | head -1)
             if [ -n "$msi" ]; then echo "WINDOWS INSTALLER: $(basename "$msi"), $(du -h "$msi" | cut -f1)"; else echo "WINDOWS INSTALLER: not built"; fi
             echo "--- errors"

@@ -41,7 +41,22 @@ val writeBuildInfo by tasks.registering {
 sourceSets["main"].resources.srcDir(buildInfo)
 tasks.named("processResources") { dependsOn(writeBuildInfo) }
 
+// sherpa-onnx (Apache-2.0): runs the DJ's natural voice (Pocket TTS) inside the PC app, as its Android library does on
+// the phone. Its Java library and the native libraries for Windows and Linux, fetched once from its own release and
+// kept beside the build (the same release as the phone's: app/build.gradle.kts).
+fun sherpa(name: String): File = rootProject.file("build/sherpa/$name").also { f ->
+    if (!f.isFile) {
+        f.parentFile.mkdirs()
+        val part = File(f.path + ".part")
+        uri("https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/$name")
+            .toURL().openStream().use { input -> part.outputStream().use { out -> input.copyTo(out) } }
+        part.renameTo(f)
+    }
+}
+
 dependencies {
+    implementation(files(sherpa("sherpa-onnx-jvm-2.0.1.jar"), sherpa("sherpa-onnx-native-lib-win-x64-2.0.1.jar"),
+        sherpa("sherpa-onnx-native-lib-linux-x64-2.0.1.jar")))
     implementation(project(":shared"))
     implementation(project(":ui-common"))
     implementation(compose.desktop.currentOs)
@@ -59,6 +74,8 @@ dependencies {
 // of their own, so nothing of yours (your Music folder, the app's own files) is read or touched.
 tasks.withType<Test> {
     systemProperty("java.awt.headless", "true")
+    // PocketVoiceTest: the DJ's voice made for real, where the checks have fetched it (RADON_VOICE_DIR); skipped elsewhere
+    System.getenv("RADON_VOICE_DIR")?.let { environment("RADON_VOICE_DIR", it) }
     systemProperty("user.home", layout.buildDirectory.dir("test-home").get().asFile.apply { mkdirs() }.path)
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

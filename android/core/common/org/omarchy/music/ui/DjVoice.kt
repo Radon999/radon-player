@@ -41,7 +41,7 @@ fun DjVoiceLines(ui: Ui) {
         val st = naturalStatus
         if (st != null) Text(st, style = T.sub)
         else Pill("Get the natural voice (${Voice.naturalSize})", quiet = true) {
-            ui.confirm = "Download the DJ's natural voice? It's Kokoro, a free voice that runs on your $DEVICE and sounds like a " +
+            ui.confirm = "Download the DJ's natural voice? It's Pocket TTS, a free voice that runs on your $DEVICE and sounds like a " +
                 "real radio host (${Voice.naturalSize}, once; Wi-Fi is best). It's the same voice on the phone and the PC." to {
                 naturalStatus = "Starting…"
                 Music.bg({ Voice.getNatural { naturalStatus = it } }) { _, err ->
