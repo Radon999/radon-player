@@ -23,6 +23,7 @@ object Harness {
         TidalHistory.init(c)
         AppleHistory.init(c)
         Stats.init(c)
+        Pictures.init(c)
         Dj.withNew = false   // only the songs given: no kind of set goes looking on a service (no network in a test)
         c
     }
