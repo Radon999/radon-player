@@ -129,13 +129,17 @@ class DjBehaviourTest {
     @Test fun fault_aSetNeverPlayedStillUsesUpItsKindsTurn() {
         Harness.ctx
         Dj.playFrom("the test songs", Harness.songs(40, from = 100))
-        assertFalse(NoRepeat.decode(Prefs.text("dj_kind_history")).contains("mix"))
+        // The other tests here make sets too (the tests share one DJ): counted, not just looked for. Let what they
+        // wrote settle first (it's kept on the app's own thread, a moment later).
+        fun times() = NoRepeat.decode(Prefs.text("dj_kind_history")).count { it == "mix" }
+        Thread.sleep(1500)
+        val before = times()
         val b = Dj.build(kind = "mix")
         assertNotNull(b)
         assertEquals("mix", b!!.kind)
         var kept = false
-        for (i in 0 until 50) {   // kept on the app's own thread, a moment later
-            if (NoRepeat.decode(Prefs.text("dj_kind_history")).contains("mix")) { kept = true; break }
+        for (i in 0 until 50) {
+            if (times() == before + 1) { kept = true; break }
             Thread.sleep(100)
         }
         assertTrue("the kind wasn't written at build: is C-4 fixed? Then turn this test round", kept)
