@@ -109,6 +109,55 @@ class PlaybackBehaviourTest {
         assertFalse(engine.playWhenReady)
     }
 
+    /** Previous, more than 10 seconds into a song: the song from its start again, not the one before. */
+    @Test fun previousWellIntoASongStartsItAgain() {
+        start("back-late", at = 1)
+        val loads = engine.loads.size
+        engine.positionMs = 30_000
+        ui { Music.position = 30.0; Music.previous() }
+        assertEquals(0L, engine.positionMs)
+        assertEquals(1, Music.index)
+        assertEquals("nothing new is loaded", loads, engine.loads.size)
+    }
+
+    /** Previous, in a song's first 10 seconds: the song before it. */
+    @Test fun previousAtASongsStartGoesToTheSongBefore() {
+        val songs = start("back-early", at = 1)
+        engine.positionMs = 2_000
+        ui { Music.position = 2.0; Music.previous() }
+        until("the song before loaded") { engine.loads.lastOrNull()?.id == songs[0].id }
+        assertEquals(0, Music.index)
+    }
+
+    /** Repeat all: after the last song, the first again. */
+    @Test fun repeatAllGoesRoundToTheFirstSong() {
+        val songs = start("round", at = 2)
+        ui { Music.repeat = "all" }
+        engine.end()
+        ui { Music.engineEnded() }
+        until("the first song loaded") { engine.loads.lastOrNull()?.id == songs[0].id }
+        assertEquals(0, Music.index)
+        ui { Music.repeat = "off" }
+    }
+
+    /** A song that reaches its end but whose player never says so (it sits there, "playing", not moving): after a
+     *  few seconds the app moves on by itself. */
+    @Test fun aSongStuckAtItsEndMovesOnByItself() {
+        val songs = start("stuck")
+        engine.durationMs = 200_000
+        engine.positionMs = 199_800   // in its last second and a half, and it stays there
+        until("the app moved on to the next song") { engine.loads.lastOrNull()?.id == songs[1].id }
+        assertEquals(1, Music.index)
+    }
+
+    /** A song that plays to its end is counted as heard to the end, not as skipped. */
+    @Test fun aSongThatEndsIsCountedAsHeardOut() {
+        val songs = start("heard", at = 2)
+        engine.end()
+        ui { Music.engineEnded() }
+        until("it was counted") { Music.songStats.rows().any { it.first.title == songs[2].title && it.second == 0 && it.third == 1 } }
+    }
+
     /** Repeat one: the song that ended is loaded again, from its very start. */
     @Test fun repeatOnePlaysTheSongAgainFromItsStart() {
         val songs = start("again", at = 1)

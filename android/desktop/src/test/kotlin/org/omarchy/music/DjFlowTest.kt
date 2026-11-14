@@ -75,6 +75,32 @@ class DjFlowTest {
         assertTrue(Music.dj.on)
     }
 
+    /** Switch it up: a new set now, in place of the rest of this one; the song that was playing stays behind it. */
+    @Test fun switchItUpPutsANewSetInPlaceOfTheRestOfThisOne() {
+        startDj()
+        val was = Music.current()?.id
+        Harness.ui { Music.djSwitch() }
+        Harness.until("the new set playing") { Music.current()?.dj == 2 && loaded() }
+        assertTrue(Music.dj.on)
+        assertEquals(1, Music.index)
+        assertEquals(was, Music.queue[0].id)
+        assertEquals("the rest of the first set is gone", 1, Music.queue.count { it.dj == 1 })
+        assertTrue(Music.queue.count { it.dj == 2 } in 3..Dj.SET)
+        assertEquals(Music.queue.size, Music.queue.map { it.id }.distinct().size)
+    }
+
+    /** With the DJ, Repeat is only Repeat one or off (Repeat all means nothing to it), and shuffle isn't used. */
+    @Test fun withTheDjRepeatIsOneOrOffAndShuffleDoesNothing() {
+        startDj()
+        Harness.ui { Music.cycleRepeat() }
+        assertEquals("one", Music.repeat)
+        Harness.ui { Music.cycleRepeat() }
+        assertEquals("off", Music.repeat)
+        val order = Music.queue.map { it.id }
+        Harness.ui { Music.shuffle() }
+        assertEquals(order, Music.queue.map { it.id })
+    }
+
     @Test fun pickingOtherSongsStopsTheDj() {
         startDj()
         val other = Harness.files("other", 3)
