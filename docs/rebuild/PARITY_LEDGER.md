@@ -20,14 +20,16 @@ yet: every row is unverified there.
 | A song skipped while loading never reaches the player | covered | P `aSongSkippedWhileItLoadsIsNeverLoaded` | |
 | Queue ends: player pauses, stays on the song | covered | P `theQueueEndingStopsThePlayer` | Autoplay off, no other queue |
 | Repeat one restarts from 0 | covered | P `repeatOnePlaysTheSongAgainFromItsStart` | |
-| Previous (restart after 10 s, else back; not a skip) | not yet | | |
-| `next()` precedence: Repeat all (reshuffle), next saved queue, Autoplay radio | not yet | | Radio needs a service stand-in |
+| Previous: well into a song restarts it; in its first 10 s goes back | covered | P `previousWellIntoASongStartsItAgain`, `previousAtASongsStartGoesToTheSongBefore` | That going back isn't counted as a skip: not yet |
+| Repeat all goes round to the first song | covered | P `repeatAllGoesRoundToTheFirstSong` | Reshuffling on the way round: not yet |
+| After the queue: next saved queue, Autoplay radio | not yet | | Radio needs a service stand-in |
 | Your copy first (`localOf`) | not yet | | |
 | A load that fails: skip after 1.5 s | not yet | | Needs a failing source stand-in |
 | A stream that breaks: one retry from the same place | not yet | | Same |
-| Skips and heard-to-the-end counting | not yet | | |
+| A song that ends is counted as heard to the end | covered | P `aSongThatEndsIsCountedAsHeardOut` | |
+| Skip counting (its three conditions) | not yet | | |
 | A play counts at half the song; Last.fm rule | not yet | | |
-| End watchdog (stuck, ran past its end, audio drained) | not yet | | Stand-in player can fake each |
+| A song stuck at its end moves on by itself | covered | P `aSongStuckAtItsEndMovesOnByItself` | Ran past its end, audio drained: not yet |
 | Crossfade and its exclusions | not yet | | Needs a second stand-in player (`tail`) |
 | Saved queues (Queues on) | not yet | | |
 | Shuffle, smart shuffle | partly | A `ShuffleTest` | The weights only |
@@ -45,6 +47,8 @@ yet: every row is unverified there.
 | No song twice in the DJ's queue | covered | same | |
 | Picking other songs stops the DJ | covered | P `pickingOtherSongsStopsTheDj` | |
 | Stopping leaves the music as it is | covered | P `stoppingTheDjLeavesTheMusicAsItIs` | |
+| Switch it up replaces the rest of the set | covered | P `switchItUpPutsANewSetInPlaceOfTheRestOfThisOne` | That it is instant (a set kept ready): not yet |
+| With the DJ: Repeat is one or off; shuffle does nothing | covered | P `withTheDjRepeatIsOneOrOffAndShuffleDoesNothing` | |
 | A set never has a song still to come | covered | P `DjBehaviourTest.aSetNeverHasASongStillToCome` | |
 | Songs played stay out (300-song gap), kept across restarts | covered | P `songsTheDjPlayedDontComeBackYet` | The shrinking window for few songs: not yet |
 | Kinds of set take turns | covered | P `kindsOfSetTakeTurns` | Three kinds only (what test songs can make) |
