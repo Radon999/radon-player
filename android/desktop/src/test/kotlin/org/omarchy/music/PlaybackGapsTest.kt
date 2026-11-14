@@ -161,10 +161,11 @@ class PlaybackGapsTest {
                 Music.listName = "Kept A"; Music.playFrom(a, 0, radio = false)
             }
             until("A's first song loaded") { engine.loads.lastOrNull()?.id == a[0].id }
-            ui { Music.listName = "Kept B"; Music.playFrom(b, 1, radio = false) }
+            ui { Music.removeOtherQueues(); Music.listName = "Kept B"; Music.playFrom(b, 1, radio = false) }   // (queues other tests left)
             until("B's second song loaded") { engine.loads.lastOrNull()?.id == b[1].id }
             val id = Music.queueId
             assertTrue(id.isNotEmpty())
+            Thread.sleep(400)   // (what was being written in the background is written)
             ui { Music.repeat = "all"; Music.shuffled = true; Music.saveStateNow() }
             // As it's written
             val file = java.io.File(Harness.ctx.filesDir, "state.json")
