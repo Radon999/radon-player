@@ -52,6 +52,13 @@ class SpeechPrepTest {
         assertEquals("Here's Sum forty-one.", say("Here's Sum 41."))
     }
 
+    @Test fun dotsForAPauseAreNeverSaid() {
+        assertEquals("Wait, what.", say("Wait... what"))
+        assertEquals("Here's Baby One More Time.", say("Here's ...Baby One More Time"))
+        assertEquals("And then.", say("And then…"))
+        assertFalse(".." in say("One.. two... three…. four"))
+    }
+
     @Test fun whatWasRightStaysRight() {
         assertEquals("Around ten at night.", say("Around 10 PM."))
         assertEquals("About twenty percent of your listening happens before ten in the morning.", say("About 20 percent of your listening happens before 10 AM."))

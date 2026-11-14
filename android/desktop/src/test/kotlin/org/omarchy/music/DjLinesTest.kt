@@ -35,6 +35,7 @@ class DjLinesTest {
         val broken = ArrayList<String>()
         for ((n, s) in all) {
             if (itself.containsMatchIn(s)) broken += "line $n names itself: $s"
+            if (".." in s || '…' in s) broken += "line $n pauses with dots (the voice says them oddly): $s"
             if ('!' in s) broken += "line $n shouts: $s"
             if (machine.containsMatchIn(s)) broken += "line $n talks like a playlist machine: $s"
             if (where.containsMatchIn(s)) broken += "line $n names where the music comes from: $s"

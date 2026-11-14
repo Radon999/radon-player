@@ -212,14 +212,14 @@ object Dj {
                 "It's Friday night. The good stuff comes out now.",
                 "Friday night, finally. Let's start it properly.")
             (d == java.time.DayOfWeek.SATURDAY || d == java.time.DayOfWeek.SUNDAY) && h in 6..12 -> say("hello-weekend-morning",
-                "Happy ${if (d == java.time.DayOfWeek.SATURDAY) "Saturday" else "Sunday"}. No alarms today... just records.",
+                "Happy ${if (d == java.time.DayOfWeek.SATURDAY) "Saturday" else "Sunday"}. No alarms today, just records.",
                 "Weekend morning, no rush. We'll start slow.",
                 "Good morning, and happy weekend. Plenty of time for music today.")
             d == java.time.DayOfWeek.SATURDAY && h in 17..23 -> say("hello-saturday-night",
                 "Saturday night. Let's play the ones that fill a room.",
-                "It's Saturday night... the long one. Let's get into it.")
+                "It's Saturday night, the long one. Let's get into it.")
             d == java.time.DayOfWeek.SUNDAY && h in 17..23 -> say("hello-sunday-night",
-                "Sunday evening... one more stretch of music before the week.",
+                "Sunday evening, one more stretch of music before the week.",
                 "It's Sunday night. Let's make the weekend last a few more songs.")
             d == java.time.DayOfWeek.MONDAY && h in 5..11 -> say("hello-monday",
                 "Good morning, it's Monday. We'll take it one song at a time.",
@@ -232,23 +232,23 @@ object Dj {
         if (h in 5..11) say("hello-morning",
             "Good morning. Let's get some music on.",
             "Morning. First records of the day, coming up.",
-            "Good morning... let's open the day with something good.",
+            "Good morning, let's open the day with something good.",
             "Morning. I've lined up a few to get you going.",
             "Good morning. We'll start easy and build from there.")
         else if (h in 12..16) say("hello-afternoon",
             "Good afternoon. Let's keep the music going through the rest of the day.",
-            "Good afternoon... time for a fresh run of songs.",
+            "Good afternoon, time for a fresh run of songs.",
             "Afternoon. Here's the next stretch of music.",
             "Good afternoon. I've held a few back for this part of the day.",
             "It's the afternoon stretch. Let's put something good on.")
         else if (h in 17..22) say("hello-evening",
             "Good evening. Let's settle in with some music.",
-            "Evening... the best hours for listening start now.",
+            "Evening, the best hours for listening start now.",
             "Good evening. Sit back, the next few are on me.",
             "Good evening. Let's see where the music takes the night.",
             "Evening. I've got a few picked out for tonight.")
         else say("hello-night",
-            "It's late... good. This is when records sound their best.",
+            "It's late. Good. This is when records sound their best.",
             "Still up? Then let's keep the music on.",
             "A late one tonight. We'll keep it low and keep it playing.",
             "After hours now. Just you and the music.",
@@ -623,11 +623,11 @@ object Dj {
         if (songs.size < 3) return null
         val s = songs[0]
         return songs to say("repeat",
-            "Here's what you've had on repeat lately... starting with ${q(s)} by ${by(s)}.",
-            "Heavy rotation time. ${names(songs, 3)}... you know every one of these.",
+            "Here's what you've had on repeat lately, starting with ${q(s)} by ${by(s)}.",
+            "Heavy rotation time. ${names(songs, 3)}, you know every one of these.",
             "The songs you can't leave alone right now. We start with ${q(s)}.",
             "These have barely left your speakers lately. We start with ${q(s)}.",
-            "${names(songs, 3)}... all on repeat lately, and for good reason.",
+            "${names(songs, 3)}, all on repeat lately, and for good reason.",
             "If a song's been stuck in your head this month, it's probably here. ${q(s)} opens.",
             "The current favourites, back to back. ${q(s)} by ${by(s)} leads off.",
             "You've played these again and again lately. Here's ${q(s)} one more time.",
@@ -645,12 +645,12 @@ object Dj {
             val s = songs[0]
             val n = num(s.plays)
             return songs to if (s.plays > 1) say("throwback-plays",
-                    "Back to $y. You played ${q(s)} $n times that year... here it is again.",
+                    "Back to $y. You played ${q(s)} $n times that year, here it is again.",
                     "This one owned your $y. ${q(s)} by ${by(s)}, $n plays that year.",
-                    "Remember $y? ${q(s)} was on constantly... $n times.",
+                    "Remember $y? ${q(s)} was on constantly, $n times.",
                     "Let's go back to $y, and to ${q(s)}, which you played $n times.",
                     "A set from $y. ${q(s)} was in constant rotation then, $n plays.",
-                    "Your $y, in a few songs. ${q(s)} got $n plays that year... make it one more.",
+                    "Your $y, in a few songs. ${q(s)} got $n plays that year, make it one more.",
                     "If one song was your $y, it was ${q(s)} by ${by(s)}. $n plays.")
                 else say("throwback",
                     "Back to $y, starting with ${q(s)} by ${by(s)}.",
@@ -676,11 +676,11 @@ object Dj {
         return songs to say("rediscover",
             "Remember this one? ${q(s)} by ${by(s)}. You've played it $times times, but not $since.",
             "Some old favourites you haven't heard $since. ${q(s)} first.",
-            "Here's one you used to love. ${q(s)}... not played $since.",
-            "Off the back of the shelf... ${q(s)}. $times plays, and nothing $since.",
+            "Here's one you used to love. ${q(s)}, not played $since.",
+            "Off the back of the shelf, ${q(s)}. $times plays, and nothing $since.",
             "These were big for you once. Starting with ${q(s)} by ${by(s)}.",
             "It's been a while. ${q(s)} by ${by(s)}, not played $since.",
-            "${q(s)}... $times plays, then nothing $since. Time to hear it again.",
+            "${q(s)}, $times plays, then nothing $since. Time to hear it again.",
             "A few you'd forgotten you loved. ${q(s)} first.")
     }
 
@@ -698,8 +698,8 @@ object Dj {
             "You tend to reach for these $whenText. ${q(s)} first.",
             "These are the songs you come back to $whenText.",
             "Your $part regulars, led by ${q(s)} by ${by(s)}.",
-            "${names(songs, 3)}... the sound of your $part.",
-            "Around now you usually reach for ${q(s)}... so here it is.",
+            "${names(songs, 3)}, the sound of your $part.",
+            "Around now you usually reach for ${q(s)}, so here it is.",
             "The $part set, the way you like it. ${names(songs, 3)}.",
             "This time of day belongs to ${q(s)}. Here it is.")
     }
@@ -791,7 +791,7 @@ object Dj {
         "Romantic" -> say("moodmix-Romantic", *switchUp(mood, s), "Love songs now, starting with ${q(s)}.",
             "A romantic stretch. ${q(s)} first.", "Lights low. Slow, close songs, starting with ${q(s)}.")
         "Sad" -> say("moodmix-Sad", *switchUp(mood, s), "The sad ones now, starting with ${q(s)}.",
-            "Sometimes only a sad song will do. Here's ${q(s)}.", "A few to feel something to... ${q(s)} first.")
+            "Sometimes only a sad song will do. Here's ${q(s)}.", "A few to feel something to, ${q(s)} first.")
         "Dark" -> say("moodmix-Dark", *switchUp(mood, s), "A darker set now. ${q(s)} opens it.",
             "Lights down. Something dark, starting with ${q(s)}.", "Heavier, shadowed songs for a while. ${q(s)} first.")
         "Intense" -> say("moodmix-Intense", *switchUp(mood, s), "Something with weight now, starting with ${q(s)}.",
@@ -878,7 +878,7 @@ object Dj {
             "Some of your most played, starting with ${q(s)} by ${by(s)}.",
             "From deep in your most played list. ${q(s)} first.",
             "The songs you keep coming back to, starting with ${q(s)}.",
-            "${names(songs, 3)}... all from your most played.",
+            "${names(songs, 3)}, all from your most played.",
             "A run through your most played, with ${q(s)} by ${by(s)} to open.")
     }
 
@@ -929,7 +929,7 @@ object Dj {
             val songs = info.top.filter { newToYou(it, known) }.take(SET)
             val who = info.name.ifEmpty { name }
             if (songs.size >= 3) return songs to say("deep",
-                "Deep cuts from $who... songs of theirs you haven't played yet.",
+                "Deep cuts from $who, songs of theirs you haven't played yet.",
                 "You play a lot of $who. Have you heard these?",
                 "You know the big $who songs. Here are the ones further down the records.",
                 "Past the singles now. The $who you haven't heard yet.",
@@ -1060,7 +1060,7 @@ object Dj {
                 if (key !in said(FACT_HISTORY)) {
                     remember(FACT_HISTORY, key)
                     return@runCatching say("fact-milestone",
-                        "One to notice... coming up is your ${num(n)}th play of ${q(s)}.",
+                        "One to notice, coming up is your ${num(n)}th play of ${q(s)}.",
                         "In this set, ${q(s)} reaches ${num(n)} plays.",
                         "${q(s)} is about to hit ${num(n)} plays. Worth marking.")
                 }
@@ -1077,7 +1077,7 @@ object Dj {
             streakDays[songKey(s)]?.let { d -> out["streak:$id"] = "You've played ${q(s)} on $d of the last seven days. It's in this set too." }
             if (songKey(s) in yearAgo) out["year-ago:$id"] = "A year ago this week you were playing ${q(s)} as well."
             if (topMood != null && runCatching { Moods.of(s) }.getOrNull() == topMood)
-                out["mood-next:$id"] = "${q(s)} is a ${Moods.adjective(topMood)} one... the mood you've played most this month."
+                out["mood-next:$id"] = "${q(s)} is a ${Moods.adjective(topMood)} one, the mood you've played most this month."
             s.artist.split(",")[0].trim().takeIf { it.isNotEmpty() }?.let { a ->
                 f.artistFirst[a]?.let { t ->
                     val m = f.artistMonth[a] ?: 0
@@ -1089,7 +1089,7 @@ object Dj {
             if (n >= 8 && dur > 0) {
                 val h = n * dur / 3600
                 if (h >= 1) out["hours:$id"] = "You've spent about ${hoursText(h)} hours with ${q(s)}. That's ${num(n)} plays."
-                else out["minutes:$id"] = "You've played ${q(s)} ${num(n)} times... about ${(n * dur / 60).toInt()} minutes of it."
+                else out["minutes:$id"] = "You've played ${q(s)} ${num(n)} times, about ${(n * dur / 60).toInt()} minutes of it."
             }
             f.first[k]?.let { t ->
                 val days = ((nowS - t) / 86_400L).toInt()
@@ -1113,7 +1113,7 @@ object Dj {
         // Your moods
         val moodPlays = f.moodMonth.values.sum()
         f.moodMonth.maxByOrNull { it.value }?.takeIf { moodPlays >= 20 && it.value * 4 >= moodPlays }?.let { (m, n) ->
-            out["mood-month"] = "Lately it's been mostly ${Moods.adjective(m)} songs... ${n * 100 / moodPlays} percent of what you played from your collection this month."
+            out["mood-month"] = "Lately it's been mostly ${Moods.adjective(m)} songs, ${n * 100 / moodPlays} percent of what you played from your collection this month."
         }
         taste.moodHour.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (m, _) ->
             out["mood-hour"] = "Around this time of day, you usually go for something ${Moods.adjective(m)}."
@@ -1153,7 +1153,7 @@ object Dj {
         }
         if (f.total >= 1000) out["total-plays"] = "That's ${num(f.total)} plays, all told."
         val years = (nowS - f.since) / (365 * 86_400L)
-        if (f.since > 0 && years >= 2) out["since"] = "Your listening goes back to ${month(f.since)}... over ${num(years.toInt())} years of music."
+        if (f.since > 0 && years >= 2) out["since"] = "Your listening goes back to ${month(f.since)}, over ${num(years.toInt())} years of music."
         // Your years
         val thisYear = java.time.LocalDate.now().year
         for ((y, top) in f.yearTop) if (y < thisYear && top.second >= 10)
@@ -1170,7 +1170,7 @@ object Dj {
             out["never-skipped"] = "You've never skipped ${q(t)}. ${num(full)} times, start to finish."
         }
         val skips = rows.sumOf { it.second }; val outs = rows.sumOf { it.third }
-        if (skips >= 25) out["skips-all"] = "You've skipped ${num(skips)} songs in all. A skip never takes a song out of rotation... it only means the mood wasn't right."
+        if (skips >= 25) out["skips-all"] = "You've skipped ${num(skips)} songs in all. A skip never takes a song out of rotation, it only means the mood wasn't right."
         runCatching { Music.songStats.rows(nowS - 7 * 86_400L) }.getOrNull()?.let { wk ->
             val n = wk.sumOf { it.second }
             if (n >= 10) out["skips-week"] = "You've skipped ${num(n)} songs this week. I'll keep looking for the right ones."
@@ -1389,7 +1389,7 @@ object Dj {
             return songs to say(if (n >= 20) "spotlight" else "spotlight-few",
                 "Artist spotlight: $a. ${num(n)} plays from you, so here are the big ones and a few deeper cuts, starting with ${q(s)}.",
                 "A few songs with $a. Some you play a lot, some you don't, and ${q(s)} goes first.",
-                if (n >= 20) "Spotlight on $a now... ${num(n)} plays and counting. Here's ${q(s)}." else "Spotlight on $a now, from your collection. Here's ${q(s)}.",
+                if (n >= 20) "Spotlight on $a now, ${num(n)} plays and counting. Here's ${q(s)}." else "Spotlight on $a now, from your collection. Here's ${q(s)}.",
                 "A set of $a. The well-worn ones and the overlooked ones, starting with ${q(s)}.",
                 "Five songs, one artist: $a. We start with ${q(s)}.")
         }
@@ -1478,7 +1478,7 @@ object Dj {
             "Artists you've only got a song or two from. Starting with ${q(s)} by ${by(s)}.",
             "Some artists are in your collection just once or twice. Here are a few, like ${by(s)}.",
             "A song or two each, and that was enough. Starting with ${q(s)}.",
-            "${names(songs, 3)}... each with only a song or two on your shelves.")
+            "${names(songs, 3)}, each with only a song or two on your shelves.")
     }
 
     /** Not skipped this month: songs you've played this month and heard to the end every time. */
@@ -1516,7 +1516,7 @@ object Dj {
         val s = songs[0]
         return songs to say("second",
             "Second chances. You usually skip these, but maybe today. ${q(s)} first.",
-            "You skip these a lot... the mood might be right this time. Starting with ${q(s)}.",
+            "You skip these a lot, the mood might be right this time. Starting with ${q(s)}.",
             "A few songs that rarely get their full run. Let's give ${q(s)} another go.",
             "Another try for a few you tend to skip. If one still isn't for you, skip on.")
     }
@@ -1531,7 +1531,7 @@ object Dj {
         return songs to say("unreleased",
             "The unreleased corner. Songs you won't hear anywhere else, starting with ${q(s)}.",
             "Off the record now. Unreleased ones from your vault, like ${q(s)} by ${by(s)}.",
-            "From the vault... unreleased tracks only. ${q(s)} first.",
+            "From the vault, unreleased tracks only. ${q(s)} first.",
             "These never came out officially, but you've got them. Here's ${q(s)}.")
     }
 
@@ -1714,7 +1714,7 @@ object Dj {
                 if (songs.isNotEmpty()) line = say("from-mix",
                     "More from $name: ${names(songs, 3)}.",
                     "A bit of everything from $name. ${q(songs[0])} opens.",
-                    "Back into $name... ${q(songs[0])}, by ${by(songs[0])}.",
+                    "Back into $name, ${q(songs[0])}, by ${by(songs[0])}.",
                     "A mix from $name. ${names(songs, 3)}.")
             }
         }

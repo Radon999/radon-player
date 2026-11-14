@@ -91,7 +91,9 @@ object Spoken {
             .replace(Regex("#(\\d)"), "number $1")
             .replace(Regex("(\\d)\\s*%"), "$1 percent")
             .replace(Regex("\\s@\\s"), " at ")
-            .replace("…", "...").replace(Regex("\\s*[—–]\\s*"), ", ").replace(Regex("\\s*·\\s*"), ", ")
+            // Dots for a pause ("wait... what", a title like "...Baby One More Time") make a voice sound odd: a comma
+            // (or the line's end) instead
+            .replace("…", "...").replace(Regex("\\s*\\.{2,}(?=\\s*$)"), ".").replace(Regex("\\s*\\.{2,}\\s*"), ", ").replace(Regex("\\s*[—–]\\s*"), ", ").replace(Regex("\\s*·\\s*"), ", ")
             .replace(Regex("(?<=\\p{L})/(?=\\p{L})"), " ")   // AC/DC: "AC DC"
             .replace(Regex("\\s*[*_~|<>{}\\[\\]^=]+\\s*"), " ")
         // Times: "10 AM" "ten in the morning"

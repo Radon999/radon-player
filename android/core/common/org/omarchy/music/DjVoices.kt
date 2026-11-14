@@ -89,5 +89,5 @@ object DjVoices {
     fun plain(text: String): String = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(MARKS, "").replace(SPACES, " ").trim()
 
     /** What the DJ says to try a voice. */
-    const val SAMPLE = "Hey. This is how I sound... not bad, right? Alright, back to the music."
+    const val SAMPLE = "Hey. This is how I sound. Not bad, right? Alright, back to the music."
 }

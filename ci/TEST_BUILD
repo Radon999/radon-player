@@ -1,3 +1,3 @@
-1
-A change to this file makes a PC test build from the rebuild branch (.github/workflows/test-build.yml).
-Nothing is published: the build is kept with its run for 14 days.
+2
+A change to this file makes test builds from the rebuild branch (.github/workflows/test-build.yml): the PC's folder
+and the phone's test app. Nothing is published: the builds are kept with their run for 14 days.

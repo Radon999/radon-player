@@ -11,6 +11,68 @@ on:
 permissions:
   contents: write
 jobs:
+  # The phone: a test app of its own ("Radon Rebuild Test", org.omarchy.music.rebuild), which installs beside Radon
+  # Player Next and never over it, so the owner's app, settings and stats stay as they are. Signed with the build's
+  # own throwaway key (not the owner's): it can't update any other app, and isn't meant to.
+  phone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Tidal's app keys
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python3 android/tools/tidal-keys.sh
+      - name: A test app of its own
+        run: |
+          sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.rebuild"/' android/app/build.gradle.kts
+          sed -i 's/android:label="Radon Player"/android:label="Radon Rebuild Test"/' android/app/src/main/AndroidManifest.xml
+          grep -n 'applicationId' android/app/build.gradle.kts; grep -c 'Radon Rebuild Test' android/app/src/main/AndroidManifest.xml
+      - name: Build it
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleRelease > "$RUNNER_TEMP/build.log" 2>&1 || true
+          A=app/build/outputs/apk/release/app-release.apk
+          if [ -f "$A" ]; then mkdir -p "$RUNNER_TEMP/out" && cp "$A" "$RUNNER_TEMP/out/RadonRebuildTest.apk"; fi
+      - uses: actions/upload-artifact@v4
+        id: keep
+        with:
+          name: RadonRebuildTest-phone
+          path: ${{ runner.temp }}/out/RadonRebuildTest.apk
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Say how it went (the rebuild-ci branch)
+        if: always()
+        run: |
+          A="$RUNNER_TEMP/out/RadonRebuildTest.apk"
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            if [ -f "$A" ]; then echo "PHONE TEST APP: made, $(du -h "$A" | cut -f1)"; else echo "PHONE TEST APP: not made"; fi
+            tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+            [ -f "$A" ] && "$tools/aapt2" dump badging "$A" | head -2
+            [ -f "$A" ] && "$tools/apksigner" verify --print-certs "$A" | head -3
+            echo "DOWNLOAD: ${{ steps.keep.outputs.artifact-url }}"
+            echo "--- errors"
+            grep -E "^e: |error:|What went wrong|FAILED" -A6 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -60
+            echo "--- the end of the log"
+            tail -15 "$RUNNER_TEMP/build.log"
+          } > "$RUNNER_TEMP/result-testbuild-phone.txt" || true
+          cat "$RUNNER_TEMP/result-testbuild-phone.txt"
+          for try in 1 2 3; do
+            r="$(mktemp -d)"; cd "$r" && git init -q
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+            if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+            cp "$RUNNER_TEMP/result-testbuild-phone.txt" result-testbuild-phone.txt
+            git add -A
+            git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: phone test build for ${GITHUB_SHA::7}" || true
+            if git push -q origin rebuild-ci; then break; fi
+            sleep 20
+          done
   windows:
     runs-on: windows-latest
     defaults:
