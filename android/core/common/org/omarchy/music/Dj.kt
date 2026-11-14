@@ -454,7 +454,6 @@ object Dj {
         dead.clear()   // other songs: every kind may work again
     }
 
-    private data class Heard(val t: Long, val artist: String, val title: String)
 
     /** (blocking) Every play the DJ goes by: your Last.fm scrobbles and your imports; the plays here only without any. */
     private fun history(): List<Heard> {
@@ -494,64 +493,11 @@ object Dj {
         val nowS = now().toLong()
         val zone = java.time.ZoneId.systemDefault()
         val h = LocalTime.now().hour
-        val names = HashMap<Pair<String, String>, Heard>()
-        val last = HashMap<Pair<String, String>, Long>()
-        val recent = HashMap<Pair<String, String>, Int>()
-        val hour = HashMap<Pair<String, String>, Int>()
-        val years = HashMap<Int, HashMap<Pair<String, String>, Int>>()
-        val artists = HashMap<String, Int>()
-        val count = HashMap<Pair<String, String>, Int>()
-        val first = HashMap<Pair<String, String>, Long>()
-        val artistAll = HashMap<String, Int>()
-        val artistMonth = HashMap<String, Int>()
-        val hours = IntArray(24)
-        var total = 0
-        var since = Long.MAX_VALUE
-        // Moods of what you played: only your own songs have one (Moods reads their files), found once per song.
-        // Every play of a song with a mood is kept (MoodPlays: the mood facts, and Most played can count by mood too).
-        val moodOf = HashMap<Pair<String, String>, String?>()
-        val moodPlays = ArrayList<MoodPlay>()
-        val moodMonth = HashMap<String, Int>()
-        val moodHour = HashMap<String, Int>()
-        // On this day in past years (within three days), the days of the last week each song was played on, each
-        // artist's first play, and this calendar month's plays
-        val today = java.time.LocalDate.now(zone)
-        val dayAgo = HashMap<Int, HashMap<Pair<String, String>, Int>>()
-        val days = HashMap<Pair<String, String>, HashSet<Long>>()
-        val artistFirst = HashMap<String, Long>()
-        var monthPlays = 0
-        for (p in history()) {
-            if (p.t <= 0) continue
-            total++
-            since = minOf(since, p.t)
-            val k = Stats.statsKey(p.title, p.artist)
-            names.putIfAbsent(k, p)
-            last[k] = maxOf(last[k] ?: 0, p.t)
-            val age = nowS - p.t
-            val at = java.time.Instant.ofEpochSecond(p.t).atZone(zone)
-            if (age < 30 * 86_400L) recent.merge(k, 1, Int::plus)
-            if (age < 90 * 86_400L) artists.merge(p.artist.split(",")[0].trim(), 1, Int::plus)
-            if (age < 365 * 86_400L && Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1) hour.merge(k, 1, Int::plus)
-            years.getOrPut(at.year) { HashMap() }.merge(k, 1, Int::plus)
-            count.merge(k, 1, Int::plus)
-            first[k] = minOf(first[k] ?: Long.MAX_VALUE, p.t)
-            val lead = p.artist.split(",")[0].trim()
-            if (lead.isNotEmpty()) { artistAll.merge(lead, 1, Int::plus); if (age < 30 * 86_400L) artistMonth.merge(lead, 1, Int::plus) }
-            hours[at.hour]++
-            val d = at.toLocalDate()
-            val ya = today.year - d.year
-            if (ya in 1..15 && kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(d.plusYears(ya.toLong()), today)) <= 3)
-                dayAgo.getOrPut(ya) { HashMap() }.merge(k, 1, Int::plus)
-            if (age < 7 * 86_400L) days.getOrPut(k) { HashSet() } += d.toEpochDay()
-            if (lead.isNotEmpty()) artistFirst[lead] = minOf(artistFirst[lead] ?: Long.MAX_VALUE, p.t)
-            if (d.year == today.year && d.month == today.month) monthPlays++
-            val mood = moodOf.getOrPut(k) { mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
-            if (mood != null) {
-                moodPlays += MoodPlay(p.t, mood, "${k.first}\t${k.second}")
-                if (age < 30 * 86_400L) moodMonth.merge(mood, 1, Int::plus)
-                if (age < 365 * 86_400L && Math.floorMod(at.hour - h + 12, 24) - 12 in -1..1) moodHour.merge(mood, 1, Int::plus)
-            }
-        }
+        val c = TasteRules.count(history(), nowS, h, java.time.LocalDate.now(zone), zone) { k -> mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
+        val names = c.names; val last = c.last; val recent = c.recent; val hour = c.hour; val years = c.years; val artists = c.artists
+        val count = c.count; val first = c.first; val artistAll = c.artistAll; val artistMonth = c.artistMonth; val hours = c.hours
+        val total = c.total; val since = c.since; val moodPlays = c.moodPlays; val moodMonth = c.moodMonth; val moodHour = c.moodHour
+        val dayAgo = c.dayAgo; val days = c.days; val artistFirst = c.artistFirst; val monthPlays = c.monthPlays
         // All time, an artist's and a song's plays are Most played's (Stats): Last.fm and your Spotify, Apple Music,
         // Deezer, YouTube Music and Tidal imports (with or without a time), an artist's under one name. The plays here
         // only count when there's nothing from those at all.
