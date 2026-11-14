@@ -83,8 +83,9 @@ yet: every row is unverified there.
 | Line length (45 words) and banned phrases | not yet | | New rules; a check over every line comes with the rewrite |
 | The natural voice is Pocket TTS (was Kokoro), on the phone and the PC, Linux too | changed at the owner's request | P `PocketVoiceTest.theVoiceSpeaksALine` (Linux and Windows, made for real) | The phone's side compiles and is **not run**. The voice it copies is the model's own sample |
 | Voice made ahead, one line at a time, hush | partly | same (a line stopped before it starts makes nothing) | Made ahead on the PC too now. The queue and the cache: not yet |
-| Ducking (standard, 320 ms) | not yet | | |
-| USB DAC: voice mixed in, duck slope, 4 s stall | blocked | | Needs a phone and a DAC; the maths is tested once native |
+| The voice is made ready for the music (`DjVoiceProcessor`): proper rate change, rumble out at 80 Hz, +2.5 dB under 180 Hz, +2 dB at 3.5 kHz, peaks held under -1.5 dB with a 2 ms look ahead, 5 ms fades | covered (new), rule R-A1 | S `VoiceDspTest` (14 tests: each part and the whole, at 44.1, 48, 96 and 192 kHz) | In Kotlin, not in a native module: it runs once per line before it's said, never while sound plays, so it needs no native code. Used for Pocket TTS on the PC (48 kHz) and the phone (the phone's rate, or the DAC's). Not applied to ElevenLabs or the system voices. **Not heard yet** |
+| Ducking (standard, 320 ms) | partly | | Now 32 steps of 10 ms (was 8 of 40): same length, same end points, smoother. Not tested (needs a player stand-in with volume over time) |
+| USB DAC: voice mixed in, duck slope, 4 s stall | blocked | | Needs a phone and a DAC. The voice now reaches the DAC already at the DAC's rate (`Voice.dacRate`), so the straight-line rate change in `UsbDirect.speak` has nothing left to do. The mixing itself (`UsbAudioSink.convert`), the 0.12 s slope, the -1 dB headroom (R-A7) and the 4 s stall: as they were, unverified |
 | Desktop: the music is turned down when the voice starts (C-7) | **fixed**, changed by rule R-A2 | none yet | By the code: `onStart` runs when the sound begins. Not tested (needs a sound device) |
 
 ## Everything else
