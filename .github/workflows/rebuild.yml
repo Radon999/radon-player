@@ -70,3 +70,49 @@ jobs:
           git add -A
           git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: rebuild result for ${GITHUB_SHA::7}" || true
           git push -q origin rebuild-ci || true
+  # The PC app on Windows: the same tests of the app's logic, and the installer built (not published). After the Linux
+  # job, so the two don't write to rebuild-ci at once.
+  windows:
+    needs: linux
+    if: always()
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Test and build the installer
+        working-directory: android
+        run: |
+          ./gradlew --no-daemon --continue :desktop:test :desktop:packageMsi > ../build-win.log 2>&1 || true
+      - name: Say how it went
+        if: always()
+        run: |
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            n=$(ls android/desktop/build/test-results/test/*.xml 2>/dev/null | wc -l)
+            t=$(grep -ho 'tests="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo "?")
+            f=$(grep -ho '\(failures\|errors\)="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo "?")
+            echo "PC TESTS ON WINDOWS: $n suites, tests $t, failed $f"
+            msi=$(ls android/desktop/build/compose/binaries/main/msi/*.msi 2>/dev/null | head -1)
+            if [ -n "$msi" ]; then echo "WINDOWS INSTALLER: $(basename "$msi"), $(du -h "$msi" | cut -f1)"; else echo "WINDOWS INSTALLER: not built"; fi
+            echo "--- errors"
+            grep -E "^e: |error:|What went wrong|FAILED" -A6 build-win.log | grep -v "^w: " | head -120
+            echo "--- the end of the log"
+            tail -25 build-win.log
+          } > result-windows.txt || true
+          cat result-windows.txt
+      - name: Keep it (the rebuild-ci branch)
+        if: always()
+        run: |
+          here="$PWD"; r="$(mktemp -d)"; cd "$r" && git init -q
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+          if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+          cp "$here/result-windows.txt" result-windows.txt
+          git add -A
+          git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: rebuild result (Windows) for ${GITHUB_SHA::7}" || true
+          git push -q origin rebuild-ci || true

@@ -23,6 +23,7 @@ object Harness {
         TidalHistory.init(c)
         AppleHistory.init(c)
         Stats.init(c)
+        Dj.withNew = false   // only the songs given: no kind of set goes looking on a service (no network in a test)
         c
     }
 
@@ -55,6 +56,53 @@ class DjBehaviourTest {
             assertTrue(b.songs.none { songKey(it) in coming })
         }
         assertTrue("sets were made ($built)", built > 5)
+    }
+
+    /** Stays: songs the DJ played aren't picked again while they're among its last ones (the 300-song gap, fewer
+     *  when it plays from few songs), and they're kept across restarts (Prefs, dj_recent_songs). */
+    @Test fun songsTheDjPlayedDontComeBackYet() {
+        Harness.ctx
+        val pool = Harness.songs(60, from = 200)
+        Dj.playFrom("the test songs", pool)
+        val before = Prefs.text("dj_recent_songs").split('\n').count { it.isNotBlank() }
+        val played = pool.take(20)
+        Dj.played(played)
+        assertEquals(before + 20, Prefs.text("dj_recent_songs").split('\n').count { it.isNotBlank() })
+        val keys = played.map { songKey(it) }.toSet()
+        assertTrue(Dj.used.containsAll(keys))
+        var built = 0
+        repeat(30) {
+            val b = Dj.build(kind = "mix") ?: return@repeat
+            built++
+            assertTrue(b.songs.none { songKey(it) in keys })
+        }
+        assertTrue("sets were made ($built)", built > 5)
+    }
+
+    /** Stays: every kind of set gets its turn before one comes back. Left to pick for itself, the DJ never makes a
+     *  kind again until each other kind it can make from these songs has been made since. */
+    @Test fun kindsOfSetTakeTurns() {
+        Harness.ctx
+        Dj.playFrom("the test songs", Harness.songs(60, from = 300))
+        val kinds = ArrayList<String>()
+        repeat(18) { Dj.build()?.let { kinds += it.kind } }
+        assertTrue("sets were made (${kinds.size})", kinds.size >= 12)
+        val n = kinds.distinct().size
+        assertTrue("more than one kind can be made from them ($kinds)", n >= 2)
+        val last = kinds.takeLast(2 * n)
+        for (i in 0..last.size - n) assertEquals("each kind once in any $n sets in a row: $kinds", n, last.subList(i, i + n).distinct().size)
+    }
+
+    /** A fault by the rebuild's rules for how the DJ talks (never naming itself), as it is today: the first set's
+     *  hello always says "DJ" ("It's your DJ", "Your DJ here"). Turned round when the hellos are rewritten. */
+    @Test fun fault_theFirstLineNamesItselfTheDj() {
+        Harness.ctx
+        Dj.playFrom("the test songs", Harness.songs(40, from = 400))
+        repeat(12) {
+            val b = Dj.build(kind = "mix", first = true)
+            assertNotNull(b)
+            assertTrue(b!!.line, "DJ" in b.line)
+        }
     }
 
     /** C-1 (a fault, as it is today): the line is written, naming the set's first song, and only then are the songs
