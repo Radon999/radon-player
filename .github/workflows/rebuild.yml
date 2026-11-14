@@ -95,8 +95,8 @@ jobs:
           {
             echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
             n=$(ls android/desktop/build/test-results/test/*.xml 2>/dev/null | wc -l)
-            t=$(grep -ho 'tests="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo "?")
-            f=$(grep -ho '\(failures\|errors\)="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo "?")
+            t=$(grep -ho 'tests="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
+            f=$(grep -ho '\(failures\|errors\)="[0-9]*"' android/desktop/build/test-results/test/*.xml 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
             echo "PC TESTS ON WINDOWS: $n suites, tests $t, failed $f"
             msi=$(ls android/desktop/build/compose/binaries/main/msi/*.msi 2>/dev/null | head -1)
             if [ -n "$msi" ]; then echo "WINDOWS INSTALLER: $(basename "$msi"), $(du -h "$msi" | cut -f1)"; else echo "WINDOWS INSTALLER: not built"; fi
