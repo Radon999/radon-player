@@ -93,7 +93,7 @@ object Spoken {
             .replace(Regex("\\s@\\s"), " at ")
             // Dots for a pause ("wait... what", a title like "...Baby One More Time") make a voice sound odd: a comma
             // (or the line's end) instead
-            .replace("…", "...").replace(Regex("\\s*\\.{2,}(?=\\s*$)"), ".").replace(Regex("\\s*\\.{2,}\\s*"), ", ").replace(Regex("\\s*[—–]\\s*"), ", ").replace(Regex("\\s*·\\s*"), ", ")
+            .replace("…", "...").replace(Regex("\\s*\\.{3,}(?=\\s*$)"), ".").replace(Regex("(?<=\\s)\\.{3,}(?=\\S)"), "").replace(Regex("\\s*\\.{3,}\\s*"), ", ").replace(Regex("\\s*[—–]\\s*"), ", ").replace(Regex("\\s*·\\s*"), ", ")
             .replace(Regex("(?<=\\p{L})/(?=\\p{L})"), " ")   // AC/DC: "AC DC"
             .replace(Regex("\\s*[*_~|<>{}\\[\\]^=]+\\s*"), " ")
         // Times: "10 AM" "ten in the morning"
@@ -126,8 +126,15 @@ object Spoken {
         // Shorter sentences: a colon or semicolon ends one; a breath before "but"
         s = s.replace(Regex("\\s*[:;]\\s+(\\p{L})")) { ". " + it.groupValues[1].uppercase() }
         s = s.replace(Regex("(?<![,.!?])\\s+but\\s"), ", but ")
+        // Nothing left that a voice trips on: only letters, numbers, and a single full stop, comma, question or
+        // exclamation mark, apostrophe or hyphen. A slash or a dash between words is a small pause (a comma); any
+        // other sign still here (a slash in a title, a colon, a star) is a space; a full stop is never doubled.
+        s = s.replace(Regex("\\s+[/\\\\|-]+\\s+"), ", ")
+            .replace(Regex("[^\\p{L}\\p{M}\\p{N}\\s.,?!'’-]"), " ")
+            .replace(Regex("(?<![\\p{L}\\p{N}])-+|-+(?![\\p{L}\\p{N}])"), " ")   // a hyphen only inside a word
         // Tidy spacing and punctuation
         s = s.replace(Regex("\\s+([,.!?])"), "$1").replace(Regex(",{2,}"), ",").replace(Regex(",(?=[.!?])"), "").replace(Regex("^,\\s*"), "").replace(Regex("\\s{2,}"), " ").trim()
+        s = s.replace(Regex("([.?!])[.?!,]+"), "$1")
         if (s.isNotEmpty() && s.last().isLetterOrDigit()) s += "."
         s = s.replaceFirstChar { it.uppercase() }   // "4.5 hours" began a line: "Four and a half hours"
         // Now and then a little "alright" up front, never twice the same way of opening

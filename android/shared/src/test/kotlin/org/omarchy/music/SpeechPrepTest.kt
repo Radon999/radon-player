@@ -59,6 +59,20 @@ class SpeechPrepTest {
         assertFalse(".." in say("One.. two... three…. four"))
     }
 
+    @Test fun noSignIsLeftForTheVoiceToTripOn() {
+        assertEquals("Here's Face Off by someone.", say("Here's “Face/Off” by someone."))
+        assertEquals("Here's Love, Hate.", say("Here's Love / Hate."))
+        assertEquals("Here's seven eleven.", say("Here's 7/11."))
+        assertEquals("Here's Humble. Kendrick Lamar.", say("Here's “HUMBLE.”. Kendrick Lamar."))
+        assertEquals("Here's Re Stacks.", say("Here's Re:Stacks."))
+        assertEquals("Here's Part one, The Start.", say("Here's Part 1 - The Start."))
+        assertEquals("Twenty-four songs. Don't stop, it's Beyoncé.", say("24 songs. Don't stop, it's Beyoncé."))
+        val odd = say("Here's S*T*A*R <3 #1 @home \\ a_b ~ c=d {e} [f] ^g | h; “i” «j»")
+        assertTrue(odd, Regex("^[\\p{L}\\p{N}\\s.,?!'’-]+$").matches(odd))
+        for (s in listOf("What?!", "Stop...!", "A title. . Next", "End.."))
+            assertFalse(say(s), Regex("[.?!]\\s*[.?!]").containsMatchIn(say(s)))
+    }
+
     @Test fun whatWasRightStaysRight() {
         assertEquals("Around ten at night.", say("Around 10 PM."))
         assertEquals("About twenty percent of your listening happens before ten in the morning.", say("About 20 percent of your listening happens before 10 AM."))
