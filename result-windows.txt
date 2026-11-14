@@ -1,5 +1,5 @@
-commit ede03fdc87dd351c0b6b9b55ea43cb247b2a65f4 · run 43555556657 · Sat Nov 14 04:23:53 UTC 2026
-PC TESTS ON WINDOWS: 3 suites, tests 23, failed 0
+commit 1c8b7991a8dbcf6da71fb2d483abf20f6ce996e5 · run 43556485632 · Sat Nov 14 04:34:16 UTC 2026
+PC TESTS ON WINDOWS: 3 suites, tests 25, failed 0
 WINDOWS INSTALLER: Radon Player-3.2.28.msi, 76M
 --- errors
 --- the end of the log
@@ -26,5 +26,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 59s
+BUILD SUCCESSFUL in 4m 52s
 21 actionable tasks: 21 executed
