@@ -1248,7 +1248,7 @@ object Music {
         if (bitPerfectNow()) { if (!on) p.volume = 1f; return }
         val from = p.volume; val to = if (on) DUCK else 1f
         duckJob = scope.launch {
-            for (i in 1..8) { delay(40); p.volume = from + (to - from) * i / 8 }
+            for (i in 1..32) { delay(10); p.volume = from + (to - from) * i / 32 }   // 320 ms, in steps too small to hear
         }
     }
 

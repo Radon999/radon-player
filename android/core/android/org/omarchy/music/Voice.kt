@@ -29,6 +29,8 @@ object Voice {
      *  into samples and handed to dac (samples, rate, channels, still wanted) to be heard through the DAC. */
     @Volatile var dac: ((FloatArray, Int, Int, () -> Boolean) -> Boolean)? = null
     @Volatile var dacOn: () -> Boolean = { false }
+    /** The rate the DAC is playing at now (0: not known). */
+    @Volatile var dacRate: () -> Int = { 0 }
     /** How the line went to the DAC (UsbDirect.lastSpeak), for the note below. */
     @Volatile var dacReport: () -> String = { "" }
     private var dacNotes = 0
@@ -248,8 +250,12 @@ object Voice {
     private fun sayNatural(text: String, mine: Long): Boolean = runCatching {
         val audio = (madeAhead(text) as? com.k2fsa.sherpa.onnx.GeneratedAudio) ?: makeNatural(text) ?: return@runCatching false
         if (turn != mine) return@runCatching true
-        val rate = audio.sampleRate; val samples = audio.samples
-        if (samples.isEmpty()) error("it made no sound")
+        if (audio.samples.isEmpty()) error("it made no sound")
+        // Made ready to be heard next to the music (DjVoiceProcessor), at the rate it'll be heard at: the DAC's when
+        // it goes through the DAC (so nothing there has to change its rate), else the phone's own
+        val rate = (if (dacOn()) dacRate() else android.media.AudioTrack.getNativeOutputSampleRate(android.media.AudioManager.STREAM_MUSIC))
+            .takeIf { it in 8000..768000 } ?: 48000
+        val samples = DjVoiceProcessor.process(audio.samples, audio.sampleRate, rate)
         began(onStart)
         if (turn != mine) return@runCatching true
         if (dacOn() && dac?.invoke(samples, rate, 1) { turn == mine } == true) { dacNote("natural voice", true); lastError = ""; return@runCatching true }

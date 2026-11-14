@@ -144,6 +144,14 @@ object Voice {
         }
     }
 
+    /** The rate the voice is made ready at: what PCs play at. */
+    private const val OUT_RATE = 48000
+
+    /** (blocking) text as sound ready to be heard next to the music ([DjVoiceProcessor]: at 48 kHz, rumble out, warmth
+     *  and presence in, peaks held), or null as [synth]. */
+    private fun ready(text: String, go: () -> Boolean = { true }): Pair<FloatArray, Int>? =
+        synth(text, go = go)?.let { (samples, rate) -> DjVoiceProcessor.process(samples, rate, OUT_RATE) to OUT_RATE }
+
     // ---- lines made ahead (the next set's, while this one plays), so the DJ talks straight away ----
     private val ahead = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<Pair<FloatArray, Int>?>>()
     private val maker by lazy { java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "dj-voice").apply { isDaemon = true } } }
@@ -155,7 +163,7 @@ object Voice {
         if (ahead.size >= 8) ahead.keys.firstOrNull()?.let { ahead.remove(it) }
         val f = java.util.concurrent.CompletableFuture<Pair<FloatArray, Int>?>()
         ahead[text] = f
-        maker.execute { f.complete(if (f.isDone) null else runCatching { synth(text) }.getOrNull()) }
+        maker.execute { f.complete(if (f.isDone) null else runCatching { ready(text) }.getOrNull()) }
     }
 
     // ---- saying it ----
@@ -215,7 +223,7 @@ object Voice {
      *  hear). False if it couldn't; true if it was said or hushed. */
     private fun sayNatural(text: String, mine: Long, onStart: () -> Unit): Boolean = runCatching {
         val made = ahead.remove(text)?.let { f -> runCatching { f.get(60, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() }
-            ?: synth(text, go = { turn == mine })
+            ?: ready(text, go = { turn == mine })
         if (turn != mine) return@runCatching true
         val (samples, rate) = made ?: error("it made no sound")
         lastError = ""

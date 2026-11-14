@@ -76,6 +76,7 @@ object UsbDirect {
         Voice.dac = { s, r, c, go -> speak(s, r, c, go) }   // the DJ heard through the DAC while the app has it
         Voice.dacOn = { (active && stream != 0L) || (Music.bitPerfect && wanted()) }
         Voice.dacReport = { lastSpeak }
+        Voice.dacRate = { dac?.rateNow ?: 0 }
         val f = IntentFilter().apply {
             addAction(ACTION_PERMISSION); addAction(UsbManager.ACTION_USB_DEVICE_DETACHED); addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction("android.media.VOLUME_CHANGED_ACTION")
