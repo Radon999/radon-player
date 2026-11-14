@@ -24,8 +24,10 @@ object Dj {
     private fun wordsSaid(text: String): Int = if (text.isBlank()) 0 else Spoken.humanize(text, filler = 0.0).split(SPACES).count { it.isNotBlank() }
     /** The mood sets: one for each of these (moods alike share one), "mood:" and its moods joined by "+"
      *  ("mood:Energetic+Party+Hype"). Songs of any of its moods; the DJ says which ("let's switch it up: some happy songs"). */
-    val MOOD_GROUPS = listOf(listOf("Energetic", "Party", "Hype"), listOf("Happy", "Chill", "Calm"), listOf("Dreamy"),
-        listOf("Focus"), listOf("Romantic"), listOf("Sad", "Dark"), listOf("Intense"))
+    // (Happy, Chill and Calm were one set, and Sad and Dark another, from 3.2 until the rebuild: a chill song isn't
+    // always a happy one, nor a dark one sad, so each is its own set again. Only the high-energy three stay together.)
+    val MOOD_GROUPS = listOf(listOf("Energetic", "Party", "Hype"), listOf("Happy"), listOf("Chill"), listOf("Calm"), listOf("Dreamy"),
+        listOf("Focus"), listOf("Romantic"), listOf("Sad"), listOf("Dark"), listOf("Intense"))
     val MOOD_KINDS: List<String> get() = MOOD_GROUPS.map { "mood:" + it.joinToString("+") }
     /** A mood set's name: "Energetic, Party & Hype". */
     private fun groupName(g: List<String>) = if (g.size == 1) g[0] else g.dropLast(1).joinToString(", ") + " & " + g.last()
@@ -759,14 +761,6 @@ object Dj {
                 "Let's lift the energy. ${q(s)} starts a louder set.",
                 "Turning it up now. High-energy songs, and ${q(s)} gets us going.",
                 "A faster set now, built for moving. ${q(s)} first.")
-            "Happy" -> say(key, *switchUp("happy, chill", s),
-                "Something lighter now. Happy and easy, starting with ${q(s)}.",
-                "Let's keep it light. Happy, chill and calm, with ${q(s)} first.",
-                "An easy, bright set for a while. ${q(s)} first.")
-            "Sad" -> say(key, *switchUp("sad, dark", s),
-                "Let's slow it down. Sadder, darker songs now, starting with ${q(s)}.",
-                "Lights down. A few of the heavier ones, ${q(s)} first.",
-                "A set to sit with for a while. It starts with ${q(s)}.")
             else -> say(key, *switchUp(groupName(group).lowercase().replace(" & ", " and "), s))
         }
     }

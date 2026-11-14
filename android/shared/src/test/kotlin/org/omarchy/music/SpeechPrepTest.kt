@@ -73,6 +73,17 @@ class SpeechPrepTest {
             assertFalse(say(s), Regex("[.?!]\\s*[.?!]").containsMatchIn(say(s)))
     }
 
+    @Test fun placesInARowAreSaidAsWords() {
+        assertEquals("Coming up is your twenty-fifth play of it.", say("Coming up is your 25th play of it."))
+        assertEquals("first", Spoken.ordinal(1)); assertEquals("second", Spoken.ordinal(2)); assertEquals("third", Spoken.ordinal(3))
+        assertEquals("twelfth", Spoken.ordinal(12)); assertEquals("twentieth", Spoken.ordinal(20)); assertEquals("forty-first", Spoken.ordinal(41))
+        assertEquals("ninety-ninth", Spoken.ordinal(99)); assertEquals("one hundredth", Spoken.ordinal(100))
+        assertEquals("one hundred fiftieth", Spoken.ordinal(150)); assertEquals("five hundredth", Spoken.ordinal(500))
+        assertEquals("Your one thousandth play.", say("Your 1,000th play."))
+        assertEquals("The twenty-first, the twenty-second and the twenty-third.", say("The 21st, the 22nd and the 23rd."))
+        assertEquals("Back to the eighties.", say("Back to the 80s."))
+    }
+
     @Test fun whatWasRightStaysRight() {
         assertEquals("Around ten at night.", say("Around 10 PM."))
         assertEquals("About twenty percent of your listening happens before ten in the morning.", say("About 20 percent of your listening happens before 10 AM."))

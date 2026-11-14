@@ -555,6 +555,9 @@ A **parity ledger** (one file in the repository) has one row per inventory item:
 | D10 | Mix headroom | Trim voice by 1 dB on in-app mixes | Voice is 1 dB quieter on USB than on the standard path |
 | D11 | Voice engines | **Decided (14 November 2026): Pocket TTS only, on the phone and the PC; Chatterbox Turbo is not built and there is no engine dropdown.** This replaces rule R-T1 | See `TTS_ENGINES.md` |
 | D12 | ElevenLabs code (disabled today) | Not ported; settings keys preserved | Cannot be re-enabled without new work |
+| D13 | Mood sets | **Decided (14 November 2026): only Energetic, Party and Hype share a set. Happy, Chill, Calm, Sad and Dark are each a set of their own** (3.2 had Happy + Chill + Calm and Sad + Dark together; chill songs that aren't happy, and dark ones that aren't sad, were landing in them). Ten mood sets (`Dj.MOOD_GROUPS`) | Done on the branch. More kinds for the rotation to go round |
+| D14 | The mood scan | The owner asked (14 November 2026) for a review of how each song's mood is worked out (`MoodRules`, `LyricsMood`, `SoundMood`): make it more accurate if it can be, leave it if it is already the best there is | Open: review first, change only with tests that show it is better |
+| D15 | What the voice is given | **Decided (14 November 2026), from the owner's listening:** no dots for a pause (a single full stop is the only pause), no slash or other sign, places in a row in words ("25th" is "twenty-fifth"). `Spoken.humanize` enforces all three for any line; `DjLinesTest` keeps dots out of the written lines | Done on the branch |
 
 ---
 

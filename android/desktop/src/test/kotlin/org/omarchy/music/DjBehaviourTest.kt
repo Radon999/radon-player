@@ -82,7 +82,10 @@ class DjBehaviourTest {
     @Test fun everyKindOfSetHasItsType() {
         assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("hour"))
         assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("repeat"))
-        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("mood:Sad+Dark"))
+        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("mood:Sad"))
+        // Only the high-energy moods share a set: every other mood is a set of its own (the owner, 2026-11-14)
+        assertEquals(listOf("mood:Energetic+Party+Hype", "mood:Happy", "mood:Chill", "mood:Calm", "mood:Dreamy", "mood:Focus",
+            "mood:Romantic", "mood:Sad", "mood:Dark", "mood:Intense"), Dj.MOOD_KINDS)
         assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("throwback"))
         assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("rediscover"))
         assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("album"))

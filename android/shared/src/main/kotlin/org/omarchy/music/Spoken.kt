@@ -28,6 +28,17 @@ object Spoken {
         return n.toString()
     }
 
+    private val ORDINALS = mapOf("one" to "first", "two" to "second", "three" to "third", "five" to "fifth", "eight" to "eighth",
+        "nine" to "ninth", "twelve" to "twelfth")
+
+    /** n as a place in a row: 1 "first", 25 "twenty-fifth", 40 "fortieth", 100 "one hundredth", 1,000 "one thousandth". */
+    fun ordinal(n: Long): String {
+        val w = words(n).let { if (it.startsWith("a ")) "one " + it.drop(2) else it }
+        val cut = maxOf(w.lastIndexOf(' '), w.lastIndexOf('-')) + 1
+        val last = w.substring(cut)
+        return w.substring(0, cut) + (ORDINALS[last] ?: if (last.endsWith("y")) last.dropLast(1) + "ieth" else last + "th")
+    }
+
     /** A year as said: 1999 "nineteen ninety-nine", 2008 "two thousand eight", 2015 "twenty fifteen", 1900 "nineteen hundred". */
     fun year(y: Int): String = when {
         y in 2000..2009 -> words(y.toLong())
@@ -96,6 +107,10 @@ object Spoken {
             .replace("…", "...").replace(Regex("\\s*\\.{3,}(?=\\s*$)"), ".").replace(Regex("(?<=\\s)\\.{3,}(?=\\S)"), "").replace(Regex("\\s*\\.{3,}\\s*"), ", ").replace(Regex("\\s*[—–]\\s*"), ", ").replace(Regex("\\s*·\\s*"), ", ")
             .replace(Regex("(?<=\\p{L})/(?=\\p{L})"), " ")   // AC/DC: "AC DC"
             .replace(Regex("\\s*[*_~|<>{}\\[\\]^=]+\\s*"), " ")
+        // Places in a row: "25th" is "twenty-fifth" (it was "twenty-five" with a "th" stuck on, said "twenty-five-ith")
+        s = s.replace(Regex("(?<![\\d,.])(\\d{1,3}(?:,\\d{3})+|\\d+)(st|nd|rd|th)\\b", RegexOption.IGNORE_CASE)) { m ->
+            m.groupValues[1].replace(",", "").toLongOrNull()?.let { ordinal(it) } ?: m.value
+        }
         // Times: "10 AM" "ten in the morning"
         s = s.replace(Regex("\\b(\\d{1,2}) (AM|PM)\\b")) { m ->
             val h = m.groupValues[1].toInt()
