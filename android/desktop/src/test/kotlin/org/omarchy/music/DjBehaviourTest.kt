@@ -94,7 +94,8 @@ class DjBehaviourTest {
         assertEquals(Dj.SetType.FRESH_DROP, Dj.typeOf("fresh"))
         assertEquals(Dj.SetType.FRESH_DROP, Dj.typeOf("unplayed"))
         val kinds = Dj.ORDER + Dj.FROM_ORDER + Dj.FROM_NEW_ORDER + "ask"
-        assertEquals("the kinds there were", 26 + 3, (Dj.ORDER + listOf("unplayed", "artist", "mix")).distinct().size)
+        // 29 as in 3.2.28 (26 and 3), and three more since the mood sets were split (7 mood sets then, 10 now)
+        assertEquals("the kinds there are", 26 + 3 + 3, (Dj.ORDER + listOf("unplayed", "artist", "mix")).distinct().size)
         val byType = kinds.distinct().groupBy { Dj.typeOf(it) }
         assertEquals("all four types have kinds", 4, byType.size)
     }
