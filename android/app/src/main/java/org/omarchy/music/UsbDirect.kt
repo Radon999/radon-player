@@ -385,6 +385,9 @@ object UsbDirect {
             kotlinx.coroutines.delay(3000)
             // Only when something's wrong: the music not getting through while it plays (it used to be noted every time)
             if (stream != h) return@launch
+            // The DJ's voice had the stream in these seconds (a set's first words before its first song): the song
+            // waits for her then, as it should, and that was noted as music not getting through
+            if (speaking || System.currentTimeMillis() - spokeAt < 6000) return@launch
             val v = runCatching { UsbNative.stats(h) }.getOrNull() ?: return@launch
             val pl = Music.localPlayer
             val played = runCatching { UsbNative.played(h) }.getOrDefault(-1L)
@@ -475,6 +478,7 @@ object UsbDirect {
     @Volatile var sinkMuted = false
     /** The DJ's voice is going to the DAC: the music player's samples wait (they'd be heard under it). */
     @Volatile var speaking = false
+    @Volatile private var spokeAt = 0L   // when the voice last had the stream to itself (began, or ended)
     /** How the DJ's last line went to the DAC, in words (for Problems). */
     @Volatile var lastSpeak = ""
 
@@ -545,7 +549,7 @@ object UsbDirect {
         val slot = a.subslot; val ch = maxOf(1, channels)
         val frames = samples.size / ch
         if (frames == 0) return true
-        speaking = true
+        speaking = true; spokeAt = System.currentTimeMillis()
         UsbNative.flush(h)   // whatever of the song was waiting (it starts again from the top after the DJ)
         UsbNative.setPaused(h, false); UsbNative.setMuted(h, false)
         try {
@@ -600,7 +604,7 @@ object UsbDirect {
             lastSpeak = "${outFrames * 1000L / outRate} ms of voice sent (${khz(outRate)} kHz, from ${rate} Hz ${ch} ch), " +
                 "${UsbNative.played(h)} frames played, ${UsbNative.pending(h)} left${if (!go()) ", hushed" else ""}"
         } finally {
-            speaking = false
+            speaking = false; spokeAt = System.currentTimeMillis()
             if (!go()) UsbNative.flush(h)
             UsbNative.setPaused(h, !sinkPlaying)
             UsbNative.setMuted(h, sinkMuted)
