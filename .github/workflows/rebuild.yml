@@ -72,6 +72,11 @@ jobs:
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
           if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
           cp "$RUNNER_TEMP/result-linux.txt" result-linux.txt
+          # The app's own compiled code (three small jars, made from this branch's source and nothing else: no keys, no
+          # installer), so a test build already on the PC can be brought up to date without a download that needs signing in
+          rm -rf jars && mkdir jars
+          for j in $(find "$GITHUB_WORKSPACE/android" -path '*build/libs/*.jar' | grep -E '/(desktop|shared|ui-common)[^/]*\.jar$'); do cp "$j" jars/; done
+          echo "$GITHUB_SHA" > jars/COMMIT; ls -la jars
           git add -A
           git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: rebuild result for ${GITHUB_SHA::7}" || true
           git push -q origin rebuild-ci || true
