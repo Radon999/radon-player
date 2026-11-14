@@ -554,6 +554,7 @@ object UsbDirect {
             val chunk = 1024
             val buf = java.nio.ByteBuffer.allocateDirect(chunk * 2 * slot).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             var o = 0
+            var stuck = 0
             while (o < outFrames && go()) {
                 buf.clear()
                 val n = minOf(chunk, outFrames - o)
@@ -583,7 +584,13 @@ object UsbDirect {
                     // (the music pausing for the DJ, and its volume going to nothing, can come in after the voice began:
                     // the stream was muted with it, and the voice went out as silence)
                     UsbNative.setPaused(h, false); UsbNative.setMuted(h, false)
-                    if (off < len) Thread.sleep(10)
+                    // The DAC taking nothing for four seconds (as with the voice over the music): the line is given up, so
+                    // the music is never held back for good (before, this waited with no end while the voice's turn lasted)
+                    if (w > 0) stuck = 0
+                    if (off < len) {
+                        Thread.sleep(10)
+                        if (w == 0) { stuck += 10; if (stuck > 4000) { lastSpeak = "the DAC stopped taking the voice ${o * 1000L / outRate} ms in: the line was given up"; Crashes.note("USB DAC: $lastSpeak"); return true } }
+                    }
                 }
                 o += n
             }
