@@ -1,15 +1,11 @@
-commit 870d261f9ca23daaf5e72d987dd57992cc922baa · run 43549458372 · Sat Nov 14 03:06:18 UTC 2026
+commit 1a5d68b191fcac6abd88e1f1dcead312d0d407fd · run 43550175886 · Sat Nov 14 03:14:36 UTC 2026
 SHARED TESTS: 37 suites, 168 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
+PC TESTS (the app's logic, started without a window): 1 suites, 4 tests, 0 failed
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 70M
 --- errors
 --- the end of the log
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1232:66 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1232:143 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:25 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-
 > Task :desktop:compileJava NO-SOURCE
 > Task :desktop:classes
 > Task :desktop:jar
@@ -17,15 +13,20 @@ w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/om
 > Task :app:processDebugJavaRes
 > Task :app:bundleDebugClassesToCompileJar
 > Task :app:bundleDebugClassesToRuntimeJar
-> Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
+> Task :desktop:compileTestKotlin
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
+> Task :desktop:packageDeb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
+
 > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
 > Task :app:processDebugUnitTestJavaRes
 > Task :app:testDebugUnitTest
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
+> Task :desktop:test
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -33,5 +34,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 15s
-55 actionable tasks: 55 executed
+BUILD SUCCESSFUL in 4m 29s
+59 actionable tasks: 59 executed
