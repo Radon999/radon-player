@@ -44,6 +44,14 @@ with its own tests and `Music` calling it, nothing behaving differently: what co
 watch for a song stuck at its end (S `EndWatchTest`). Still in `Music.kt`: the queue's own state, loading and moving
 on (`loadCurrent`, `play`, `next`, `trackEnded`), crossfade, saved state.
 
+**Run in the real PC app (14 November 2026, the code as of `0b94078`, in a copy of a test build with its own data,
+driven through the app's own command socket: `android/tools/pc-test`).** All as they should be: a song left to end
+by itself hands over to the next (crossfade on); skip; Previous in a song's first seconds goes back, later starts it
+again; pause and play; skipping past the last song (Autoplay finds more); a play counted, skips counted, going back
+not counted as a skip. With the DJ: starts in a few seconds, its sets follow one another (a Sad set, then a Happy
+one: the moods apart, as decided), Switch it up brings another, a song under the DJ left to its end hands over, the
+DJ stopped leaves the music playing; nothing written to Problems. Judged by what the app reports, not by ear.
+
 ## The DJ
 
 | Behaviour | Status | Test | Notes |
