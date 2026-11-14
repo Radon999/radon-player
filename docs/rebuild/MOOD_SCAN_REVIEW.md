@@ -66,6 +66,14 @@ in the Tagger still teaches the app, as before.
 
 **To get the new moods into the files:** Reset moods, in the app, once this is in a build.
 
+**After the owner's rescan (14 November 2026, the PC test build; read from its own `moods.json`):** every one of the
+3,279 heard songs has its new moods written into its file. 3.6 moods a song (4.9 before); 49 songs with one mood, 177
+with two, 699 with three, 2,353 with four. Energetic is on 62% of songs (96% before), Intense 59% (87%), Hype 41%
+(87%); Chill 14% (6%), Calm 8% (2%), Focus 3% (under 1%). The app's own numbers run a little higher than the trial's
+for the loud moods because it also has each file's genre, which the trial did not. Still to be judged by ear. One
+thing seen: a few very quiet files (20 dB and more under the rest, mostly unreleased rips) are Hype from their words
+and genre alone; their quietness is how they were made, not how they sound.
+
 ## What was proposed before the changes
 
 1. **Don't change the rules yet.** A change rewrites the mood tag in every one of the owner's files at the next scan;
