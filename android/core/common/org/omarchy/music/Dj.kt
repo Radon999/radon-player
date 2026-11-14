@@ -294,7 +294,21 @@ object Dj {
     private fun window(): Int = scope?.second?.size?.let { minOf(SONG_GAP, maxOf(0, it - 2 * SET)) } ?: SONG_GAP
 
     /** Song keys (both of each: the DJ's and Most played's) of the DJ's last songs: none is picked again yet. */
-    val used: Set<Pair<String, String>> get() = usedInLast(window())
+    val used: Set<Pair<String, String>> get() = outNow.get() ?: usedInLast(window())
+
+    /** While a set is being made (on this thread): the DJ's last songs and the songs still to come in the queue, all
+     *  kept out of it from the start, so its line is written for the songs the set really has. (Before, the songs still
+     *  to come were only taken out after the line was written: the DJ could name a song its set no longer had.) */
+    private val outNow = ThreadLocal<Set<Pair<String, String>>?>()
+
+    /** songs without the ones out picks, for a line already written for them: null when the line names one of those
+     *  (its title, or its artist) or fewer than three are left, so a line never names a song its set hasn't got. */
+    private fun without(songs: List<Track>, line: String, out: (Track) -> Boolean): List<Track>? {
+        val gone = songs.filter(out)
+        if (gone.isEmpty()) return songs
+        if (gone.any { t -> t.title in line || leadOf(t).let { a -> a.isNotEmpty() && a in line } }) return null
+        return songs.filter { it !in gone }.takeIf { it.size >= 3 }
+    }
 
     /** Songs the DJ is about to play (a set queued): counted, none comes back for [SONG_GAP] songs. */
     fun played(tracks: List<Track>) {
@@ -1724,6 +1738,8 @@ object Dj {
         val order = if (sc0 != null) (if (withNew) FROM_NEW_ORDER else FROM_ORDER) else ORDER
         val key = if (sc0 != null) FROM_HISTORY else KIND_HISTORY
         val tries = if (kind != null) listOf(kind) else kindsToTry(order, key, avoid)
+        outNow.set(usedInLast(window()) + coming)   // kept out of every set from the start (see outNow)
+        try {
         for (k in tries) {
             val sc = scope
             val built = if (k.startsWith("mood:")) setMoodMix(taste, sc?.second, k.removePrefix("mood:"))   // the mood's songs, known and new
@@ -1742,15 +1758,17 @@ object Dj {
                 } else {
                     only.set(keys)
                     try {
-                        regularSet(k, taste)?.let { (songs, line) -> songs.filter { inScope(it) }.takeIf { it.size >= 3 }?.let { it to line } }
+                        regularSet(k, taste)?.let { (songs, line) -> without(songs, line) { !inScope(it) }?.let { it to line } }
                     } finally { only.set(null) }
                 }
             } else regularSet(k, taste)
             // Never a song the DJ played in its last 300 (or one still to come), whatever the kind: the kinds made for the
             // songs picked keep to that themselves (letting the longest-ago back in when there are few)
             val got = if (built == null || (sc != null && k in FROM_KINDS)) built else {
+                // (A last look: the sets keep these out themselves now. One that still has such a song loses it only if
+                // its line doesn't name it; else the set is left for another time.)
                 val avoidNow = used
-                built.first.filter { !isUsed(it, avoidNow) && songKey(it) !in coming }.takeIf { it.size >= 3 }?.let { it to built.second }
+                without(built.first, built.second) { isUsed(it, avoidNow) || songKey(it) in coming }?.let { it to built.second }
             }
             if (got == null) {   // can't make one now: tried after the others for a while, and not counted
                 if (kind == null) dead["$key:$k"] = now()
@@ -1767,6 +1785,7 @@ object Dj {
             // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
             return Built(k, Music.localsOf(songs), line, fact)
         }
+        } finally { outNow.set(null) }
         return null
     }
 }

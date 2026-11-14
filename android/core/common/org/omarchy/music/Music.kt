@@ -1065,8 +1065,14 @@ object Music {
     /** The DJ playing from your library (after a restart, say). */
     private fun djReady() {
         if (Dj.scope != null) return
-        djSource(DJ_LIBRARY)?.takeIf { it.second.isNotEmpty() }?.let { Dj.playFrom(it.first, it.second, whole = true) }
+        djLibrary()?.takeIf { it.second.isNotEmpty() }?.let { Dj.playFrom(it.first, it.second, whole = true) }
     }
+
+    /** What the DJ plays from: your library. With Only my songs, only the songs you have yourself (no streams), from
+     *  the start: before, a set was made from them all, its line written, and the streams only then left out (djTag),
+     *  so the DJ could name a song that wasn't in its set. */
+    private fun djLibrary(): Pair<String, List<Track>>? = djSource(DJ_LIBRARY)?.let { (name, songs) ->
+        name to if (djNew) songs else songs.filter { it.isFile || lib.has(it.id) } }
 
     private fun coming() = queue.drop(maxOf(0, index)).map { songKey(it) }.toSet()
 
@@ -1080,7 +1086,7 @@ object Music {
         // Always your whole library, as one group of songs (whatever it was asked to play from before)
         val src = DJ_LIBRARY
         run {
-            val got = djSource(src)
+            val got = djLibrary()
             if (got == null || got.second.isEmpty()) {
                 toast("There are no songs in your library for the DJ to play")
                 return
@@ -1126,7 +1132,7 @@ object Music {
         val withNew = djNew
         runCatching {
             Dj.withNew = withNew
-            val got = djSource(src) ?: return; if (got.second.isEmpty()) return; Dj.playFrom(got.first, got.second, whole = true)
+            val got = djLibrary() ?: return; if (got.second.isEmpty()) return; Dj.playFrom(got.first, got.second, whole = true)
         }.onFailure { return }
         djWarming = true
         bg({ Dj.build(first = true) }) { res, _ ->

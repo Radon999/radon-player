@@ -125,23 +125,28 @@ class DjBehaviourTest {
         }
     }
 
-    /** C-1 (a fault, as it is today): the line is written, naming the set's first song, and only then are the songs
-     *  still to come taken out of the set. So the DJ can name a song that isn't in the set it introduces. */
-    @Test fun fault_theLineCanNameASongTheSetNoLongerHas() {
+    /** C-1, fixed (it was: the line was written, naming the set's first song, and only then were the songs still to
+     *  come taken out of the set, so the DJ could name a song that wasn't in the set it introduced; this test found
+     *  such a line within a few sets). Now every song a line names is in its set, the first one named is the set's
+     *  first song, and with half the songs still to come every set is still made, whole. */
+    @Test fun aLineOnlyNamesSongsItsSetHas() {
         Harness.ctx
         val pool = Harness.songs(60)
         Dj.playFrom("the test songs", pool)
         val coming = pool.take(30).map { songKey(it) }.toSet()
-        var stale: String? = null
         var built = 0
+        var naming = 0
         for (i in 0 until 400) {
             val b = Dj.build(kind = "onehit", coming = coming) ?: continue
             built++
             val titles = b.songs.map { it.title }
-            if (named.findAll(b.line).any { it.groupValues[1] !in titles }) { stale = b.line; break }
+            val said = named.findAll(b.line).map { it.groupValues[1] }.toList()
+            assertTrue("the line names a song its set doesn't have: ${b.line} · $titles", said.all { it in titles })
+            if (said.isNotEmpty()) { naming++; assertEquals(b.line, titles[0], said[0]) }
+            assertEquals("a whole set, though half the songs are still to come", Dj.SET, b.songs.size)
         }
-        assertTrue("sets were made ($built)", built > 0)
-        assertNotNull("after $built sets no line named a song its set doesn't have: is C-1 fixed? Then turn this test round", stale)
+        assertEquals("every set was made", 400, built)
+        assertTrue("lines that name a song were among them ($naming)", naming > 50)
     }
 
     /** C-4 (a fault, as it is today): a set that was only made (never queued, never played) has already used up its
