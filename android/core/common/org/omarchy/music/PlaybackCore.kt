@@ -241,7 +241,7 @@ object PlaybackCore {
     var streaming by mutableStateOf(false)
     var resumeAt = 0.0                       // where the next song loaded starts (a queue taken up again, a cast begun)
     var pendingLoad: (() -> Unit)? = null    // a song got before there was a player: into it once there is one
-    var restorePending = false               // the song from last time has to come from a service: wait for the player
+    private var restorePending = false       // the song from last time has to come from a service: wait for the player
     var loadedFor: String? = null            // the song the player has in now (its id)
     private var lastLoaded: Track? = null
     private var loadSeq = 0
@@ -499,6 +499,35 @@ object PlaybackCore {
             step("the DJ's part done")
         }
         Music.waitingCoversSoon(t)   // covers picked while their song played: in now, once the file that was playing is free
+    }
+
+    // ---- remembered between runs ----
+    /** The queue's part of what the app remembers between runs (state.json: [Music] reads and writes the file, where
+     *  it sits among the settings, under the names it always had). */
+    class Saved(val queue: List<Track>, val index: Int, val radioFrom: String?, val repeat: String, val shuffled: Boolean,
+                val queues: List<SavedQueue>, val queueName: String, val queueId: String, val multiQueue: Boolean)
+
+    /** As it is now, to be written down. */
+    fun saved() = Saved(queue, index, radioFrom, repeat, shuffled, queues, queueName, queueId, multiQueue)
+
+    /** What was written down, back in place as the app starts (nothing goes into the player yet: [restored]). */
+    fun restore(s: Saved) {
+        queue = s.queue
+        index = s.index.coerceAtMost(queue.size - 1)
+        radioFrom = s.radioFrom
+        repeat = s.repeat.takeIf { it in setOf("off", "all", "one") } ?: "off"
+        shuffled = s.shuffled
+        queues = s.queues
+        queueName = s.queueName
+        queueId = s.queueId
+        multiQueue = s.multiQueue
+    }
+
+    /** The rest of what the app remembers is back too: the song from last time goes into the player, not playing. */
+    fun restored() {
+        val t = current()
+        if (t != null && (Music.lib.has(t.id) || t.isFile)) loadCurrent(autoplay = false)
+        else if (t != null) restorePending = true   // it has to come from Tidal: wait for the player and the login
     }
 
     /** Called once the playback service is up: a song restored from Tidal can load now. */

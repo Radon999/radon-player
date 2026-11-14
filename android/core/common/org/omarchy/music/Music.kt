@@ -247,8 +247,6 @@ object Music {
 
     private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
-    private var ended: Boolean get() = PlaybackCore.ended; set(v) { PlaybackCore.ended = v }
-    private var restorePending: Boolean get() = PlaybackCore.restorePending; set(v) { PlaybackCore.restorePending = v }
     private var downloading = false
     var downloadNote by mutableStateOf("")   // "Downloading in FLAC · 3 of 40" while a Download runs
         private set
@@ -346,10 +344,8 @@ object Music {
 
     private fun loadState() {
         val st = readText(stateFile)?.let { runCatching { JSON.decodeFromString(State.serializer(), it) }.getOrNull() } ?: State()
-        queue = st.queue
-        index = st.index.coerceAtMost(queue.size - 1)
-        radioFrom = st.radio_from
-        repeat = st.repeat.takeIf { it in setOf("off", "all", "one") } ?: "off"
+        // The queue and its place are the playback service's to put back (PlaybackCore); what goes into the player, at the end
+        PlaybackCore.restore(PlaybackCore.Saved(st.queue, st.index, st.radio_from, st.repeat, st.shuffled, st.queues, st.queue_name, st.queue_id, st.multi_queue))
         source = st.source.takeIf { it in SOURCES } ?: "ytm"
         // Nothing downloads on its own until you switch a service's sync on.
         SOURCES.keys.forEach { syncSources[it] = st.sync_sources[it] ?: false }
@@ -361,7 +357,6 @@ object Music {
         searchIn = st.search_in.takeIf { it in SEARCH_IN } ?: "tidal"
         dj = st.dj
         apiKeys = st.api_keys.filterKeys { it in API_KEYS }
-        shuffled = st.shuffled
         playlistSort = st.playlist_sort.takeIf { it in PLAYLIST_SORTS } ?: "order"
         tabSorts.clear(); tabSorts.putAll(st.tab_sorts.filterValues { it in SORT_NAMES })
         tabPicks.clear(); tabPicks.putAll(st.tab_picks.filterValues { it in setOf("album", "ep", "single") })
@@ -411,14 +406,8 @@ object Music {
         dupeAction = st.dupe_action.takeIf { it in setOf("ask", "keep", "replace") } ?: "ask"
         eq = st.eq
         applyEq()
-        queues = st.queues
-        queueName = st.queue_name
-        queueId = st.queue_id
-        multiQueue = st.multi_queue
         lyricsToFiles = st.lyrics_to_files
-        val t = current()
-        if (t != null && (lib.has(t.id) || t.isFile)) loadCurrent(autoplay = false)
-        else if (t != null) restorePending = true   // it has to come from Tidal: wait for the player and the login
+        PlaybackCore.restored()   // the song from last time into the player (not playing), or waiting for the player and the login
     }
 
     var restoring = false   // a backup is going back in: nothing saved over it
@@ -433,9 +422,10 @@ object Music {
     }
 
     private fun stateNow(): State {
-        return State(queue, index, radioFrom, repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, shuffled, playlistSort,
+        val q = PlaybackCore.saved()   // the queue's part
+        return State(q.queue, q.index, q.radioFrom, q.repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, q.shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
-            queues, queueName, queueId, multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
+            q.queues, q.queueName, q.queueId, q.multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
             bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
     }
 
