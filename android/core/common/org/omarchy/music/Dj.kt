@@ -371,8 +371,9 @@ object Dj {
                         val since: Long = 0, val moodMonth: Map<String, Int> = emptyMap(), val yearPlays: Map<Int, Int> = emptyMap(),
                         val artistFirst: Map<String, Long> = emptyMap(), val monthPlays: Int = 0)
 
-    private var taste: Taste? = null
-    private var tasteAt = 0.0
+    /** What your listening adds up to: given as it is for ten minutes, then still given at once while a new one is made behind; only past half an hour (or the first time) does the asker wait. */
+    private val tasteKept = KeptFresh(600.0, 1800.0, inBackground = { work -> kotlin.concurrent.thread(isDaemon = true, name = "dj-taste") { work() } }) { buildTaste() }
+    private val taste: Taste? get() = tasteKept.current
     /** How many songs the DJ plays before one can come back: none of its last [SONG_GAP] songs (kept across restarts,
      *  counted from 3.2.26 on) is picked again for any set till then; every set takes another song of its kind in its
      *  place. A song's turn comes back as the count goes on (the oldest drops off as each new one comes). */
@@ -487,8 +488,10 @@ object Dj {
     fun lastHeard(): Map<Pair<String, String>, Long> = loadTaste().last
 
     /** (blocking) What you play, read again every ten minutes. */
-    @Synchronized private fun loadTaste(): Taste {
-        taste?.let { if (now() - tasteAt < 600) return it }
+    private fun loadTaste(): Taste = tasteKept.get()
+
+    private fun buildTaste(): Taste {
+        
         val mine = Music.songIndex()
         val nowS = now().toLong()
         val zone = java.time.ZoneId.systemDefault()
@@ -528,7 +531,7 @@ object Dj {
             .map { (k, ds) -> val p = names.getValue(k); Music.fmSong(p.title, p.artist, "", mine).copy(plays = count[k] ?: 0) to ds.size }
         return Taste(mine, rec, all, top, last, songs(hour, 120),
             years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, facts, moodMonth, moodHour,
-            moodPlays.sortedBy { it.t }, dayAgo.filter { it.value.values.sum() >= 8 }.mapValues { songs(it.value, 40) }, streak).also { taste = it; tasteAt = now() }
+            moodPlays.sortedBy { it.t }, dayAgo.filter { it.value.values.sum() >= 8 }.mapValues { songs(it.value, 40) }, streak)
     }
 
     private fun lastPlayed(taste: Taste, t: Track) = taste.last[Stats.statsKey(t.title, t.artist)] ?: 0L
