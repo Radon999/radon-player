@@ -56,12 +56,12 @@ yet: every row is unverified there.
 | Requests: tags from words | covered | A `DjTest.tagsOfMoodsDecadesAndGenres` | |
 | Picking leans to the top, no repeats | covered | A `DjTest.pick*` | |
 | Not saying the same thing twice (bags, histories) | covered | S `NoRepeatTest` | |
-| Line names a song its set lacks (C-1) | fault pinned | P `fault_theLineCanNameASongTheSetNoLongerHas` | |
-| Unplayed set uses up its kind's turn (C-4) | fault pinned | P `fault_aSetNeverPlayedStillUsesUpItsKindsTurn` | Facts, spotlight, decade histories: not yet |
-| Hello names itself "DJ" | fault pinned | P `fault_theFirstLineNamesItselfTheDj` | |
-| The first set is made ahead: starting the DJ is instant | covered | P `DjFlowTest.fault_aFirstSetMadeAheadGreetsWithTheTimeItWasMadeAt` | |
-| A set made ahead greets with the time it was made at (C-3) | fault pinned | same | Uses `Dj.clock`, the one seam added to the app so far |
-| Stale "more like" (C-2), stale time words in later sets | not yet | | "More like" needs a service stand-in |
+| A line only names songs its set has (C-1) | **fixed**, changed by rule R-D2 | P `aLineOnlyNamesSongsItsSetHas` | Songs still to come are kept out before the line is written. With Only my songs, streams are left out of what the DJ plays from. Verified for one kind of set; the rule is shared by all |
+| A set's kind has its turn only when the set plays (C-4) | **fixed**, changed by rule R-D4 | P `aSetsKindHasItsTurnOnlyWhenTheSetIsPlayed`, `DjFlowTest.aSetThatPlaysTakesItsKindsTurn` | Held too: facts and milestones, mood, decade, spotlight artist (same mechanism, not tested one by one). Still written when a set is made: the lines' shuffle bags, the artists already introduced |
+| Hello names itself "DJ" | fault pinned | P `fault_theFirstLineNamesItselfTheDj` | Goes with the rewrite of the lines |
+| The first set is made ahead: starting the DJ is instant | covered | P `DjFlowTest.aFirstSetMadeAheadGreetsWithTheTimeItIsStartedAt` | |
+| A set made ahead greets with the time it's heard at (C-3) | **fixed**, changed by rule R-D3 | same | The first set gets a new hello; other sets drop their word about the day; a "this time of day" set from another part of the day is let go. Still as it was: a set queued behind the one playing keeps its words for the minutes until it starts; "tonight" inside other lines |
+| Stale "more like" (C-2) | not yet | | Needs a service stand-in |
 | Three sets kept ready; Switch it up is instant | not yet | | |
 | Ask for something | partly | A `DjTest` | Words only |
 | Each of the 26 kinds of set: its own rule | not yet | | Most need a listening history stand-in |
