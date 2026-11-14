@@ -3148,21 +3148,20 @@ object Music {
      *  casting, or (Smart transitions) between songs of one album, which flow into each other. */
     private fun maybeCrossfade(p: Engine) {
         val t = current()
-        if (t == null || !Prefs.on(Prefs.CROSSFADE) || bitPerfect || repeat == "one" || Remote.active || cast != null || streaming || ducked) {
+        if (t == null || CrossfadeRules.unavailable(Prefs.on(Prefs.CROSSFADE), bitPerfect, repeat == "one", Remote.active, cast != null, streaming, ducked)) {
             if (tail != null && tailFor != fadingId) dropTail()
             return
         }
         if (fadingId == t.id) return
         if (tailFor != null && tailFor != t.id) dropTail()   // moved on (skipped) before it faded
         val n = Prefs.num(Prefs.CROSSFADE_SECS, 6f).toDouble()
-        if (duration < n * 3) return
+        val fadeAt = CrossfadeRules.fadeAt(duration, n) ?: return
         val nxt = queue.getOrNull(index + 1) ?: return
-        if (Prefs.on(Prefs.SMART_TRANSITIONS) && sameAlbum(t, nxt)) return
-        if (dj.on && djVoice && nxt.dj > 0 && nxt.dj != t.dj) return   // a new DJ set next: the DJ talks between them, no fade
-        if (dj.on && djVoice && !djComments[nxt.id].isNullOrEmpty()) return   // the DJ says a word before the next song
-        val fadeAt = duration - n
+        // A new DJ set next (the DJ talks between them), or the DJ says a word before the next song: no fade
+        val djTalks = dj.on && djVoice && ((nxt.dj > 0 && nxt.dj != t.dj) || !djComments[nxt.id].isNullOrEmpty())
+        if (CrossfadeRules.keptApart(sameAlbum(t, nxt), Prefs.on(Prefs.SMART_TRANSITIONS), djTalks)) return
         // Get the ending ready early: a player of its own, this song, paused near where the fade starts.
-        if (tail == null && position >= fadeAt - 5 && position < fadeAt) {
+        if (CrossfadeRules.getReady(position, fadeAt, tail != null)) {
             val uri = p.currentUri ?: return
             runCatching {
                 val x = p.tail(uri, (fadeAt * 1000).toLong()) ?: return
