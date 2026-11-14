@@ -121,16 +121,19 @@ object Dj {
         return if (ns.size < 3) ns.joinToString(" and ") else ns.dropLast(1).joinToString(", ") + " and " + ns.last()
     }
 
-    fun greeting(h: Int = LocalTime.now().hour) =
+    /** The time the DJ goes by for what it says about the hour and the day (the clock's; a test sets its own). */
+    @Volatile var clock: () -> java.time.LocalDateTime = { java.time.LocalDateTime.now() }
+
+    fun greeting(h: Int = clock().hour) =
         if (h in 5..11) "Good morning" else if (h in 12..16) "Good afternoon" else if (h in 17..22) "Good evening" else "Hey, night owl"
 
     /** The DJ's hello on the first set, for the time of day, a different one each time. */
-    fun hello(h: Int = LocalTime.now().hour): String = dayHello(h) ?: hourHello(h)
+    fun hello(h: Int = clock().hour): String = dayHello(h) ?: hourHello(h)
 
     /** Half the time on a day with a feel of its own (Friday night, the weekend, Monday morning), a hello for it. */
     private fun dayHello(h: Int): String? {
         if (Random.nextBoolean()) return null
-        val d = java.time.LocalDate.now().dayOfWeek
+        val d = clock().dayOfWeek
         return when {
             d == java.time.DayOfWeek.FRIDAY && h in 17..23 -> say("hello-friday",
                 "Happy Friday night! It's your DJ, and the weekend starts right now.",
@@ -571,7 +574,7 @@ object Dj {
         val songs = pick(ok(taste, taste.hour.take(60)), SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
-        val h = LocalTime.now().hour
+        val h = clock().hour
         val whenText = if (h in 5..11) "this morning" else if (h in 12..16) "this afternoon" else if (h in 17..22) "tonight" else "at this hour"
         val part = if (h in 5..11) "morning" else if (h in 12..16) "afternoon" else if (h in 17..22) "evening" else "late night"
         return songs to say("hour",
@@ -1470,7 +1473,7 @@ object Dj {
     /** Now and then, a word about the day before a set's line ("Friday night, let's go."), "" most of the time. */
     private fun timeFlavor(): String {
         if (Random.nextInt(10) >= 3) return ""
-        val n = java.time.LocalDateTime.now()
+        val n = clock()
         val h = n.hour
         return when {
             n.dayOfWeek == java.time.DayOfWeek.FRIDAY && h >= 17 -> say("t-fri", "It's Friday night. Let's go.", "Friday night, and the weekend starts now.", "Happy Friday!")
