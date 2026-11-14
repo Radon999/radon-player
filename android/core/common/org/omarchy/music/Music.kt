@@ -302,10 +302,7 @@ object Music {
         }
     }
 
-    private var stuckMs = 0
-    private var audioDoneMs = 0
-    private var stuckAt = -1L
-    private var advancingSince = 0L
+    private val endWatcher = EndWatch()
 
     /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
      *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
@@ -318,33 +315,22 @@ object Music {
         // player underestimates its length (a VBR MP3 without its header, a stream) isn't cut short while it still plays.
         val engineMs = p.durationMs
         val songMs = ((t?.duration ?: 0.0) * 1000).toLong()
-        val d = if (engineMs > 0) maxOf(engineMs, if (songMs in engineMs..engineMs + 60_000) songMs else 0L) else songMs
         val at = p.positionMs
-        // Moving on that never finished (it should take a moment): not waited for any longer
-        if (advancing) { if (advancingSince == 0L) advancingSince = System.currentTimeMillis() } else advancingSince = 0L
-        val busy = advancing && System.currentTimeMillis() - advancingSince < 8000
-        // Only the song that's really in the player: while the next one loads (after a crossfade, the ending one plays
-        // on silently in the player till then), its clock is the last song's, and was read as this one's running past
-        // its end, so a song was skipped before it played.
-        val live = p.playWhenReady && !busy && !Remote.active && t != null && d > 0 && loadedFor == t.id
-        val stuck = live && at >= (if (engineMs > 0) engineMs else d) - 1500 && (p.state == Engine.READY || p.state == Engine.BUFFERING) && kotlin.math.abs(at - stuckAt) < 50
-        // Past its end: only when no music is coming out any more. A file whose music runs on longer than its length says
-        // (some MP3s and M4As, whose length is only an estimate) is still playing, so it plays to its real end, not cut
-        // off 1.5 seconds past the length (that was nearly every "ran on past its end" left); a minute over is the limit.
-        val past = live && at >= d + 1500 && p.state != Engine.IDLE && engineMs > 0 && (p.audioPlaying != true || at >= d + 60_000)
-        stuckAt = at
-        // Its music has all been played out, but the player hasn't said it ended: on to the next now (a moment's wait in
-        // case the player's own end is just coming), not 1.5 seconds past the end, and nothing for Problems.
-        audioDoneMs = if (live && p.audioEnded && p.state == Engine.READY && at >= d - 5000) audioDoneMs + 500 else 0
-        if (audioDoneMs >= 1000) { audioDoneMs = 0; stuckMs = 0; advancingSince = 0L; advancing = false; trackEnded(); return }
-        stuckMs = if (stuck) stuckMs + 500 else 0
-        if (stuckMs >= 2500 || past) {
-            stuckMs = 0; advancingSince = 0L
-            Crashes.note("“${t?.title}” ${if (past) "ran on past" else "stopped at"} its end without finishing: " +
-                (if (repeat == "one") "played again" else "moved on to the next song") +
-                " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
-            advancing = false
-            trackEnded()
+        // The watching itself is EndWatch's (the rules alone, tested by themselves); here, what's done about it
+        val verdict = endWatcher.look(System.currentTimeMillis(), engineMs, songMs, at, playWhenReady = p.playWhenReady, advancing = advancing,
+            remote = Remote.active, loaded = t != null && loadedFor == t.id, ready = p.state == Engine.READY, buffering = p.state == Engine.BUFFERING,
+            idle = p.state == Engine.IDLE, audioPlaying = p.audioPlaying, audioEnded = p.audioEnded)
+        when (verdict) {
+            EndWatch.Verdict.PLAYING -> {}
+            // Its music has all been played out, but the player hasn't said it ended: on to the next, nothing for Problems
+            EndWatch.Verdict.AUDIO_DONE -> { advancing = false; trackEnded() }
+            EndWatch.Verdict.STUCK, EndWatch.Verdict.PAST -> {
+                Crashes.note("“${t?.title}” ${if (verdict == EndWatch.Verdict.PAST) "ran on past" else "stopped at"} its end without finishing: " +
+                    (if (repeat == "one") "played again" else "moved on to the next song") +
+                    " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
+                advancing = false
+                trackEnded()
+            }
         }
     }
 
