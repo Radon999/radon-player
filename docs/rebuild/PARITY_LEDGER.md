@@ -24,15 +24,15 @@ yet: every row is unverified there.
 | Repeat all goes round to the first song | covered | P `repeatAllGoesRoundToTheFirstSong` | Reshuffling on the way round: not yet |
 | After the queue: next saved queue, Autoplay radio | not yet | | Radio needs a service stand-in |
 | Your copy first (`localOf`) | not yet | | |
-| A load that fails: skip after 1.5 s | not yet | | Needs a failing source stand-in |
-| A stream that breaks: one retry from the same place | not yet | | Same |
+| A load that fails: skip after 1.5 s | covered | P `aSongThatCantBeGotIsSkippedAfterAMoment` | With a stand-in for the services (`Downloader.standIn`, null in the app) |
+| A stream that breaks: one retry from the same place, then the next song | covered | P `aStreamThatBreaksIsGotBackOnceFromTheSamePlace` | Same |
 | A song that ends is counted as heard to the end | covered | P `aSongThatEndsIsCountedAsHeardOut` | |
 | Skip counting: leaving part way is a skip, in its last seconds it isn't | covered | P `leavingASongPartWayIsASkipButNotInItsLastSeconds` | Going back isn't a skip, a song under a second in isn't: not yet |
 | A play counts at half the song | covered | P `aPlayCountsOnceHalfTheSongIsHeard` | The Last.fm rule (half, or four minutes): not yet (needs a Last.fm stand-in) |
 | A song stuck at its end moves on by itself | covered | P `aSongStuckAtItsEndMovesOnByItself` | Ran past its end, audio drained: not yet |
 | Crossfade: the ending in a second player, the next comes in, ends at full volume | covered | P `crossfadeFadesTheEndingOutInAPlayerOfItsOwnWhileTheNextComesIn` | The shape of the fade itself: not yet |
 | No crossfade on Repeat one or with bit-perfect | covered | P `noCrossfadeOnRepeatOneOrWithBitPerfect` | Streams, casting, same album, before a DJ set or comment, while ducked: not yet |
-| Saved queues (Queues on) | not yet | | |
+| Saved queues: the one you leave is kept with your place; going back; a queue that ends goes on with the other | covered | P `theQueueYouLeaveIsKeptAndTakenUpWhereYouLeftIt` | Moving, renaming and deleting queues, the most kept, Queues off: not yet |
 | Shuffle, smart shuffle | partly | A `ShuffleTest` | The weights only |
 | Per-song speed, volume, EQ | partly | A `SongSpeedsTest`, S `SongGainsTest` | Storage only |
 | Android: stays a foreground service between songs | blocked | | Needs a phone, screen off |

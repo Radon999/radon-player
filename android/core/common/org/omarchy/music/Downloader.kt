@@ -55,8 +55,13 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     var streamQuality: () -> String = { "flac24" }
 
     /** Play t without saving it (blocking): the file when it is on the phone, else Tidal's stream. */
+    /** A stand-in for the services, for the tests (null in the app): what a song that isn't a file plays from, or the
+     *  error getting it. With it, nothing is looked up anywhere. */
+    @Volatile var standIn: ((Track) -> Ready)? = null
+
     fun stream(t: Track): Ready {
         if (t.isFile) return Ready(t.file!!, onDisk = true)
+        standIn?.let { return it(t) }
         if (t.source == SoundCloud.KEY) {   // its own service: streamed from SoundCloud itself, never matched elsewhere or saved
             val sc = Music.sources[SoundCloud.KEY] as? SoundCloud ?: error("SoundCloud isn't set up")
             synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < 600 }?.let { return it.first } }   // its addresses last a while

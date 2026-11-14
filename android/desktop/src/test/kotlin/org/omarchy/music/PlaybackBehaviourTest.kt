@@ -268,4 +268,95 @@ class PlaybackBehaviourTest {
         assertEquals("left in its last second: no skip", 0, skips(songs[1]))
         assertEquals(1, skips(songs[0]))
     }
+
+    /** The app's switches as the tests want them, with a stand-in for the services (what a song that isn't a file
+     *  plays from, or the error getting it). */
+    private fun withServices(standIn: (Track) -> Downloader.Ready, run: () -> Unit) {
+        Harness.ctx; engine
+        ui { Music.dl.standIn = standIn; Music.keepPlayed = false; Music.lyricsToFiles = false; Music.autoplay = false; Music.repeat = "off" }
+        try { run() } finally { ui { Music.dl.standIn = null } }
+    }
+
+    /** A song that can't be got (not on the service, no network): said so, and after a moment the next one plays. It
+     *  never reaches the player. */
+    @Test fun aSongThatCantBeGotIsSkippedAfterAMoment() {
+        val f = files("fail")
+        val gone = Track("gone-1", "tidal", "Gone song", "Nobody")
+        withServices({ t -> if (t.id == "gone-1") error("not there") else Downloader.Ready("http://test/${t.id}") }) {
+            ui { Music.playFrom(listOf(f[0], gone, f[1]), 0, radio = false) }
+            until("the first song loaded") { engine.loads.lastOrNull()?.id == f[0].id }
+            val asked = System.currentTimeMillis()
+            ui { Music.next() }
+            until("it went on to the song after") { engine.loads.lastOrNull()?.id == f[1].id }
+            assertTrue("after a moment, not at once (${System.currentTimeMillis() - asked} ms)", System.currentTimeMillis() - asked >= 1300)
+            assertFalse(engine.loads.any { it.id == "gone-1" })
+            assertEquals(2, Music.index)
+        }
+    }
+
+    /** A stream that stops short of the song's end (the network went): looked up again and played on from the same
+     *  place, once. If it breaks again, the next song. */
+    @Test fun aStreamThatBreaksIsGotBackOnceFromTheSamePlace() {
+        val f = files("stream")
+        val live = Track("live-1", "tidal", "Live song", "Somebody")
+        val asked = java.util.concurrent.atomic.AtomicInteger()
+        withServices({ t -> Downloader.Ready("http://test/${t.id}/${asked.incrementAndGet()}") }) {
+            ui { Music.playFrom(listOf(live, f[0]), 0, radio = false) }
+            until("the stream loaded") { engine.loads.lastOrNull()?.id == "live-1" }
+            engine.durationMs = 200_000; engine.positionMs = 50_000
+            until("the app knows where the song is") { ui { Music.position >= 49.0 && Music.duration >= 199.0 } }
+            val before = engine.loads.count { it.id == "live-1" }
+            engine.end()
+            ui { Music.engineEnded() }
+            until("the stream was got back") { engine.loads.count { it.id == "live-1" } == before + 1 }
+            assertTrue("from where it broke (${engine.loads.last().startMs} ms)", engine.loads.last().startMs in 49_000L..53_000L)
+            assertTrue("another address than the one that broke", engine.loads.last().uri != engine.loads.first { it.id == "live-1" }.uri)
+            assertEquals(0, Music.index)
+            assertTrue(engine.playWhenReady)
+            // It breaks again: given up, the next song
+            engine.durationMs = 200_000
+            until("playing on") { ui { Music.position >= 49.0 && Music.duration >= 199.0 } }
+            engine.end()
+            ui { Music.engineEnded() }
+            until("the next song loaded") { engine.loads.lastOrNull()?.id == f[0].id }
+            assertEquals(1, Music.index)
+        }
+    }
+
+    /** Queues: picking songs from another list keeps the queue you were in, where you were in it; going back takes
+     *  it up from there (and keeps the other); and a queue that ends goes on with your other one. */
+    @Test fun theQueueYouLeaveIsKeptAndTakenUpWhereYouLeftIt() {
+        Harness.ctx; engine
+        val a = files("qa"); val b = files("qb")
+        try {
+            ui {
+                Music.lyricsToFiles = false; Music.autoplay = false; Music.repeat = "off"; Music.multiQueue = true
+                Music.listName = "List A"; Music.playFrom(a, 1, radio = false)
+            }
+            until("A's second song loaded") { engine.loads.lastOrNull()?.id == a[1].id }
+            engine.positionMs = 42_000
+            ui { Music.listName = "List B"; Music.playFrom(b, 0, radio = false) }
+            until("B's first song loaded") { engine.loads.lastOrNull()?.id == b[0].id }
+            val kept = ui { Music.queues.firstOrNull { it.name == "List A" } } ?: throw AssertionError("List A wasn't kept: ${Music.queues.map { it.name }}")
+            assertEquals(a.map { it.id }, kept.tracks.map { it.id })
+            assertEquals(1, kept.index)
+            assertTrue("where it was left (${kept.position} s)", kept.position >= 42.0 && kept.position < 50.0)
+            assertEquals("List B", Music.queueName)
+            // Back to A: its second song, from where it was left; B is kept now
+            ui { Music.switchQueue(kept.id) }
+            until("A's second song again, from where it was") { engine.loads.last().let { it.id == a[1].id && it.startMs >= 42_000 } }
+            assertEquals(1, Music.index)
+            assertEquals("List A", Music.queueName)
+            assertTrue(ui { Music.queues.any { it.name == "List B" } && Music.queues.none { it.name == "List A" } })
+            // A runs out: B goes on
+            ui { Music.playIndex(2) }
+            until("A's last song loaded") { engine.loads.lastOrNull()?.id == a[2].id }
+            engine.end()
+            ui { Music.engineEnded() }
+            until("B went on") { engine.loads.lastOrNull()?.id == b[0].id }
+            assertEquals("List B", Music.queueName)
+        } finally {
+            ui { Music.removeOtherQueues(); Music.listName = "" }
+        }
+    }
 }
