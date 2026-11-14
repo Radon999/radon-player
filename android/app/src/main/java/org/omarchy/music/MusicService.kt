@@ -50,7 +50,10 @@ class MusicService : MediaLibraryService() {
                 Music.paused = !exo.playWhenReady
             }
 
+            override fun onPlaybackSuppressionReasonChanged(reason: Int) { Music.trace("player: held back, reason $reason") }
+
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                Music.trace("player: play-when-ready=$playWhenReady (reason $reason)")
                 // Bit-perfect taking the USB DAC over makes Android think the DAC was unplugged ("becoming noisy"), which
                 // paused the music; that pause is undone (a real unplug still pauses)
                 if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY && UsbDirect.tookOverLately() && UsbDirect.device() != null) {
