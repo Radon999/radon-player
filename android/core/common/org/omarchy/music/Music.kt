@@ -1137,7 +1137,8 @@ object Music {
         djWarming = true
         bg({ Dj.build(first = true) }) { res, _ ->
             djWarming = false
-            if (res == null || dj.on) return@bg
+            if (res == null || dj.on) { res?.let { Dj.discard(it.id) }; return@bg }
+            djFirst?.let { Dj.discard(it.set.id) }   // the one it takes the place of was never played
             djFirst = Warm(src, withNew, res, now())
             djPrepareLine(res)
         }
@@ -1146,6 +1147,7 @@ object Music {
     fun djStop() {
         if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
         dj = dj.copy(on = false)
+        djSpares.forEach { Dj.discard(it.id) }   // never played: their kinds and facts keep their turn
         djSpares.clear(); djSpareJob++; djSpareBusy = false
         scope.launch(Dispatchers.Main) { delay(3000); runCatching { djWarm() } }   // ready for next time
         saveState()
@@ -1161,6 +1163,7 @@ object Music {
             // Only my songs: never a stream, whatever the set found
             .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
         Dj.played(b.songs + songs)   // none again for the next 300 songs
+        Dj.commit(b.id)   // it's played: its kind has had its turn, its fact is told (held till now, see Dj.Hold)
         return songs.map { it.copy(dj = n) }
     }
 
@@ -1338,6 +1341,7 @@ object Music {
                 djWaiting = true
                 scope.launch(Dispatchers.Main) { delay(3000); if (djWaiting && dj.on) djMore() }
             } else if (wait) { djRetried = 0; doneAdvancing(); player?.pause(); toast("The DJ couldn't pick its next set. Tap Play to try again.") }
+            if (res != null && !(ctxNow == context && dj.on)) Dj.discard(res.id)   // made, but not queued after all
             if (res != null) djRetried = 0
         }
     }
@@ -1409,6 +1413,7 @@ object Music {
 
     private fun djMakeSpare() {
         if (!dj.on || Remote.active) return
+        djSpares.forEach { Dj.discard(it.id) }
         djSpares.clear()
         djSpareJob++
         djSpareBusy = false
@@ -1424,9 +1429,9 @@ object Music {
         val avoid = djSpares.lastOrNull()?.kind ?: djKind()
         val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
-            if (mine != djSpareJob) return@bg   // started again meanwhile
+            if (mine != djSpareJob) { res?.let { Dj.discard(it.id) }; return@bg }   // started again meanwhile
             djSpareBusy = false
-            if (res == null || !dj.on) return@bg
+            if (res == null || !dj.on) { res?.let { Dj.discard(it.id) }; return@bg }
             djSpares += res
             djPrepareLine(res)
             djFillSpares()

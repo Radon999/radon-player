@@ -149,24 +149,28 @@ class DjBehaviourTest {
         assertTrue("lines that name a song were among them ($naming)", naming > 50)
     }
 
-    /** C-4 (a fault, as it is today): a set that was only made (never queued, never played) has already used up its
-     *  kind's turn: the kind is written to the history when the set is built. */
-    @Test fun fault_aSetNeverPlayedStillUsesUpItsKindsTurn() {
+    /** C-4, fixed (it was: a set that was only made, never queued or played, had already used up its kind's turn: the
+     *  kind was written to the history when the set was built). Now it's only held: written when the set is played,
+     *  forgotten when the set is let go. */
+    @Test fun aSetsKindHasItsTurnOnlyWhenTheSetIsPlayed() {
         Harness.ctx
-        Dj.playFrom("the test songs", Harness.songs(40, from = 100))
-        // The other tests here make sets too (the tests share one DJ): counted, not just looked for. Let what they
-        // wrote settle first (it's kept on the app's own thread, a moment later).
+        Dj.playFrom("the test songs", Harness.songs(40, from = 500))
         fun times() = NoRepeat.decode(Prefs.text("dj_kind_history")).count { it == "mix" }
-        Thread.sleep(1500)
+        Thread.sleep(1500)   // what the other tests wrote, settled (it's kept on the app's own thread, a moment later)
         val before = times()
-        val b = Dj.build(kind = "mix")
-        assertNotNull(b)
-        assertEquals("mix", b!!.kind)
+        val letGo = Dj.build(kind = "mix")
+        val played = Dj.build(kind = "mix")
+        assertNotNull(letGo); assertNotNull(played)
+        assertTrue("each set has a number of its own", letGo!!.id != played!!.id && letGo.id > 0 && played.id > 0)
+        Thread.sleep(1500)
+        assertEquals("made, not played: nothing written", before, times())
+        Dj.discard(letGo.id)
+        Dj.commit(played.id)
         var kept = false
-        for (i in 0 until 50) {
-            if (times() == before + 1) { kept = true; break }
-            Thread.sleep(100)
-        }
-        assertTrue("the kind wasn't written at build: is C-4 fixed? Then turn this test round", kept)
+        for (i in 0 until 50) { if (times() == before + 1) { kept = true; break }; Thread.sleep(100) }
+        assertTrue("the set played has had its kind's turn (${times()} against $before)", kept)
+        Dj.commit(played.id); Dj.commit(letGo.id)   // again, or one let go: nothing more
+        Thread.sleep(1500)
+        assertEquals(before + 1, times())
     }
 }

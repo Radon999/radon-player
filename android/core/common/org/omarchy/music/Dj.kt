@@ -82,7 +82,8 @@ object Dj {
     data class Shown(val on: Boolean = false, val busy: String = "", val kind: String = "", val line: String = "",
                      val kinds: Map<String, String> = emptyMap(), val from: String = "", val fact: String = "")
 
-    data class Built(val kind: String, val songs: List<Track>, val line: String, val fact: String = "")
+    /** A set made. id: its own number, for what it holds until it's played ([commit]) or let go ([discard]). */
+    data class Built(val kind: String, val songs: List<Track>, val line: String, val fact: String = "", val id: Long = 0)
 
     // ---- the parts that don't need the app ----
 
@@ -199,15 +200,44 @@ object Dj {
     /** Kept to Prefs on the main thread (sets are built in the background). */
     private fun keep(key: String, text: String) { runCatching { Music.scope.launch { Prefs.setText(key, text) } } }
 
-    private fun said(key: String): List<String> = synchronized(lock) {
+    // What a set being made would add to those histories (its kind, its fact, its mood, decade or spotlight artist) is
+    // only held until the set is played ([commit]) or let go ([discard]). Before, it was written when the set was
+    // made: a set made ahead and never played had used up its kind's turn, and a milestone told in it was never heard.
+    // While held it still counts for the sets made after it (the three kept ready don't repeat each other).
+    private class Hold(val set: Long, val key: String, val what: String, val keep: Int)
+    private val holds = ArrayList<Hold>()
+    private val building = ThreadLocal<Long?>()   // the set being made on this thread (its Built.id)
+    private val setIds = java.util.concurrent.atomic.AtomicLong()
+
+    /** What's written (kept across restarts). Under [lock]. */
+    private fun kept(key: String): List<String> =
         saidCache.getOrPut(key) { runCatching { NoRepeat.decode(Prefs.text(key)) }.getOrDefault(emptyList()) }
+
+    /** What was said lately: what's written, then what the sets made but not yet played hold. */
+    private fun said(key: String): List<String> = synchronized(lock) {
+        kept(key).let { k -> if (holds.isEmpty()) k else k + holds.filter { it.key == key }.map { it.what } }
     }
 
-    private fun remember(key: String, what: String, keep: Int = 40) = synchronized(lock) {
-        val h = NoRepeat.remember(said(key), what, keep)
+    private fun write(key: String, what: String, n: Int) {
+        val h = NoRepeat.remember(kept(key), what, n)
         saidCache[key] = h
         keep(key, NoRepeat.encode(h))
     }
+
+    private fun remember(key: String, what: String, keep: Int = 40): Unit = synchronized(lock) {
+        val set = building.get()
+        if (set != null) holds += Hold(set, key, what, keep) else write(key, what, keep)
+    }
+
+    /** The set is played (queued for good): what it held is written now. */
+    fun commit(set: Long): Unit = synchronized(lock) {
+        val mine = holds.filter { it.set == set }
+        holds.removeAll(mine.toSet())
+        mine.forEach { write(it.key, it.what, it.keep) }
+    }
+
+    /** The set was let go unplayed: what it held is forgotten, as if it had never been made. */
+    fun discard(set: Long) { synchronized(lock) { holds.removeAll { it.set == set } } }
 
     /** One of lines, from a shuffle bag kept for key: none said again until all the others have been. */
     private fun say(key: String, vararg lines: String): String = synchronized(lock) {
@@ -1739,6 +1769,8 @@ object Dj {
         val key = if (sc0 != null) FROM_HISTORY else KIND_HISTORY
         val tries = if (kind != null) listOf(kind) else kindsToTry(order, key, avoid)
         outNow.set(usedInLast(window()) + coming)   // kept out of every set from the start (see outNow)
+        val id = setIds.incrementAndGet()
+        building.set(id)   // what it adds to the histories is held until it's played (see Hold)
         try {
         for (k in tries) {
             val sc = scope
@@ -1772,6 +1804,7 @@ object Dj {
             }
             if (got == null) {   // can't make one now: tried after the others for a while, and not counted
                 if (kind == null) dead["$key:$k"] = now()
+                discard(id)   // nothing of a kind that made no set is held
                 continue
             }
             dead.remove("$key:$k")
@@ -1783,9 +1816,9 @@ object Dj {
             // Now and then (and never on the first set: that has its hello) something the DJ knows about you
             val fact = if (!first && Random.nextInt(5) < 2) fact(songs) ?: "" else ""
             // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
-            return Built(k, Music.localsOf(songs), line, fact)
+            return Built(k, Music.localsOf(songs), line, fact, id)
         }
-        } finally { outNow.set(null) }
+        } finally { outNow.set(null); building.set(null) }
         return null
     }
 }

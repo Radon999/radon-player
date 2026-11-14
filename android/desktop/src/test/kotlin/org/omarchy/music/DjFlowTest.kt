@@ -122,6 +122,18 @@ class DjFlowTest {
         } finally { Dj.clock = { java.time.LocalDateTime.now() } }
     }
 
+    /** A set that plays has had its kind's turn: starting the DJ writes its first set's kind to the history. */
+    @Test fun aSetThatPlaysTakesItsKindsTurn() {
+        Harness.ctx
+        fun times() = NoRepeat.decode(Prefs.text("dj_kind_history")).groupingBy { it }.eachCount()
+        Thread.sleep(1500)   // what the tests before wrote, settled
+        val before = times()
+        startDj()
+        val kind = Music.shownDj().kind
+        assertTrue(kind.isNotEmpty())
+        Harness.until("its kind written") { (times()[kind] ?: 0) == (before[kind] ?: 0) + 1 }
+    }
+
     @Test fun pickingOtherSongsStopsTheDj() {
         startDj()
         val other = Harness.files("other", 3)
