@@ -198,7 +198,7 @@ class PlaybackGapsTest {
             assertEquals(id, Music.queueId)
             assertEquals(listOf("Kept A"), Music.queues.map { it.name })
             assertEquals(a.map { it.id }, Music.queues[0].tracks.map { it.id })
-            until("the song put back into the player") { engine.loads.size > loads }
+            until("the song put back into the player, not playing") { engine.loads.size > loads && !engine.playWhenReady }   // (the player is told not to play a moment after the song goes in)
             assertEquals(b[1].id, engine.loads.last().id)
             assertEquals(0L, engine.loads.last().startMs)
             assertFalse("not playing until you say", engine.playWhenReady)
