@@ -7,7 +7,9 @@ import org.junit.Test
 
 /** Every mood that fits a song, the sound and the words weighed against each other, and the nudge from your fixes. */
 class MoodRulesTest {
-    private val upbeat = SoundFeatures(loud = -11.0, range = 8.0, bpm = 124.0, beat = 0.45, bright = 2700.0, onsets = 3.6, major = 0.6)
+    // (Loud and busy as records really measure: -11 dB and 3.6 notes a second, as this had, is a quiet, sparse song
+    // on the scale the rules read since November 2026.)
+    private val upbeat = SoundFeatures(loud = -6.5, range = 8.0, bpm = 124.0, beat = 0.58, bright = 2700.0, onsets = 5.2, major = 0.6)
     private val slowMinor = SoundFeatures(loud = -21.0, range = 12.0, bpm = 70.0, beat = 0.15, bright = 1300.0, onsets = 1.4, major = -0.6)
     private val pop = SoundFeatures(loud = -12.0, range = 8.0, bpm = 105.0, beat = 0.4, bright = 2200.0, onsets = 3.0, major = 0.3)
 
