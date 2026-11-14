@@ -1,8 +1,15 @@
 # Radon Player: notes for Claude
 
 Radon Player is a music player for **Windows** and **Android**. It started as Omarchy Music / VarMusic by
-the owner's brother; Radon999 carries it on here. Linux is no longer a target. `docs/history.md` has the
+the owner's brother; Radon999 carries it on here. `docs/history.md` has the
 story of recent versions (what broke, why, how it was fixed, what's still open): read it before big changes.
+
+**The rebuild (this branch, `rebuild`):** the owner decided (November 2026) that the app is for **Android, Windows
+and Linux**, stays Kotlin, and is restructured into separate services with one small native audio module.
+`docs/rebuild/RADON_REBUILD_PLAN.md` is the plan (its phases, rules and open decisions) and
+`docs/rebuild/DJ_LINES_CATALOG.md` every DJ line. Every push here is built and tested by
+`.github/workflows/rebuild.yml` (result: the `rebuild-ci` branch, `result-linux.txt`); nothing from here reaches
+`radon-player` or a release until the owner says "publish it".
 
 ## How the owner wants to work
 
