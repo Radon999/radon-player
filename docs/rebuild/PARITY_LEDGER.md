@@ -251,7 +251,18 @@ Ninth service: better copies of what you have (`Upgrades`, `a6432dc`): Upgrade (
 (`doneText`, `flacText`, `refreshedText`); `swapPlaying` stays in `Music` (it is playback's). One thing changed on
 purpose: the YouTube downloads already looked up on Tidal were a plain set read by the screen while a run added to
 it from another thread; it is a concurrent set now. P `UpgradesTest`. The fetching itself has no test (it needs
-Tidal). Checked on Linux and Windows; not in build 23. **Not
+Tidal). Checked on Linux and Windows; not in build 23.
+
+Tenth service: a favorite and a song's own volume (`SongMarks`, `1ddd500`): `setFavorite`, `setGain`,
+`refreshSongVolume`, `gainNow`, `gainOf` moved as they were, `favoriteText` and `gainText` named; P `SongMarksTest`.
+
+**Test build 24 (`8b11858`): Tidal first.** The owner heard DJ songs (Include new songs) in YouTube's Opus that Tidal
+has in FLAC (one downloaded as FLAC right after). Read in `Downloader.find`: any error asking Tidal for the stream
+sent the song to Tidal's AAC or YouTube's audio, and that stream was used for 15 minutes. Now Tidal is asked twice
+more first, a stream that is less only for such a hiccup is kept a minute, and Settings › Problems says when it
+happened (`StreamRules`, shared; S `StreamRulesTest`). Not proven: that a hiccup (Tidal's "too many asks", as when
+the DJ looks its next songs up together) was the owner's cause; it is the path the code shows, and Problems will
+now say. A song already playing from YouTube is not swapped mid-song. Not run against Tidal by Claude. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
