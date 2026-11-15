@@ -438,6 +438,7 @@ object Dj {
 
     /** (blocking) Every play the DJ goes by: your Last.fm scrobbles and your imports; the plays here only without any. */
     private fun history(): List<Heard> {
+        historyStandIn?.let { return it() }
         // Last.fm's scrobbles and your imports (Spotify, Apple Music, Deezer, YouTube Music, Tidal): what every count,
         // set and fact is made from. The plays here only when there's none of those at all (a fallback).
         val out = ArrayList<Heard>()
@@ -469,6 +470,11 @@ object Dj {
 
     /** (blocking) What you play, read again every ten minutes. */
     private fun loadTaste(): Taste = tasteKept.get()
+
+    /** In a test: the plays the DJ goes by, in place of Last.fm, the imports and the plays here (null in the app). */
+    @Volatile var historyStandIn: (() -> List<Heard>)? = null
+    /** In a test: what your listening adds up to is made again at the next asking (after the plays were changed). */
+    fun retaste() = tasteKept.clear()
 
     private fun buildTaste(): Taste {
         

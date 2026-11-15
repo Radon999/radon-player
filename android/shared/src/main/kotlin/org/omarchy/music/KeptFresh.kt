@@ -29,6 +29,9 @@ class KeptFresh<T : Any>(private val maxAge: Double, private val waitAfter: Doub
         return v
     }
 
+    /** Forgotten: the next asker waits for a new one. */
+    @Synchronized fun clear() { value = null }
+
     @Synchronized private fun fresh(): T {
         value?.let { if (clock() - at < maxAge) return it }   // made by another while this one waited
         return make().also { value = it; at = clock() }
