@@ -121,8 +121,25 @@ it names, picking, how many of the last songs are kept out, whose turn it is, th
 (S `ScriptRulesTest`: what fits in a break of 45 words as said: the hello stays, a word about the day goes first,
 then the fact; the thread from the song before; a break made ahead said for the part of the day it is heard in).
 `Dj` hands on to both. **Not done:** each kind of set's own rule (they need your listening and the services: a
-stand-in for both comes first), the lines themselves, the `DjDirector` (the DJ's part of `Music`), the plan's
+stand-in for both comes first), the lines themselves, the `DjDirector` (the DJ's part of `Music`: done since, see the next paragraph), the plan's
 `DjSet` record. Checked on Linux and Windows; run in the real PC app (`1ad5a3e`): the DJ starts with its hello, five sets of different kinds follow one another (On this day, Mix with the thread from the song before, Not played yet, Not skipped this month), Switch it up, the DJ stopped leaves the music; nothing written to Problems.
+
+**Phase 8, second part: the DJ's own part out of `Music.kt` (`DjDirector`), 14 November 2026 (`5a02b57`).** Moved
+as it was, in five steps, each checked on Linux and Windows before the next (253 shared, 56 app, 65 PC tests, none
+failing): the DJ's state and the sets made ahead (the first one while it is off, three spares while it plays); its
+voice (a line said over the music, the music turned down under it and back up, hush); a set's line as it begins and
+the word between songs; starting and stopping, what it plays from, the next set, Switch it up and asking for
+something; and last what playback knows of the DJ (`PlaybackCore.DjSide`, answered by `DjDirector.side`), the DJ's
+part of Play and its watch that the music goes on after a song. `Music` keeps every name the screens, the phone's
+service, the remote and the tests use and hands on; `Music.kt` went from 3,302 lines to 2,881. `DjDirector` reaches
+playback only through `PlaybackCore`, and asks `Music` for the app's own things (your music, the settings, the
+player's volume, notes to you), each named at its top. No line of the DJ's words changed; the phone's rule between
+songs and the USB path were not touched. Run in the real PC app after the voice step (`ca5dc7e`) and at the end
+(`5a02b57`): the DJ starts with its line, seven skips go through a set and into the next kind, Switch it up brings
+a set made ahead at once, a song under the DJ hands over by itself, Pause and Play, the DJ stopped leaves the music;
+nothing written to Problems; the app quit after. **Not done:** each kind of set's own rule is still in `Dj.kt`;
+there is no `DjSet` record; `DjDirector` is an object on the main thread like `Music`, not the plan's actor with a
+mailbox; nothing was run on a phone (it compiles and its tests pass).
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
