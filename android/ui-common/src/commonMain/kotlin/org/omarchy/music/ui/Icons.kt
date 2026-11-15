@@ -25,7 +25,7 @@ enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HE
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
     SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST, VOLUME_ALERT, MIC,
-    BLUETOOTH_OFF, PALETTE }
+    BLUETOOTH_OFF, PALETTE, REFRESH }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -87,6 +87,11 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
             line(4f, 11f, 4f, 7f, 19.5f, 7f); line(17f, 4.5f, 19.5f, 7f, 17f, 9.5f)
             line(20f, 13f, 20f, 17f, 4.5f, 17f); line(7f, 14.5f, 4.5f, 17f, 7f, 19.5f)
             if (ico == Ico.REPEAT_ONE) line(11f, 10.5f, 12.5f, 9.8f, 12.5f, 14.2f)
+        }
+        // Refresh: most of a circle, clockwise, with an arrowhead at its end (top left)
+        Ico.REFRESH -> {
+            drawArc(color, 300f, 300f, false, p(5f, 5f), Size(14f * u, 14f * u), style = stroke)
+            line(5.35f, 5.4f, 8.5f, 5.95f, 7.4f, 8.95f)
         }
         Ico.HEART -> drawPath(heart(), color)
         Ico.HEART_LINE -> drawPath(heart(), color, style = stroke)

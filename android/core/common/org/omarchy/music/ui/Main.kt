@@ -450,6 +450,10 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 textAlign = if (lay.titleCenter) TextAlign.Center else TextAlign.Start,
                 modifier = Modifier.weight(1f).padding(start = 4.dp))
+            // Refresh, on every tab with something to read again (your files, your listening, your downloads…)
+            org.omarchy.music.RefreshRules.kind(ui.tab, ui.musicView, inside, Music.browseLocal)?.let { kind ->
+                IconButton(Ico.REFRESH, desc = "Refresh $title") { refreshTab(kind) }
+            }
             if (laidOut(ui)) {
                 // On a list, search looks through that list; Search in the menu searches the services.
                 IconButton(Ico.SEARCH, if (ui.filter != null) C.accent else C.fg, desc = "Search $title") {
@@ -468,6 +472,20 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
         if (ui.tab == "search" && page == null) SearchField(ui)
         else if (ui.filter != null && laidOut(ui)) FilterField(ui, title)
         if (ui.tab == "library" && page == null && !Music.browseLocal) SourceChips(ui, Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+    }
+}
+
+/** The header's Refresh: what the tab shows is read again (RefreshRules says which reading a tab needs). */
+private fun refreshTab(kind: String) {
+    val rules = org.omarchy.music.RefreshRules
+    when (kind) {
+        rules.FILES -> { Music.toast(rules.text(kind)); Music.rescan() }
+        rules.STATS -> { Music.toast(rules.text(kind)); org.omarchy.music.Stats.refresh(force = true); Music.musicVersion++ }
+        rules.DOWNLOADS -> Music.refreshDownloads()   // says what it found itself
+        rules.SMART -> { Music.toast(rules.text(kind)); org.omarchy.music.SmartLists.refresh(); Music.musicVersion++ }
+        rules.MOODLISTS -> org.omarchy.music.MoodLists.refresh(org.omarchy.music.Moods.ALL)   // says what changed itself
+        rules.DUPES -> { Music.toast(rules.text(kind)); Music.findDupes() }
+        else -> { Music.musicVersion++; Music.savedVersion++; Music.toast(rules.text(kind)) }
     }
 }
 
