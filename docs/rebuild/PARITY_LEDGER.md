@@ -119,7 +119,7 @@ it names, picking, how many of the last songs are kept out, whose turn it is, th
 then the fact; the thread from the song before; a break made ahead said for the part of the day it is heard in).
 `Dj` hands on to both. **Not done:** each kind of set's own rule (they need your listening and the services: a
 stand-in for both comes first), the lines themselves, the `DjDirector` (the DJ's part of `Music`), the plan's
-`DjSet` record. Checked on Linux and Windows; **not yet run in the real PC app** (the owner's own test build was open and has the command port).
+`DjSet` record. Checked on Linux and Windows; run in the real PC app (`1ad5a3e`): the DJ starts with its hello, five sets of different kinds follow one another (On this day, Mix with the thread from the song before, Not played yet, Not skipped this month), Switch it up, the DJ stopped leaves the music; nothing written to Problems.
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
