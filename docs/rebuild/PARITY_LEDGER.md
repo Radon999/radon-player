@@ -269,7 +269,13 @@ confirmed on build 24: streams show as FLAC now.
 skips again and again. The subjects now take turns (`FactTopics`, `NoRepeat.pickTurn`, shared; S `FactTurnsTest`:
 with six things to say about skips and one each about eight other subjects, skips come up once in nine) and
 `Dj.collectionFacts` adds eighteen things to tell (listed at the end of `DJ_LINES_CATALOG.md`; `DjLinesTest` holds
-them to the voice rules). Checked on Linux and Windows; not heard by Claude. **Not
+them to the voice rules). Checked on Linux and Windows; not heard by Claude. The owner on build 25: the new ones are
+good, but how many songs of an album you have says little: that one is out (`531a442`, test build 26).
+
+Eleventh service: Sound presets and headphones corrections you keep (`SoundPresets`, `4a89b74`): saved, imported,
+exported, deleted, an AutoEq one added, every one collected, a new output's starting preset; moved as they were, with
+`presetKey`, `correctionKey` and `nameFromFile` named; P `SoundPresetsTest`. The equalizer itself (what plays, each
+output's settings, the switch between outputs) is still in `Music.kt`. Checked on Linux and Windows. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
