@@ -116,15 +116,7 @@ object Dj {
     /** n songs of pool at random, the ones nearer the top likelier, none twice and none in used
      *  (song keys of what the DJ played already). */
     fun pick(pool: List<Track>, n: Int, used: Set<Pair<String, String>>, rng: Random = Random.Default): List<Track> {
-        val seen = HashSet(used)
-        val out = ArrayList<Track>()
-        val weighted = pool.mapIndexed { i, t -> Math.pow(rng.nextDouble(), 1 + 8.0 * i / maxOf(1, pool.size)) to t }
-        for ((_, t) in weighted.sortedByDescending { it.first }) {
-            if (!seen.add(songKey(t))) continue
-            out += t
-            if (out.size == n) break
-        }
-        return out
+        return SetRules.pick(pool, n, used, rng)
     }
 
     /** "A and B": the lead artists of tracks, each once. */
@@ -138,8 +130,7 @@ object Dj {
 
     /** The day and the part of it now (morning, afternoon, evening, night: as the hellos split it). */
     private fun timeKey(): String {
-        val n = clock(); val h = n.hour
-        return "${n.dayOfWeek} " + if (h in 5..11) "morning" else if (h in 12..16) "afternoon" else if (h in 17..22) "evening" else "night"
+        return SetRules.timeKey(clock())
     }
 
     /** A set made ahead, as it should be said now. Its hello and its word about the day were written when it was made
@@ -328,7 +319,7 @@ object Dj {
     }
 
     /** A kind as the history keeps it: playing from a playlist, "Your favourites" is the same kind as from everything. */
-    private fun canon(k: String) = if (k == "loved" || k == "favorites") "mostplayed" else k
+    private fun canon(k: String) = SetRules.canon(k)
 
     /** The kinds of set to try next, best first: the one played longest ago first, so none comes back until every
      *  other kind has had its turn. One history for every set, whatever the DJ plays from (switching to a playlist,
@@ -337,13 +328,7 @@ object Dj {
      *  and avoid (the kind playing now) last of all. */
     private fun kindsToTry(order: List<String>, key: String, avoid: String?): List<String> {
         val t = now()
-        val kinds = order.distinct()
-        val h = said(KIND_HISTORY)
-        val rank = kinds.associateWith { k -> h.lastIndexOf(canon(k)).let { if (it >= 0) it.toDouble() else Random.nextDouble(-1.0, h.size.toDouble()) } }
-        val usable = kinds.filter { t - (dead["$key:$it"] ?: -1e12) > 600 }
-        var tries = usable.shuffled().sortedBy { rank.getValue(it) } + kinds.filter { it !in usable }.sortedBy { rank.getValue(it) }
-        if (avoid != null) tries = tries.filter { it != avoid } + tries.filter { it == avoid }
-        return tries
+        return SetRules.kindsToTry(order, said(KIND_HISTORY), { t - (dead["$key:$it"] ?: -1e12) <= 600 }, avoid)
     }
 
     private fun q(t: Track) = "“${t.title}”"
@@ -395,7 +380,7 @@ object Dj {
 
     /** How many of the last songs are kept out now: all [SONG_GAP], or playing from a few songs (a playlist), fewer, so
      *  there are always some to pick (the ones played longest ago come back first). */
-    private fun window(): Int = scope?.second?.size?.let { minOf(SONG_GAP, maxOf(0, it - 2 * SET)) } ?: SONG_GAP
+    private fun window(): Int = SetRules.window(scope?.second?.size, SONG_GAP, SET)
 
     /** Song keys (both of each: the DJ's and Most played's) of the DJ's last songs: none is picked again yet. */
     val used: Set<Pair<String, String>> get() = outNow.get() ?: usedInLast(window())
@@ -407,12 +392,7 @@ object Dj {
 
     /** songs without the ones out picks, for a line already written for them: null when the line names one of those
      *  (its title, or its artist) or fewer than three are left, so a line never names a song its set hasn't got. */
-    private fun without(songs: List<Track>, line: String, out: (Track) -> Boolean): List<Track>? {
-        val gone = songs.filter(out)
-        if (gone.isEmpty()) return songs
-        if (gone.any { t -> t.title in line || leadOf(t).let { a -> a.isNotEmpty() && a in line } }) return null
-        return songs.filter { it !in gone }.takeIf { it.size >= 3 }
-    }
+    private fun without(songs: List<Track>, line: String, out: (Track) -> Boolean): List<Track>? = SetRules.without(songs, line, out)
 
     /** Songs the DJ is about to play (a set queued): counted, none comes back for [SONG_GAP] songs. */
     fun played(tracks: List<Track>) {
@@ -1493,39 +1473,9 @@ object Dj {
     }
 
     // ---- variety, and a mood arc, for every set ----
-    /** How much energy a mood has (1 calm … 10 hype), for a set's arc. */
-    private val ENERGY = mapOf("Calm" to 1, "Sad" to 2, "Dreamy" to 3, "Chill" to 3, "Focus" to 4, "Romantic" to 4, "Dark" to 5,
-        "Happy" to 6, "Energetic" to 8, "Intense" to 8, "Party" to 9, "Hype" to 10)
-
-    /** The set's songs after its first (the one its line names) in an arc by their moods: building up from a calm
-     *  first song, easing down from a loud one, so it flows. Unchanged when few of them have a mood. */
-    private fun arc(songs: List<Track>): List<Track> {
-        if (songs.size < 3) return songs
-        val e = songs.associate { songKey(it) to runCatching { Moods.of(it) }.getOrNull()?.let { m -> ENERGY[m] } }
-        if (e.values.count { it != null } < 3) return songs
-        val known = e.values.filterNotNull().sorted()
-        val mid = known[known.size / 2]
-        val start = e[songKey(songs[0])] ?: mid
-        val rest = songs.drop(1).sortedBy { (e[songKey(it)] ?: mid) * if (start >= 6) -1 else 1 }
-        return listOf(songs[0]) + rest
-    }
-
-    /** No artist twice in a row, and (but for an artist's own sets) at most two of an artist in a set. The first song
-     *  stays first. */
-    private fun spread(songs: List<Track>, cap: Boolean): List<Track> {
-        if (songs.size < 3) return songs
-        val counts = HashMap<String, Int>()
-        val kept = songs.filter { t -> val a = norm(leadOf(t)); val n = (counts[a] ?: 0) + 1; counts[a] = n; !cap || n <= 2 }
-            .let { if (it.size >= minOf(4, songs.size)) it else songs }   // too few left: the set as it was
-        val out = ArrayList<Track>(); val left = kept.toMutableList()
-        out += left.removeAt(0)
-        while (left.isNotEmpty()) {
-            val prev = norm(leadOf(out.last()))
-            val i = left.indexOfFirst { norm(leadOf(it)) != prev }.takeIf { it >= 0 } ?: 0
-            out += left.removeAt(i)
-        }
-        return out
-    }
+    /** Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row: SetRules has the rules. */
+    private fun arc(songs: List<Track>): List<Track> = SetRules.arc(songs) { runCatching { Moods.of(it) }.getOrNull() }
+    private fun spread(songs: List<Track>, cap: Boolean): List<Track> = SetRules.spread(songs, cap)
 
     // ---- what the DJ says about the time, and between songs ----
     /** Now and then, a word about the day before a set's line ("Friday night, let's go."), "" most of the time. */
