@@ -288,7 +288,13 @@ button, on each tab with something to read again; which tab gets which reading i
 `RefreshRulesTest`): your listening added up again, your files read again, or the tab's own refresh (Downloads, Smart
 playlists, Mood lists, Duplicates). Not on Now playing, Search, the queue, lyrics, the visualizer, New releases (its
 own asks how far back), a service's library, or further in than a tab. A new icon (`Ico.REFRESH`), drawn by hand and
-**not seen by Claude**. Checked on Linux and Windows. **Not
+**not seen by Claude**. Checked on Linux and Windows. The owner on build 27: the icon looks right.
+
+Thirteenth service: what is an artist's among your music, and Create artist playlist (`ArtistSongs`, `cb3814a`):
+`creditsArtist`, `artistOwnSongs`, `artistOwnAlbums`, `makeArtistPlaylist` moved as they were, with `isTheirs`,
+`inOrder` and `madeText` named; P `ArtistSongsTest`. Checked on Linux and Windows. Still in `Music.kt` (about 1,880
+lines, from about 2,450 when Phase 13 began): the equalizer itself, tag and cover editing, the services' part,
+remembering (state), your music's reading (rescan, relink), and the hand-ons. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
