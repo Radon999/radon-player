@@ -2074,6 +2074,19 @@ object Music {
 
     fun saveCurrent() { current()?.let { download(listOf(it)) } }
 
+    /** Why the song playing can't be downloaded now, in a few words; "" when it can (a streamed song you don't have).
+     *  The Download button in the notification and on the lock screen is only there when it can. */
+    fun downloadNowNote(): String {
+        val t = current() ?: return "nothing is playing"
+        return when {
+            t.isFile -> "it is your own file"
+            lib.has(t.id) -> "it is downloaded already"
+            downloads.any { it.id == t.id } -> "it is being downloaded"
+            t.source == SoundCloud.KEY -> "SoundCloud songs only stream"
+            else -> ""
+        }
+    }
+
     /** Settings › Downloads › Quality: "flac24", "flac16" or "mp3" (320 kbps). */
     var downloadQuality by mutableStateOf("flac24")
         private set
