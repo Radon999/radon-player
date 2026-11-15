@@ -17,7 +17,8 @@ import kotlin.concurrent.thread
  *  of stream in what there is (Tidal's AAC, else YouTube's audio), but are never saved lossy. */
 class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tidal) {
     data class Ready(val uri: String, val isDash: Boolean = false, val quality: String = "", val onDisk: Boolean = false,
-                     val lossyFrom: String? = null)   // "Tidal" or "YouTube": no FLAC of it
+                     val lossyFrom: String? = null,   // "Tidal" or "YouTube": no FLAC of it
+                     val soon: Boolean = false)       // less than Tidal's best only because Tidal didn't answer: looked up again soon
 
     private val streams = HashMap<String, Pair<Ready, Double>>()   // id -> (stream, when looked up)
 
@@ -69,7 +70,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             return Ready(uri, quality = q, lossyFrom = "SoundCloud").also { r -> synchronized(streams) { streams[t.id] = r to now() } }
         }
         lib.items[t.id]?.let { return Ready(it.file, quality = it.quality, onDisk = true) }
-        synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < STREAM_FOR }?.let { return it.first } }
+        synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < StreamRules.keptFor(it.first.soon, STREAM_FOR) }?.let { return it.first } }
         val ready = find(t)
         synchronized(streams) { streams[t.id] = ready to now() }
         return ready
@@ -80,7 +81,9 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         // Whatever goes wrong on Tidal (not there, not in your country, the login, the network),
         // the next one is tried: Tidal's FLAC, Tidal's AAC, YouTube's own audio.
         var trouble: Throwable? = null
-        if (tidal.connected) {
+        var tries = 0
+        if (tidal.connected) while (true) {
+            trouble = null
             var match: kotlinx.serialization.json.JsonElement? = null
             try {
                 val q = streamQuality().let { if (it == "flac24" && dashFailed) "flac16" else it }
@@ -101,13 +104,22 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
                 }
             } catch (_: NoLosslessMatch) {
             } catch (e: Exception) { trouble = e }
+            // Tidal didn't answer (too many asks at once, the network for a moment): it is asked again before anything
+            // less is played. Several songs looked up together (the DJ's next ones) each got YouTube's audio for
+            // one such hiccup, though Tidal had them in FLAC.
+            if (StreamRules.again(trouble, tries)) { tries++; runCatching { Thread.sleep(StreamRules.pauseMs(tries)) }; continue }
             if (trouble == null) lib.markMissing(t.id)   // no FLAC to download: syncs leave it alone for a while
+            val hiccup = trouble != null
             try {
                 (match ?: tidal.resolve(t, lossy = true))?.let { m ->
-                    return tidal.stream(m, lossy = true).let { Ready(it.uri, it.isDash, it.quality, lossyFrom = "Tidal") }
+                    return tidal.stream(m, lossy = true).let { Ready(it.uri, it.isDash, it.quality, lossyFrom = "Tidal", soon = hiccup) }
                 }
             } catch (e: Exception) { if (trouble == null) trouble = e }
+            break
         }
+        // Played from YouTube though Tidal is connected, because Tidal couldn't be reached: said in Settings › Problems
+        trouble?.let { Crashes.note("“${t.title}” by ${t.artist} plays from YouTube this time: Tidal didn't answer (${it.message?.take(120)})") }
+        val soon = trouble != null
         val yt = try { YouTubeAudio.find(t) } catch (e: Exception) {
             throw IOException(if (trouble != null) "Tidal: ${trouble.message}; YouTube: ${e.message}" else "YouTube: ${e.message}", e)
         }
@@ -116,7 +128,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             throw NoLosslessMatch(if (tidal.connected) "not on Tidal or YouTube Music"
                 else "not on YouTube Music (connect Tidal in Settings for more)")
         }
-        return Ready(yt.first, quality = yt.second, lossyFrom = "YouTube")
+        return Ready(yt.first, quality = yt.second, lossyFrom = "YouTube", soon = soon)
     }
 
     /** Save t (blocking) in the download quality picked (Settings): from Tidal, or from YouTube when Tidal hasn't got

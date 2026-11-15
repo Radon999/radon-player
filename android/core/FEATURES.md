@@ -32,6 +32,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **All files access asked at start (phone):** each time the app starts without it, the app asks; Allow opens Android's page to turn it on. The PC needs none.
 - **The Tagger keeps what you saved:** after Save the tags, the fields go on showing the names you saved.
 - **Singles and EPs by their tag, in any folder:** a release tagged “… - Single” or “… - EP” is in Singles or EPs even when its folder under Artists has a plain name; a folder named as an EP or a single still decides.
+- **Tidal first, always:** with Tidal connected a song streams from Tidal in the quality you picked. If Tidal doesn't answer for a moment it is asked again (twice) before YouTube's audio is used, and a song that did fall to YouTube that way is looked up on Tidal again the next time it plays (Settings › Problems says when it happened). YouTube is only for songs Tidal hasn't got.
 - **Back keeps your search:** search a list, open something from it, and Back returns to what you searched for; Back again closes the search.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items at the top of the menu.
 - **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists, then play, queue, download, tag or delete them together.
