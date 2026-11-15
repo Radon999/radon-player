@@ -1159,11 +1159,7 @@ object Dj {
             }
             val a = lead(s)
             byArtist[a]?.takeIf { it >= 8 }?.let { n -> out["artist-songs:$a"] = "You have ${num(n)} songs by $a in your collection." }
-            if (s.album.isNotBlank()) {
-                val base = albumBase(s.album)
-                val n = mine.count { norm(lead(it)) == norm(a) && albumBase(it.album) == base }
-                if (n >= 4) out["album-have:${norm(a)}|$base"] = "${q(s)} is from ${s.album.trim()}. You have ${num(n)} songs from that album."
-            }
+            // (How many songs of its album you have was told here for a day: the owner found it said little. Taken out.)
             val g = genreOf(s)
             genres[g]?.takeIf { it >= 10 }?.let { n -> out["genre-song:$id"] = "${q(s)} is one of ${num(n)} $g songs you have." }
             if (runCatching { Music.favorites.has(s) }.getOrDefault(false)) out["favorite:$id"] = "${q(s)} is one of the songs you've starred."

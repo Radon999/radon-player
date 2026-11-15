@@ -384,6 +384,6 @@ turn, and within a subject the same thing is not said again until the rest of it
 | fact:year-so-far | N plays so far this year. |
 | fact:last-played | You haven't played "S" since MONTH YEAR. It's in this set. |
 | fact:artist-songs | You have N songs by A in your collection. |
-| fact:album-have | "S" is from ALBUM. You have N songs from that album. |
+| fact:album-have | (removed 15 November 2026 at the owner's word: how many songs of an album you have says little) |
 | fact:genre-song | "S" is one of N G songs you have. |
 | fact:favorite | "S" is one of the songs you've starred. |
