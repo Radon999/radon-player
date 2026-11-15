@@ -213,7 +213,22 @@ folder on the PC): their cover is a picture in the folder (`cover.jpg`, or one l
 The PC read the named ones; the phone read none (a fault of 3.2.28 too, not of the rebuild: no cover code had
 changed). `FolderCover` with `FolderCoverRules.pick` (shared; S `FolderCoverRulesTest`) is used on both now: the
 lists, Now playing, the notification. Not known: whether those pictures are on the phone beside the songs, and
-whether the phone has All files access (without it the folder can't be read); not seen on a screen by Claude. **Not
+whether the phone has All files access (without it the folder can't be read); not seen on a screen by Claude.
+
+**The owner's asks of 15 November (evening), `8129e17`, test build 20.** (1) Two-disc albums by disc, then track
+(`AlbumOrder.sorted` with a disc, `FileTags.disc` on both; S `SameArtistTest`). (2) Songs that lose their cover
+when the app is changed: the files hold no picture (seen in the owner's files; the log shows none on 7 November
+either). The cover was one picked in the app, kept by the app and shown by it, so a fresh app (a test build, a new
+install) has none. Tried on copies of those very files (MP3, M4A, WAV) with the installed app's own jars: a cover
+written the app's way goes in, and stays through a tag write by the tag library and by `TagWrite`; so the writer is
+not at fault for these formats on the PC. What changed: Covers from folders (`FolderCovers.apply`) also uses the
+cover picked in the app and a folder's only picture, and counts a cover only when read back from the file. Not
+found: why the pick was never written into these files when it was made (the code that does so is there now; it
+may be newer than the picks); the phone's writer was not tried (no phone here). (3) Unreleased tab (`Unreleased`,
+`UnreleasedRules`; S tests): folders named Unreleased and the folders chosen with Folders…. (4) A list's search is
+kept for its place: Back returns to it, Back again closes it (every tab; goTo forgets them). The Folders tab is a
+flat list (each folder with songs is a row), so there are no folders within folders to step back through there;
+pages opened one from another already go back one at a time. None of the screens seen by Claude. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
