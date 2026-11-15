@@ -107,10 +107,14 @@ class SongStats(private val file: File) {
     @Synchronized fun skipped(t: Track) = bump(t, true)
     @Synchronized fun heardOut(t: Track) = bump(t, false)
 
-    fun get(t: Track) = items[songId(t)]?.let { it.skips to it.full } ?: (0 to 0)
+    @Synchronized fun get(t: Track) = items[songId(t)]?.let { it.skips to it.full } ?: (0 to 0)
+
+    /** Every song's counts as they are this moment: read while no skip is being written (the DJ and Wrapped read
+     *  them off the main thread, while a song that ends is counted on it). */
+    @Synchronized private fun all(): List<SkipEntry> = items.values.toList()
 
     /** (track, skips, heard out) of every song you've skipped or heard out. */
-    fun rows(since: Long = 0): List<Triple<Track, Int, Int>> = items.values.mapNotNull { e ->
+    fun rows(since: Long = 0): List<Triple<Track, Int, Int>> = all().mapNotNull { e ->
         val t = e.track ?: return@mapNotNull null
         if (since <= 0) return@mapNotNull Triple(t, e.skips, e.full)
         val sk = e.skips_at.count { it >= since }
@@ -123,7 +127,7 @@ class SongStats(private val file: File) {
 
     /** For Wrapped: how you took songs between start and end (seconds). */
     fun habits(start: Double, end: Double, favorites: Favorites?): Habits {
-        val rows = items.values.mapNotNull { e ->
+        val rows = all().mapNotNull { e ->
             val t = e.track ?: return@mapNotNull null
             val sk = e.skips_at.count { it >= start && it < end }
             val fu = e.full_at.count { it >= start && it < end }
