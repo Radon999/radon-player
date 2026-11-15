@@ -262,7 +262,14 @@ sent the song to Tidal's AAC or YouTube's audio, and that stream was used for 15
 more first, a stream that is less only for such a hiccup is kept a minute, and Settings › Problems says when it
 happened (`StreamRules`, shared; S `StreamRulesTest`). Not proven: that a hiccup (Tidal's "too many asks", as when
 the DJ looks its next songs up together) was the owner's cause; it is the path the code shows, and Problems will
-now say. A song already playing from YouTube is not swapped mid-song. Not run against Tidal by Claude. **Not
+now say. A song already playing from YouTube is not swapped mid-song. Not run against Tidal by Claude. The owner
+confirmed on build 24: streams show as FLAC now.
+
+**Test build 25 (`05c4ee7`): the DJ's facts take turns.** The owner heard the facts between songs come back to
+skips again and again. The subjects now take turns (`FactTopics`, `NoRepeat.pickTurn`, shared; S `FactTurnsTest`:
+with six things to say about skips and one each about eight other subjects, skips come up once in nine) and
+`Dj.collectionFacts` adds eighteen things to tell (listed at the end of `DJ_LINES_CATALOG.md`; `DjLinesTest` holds
+them to the voice rules). Checked on Linux and Windows; not heard by Claude. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
