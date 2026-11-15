@@ -58,6 +58,8 @@ object Prefs {
     const val SMART_SHUFFLE = "smart_shuffle"
     const val LOUDNESS_CHECK = "loudness_check"
     const val LOCK_SCREEN = "lock_screen_player"
+    /** On (as it always was): Shuffle beside Repeat in the notification and on the lock screen; off: Download in its place. */
+    const val NOTIF_SHUFFLE = "notif_shuffle_button"
     const val NOTIF_HINTED = "notif_hinted"
     const val DL_QUALITY = "dl_quality"          // downloads: "flac24" (hi-res where Tidal has it), "flac16", "mp3" (320 kbps)
     const val DL_VERSION = "dl_version"          // downloads: "explicit" (the explicit version where there are two) or "clean"

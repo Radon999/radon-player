@@ -25,6 +25,7 @@ object Car {
     val FAVORITE = SessionCommand("radon.favorite", Bundle.EMPTY)
     val SHUFFLE = SessionCommand("radon.shuffle", Bundle.EMPTY)
     val REPEAT = SessionCommand("radon.repeat", Bundle.EMPTY)
+    val DOWNLOAD = SessionCommand("radon.download", Bundle.EMPTY)
 
     private fun folder(id: String, title: String, playable: Boolean = false) = MediaItem.Builder().setMediaId(id)
         .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setIsBrowsable(true).setIsPlayable(playable)
@@ -75,8 +76,19 @@ object Car {
     fun buttons(): ImmutableList<CommandButton> {
         val fav = Music.current()?.let { Music.favorites.has(it) } == true
         val rep = Music.repeat
+        // Android shows two of these beside previous, play and next. The first is Shuffle, or (Settings, Shuffle button in
+        // the notification, off) Download: for the streamed song playing, greyed while it is coming in, a tick for a
+        // song that is yours already
+        val now = Music.current()
+        val coming = now != null && Music.downloads.any { it.id == now.id }
+        val can = now != null && !now.isFile && !Music.lib.has(now.id) && now.source != SoundCloud.KEY
+        val first = if (Prefs.on(Prefs.NOTIF_SHUFFLE, true))
+            CommandButton.Builder().setIconResId(R.drawable.car_shuffle).setDisplayName("Shuffle").setSessionCommand(SHUFFLE).build()
+        else CommandButton.Builder().setIconResId(if (can) R.drawable.car_download else R.drawable.car_downloaded)
+            .setDisplayName(if (coming) "Downloading" else if (can) "Download" else "In your music").setSessionCommand(DOWNLOAD)
+            .setEnabled(can && !coming).build()
         return ImmutableList.of(
-            CommandButton.Builder().setIconResId(R.drawable.car_shuffle).setDisplayName("Shuffle").setSessionCommand(SHUFFLE).build(),
+            first,
             CommandButton.Builder().setIconResId(when (rep) { "one" -> R.drawable.car_repeat_one; "all" -> R.drawable.car_repeat; else -> R.drawable.car_repeat_off })
                 .setDisplayName(when (rep) { "one" -> "Repeat one"; "all" -> "Repeat all"; else -> "Repeat off" }).setSessionCommand(REPEAT).build(),
             CommandButton.Builder().setIconResId(if (fav) R.drawable.car_star else R.drawable.car_star_line)
@@ -90,7 +102,7 @@ object Car {
             if (controller.packageName == GEARHEAD) { Outputs.carProjecting = true; runCatching { BtRoute.check() }; Music.outputChanged() }
             val base = super.onConnect(session, controller)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).build())
+                .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).add(DOWNLOAD).build())
                 .setAvailablePlayerCommands(base.availablePlayerCommands)
                 .setCustomLayout(buttons()).build()
         }
@@ -105,6 +117,7 @@ object Car {
                 FAVORITE.customAction -> Music.current()?.let { Music.setFavorite(listOf(it)) }
                 SHUFFLE.customAction -> Music.shuffle()
                 REPEAT.customAction -> Music.cycleRepeat()
+                DOWNLOAD.customAction -> Music.saveCurrent()
             }
             session.setCustomLayout(buttons())
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

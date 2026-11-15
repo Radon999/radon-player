@@ -134,6 +134,7 @@ val FEATURE_GUIDE: String = listOf(
     "",
     "- **Android Auto** with covers, Favorite and Shuffle, and the car's own EQ.",
     "- **Lock screen player, notification and home screen widget,** in the song's colours, a picture-in-picture mini player, and **Auto mono** for chosen earbuds.",
+    "- **Download from the notification:** in Settings, switch off Shuffle button in the notification. Then a Download button takes the place of Shuffle in the notification and on the lock screen: it keeps the streamed song that is playing without opening the app.",
     "",
     "## PC only",
     "",

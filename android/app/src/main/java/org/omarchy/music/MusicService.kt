@@ -154,7 +154,7 @@ class MusicService : MediaLibraryService() {
         }
         // The notification's and lock screen's Repeat and Favorite show how they stand.
         Music.scope.launch {
-            snapshotFlow { Triple(Music.repeat, Music.current()?.id, Music.musicVersion) }.collect { runCatching { s.setCustomLayout(Car.buttons()) } }
+            snapshotFlow { listOf(Music.repeat, Music.current()?.id, Music.musicVersion, Music.savedVersion, Music.downloads.size, Prefs.on(Prefs.NOTIF_SHUFFLE, true)) }.collect { runCatching { s.setCustomLayout(Car.buttons()) } }
         }
         // The home screen widget: the song, playing or paused, the queue.
         Music.scope.launch {

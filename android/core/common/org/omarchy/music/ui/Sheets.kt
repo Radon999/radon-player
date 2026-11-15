@@ -1228,6 +1228,13 @@ private fun PlaybackLines(ui: Ui) {
         if (lock && !allowed) { Pill("Allow", quiet = true) { org.omarchy.music.LockScreen.askAllowed(ctx) }; Spacer(Modifier.width(6.dp)) }
         Switch(lock, { P.set(P.LOCK_SCREEN, it); if (it && !allowed) org.omarchy.music.LockScreen.askAllowed(ctx) }, colors = swColors())
     }
+    val shuffleBtn = P.on(P.NOTIF_SHUFFLE, true)
+    if (onPhone) Line("Shuffle button in the notification", if (shuffleBtn) "On: Shuffle is beside Repeat in the notification and on the lock " +
+        "screen. Switch off to have a Download button there instead (Android has room for only two of the app's own buttons)"
+        else "Off: a Download button is there instead of Shuffle, in the notification and on the lock screen. It keeps the " +
+        "streamed song that is playing, without opening the app; for a song that is yours already it shows a tick", shuffleBtn) {
+        Switch(shuffleBtn, { P.set(P.NOTIF_SHUFFLE, it); Music.musicVersion++ }, colors = swColors())
+    }
     Line("Continue where you left off", "Stop on the PC and open the phone, or the other way round, and the app offers to carry on " +
         "with the same song at the same spot. It needs the phone paired with the PC (Play on) and both on the same home network", P.on(P.CONTINUE)) {
         Switch(P.on(P.CONTINUE), { P.set(P.CONTINUE, it) }, colors = swColors())
