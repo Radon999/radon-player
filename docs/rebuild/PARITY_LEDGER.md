@@ -237,7 +237,14 @@ saved: Save cleared what was typed and showed the tags read before the save, so 
 fault of 3.2.28 too). (3) A release tagged "… - Single" or "… - EP" is in Singles or EPs even in a plainly named
 folder under Artists (the owner's HandClap - Single was in Albums): `releaseKindOf` (shared; S `ArtistsFolderTest`);
 a folder named as an EP or a single still decides. This changes which tab some releases are in, on purpose. Checked
-on Linux and Windows; none of it seen on a screen by Claude. **Not
+on Linux and Windows; none of it seen on a screen by Claude.
+
+Eighth service: where a new release is on the services (`ReleaseLookup`, `57c178f`): `releaseFind`, `releaseTracks`
+moved as they were, with `albumIn` and `songIn` named; P `ReleaseLookupTest`. **Test build 23 (`a7578e0`):** an
+album's page shows its new names as soon as its tags are saved (the owner renamed an artist, and an album, in the
+Tagger and Back showed the old ones until the page was left): the page drew the album as it was when opened, and a
+renamed album is another album by its id; `AlbumSongs.follow` finds it again by its songs (P `AlbumSongsTest`).
+Checked on Linux and Windows; not seen on a screen by Claude. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
