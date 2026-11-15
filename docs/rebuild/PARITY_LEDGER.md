@@ -185,7 +185,22 @@ you have, the songs waiting saved a batch at a time, why the song playing can't 
 downloads are said to come (`qualityText`); P `DownloadsTest`. One thing changed on purpose: with Copies set to
 replace, Download noted your copies to put away without the lock the other two places take (a service's sync
 notes them from another thread); all three go through `Music.replaceLater` now. The saving itself (a real download)
-has no test: it needs the services. Checked on Linux and Windows; not in build 17. **Not
+has no test: it needs the services. Checked on Linux and Windows; not in build 17.
+
+**From the owner's test of build 17 (15 November 2026), `6cb5941`, test build 18.** What the owner found and asked
+for, all on phone and PC alike: (1) a song they have under another name of its artist (a scan had made "Forrest
+Frank, …" into "Forrest") was put in a Discovery playlist and called missing from its album: `SameArtist.alias`
+(shared; S `SameArtistTest`) now tells the two names are one artist (a shared artist, or one name the first words
+of the other), used by `Discoveries` (`yourTitles`; made again, a discovery playlist also lets go of songs that are
+yours after all; P `DiscoveriesTest`) and `AlbumMissing`. (2) An album or EP of yours lists its songs by track
+number (`AlbumSongs`, `AlbumOrder`), reads itself again as your music changes, and has Refresh on its page; Downloads
+shows Refresh when empty too. (3) A playlist in a folder shows in its folder only (`YourPlaylists.outsideFolders`);
+folders can be selected, deleted, renamed and downloaded together (P `YourPlaylistsTest`). Compromises said to the
+owner: the order is by track number only (a two-disc album's discs are not told apart; the tags read here carry no
+disc number); the order is the album page's (an album played from elsewhere, or by the DJ, is as before); none of
+the screens were looked at by Claude, only compiled and the rules tested. Their download without Tidal that never
+came was YouTube not being signed in (the owner's own finding; no change made). **Not
+done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
 itself has no test (it needs the network).
