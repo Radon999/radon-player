@@ -1,55 +1,33 @@
-commit bd8100bf6739b0b4bb9c6536db218b2b72c8e838 · run 43738279139 · Sun Nov 15 17:00:39 UTC 2026
+commit d206e09aeda0a5ddba941a9c5c0ca7206c4512fa · run 43738685814 · Sun Nov 15 17:11:19 UTC 2026
 SHARED TESTS: 52 suites, 275 tests, 0 failed
-APP TESTS: no results (it didn't get that far)
-PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
-THE DJ'S VOICE (Pocket TTS, made for real): 
+APP TESTS: 20 suites, 56 tests, 0 failed
+PC TESTS (the app's logic, started without a window): 17 suites, 88 tests, 0 failed
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.4 s of speech in 1.9 s (with loading the voice); then 4.7 s of speech in 1.7 s (2.8x real time)
 PC COMPILES: yes
-LINUX PACKAGE: not built
+LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 --- errors
-> Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/Downloads.kt:66:36 Cannot access 'downloadNote': it is private in 'org/omarchy/music/Music'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/Downloads.kt:71:15 Cannot access 'downloadNote': it is private in 'org/omarchy/music/Music'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/Downloads.kt:72:147 Cannot access 'downloadNote': it is private in 'org/omarchy/music/Music'.
-
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/Downloads.kt:66:36 Cannot access 'downloadNote': it is private in 'org/omarchy/music/Music'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/Downloads.kt:71:15 Cannot access 'downloadNote': it is private in 'org/omarchy/music/Music'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/Downloads.kt:72:147 Cannot access 'downloadNote': it is private in 'org/omarchy/music/Music'.
-
-FAILURE: Build completed with 2 failures.
---
-* What went wrong:
-Execution failed for task ':app:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
---
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
---
-BUILD FAILED in 2m 5s
-48 actionable tasks: 48 executed
 --- the end of the log
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :app:compileDebugUnitTestKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :desktop:compileTestKotlin
+> Task :desktop:packageDeb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.2.28_amd64.deb
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
+> Task :desktop:test
+
+/home/runner/work/sherpa-onnx/sherpa-onnx/sherpa-onnx/jni/offline-tts.cc:operator():550 config:
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx", lm_main="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx", encoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx", decoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx", text_conditioner="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx", vocab_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json", token_scores_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -57,5 +35,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 2m 5s
-48 actionable tasks: 48 executed
+BUILD SUCCESSFUL in 5m 31s
+59 actionable tasks: 59 executed
