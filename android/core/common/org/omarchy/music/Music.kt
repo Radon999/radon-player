@@ -707,13 +707,13 @@ object Music {
         class G(val key: String) { val names = HashMap<String, Int>(); val credits = HashMap<String, Int>(); var plays = 0
             val tracks = LinkedHashMap<Pair<String, String>, Track>() }
         val songs = mostPlayed(period)
-        if (songs.isNotEmpty() && localCopies.isEmpty()) songIndex()
+        if (songs.isNotEmpty() && YourCopies.localCopies.isEmpty()) songIndex()
         val groups = LinkedHashMap<String, G>()
         for (t in songs) {
             var album = t.album.trim(); var credit = t.artist
             if (album.isEmpty()) continue
             val sk = Stats.statsKey(t.title, t.artist)
-            if (isSingle(album, t.title)) localCopies[sk].orEmpty().firstOrNull { it.album.isNotBlank() && !isSingle(it.album, it.title) }?.let {
+            if (isSingle(album, t.title)) YourCopies.localCopies[sk].orEmpty().firstOrNull { it.album.isNotBlank() && !isSingle(it.album, it.title) }?.let {
                 album = it.album.trim(); credit = it.artist
             }
             val (base, edition) = albumEdition(album)
@@ -749,130 +749,15 @@ object Music {
     }
     val mostPlayedFromStats get() = Stats.songs.isNotEmpty() && (LastFm.connected || SpotifyHistory.count > 0 || OtherPlays.count > 0 || AppleHistory.count > 0)
 
-    /** Song key to your copy of it: saved, in your folders, or played here. */
-    fun songIndex(): Map<Pair<String, String>, Track> {
-        val mine = HashMap<Pair<String, String>, Track>()
-        val copies = HashMap<Pair<String, String>, MutableList<Track>>()
-        val byTitle = HashMap<String, MutableList<Track>>()
-        for (t in plays.items.values.map { it.track }) { mine[songKey(t)] = t; mine[Stats.statsKey(t.title, t.artist)] = t }
-        for (t in mySongs()) {   // yours on the phone win over ones only played (streamed)
-            val k = Stats.statsKey(t.title, t.artist)
-            mine[songKey(t)] = t
-            mine[k] = t
-            copies.getOrPut(k) { ArrayList() } += t
-            byTitle.getOrPut(k.first) { ArrayList() } += t
-        }
-        localCopies = copies
-        localByTitle = byTitle
-        return mine
-    }
-    @Volatile private var localCopies: Map<Pair<String, String>, List<Track>> = emptyMap()
-
-    /** Your own copy of a song (file or download) when you have one, else the song as it is: lists built from
-     *  plays (Skips, Recently played, favorites) show and edit your file, with its cover and tags, not a streamed copy. */
-    fun mineOf(t: Track): Track {
-        val v = musicVersion
-        if (v != mineOfVer) {
-            // Built once per change to your music (each song's key worked out once), then one lookup per song;
-            // safe from any thread (the DJ builds its sets in the background).
-            val all = runCatching { mySongs() }.getOrDefault(emptyList())
-            val byKey = HashMap<Pair<String, String>, MutableList<Track>>()
-            val byLoose = HashMap<Pair<String, String>, MutableList<Track>>()
-            for (s in all) {
-                val (k, loose) = mineKeys(s)
-                byKey.getOrPut(k) { ArrayList() } += s
-                byLoose.getOrPut(loose to k.second) { ArrayList() } += s
-            }
-            mineOfKey = byKey
-            mineOfLoose = byLoose
-            mineOfVer = v
-        }
-        val byKey = mineOfKey
-        if (byKey.isEmpty()) return t   // no songs of your own (yet)
-        val (k, loose) = mineKeys(t)
-        val copies = byKey[k] ?: mineOfLoose[loose to k.second] ?: return t
-        if (!t.file.isNullOrEmpty() && copies.any { it.file == t.file }) return t   // already your file (as it is now)
-        return bestCopy(copies, t.album)
-    }
-
-    /** The copy of a song to play and show: the song itself when it's yours (a file or a download), else your own copy
-     *  of it when you have one ([mineOf]: the same name and artist; never another version, so a live or remixed one
-     *  stays the service's), else the song as it is. Its marks in the queue (queued, the DJ's set, plays) go with it.
-     *  One lookup per song once [mineOf] has read your music. */
-    fun localOf(t: Track): Track {
-        if (t.isFile || lib.has(t.id)) return t
-        val m = runCatching { mineOf(t) }.getOrNull() ?: return t
-        if (m === t || m.id == t.id || !(m.isFile || lib.has(m.id))) return t
-        if (versionWords(m.title) != versionWords(t.title)) return t   // "Song (Live)" isn't your "Song"
-        return m.copy(queued = t.queued, dj = t.dj, plays = t.plays)
-    }
-
-    /** [localOf] for each song of a list (the queue, a DJ set, a radio). */
-    fun localsOf(tracks: List<Track>): List<Track> = if (tracks.isEmpty()) tracks else tracks.map { localOf(it) }
-
-    private fun versionWords(title: String): Set<String> = SONG_VERSION.findAll(title).map { it.value.lowercase() }.toSet()
-
-    /** A song's Stats key and loose title, worked out once per name and artist (they take a few regexes each, and
-     *  [mineOf] reads thousands of songs again whenever your music changes). */
-    private fun mineKeys(t: Track): Pair<Pair<String, String>, String> {
-        val id = t.title + "\u0000" + t.artist
-        mineKeyMemo[id]?.let { return it }
-        if (mineKeyMemo.size > 50_000) mineKeyMemo.clear()
-        val made = Stats.statsKey(t.title, t.artist) to looseTitle(t.title)
-        mineKeyMemo[id] = made
-        return made
-    }
-    private val mineKeyMemo = java.util.concurrent.ConcurrentHashMap<String, Pair<Pair<String, String>, String>>()
-    @Volatile private var mineOfVer = -1
-    @Volatile private var mineOfKey: Map<Pair<String, String>, List<Track>> = emptyMap()
-    @Volatile private var mineOfLoose: Map<Pair<String, String>, List<Track>> = emptyMap()
-    @Volatile private var localByTitle: Map<String, List<Track>> = emptyMap()
-
-    private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")
-
-    /** Of your copies of a song, the one on the album asked for, then the best file (FLAC first). */
-    private fun bestCopy(copies: List<Track>, album: String): Track {
-        val want = norm(cleanTitle(album))
-        val rank = mapOf("flac" to 0, "wav" to 1, "alac" to 1, "m4a" to 2, "aac" to 2, "ogg" to 3, "opus" to 3, "mp3" to 4)
-        return copies.minWith(compareBy<Track>({ !(want.isNotEmpty() && norm(cleanTitle(it.album)) == want) },
-            { rank[lib.items[it.id]?.format ?: it.file?.substringAfterLast('.')?.lowercase()] ?: 5 }))
-    }
-
-    /** A song Last.fm (or Spotify, or Apple Music) named: your file of it when you have one (the same song name
-     *  and artist; the one on the same album first), else one played here, else one to be found on Tidal or
-     *  YouTube Music when it plays. Call [songIndex] first: it reads your files. sameArtistOnly (an artist's page): never
-     *  a file of the same song name on the same album by someone else (its cover and name would show on their page). */
+    // Your copy of a song (which of your files a song named anywhere is) is YourCopies' own: these hand on.
+    fun songIndex(): Map<Pair<String, String>, Track> = YourCopies.songIndex()
+    fun mineOf(t: Track): Track = YourCopies.mineOf(t)
+    fun localOf(t: Track): Track = YourCopies.localOf(t)
+    fun localsOf(tracks: List<Track>): List<Track> = YourCopies.localsOf(tracks)
     fun fmSong(name: String, artist: String, image: String, mine: Map<Pair<String, String>, Track>, album: String = "",
-               sameArtistOnly: Boolean = false): Track {
-        val k = Stats.statsKey(name, artist)
-        var copies = localCopies[k].orEmpty()
-        if (copies.isEmpty()) {   // the artist written differently: one of the song's artists is one of your file's
-            val theirs = splitArtists(artist).map { bare(it) }.filter { it.isNotEmpty() }.toSet()
-            copies = localByTitle[k.first].orEmpty().filter { t -> splitArtists(t.artist).any { bare(it) in theirs } }
-        }
-        if (copies.isEmpty() && album.isNotBlank()) {   // the artist tagged another way still: the same song name on the same album
-            val want = norm(cleanTitle(album))
-            copies = localByTitle[k.first].orEmpty().filter { norm(cleanTitle(it.album)) == want && (!sameArtistOnly || sameArtist(it.artist, artist)) }
-        }
-        if (copies.isNotEmpty()) return bestCopy(copies, album)
-        return mine[songKey(Track("", title = name, artist = artist))] ?: mine[k] ?: run {
-            val sha = java.security.MessageDigest.getInstance("SHA-1").digest("${norm(artist)}|${norm(name)}".toByteArray())
-            Track("lfm-" + sha.joinToString("") { "%02x".format(it) }.take(16), "lastfm", name, artist,
-                album = album, thumb = image.takeIf { it.isNotEmpty() && LASTFM_BLANK !in it } ?: SongCovers.known(name, artist))   // one looked up before
-        }
-    }
-
-    /** Songs a service listed (an artist's top songs): your own copy of each where you have one (its file plays,
-     *  its cover shows), matched as Most played matches; the service's song only where you have none. */
-    fun yourCopies(tracks: List<Track>): List<Track> {
-        if (tracks.isEmpty()) return tracks
-        val mine = songIndex()
-        fun yours(t: Track) = t.isFile || t.file != null || lib.has(t.id)
-        return tracks.map { t ->
-            if (yours(t)) t
-            else fmSong(t.title, t.artist, t.thumb, mine, t.album, sameArtistOnly = true).takeIf { yours(it) }?.copy(plays = t.plays) ?: t
-        }
-    }
+               sameArtistOnly: Boolean = false): Track = YourCopies.fmSong(name, artist, image, mine, album, sameArtistOnly)
+    fun yourCopies(tracks: List<Track>): List<Track> = YourCopies.yourCopies(tracks)
+    private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")
 
     // ---- an artist's own songs and albums; Create artist playlist ----
     /** Prefs key: Settings › Your music › Artist playlists include songs you don't have. */
