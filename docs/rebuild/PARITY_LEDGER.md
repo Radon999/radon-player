@@ -228,7 +228,16 @@ may be newer than the picks); the phone's writer was not tried (no phone here). 
 `UnreleasedRules`; S tests): folders named Unreleased and the folders chosen with Folders…. (4) A list's search is
 kept for its place: Back returns to it, Back again closes it (every tab; goTo forgets them). The Folders tab is a
 flat list (each folder with songs is a row), so there are no folders within folders to step back through there;
-pages opened one from another already go back one at a time. None of the screens seen by Claude. **Not
+pages opened one from another already go back one at a time. None of the screens seen by Claude. The owner
+confirmed Covers from folders put the covers in (build 20).
+
+**Test build 22 (`908d110`, `c0f8814`), the owner's next asks.** (1) The phone asks for All files access at each
+start without it (a dialog; Allow opens Android's page; the PC needs none). (2) The Tagger's fields keep what was
+saved: Save cleared what was typed and showed the tags read before the save, so a saved name looked reverted (a
+fault of 3.2.28 too). (3) A release tagged "… - Single" or "… - EP" is in Singles or EPs even in a plainly named
+folder under Artists (the owner's HandClap - Single was in Albums): `releaseKindOf` (shared; S `ArtistsFolderTest`);
+a folder named as an EP or a single still decides. This changes which tab some releases are in, on purpose. Checked
+on Linux and Windows; none of it seen on a screen by Claude. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
