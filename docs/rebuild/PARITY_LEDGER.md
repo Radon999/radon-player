@@ -172,10 +172,17 @@ from Deezer and Download missing tracks…; its rules are `MissingSongs` in the 
 its kind; which listed songs aren't among yours, by name, then by length), S `MissingSongsTest`. Two things changed
 on purpose: a listed song named with "&" is your song named with "and" (3.2.28 meant this, but swapped the "&"
 after the name was tidied, when it was gone already; such a song was only told by its length); and the tracklists
-read already are kept in a map safe to read from several album pages at once. Checked on Linux and Windows. **Not
+read already are kept in a map safe to read from several album pages at once. Checked on Linux and Windows. Fifth:
+your playlists and their folders (`YourPlaylists`, `24010bf`): making, filling, renaming, syncing and deleting a
+playlist, the folders of playlists, copying a service's playlists into yours, downloading whole playlists; moved as
+they were, with what adding and importing say given names (`addedText`, `importedText`, `importedAllText`) and the
+songs of playlists still to download (`toDownload`); P `YourPlaylistsTest` (a song is in a playlist once and
+SoundCloud songs stay out; a deleted playlist leaves its folders and a deleted folder keeps its playlists; a
+service's playlist is copied once and imported again only gets what's new; an unreadable one makes nothing).
+Nothing changed on purpose. Checked on Linux and Windows. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, downloads, the tagger's
-part, sync, the remote, the rest of playlists (your own, folders, importing a service's), favourites, the
-equalizer); not run in the real PC app or on a phone; the Deezer lookup itself has no test (it needs the network).
+part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
+itself has no test (it needs the network).
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
