@@ -1,7 +1,7 @@
-commit 269da3a80f3f241b9b423b9fb84c48cd2e70ff70 · run 43663701744 · Sun Nov 15 01:40:26 UTC 2026
+commit 1f9ff2b8a56c66a9ca063aa99cf37eaeb8001685 · run 43664903653 · Sun Nov 15 01:56:14 UTC 2026
 TEST BUILD: made
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43663701744/artifacts/14141990246
-RUN: https://github.com/Radon999/radon-player/actions/runs/43663701744
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43664903653/artifacts/14141269844
+RUN: https://github.com/Radon999/radon-player/actions/runs/43664903653
 MPV: android/desktop/build/compose/binaries/main/app/Radon Player/app/resources/mpv.exe
 FFMPEG: android/desktop/build/compose/binaries/main/app/Radon Player/app/resources/ffmpeg.exe
 VOICE: sherpa-onnx-pocket-tts-int8-2026-01-26
