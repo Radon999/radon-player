@@ -281,7 +281,14 @@ Twelfth service: importing an .m3u8 playlist (`PlaylistImport`, `5e143cf`): `imp
 `reportSources`, `placeMissed`, `importPlaylist` moved as they were; how a line's place is tidied is `M3uPaths`
 (shared; S `M3uPathsTest`); P `PlaylistImportTest` imports a playlist file with songs and a service of the test's
 own. (Its first check run failed before building: the build server was refused by Maven Central, "too many
-requests"; run again.) **Not
+requests"; run again: green on Linux and Windows at `052abbc`.)
+
+**Test build 27 (`90158cd`): Refresh in every tab's header.** Asked for by the owner (the statistics above all). One
+button, on each tab with something to read again; which tab gets which reading is `RefreshRules` (shared; S
+`RefreshRulesTest`): your listening added up again, your files read again, or the tab's own refresh (Downloads, Smart
+playlists, Mood lists, Duplicates). Not on Now playing, Search, the queue, lyrics, the visualizer, New releases (its
+own asks how far back), a service's library, or further in than a tab. A new icon (`Ico.REFRESH`), drawn by hand and
+**not seen by Claude**. Checked on Linux and Windows. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
