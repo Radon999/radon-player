@@ -1,6 +1,6 @@
-commit c60ee3fe2789473de33a800bac49eebbcc557365 · run 43750697220 · Sun Nov 15 19:19:53 UTC 2026
+commit 908d110cc65aa1f516204baa235a8ca08a99ac92 · run 43750812590 · Sun Nov 15 19:31:07 UTC 2026
 PC TESTS ON WINDOWS: 18 suites, tests 94, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.4 s (with loading the voice); then 4.4 s of speech in 1.5 s (3.0x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 1.8 s (with loading the voice); then 4.5 s of speech in 1.2 s (3.9x real time)
 WINDOWS INSTALLER: Radon Player-3.2.28.msi, 94M
 --- errors
 --- the end of the log
@@ -27,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 35s
+BUILD SUCCESSFUL in 4m 58s
 21 actionable tasks: 21 executed
