@@ -244,7 +244,14 @@ moved as they were, with `albumIn` and `songIn` named; P `ReleaseLookupTest`. **
 album's page shows its new names as soon as its tags are saved (the owner renamed an artist, and an album, in the
 Tagger and Back showed the old ones until the page was left): the page drew the album as it was when opened, and a
 renamed album is another album by its id; `AlbumSongs.follow` finds it again by its songs (P `AlbumSongsTest`).
-Checked on Linux and Windows; not seen on a screen by Claude. **Not
+Checked on Linux and Windows; not seen on a screen by Claude.
+
+Ninth service: better copies of what you have (`Upgrades`, `a6432dc`): Upgrade (`songs`), Downloads' Upgrade
+(`toFlac`, `youtubeDownloads`) and Refresh (`refresh`), moved as they were with what each says at its end named
+(`doneText`, `flacText`, `refreshedText`); `swapPlaying` stays in `Music` (it is playback's). One thing changed on
+purpose: the YouTube downloads already looked up on Tidal were a plain set read by the screen while a run added to
+it from another thread; it is a concurrent set now. P `UpgradesTest`. The fetching itself has no test (it needs
+Tidal). Checked on Linux and Windows; not in build 23. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
