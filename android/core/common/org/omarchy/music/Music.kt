@@ -203,7 +203,6 @@ object Music {
     var upgrading by mutableStateOf<String?>(null)   // Upgrade running: how far
     var upgradeKept by mutableStateOf<List<Pair<Track, String>>?>(null)   // kept as good already: replace anyway?
     @Volatile var upgradeStop = false
-    private val replaceAfter = HashMap<String, List<Track>>()   // a download's id -> your copies to put away once it's in
     private var goingBack: Boolean get() = PlaybackCore.goingBack; set(v) { PlaybackCore.goingBack = v }    // Previous: going back isn't skipping
 
     /** Your files to put in Android's trash (it asks you), and the songs that take their places. */
@@ -267,7 +266,7 @@ object Music {
         dl = Downloader(ctx, lib, tidal)
         dl.streamQuality = { streamQuality }
         dl.folder = { downloadFolder() }
-        dl.onSaved = { id -> scope.launch { afterSaved(id); Tagger.start(listOf(id)) } }
+        dl.onSaved = { id -> scope.launch { Copies.afterSaved(id); Tagger.start(listOf(id)) } }
         loadState()
         scope.launch { kotlinx.coroutines.delay(10_000); if (tidal.connected) Tagger.start() }
         if (tidal.connected) sources["tidal"] = tidal
@@ -1212,7 +1211,7 @@ object Music {
     fun download(tracks: List<Track>, checked: Boolean = false) = Downloads.start(tracks, checked)
 
     /** Your copies of a download, to put away once it's in (Copies: replace). Asked from other threads too. */
-    internal fun replaceLater(id: String, copies: List<Track>) { synchronized(replaceAfter) { replaceAfter[id] = copies } }
+    internal fun replaceLater(id: String, copies: List<Track>) = Copies.replaceLater(id, copies)
 
     fun saveCurrent() { current()?.let { download(listOf(it)) } }
 
@@ -1236,172 +1235,20 @@ object Music {
     fun downloadQualityNote(): String = Downloads.qualityNote()
 
     // ---- copies of a song ----
-    private var copyIndex: Pair<Triple<Int, Int, Double>, Map<String, List<Track>>>? = null
-
-    /** Your songs on the phone by the first letters of their title (squashed): kept until your songs change. */
-    private fun copyPool(t: Track): List<Track> {
-        val sig = Triple(lib.items.size, local.files.size, local.scanned)
-        val idx = copyIndex?.takeIf { it.first == sig }?.second ?: mySongs().groupBy { squashKey(cleanTitle(it.title)).take(4) }
-            .also { copyIndex = sig to it }
-        return idx[squashKey(cleanTitle(t.title)).take(4)] ?: emptyList()
-    }
-
-    /** Your songs on the phone that are likely t (close is enough: it's asked about), t itself left out. */
-    fun copiesOf(t: Track): List<Track> = copyPool(t).filter { it.id != t.id && maybeSame(t, it) && (it.isFile || lib.has(it.id)) }
-
-    /** Whether a song may be saved without asking (Keep, or a service's sync): yes unless you have it
-     *  already and Copies says Ask (then it streams; Download asks). With Replace, your copy goes once it's in. */
-    fun autoSaveOk(t: Track): Boolean {
-        if (t.source == SoundCloud.KEY) return false   // never saved: SoundCloud songs only stream
-        if (dupeAction == "keep" || lib.has(t.id)) return true
-        val copies = copiesOf(t)
-        if (copies.isEmpty()) return true
-        if (dupeAction == "replace") { replaceLater(t.id, copies); return true }
-        return false
-    }
-
-    /** A download is in: your copies of it go, if you said to replace them. */
-    private fun afterSaved(id: String) {
-        val old = synchronized(replaceAfter) { replaceAfter.remove(id) } ?: return
-        val e = lib.items[id] ?: return
-        replaceCopies(old, e.track(), "copies of “${e.title}”")
-    }
-
-    /** Put old (copies of new) away: downloads at once, your files in Android's trash once you say yes. */
-    fun replaceCopies(old: List<Track>, new: Track, what: String) {
-        val playing = current()?.id
-        val mine = old.filter { it.id != playing }
-        val downloads = mine.filter { lib.has(it.id) && lib.items[it.id]?.file != lib.items[new.id]?.file }
-        downloads.forEach { lib.remove(it.id); retarget(listOf(it.id), new) }
-        val files = mine.filter { it.isFile && Music.phoneFile(it) != null }
-        if (files.isNotEmpty()) queueTrash(TrashJob(files, files.associate { it.id to new }, what))
-        else if (downloads.isNotEmpty()) toast("Replaced ${downloads.size} ${if (downloads.size == 1) "copy" else "copies"} of “${new.title}”")
-        musicVersion++; savedVersion++
-    }
-
-    private val trashQueue = ArrayDeque<TrashJob>()
-
-    /** Ask Android to put files in its trash (one ask at a time; Android 10 can't: they stay). */
-    fun queueTrash(job: TrashJob) {
-        if (!sdkAtLeast(30)) { toast("Android 10 can't put other apps' files in the trash: your old files stay"); return }
-        if (trashJob == null) trashJob = job else trashQueue.addLast(job)
-    }
-
-    /** Android said yes (ok) or no to the trash job. */
-    fun trashed(job: TrashJob, ok: Boolean) {
-        trashJob = trashQueue.removeFirstOrNull()
-        FolderCleanup.afterSongs(job.tracks)   // their folders, if no music is left in them (some may have gone even if not all did)
-        if (!ok) { toast("Your old files stay where they are"); return }
-        val ids = job.tracks.map { it.id }.toSet()
-        local.files = local.files.filter { it.id !in ids }
-        for (t in job.tracks) {
-            val new = job.replacements[t.id]
-            if (new != null) retarget(listOf(t.id), new)
-            else lists.all().filter { p -> p.tracks.any { it.id == t.id } }.forEach { lists.remove(it.id, setOf(t.id)) }
-        }
-        unqueueMany(queue.indices.filter { queue[it].id in ids && job.replacements[queue[it].id] == null })
-        dupes = dupes?.map { g -> g.filter { it.id !in ids } }?.filter { it.size > 1 }
-        toast(if (job.replacements.isNotEmpty()) "Replaced ${job.tracks.size} file${if (job.tracks.size != 1) "s" else ""} (in Android's trash)"
-              else "${job.tracks.size} file${if (job.tracks.size != 1) "s" else ""} in Android's trash")
-        musicVersion++; savedVersion++
-    }
-
-    /** Songs going away for new: your playlists and the queue get new in their place, their plays go with it. */
-    fun retarget(oldIds: List<String>, new: Track) {
-        val gone = oldIds.toSet() - new.id
-        if (gone.isEmpty()) return
-        val keep = new.slim()
-        for (p in lists.all()) if (p.tracks.any { it.id in gone }) {
-            val have = HashSet<String>()
-            val out = p.tracks.map { if (it.id in gone) keep else it }.filter { have.add(it.id) }
-            lists.replaceTracks(p.id, out)
-        }
-        queue = queue.mapIndexed { i, t -> if (t.id in gone && i != index) keep.copy(queued = t.queued) else t }
-        plays.merge(gone, keep)
-        saveState()
-    }
-
-    /** Download the songs you were asked about: r is "keep", "replace" or "skip" (only the new ones). */
-    fun answerDupes(r: String) {
-        val (new, dupes) = dupePrompt ?: return
-        dupePrompt = null
-        if (r == "cancel") return
-        val have = dupes.map { it.first.id }.toSet()
-        if (r == "replace") dupes.forEach { (t, c) -> replaceLater(t.id, c) }
-        download(new.filter { r != "skip" || it.id !in have }, checked = true)
-    }
-
-    // ---- Duplicates ----
-    fun findDupes() {
-        if (dupesBusy) return
-        dupesBusy = true
-        bg({
-            mySongs().filter { it.isFile || lib.has(it.id) }.groupBy { looseKey(it) }.filter { (k, v) -> v.size > 1 && k.first.isNotEmpty() }
-                .values.map { g -> g.distinctBy { lib.items[it.id]?.file ?: it.file }.sortedByDescending { copyRank(it) } }
-                .filter { it.size > 1 && dupeKey(it) !in notDupes }.sortedBy { norm(it[0].artist) + "|" + norm(it[0].title) }
-        }) { res, err ->
-            dupesBusy = false
-            dupes = res ?: emptyList()
-            if (err != null) toast("Couldn't look for duplicates: ${err.message?.take(80)}")
-        }
-    }
-
-    /** Which copy is best to keep: a FLAC first, a download (24-bit) over a file, then the longer one. */
-    fun copyRank(t: Track): Double {
-        val e = lib.items[t.id]
-        val q = e?.quality ?: ""
-        val name = (e?.file ?: t.file ?: "").lowercase()
-        val flac = e?.format == "flac" || name.endsWith(".flac") || copyInfo(t).startsWith("FLAC")
-        return (if (flac) 1000.0 else 0.0) + (if (q.startsWith("24")) 100.0 else 0.0) + t.duration / 1000
-    }
-
-    /** What a copy is: its format and quality, as far as the phone says. */
-    fun copyInfo(t: Track): String {
-        lib.items[t.id]?.let { e -> return listOf(e.format.uppercase().ifEmpty { "?" }, e.quality).filter { it.isNotEmpty() }.joinToString(" · ") }
-        val f = t.file ?: return ""
-        return runCatching {
-            val (mime, size) = ctx.typeAndSize(f) ?: return@runCatching ""
-            listOf(mime.substringAfter('/').uppercase().replace("X-", "").replace("MPEG", "MP3"), "%.1f MB".format(size / 1e6)).joinToString(" · ")
-        }.getOrDefault("")
-    }
-
-    /** Where a song is, for the Duplicates list. */
-    fun whereIs(t: Track): String = lib.items[t.id]?.let { "Downloaded here" } ?: local.paths[t.file ?: ""]?.trimEnd('/') ?: ""
-
-    /** Delete one copy of a song in Duplicates: the copy kept takes its place in playlists. */
-    fun deleteDupe(group: List<Track>, t: Track) {
-        val keep = group.firstOrNull { it.id != t.id } ?: return
-        if (current()?.id == t.id) { toast("That copy is playing: skip it first"); return }
-        if (lib.has(t.id)) {
-            lib.remove(t.id); retarget(listOf(t.id), keep)
-            dupes = dupes?.map { g -> g.filter { it.id != t.id } }?.filter { it.size > 1 }
-            toast("Deleted the downloaded copy of “${t.title}”"); savedVersion++; musicVersion++
-        } else queueTrash(TrashJob(listOf(t), mapOf(t.id to keep), "a copy of “${t.title}”"))
-    }
-
-    /** Duplicates' Keep / Remove: in each group the copies picked go (downloads at once, files to the bin together),
-     *  the first one kept taking their place in playlists. A group with every copy picked keeps its best. */
-    fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) {
-        val playing = current()?.id
-        val files = ArrayList<Track>(); val to = HashMap<String, Track>(); val gone = HashSet<String>()
-        var skipped = false
-        for ((g, rm) in picks) {
-            val keep = g.firstOrNull { it.id !in rm } ?: g.first()
-            for (t in g) {
-                if (t.id !in rm || t.id == keep.id) continue
-                if (t.id == playing) { skipped = true; continue }
-                if (lib.has(t.id)) { lib.remove(t.id); retarget(listOf(t.id), keep); gone += t.id }
-                else { files += t; to[t.id] = keep }
-            }
-        }
-        if (gone.isNotEmpty()) {
-            dupes = dupes?.map { g -> g.filter { it.id !in gone } }?.filter { it.size > 1 }
-            savedVersion++; musicVersion++
-        }
-        if (files.isNotEmpty()) queueTrash(TrashJob(files, to, "${files.size} duplicate cop${if (files.size != 1) "ies" else "y"}"))
-        val n = gone.size + files.size
-        toast((if (n > 0) "Removing $n cop${if (n != 1) "ies" else "y"}" else "Nothing to remove") + if (skipped) " · the playing one is left: skip it first" else "")
-    }
+    // Copies of a song (a download you have already, your copy put away for it) and Duplicates are Copies' own.
+    fun copiesOf(t: Track): List<Track> = Copies.copiesOf(t)
+    fun autoSaveOk(t: Track): Boolean = Copies.autoSaveOk(t)
+    fun replaceCopies(old: List<Track>, new: Track, what: String) = Copies.replaceCopies(old, new, what)
+    fun queueTrash(job: TrashJob) = Copies.queueTrash(job)
+    fun trashed(job: TrashJob, ok: Boolean) = Copies.trashed(job, ok)
+    fun retarget(oldIds: List<String>, new: Track) = Copies.retarget(oldIds, new)
+    fun answerDupes(r: String) = Copies.answerDupes(r)
+    fun findDupes() = Copies.findDupes()
+    fun copyRank(t: Track): Double = Copies.copyRank(t)
+    fun copyInfo(t: Track): String = Copies.copyInfo(t)
+    fun whereIs(t: Track): String = Copies.whereIs(t)
+    fun deleteDupe(group: List<Track>, t: Track) = Copies.deleteDupe(group, t)
+    fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) = Copies.removeDupes(picks)
 
     // ---- Upgrade: your files for Tidal's FLAC where it's better ----
     fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) {
