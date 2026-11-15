@@ -145,7 +145,8 @@ mailbox; nothing was run on a phone (it compiles and its tests pass).
 out of `Dj.kt` for nine kinds, as it was, in the shared code: `KindRules` (S `KindRulesTest`: rediscover's three plays
 and three months away, a throwback's two months, not skipped, how likely a song heard out comes up, second chances,
 one-hit wonders, a decade and its name, the decades with eight songs, an album's order and its runs of three, the
-artists the spotlight waits for, unreleased by the path). `Dj` hands on; the PC tests of the same kinds (27 kinds in
+artists the spotlight waits for, unreleased by the path; and since (`7800136`) how artists for you are scored from
+the artists you play, and where the new songs go in a mood's set). `Dj` hands on; the PC tests of the same kinds (27 kinds in
 all, see the DJ kinds row) pass as before on Linux and Windows. **Not done:** the kinds that are made from the
 services and from Last.fm (new for you, deep cuts, more like this, artists for you, genre), the mood sets and
 spotlight's choice of artist still have their rules in `Dj.kt`; no `DjSet` record; not run in the real PC app (no
