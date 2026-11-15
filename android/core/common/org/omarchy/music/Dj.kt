@@ -18,10 +18,10 @@ import kotlin.random.Random
 object Dj {
     const val SET = 6   // songs in a set
     /** The most words in one break (a set's line with its hello and its fact), as said out loud: about 15 seconds. */
-    const val MOST_WORDS = 45
+    const val MOST_WORDS = ScriptRules.MOST_WORDS
     private val SPACES = Regex("\\s+")
     /** How many words text is when it's said (numbers and symbols as words, see Spoken). */
-    private fun wordsSaid(text: String): Int = if (text.isBlank()) 0 else Spoken.humanize(text, filler = 0.0).split(SPACES).count { it.isNotBlank() }
+    private fun wordsSaid(text: String): Int = ScriptRules.wordsSaid(text)
     /** The mood sets: one for each of these (moods alike share one), "mood:" and its moods joined by "+"
      *  ("mood:Energetic+Party+Hype"). Songs of any of its moods; the DJ says which ("let's switch it up: some happy songs"). */
     // (Happy, Chill and Calm were one set, and Sad and Dark another, from 3.2 until the rebuild: a chill song isn't
@@ -138,10 +138,10 @@ object Dj {
      *  now, the first set gets a new hello, and any other set loses its word about the day. (Before, a set made in the
      *  morning still said good morning in the afternoon.) */
     fun asOfNow(b: Built): Built {
-        if (b.opener.isEmpty() || b.timeKey.isEmpty() || b.timeKey == timeKey()) return b
-        val body = b.line.removePrefix(b.opener).trim()
-        val opener = if (b.first) hello() else ""
-        return b.copy(line = if (opener.isEmpty()) body else "$opener $body", opener = opener, timeKey = timeKey())
+        val (line, opener) = ScriptRules.asOfNow(b.line, b.opener, b.first, b.timeKey, timeKey()) { hello() } ?: return b
+        
+        
+        return b.copy(line = line, opener = opener, timeKey = timeKey())
     }
 
     /** A set of what you play at this time of day, made in another part of the day: no longer right, to be let go. */
@@ -165,7 +165,7 @@ object Dj {
         val next = b.songs.firstOrNull()
         if (after == null || next == null || b.first || b.opener.isNotEmpty()) return b
         val t = runCatching { thread(after, next) }.getOrDefault("")
-        if (t.isEmpty() || wordsSaid(t) + wordsSaid(b.line) + wordsSaid(b.fact) > MOST_WORDS) return b
+        if (!ScriptRules.threadFits(t, b.line, b.fact)) return b
         return b.copy(line = "$t ${b.line}")
     }
 
@@ -1776,13 +1776,13 @@ object Dj {
             // Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row (nor more
             // than twice in a set, but for an artist's own set); an album moment stays in the album's order
             val songs = if (k == "album") got.first else spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover"))
-            var opener = if (first) hello() else timeFlavor()
-            var line = if (opener.isEmpty()) got.second else "$opener ${got.second}"
+            val opener0 = if (first) hello() else timeFlavor()
+            val (opener, line) = ScriptRules.opened(opener0, got.second, first)
             // A break is MOST_WORDS words at most, as said: a word about the day goes first if it's over (a hello stays)
-            if (!first && opener.isNotEmpty() && wordsSaid(line) > MOST_WORDS) { opener = ""; line = got.second }
+            
             // Now and then (and never on the first set: that has its hello) something the DJ knows about you
             var fact = if (!first && Random.nextInt(5) < 2) fact(songs) ?: "" else ""
-            if (fact.isNotEmpty() && wordsSaid(line) + wordsSaid(fact) > MOST_WORDS) {   // no room for it: told another time
+            if (!ScriptRules.factFits(line, fact)) {   // no room for it: told another time
                 fact = ""
                 synchronized(lock) { holds.removeAll { it.set == id && it.key == FACT_HISTORY } }
             }
