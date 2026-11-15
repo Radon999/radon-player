@@ -91,6 +91,36 @@ class KindRulesTest {
         assertEquals(emptySet<String>(), KindRules.spotlightWaits(history, 0))
     }
 
+    @Test fun artistsForYouAreTheOnesMostOfYourArtistsLeadToAndNeverOnesYouPlay() {
+        val similar = mapOf(
+            "Big" to listOf("Shared" to 0.9, "Only Big's" to 0.8, "Known Band" to 1.0),
+            "Small" to listOf("Shared" to 0.9, "Only Small's" to 0.8),
+        )
+        val got = KindRules.artistsForYou(mapOf("Big" to 100, "Small" to 5), emptyMap(), emptyList(), setOf(norm("Known Band"))) { similar[it].orEmpty() }
+        assertEquals(listOf("Shared", "Only Big's", "Only Small's"), got.map { it.first })
+        assertEquals("both of yours lead to it", setOf("Big", "Small"), got[0].second.toSet())
+        assertEquals(listOf("Big"), got[1].second)
+    }
+
+    @Test fun whatYouPlayThisMonthCountsDouble() {
+        val similar = mapOf("Old love" to listOf("From the old" to 1.0), "New love" to listOf("From the new" to 1.0))
+        val got = KindRules.artistsForYou(mapOf("Old love" to 30, "New love" to 20), mapOf("New love" to 20), emptyList(), emptySet()) { similar[it].orEmpty() }
+        assertEquals(listOf("From the new", "From the old"), got.map { it.first })
+    }
+
+    @Test fun withNoCountsYourArtistsStandInAndWithNoArtistsThereIsNoOne() {
+        val got = KindRules.artistsForYou(emptyMap(), emptyMap(), listOf("Yours"), emptySet()) { listOf("Like $it" to 0.5) }
+        assertEquals(listOf("Like Yours" to listOf("Yours")), got)
+        assertEquals(emptyList<Pair<String, List<String>>>(), KindRules.artistsForYou(emptyMap(), emptyMap(), emptyList(), emptySet()) { listOf("x" to 1.0) })
+    }
+
+    @Test fun newSongsComeThirdAndFifthAmongTheOnesYouKnow() {
+        assertEquals(listOf("k1", "k2", "n1", "k3", "n2", "k4"), KindRules.withNewOnes(listOf("k1", "k2", "k3", "k4", "k5"), listOf("n1", "n2"), 6))
+        assertEquals("no new ones: the known ones", listOf("k1", "k2", "k3"), KindRules.withNewOnes(listOf("k1", "k2", "k3"), emptyList<String>(), 6))
+        assertEquals("the known ones run out: the new ones follow", listOf("k1", "n1", "n2"), KindRules.withNewOnes(listOf("k1"), listOf("n1", "n2"), 6))
+        assertEquals("never more than a set", 4, KindRules.withNewOnes((1..9).map { "k$it" }, listOf("n1", "n2"), 4).size)
+    }
+
     @Test fun unreleasedGoesByThePath() {
         assertTrue(KindRules.unreleased("/music/Artist/Unreleased/song.flac"))
         assertTrue(KindRules.unreleased("C:\\Music\\UNRELEASED stuff\\a.mp3"))

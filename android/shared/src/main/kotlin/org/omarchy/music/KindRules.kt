@@ -54,6 +54,39 @@ object KindRules {
      *  but three of the artists there are, forty at most. */
     fun spotlightWaits(history: List<String>, artists: Int): Set<String> = history.takeLast(maxOf(0, minOf(40, artists - 3))).toSet()
 
+    /** Artists for you: the artists you might like, best first, each with the ones of yours it's like. The artists
+     *  you play most (allTime: the top twelve, thisMonth: the top six, counted double; otherwise: your artists when
+     *  there are no counts) each bring their similar artists (similarTo: a name and how alike, 0 to 1), added up; the
+     *  ones you play already (known: names as [norm] makes them) are left out. */
+    fun artistsForYou(allTime: Map<String, Int>, thisMonth: Map<String, Int>, otherwise: List<String>, known: Set<String>,
+                      similarTo: (String) -> List<Pair<String, Double>>): List<Pair<String, List<String>>> {
+        val weight = HashMap<String, Double>()
+        allTime.entries.sortedByDescending { it.value }.take(12).forEach { (a, n) -> weight.merge(a, Math.log(1.0 + n), Double::plus) }
+        thisMonth.entries.sortedByDescending { it.value }.take(6).forEach { (a, n) -> weight.merge(a, 2 * Math.log(1.0 + n), Double::plus) }
+        if (weight.isEmpty()) otherwise.take(10).forEach { weight[it] = 1.0 }
+        val score = HashMap<String, Double>(); val because = HashMap<String, MutableList<String>>(); val shown = HashMap<String, String>()
+        for ((seed, w) in weight.entries.sortedByDescending { it.value }.take(10)) for ((name, match) in similarTo(seed)) {
+            val k = norm(name)
+            if (k.isEmpty() || k in known) continue
+            score.merge(k, w * match, Double::plus); shown.putIfAbsent(k, name)
+            because.getOrPut(k) { ArrayList() }.let { if (seed !in it) it += seed }
+        }
+        return score.entries.sortedByDescending { it.value }.map { (k, _) -> shown.getValue(k) to because[k].orEmpty() }
+    }
+
+    /** A mood's set with new songs in it: songs you know, with a new one third and fifth (known, known, new, known,
+     *  new, known…), most songs at most; when the known ones run out the new ones follow, and the other way round. */
+    fun <T> withNewOnes(known: List<T>, news: List<T>, most: Int): List<T> {
+        val songs = ArrayList<T>()
+        val ki = known.iterator(); val ni = news.iterator()
+        var i = 0
+        while ((ki.hasNext() || ni.hasNext()) && songs.size < most) {
+            if ((i == 2 || i == 4) && ni.hasNext()) songs += ni.next() else if (ki.hasNext()) songs += ki.next() else songs += ni.next()
+            i++
+        }
+        return songs
+    }
+
     /** The unreleased corner: a file in a folder (or with a name) that says unreleased. */
     fun unreleased(path: String): Boolean = path.contains("unreleased", ignoreCase = true)
 }

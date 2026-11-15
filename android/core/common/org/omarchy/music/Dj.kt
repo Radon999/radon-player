@@ -776,13 +776,7 @@ object Dj {
             }
             val news = pick(fresh, 2, used)
             // Known, known, new, known, new, known…
-            val songs = ArrayList<Track>()
-            val ki = knownPick.iterator(); val ni = news.iterator()
-            var i = 0
-            while ((ki.hasNext() || ni.hasNext()) && songs.size < SET) {
-                if ((i == 2 || i == 4) && ni.hasNext()) songs += ni.next() else if (ki.hasNext()) songs += ki.next() else songs += ni.next()
-                i++
-            }
+            val songs = KindRules.withNewOnes(knownPick, news, SET)
             if (songs.size < 3) continue
             remember(MOODMIX_HISTORY, mood)
             val intro = if (group.size > 1) groupIntro(group, songs[0]) else moodIntro(mood, songs[0])
@@ -1225,19 +1219,8 @@ object Dj {
      *  the ones you already play left out. */
     private fun artistsForYou(taste: Taste): List<Pair<String, List<String>>> {
         val f = taste.facts
-        val weight = HashMap<String, Double>()
-        f.artistAll.entries.sortedByDescending { it.value }.take(12).forEach { (a, n) -> weight.merge(a, Math.log(1.0 + n), Double::plus) }
-        f.artistMonth.entries.sortedByDescending { it.value }.take(6).forEach { (a, n) -> weight.merge(a, 2 * Math.log(1.0 + n), Double::plus) }
-        if (weight.isEmpty()) taste.artists.take(10).forEach { weight[it] = 1.0 }
         val known = (f.artistAll.filterValues { it >= 3 }.keys + taste.mine.values.map { it.artist.split(",")[0].trim() }).map { norm(it) }.toSet()
-        val score = HashMap<String, Double>(); val because = HashMap<String, MutableList<String>>(); val shown = HashMap<String, String>()
-        for ((seed, w) in weight.entries.sortedByDescending { it.value }.take(10)) for ((name, match) in similarTo(seed)) {
-            val k = norm(name)
-            if (k.isEmpty() || k in known) continue
-            score.merge(k, w * match, Double::plus); shown.putIfAbsent(k, name)
-            because.getOrPut(k) { ArrayList() }.let { if (seed !in it) it += seed }
-        }
-        return score.entries.sortedByDescending { it.value }.map { (k, _) -> shown.getValue(k) to because[k].orEmpty() }
+        return KindRules.artistsForYou(f.artistAll, f.artistMonth, taste.artists, known) { similarTo(it) }
     }
 
     private val introduced: MutableSet<String> = ConcurrentHashMap.newKeySet()   // the artists for you the DJ played already
