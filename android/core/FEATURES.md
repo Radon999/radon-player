@@ -29,6 +29,8 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **Covers beside your songs:** A song with no picture inside its file shows the cover in its folder (cover.jpg, folder.jpg…, or the folder's only picture), on the phone as on the PC, in the lists, Now playing and the notification. The phone needs All files access for it (Settings › Tagger). **Covers from folders** (Settings › Scanner) puts that picture, or else the cover you picked in the app, into each song's file that has none, and reads it back to be sure.
 - **Unreleased** (☰ menu): your songs in any folder named Unreleased, and in the folders you put there with **Folders…**, a row for each folder, with Play, Shuffle and the DJ for all of them.
 - **Two-disc albums** list disc one, then disc two, each by track number.
+- **All files access asked at start (phone):** each time the app starts without it, the app asks; Allow opens Android's page to turn it on. The PC needs none.
+- **The Tagger keeps what you saved:** after Save the tags, the fields go on showing the names you saved.
 - **Back keeps your search:** search a list, open something from it, and Back returns to what you searched for; Back again closes the search.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items at the top of the menu.
 - **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists, then play, queue, download, tag or delete them together.

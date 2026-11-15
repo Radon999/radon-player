@@ -150,6 +150,9 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
     }
     var have by remember { mutableStateOf<Map<String, String?>?>(null) }
     val typed = remember { mutableStateMapOf<String, String>() }
+    // What you saved here: it stays in the fields (the files are written a moment later, and may move to another
+    // folder, so reading them again at once showed the old tags and looked like the save hadn't taken)
+    val saved = remember { mutableStateMapOf<String, String>() }
     LaunchedEffect(songs) { Music.bg({ Tags.read(Music.ctx, songs.mapNotNull { Tags.editableAny(it) }) }) { h, _ -> have = h ?: emptyMap() } }
     val h = have
     if (h == null) { Text("Reading the tags…", style = T.sub); return }
@@ -157,7 +160,7 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
     val names = remember { suggestNames() }
     Tags.FIELDS.forEach { (k, label) ->
         Text(label, style = T.sub, modifier = Modifier.padding(top = 2.dp))
-        Field(typed[k] ?: h[k] ?: "", if (h.containsKey(k) && h[k] == null) "Several (left as they are)" else "") { typed[k] = it }
+        Field(typed[k] ?: saved[k] ?: h[k] ?: "", if (saved[k] == null && h.containsKey(k) && h[k] == null) "Several (left as they are)" else "") { typed[k] = it }
         // Artist, Album artist, Album: yours that match what you type, under it; a tap fills it in
         val pool = when (k) { "artist", "albumartist" -> names.first; "album" -> names.second; else -> null }
         val q = typed[k]
@@ -184,7 +187,7 @@ private fun TaggerTags(ui: Ui, tracks: List<Track>) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Pill("Save the tags") {
             if (typed.isEmpty()) Music.toast("Nothing changed")
-            else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); typed.clear() }
+            else { Music.editTags(songs, typed.toMap(), renameFiles && org.omarchy.music.FileTags.canMove); saved.putAll(typed); typed.clear() }
         }
         Pill(if (finding) "Finding tags…" else "Find tags online", quiet = true) {
             if (finding) return@Pill

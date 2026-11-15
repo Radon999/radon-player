@@ -181,6 +181,17 @@ fun App() {
         }
     }
 
+    // The phone, each time the app starts without All files access: asked for (Allow opens Android's page for it).
+    // Without it the app can't change your own songs' tags and covers, or see the cover beside a song. The PC needs none.
+    var askFiles by remember { androidx.compose.runtime.mutableStateOf(onPhone && runCatching { !Music.canWriteOwnFiles() }.getOrDefault(false)) }
+    if (askFiles) androidx.compose.material3.AlertDialog(onDismissRequest = { askFiles = false }, containerColor = C.light,
+        title = { Text("Allow access to your music files?", style = T.head) },
+        text = { Text("Radon Player needs Android's “All files access” to change your own songs' tags and covers, and to show the cover " +
+            "kept in a song's folder. ${TAP.cap()} Allow, turn it on for Radon Player, then come back. Without it your music still plays; " +
+            "you'll be asked again next time the app starts.", style = T.body) },
+        confirmButton = { androidx.compose.material3.TextButton({ askFiles = false; openSystemSettings("allfiles") }) { Text("Allow", color = C.accent) } },
+        dismissButton = { androidx.compose.material3.TextButton({ askFiles = false }) { Text("Not now", color = C.muted) } })
+
     val lay = UiLayouts.current
     // The ☰ menu slides in from the right in a right-handed layout: the drawer is laid out right to left, its insides
     // (and the screens) left to right as always.
