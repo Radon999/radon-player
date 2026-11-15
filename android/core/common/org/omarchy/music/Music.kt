@@ -227,7 +227,7 @@ object Music {
 
     val sources = mutableStateMapOf<String, Source>()
     val sourceErrors = mutableStateMapOf<String, String>()
-    internal val likes = HashMap<String, Set<String>>()   // each service's liked songs (Services fills it)
+    internal val likes = HashMap<String, Set<String>>()   // each service's liked songs (MusicServices fills it)
 
     private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
@@ -1200,17 +1200,17 @@ object Music {
     @JvmName("chooseSource")
     fun setSource(key: String) { source = key; saveState() }
 
-    // Which service you browse, a service coming ready, and the library sync are Services' own: these hand on.
-    fun browse(key: String) = Services.browse(key)
+    // Which service you browse, a service coming ready, and the library sync are MusicServices' own: these hand on.
+    fun browse(key: String) = MusicServices.browse(key)
 
     @JvmName("chooseSearchIn")
     fun setSearchIn(key: String) { searchIn = key; saveState() }
 
-    fun setSyncSource(key: String, on: Boolean) = Services.setSync(key, on)
-    fun sourceReady(key: String, src: Source?, err: Throwable?) = Services.ready(key, src, err)
-    fun tidalLoggedIn(redirect: String) = Services.tidalLoggedIn(redirect)
-    fun tidalDisconnect() = Services.tidalDisconnect()
-    fun syncLibrary() = Services.syncLibrary()
+    fun setSyncSource(key: String, on: Boolean) = MusicServices.setSync(key, on)
+    fun sourceReady(key: String, src: Source?, err: Throwable?) = MusicServices.ready(key, src, err)
+    fun tidalLoggedIn(redirect: String) = MusicServices.tidalLoggedIn(redirect)
+    fun tidalDisconnect() = MusicServices.tidalDisconnect()
+    fun syncLibrary() = MusicServices.syncLibrary()
 
     // ---- what counts as played ----
 

@@ -5,7 +5,7 @@ import kotlinx.coroutines.launch
 /** The streaming services as the app uses them: which one you browse (or your own music), a service coming ready
  *  or signing out, and keeping what you have on the services you sync downloaded. What the screens read (the
  *  service picked, who is signed in, the sync's progress) stays in [Music], which keeps the names and hands on. */
-object Services {
+object MusicServices {
     private fun toast(text: String) = Music.toast(text)
 
     /** What you browse: your own music (local) or a service (source), where the search looks, and where it looked
