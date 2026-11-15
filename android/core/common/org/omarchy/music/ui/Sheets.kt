@@ -76,8 +76,13 @@ fun Sheets(ui: Ui) {
         "vismaker" -> VisMaker(ui, ui.makerEdit)
         "wrapmaker" -> WrapMaker(ui, ui.makerEdit)
         "cardmaker" -> CardMaker(ui, ui.makerEdit)
-        "tidal-login" -> WebLogin(Music.tidal.loginUrl(), { it.startsWith(Tidal.REDIRECT) }) { url ->
-            ui.sheet = "accounts"; if (url != null) Music.tidalLoggedIn(url)
+        "tidal-login" -> {
+            // Made once for this sign-in: making the address makes the secret half of the sign-in too, and the screen
+            // drawn again (coming back from your mail with Tidal's code) made a new one, which Tidal's answer didn't fit
+            val loginAt = remember { Music.tidal.loginUrl() }
+            WebLogin(loginAt, { it.startsWith(Tidal.REDIRECT) }) { url ->
+                ui.sheet = "accounts"; if (url != null) Music.tidalLoggedIn(url)
+            }
         }
         "ytm-login" -> WebLogin("https://accounts.google.com/ServiceLogin?ltmpl=music&service=youtube&passive=true&continue=" +
             "https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F",
@@ -90,8 +95,11 @@ fun Sheets(ui: Ui) {
         "deezer-login" -> WebLogin("https://www.deezer.com/login", { Services.deezerCookiesReady() }, desktop = true) { url ->
             ui.sheet = "accounts"; if (url != null) Services.deezerSignedIn()
         }
-        "spotify-login" -> WebLogin(Services.spotifyLoginUrl(), { it.startsWith(org.omarchy.music.Spotify.REDIRECT) }) { url ->
-            ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
+        "spotify-login" -> {
+            val loginAt = remember { Services.spotifyLoginUrl() }   // once, as Tidal's above
+            WebLogin(loginAt, { it.startsWith(org.omarchy.music.Spotify.REDIRECT) }) { url ->
+                ui.settingsOpen += "Accounts"; ui.sheet = "accounts"; if (url != null) Services.spotifyFinish(url)
+            }
         }
         "soundcloud-login" -> {
             val loginAt = remember { (Music.sources[org.omarchy.music.SoundCloud.KEY] as? org.omarchy.music.SoundCloud)?.loginUrl() ?: "about:blank" }
