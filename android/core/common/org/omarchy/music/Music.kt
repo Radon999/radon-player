@@ -233,7 +233,7 @@ object Music {
     private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
     var downloadNote by mutableStateOf("")   // "Downloading in FLAC · 3 of 40" while a Download runs
-        private set
+        internal set   // Downloads' to write
     private var syncAgain = false
 
 
