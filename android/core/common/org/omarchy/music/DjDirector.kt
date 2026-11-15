@@ -27,9 +27,13 @@ object DjDirector {
     private val scope get() = Music.scope
     private val player get() = Music.player
     private fun bitPerfectNow() = Music.bitPerfectNow()
+    private fun toast(text: String) = Music.toast(text)
     private fun <T> bg(work: () -> T, done: (T?, Throwable?) -> Unit = { _, _ -> }) = Music.bg(work, done)
 
     // ---- what it asks of playback ([PlaybackCore]) ----
+    private var queue: List<Track> get() = PlaybackCore.queue; set(v) { PlaybackCore.queue = v }
+    private var index: Int get() = PlaybackCore.index; set(v) { PlaybackCore.index = v }
+    private fun current() = PlaybackCore.current()
     private fun step(what: String) = PlaybackCore.step(what)
 
     // ---- still in [Music], on their way here ----
@@ -115,6 +119,42 @@ object DjDirector {
         Voice.prepare(djClean(line))
     }
 
+    // ---- a set begins, and a word between songs ----
+    /** A set begins: its line, where you see it. */
+    internal fun djAnnounce(t: Track?) {
+        val n = t?.dj?.toString() ?: return
+        val set = dj.sets[n]
+        if (!dj.on || set == null) return
+        if (n == dj.shown) {   // a song in the middle of the set: now and then a word about it, once a set at most
+            val c = djComments.remove(t.id)
+            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c)
+            djCommentAhead()
+            return
+        }
+        dj = dj.copy(shown = n)
+        toast("DJ · ${set.line}")
+        djCommentAhead()
+        // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
+        djSay(djLine(n) ?: return)
+    }
+
+    // What the DJ says before a song in the middle of a set (a milestone this play reaches, now and then something
+    // about the song), worked out and its voice made while the song before it plays. "" for nothing.
+    internal val djComments = HashMap<String, String>()
+    private val djCommented = HashSet<String>()   // the sets (their numbers) the DJ already spoke in the middle of
+
+    private fun djCommentAhead() {
+        if (!djVoice || !Voice.canSpeak || Remote.active) return
+        val cur = current() ?: return
+        val nxt = queue.getOrNull(index + 1) ?: return
+        val n = nxt.dj.toString()
+        if (nxt.dj <= 0 || nxt.dj != cur.dj || n in djCommented || nxt.id in djComments) return
+        if (djComments.size > 50) djComments.clear()
+        val c = Dj.songComment(nxt)?.let { Spoken.humanize(it, filler = 0.0) }.orEmpty()   // made once, so what's made ahead is what's said
+        djComments[nxt.id] = c
+        if (c.isNotEmpty()) Voice.prepare(djClean(c))
+    }
+
     // ---- its voice ----
     /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. With your
      *  ElevenLabs key through ElevenLabs; else on the PC Kokoro (once fetched) or Windows' voice, on the phone Android's. */
@@ -126,7 +166,7 @@ object DjDirector {
     /** The DJ says text over the music, like a radio DJ: the song never waits or starts again; it's turned down (ducked)
      *  while she talks and comes back up when she's done. Bit-perfect to a USB DAC, her voice is mixed into the stream with
      *  the music turned down under it (see UsbDirect.speak). A line whose voice isn't ready soon is left unsaid. */
-    internal fun djSay(text: String) {
+    private fun djSay(text: String) {
         if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
         if (player == null) return
         val mine = ++djTurn
@@ -163,10 +203,10 @@ object DjDirector {
         }
     }
 
-    internal fun djClean(text: String) = text.replace("“", "").replace("”", "")
+    private fun djClean(text: String) = text.replace("“", "").replace("”", "")
 
     /** What the DJ says when set n begins (its line, then its fact). */
-    internal fun djLine(n: String): String? = dj.sets[n]?.let { set ->
+    private fun djLine(n: String): String? = dj.sets[n]?.let { set ->
         djLines.getOrPut(set.line + "\n" + set.fact) {   // made once (its fillers are picked at random), so the line made ahead is the one said
             if (djLines.size > 20) djLines.keys.firstOrNull()?.let { djLines.remove(it) }
             Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "" } }

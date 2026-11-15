@@ -1101,51 +1101,15 @@ object Music {
         return songs.map { it.copy(dj = n) }
     }
 
-    /** A set begins: its line, where you see it. */
-    private fun djAnnounce(t: Track?) {
-        val n = t?.dj?.toString() ?: return
-        val set = dj.sets[n]
-        if (!dj.on || set == null) return
-        if (n == dj.shown) {   // a song in the middle of the set: now and then a word about it, once a set at most
-            val c = djComments.remove(t.id)
-            if (!c.isNullOrEmpty() && djCommented.add(n)) djSay(c)
-            djCommentAhead()
-            return
-        }
-        dj = dj.copy(shown = n)
-        toast("DJ · ${set.line}")
-        djCommentAhead()
-        // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
-        djSay(djLine(n) ?: return)
-    }
-
-    // What the DJ says before a song in the middle of a set (a milestone this play reaches, now and then something
-    // about the song), worked out and its voice made while the song before it plays. "" for nothing.
-    private val djComments = HashMap<String, String>()
-    private val djCommented = HashSet<String>()   // the sets (their numbers) the DJ already spoke in the middle of
-
-    private fun djCommentAhead() {
-        if (!djVoice || !Voice.canSpeak || Remote.active) return
-        val cur = current() ?: return
-        val nxt = queue.getOrNull(index + 1) ?: return
-        val n = nxt.dj.toString()
-        if (nxt.dj <= 0 || nxt.dj != cur.dj || n in djCommented || nxt.id in djComments) return
-        if (djComments.size > 50) djComments.clear()
-        val c = Dj.songComment(nxt)?.let { Spoken.humanize(it, filler = 0.0) }.orEmpty()   // made once, so what's made ahead is what's said
-        djComments[nxt.id] = c
-        if (c.isNotEmpty()) Voice.prepare(djClean(c))
-    }
-
     /** The DJ talks (Settings in the DJ: Voice): it says its line over the music (DjDirector has its voice). */
     val djVoice get() = DjDirector.djVoice
     fun chooseDjVoice(on: Boolean) = DjDirector.chooseDjVoice(on)
     val djTalking: Boolean get() = DjDirector.djTalking
-    private fun djSay(text: String) = DjDirector.djSay(text)
     private val DUCK get() = DjDirector.DUCK
     private val ducked get() = DjDirector.ducked
-    private fun djClean(text: String) = DjDirector.djClean(text)
-    private fun djLine(n: String) = DjDirector.djLine(n)
     private fun djPrepare(songs: List<Track>) = DjDirector.djPrepare(songs)
+    private fun djAnnounce(t: Track?) = DjDirector.djAnnounce(t)
+    private val djComments get() = DjDirector.djComments
     private var loadedFor: String? get() = PlaybackCore.loadedFor; set(v) { PlaybackCore.loadedFor = v }   // the song the player has in now (its id)
 
     /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
