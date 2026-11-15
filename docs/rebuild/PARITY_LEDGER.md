@@ -275,7 +275,13 @@ good, but how many songs of an album you have says little: that one is out (`531
 Eleventh service: Sound presets and headphones corrections you keep (`SoundPresets`, `4a89b74`): saved, imported,
 exported, deleted, an AutoEq one added, every one collected, a new output's starting preset; moved as they were, with
 `presetKey`, `correctionKey` and `nameFromFile` named; P `SoundPresetsTest`. The equalizer itself (what plays, each
-output's settings, the switch between outputs) is still in `Music.kt`. Checked on Linux and Windows. **Not
+output's settings, the switch between outputs) is still in `Music.kt`. Checked on Linux and Windows.
+
+Twelfth service: importing an .m3u8 playlist (`PlaylistImport`, `5e143cf`): `importM3u`, `matchSong`,
+`reportSources`, `placeMissed`, `importPlaylist` moved as they were; how a line's place is tidied is `M3uPaths`
+(shared; S `M3uPathsTest`); P `PlaylistImportTest` imports a playlist file with songs and a service of the test's
+own. (Its first check run failed before building: the build server was refused by Maven Central, "too many
+requests"; run again.) **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
