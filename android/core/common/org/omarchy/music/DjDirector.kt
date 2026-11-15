@@ -21,9 +21,22 @@ object DjDirector {
     // ---- what the screens show (Compose state, so a change redraws) ----
     var dj by mutableStateOf(Dj.State())          // the DJ: on, its sets' kinds and lines, the one shown
     var djBusy by mutableStateOf<String?>(null)   // the DJ picking a set: what it's doing
+    var djNew by mutableStateOf(true)             // the DJ brings new songs too, or only yours
+
+    /** Only my songs (off), or new ones too (on): the DJ starts again with it. */
+    fun chooseDjNew(on: Boolean) {
+        djNew = on; Dj.withNew = on; saveState()
+        if (dj.on) djStart() else dj = dj.copy(from = DJ_LIBRARY)
+    }
 
     // ---- what it asks of the app ([Music]) ----
-    private val djNew get() = Music.djNew
+    private val lists get() = Music.lists
+    private val local get() = Music.local
+    private val lib get() = Music.lib
+    private fun mySongs() = Music.mySongs()
+    private fun librarySongs() = Music.librarySongs()
+    private fun localsOf(tracks: List<Track>) = Music.localsOf(tracks)
+    private fun saveState() = Music.saveState()
     private val scope get() = Music.scope
     private val player get() = Music.player
     private fun bitPerfectNow() = Music.bitPerfectNow()
@@ -34,25 +47,141 @@ object DjDirector {
     private var queue: List<Track> get() = PlaybackCore.queue; set(v) { PlaybackCore.queue = v }
     private var index: Int get() = PlaybackCore.index; set(v) { PlaybackCore.index = v }
     private fun current() = PlaybackCore.current()
+    private var repeat: String get() = PlaybackCore.repeat; set(v) { PlaybackCore.repeat = v }
+    private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
+    private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
+    private fun playFrom(tracks: List<Track>, i: Int, radio: Boolean) = PlaybackCore.playFrom(tracks, i, radio)
+    private fun loadCurrent() = PlaybackCore.loadCurrent()
+    private fun afterQueueChange() = PlaybackCore.afterQueueChange()
+    private fun doneAdvancing() = PlaybackCore.doneAdvancing()
     private fun step(what: String) = PlaybackCore.step(what)
 
-    // ---- still in [Music], on their way here ----
-    private fun djLibrary() = Music.djLibrary()
-    private fun djKind() = Music.djKind()
-    private fun coming() = Music.coming()
+    // ---- what it shows, and what it plays from ----
+    /** What the DJ screen shows: the phone's DJ, or the desktop's while it's the remote. */
+    fun shownDj(): Dj.Shown {
+        if (Remote.active) return Remote.status.dj
+        val shown = dj.sets[dj.shown].takeIf { dj.on }
+        return Dj.Shown(dj.on, djBusy ?: "", shown?.kind ?: "", shown?.line ?: "", dj.sets.mapValues { it.value.kind }, djFromName(dj.from), shown?.fact ?: "")
+    }
+
+    /** What the DJ plays from, as [Dj.From] keeps it: (name, songs), or null if it's gone. */
+    fun djSource(f: Dj.From?): Pair<String, List<Track>>? = when (f?.kind) {
+        "library" -> LIBRARY to librarySongs()
+        "playlist" -> lists.get(f.id)?.let { it.name to it.tracks }
+        "folder" -> djFromName(f) to mySongs().filter { (local.paths[it.file] ?: "").startsWith(f.path) }
+        "mine" -> "your music" to mySongs()
+        "songs" -> djFromName(f) to f.songs
+        else -> null
+    }
+
+    fun djFromName(f: Dj.From?): String = when (f?.kind) {
+        null, "all" -> ""
+        "library" -> LIBRARY
+        "playlist" -> lists.get(f.id)?.name ?: "a playlist that's gone"
+        "folder" -> f.path.trimEnd('/').substringAfterLast('/').ifEmpty { f.path }
+        "mine" -> "your music"
+        else -> f.name.ifEmpty { "these songs" }
+    }
+
+    /** What the DJ always plays from: every song of yours, in one group (see [librarySongs]). */
+    val DJ_LIBRARY = Dj.From("library")
+    private const val LIBRARY = "your library"
+
+    // ---- starting and stopping ----
+    /** The DJ playing from your library (after a restart, say). */
+    private fun djReady() {
+        if (Dj.scope != null) return
+        djLibrary()?.takeIf { it.second.isNotEmpty() }?.let { Dj.playFrom(it.first, it.second, whole = true) }
+    }
+
+    /** What the DJ plays from: your library. With Only my songs, only the songs you have yourself (no streams), from
+     *  the start: before, a set was made from them all, its line written, and the streams only then left out (djTag),
+     *  so the DJ could name a song that wasn't in its set. */
+    private fun djLibrary(): Pair<String, List<Track>>? = djSource(DJ_LIBRARY)?.let { (name, songs) ->
+        name to if (djNew) songs else songs.filter { it.isFile || lib.has(it.id) } }
+
+    private fun coming() = queue.drop(maxOf(0, index)).map { songKey(it) }.toSet()
+
+    /** Start the DJ: a first set of what you've had on repeat (or whatever it can make). from: what it
+     *  plays from; Dj.From("all") for everything; null for what it played from last. */
+    fun djStart(from: Dj.From? = null) {
+        if (Remote.active) { Remote.djStart(from); return }
+        if (djBusy != null) return
+        if (repeat == "all") { repeat = "off"; saveState() }   // the DJ goes on to its next set (Repeat one still works)
+        Dj.withNew = djNew
+        // Always your whole library, as one group of songs (whatever it was asked to play from before)
+        val src = DJ_LIBRARY
+        run {
+            val got = djLibrary()
+            if (got == null || got.second.isEmpty()) {
+                toast("There are no songs in your library for the DJ to play")
+                return
+            }
+            Dj.playFrom(got.first, got.second, whole = true)
+        }
+        // Made ahead (djWarm): the first set at once, its line made too
+        djFirst?.takeIf { it.src == src && it.withNew == djNew && now() - it.at < FIRST_FRESH && !Dj.stale(it.set) }?.let { w ->
+            djFirst = null
+            djBegin(w.set, src)
+            return
+        }
+        djBusy = Dj.scope?.let { "Picking your first set from ${it.first}…" } ?: "Picking your first set…"
+        bg({ Dj.build(first = true) }) { res, err ->
+            djBusy = null
+            if (res == null) {
+                toast(if (err == null) "The DJ couldn't find songs yet. Play a few, or connect Last.fm." else "The DJ couldn't start: ${err.message?.take(100)}")
+                return@bg
+            }
+            djBegin(res, src)
+        }
+    }
+
+    private fun djBegin(res: Dj.Built, src: Dj.From?) {
+        dj = Dj.State(from = src)
+        playFrom(djTag(res), 0, radio = false)
+        dj = dj.copy(on = true)
+        djAnnounce(current())
+        djMakeSpare()
+    }
+
+    fun djStop() {
+        if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
+        dj = dj.copy(on = false)
+        djSpares.forEach { Dj.discard(it.id) }   // never played: their kinds and facts keep their turn
+        djSpares.clear(); djSpareJob++; djSpareBusy = false
+        scope.launch(Dispatchers.Main) { delay(3000); runCatching { djWarm() } }   // ready for next time
+        saveState()
+    }
+
+    /** The set's songs marked as set n of the DJ's (n: the next number), with its line. */
+    private fun djTag(made: Dj.Built, after: Track? = null): List<Track> {
+        // Made ahead, maybe in another part of the day: its hello is for now. Queued behind a song (after): the thread
+        // from that song to its first one, when their tags share one (the same artist, genre or decade).
+        val b = Dj.bridged(Dj.asOfNow(made), after)
+        val n = (dj.sets.keys.mapNotNull { it.toIntOrNull() }.maxOrNull() ?: 0) + 1
+        var sets = dj.sets + (n.toString() to Dj.Info(b.kind, b.line, b.fact))
+        if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
+        dj = dj.copy(sets = sets)
+        val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
+            // Only my songs: never a stream, whatever the set found
+            .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
+        Dj.played(b.songs + songs)   // none again for the next 300 songs
+        Dj.commit(b.id)   // it's played: its kind has had its turn, its fact is told (held till now, see Dj.Hold)
+        return songs.map { it.copy(dj = n) }
+    }
 
     // ---- the first set, made ahead ----
     /** The DJ's first set, made ahead while it's off (with its line), so tapping DJ starts it at once. */
-    internal class Warm(val src: Dj.From?, val withNew: Boolean, val set: Dj.Built, val at: Double)
-    internal var djFirst: Warm? = null
+    private class Warm(val src: Dj.From?, val withNew: Boolean, val set: Dj.Built, val at: Double)
+    private var djFirst: Warm? = null
     private var djWarming = false
-    internal const val FIRST_FRESH = 30 * 60.0   // a first set made ahead is good for half an hour
+    private const val FIRST_FRESH = 30 * 60.0   // a first set made ahead is good for half an hour
 
     /** Make the first set ahead (when the DJ is off and there's none fresh): from where it played from last. */
     fun djWarm() {
         if (dj.on || Remote.active || djBusy != null || djWarming) return
         if (djFirst?.let { now() - it.at < FIRST_FRESH - 120 && it.withNew == djNew } == true) return
-        val src = Music.DJ_LIBRARY
+        val src = DJ_LIBRARY
         val withNew = djNew
         runCatching {
             Dj.withNew = withNew
@@ -68,23 +197,126 @@ object DjDirector {
         }
     }
 
+    // ---- the next set, and switching ----
+    /** You skipped (or a song ended) at the end of the DJ's queue while its next set was still being picked: it
+     *  goes on to that set as soon as it's ready (never to ∞'s radio, which isn't the DJ's). */
+    internal var djWaiting = false
+
+    /** Near the end of the queue: the DJ's next set after it. */
+    internal fun djMore() {
+        if (djBusy != null) return
+        djReady()
+        // A set made ahead: queued at once (its line is made already)
+        if (dj.on) djSpare()?.let { spare ->
+            djSpares.remove(spare)
+            val wait = djWaiting; djWaiting = false
+            val songs = djTag(spare, queue.lastOrNull())
+            queue = queue + songs
+            afterQueueChange()
+            djPrepare(songs)   // its line as it'll be said now (a thread from the song before may have been added)
+            djFillSpares()
+            if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }
+            return
+        }
+        djBusy = "Picking the next set…"
+        val ctxNow = context
+        val avoid = djKind()
+        val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
+        bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
+            djBusy = null
+            val wait = djWaiting; djWaiting = false
+            if (res != null && ctxNow == context && dj.on) {
+                val songs = djTag(res, queue.lastOrNull())
+                queue = queue + songs
+                afterQueueChange()
+                djPrepare(songs)
+                djFillSpares()
+                if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }   // on to it: the DJ introduces it
+            } else if (wait && dj.on && djRetried < 2) {
+                // Nothing came (a slow lookup, no network for a moment): try again rather than stop
+                djRetried++
+                djWaiting = true
+                scope.launch(Dispatchers.Main) { delay(3000); if (djWaiting && dj.on) djMore() }
+            } else if (wait) { djRetried = 0; doneAdvancing(); player?.pause(); toast("The DJ couldn't pick its next set. Tap Play to try again.") }
+            if (res != null && !(ctxNow == context && dj.on)) Dj.discard(res.id)   // made, but not queued after all
+            if (res != null) djRetried = 0
+        }
+    }
+    private var djRetried = 0
+
+    private fun djKind() = dj.sets[current()?.dj.toString()]?.kind
+
+    /** Now playing's ⏭ set button: on to the DJ's next set now (the first song of the next set queued; with none queued
+     *  yet, a new one), skipping the rest of this one. The DJ introduces it as usual. */
+    fun djNextSet() {
+        if (Remote.active) { Remote.cmd("dj", "do" to "switch"); return }
+        val now = current()?.dj ?: 0
+        val at = (index + 1 until queue.size).firstOrNull { queue[it].dj > 0 && queue[it].dj != now }
+        if (at == null) { djSwitch(); return }
+        djHush()
+        index = at
+        loadCurrent()
+    }
+
+    /** Switch it up (or play what you asked for): a new set now, in place of the rest of this one. */
+    fun djSwitch(ask: String? = null) {
+        if (Remote.active) { if (ask != null) Remote.cmd("dj", "do" to "ask", "text" to ask) else Remote.cmd("dj", "do" to "switch"); return }
+        if (djBusy != null) return
+        if (!dj.on && ask == null) { djStart(); return }
+        djReady()
+        // Switch it up: the set made ahead, at once (its line made ahead too), when there is one
+        if (ask == null) djSpare()?.let { spare ->
+            djSpares.remove(spare)
+            djWaiting = false
+            djSwitchTo(spare)   // and the spares are made again (none of them repeats it)
+            return
+        }
+        djBusy = if (ask != null) "Looking for ${ask.trim()}…" else "Switching it up…"
+        val avoid = djKind()
+        val coming = coming()
+        bg({ if (ask != null) Dj.ask(ask) else Dj.build(avoid = avoid, coming = coming) }) { res, err ->
+            djBusy = null
+            djWaiting = false
+            if (res == null) {
+                toast(if (ask != null) "The DJ found nothing for “${ask.trim()}”. Try an artist, a genre, a decade or a vibe."
+                      else "The DJ has nothing else right now" + (err?.let { ": ${it.message?.take(80)}" } ?: "."))
+                return@bg
+            }
+            djSwitchTo(res)
+        }
+    }
+
+    /** A new set now, in place of the rest of this one. */
+    private fun djSwitchTo(res: Dj.Built) {
+        if (!dj.on) dj = Dj.State(on = true, from = dj.from)
+        val songs = djTag(res)
+        val queued = queue.drop(index + 1).filter { it.queued }
+        val keep = if (current() != null) queue.take(index + 1) else emptyList()
+        queue = keep + queued + songs
+        index = keep.size + queued.size
+        radioFrom = null
+        context++
+        loadCurrent()
+        djFillSpares()   // one more made ahead in place of this one (the others stay ready)
+    }
+
     // ---- the sets made ahead ----
     /** Sets made ahead for Switch it up and the set button (each with its line made too), so switching is instant
      *  however fast you go: [SPARES] are kept ready, made one after another in the background and made again after
      *  each new set, so they never repeat what's coming. */
-    internal val djSpares = ArrayList<Dj.Built>()
+    private val djSpares = ArrayList<Dj.Built>()
 
     /** A set kept ready, to play now: of another kind than the one playing, if there is one. A set of what you play at
      *  this time of day that was made in another part of the day is let go first (it's no longer this time of day). */
-    internal fun djSpare(): Dj.Built? {
+    private fun djSpare(): Dj.Built? {
         djSpares.filter { Dj.stale(it) }.forEach { Dj.discard(it.id); djSpares.remove(it) }
         return djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull()
     }
-    internal var djSpareJob = 0
-    internal var djSpareBusy = false
+    private var djSpareJob = 0
+    private var djSpareBusy = false
     private const val SPARES = 3
 
-    internal fun djMakeSpare() {
+    private fun djMakeSpare() {
         if (!dj.on || Remote.active) return
         djSpares.forEach { Dj.discard(it.id) }
         djSpares.clear()
@@ -94,7 +326,7 @@ object DjDirector {
     }
 
     /** One more set ahead, until there are [SPARES]. */
-    internal fun djFillSpares() {
+    private fun djFillSpares() {
         if (!dj.on || Remote.active || djSpareBusy || djSpares.size >= SPARES) return
         djSpareBusy = true
         val mine = djSpareJob
@@ -213,7 +445,7 @@ object DjDirector {
     private val djLines = LinkedHashMap<String, String>()
 
     /** The next set's line made ahead (while this set plays), so the DJ says it the moment the set begins. */
-    internal fun djPrepare(songs: List<Track>) {
+    private fun djPrepare(songs: List<Track>) {
         if (!djVoice || Remote.active) return
         val n = songs.firstOrNull()?.dj?.toString() ?: return
         djLine(n)?.let { Voice.prepare(djClean(it)) }
