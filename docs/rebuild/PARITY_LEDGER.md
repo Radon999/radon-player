@@ -163,9 +163,13 @@ song of yours are one row; only your songs; an album and its deluxe edition are 
 the album you have it on; a pair's plays are the lead artist's). What you chose (the period, only songs on this
 phone, your picks) stays `Music`'s. One thing changed on purpose: the songs last made and the counts they were made
 from are kept as one value, so the DJ reading off the main thread can't get one period's songs for another's
-counts. Checked on Linux and Windows. **Not done:** every other service in the plan's row 13 (the streaming
-sources' part of `Music`, downloads, the tagger's part, sync, the remote, playlists, favourites, the equalizer);
-not run in the real PC app or on a phone.
+counts. Third: discovery playlists (`Discoveries`, `220c48e`): the pairs, making one for an artist or for the new
+releases you pick, a song heard to the end moving to the discovered one, the review. Moved as it was, with the two
+rules that were inside other functions given names (`notYours`: the artist's songs you haven't got, album by
+album, then their top songs, none twice; `keep`: the pair made once, the songs added); P `DiscoveriesTest`. Checked
+on Linux and Windows. **Not done:** every other service in the plan's row 13 (the streaming sources' part of
+`Music`, downloads, the tagger's part, sync, the remote, the rest of playlists (your own, folders, importing a
+service's), an album's missing songs, favourites, the equalizer); not run in the real PC app or on a phone.
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
