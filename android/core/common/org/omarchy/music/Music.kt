@@ -690,7 +690,6 @@ object Music {
     fun fmSong(name: String, artist: String, image: String, mine: Map<Pair<String, String>, Track>, album: String = "",
                sameArtistOnly: Boolean = false): Track = YourCopies.fmSong(name, artist, image, mine, album, sameArtistOnly)
     fun yourCopies(tracks: List<Track>): List<Track> = YourCopies.yourCopies(tracks)
-    private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")
 
     // ---- an artist's own songs and albums; Create artist playlist ----
     /** Prefs key: Settings › Your music › Artist playlists include songs you don't have. */
@@ -698,76 +697,11 @@ object Music {
     /** Prefs key: an artist page's songs, "all" (streaming and yours) or "mine" (only your downloads and files). */
     const val ARTIST_PAGE_FROM = "artist_page_from"
 
-    /** Whether the song is the artist's: one of its credited artists (featured ones too, in the credit or the title's
-     *  "feat."), or one merged into them (Merge into…). */
-    fun creditsArtist(t: Track, name: String): Boolean {
-        val want = bare(name)
-        if (want.isEmpty()) return false
-        return (splitArtists(t.artist) + ownArtists(t.artist) + featured(t.title)).any { n ->
-            bare(n) == want || artistPicks[pairKey(n)]?.let { it.isNotEmpty() && bare(it) == want } == true
-        }
-    }
-
-    /** Every song of the artist's you have: downloaded or in your folders, the ones they're featured on too. */
-    fun artistOwnSongs(name: String): List<Track> = mySongs().filter { creditsArtist(it, name) }
-
-    /** Your albums (as Albums groups them) that are the artist's: billed to them, or most of their songs theirs. */
-    fun artistOwnAlbums(name: String): List<Pair<Album, List<Track>>> = albums().filter { (al, songs) ->
-        bare(al.sub) == bare(name) || songs.count { creditsArtist(it, name) } * 2 > songs.size
-    }
-
-    private val artistListsMaking = HashSet<String>()   // (main thread only) artists whose playlist is being made
-
-    /** Create artist playlist: a playlist named after the artist with every song of theirs you have, by album, then
-     *  track number (from the files' tags), then title. With Settings › Artist playlists include songs you don't have,
-     *  their songs on the streaming service too (top songs and every album's, ones you have left out by title). A
-     *  playlist of that exact name already there is brought up to date instead of made again. */
-    fun makeArtistPlaylist(name0: String) {
-        val name = name0.trim()
-        if (name.isEmpty() || !artistListsMaking.add(norm(name))) return
-        val withStreams = Prefs.on(ARTIST_LISTS_ALL)
-        if (withStreams) toast("Making the playlist $name: looking up their songs…")
-        bg({
-            val out = ArrayList<Pair<Track, Int>>()   // each song and its number on its album (9999: none)
-            for (t in artistOwnSongs(name)) {
-                val f = t.file ?: lib.items[t.id]?.file
-                val no = f?.let { runCatching { trackNo(FileTags.read(ctx, it)?.get("tracknumber")) }.getOrNull() } ?: 9999
-                out += t to no
-            }
-            var unreachable = false
-            if (withStreams) {
-                val have = out.mapTo(HashSet()) { norm(cleanTitle(it.first.title)) }
-                fun take(t: Track, no: Int) { if (have.add(norm(cleanTitle(t.title)))) out += t to no }
-                val info = try { artistInfo(name, null) } catch (e: Exception) { null }
-                if (info == null) unreachable = true
-                else {
-                    val src = sources[info.source]
-                    info.albums.forEachIndexed { i, al ->
-                        if (i > 0 && i % 10 == 0) toast("Making the playlist $name: album $i of ${info.albums.size}…")
-                        val songs = runCatching { src?.album(al.id).orEmpty() }.getOrDefault(emptyList())
-                        songs.forEachIndexed { j, t -> take(if (t.album.isEmpty()) t.copy(album = al.title) else t, j + 1) }
-                    }
-                    info.top.forEach { take(it, 9999) }
-                }
-            }
-            out.sortedWith(compareBy<Pair<Track, Int>>({ it.first.album.isBlank() }, { norm(it.first.album) }, { it.second },
-                { norm(it.first.title) })).map { it.first.slim() }.distinctBy { it.id } to unreachable
-        }) { res, err ->
-            artistListsMaking.remove(norm(name))
-            if (res == null) { toast("Couldn't make the playlist: ${err?.message?.take(100)}"); return@bg }
-            val (songs, unreachable) = res
-            if (songs.isEmpty()) {
-                toast(if (unreachable) "You have no songs of $name's, and the services couldn't be reached" else "You have no songs of $name's yet")
-                return@bg
-            }
-            val old = lists.named(name)
-            val pl = old ?: lists.create(name)
-            lists.replaceTracks(pl.id, songs)
-            musicVersion++
-            toast("${if (old != null) "Updated" else "Made"} the playlist $name (${songs.size} song${if (songs.size != 1) "s" else ""})" +
-                if (unreachable) ": only yours, the services couldn't be reached" else "")
-        }
-    }
+    // What is an artist's among your music, and Create artist playlist, are ArtistSongs' own: these hand on.
+    fun creditsArtist(t: Track, name: String): Boolean = ArtistSongs.credits(t, name)
+    fun artistOwnSongs(name: String): List<Track> = ArtistSongs.ownSongs(name)
+    fun artistOwnAlbums(name: String): List<Pair<Album, List<Track>>> = ArtistSongs.ownAlbums(name)
+    fun makeArtistPlaylist(name0: String) = ArtistSongs.makePlaylist(name0)
 
     // ---- the DJ ----
     // The DJ's own part is DjDirector's (starting and stopping it, its sets, its lines and its voice): these hand on.
