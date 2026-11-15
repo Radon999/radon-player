@@ -1172,93 +1172,10 @@ object Music {
         return got.map { if (it.album.isEmpty()) it.copy(album = r.title) else it }
     }
 
-    // ---- An album's songs you haven't got (its page's bottom) ----
-    data class Missing(val n: Int, val title: String, val short: String, val secs: Int)
-    private val albumTracksSeen = HashMap<Pair<String, String>, List<Missing>>()
-
-    /** (blocking) The songs of your album (or EP: kind "ep") you haven't got, from its tracklist on Deezer, in order
-     *  ([] if none or not found). */
-    fun albumMissing(album: String, artist: String, tracks: List<Track>, kind: String = "album"): List<Missing> {
-        val k = norm(artist) to norm(album)
-        val all = albumTracksSeen.getOrPut(k) {
-            val best = deezerRelease(album, artist, kind)
-            if (best == null) emptyList() else {
-                val ts = httpJson("https://api.deezer.com/album/${best["id"].long}/tracks?limit=200")["data"] as? kotlinx.serialization.json.JsonArray
-                ts.orEmpty().mapIndexed { i, t -> Missing((t["track_position"].long ?: (i + 1).toLong()).toInt(), t["title"].str ?: "",
-                    t["title_short"].str ?: "", (t["duration"].long ?: 0L).toInt()) }
-            }
-        }
-        // Yours: the album's songs here, and the artist's songs under any other album name (they aren't missing).
-        val lead = norm(artist.split(",")[0])
-        val yours = tracks + mySongs().filter { norm(it.artist.split(",")[0]) == lead }
-        return missingFrom(all, tracks, yours)
-    }
-
-    /** (blocking) The release on Deezer by its name and artist, or null. Its name is compared without its kind on the end
-     *  (Deezer lists an EP as "Name" or "Name - EP"; see [releaseName]); tried by the album search, then a looser search,
-     *  then the artist's own list (albums, EPs and singles). Of those named so: the same full name first, then the kind wanted. */
-    private fun deezerRelease(album: String, artist: String, kind: String): kotlinx.serialization.json.JsonElement? {
-        val base = releaseName(album)
-        val want = norm(base)
-        val lead = norm(artist)
-        fun named(data: kotlinx.serialization.json.JsonElement?) =
-            (data as? kotlinx.serialization.json.JsonArray).orEmpty().filter { norm(releaseName(it["title"].str ?: "")) == want }
-        fun best(list: List<kotlinx.serialization.json.JsonElement>) = list.sortedWith(compareBy(
-            { if (norm(it["title"].str) == norm(album)) 0 else 1 },
-            { if (it["record_type"].str.equals(kind, true)) 0 else 1 })).firstOrNull()
-        fun byArtist(a: String?) = norm(a).let { lead.isEmpty() || (it.isNotEmpty() && (it == lead || lead in it || it in lead)) }
-        if (want.isEmpty()) return null
-        best(named(httpJson("https://api.deezer.com/search/album?q=" + enc("artist:\"$artist\" album:\"$base\"") + "&limit=10")["data"]))
-            ?.let { return it }
-        best(named(httpJson("https://api.deezer.com/search/album?q=" + enc("$artist $base") + "&limit=25")["data"])
-            .filter { byArtist(it["artist"]["name"].str) })?.let { return it }
-        if (lead.isEmpty()) return null
-        val who = (httpJson("https://api.deezer.com/search/artist?q=" + enc(artist) + "&limit=5")["data"] as? kotlinx.serialization.json.JsonArray)
-            .orEmpty().firstOrNull { norm(it["name"].str) == lead } ?: return null
-        return best(named(httpJson("https://api.deezer.com/artist/${who["id"].long}/albums?limit=200")["data"]))
-    }
-
-    /** A release's name without its kind on the end, for finding it: "Ruby - EP", "Ruby (EP)", "Ruby [EP]", "Ruby EP",
-     *  "Talk - Single", "Talk (Single)" -> "Ruby", "Talk". "Sleep" and "Singles Club" stay as they are. */
-    internal fun releaseName(s: String): String =
-        s.trim().replace(RELEASE_KIND_END, "").trim().ifEmpty { s.trim() }
-    private val RELEASE_KIND_END = Regex("(?:\\s*[(\\[]\\s*(?:ep|single)\\s*[)\\]]|(?:\\s+[-–—]|\\s*:)\\s*(?:ep|single)|\\s+ep)\\s*$", RegexOption.IGNORE_CASE)
-
-    /** The album songs (all) not among yours: matched by name, forgivingly (versions, "feat.", punctuation and spelling
-     *  left out; one name a near-whole part of the other), then any left over by length against the album's own songs
-     *  nothing matched yet (within 2 s), so a song you have under another name isn't called missing. */
-    internal fun missingFrom(all: List<Missing>, album: List<Track>, yours: List<Track>): List<Missing> {
-        fun key(s: String) = norm(bareTitle(cleanTitle(s))).replace("&", "and").replace(Regex("[^\\p{L}\\p{N}]"), "")
-        fun same(a: String, b: String): Boolean {
-            if (a.isEmpty() || b.isEmpty()) return false
-            if (a == b) return true
-            val (short, long) = if (a.length <= b.length) a to b else b to a
-            return short.length >= 4 && short.length * 10 >= long.length * 6 && short in long
-        }
-        val unmatched = album.toMutableList()
-        val left = all.filter { m ->
-            val ks = listOf(key(m.title), key(m.short), norm(cleanTitle(m.title)).replace(Regex("[^\\p{L}\\p{N}]"), ""))
-            val hit = yours.firstOrNull { y -> val yk = key(y.title); ks.any { same(it, yk) } }
-            if (hit != null) { unmatched.remove(hit); false } else true
-        }
-        return left.filter { m ->
-            val byLength = unmatched.firstOrNull { m.secs > 0 && it.duration > 0 && kotlin.math.abs(it.duration - m.secs) <= 2.0 }
-            if (byLength != null) { unmatched.remove(byLength); false } else true
-        }
-    }
-
-    /** Download missing tracks…: the ones picked, found on Tidal (or YouTube Music) and saved. */
-    fun downloadMissing(artist: String, album: String, want: List<Missing>) {
-        val key = if (tidal.connected) "tidal" else "ytm"
-        val src = sources[key] ?: run { toast("Connect Tidal or YouTube Music in Settings to download"); return }
-        toast("Finding ${want.size} song${if (want.size != 1) "s" else ""}…")
-        bg({ want.mapNotNull { m -> runCatching { matchSong(src, artist, m.title, m.secs).first }.getOrNull()?.let { it.copy(album = it.album.ifEmpty { album }) } } }) { got, err ->
-            val found = got.orEmpty()
-            if (found.isNotEmpty()) download(found)
-            toast(if (err != null) "Couldn't download: ${err.message?.take(100)}" else "Downloading ${found.size} of ${want.size}" +
-                if (found.size < want.size) " (${want.size - found.size} not found)" else "")
-        }
-    }
+    // An album's songs you haven't got (its page's bottom) are AlbumMissing's own: these hand on.
+    fun albumMissing(album: String, artist: String, tracks: List<Track>, kind: String = "album"): List<MissingSong> =
+        AlbumMissing.find(album, artist, tracks, kind)
+    fun downloadMissing(artist: String, album: String, want: List<MissingSong>) = AlbumMissing.download(artist, album, want)
 
     /** Copy a service's playlist (Tidal, YouTube Music, Deezer, Apple Music, Spotify) into your playlists here, its
      *  songs streaming as they are until you download them. A playlist of yours with the same name gets the songs it

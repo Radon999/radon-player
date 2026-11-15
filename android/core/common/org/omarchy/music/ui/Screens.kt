@@ -1148,7 +1148,7 @@ private fun ArtistFromMenu(from: String, pick: (String) -> Unit) {
 private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
     var tracks by remember(page) { mutableStateOf<List<Track>?>(null) }
     // Your own album: its songs you haven't got, at the very bottom (Download missing tracks…).
-    var missing by remember(page) { mutableStateOf<List<Music.Missing>>(emptyList()) }
+    var missing by remember(page) { mutableStateOf<List<org.omarchy.music.MissingSong>>(emptyList()) }
     var picking by remember(page) { mutableStateOf(false) }
     val artist = page.tracks?.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: ""
     // An EP of yours (as the EPs tab sorts it) says EP in its missing section, and is looked for as an EP
@@ -1205,7 +1205,7 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
 
 /** Download missing tracks…: each song Download or Leave alone. */
 @Composable
-private fun MissingPicker(album: String, missing: List<Music.Missing>, close: () -> Unit, go: (List<Music.Missing>) -> Unit) {
+private fun MissingPicker(album: String, missing: List<org.omarchy.music.MissingSong>, close: () -> Unit, go: (List<org.omarchy.music.MissingSong>) -> Unit) {
     val on = remember(missing) { androidx.compose.runtime.mutableStateMapOf<Int, Boolean>().apply { missing.indices.forEach { put(it, true) } } }
     val box = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = C.muted)
     androidx.compose.material3.AlertDialog(onDismissRequest = close, containerColor = C.light,
