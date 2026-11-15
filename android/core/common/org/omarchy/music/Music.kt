@@ -1222,35 +1222,10 @@ object Music {
     fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) = Copies.removeDupes(picks)
 
     // ---- Upgrade: your files for Tidal's FLAC where it's better ----
-    fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) {
-        if (upgrading != null) return
-        if (!tidal.connected) { toast("Connect Tidal in Settings first: the new copies come from there, in FLAC"); return }
-        val todo = (tracks ?: local.files).filter { upgradable(it) }
-        if (todo.isEmpty()) { toast("No songs of yours to upgrade"); return }
-        upgradeStop = false
-        upgrading = "Upgrading · 0 of ${todo.size}"
-        Tagger.pause()   // the new FLACs are tagged together at the end
-        val roots = folders.sortedByDescending { it.length }
-        bg({ dl.upgrade(todo, force, { upgradeStop }, { t -> folderOf(t).let { f -> roots.firstOrNull { f.startsWith(it) } } }) { n -> scope.launch { upgrading = "Upgrading · $n of ${todo.size}" } } }) { out, err ->
-            upgrading = null
-            Tagger.resume()
-            if (out == null) { toast("Couldn't upgrade: ${err?.message?.take(90)}"); return@bg }
-            val playing = current()?.id
-            // The song playing carries on in its new file from the same moment; its old file goes with the rest.
-            out.done.firstOrNull { (old, id) -> old.id == playing && lib.has(id) }?.let { (old, id) -> swapPlaying(old, id) }
-            val done = out.done.filter { (_, id) -> lib.has(id) }
-            if (done.isNotEmpty()) queueTrash(TrashJob(done.map { it.first }, done.associate { (old, id) -> old.id to lib.items[id]!!.track() }, "upgraded songs"))
-            toast("Upgraded ${done.size} song${if (done.size != 1) "s" else ""} to FLAC" +
-                (if (out.missing.isNotEmpty()) " · ${out.missing.size} not on Tidal" else "") +
-                (if (out.kept.isNotEmpty()) " · ${out.kept.size} as good already" else "") +
-                (if (out.failed.isNotEmpty()) " · ${out.failed.size} couldn't" else ""))
-            if (out.kept.isNotEmpty() && !force) upgradeKept = out.kept
-            savedVersion++; musicVersion++
-        }
-    }
+    fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) = Upgrades.songs(tracks, force)
 
     /** The song playing (old) was upgraded to id: play on in the new file from where you are. */
-    private fun swapPlaying(old: Track, id: String) {
+    internal fun swapPlaying(old: Track, id: String) {
         val new = lib.items[id]?.track() ?: return
         val at = player?.positionMs?.let { it / 1000.0 } ?: position
         val wasPaused = paused
@@ -1320,40 +1295,13 @@ object Music {
     }
     fun chooseVisPreset(p: String) { visPreset = p; saveState() }
     fun chooseWrappedStyle(s: String) { wrappedStyle = s; saveState() }
-    /** Downloads that came from YouTube (Opus), the ones Tidal has now got again in FLAC: Downloads' Get FLAC. */
-    fun youtubeDownloads() = lib.items.values.filter { it.format == "opus" || (it.quality.startsWith("YouTube") && it.id !in flacTried) }
-    private val flacTried = HashSet<String>()   // YouTube AAC downloads looked up on Tidal already (this time the app's open)
+    // Downloads' Upgrade (the ones from YouTube got again from Tidal) and Refresh are Upgrades' own: these hand on.
+    fun youtubeDownloads() = Upgrades.youtubeDownloads()
     var flacing by mutableStateOf<String?>(null)
-        private set
-    fun flacDownloads() {
-        if (flacing != null) return
-        val todo = youtubeDownloads().map { it.id }
-        if (todo.isEmpty()) return
-        flacing = "Getting FLAC… 0 of ${todo.size}"
-        bg({
-            var got = 0; var none = 0; var i = 0
-            for (id in todo) {
-                i++
-                scope.launch(Dispatchers.Main) { flacing = "Getting FLAC… $i of ${todo.size}" }
-                if (runCatching { dl.toFlac(id) }.getOrDefault(false)) got++ else none++
-                synchronized(flacTried) { flacTried += id }
-            }
-            got to none
-        }) { r, err ->
-            flacing = null
-            savedVersion++; musicVersion++
-            toast(err?.message?.let { "Couldn't get FLAC: $it" } ?: r?.let { (got, none) ->
-                "$got upgraded (FLAC from Tidal, else AAC)" + if (none > 0) " · $none left as they are" else "" } ?: "")
-        }
-    }
+        internal set   // Upgrades' to write
+    fun flacDownloads() = Upgrades.toFlac()
 
-    /** Downloads' Refresh: the list read again (a download that didn't show up comes in). */
-    fun refreshDownloads() {
-        bg({ lib.refresh() }) { n, _ ->
-            savedVersion++; musicVersion++
-            toast(if ((n ?: 0) > 0) "Refreshed: $n more download${if (n != 1) "s" else ""}" else "Downloads are up to date")
-        }
-    }
+    fun refreshDownloads() = Upgrades.refresh()
 
     fun chooseSkipOrder(s: String) { skipOrder = s; saveState() }
     fun chooseSkipPeriod(s: String) { skipPeriod = s; saveState() }
