@@ -1283,9 +1283,12 @@ object Dj {
     private fun saveTags() = runCatching {
         tagFile.writeText(tagInfo.entries.joinToString("\n") { "${it.key}\t${it.value.first}\t${it.value.second}" })
     }
+    /** In a test: a song's (year, track number), in place of reading its file's tags (null in the app). */
+    @Volatile var tagStandIn: ((Track) -> Pair<Int, Int>?)? = null
     /** (year, track number) of your song (0 where its tags don't say), reading its file the first time; null when it
      *  isn't a file or can't be read. */
     private fun tagOf(t: Track): Pair<Int, Int>? {
+        tagStandIn?.let { return it(t) }
         val f = t.file ?: return null
         tagsLoaded()
         tagInfo[f]?.let { return it }
