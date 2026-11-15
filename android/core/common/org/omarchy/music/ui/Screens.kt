@@ -216,7 +216,7 @@ fun LibraryTab(ui: Ui) {
                 folderRows(ui)
                 if (lists.isEmpty()) item { Section("NO PLAYLISTS YET") }
                 else if (Music.playlistFolders.items.isNotEmpty()) item { Section("${SOURCES[key]?.uppercase()} PLAYLISTS") }
-                val shown = lists.filter { fits(ui, it.title, it.sub) }
+                val shown = org.omarchy.music.YourPlaylists.outsideFolders(lists, key).filter { fits(ui, it.title, it.sub) }   // one in a folder shows there only
                 fun openPl(pl: Album) {
                     ui.openList = pl to null
                     Music.bg({ src.playlist(pl.id) }) { res, err ->
@@ -606,14 +606,44 @@ private fun androidx.compose.foundation.lazy.LazyListScope.grouped(list: List<Tr
 internal fun androidx.compose.foundation.lazy.LazyListScope.folderRows(ui: Ui) {
     val folders = Music.playlistFolders.all()
     if (folders.isEmpty()) return
-    item { Section("FOLDERS") }
+    // Select (a long press › Select): folders ticked together, with the options songs have (for the songs of your
+    // playlists in them) and Delete… and Rename… for the folders themselves.
+    val picking = ui.pickingIn("folders")
+    val picked = ui.albumsPicked
+    fun songs(f: org.omarchy.music.PlaylistFolder) = org.omarchy.music.YourPlaylists.folderSongs(f)
+    fun askDelete(ids: List<String>) {
+        val names = ids.mapNotNull { Music.playlistFolders.get(it)?.name }
+        if (names.isEmpty()) return
+        ui.confirm = ((if (names.size == 1) "Delete the folder “${names[0]}”?" else "Delete ${names.size} folders? " + names.joinToString(", ") { "“$it”" } + ".") +
+            " The playlists in ${if (names.size == 1) "it" else "them"} stay, and show in your playlists again.") to {
+            org.omarchy.music.YourPlaylists.deleteFolders(ids); picked.clear(); if (picking) ui.pickingAlbums = false }
+    }
+    item {
+        if (picking) PickBar(ui, "folders", listOf(
+            "Delete…" to { askDelete(picked.keys.toList()) },
+            "Rename…" to {
+                fun next(ids: List<String>) {
+                    val f = ids.firstOrNull()?.let { Music.playlistFolders.get(it) } ?: return
+                    ui.askName = Triple("Rename folder", f.name) { n -> Music.renameFolder(f.id, n); next(ids.drop(1)) }
+                }
+                next(picked.keys.toList())
+            },
+            "Download" to { Music.downloadPlaylists(picked.keys.flatMap { id -> Music.playlistFolders.get(id)?.playlists.orEmpty().filter { it.kind == "mine" }.map { it.id } }) }))
+        else Section("FOLDERS")
+    }
     items(folders.size, key = { "folder-${folders[it].id}" }) { i ->
         val f = folders[i]
         val n = f.playlists.size
         PlaylistRow(Album(f.id, f.name, "Folder · $n playlist${if (n != 1) "s" else ""}"), onLongClick = {
-            ui.choices = f.name to listOf(pinChoice(org.omarchy.music.Pin("listfolder", f.id, f.name)),
-                "Rename…" to { ui.askName = Triple("Rename folder", f.name) { name -> Music.renameFolder(f.id, name) } })
-        }) { ui.openFolder = f.id }
+            if (picking) picked[f.id] = songs(f)
+            else ui.choices = f.name to listOf(pinChoice(org.omarchy.music.Pin("listfolder", f.id, f.name)),
+                "Rename…" to { ui.askName = Triple("Rename folder", f.name) { name -> Music.renameFolder(f.id, name) } },
+                "Delete…" to { askDelete(listOf(f.id)) },
+                "Select" to { ui.startPick("folders", f.id, songs(f)) })
+        }, checked = if (picking) f.id in picked else null) {
+            if (picking) { if (f.id in picked) picked.remove(f.id) else picked[f.id] = songs(f) }
+            else ui.openFolder = f.id
+        }
     }
 }
 
@@ -701,7 +731,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
                 modifier = Modifier.padding(horizontal = 12.dp))
         }
         val plSort = sortNow("playlists", PLAYLISTS_SORTS)
-        val shown = org.omarchy.music.sortGroups(lists.filter { fits(ui, it.name) }, plSort) { pl ->
+        // A playlist in a folder shows in its folder only
+        val shown = org.omarchy.music.sortGroups(org.omarchy.music.YourPlaylists.outsideFolders(lists).filter { fits(ui, it.name) }, plSort) { pl ->
             org.omarchy.music.GroupFacts(pl.name, songs = pl.tracks, created = pl.created, updated = pl.updated, added = pl.created) }
         val picking = ui.pickingIn("playlists")
         val picked = ui.albumsPicked
@@ -1156,17 +1187,33 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
         page.tracks?.takeIf { page.source == "local" && it.isNotEmpty() }
             ?.let { runCatching { Music.releaseKind(page.album.title, it, page.album.id.startsWith("single:")) }.getOrNull() } ?: "album"
     }
-    LaunchedEffect(page) {
-        val mine = page.tracks
-        if (page.source == "local" && !mine.isNullOrEmpty())
-            Music.bg({ Music.albumMissing(page.album.title, artist, mine, kind) }) { res, _ -> missing = res.orEmpty() }
-    }
-    LaunchedEffect(page) {
-        if (page.tracks != null) { tracks = page.tracks; return@LaunchedEffect }
+    // Refresh (the pill under its name) reads it again; an album of yours also reads itself again as your music
+    // changes, so a missing song you download comes in at its place.
+    var reload by remember(page) { mutableStateOf(0) }
+    var said by remember(page) { mutableStateOf(0) }   // the last Refresh that was answered ("… is up to date")
+    val local = page.source == "local" && page.tracks != null
+    LaunchedEffect(page, reload, if (local) Music.musicVersion else 0) {
+        val was = page.tracks
+        val asked = reload
+        fun done() { if (asked > said) { said = asked; Music.toast("“${page.album.title}” is up to date") } }
         val src = Music.sources[page.source]
-        Music.bg({ src?.album(page.album.id) ?: emptyList() }) { res, err ->
-            tracks = res ?: emptyList()
-            if (err != null) Music.toast("Couldn't open the album: ${err.message?.take(80)}")
+        if (was == null || (!local && asked > said && src != null)) {   // a service's album: its songs from the service, in its order
+            Music.bg({ src?.album(page.album.id) ?: emptyList() }) { res, err ->
+                tracks = res ?: was ?: emptyList()
+                if (err != null) Music.toast("Couldn't open the album: ${err.message?.take(80)}") else done()
+            }
+            return@LaunchedEffect
+        }
+        if (tracks == null) tracks = was
+        if (!local) { done(); return@LaunchedEffect }
+        // Yours: its songs as they are now, by track number; then what's missing from it
+        val reread = asked > said
+        Music.bg({
+            val now = org.omarchy.music.AlbumSongs.now(page.album.id, was, reread = reread)
+            now to if (now.isEmpty()) emptyList() else runCatching { Music.albumMissing(page.album.title, artist, now, kind) }.getOrDefault(emptyList())
+        }) { res, _ ->
+            if (res != null) { tracks = res.first; missing = res.second }
+            done()
         }
     }
     LazyColumn(Modifier.fillMaxSize()) {
@@ -1178,6 +1225,11 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
                     Text(page.album.title, style = T.title.copy(fontSize = T.title.fontSize * 1.2f))
                     if (page.album.sub.isNotEmpty()) Text(page.album.sub, style = T.sub)
                 }
+            }
+        }
+        item {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
+                Pill("↻  Refresh", quiet = true) { reload++ }
             }
         }
         val t = tracks

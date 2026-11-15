@@ -759,7 +759,14 @@ fun FlacTab(ui: Ui, bits: Int) {
 @Composable
 fun DownloadsTab(ui: Ui) {
     val all = remember(Music.savedVersion) { runCatching { Music.lib.items.values.sortedByDescending { it.added } }.getOrDefault(emptyList()) }
-    if (all.isEmpty()) { Empty("No downloads yet", "Songs you download from Tidal or YouTube show up here."); return }
+    if (all.isEmpty()) {
+        // Refresh is here too: with nothing showing is when a download that didn't show up needs reading again
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) { Pill("↻  Refresh", quiet = true) { Music.refreshDownloads() } }
+            Empty("No downloads yet", "Songs you download from Tidal or YouTube show up here. If one you downloaded isn't here, $TAP Refresh.")
+        }
+        return
+    }
     val got = remember(all) { all.map { it.track() } }
     val quality = remember(all) { all.associate { it.track().id to it.quality } }
     val sorts = org.omarchy.music.songSorts(true)

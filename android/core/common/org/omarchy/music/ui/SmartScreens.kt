@@ -78,7 +78,7 @@ internal fun LazyListScope.smartPlaylists(ui: Ui) {
             modifier = Modifier.padding(horizontal = 12.dp))
     }
     val plSort = sortNow("smartlists", PLAYLISTS_SORTS)
-    val shown = org.omarchy.music.sortGroups(lists.filter { fits(ui, it.name) }, plSort) { pl ->
+    val shown = org.omarchy.music.sortGroups(org.omarchy.music.YourPlaylists.outsideFolders(lists).filter { fits(ui, it.name) }, plSort) { pl ->
         org.omarchy.music.GroupFacts(pl.name, songs = songsOf(pl), created = pl.created, updated = pl.updated, added = pl.created) }
     val picking = ui.pickingIn("smartlists")
     val picked = ui.albumsPicked

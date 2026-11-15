@@ -105,6 +105,34 @@ class YourPlaylistsTest {
         } finally { cleanUp() }
     }
 
+    @Test fun aPlaylistInAFolderShowsInItsFolderOnlyAndFoldersAreDeletedTogether() {
+        Harness.ctx
+        try {
+            Harness.ui {
+                val inside = YourPlaylists.create("$mark inside"); val outside = YourPlaylists.create("$mark outside")
+                YourPlaylists.add(inside, listOf(song("a", "Alpha"), song("b", "Beta")))
+                fun mine() = YourPlaylists.outsideFolders(Music.lists.all().filter { it.name.startsWith(mark) }).map { it.name }.sorted()
+                val theirs = listOf(Album("svc-1", "$mark service one"), Album("svc-2", "$mark service two"))
+                assertEquals("in no folder yet: both show", listOf("$mark inside", "$mark outside"), mine())
+
+                YourPlaylists.newFolder("$mark folder one", FolderItem.mine(Music.lists.get(inside)!!))
+                YourPlaylists.newFolder("$mark folder two", FolderItem.service(theirs[0], "tidal"))
+                val one = Music.playlistFolders.all().first { it.name == "$mark folder one" }
+                val two = Music.playlistFolders.all().first { it.name == "$mark folder two" }
+                assertEquals("the one put in a folder shows there only", listOf("$mark outside"), mine())
+                assertEquals("a service's playlist too", listOf("svc-2"), YourPlaylists.outsideFolders(theirs, "tidal").map { it.id })
+                assertEquals("the same id on another service is another playlist", 2, YourPlaylists.outsideFolders(theirs, "ytm").size)
+                assertEquals("a folder's songs are its playlists' of yours", listOf("ypl-a", "ypl-b"), YourPlaylists.folderSongs(one).map { it.id })
+                assertTrue(YourPlaylists.folderSongs(two).isEmpty())
+
+                YourPlaylists.deleteFolders(listOf(one.id, two.id))
+                assertNull(Music.playlistFolders.get(one.id)); assertNull(Music.playlistFolders.get(two.id))
+                assertEquals("the folders gone, their playlists show again", listOf("$mark inside", "$mark outside"), mine())
+                assertEquals(2, YourPlaylists.outsideFolders(theirs, "tidal").size)
+            }
+        } finally { cleanUp() }
+    }
+
     @Test fun aServicesPlaylistIsCopiedOnceAndImportedAgainOnlyGetsWhatsNew() {
         Harness.ctx
         val svc = TestService(listOf(song("a", "Alpha"), song("b", "Beta")))

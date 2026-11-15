@@ -76,6 +76,28 @@ object YourPlaylists {
 
     fun removeFromFolder(id: String, item: FolderItem) { folders.remove(id, item.key); changed() }
 
+    /** The playlists that are in a folder (their [FolderItem.key]s): they show in their folder only. */
+    fun inFolders(): Set<String> = folders.items.flatMapTo(HashSet()) { f -> f.playlists.map { it.key } }
+
+    /** Of your playlists, the ones in no folder: the list beside the folders shows these. */
+    fun outsideFolders(mine: List<Playlist>): List<Playlist> = inFolders().let { inside -> mine.filter { FolderItem.mine(it).key !in inside } }
+
+    /** Of a service's playlists, the ones in no folder. */
+    fun outsideFolders(theirs: List<Album>, source: String): List<Album> =
+        inFolders().let { inside -> theirs.filter { FolderItem.service(it, source).key !in inside } }
+
+    /** The songs of your playlists in the folder, each once (a service's playlists in it aren't read for this). */
+    fun folderSongs(f: PlaylistFolder): List<Track> =
+        f.playlists.filter { it.kind == "mine" }.flatMap { lists.get(it.id)?.tracks ?: emptyList() }.distinctBy { it.id }
+
+    /** Folders deleted together: their playlists stay, and show beside the folders again. */
+    fun deleteFolders(ids: Collection<String>) {
+        val names = ids.mapNotNull { folders.get(it)?.name }
+        ids.forEach { folders.delete(it) }
+        if (names.isNotEmpty()) toast(if (names.size == 1) "Deleted the folder “${names[0]}”" else "Deleted ${names.size} folders")
+        changed()
+    }
+
     // ---- a service's playlists, copied into yours ----
     /** What importing one playlist says: made new here, or one of yours by that name given the songs it hadn't got. */
     fun importedText(name: String, service: String?, new: Int, wasHere: Boolean): String =

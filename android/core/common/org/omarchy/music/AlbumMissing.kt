@@ -23,9 +23,9 @@ object AlbumMissing {
             seen[k] = read
             read
         }
-        // Yours: the album's songs here, and the artist's songs under any other album name (they aren't missing).
-        val lead = norm(artist.split(",")[0])
-        val yours = tracks + Music.mySongs().filter { norm(it.artist.split(",")[0]) == lead }
+        // Yours: the album's songs here, and the artist's songs under any other album name (they aren't missing), or
+        // under another name of the artist's (your "Forrest" is the album's "Forrest Frank").
+        val yours = tracks + Music.mySongs().filter { SameArtist.alias(it.artist, artist) }
         return MissingSongs.from(all, tracks, yours)
     }
 

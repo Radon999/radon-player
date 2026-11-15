@@ -31,12 +31,16 @@ object Discoveries {
             val have = HashSet(Music.songIndex().keys)
             pairs().firstOrNull { norm(it.first) == norm(artist) }?.let { (_, d, f) ->
                 (d?.tracks.orEmpty() + f?.tracks.orEmpty()).forEach { have += songKey(it) } }
-            info.name.ifEmpty { artist } to
-                notYours(info, have) { al -> runCatching { src?.album(al.id) ?: emptyList() }.getOrDefault(emptyList()) }
+            val name = info.name.ifEmpty { artist }
+            val yours = yourTitles(Music.mySongs(), listOf(artist, name))
+            Triple(name, notYours(info, have, yours) { al -> runCatching { src?.album(al.id) ?: emptyList() }.getOrDefault(emptyList()) }, yours)
         }) { res, err ->
             making.remove(norm(artist))
             if (res == null) { toast("Couldn't make it: ${err?.message?.take(100)}"); return@bg }
-            val (name, songs) = res
+            val (name, songs, yours) = res
+            // Made again: songs put in it before that are yours after all (under another name of the artist's) go.
+            pairs().firstOrNull { norm(it.first) == norm(name) }?.second?.let { d ->
+                d.tracks.filter { SameArtist.title(it.title) in yours }.map { it.id }.toSet().takeIf { it.isNotEmpty() }?.let { lists.remove(d.id, it) } }
             val (disc, n) = keep(name, songs)
             toast(if (n > 0) "“${disc.name}”: $n song${if (n != 1) "s" else ""} of $name's you haven't got" else "You have every song of $name's the services list")
             Music.musicVersion++
@@ -45,15 +49,22 @@ object Discoveries {
 
     /** The artist's songs that aren't among have (song keys: yours, and the ones in their discovery playlists
      *  already): each album's in the service's order (albumSongs reads one), then their top songs; no song twice;
-     *  a song the service gave no album gets its album's name. */
-    fun notYours(info: ArtistInfo, have: Set<Pair<String, String>>, albumSongs: (Album) -> List<Track>): List<Track> {
+     *  a song the service gave no album gets its album's name. yourTitles ([yourTitles]): the names of your songs by
+     *  this artist under any name of theirs; a song named so is yours, whoever the service credits it to. */
+    fun notYours(info: ArtistInfo, have: Set<Pair<String, String>>, yourTitles: Set<String> = emptySet(), albumSongs: (Album) -> List<Track>): List<Track> {
         val seen = HashSet<Pair<String, String>>()
         val out = ArrayList<Track>()
+        fun new(t: Track): Boolean { val k = songKey(t); return k !in have && SameArtist.title(t.title) !in yourTitles && seen.add(k) }
         for (al in info.albums)
-            for (t in albumSongs(al)) { val k = songKey(t); if (k !in have && seen.add(k)) out += if (t.album.isEmpty()) t.copy(album = al.title) else t }
-        for (t in info.top) { val k = songKey(t); if (k !in have && seen.add(k)) out += t }
+            for (t in albumSongs(al)) if (new(t)) out += if (t.album.isEmpty()) t.copy(album = al.title) else t
+        for (t in info.top) if (new(t)) out += t
         return out
     }
+
+    /** The names ([SameArtist.title]) of your songs by the artist, under any of these names of theirs or one like them
+     *  ("Forrest" in your files is the services' "Forrest Frank": [SameArtist.alias]). */
+    fun yourTitles(mine: List<Track>, names: List<String>): Set<String> =
+        mine.filter { t -> names.any { SameArtist.alias(t.artist, it) } }.mapTo(HashSet()) { SameArtist.title(it.title) }
 
     /** The songs go into name's discovery playlist; it and its discovered one are made if they aren't there.
      *  (The discovery playlist, how many songs were new to it.) */

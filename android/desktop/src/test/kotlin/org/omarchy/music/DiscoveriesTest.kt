@@ -24,6 +24,18 @@ class DiscoveriesTest {
         assertEquals("a top song has none", "", out[3].album)
     }
 
+    @Test fun aSongYouHaveUnderAnotherNameOfTheArtistsIsNotNewToYou() {
+        // Your file says "Disco Test" (a scan gave the artist one name); the service credits "Disco Test Band, A Guest".
+        val mine = listOf(Track("mine-sos", "file", "SOS", "Disco Test"), Track("mine-other", "file", "Alpha", "Somebody Else"))
+        val yours = Discoveries.yourTitles(mine, listOf("Disco Test Band"))
+        assertEquals("only the song by them, not the one by somebody else", setOf(SameArtist.title("SOS")), yours)
+        val al = Album("al-1", "First Record")
+        val onAlbum = listOf(Track("svc-sos", "ytm", "SOS (feat. A Guest)", "Disco Test Band, A Guest"), song("a", "Alpha"))
+        val info = ArtistInfo("Disco Test Band", "", top = listOf(Track("svc-sos-top", "ytm", "SOS", "Disco Test Band, A Guest")), albums = listOf(al))
+        val out = Discoveries.notYours(info, have = setOf(songKey(mine[0]), songKey(mine[1])), yourTitles = yours) { onAlbum }
+        assertEquals("SOS is yours on the album and among the top songs; Alpha by this artist is new", listOf("disco-a"), out.map { it.id })
+    }
+
     @Test fun thePairIsMadeOnceAndASongHeardToTheEndMovesToTheDiscoveredOne() {
         Harness.ctx
         val name = "Disco Test Band"
