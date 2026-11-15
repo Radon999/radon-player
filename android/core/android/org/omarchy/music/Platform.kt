@@ -156,6 +156,9 @@ fun imageMinSide(b: ByteArray): Int {
 
 /** A song file's own cover, or null: Android's reader (FLAC, MP3, M4A), else the ID3 tag a WAV or a raw AAC (.aac) file
  *  carries, which it skips. */
+/** The folder a song of yours is in, as files (null when its real place isn't known): for the cover beside it. */
+fun songFolder(uri: String): java.io.File? = FileTags.pathOf(uri)?.let { java.io.File(it).parentFile }
+
 fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? {
     val r = android.media.MediaMetadataRetriever()
     val own = try { runCatching { r.setDataSource(ctx, android.net.Uri.parse(uri)); r.embeddedPicture }.getOrNull() } finally { r.release() }

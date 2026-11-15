@@ -1934,14 +1934,9 @@ object Music {
         return t.file?.let { fileArt(it) } ?: old?.let { web(it) }
     }
     private val fileArts = java.util.concurrent.ConcurrentHashMap<String, String>()
-    private val FOLDER_COVERS = listOf("cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png", "album.jpg", "albumartsmall.jpg")
     private fun fileArt(file: String): String? {
         fileArts[file]?.let { return it.ifEmpty { null } }
-        val bytes = runCatching { embeddedPicture(ctx, file) }.getOrNull() ?: runCatching {
-            if (file.startsWith("content:") || file.startsWith("http")) null
-            else java.io.File(file).parentFile?.listFiles()?.filter { it.isFile }
-                ?.let { files -> FOLDER_COVERS.firstNotNullOfOrNull { n -> files.firstOrNull { it.name.equals(n, true) } } }?.readBytes()
-        }.getOrNull()
+        val bytes = runCatching { embeddedPicture(ctx, file) }.getOrNull() ?: FolderCover.bytes(file)
         val out = bytes?.let { b -> runCatching {
             val dir = java.io.File(ctx.cacheDir, "now-art").apply { mkdirs() }
             // Named by the whole path (SHA-1), not its hashCode: two songs whose paths share one would share a cover.

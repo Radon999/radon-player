@@ -21,7 +21,10 @@ class FileArtFetcher(private val art: FileArt, private val options: Options) : F
         val px = (options.size.width as? coil.size.Dimension.Pixels)?.px ?: 0
         val bmp = embedded(ctx, art.uri, px) ?: runCatching {
             ctx.contentResolver.loadThumbnail(Uri.parse(art.uri), Size(512, 512), null)
-        }.getOrNull() ?: art.fallback.takeIf { it.isNotEmpty() }?.let { f ->   // a cover picked before 3.0.0
+        }.getOrNull()
+            // No picture inside the file: the cover beside it in its folder (cover.jpg…), as the PC shows
+            ?: runCatching { org.omarchy.music.FolderCover.bytes(art.uri)?.let { decode(it, px) } }.getOrNull()
+            ?: art.fallback.takeIf { it.isNotEmpty() }?.let { f ->   // a cover picked before 3.0.0
             runCatching {
                 val b = if (f.startsWith("http")) java.net.URL(f).openStream().use { it.readBytes() }
                     else java.io.File(if (f.startsWith("file:")) Uri.parse(f).path ?: f else f).readBytes()

@@ -118,6 +118,10 @@ fun toJpeg(b: ByteArray): ByteArray? {
 
 fun imageMinSide(b: ByteArray): Int = runCatching { javax.imageio.ImageIO.read(b.inputStream())?.let { minOf(it.width, it.height) } }.getOrNull() ?: 0
 
+/** The folder a song of yours is in, as files: for the cover beside it. */
+fun songFolder(uri: String): File? = (if (!uri.startsWith("file:")) File(uri)
+    else runCatching { File(java.net.URI(uri)) }.getOrNull() ?: File(uri.removePrefix("file://").removePrefix("file:"))).parentFile
+
 fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? = runCatching {
     org.jaudiotagger.audio.AudioFileIO.read(File(pathOf(uri))).tag?.firstArtwork?.binaryData?.takeIf { it.isNotEmpty() }
 }.getOrNull() ?: runCatching {   // our own reader: WAV and AIFF ID3 chunks, M4A covr atoms, raw AAC (.aac) ID3 tags, FLAC pictures

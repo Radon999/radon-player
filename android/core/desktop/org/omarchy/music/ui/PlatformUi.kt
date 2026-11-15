@@ -58,7 +58,7 @@ private object Images {
         if (model !is FileArt) return bytes(model)?.let { decodeAny(it, px) }
         val tries = sequenceOf<() -> ByteArray?>(
             { org.omarchy.music.embeddedPicture(Music.ctx, model.uri) },
-            { fileOf(model.uri).parentFile?.listFiles()?.firstOrNull { it.name.lowercase() in COVERS }?.readBytes() },
+            { org.omarchy.music.FolderCover.bytes(model.uri) },
         )
         return tries.firstNotNullOfOrNull { get -> runCatching { get()?.takeIf { it.isNotEmpty() }?.let { decodeAny(it, px) } }.getOrNull() }
             ?: model.fallback.takeIf { it.isNotEmpty() }?.let { f -> runCatching { bytes(f)?.let { decodeAny(it, px) } }.getOrNull() }
@@ -82,8 +82,6 @@ private object Images {
         }
         else -> null
     }
-
-    private val COVERS = setOf("cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png", "album.jpg")
 
     private fun fetch(url: String, auth: String?): ByteArray? {
         val c = java.net.URI(url).toURL().openConnection() as java.net.HttpURLConnection
