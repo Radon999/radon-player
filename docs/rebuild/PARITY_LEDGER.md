@@ -23,7 +23,7 @@ yet: every row is unverified there.
 | Previous: well into a song restarts it; in its first 10 s goes back | covered | P `previousWellIntoASongStartsItAgain`, `previousAtASongsStartGoesToTheSongBefore` | That going back isn't counted as a skip: not yet |
 | Repeat all goes round to the first song; shuffled, in a new order | covered | P `repeatAllGoesRoundToTheFirstSong`, `PlaybackGapsTest.repeatAllGoesRoundInANewOrderWhenShuffled` | |
 | After the queue: next saved queue, Autoplay radio | not yet | | Radio needs a service stand-in |
-| Your copy first (`localOf`) | covered | P `PlaybackGapsTest.aSongYouHaveYourselfPlaysFromYourOwnCopy` | Picked from a list, and in a queue kept from before. Same album first, then FLAC (`bestCopy`): not yet |
+| Your copy first (`localOf`) | covered | P `PlaybackGapsTest.aSongYouHaveYourselfPlaysFromYourOwnCopy` | Picked from a list, and in a queue kept from before. Same album first, then FLAC (`bestCopy`), a live version never your studio copy, a song you don't have left for a service: P `YourCopiesTest` |
 | Play next goes ahead of what you queued, Add to queue behind it; queued songs come along when other songs are picked | covered | P `PlaybackGapsTest.playNextGoesAheadOfWhatYouQueuedAndAddToQueueBehindIt` | |
 | The queue after a restart: the same songs, place, Repeat, name and other queues; the song in the player, not playing | covered | P `PlaybackGapsTest.theQueueComesBackAfterARestart` | Reads `state.json` as written and back in. A song that must come from a service (waits for the player): not yet |
 | A load that fails: skip after 1.5 s | covered | P `aSongThatCantBeGotIsSkippedAfterAMoment` | With a stand-in for the services (`Downloader.standIn`, null in the app) |
@@ -42,6 +42,7 @@ yet: every row is unverified there.
 | **New (D17):** Download in the notification and on the lock screen, in Shuffle's place when Settings › Shuffle button in the notification is off (phone) | **tried by the owner** (14 November 2026, test build 15, a YouTube Music song) | none (needs a phone) | The Download button shows for a streamed song and the song is downloaded (it took a long time, from YouTube without Tidal). Build 14 greyed the button for songs that can't be downloaded; Android left it out and Favorite took its place: now Shuffle shows for those. Not confirmed yet: that the button turns to Shuffle the moment it is pressed. The button turns to Shuffle once the song is downloaded (the owner) |
 | Signing in to Tidal (and Spotify) on the phone when the app is left during the sign-in (for the code Tidal mails) | **fixed** (a fault of 3.2.28: the sign-in page's address, and with it the secret half of the sign-in, was made again whenever the screen was drawn again, so Tidal's answer no longer fitted; the owner could not connect Tidal in the test app) | none (a screen; needs a phone and an account) | `Sheets`: the address is made once, as SoundCloud's already was. **Confirmed by the owner** (14 November 2026, test build 16): Tidal connected, with the mailed code. Spotify not tried |
 | PC: the switches' file saved from several threads at once | **fixed** (a fault of 3.2.28 found by the checks: two saves at one moment failed, or could leave the file half written) | P `PrefsStoreTest` | The phone keeps its switches with Android, which was never affected |
+| Skip counts read while a song that ends is being counted (the DJ's Not skipped and Second chances sets, Wrapped: read off the main thread) | **fixed** (a fault of 3.2.28 found by the checks: the read could fail at that moment, and the DJ's set of that kind was not made) | S `SongStatsRaceTest` | `SongStats`: readers take the counts as they are under the same lock the counting holds. Phone and PC alike |
 
 **Phase 9 (the playback service), done 14 November 2026 (`68e5074`).** The queue and playback are out of `Music.kt`
 (3,868 lines before the phase, 3,289 after) with nothing behaving differently. The rules are in the shared code, each
@@ -151,6 +152,13 @@ all, see the DJ kinds row) pass as before on Linux and Windows. **Not done:** th
 services and from Last.fm (new for you, deep cuts, more like this, artists for you, genre), the mood sets and
 spotlight's choice of artist still have their rules in `Dj.kt`; no `DjSet` record; not run in the real PC app (no
 behaviour was meant to change, and the tests of each kind passed).
+
+**Phase 13 (the remaining services out of `Music.kt`), begun 15 November 2026.** First: your copy of a song
+(`YourCopies`, `830f3d4`): which of your files a song named by Last.fm, an import, a service or the queue is
+(`songIndex`, `mineOf`, `localOf`, `fmSong`, `yourCopies`, the best copy). Moved as it was; `Music` keeps the names
+and hands on; P `YourCopiesTest`. Checked on Linux and Windows. **Not done:** every other service in the plan's row
+13 (the streaming sources' part of `Music`, downloads, the tagger's part, sync, the remote, Most played's lists,
+playlists, favourites, the equalizer); not run in the real PC app or on a phone.
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
