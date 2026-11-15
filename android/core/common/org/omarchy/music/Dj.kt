@@ -1190,9 +1190,12 @@ object Dj {
 
     private fun deezer(url: String) = runCatching { Pictures.deezerPace(); httpJson(url) }.getOrNull()
 
+    /** In a test: the artists like an artist, in place of asking Last.fm and Deezer (null in the app). */
+    @Volatile var similarStandIn: ((String) -> List<Pair<String, Double>>)? = null
     /** (blocking) Artists like name, each with how alike (0–1): Last.fm's similar artists, else Deezer's related ones;
      *  kept for a month. */
     private fun similarTo(name: String): List<Pair<String, Double>> {
+        similarStandIn?.let { return it(name) }
         synchronized(similarCache) {
             if (!similarLoaded) {
                 similarLoaded = true

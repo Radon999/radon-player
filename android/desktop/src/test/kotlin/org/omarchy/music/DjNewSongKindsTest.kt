@@ -87,6 +87,23 @@ class DjNewSongKindsTest {
         }
     }
 
+    @Test fun artistsForYouAreArtistsLikeTheOnesYouPlayThatYouDontPlayYet() = withService {
+        // Whoever you ask about: forty newcomers, and one you play already (never to be brought as new)
+        Dj.similarStandIn = { _ -> listOf("Lately band 1" to 0.99) + (1..40).map { "Newcomer $it" to 1.0 - it / 50.0 } }
+        val met = HashSet<String>()
+        try {
+            built("discover") { b ->
+                val who = b.songs.map { it.artist }.toSet()
+                assertTrue("artists you don't play yet: $who", who.all { it.startsWith("Newcomer") })
+                assertTrue("one or two of them: $who", who.size in 1..2)
+                assertTrue(b.line, who.any { b.line.contains(it) })
+                assertTrue("it says whose listeners they are for: ${b.line}", b.line.contains("Lately band"))
+                assertTrue("none of them was brought before: $who, $met", who.none { it in met })
+                met += who
+            }
+        } finally { Dj.similarStandIn = null }
+    }
+
     @Test fun aServiceWithNothingToOfferMakesNoSetOfNewSongs() = withService(radioOf = { emptyList() }) {
         assertNull(Dj.build(kind = "fresh"))
         assertNull(Dj.build(kind = "like"))
