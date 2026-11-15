@@ -1137,40 +1137,9 @@ object Music {
     fun reviewDiscovered(id: String, download: Set<String>, remove: Set<String>) = Discoveries.review(id, download, remove)
 
     // ---- New releases: straight to one, and a discovery playlist from the ones you pick ----
-    private val releaseFound = java.util.concurrent.ConcurrentHashMap<String, Triple<String, Album?, List<Track>>>()
-
-    /** (blocking) Where a new release is on the streaming services (never your files): (service, its album,
-     *  []) for the album (or single, or EP) by its name and artist, else (service, null, [the song]) for a
-     *  single, else null. */
-    fun releaseFind(r: NewReleases.Release): Triple<String, Album?, List<Track>>? {
-        val ck = NewReleases.key(r)
-        releaseFound[ck]?.let { return it }
-        val want = norm(cleanTitle(r.title))
-        var single: Triple<String, Album?, List<Track>>? = null
-        var last: Throwable? = null
-        for (key in listOf(source, "tidal", "ytm").distinct()) {
-            val src = sources[key] ?: continue
-            if (key !in setOf("tidal", "ytm") || (key == "tidal" && !src.signedIn)) continue
-            val res = try { src.find("${r.artist} ${r.title}") } catch (e: Exception) { last = e; continue }
-            res.albums.firstOrNull { al ->
-                norm(cleanTitle(al.title)) == want && (NewReleases.sameName(r.artist, al.sub.substringBefore(" · ").substringBefore(",")) ||
-                    norm(r.artist) in norm(al.sub))
-            }?.let { al -> return Triple(key, al, emptyList<Track>()).also { releaseFound[ck] = it } }
-            if (single == null) res.songs.filter { t ->
-                norm(cleanTitle(t.title)) == want && NewReleases.sameName(r.artist, splitArtists(t.artist).firstOrNull() ?: "")
-            }.take(1).takeIf { it.isNotEmpty() }?.let { single = Triple(key, null, it) }
-        }
-        single?.let { releaseFound[ck] = it; return it }
-        last?.let { logWarn("release ${r.title}", it) }
-        return null
-    }
-
-    /** (blocking) A new release's songs, from the services (see [releaseFind]). */
-    fun releaseTracks(r: NewReleases.Release): List<Track> {
-        val (key, al, songs) = releaseFind(r) ?: return emptyList()
-        val got = if (al != null) sources[key]?.album(al.id).orEmpty() else songs
-        return got.map { if (it.album.isEmpty()) it.copy(album = r.title) else it }
-    }
+    // Where a new release is on the streaming services is ReleaseLookup's own: these hand on.
+    fun releaseFind(r: NewReleases.Release): Triple<String, Album?, List<Track>>? = ReleaseLookup.find(r)
+    fun releaseTracks(r: NewReleases.Release): List<Track> = ReleaseLookup.tracks(r)
 
     // An album's songs you haven't got (its page's bottom) are AlbumMissing's own: these hand on.
     fun albumMissing(album: String, artist: String, tracks: List<Track>, kind: String = "album"): List<MissingSong> =
