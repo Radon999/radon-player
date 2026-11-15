@@ -552,7 +552,7 @@ object PlaybackCore {
         Music.playbackOf(t).let { (sp, pi) -> p.setSpeed(sp, pi) }
         Music.eqProcessor.songGain = Music.gainOf(t)
         Music.applyEq()   // the song's own EQ on this output, or the usual one
-        // Never held for the DJ: she talks over the song, turned down under her (see Music.djSay)
+        // Never held for the DJ: she talks over the song, turned down under her (see DjDirector.djSay)
         p.playWhenReady = autoplay
         advancing = false   // buffering for real now
         fadeJob?.cancel()

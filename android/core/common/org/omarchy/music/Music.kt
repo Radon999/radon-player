@@ -1136,80 +1136,16 @@ object Music {
         if (c.isNotEmpty()) Voice.prepare(djClean(c))
     }
 
-    /** The DJ talks (Settings in the DJ: Voice): it says its line, the song waiting until it's done. With your
-     *  ElevenLabs key through ElevenLabs; else on the PC Kokoro (once fetched) or Windows' voice, on the phone Android's. */
-    val djVoice get() = Prefs.text("dj_voice") != "off"
-    fun chooseDjVoice(on: Boolean) { Prefs.setText("dj_voice", if (on) "on" else "off"); if (!on) djHush() }
-    var djTalking by mutableStateOf(false)
-        private set
-
-
-    /** The DJ says text over the music, like a radio DJ: the song never waits or starts again; it's turned down (ducked)
-     *  while she talks and comes back up when she's done. Bit-perfect to a USB DAC, her voice is mixed into the stream with
-     *  the music turned down under it (see UsbDirect.speak). A line whose voice isn't ready soon is left unsaid. */
-    private fun djSay(text: String) {
-        if (!djVoice || !Voice.canSpeak || Remote.active || text.isBlank()) return
-        if (player == null) return
-        val mine = ++djTurn
-        step("the DJ has a line (${text.length} letters)")
-        lastDjLine = text
-        djSaidAt = now()
-        var started = false
-        Voice.say(djClean(text), onStart = {
-            if (djTurn == mine) { started = true; djTalking = true; djSaidAt = now(); step("the DJ's voice began"); djDuck(true) }
-        }) { djDone(mine) }
-        // A voice that hasn't begun within a while (being made, a slow network) is let go; one that hasn't finished
-        // long after it should have is cut short. The music never waits either way.
-        scope.launch(Dispatchers.Main) { delay(15_000L); if (djTurn == mine && !started) Voice.hush() }
-        val most = 25_000L + text.length * 90L
-        scope.launch(Dispatchers.Main) { delay(most); if (djTurn == mine && djTalking) { Voice.hush(); djDone(mine) } }
-    }
-
-    /** How loud the music is under the DJ's voice (of its usual). */
-    private const val DUCK = 0.25f
-    private var ducked = false
-    private var duckJob: kotlinx.coroutines.Job? = null
-
-    /** The music turned down under the DJ (on) or back up (off), over a moment. Bit-perfect, the DAC's stream does it
-     *  itself as it mixes her voice in. */
-    private fun djDuck(on: Boolean) {
-        val p = player ?: return
-        if (on == ducked) return
-        ducked = on
-        duckJob?.cancel()
-        if (bitPerfectNow()) { if (!on) p.volume = 1f; return }
-        val from = p.volume; val to = if (on) DUCK else 1f
-        duckJob = scope.launch {
-            for (i in 1..32) { delay(10); p.volume = from + (to - from) * i / 32 }   // 320 ms, in steps too small to hear
-        }
-    }
-
-    internal fun djClean(text: String) = text.replace("“", "").replace("”", "")
-
-    /** What the DJ says when set n begins (its line, then its fact). */
-    private fun djLine(n: String): String? = dj.sets[n]?.let { set ->
-        djLines.getOrPut(set.line + "\n" + set.fact) {   // made once (its fillers are picked at random), so the line made ahead is the one said
-            if (djLines.size > 20) djLines.keys.firstOrNull()?.let { djLines.remove(it) }
-            Spoken.humanize(set.line) + if (set.fact.isNotEmpty()) " " + Spoken.humanize(set.fact, filler = 0.0) else "" } }
-    internal val djLines = LinkedHashMap<String, String>()
-
-    /** The next set's line made ahead (while this set plays), so the DJ says it the moment the set begins. */
-    private fun djPrepare(songs: List<Track>) {
-        if (!djVoice || Remote.active) return
-        val n = songs.firstOrNull()?.dj?.toString() ?: return
-        djLine(n)?.let { Voice.prepare(djClean(it)) }
-    }
-
-    private var djTurn = 0L          // each line the DJ says (a line that's done late, after a newer one began, is ignored)
-    private var lastDjLine = ""
-    private var djSaidAt = 0.0
-
-    /** Done talking (line mine): the set's first song from its very start (if it's still loading, it starts by itself when ready). */
-    private fun djDone(mine: Long) {
-        if (mine != djTurn || !djTalking) return
-        djTalking = false
-        djDuck(false)   // the music back up, where it is
-    }
+    /** The DJ talks (Settings in the DJ: Voice): it says its line over the music (DjDirector has its voice). */
+    val djVoice get() = DjDirector.djVoice
+    fun chooseDjVoice(on: Boolean) = DjDirector.chooseDjVoice(on)
+    val djTalking: Boolean get() = DjDirector.djTalking
+    private fun djSay(text: String) = DjDirector.djSay(text)
+    private val DUCK get() = DjDirector.DUCK
+    private val ducked get() = DjDirector.ducked
+    private fun djClean(text: String) = DjDirector.djClean(text)
+    private fun djLine(n: String) = DjDirector.djLine(n)
+    private fun djPrepare(songs: List<Track>) = DjDirector.djPrepare(songs)
     private var loadedFor: String? get() = PlaybackCore.loadedFor; set(v) { PlaybackCore.loadedFor = v }   // the song the player has in now (its id)
 
     /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
@@ -1230,12 +1166,7 @@ object Music {
     }
 
     /** The DJ stops talking (Play, Pause, a skip): the music goes on. */
-    fun djHush() {
-        if (!djTalking) return
-        djTalking = false
-        Voice.hush()
-        djDuck(false)
-    }
+    fun djHush() = DjDirector.djHush()
 
     /** You skipped (or a song ended) at the end of the DJ's queue while its next set was still being picked: it
      *  goes on to that set as soon as it's ready (never to ∞'s radio, which isn't the DJ's). */
