@@ -156,9 +156,16 @@ behaviour was meant to change, and the tests of each kind passed).
 **Phase 13 (the remaining services out of `Music.kt`), begun 15 November 2026.** First: your copy of a song
 (`YourCopies`, `830f3d4`): which of your files a song named by Last.fm, an import, a service or the queue is
 (`songIndex`, `mineOf`, `localOf`, `fmSong`, `yourCopies`, the best copy). Moved as it was; `Music` keeps the names
-and hands on; P `YourCopiesTest`. Checked on Linux and Windows. **Not done:** every other service in the plan's row
-13 (the streaming sources' part of `Music`, downloads, the tagger's part, sync, the remote, Most played's lists,
-playlists, favourites, the equalizer); not run in the real PC app or on a phone.
+and hands on; P `YourCopiesTest`. Second: Most played's lists (`MostPlayed`, `c2a53cf`, `44c6bc7`): the songs,
+artists and albums of a period (`songs`, `artists`, `albums`), each with its rule apart from where the counts come
+from (`songsOf`, `artistsOf`, `albumsOf`), so it is tested without Last.fm; P `MostPlayedTest` (two names for one
+song of yours are one row; only your songs; an album and its deluxe edition are one; a single's plays count for
+the album you have it on; a pair's plays are the lead artist's). What you chose (the period, only songs on this
+phone, your picks) stays `Music`'s. One thing changed on purpose: the songs last made and the counts they were made
+from are kept as one value, so the DJ reading off the main thread can't get one period's songs for another's
+counts. Checked on Linux and Windows. **Not done:** every other service in the plan's row 13 (the streaming
+sources' part of `Music`, downloads, the tagger's part, sync, the remote, playlists, favourites, the equalizer);
+not run in the real PC app or on a phone.
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
