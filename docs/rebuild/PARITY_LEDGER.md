@@ -37,7 +37,7 @@ yet: every row is unverified there.
 | Saved queues: the one you leave is kept with your place; going back; a queue that ends goes on with the other | covered | P `theQueueYouLeaveIsKeptAndTakenUpWhereYouLeftIt` | Moving, renaming and deleting queues, the most kept, Queues off: not yet |
 | Shuffle, smart shuffle | partly | A `ShuffleTest` | The weights only |
 | Per-song speed, volume, EQ | partly | A `SongSpeedsTest`, S `SongGainsTest` | Storage only |
-| Android: stays a foreground service between songs | blocked | | Needs a phone, screen off |
+| Android: stays a foreground service between songs | **tried by the owner** (14 November 2026, test build 12, Bluetooth) | none (needs a phone) | Songs go on to the next with the screen off; next and previous work from the headphone buttons and the lock screen, screen off too. How long it ran with the screen off was not said: an hour's soak is still to do (Phase 11) |
 | Cast, phone remote | not yet | | |
 
 **Phase 9 (the playback service), done 14 November 2026 (`68e5074`).** The queue and playback are out of `Music.kt`
@@ -110,7 +110,7 @@ DJ stopped leaves the music playing; nothing written to Problems. Judged by what
 | The DJ never stalls (`djKeepGoing`) | not yet | | |
 | Facts and milestones | not yet | | |
 
-**Heard by the owner, 14 November 2026 (test build 12).** The DJ on the PC: "running extremely well, very smooth, and way better than the previous version". The DJ on the phone through the FiiO KA17 with bit-perfect: see the USB DAC row below. Bluetooth on the phone: being tested.
+**Heard by the owner, 14 November 2026 (test build 12).** The DJ on the PC: "running extremely well, very smooth, and way better than the previous version". The DJ on the phone through the FiiO KA17 with bit-perfect: see the USB DAC row below. Bluetooth on the phone: "working great" (see the foreground-service row above).
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
