@@ -141,6 +141,16 @@ nothing written to Problems; the app quit after. **Not done:** each kind of set'
 there is no `DjSet` record; `DjDirector` is an object on the main thread like `Music`, not the plan's actor with a
 mailbox; nothing was run on a phone (it compiles and its tests pass).
 
+**Phase 8, third part: the kinds' own rules, 15 November 2026 (`5d80a90`).** What makes a song fit a kind of set is
+out of `Dj.kt` for nine kinds, as it was, in the shared code: `KindRules` (S `KindRulesTest`: rediscover's three plays
+and three months away, a throwback's two months, not skipped, how likely a song heard out comes up, second chances,
+one-hit wonders, a decade and its name, the decades with eight songs, an album's order and its runs of three, the
+artists the spotlight waits for, unreleased by the path). `Dj` hands on; the PC tests of the same kinds (27 kinds in
+all, see the DJ kinds row) pass as before on Linux and Windows. **Not done:** the kinds that are made from the
+services and from Last.fm (new for you, deep cuts, more like this, artists for you, genre), the mood sets and
+spotlight's choice of artist still have their rules in `Dj.kt`; no `DjSet` record; not run in the real PC app (no
+behaviour was meant to change, and the tests of each kind passed).
+
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
 `TasteRulesTest`: a song's plays, first and last; one song however its artist is written; the last 30 and 90 days;
