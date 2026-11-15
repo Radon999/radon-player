@@ -223,6 +223,13 @@ fun artistFolder(folder: String?): String? {
 
 /** A release's kind from where its song is: Artists/<Artist>/<Release>/… — a release folder ending in "EP" ("Spring EP",
  *  "South - EP") is an EP, one ending in "Single" ("Talk - Single") a single, any other an album. null outside an Artists folder. */
+/** A release's tab from where its songs are ([folderKind]; null outside an Artists folder) and what its album tag
+ *  says (tagKind: "ep" or "single", null when it says neither): a folder named as an EP or a single decides; a folder
+ *  with a plain name leaves it to the tag ("HandClap - Single" kept in Artists/…/HandClap is a single, not an album,
+ *  as it was while any Artists folder counted as an album's); with neither, an album. */
+fun releaseKindOf(folderKind: String?, tagKind: String?): String =
+    if (folderKind == "ep" || folderKind == "single") folderKind else tagKind ?: "album"
+
 fun folderKind(folder: String?): String? {
     val parts = (folder ?: return null).replace('\\', '/').trim('/').split('/')
     val i = parts.lastIndexOf(ARTISTS)

@@ -442,9 +442,10 @@ object Music {
     fun releaseKind(title: String, songs: List<Track>, single: Boolean = false, byCount: Boolean = true): String {
         songs.mapNotNull { tabPicks[tabKey(it)] }.takeIf { it.size * 2 > songs.size }?.groupingBy { it }?.eachCount()
             ?.maxByOrNull { it.value }?.let { return it.key }   // put there by hand (Tagger › Tab)
-        songs.mapNotNull { folderKind(folderOf(it)) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.let { return it.key }
-        if (isEp(title)) return "ep"
-        return if (single || isSingleRelease(title)) "single" else "album"
+        // Where most of its songs are, then what its album tag says: a folder named as an EP or a single decides, a
+        // plainly named one leaves it to the tag (releaseKindOf)
+        val folder = songs.mapNotNull { folderKind(folderOf(it)) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        return releaseKindOf(folder, if (isEp(title)) "ep" else if (single || isSingleRelease(title)) "single" else null)
     }
 
     /** A song's key for Tagger › Tab: its file, written one way. */
@@ -454,8 +455,9 @@ object Music {
     fun tabOf(t: Track): String? {
         if (!t.isFile && !lib.has(t.id)) return null
         tabPicks[tabKey(t)]?.let { return it }
-        folderKind(folderOf(t))?.let { return it }
-        return when { t.album.isBlank() -> "single"; isEp(t.album) -> "ep"; isSingleRelease(t.album) -> "single"; else -> "album" }
+        val folder = folderKind(folderOf(t))
+        val tag = when { isEp(t.album) -> "ep"; isSingleRelease(t.album) -> "single"; t.album.isBlank() && folder == null -> "single"; else -> null }
+        return releaseKindOf(folder, tag)
     }
 
     /** Tagger › Tab: put the songs in Albums, EPs or Singles whatever their tags say (null: back to the usual way). */

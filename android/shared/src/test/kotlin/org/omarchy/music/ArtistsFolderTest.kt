@@ -15,6 +15,14 @@ class ArtistsFolderTest {
         assertEquals("album", folderKind("Music/Artists/Coldplay/Parachutes/CD1/"))
         assertEquals(null, folderKind("Music/All music/released/AJR/Neotheater/"))
         assertEquals(null, folderKind("Music/Artists/AJR/"))
+        // The folder and the album tag together: a folder named as an EP or single decides; a plain one leaves it to the tag
+        assertEquals("the owner's HandClap - Single in a plainly named folder", "single", releaseKindOf("album", "single"))
+        assertEquals("ep", releaseKindOf("album", "ep"))
+        assertEquals("the folder says EP, the tag says nothing", "ep", releaseKindOf("ep", null))
+        assertEquals("the folder says single, the tag says EP: the folder", "single", releaseKindOf("single", "ep"))
+        assertEquals("album", releaseKindOf("album", null))
+        assertEquals("outside an Artists folder: the tag", "single", releaseKindOf(null, "single"))
+        assertEquals("album", releaseKindOf(null, null))
     }
 
     @Test fun downloadsAndReleaseNames() {
