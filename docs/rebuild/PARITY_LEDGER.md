@@ -88,8 +88,8 @@ DJ stopped leaves the music playing; nothing written to Problems. Judged by what
 | Switch it up replaces the rest of the set | covered | P `switchItUpPutsANewSetInPlaceOfTheRestOfThisOne` | That it is instant (a set kept ready): not yet |
 | With the DJ: Repeat is one or off; shuffle does nothing | covered | P `withTheDjRepeatIsOneOrOffAndShuffleDoesNothing` | |
 | A set never has a song still to come | covered | P `DjBehaviourTest.aSetNeverHasASongStillToCome` | |
-| Songs played stay out (300-song gap), kept across restarts | covered | P `songsTheDjPlayedDontComeBackYet` | The shrinking window for few songs: not yet |
-| Kinds of set take turns | covered | P `kindsOfSetTakeTurns` | Three kinds only (what test songs can make) |
+| Songs played stay out (300-song gap), kept across restarts | covered | P `songsTheDjPlayedDontComeBackYet` | The shrinking window for few songs: S `SetRulesTest.theLastThreeHundredOrFewerFromAShortPlaylist` |
+| Kinds of set take turns | covered | P `kindsOfSetTakeTurns`; S `SetRulesTest` (the one played longest ago first, a kind never played among the rest, kinds that could make no set after them, the one playing last) | In the app's own run three kinds only (what test songs can make); the rule itself with any |
 | Requests: tags from words | covered | A `DjTest.tagsOfMoodsDecadesAndGenres` | |
 | Picking leans to the top, no repeats | covered | A `DjTest.pick*` | |
 | Not saying the same thing twice (bags, histories) | covered | S `NoRepeatTest` | |
@@ -106,11 +106,20 @@ DJ stopped leaves the music playing; nothing written to Problems. Judged by what
 | Three sets kept ready; Switch it up is instant | not yet | | |
 | Ask for something | partly | A `DjTest` | Words only |
 | Each of the 26 kinds of set: its own rule | not yet | | Most need a listening history stand-in |
-| Mood arc, artist spread | not yet | | Private today; tested once the planner is its own part |
+| Mood arc, artist spread | covered | S `SetRulesTest` (building up from a calm first song, easing down from a loud one, a song with no mood in the middle; no artist twice in a row, two of an artist at most but in an artist's own set) | The rules are `SetRules.arc` and `SetRules.spread` in the shared code |
 | The DJ never stalls (`djKeepGoing`) | not yet | | |
 | Facts and milestones | not yet | | |
 
 **Heard by the owner, 14 November 2026 (test build 12).** The DJ on the PC: "running extremely well, very smooth, and way better than the previous version". The DJ on the phone through the FiiO KA17 with bit-perfect: see the USB DAC row below. Bluetooth on the phone: "working great" (see the foreground-service row above).
+
+**Phase 8 (the DJ's planner and scripts), first part, 14 November 2026.** Out of `Dj.kt` into the shared code, as
+they were, each tested alone: `SetRules` (S `SetRulesTest`: the mood arc, artists spread out, a line and the songs
+it names, picking, how many of the last songs are kept out, whose turn it is, the part of the day) and `ScriptRules`
+(S `ScriptRulesTest`: what fits in a break of 45 words as said: the hello stays, a word about the day goes first,
+then the fact; the thread from the song before; a break made ahead said for the part of the day it is heard in).
+`Dj` hands on to both. **Not done:** each kind of set's own rule (they need your listening and the services: a
+stand-in for both comes first), the lines themselves, the `DjDirector` (the DJ's part of `Music`), the plan's
+`DjSet` record. Checked on Linux and Windows; **not yet run in the real PC app** (the owner's own test build was open and has the command port).
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
