@@ -62,6 +62,18 @@ object FileTags {
         listOf("title", "artist", "albumartist", "album", "tracknumber", "date", "genre").associateWith { tags[it] ?: "" }
     }.getOrNull()
 
+    /** The disc the song is on, from its tags ("2", "2/3"); 0 when they don't say or it can't be read (your own
+     *  files need All files access; the app's downloads are read their own way). */
+    fun disc(ctx: Ctx, uri: String): Int = runCatching {
+        fun num(s: String?) = s?.trim()?.substringBefore('/')?.trim()?.toIntOrNull() ?: 0
+        if (isDownload(uri)) return@runCatching num(Music.ctx.openIn(uri)!!.buffered().use { s -> Flac.comments(Flac.readHeader(s))["DISCNUMBER"]?.firstOrNull() })
+        val f = ownFile(uri) ?: return@runCatching 0
+        if (isWav(f)) return@runCatching 0
+        setUp
+        val tag = org.jaudiotagger.audio.AudioFileIO.read(f).tag ?: return@runCatching 0
+        num(tag.getFirst(org.jaudiotagger.tag.FieldKey.DISC_NO))
+    }.getOrDefault(0)
+
     /** A song file's ISRC and what its tags say of it: explicit (true), clean (false) or nothing (null), for Clean
      *  and explicit versions. Your own files need All files access; null if it can't be read. */
     fun versionTags(uri: String): Pair<String?, Boolean?>? = runCatching {

@@ -144,8 +144,17 @@ fun App() {
     // A new queue takes the name of the list its songs came from.
     val page = ui.pages.lastOrNull()
     val title = titleOf(ui, page)
-    // The page's own search closes as you go to another page.
-    LaunchedEffect(ui.tab, ui.musicView, page, ui.openMine, ui.openList?.first, ui.openFolder) { ui.filter = null }
+    // The page's own search is the place's: going further in (a folder, an album, a playlist) it is put by, and Back
+    // brings you back to what you searched for; a place you come to anew has none. (Going to another tab forgets them.)
+    val place = listOf(ui.tab, ui.musicView, ui.pages.size, page?.let { System.identityHashCode(it) }, ui.openMine, ui.openList?.first?.id, ui.openFolder).joinToString("|")
+    LaunchedEffect(place) {
+        if (ui.filterPlace.isNotEmpty() && ui.filterPlace != place) {
+            val was = ui.filter
+            if (was.isNullOrBlank()) ui.filters.remove(ui.filterPlace) else ui.filters[ui.filterPlace] = was
+        }
+        if (ui.filterPlace != place) ui.filter = ui.filters.remove(place)
+        ui.filterPlace = place
+    }
     // Picking albums, artists… ends as you go to another tab (it's for the list it started on).
     LaunchedEffect(ui.tab, ui.musicView) { if (ui.pickingAlbums) { ui.albumsPicked.clear(); ui.pickingAlbums = false } }
     LaunchedEffect(title, ui.query) { Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else title }
@@ -161,6 +170,7 @@ fun App() {
             ui.selecting -> ui.stopSelecting()
             ui.pickingAlbums -> { ui.albumsPicked.clear(); ui.pickingAlbums = false }
             ui.tab == "player" && ui.pane != "art" -> ui.pane = "art"
+            ui.filter != null -> ui.filter = null   // a search showing: Back closes it first, then goes back
             ui.pages.isNotEmpty() -> ui.pages.removeAt(ui.pages.lastIndex)
             smartEditing -> SmartEdit.close()
             ui.openMine != null -> ui.openMine = null
@@ -204,6 +214,7 @@ fun App() {
                         "genres" -> GenresTab(ui)
                         "moods" -> MoodsTab(ui)
                         "folders" -> FoldersTab(ui)
+                        "unreleased" -> UnreleasedTab(ui)
                         "downloads" -> DownloadsTab(ui)
                         "flac24" -> FlacTab(ui, 24)
                         "flac32" -> FlacTab(ui, 32)
@@ -273,6 +284,7 @@ internal fun Stars() {
 
 fun goTo(ui: Ui, tab: String, view: String? = null) {
     ui.pages.clear(); ui.openMine = null; ui.openList = null; ui.openFolder = null   // what you've picked stays picked
+    ui.filter = null; ui.filters.clear()   // another tab: no search carried over, none left to come back to
     if (view != null) ui.musicView = view
     ui.tab = tab
     ui.drawer = false
@@ -300,6 +312,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
         add(Entry("Mood lists", Ico.MOOD, "music", "moodlists"))
         add(Entry("Folders", Ico.FOLDER, "folders"))
+        add(Entry("Unreleased", Ico.FOLDER, "unreleased"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))
         add(Entry("32-bit FLACs", Ico.NOTE, "flac32"))
@@ -462,6 +475,7 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "genres" -> "Genres"
         "moods" -> "Moods"
         "folders" -> "Folders"
+        "unreleased" -> "Unreleased"
         "downloads" -> "Downloads"
         "flac24" -> "24-bit FLACs"
         "flac32" -> "32-bit FLACs"

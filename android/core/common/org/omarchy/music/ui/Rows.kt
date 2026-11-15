@@ -121,6 +121,9 @@ class Ui {
     var artistPictureFor by mutableStateOf<String?>(null)
     var mergeArtist by mutableStateOf<String?>(null)   // Merge into…: this artist
     var filter by mutableStateOf<String?>(null)        // the page's own search (null: closed)
+    /** Each place's search, kept while you are further in: Back comes back to what you searched for there. */
+    val filters = HashMap<String, String>()
+    var filterPlace = ""                                // the place [filter] is for
     var reviewFor by mutableStateOf<org.omarchy.music.Playlist?>(null)
     var castPick by mutableStateOf(false)               // Cast…: the devices to play on
     var releasePick by mutableStateOf<List<org.omarchy.music.NewReleases.Release>?>(null)   // releases to make discovery playlists of   // a discovered list, being reviewed

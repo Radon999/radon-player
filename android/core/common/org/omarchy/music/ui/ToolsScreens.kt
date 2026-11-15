@@ -741,12 +741,14 @@ private fun FolderCoversScreen(ui: Ui, apply: Boolean) {
             val d = done
             Text(when {
                 running -> status.ifEmpty { "Starting…" }
-                d != null && apply -> "%,d song%s got the cover from %s folder · %,d had one already · %,d folder%s with no cover picture · %,d couldn't be changed".format(
-                    d.saved, if (d.saved != 1) "s" else "", if (d.saved != 1) "their" else "its", d.had, d.none, if (d.none != 1) "s" else "", d.failed)
+                d != null && apply -> "%,d song%s got %s cover put into the file · %,d had one already · %,d with no cover picture to use · %,d couldn't be changed".format(
+                    d.saved, if (d.saved != 1) "s" else "", if (d.saved != 1) "their" else "its", d.had, d.none, d.failed)
                 d != null -> "%,d cover%s saved into folders · %,d had one already · %,d with no cover anywhere · %,d couldn't be saved".format(
                     d.saved, if (d.saved != 1) "s" else "", d.had, d.none, d.failed)
                 apply -> "Each song with no cover in its file gets the cover picture in its folder (its album's, EP's or single's own " +
-                    "picture if the folder holds several). Songs with a cover already are left as they are."
+                    "picture if the folder holds several, or the folder's only picture), or else the cover you picked for it in the " +
+                    "app. Each one is read back from the file after, so the count is of covers that are really in. Songs with a " +
+                    "cover already are left as they are."
                 else -> "One picture of each album, EP and single goes into its folder beside its songs, taken from a song's own " +
                     "cover (one a release, however many songs). Releases with a picture there already are left as they are."
             }, style = T.sub, modifier = Modifier.padding(bottom = 8.dp))

@@ -498,6 +498,72 @@ fun FoldersTab(ui: Ui) {
     }
 }
 
+/** Unreleased (☰ menu): your songs in any folder named "Unreleased", and in the folders you chose for it (Folders…),
+ *  a row for each folder; Play, Shuffle and the DJ for all of them at the top. */
+@Composable
+fun UnreleasedTab(ui: Ui) {
+    val un = org.omarchy.music.Unreleased
+    val chosen = un.chosen.toList()
+    val all = remember(Music.musicVersion, Music.savedVersion, chosen) { runCatching { un.folders() }.getOrDefault(emptyList()) }
+    var choosing by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val name = { f: String -> org.omarchy.music.UnreleasedRules.nameIn(f, chosen) }
+    if (all.isEmpty()) Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) { Pill("Folders…", quiet = true) { choosing = true } }
+        Empty("No unreleased music yet", "Songs in a folder named Unreleased (and the folders inside it) show up here by themselves. " +
+            "${TAP.cap()} Folders… to put other folders of yours here too.")
+    } else {
+        val folders = sortedGroups("unreleased", all.filter { fits(ui, name(it.first)) }, name)
+        val songs = remember(folders) { folders.flatMap { it.second } }
+        LazyColumn(Modifier.fillMaxSize()) {
+            item { ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "Unreleased", songs = songs)) }) }
+            item { Section("%,d UNRELEASED SONG%s · %,d FOLDER%s".format(songs.size, if (songs.size != 1) "S" else "", folders.size, if (folders.size != 1) "S" else "")) }
+            groups(ui, "folder", folders, name, sortTab = "unreleased", head = { Chip("Folders…", false) { choosing = true } }) { f, _ -> fullFolderPath(f.trimEnd('/')) }
+        }
+    }
+    if (choosing) UnreleasedFolders { choosing = false }
+}
+
+/** Unreleased › Folders…: the folders you put in the tab (each with Take out), and your other folders to put in
+ *  (type to find one). A folder named Unreleased is in by itself and isn't listed. */
+@Composable
+private fun UnreleasedFolders(close: () -> Unit) {
+    val un = org.omarchy.music.Unreleased
+    val chosen = un.chosen.toList()
+    var find by remember { androidx.compose.runtime.mutableStateOf("") }
+    val others = remember(Music.musicVersion, chosen) { runCatching { un.candidates() }.getOrDefault(emptyList()) }
+    val words = org.omarchy.music.searchWords(find)
+    val shown = remember(others, find) { if (words.isEmpty()) others else others.filter { org.omarchy.music.searchHit(words, it) } }
+    androidx.compose.material3.AlertDialog(onDismissRequest = close, containerColor = C.light,
+        title = { Text("Folders in Unreleased", style = T.head) },
+        text = {
+            Column {
+                Text("Any folder named Unreleased is here by itself, with everything in it. Put other folders here too: each brings " +
+                    "every folder inside it.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+                androidx.compose.material3.OutlinedTextField(find, { find = it }, singleLine = true, textStyle = T.body,
+                    placeholder = { Text("Find a folder", style = T.sub) }, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 6.dp)) {
+                    if (chosen.isNotEmpty()) item { Section("IN THE TAB") }
+                    items(chosen.size, key = { "in-" + chosen[it] }) { i ->
+                        val f = chosen[i]
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(fullFolderPath(f), style = T.body, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Chip("Take out", false) { un.remove(f) }
+                        }
+                    }
+                    item { Section(if (shown.isEmpty()) "NO OTHER FOLDERS" + (if (find.isNotBlank()) " NAMED SO" else "") else "YOUR OTHER FOLDERS · %,d".format(shown.size)) }
+                    items(shown.size, key = { "out-" + shown[it] }) { i ->
+                        val f = shown[i]
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(fullFolderPath(f), style = T.body, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Chip("Put in", false) { un.add(f) }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(close) { Text("Done", color = C.accent) } })
+}
+
 /** A genre's or a folder's songs. */
 @Composable
 fun SongsPage(ui: Ui, page: Ui.Page.Songs) {

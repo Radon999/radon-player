@@ -28,6 +28,13 @@ object FileTags {
         KEYS.mapValues { (_, k) -> runCatching { tag.getAll(k).filter { it.isNotBlank() }.joinToString(", ") }.getOrDefault("") }
     }.getOrNull()
 
+    /** The disc the song is on, from its tags ("2", "2/3"); 0 when they don't say or it can't be read. */
+    fun disc(ctx: Ctx, uri: String): Int = runCatching {
+        if (isWav(uri)) return@runCatching 0
+        val tag = AudioFileIO.read(file(uri)).tag ?: return@runCatching 0
+        tag.getFirst(FieldKey.DISC_NO).trim().substringBefore('/').trim().toIntOrNull() ?: 0
+    }.getOrDefault(0)
+
     /** A song file's ISRC and what its tags say of it: explicit (true), clean (false) or nothing (null), for Clean
      *  and explicit versions; null if it can't be read. */
     fun versionTags(uri: String): Pair<String?, Boolean?>? = runCatching {

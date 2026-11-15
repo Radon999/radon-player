@@ -14,11 +14,19 @@ object FolderCovers {
     private fun fileOf(t: Track): String? = Music.lib.items[t.id]?.file ?: t.file?.takeIf { t.isFile }
     private fun folder(f: String): File? = runCatching { FileTags.folderOf(Music.ctx, f) }.getOrNull()?.takeIf { it.isNotBlank() }?.let { File(it) }
     private fun release(t: Track) = t.album.ifEmpty { t.title }
-    private fun safe(s: String) = s.replace(Regex("[\\\\/:*?\"<>|]"), " ").replace(Regex("\\s+"), " ").trim().take(80)
-    /** The picture for album in dir: its own ("cover - <album>.jpg") if there is one, else the folder's cover. */
-    private fun pictureIn(dir: File, album: String): File? =
-        listOf("cover - ${safe(album)}.jpg", "cover - ${safe(album)}.png").map { File(dir, it) }.firstOrNull { it.isFile }
-            ?: NAMES.map { File(dir, it) }.firstOrNull { it.isFile }
+    private fun safe(s: String) = FolderCoverRules.safe(s)
+    /** The picture for album in dir: its own ("cover - <album>.jpg") if there is one, else the folder's cover, else the
+     *  folder's only picture ([FolderCoverRules.pick]). */
+    private fun pictureIn(dir: File, album: String): File? = FolderCover.file(dir, album)
+
+    /** The cover you picked for the song's release in the app (Cover…, Pick a cover), or the one saved with its
+     *  download: the app's own copy of it, not in the song's file. Null if there is none (or it can't be fetched). */
+    private fun pickedFor(t: Track): ByteArray? {
+        val url = Pictures.cover(t.artist, release(t)).ifEmpty { Music.lib.items[t.id]?.art.orEmpty() }
+        if (url.isEmpty()) return null
+        return runCatching { if (url.startsWith("http")) httpBytes(url) else File(url.removePrefix("file:")).takeIf { it.isFile }?.readBytes() }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+    }
 
     /** Your songs with files, by folder, then by release (album, EP or single). */
     private fun byFolder(progress: (String) -> Unit): Map<File, Map<String, List<Pair<Track, String>>>> {
@@ -69,11 +77,15 @@ object FolderCovers {
             n++
             if (n % 20 == 0) progress("Putting covers into the files… %,d of %,d".format(n, total))
             if (runCatching { FileTags.hasCover(Music.ctx, f) }.getOrDefault(false)) { had++; continue }
-            val pic = pictureIn(dir, release(t))
+            // The folder's picture, else the cover you picked in the app (it was shown, but only the app had it: the
+            // song lost it on another device, or in the app installed afresh)
+            val pic = runCatching { pictureIn(dir, release(t))?.readBytes() }.getOrNull() ?: pickedFor(t)
             if (pic == null) { none++; continue }
             if (!FileTags.canWrite(f)) { failed++; if (notes.size < 20) notes += "“${t.title}”: the app can't change its file"; continue }
-            val ok = runCatching { FileTags.writeCover(Music.ctx, f, Covers.jpeg(pic.readBytes())) }.getOrDefault(false)
-            if (ok) { saved++; TagMatch.touched(f) } else { failed++; if (notes.size < 20) notes += "“${t.title}”: couldn't put the cover in" }
+            val ok = runCatching { FileTags.writeCover(Music.ctx, f, Covers.jpeg(pic)) }.getOrDefault(false)
+            // Read back: said to be in only when the file now holds it
+            val there = ok && runCatching { FileTags.hasCover(Music.ctx, f) }.getOrDefault(false)
+            if (there) { saved++; TagMatch.touched(f) } else { failed++; if (notes.size < 20) notes += "“${t.title}” (${f.substringAfterLast('/').substringAfterLast('\\')}): couldn't put the cover in" }
         }
         return Done(saved, had, none, failed, notes)
     }
