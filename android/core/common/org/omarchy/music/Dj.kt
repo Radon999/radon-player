@@ -576,7 +576,7 @@ object Dj {
         val t = now().toLong()
         val thisYear = java.time.LocalDate.now().year
         for (y in taste.years.keys.filter { it < thisYear }.shuffled()) {
-            val pool = ok(taste, taste.years.getValue(y)).filter { t - lastPlayed(taste, it) > 60 * 86_400L }
+            val pool = ok(taste, taste.years.getValue(y)).filter { KindRules.longUnplayed(lastPlayed(taste, it), t) }
             val songs = pick(pool.take(80), SET, used)
             if (songs.size < 3) continue
             val s = songs[0]
@@ -604,7 +604,7 @@ object Dj {
     private fun setRediscover(taste: Taste): Pair<List<Track>, String>? {
         val t = now().toLong()
         val recent = taste.recent.map { songKey(it) }.toSet()
-        val pool = ok(taste, taste.all).filter { it.plays >= 3 && songKey(it) !in recent && t - lastPlayed(taste, it) > 90 * 86_400L }
+        val pool = ok(taste, taste.all).filter { KindRules.shelved(it.plays, lastPlayed(taste, it), t, songKey(it) in recent) }
         val songs = pick(pool, SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
@@ -1309,7 +1309,7 @@ object Dj {
         val names = byArtist.mapValues { (_, songs) -> songs.groupingBy { leadOf(it) }.eachCount().maxByOrNull { it.value }?.key ?: leadOf(songs[0]) }
         val plays = taste.facts.artistAll.entries.associate { norm(it.key) to it.value }
         val all = byArtist.filter { it.value.size >= 5 }.keys.toList()
-        val lately = said(SPOT_HISTORY).takeLast(maxOf(0, minOf(40, all.size - 3))).toSet()
+        val lately = KindRules.spotlightWaits(said(SPOT_HISTORY), all.size)
         val cands = (all.filter { it !in lately }.ifEmpty { all })
             .map { k -> k to Math.pow(Random.nextDouble(), 1.0 / (1.0 + kotlin.math.ln(1.0 + (plays[k] ?: 0)) / 3)) }
             .sortedByDescending { it.second }.map { (k, _) -> names.getValue(k) to (plays[k] ?: 0) }
@@ -1338,10 +1338,10 @@ object Dj {
         var read = 0
         for (g in ranked.take(4)) {
             val withNo = g.take(30).map { t -> if (read < 40) { read++; t to (tagOf(t)?.second ?: 0) } else t to 0 }
-            if (withNo.count { it.second > 0 } < 3) continue
-            val ordered = withNo.filter { it.second > 0 }.sortedBy { it.second }.map { it.first }
+            val ordered = KindRules.albumOrder(withNo) ?: continue
+            //
             // Three in a row, the run you play most (none the DJ played lately)
-            val runs = (0..ordered.size - 3).map { i -> ordered.subList(i, i + 3) }.filter { r -> r.none { songKey(it) in used } }
+            val runs = KindRules.runsOfThree(ordered) { songKey(it) in used }
             val run = runs.maxByOrNull { r -> r.sumOf { playsOf(taste, it) } + Random.nextInt(20) } ?: continue
             saveTags()
             val s = run[0]
@@ -1383,17 +1383,17 @@ object Dj {
         val sample = mine.shuffled().take(400).mapNotNull { t ->
             val known = t.file?.let { tagInfo[it] }
             val info = known ?: if (read < 60) { read++; tagOf(t) } else null
-            info?.first?.takeIf { it in 1950..2100 }?.let { t to it / 10 * 10 }
+            info?.first?.let { KindRules.decadeOf(it) }?.let { t to it }
         }
         if (read > 0) saveTags()
-        val byDecade = sample.groupBy({ it.second }, { it.first }).filter { it.value.size >= 8 }
+        val byDecade = KindRules.decades(sample)
         if (byDecade.isEmpty()) return null
         val decade = MoodTally.moodOrder(byDecade.keys.map { it.toString() }, said(DECADE_HISTORY)).firstOrNull()?.toIntOrNull()
             ?: byDecade.keys.random()
         val songs = pick(ok(taste, byDecade.getValue(decade)).shuffled(), SET, used)
         if (songs.size < 3) return null
         remember(DECADE_HISTORY, decade.toString())
-        val d = if (decade < 2000) "the ${decade % 100}s" else "the ${decade}s"
+        val d = KindRules.decadeName(decade)
         val s = songs[0]
         return songs to say("decade",
             "Everything in this set came out in $d. It starts with ${q(s)}.",
@@ -1404,7 +1404,7 @@ object Dj {
 
     /** One-hit wonders of yours: artists you have only a song or two from. */
     private fun setOneHit(taste: Taste): Pair<List<Track>, String>? {
-        val few = mySongs().groupBy { norm(leadOf(it)) }.values.filter { it.size in 1..2 }.flatten()
+        val few = KindRules.fewOfAnArtist(mySongs())
         if (few.size < 6) return null
         val songs = pick(ok(taste, few).shuffled(), SET, used).distinctBy { norm(leadOf(it)) }
         if (songs.size < 3) return null
@@ -1424,12 +1424,12 @@ object Dj {
         // days instead.
         val zone = java.time.ZoneId.systemDefault()
         val monthStart = java.time.LocalDate.now(zone).withDayOfMonth(1).atStartOfDay(zone).toEpochSecond()
-        fun heardOut(since: Long) = runCatching { Music.songStats.rows(since) }.getOrDefault(emptyList()).filter { it.second == 0 && it.third >= 1 }
+        fun heardOut(since: Long) = runCatching { Music.songStats.rows(since) }.getOrDefault(emptyList()).let { KindRules.heardOut(it) }
         var rows = heardOut(monthStart)
         if (rows.size < 12) rows = heardOut(now().toLong() - 30 * 86_400L)
         val pool = rows.map { (t, _, full) ->
                 val (sk, all) = Music.songStats.get(t)
-                val w = full * (0.5 + 0.5 * (1 - SongStats.rate(sk, all)))
+                val w = KindRules.heardWeight(full, SongStats.rate(sk, all))
                 (taste.mine[songKey(t)] ?: t) to Math.pow(Random.nextDouble(), 1.0 / w.coerceAtLeast(0.01))
             }.sortedByDescending { it.second }.map { it.first }
         val songs = ok(taste, pool).filter { songKey(it) !in used }.take(SET)
@@ -1445,7 +1445,7 @@ object Dj {
     /** Second chances: songs you skip a lot, played in a different set, in case the mood's right this time. */
     private fun setSecondChance(taste: Taste): Pair<List<Track>, String>? {
         val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
-        val pool = rows.filter { (_, sk, full) -> sk >= 3 && sk >= full }.map { (t, _, _) -> taste.mine[songKey(t)] ?: t }
+        val pool = KindRules.secondChances(rows).map { t -> taste.mine[songKey(t)] ?: t }
         val songs = pick(ok(taste, pool).shuffled(), SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
@@ -1459,7 +1459,7 @@ object Dj {
     /** Unreleased corner: songs from your Unreleased folders. */
     private fun setUnreleased(taste: Taste): Pair<List<Track>, String>? {
         val paths = runCatching { Music.local.paths }.getOrDefault(emptyMap())
-        val pool = mySongs().filter { t -> (paths[t.file ?: ""] ?: t.file ?: "").contains("unreleased", ignoreCase = true) }
+        val pool = mySongs().filter { t -> KindRules.unreleased(paths[t.file ?: ""] ?: t.file ?: "") }
         val songs = pick(ok(taste, pool).shuffled(), SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
