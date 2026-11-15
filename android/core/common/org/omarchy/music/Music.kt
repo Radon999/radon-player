@@ -232,7 +232,6 @@ object Music {
 
     private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
-    private var downloading = false
     var downloadNote by mutableStateOf("")   // "Downloading in FLAC · 3 of 40" while a Download runs
         private set
     private var syncAgain = false
@@ -1209,54 +1208,15 @@ object Music {
     }
 
     // ---- downloads ----
-    fun download(tracks: List<Track>, checked: Boolean = false) {
-        val waiting = downloads.map { it.id }.toSet()
-        if (tracks.isNotEmpty() && tracks.all { it.source == SoundCloud.KEY }) { toast("SoundCloud songs can't be downloaded: they only stream"); return }
-        val new = tracks.filter { !it.isFile && !lib.has(it.id) && it.id !in waiting && it.source != SoundCloud.KEY }
-        if (new.isEmpty()) { toast("Those are downloaded already"); return }
-        if (!checked && dupeAction != "keep") {
-            val dupes = new.mapNotNull { t -> copiesOf(t).takeIf { it.isNotEmpty() }?.let { t to it } }
-            if (dupes.isNotEmpty()) {
-                if (dupeAction == "replace") dupes.forEach { (t, c) -> replaceAfter[t.id] = c }
-                else { dupePrompt = new to dupes; return }
-            }
-        }
-        downloads = downloads + new
-        toast("Downloading ${new.size} song${if (new.size != 1) "s" else ""} ${downloadQualityNote()}" + if (Remote.active) " to this phone" else "")
-        savedVersion++
-        if (!downloading) downloadNext()
-    }
+    // Download (which songs are new, the asking about copies, the songs waiting saved together) is Downloads' own.
+    fun download(tracks: List<Track>, checked: Boolean = false) = Downloads.start(tracks, checked)
 
-    private fun downloadNext() {
-        if (downloads.isEmpty()) {
-            if (downloading) Tagger.resume()   // the songs that came in are tagged together now
-            downloading = false; downloadNote = ""; savedVersion++; musicVersion++; return
-        }
-        if (!downloading) Tagger.pause()
-        downloading = true
-        val batch = downloads
-        downloadNote = "Downloading · 0 of ${batch.size}"
-        bg({ dl.sync(batch, force = true, workers = Downloader.SONGS_AT_ONCE) { n -> scope.launch { savedVersion++; downloadNote = "Downloading · $n of ${batch.size}" } } }) { out, err ->
-            downloads = downloads.filter { d -> batch.none { it.id == d.id } }
-            toast(out?.summary() ?: "Couldn't download: ${err?.message?.take(90)}")
-            downloadNext()
-        }
-    }
+    /** Your copies of a download, to put away once it's in (Copies: replace). Asked from other threads too. */
+    internal fun replaceLater(id: String, copies: List<Track>) { synchronized(replaceAfter) { replaceAfter[id] = copies } }
 
     fun saveCurrent() { current()?.let { download(listOf(it)) } }
 
-    /** Why the song playing can't be downloaded now, in a few words; "" when it can (a streamed song you don't have).
-     *  The Download button in the notification and on the lock screen is only there when it can. */
-    fun downloadNowNote(): String {
-        val t = current() ?: return "nothing is playing"
-        return when {
-            t.isFile -> "it is your own file"
-            lib.has(t.id) -> "it is downloaded already"
-            downloads.any { it.id == t.id } -> "it is being downloaded"
-            t.source == SoundCloud.KEY -> "SoundCloud songs only stream"
-            else -> ""
-        }
-    }
+    fun downloadNowNote(): String = Downloads.nowNote()
 
     /** Settings › Downloads › Quality: "flac24", "flac16" or "mp3" (320 kbps). */
     var downloadQuality by mutableStateOf("flac24")
@@ -1273,12 +1233,7 @@ object Music {
         private set
     fun chooseStreamQuality(q: String) { streamQuality = q; Prefs.setText("stream_quality", q); dl.forgetStreams() }
 
-    /** How downloads come now, for a toast: "in FLAC (hi-res where Tidal has it)", "from YouTube"… */
-    fun downloadQualityNote(): String = if (!tidal.connected) "from YouTube, its best (Opus 160 kbps; Tidal isn't connected)" else when (downloadQuality) {
-        "flac16" -> "in FLAC 16-bit"
-        "mp3" -> if (CAN_MP3) "in MP3 320 kbps" else "at 320 kbps (AAC)"
-        else -> "in FLAC (hi-res where Tidal has it)"
-    }
+    fun downloadQualityNote(): String = Downloads.qualityNote()
 
     // ---- copies of a song ----
     private var copyIndex: Pair<Triple<Int, Int, Double>, Map<String, List<Track>>>? = null
@@ -1301,7 +1256,7 @@ object Music {
         if (dupeAction == "keep" || lib.has(t.id)) return true
         val copies = copiesOf(t)
         if (copies.isEmpty()) return true
-        if (dupeAction == "replace") { synchronized(replaceAfter) { replaceAfter[t.id] = copies }; return true }
+        if (dupeAction == "replace") { replaceLater(t.id, copies); return true }
         return false
     }
 
@@ -1372,7 +1327,7 @@ object Music {
         dupePrompt = null
         if (r == "cancel") return
         val have = dupes.map { it.first.id }.toSet()
-        if (r == "replace") dupes.forEach { (t, c) -> synchronized(replaceAfter) { replaceAfter[t.id] = c } }
+        if (r == "replace") dupes.forEach { (t, c) -> replaceLater(t.id, c) }
         download(new.filter { r != "skip" || it.id !in have }, checked = true)
     }
 
