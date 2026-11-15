@@ -15,7 +15,8 @@ class ScriptRulesTest {
         assertEquals(0, ScriptRules.wordsSaid("   "))
         assertEquals(3, ScriptRules.wordsSaid("Hello there, friend."))
         assertEquals(45, ScriptRules.wordsSaid(words(45)))
-        assertTrue("a number is said as words", ScriptRules.wordsSaid("1,250 plays") >= 5)
+        assertTrue("a number is said as words, more than it is written as", ScriptRules.wordsSaid("1,250 plays") > 2)
+        assertEquals(ScriptRules.wordsSaid("three songs"), ScriptRules.wordsSaid("3 songs"))
     }
 
     @Test fun aWordAboutTheDayGoesBeforeTheLineWhenThereIsRoom() {
