@@ -39,6 +39,8 @@ yet: every row is unverified there.
 | Per-song speed, volume, EQ | partly | A `SongSpeedsTest`, S `SongGainsTest` | Storage only |
 | Android: stays a foreground service between songs | **tried by the owner** (14 November 2026, test build 12, Bluetooth) | none (needs a phone) | Songs go on to the next with the screen off; next and previous work from the headphone buttons and the lock screen, screen off too. How long it ran with the screen off was not said: an hour's soak is still to do (Phase 11) |
 | Cast, phone remote | not yet | | |
+| **New (D17):** Download in the notification and on the lock screen, in Shuffle's place when Settings › Shuffle button in the notification is off (phone) | not yet | none (needs a phone) | Built; compiles; **not tried on a phone** (test build 14). On: as it always was |
+| PC: the switches' file saved from several threads at once | **fixed** (a fault of 3.2.28 found by the checks: two saves at one moment failed, or could leave the file half written) | P `PrefsStoreTest` | The phone keeps its switches with Android, which was never affected |
 
 **Phase 9 (the playback service), done 14 November 2026 (`68e5074`).** The queue and playback are out of `Music.kt`
 (3,868 lines before the phase, 3,289 after) with nothing behaving differently. The rules are in the shared code, each
