@@ -207,7 +207,7 @@ object Music {
 
     /** Your files to put in Android's trash (it asks you), and the songs that take their places. */
     data class TrashJob(val tracks: List<Track>, val replacements: Map<String, Track> = emptyMap(), val what: String = "")
-    private var searchBeforeLocal = "tidal"     // where the search looked before
+    internal var searchBeforeLocal = "tidal"     // where the search looked before
     var importing by mutableStateOf<String?>(null)   // an .m3u8 being read: how far
     var importReport by mutableStateOf<ImportReport?>(null)   // what the last one didn't find, to look for
     var streaming: Boolean get() = PlaybackCore.streaming; set(v) { PlaybackCore.streaming = v }
@@ -227,13 +227,12 @@ object Music {
 
     val sources = mutableStateMapOf<String, Source>()
     val sourceErrors = mutableStateMapOf<String, String>()
-    private val likes = HashMap<String, Set<String>>()
+    internal val likes = HashMap<String, Set<String>>()   // each service's liked songs (Services fills it)
 
     private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
     private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
     var downloadNote by mutableStateOf("")   // "Downloading in FLAC · 3 of 40" while a Download runs
         internal set   // Downloads' to write
-    private var syncAgain = false
 
 
     fun init(c: Ctx) {
@@ -1201,87 +1200,17 @@ object Music {
     @JvmName("chooseSource")
     fun setSource(key: String) { source = key; saveState() }
 
-    /** The source bar: a service (its library in the Library tab, its search) or "local": your own
-     *  songs, which the search looks in, with the Library tab hidden until you pick a service. */
-    fun browse(key: String) {
-        when {
-            key == "local" -> {
-                if (browseLocal) return
-                browseLocal = true
-                if (searchIn != "local") { searchBeforeLocal = searchIn; searchIn = "local" }
-            }
-            key in SOURCES -> {
-                if (!browseLocal && key == source) return
-                if (browseLocal && searchIn == "local") searchIn = searchBeforeLocal
-                browseLocal = false
-                source = key
-            }
-            else -> return
-        }
-        saveState()
-    }
+    // Which service you browse, a service coming ready, and the library sync are Services' own: these hand on.
+    fun browse(key: String) = Services.browse(key)
 
     @JvmName("chooseSearchIn")
     fun setSearchIn(key: String) { searchIn = key; saveState() }
 
-    fun setSyncSource(key: String, on: Boolean) {
-        syncSources[key] = on
-        saveState()
-        if (on) syncLibrary()
-    }
-
-    fun sourceReady(key: String, src: Source?, err: Throwable?) {
-        if (src != null) {
-            sources[key] = src
-            sourceErrors.remove(key)
-            if (src.signedIn) bg({ src.likedIds() }) { ids, _ -> if (ids != null) { likes[key] = ids; liked = likes.values.flatten().toSet() } }
-            else if (likes.remove(key) != null) liked = likes.values.flatten().toSet()
-        } else if (key !in sources) sourceErrors[key] = err?.message ?: "unavailable"
-        accountsVersion++
-        if (key == "tidal") playerReady()
-        if (key == "spotify" && src?.signedIn == true) bg({ SpotifyHistory.sync() })   // its last plays, for your Wrapped
-        syncLibrary()
-    }
-
-    fun tidalLoggedIn(redirect: String) {
-        bg({ tidal.finishLogin(redirect) }) { _, err ->
-            if (err != null) { toast("Tidal didn't accept that: ${err.message?.take(80)}"); return@bg }
-            toast("Tidal connected: everything plays in FLAC")
-            sourceReady("tidal", tidal, null)
-        }
-    }
-
-    fun tidalDisconnect() {
-        tidal.disconnect()
-        sources.remove("tidal")
-        accountsVersion++
-    }
-
-    /** Download every song in your playlists and favourites, on each service you sync, in FLAC. */
-    fun syncLibrary() {
-        if (!tidal.connected) return
-        val srcs = sources.filter { (k, s) -> s.signedIn && syncSources[k] == true && k != SoundCloud.KEY }.values.toList()   // SoundCloud's are never saved
-        if (srcs.isEmpty()) return
-        if (syncing) { syncAgain = true; return }
-        syncing = true
-        syncAgain = false
-        bg({
-            val tracks = ArrayList<Track>()
-            val seen = HashSet<String>()
-            for (s in srcs) {
-                val found = runCatching { s.libraryTracks() }.getOrNull() ?: continue
-                for (t in found) if (seen.add(t.id)) tracks += t
-                scope.launch { syncTracks = tracks.toList() }
-            }
-            dl.sync(tracks.filter { autoSaveOk(it) }) { scope.launch { savedVersion++ } }   // songs you have: not unless Copies says so
-        }) { _, err ->
-            syncing = false
-            if (err != null) toast("FLAC sync stopped: ${err.message?.take(80)}")
-            savedVersion++
-            musicVersion++
-            if (syncAgain) syncLibrary()
-        }
-    }
+    fun setSyncSource(key: String, on: Boolean) = Services.setSync(key, on)
+    fun sourceReady(key: String, src: Source?, err: Throwable?) = Services.ready(key, src, err)
+    fun tidalLoggedIn(redirect: String) = Services.tidalLoggedIn(redirect)
+    fun tidalDisconnect() = Services.tidalDisconnect()
+    fun syncLibrary() = Services.syncLibrary()
 
     // ---- what counts as played ----
 
