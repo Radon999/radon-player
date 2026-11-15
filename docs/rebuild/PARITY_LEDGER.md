@@ -179,8 +179,14 @@ they were, with what adding and importing say given names (`addedText`, `importe
 songs of playlists still to download (`toDownload`); P `YourPlaylistsTest` (a song is in a playlist once and
 SoundCloud songs stay out; a deleted playlist leaves its folders and a deleted folder keeps its playlists; a
 service's playlist is copied once and imported again only gets what's new; an unreadable one makes nothing).
-Nothing changed on purpose. Checked on Linux and Windows. **Not
-done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, downloads, the tagger's
+Nothing changed on purpose. Checked on Linux and Windows. Test build 17 (`55d195e`) holds everything up to here.
+Sixth: Download (`Downloads`, `d206e09`): which of the songs asked for are new (`newOf`), the asking about copies
+you have, the songs waiting saved a batch at a time, why the song playing can't be downloaded (`whyNot`) and how
+downloads are said to come (`qualityText`); P `DownloadsTest`. One thing changed on purpose: with Copies set to
+replace, Download noted your copies to put away without the lock the other two places take (a service's sync
+notes them from another thread); all three go through `Music.replaceLater` now. The saving itself (a real download)
+has no test: it needs the services. Checked on Linux and Windows; not in build 17. **Not
+done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
 itself has no test (it needs the network).
 
