@@ -199,7 +199,13 @@ folders can be selected, deleted, renamed and downloaded together (P `YourPlayli
 owner: the order is by track number only (a two-disc album's discs are not told apart; the tags read here carry no
 disc number); the order is the album page's (an album played from elsewhere, or by the DJ, is as before); none of
 the screens were looked at by Claude, only compiled and the rules tested. Their download without Tidal that never
-came was YouTube not being signed in (the owner's own finding; no change made). **Not
+came was YouTube not being signed in (the owner's own finding; no change made).
+
+Seventh service: copies of a song and Duplicates (`Copies`, `3ac5f8b`): telling a download is a song you have, your
+copy put away once the new one is in, a song going away for another in playlists, queue and plays, Android's trash
+asks, the Duplicates list; moved as they were, with `groupsOf` (the Duplicates list) and `swapped` (the copy kept
+takes the others' place in a playlist, once) named; P `CopiesTest`. Nothing changed on purpose. Checked on Linux and
+Windows; not in build 18. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
