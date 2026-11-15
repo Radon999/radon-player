@@ -1,7 +1,7 @@
-commit 8b118585e3eded255b4e393a0660dc07edf1c32d · run 43761018621 · Sun Nov 15 21:04:31 UTC 2026
+commit 05c4ee7455e69c0abb3bebb876e3dcaaca05efb2 · run 43763100481 · Sun Nov 15 21:26:13 UTC 2026
 TEST BUILD: made
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43761018621/artifacts/14181070464
-RUN: https://github.com/Radon999/radon-player/actions/runs/43761018621
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43763100481/artifacts/14180528982
+RUN: https://github.com/Radon999/radon-player/actions/runs/43763100481
 MPV: android/desktop/build/compose/binaries/main/app/Radon Player/app/resources/mpv.exe
 FFMPEG: android/desktop/build/compose/binaries/main/app/Radon Player/app/resources/ffmpeg.exe
 VOICE: sherpa-onnx-pocket-tts-int8-2026-01-26
@@ -21,5 +21,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 31s
+BUILD SUCCESSFUL in 4m 17s
 18 actionable tasks: 18 executed
