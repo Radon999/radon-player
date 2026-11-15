@@ -39,6 +39,7 @@ object DjDirector {
     private fun saveState() = Music.saveState()
     private val scope get() = Music.scope
     private val player get() = Music.player
+    private val cast get() = Music.cast
     private fun bitPerfectNow() = Music.bitPerfectNow()
     private fun toast(text: String) = Music.toast(text)
     private fun <T> bg(work: () -> T, done: (T?, Throwable?) -> Unit = { _, _ -> }) = Music.bg(work, done)
@@ -54,6 +55,10 @@ object DjDirector {
     private fun loadCurrent() = PlaybackCore.loadCurrent()
     private fun afterQueueChange() = PlaybackCore.afterQueueChange()
     private fun doneAdvancing() = PlaybackCore.doneAdvancing()
+    private fun next() = PlaybackCore.next()
+    private var advancing: Boolean get() = PlaybackCore.advancing; set(v) { PlaybackCore.advancing = v }
+    private val loadedFor get() = PlaybackCore.loadedFor
+    private val streaming get() = PlaybackCore.streaming
     private fun step(what: String) = PlaybackCore.step(what)
 
     // ---- what it shows, and what it plays from ----
@@ -200,10 +205,10 @@ object DjDirector {
     // ---- the next set, and switching ----
     /** You skipped (or a song ended) at the end of the DJ's queue while its next set was still being picked: it
      *  goes on to that set as soon as it's ready (never to ∞'s radio, which isn't the DJ's). */
-    internal var djWaiting = false
+    private var djWaiting = false
 
     /** Near the end of the queue: the DJ's next set after it. */
-    internal fun djMore() {
+    private fun djMore() {
         if (djBusy != null) return
         djReady()
         // A set made ahead: queued at once (its line is made already)
@@ -353,7 +358,7 @@ object DjDirector {
 
     // ---- a set begins, and a word between songs ----
     /** A set begins: its line, where you see it. */
-    internal fun djAnnounce(t: Track?) {
+    private fun djAnnounce(t: Track?) {
         val n = t?.dj?.toString() ?: return
         val set = dj.sets[n]
         if (!dj.on || set == null) return
@@ -372,7 +377,7 @@ object DjDirector {
 
     // What the DJ says before a song in the middle of a set (a milestone this play reaches, now and then something
     // about the song), worked out and its voice made while the song before it plays. "" for nothing.
-    internal val djComments = HashMap<String, String>()
+    private val djComments = HashMap<String, String>()
     private val djCommented = HashSet<String>()   // the sets (their numbers) the DJ already spoke in the middle of
 
     private fun djCommentAhead() {
@@ -417,8 +422,8 @@ object DjDirector {
     }
 
     /** How loud the music is under the DJ's voice (of its usual). */
-    internal const val DUCK = 0.25f
-    internal var ducked = false
+    private const val DUCK = 0.25f
+    private var ducked = false
     private var duckJob: kotlinx.coroutines.Job? = null
 
     /** The music turned down under the DJ (on) or back up (off), over a moment. Bit-perfect, the DAC's stream does it
@@ -468,5 +473,60 @@ object DjDirector {
         djTalking = false
         Voice.hush()
         djDuck(false)
+    }
+
+    // ---- as playback sees it ----
+    /** The DJ, as the playback service ([PlaybackCore]) sees it: all it knows of the DJ. */
+    val side: PlaybackCore.DjSide = object : PlaybackCore.DjSide {
+        override val on: Boolean get() = dj.on
+        override val talking: Boolean get() = djTalking
+        override val busy: String? get() = djBusy
+        override val musicDucked: Boolean get() = ducked
+        override val duckVolume: Float get() = DUCK
+        override fun talksBefore(t: Track, next: Track) = dj.on && djVoice && ((next.dj > 0 && next.dj != t.dj) || !djComments[next.id].isNullOrEmpty())
+        override fun otherSongsPicked() { dj = dj.copy(on = false) }
+        override fun hush() = djHush()
+        override fun songLoading(t: Track) { djAnnounce(t); if (index >= queue.size - 2) djMore() }
+        override fun queueRanOut() { djWaiting = true; if (djBusy == null) djMore() }
+        override fun songEnded() = djKeepGoing()
+    }
+
+    /** Play (the app's own, the headphones, the car, the lock screen, the notification), the DJ's part of it, so the DJ
+     *  is never left stuck: talking that never came, a set it was still picking, a set it hadn't introduced yet.
+     *  True: the DJ saw to it; false: Play does what it always does. */
+    fun djPlay(p: Engine): Boolean {
+        if (djTalking) djHush()   // she stops; the music (never stopped for her) carries on
+        if (dj.on && current() != null && p.state == Engine.ENDED && index + 1 >= queue.size) {
+            djWaiting = true; advancing = true; if (djBusy == null) djMore(); return true
+        }
+        // A new set that never got its line (the skip landed while it was loading): its line, then the song
+        current()?.dj?.takeIf { it > 0 && dj.on && it.toString() != dj.shown && dj.sets[it.toString()] != null }?.let {
+            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else { djAnnounce(current()); p.play() }
+            return true
+        }
+        return false
+    }
+
+    /** The DJ never just stops after a song: if, a few seconds after one ran out, the player is still at an end (the
+     *  next set being picked never came, a stream couldn't be got back, the next song never started), with no line
+     *  being said and no set still being picked, on it goes: the next song (a new set at the end of the queue), or the
+     *  song it moved to, loaded again. A pause mid-song is yours, and is left alone. */
+    private fun djKeepGoing() {
+        val at = index
+        scope.launch(Dispatchers.Main) {
+            for (i in 0 until 8) {
+                delay(5000)
+                val p = player ?: return@launch
+                if (!dj.on || Remote.active || cast != null) return@launch
+                if (djTalking || djBusy != null) continue   // a line being said, or the next set being picked: more time
+                if (index != at && loadedFor != current()?.id && i < 7) continue   // the next song still being got (a slow stream)
+                if (index == at && streaming && i < 2) continue   // a stream that broke being got back
+                if (!(p.state == Engine.ENDED || p.state == Engine.IDLE || !p.hasItem)) return@launch   // playing, or paused by you
+                step("the DJ's watchdog went on (state ${p.state}, hasItem ${p.hasItem})")
+                Crashes.note("DJ: the music had stopped after a song (${if (index == at) "still on it" else "the next one hadn't started"}); went on")
+                if (index == at) next() else loadCurrent()
+                return@launch
+            }
+        }
     }
 }

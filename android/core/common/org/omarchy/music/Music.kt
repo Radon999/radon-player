@@ -25,21 +25,9 @@ object Music {
     // An error in one of the app's jobs is noted (Settings › Problems) and the app keeps going, music and all.
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + kotlinx.coroutines.CoroutineExceptionHandler { _, e -> Crashes.caught(e) })
 
-    // The DJ, as the playback service (PlaybackCore) sees it: all it knows of the DJ
+    // The DJ, as the playback service (PlaybackCore) sees it: all it knows of the DJ (DjDirector answers)
     init {
-        PlaybackCore.djSide = object : PlaybackCore.DjSide {
-            override val on: Boolean get() = dj.on
-            override val talking: Boolean get() = djTalking
-            override val busy: String? get() = djBusy
-            override val musicDucked: Boolean get() = ducked
-            override val duckVolume: Float get() = DUCK
-            override fun talksBefore(t: Track, next: Track) = dj.on && djVoice && ((next.dj > 0 && next.dj != t.dj) || !djComments[next.id].isNullOrEmpty())
-            override fun otherSongsPicked() { dj = dj.copy(on = false) }
-            override fun hush() = djHush()
-            override fun songLoading(t: Track) { djAnnounce(t); if (index >= queue.size - 2) djMore() }
-            override fun queueRanOut() { djWaiting = true; if (djBusy == null) djMore() }
-            override fun songEnded() = djKeepGoing()
-        }
+        PlaybackCore.djSide = DjDirector.side
     }
 
     lateinit var lib: Library
@@ -996,12 +984,6 @@ object Music {
     val djVoice get() = DjDirector.djVoice
     fun chooseDjVoice(on: Boolean) = DjDirector.chooseDjVoice(on)
     val djTalking: Boolean get() = DjDirector.djTalking
-    private val DUCK get() = DjDirector.DUCK
-    private val ducked get() = DjDirector.ducked
-    private fun djAnnounce(t: Track?) = DjDirector.djAnnounce(t)
-    private val djComments get() = DjDirector.djComments
-    private var djWaiting: Boolean get() = DjDirector.djWaiting; set(v) { DjDirector.djWaiting = v }
-    private fun djMore() = DjDirector.djMore()
     private var loadedFor: String? get() = PlaybackCore.loadedFor; set(v) { PlaybackCore.loadedFor = v }   // the song the player has in now (its id)
 
     /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
@@ -1009,15 +991,7 @@ object Music {
     fun sessionPlay() {
         if (Remote.active) { Remote.cmd("play"); return }
         val p = player ?: return
-        if (djTalking) djHush()   // she stops; the music (never stopped for her) carries on
-        if (dj.on && current() != null && p.state == Engine.ENDED && index + 1 >= queue.size) {
-            djWaiting = true; advancing = true; if (djBusy == null) djMore(); return
-        }
-        // A new set that never got its line (the skip landed while it was loading): its line, then the song
-        current()?.dj?.takeIf { it > 0 && dj.on && it.toString() != dj.shown && dj.sets[it.toString()] != null }?.let {
-            if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else { djAnnounce(current()); p.play() }
-            return
-        }
+        if (DjDirector.djPlay(p)) return   // the DJ's part of Play: it is never left stuck
         if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
     }
 
@@ -2534,29 +2508,6 @@ object Music {
     fun engineEnded() = PlaybackCore.engineEnded()
 
     fun trackEnded() = PlaybackCore.trackEnded()
-
-    /** The DJ never just stops after a song: if, a few seconds after one ran out, the player is still at an end (the
-     *  next set being picked never came, a stream couldn't be got back, the next song never started), with no line
-     *  being said and no set still being picked, on it goes: the next song (a new set at the end of the queue), or the
-     *  song it moved to, loaded again. A pause mid-song is yours, and is left alone. */
-    private fun djKeepGoing() {
-        val at = index
-        scope.launch(Dispatchers.Main) {
-            for (i in 0 until 8) {
-                delay(5000)
-                val p = player ?: return@launch
-                if (!dj.on || Remote.active || cast != null) return@launch
-                if (djTalking || djBusy != null) continue   // a line being said, or the next set being picked: more time
-                if (index != at && loadedFor != current()?.id && i < 7) continue   // the next song still being got (a slow stream)
-                if (index == at && streaming && i < 2) continue   // a stream that broke being got back
-                if (!(p.state == Engine.ENDED || p.state == Engine.IDLE || !p.hasItem)) return@launch   // playing, or paused by you
-                step("the DJ's watchdog went on (state ${p.state}, hasItem ${p.hasItem})")
-                Crashes.note("DJ: the music had stopped after a song (${if (index == at) "still on it" else "the next one hadn't started"}); went on")
-                if (index == at) next() else loadCurrent()
-                return@launch
-            }
-        }
-    }
 
     fun cycleRepeat() = PlaybackCore.cycleRepeat()
 
