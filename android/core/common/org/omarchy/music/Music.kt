@@ -154,7 +154,7 @@ object Music {
     var artistSort by mutableStateOf("most")   // an artist's page: their songs by most played, least, title, album, newest
     var skipOrder by mutableStateOf("most")    // how Skips is sorted: most, least, heard
     var topMineOnly by mutableStateOf(true)   // Most played: only the songs on the phone (plays from everywhere)
-    fun chooseTopMineOnly(on: Boolean) { topMineOnly = on; mostPlayedFor = null; musicVersion++; saveState() }
+    fun chooseTopMineOnly(on: Boolean) { topMineOnly = on; MostPlayed.forget(); musicVersion++; saveState() }
     var skipPeriod by mutableStateOf("all")    // …and over which time: week, month, year, all
     var bitPerfect by mutableStateOf(false)    // the DAC gets each song as it is: no EQ, no song volume, no speed
     var replayGain by mutableStateOf("off")    // off, track or album: the files' ReplayGain tags (not in bit-perfect)
@@ -606,11 +606,6 @@ object Music {
     }
 
     // ---- most played ----
-    private var mostPlayedFor: List<Stats.Song>? = null
-    private var mostPlayedMade = listOf<Track>()
-
-    /** The Music tab's Most played: every play added up (see [Stats]): Last.fm's, your Spotify
-     *  history's and, without Last.fm, the plays here. Until the counts are in, the plays here stand in. */
     var showDiscoveryLists by mutableStateOf(false)   // Playlists: the discovery playlists unfolded
     var topKind by mutableStateOf("songs")     // Most played: songs, or albums
     fun chooseTopKind(k: String) { topKind = k; saveState() }
@@ -678,76 +673,14 @@ object Music {
     }
     fun chooseCollageSize(n: Int) { if (n != collageSize) { collageSize = n; saveState() } }
 
-    data class TopArtist(val name: String, val plays: Int, val thumb: String)
-
-    /** Most played artists over a period: every play of theirs (every source with a time), by lead artist. All time: the Artists tab's. */
-    fun topArtists(period: String = "all"): List<TopArtist> {
-        if (period == "all") return Stats.artists.map { TopArtist(it.name, it.plays, it.thumb) }
-        val out = LinkedHashMap<String, TopArtist>()
-        val called = HashMap<String, HashMap<String, Int>>()
-        val resolve = runCatching { artistResolver() }.getOrDefault { c: String -> c }
-        for (s in Stats.periods[period].orEmpty()) {
-            val lead = resolve(s.artist).ifEmpty { splitArtists(s.artist).firstOrNull() ?: s.artist }
-            val k = resolvedKey(lead)
-            val x = out[k]
-            out[k] = if (x == null) TopArtist(lead, s.plays, s.thumb) else x.copy(plays = x.plays + s.plays, thumb = x.thumb.ifEmpty { s.thumb })
-            called.getOrPut(k) { HashMap() }.merge(lead, s.plays, Int::plus)
-        }
-        // "Quinn XCII & Jeremy Zucker" is Quinn XCII's: named as they are on their own.
-        return out.map { (k, x) -> x.copy(name = called[k]?.maxByOrNull { it.value }?.key ?: x.name) }.sortedByDescending { it.plays }
-    }
-
-    data class TopAlbum(val key: String, val title: String, val artist: String, val plays: Int, val tracks: List<Track>)
-
-    /** Most played albums: Most played's songs (the same period, the same "only songs on this phone") added up by album. */
-    fun topAlbums(period: String = "all"): List<TopAlbum> {
-        // An album and its deluxe, extended or anniversary edition are one, under the edition's name; an album split
-        // by featured artists ("half•alive & The Walters") is one; a single's plays count for the album it's on, when
-        // you have that album's copy of the song. The desktop's top_albums.
-        class G(val key: String) { val names = HashMap<String, Int>(); val credits = HashMap<String, Int>(); var plays = 0
-            val tracks = LinkedHashMap<Pair<String, String>, Track>() }
-        val songs = mostPlayed(period)
-        if (songs.isNotEmpty() && YourCopies.localCopies.isEmpty()) songIndex()
-        val groups = LinkedHashMap<String, G>()
-        for (t in songs) {
-            var album = t.album.trim(); var credit = t.artist
-            if (album.isEmpty()) continue
-            val sk = Stats.statsKey(t.title, t.artist)
-            if (isSingle(album, t.title)) YourCopies.localCopies[sk].orEmpty().firstOrNull { it.album.isNotBlank() && !isSingle(it.album, it.title) }?.let {
-                album = it.album.trim(); credit = it.artist
-            }
-            val (base, edition) = albumEdition(album)
-            val key = norm(cleanTitle(albumWithoutPart(base))) + "|" + artistKey(credit)   // its parts (Pt. 1, Pt. 2) one too
-            val g = groups.getOrPut(key) { G(key) }
-            g.names.merge(album, 1 + if (edition.isNotEmpty()) 1000 else 0, Int::plus)
-            g.credits.merge(splitArtists(credit).firstOrNull()?.ifEmpty { null } ?: credit, 1, Int::plus)
-            g.plays += t.plays
-            g.tracks[sk] = g.tracks[sk]?.let { it.copy(plays = it.plays + t.plays) } ?: t   // the same song on both editions: one
-        }
-        return groups.values.map { g ->
-            TopAlbum(g.key, g.names.maxByOrNull { it.value }!!.key, soloName(g.credits), g.plays, g.tracks.values.toList())
-        }.sortedByDescending { it.plays }
-    }
     var topPeriod by mutableStateOf("all")      // Most played over: week, month, year, all
-    fun chooseTopPeriod(p: String) { topPeriod = p; mostPlayedFor = null; musicVersion++; saveState() }
+    fun chooseTopPeriod(p: String) { topPeriod = p; MostPlayed.forget(); musicVersion++; saveState() }
 
-    fun mostPlayed(period: String = "all"): List<Track> {
-        val counts = if (period == "all") Stats.songs else Stats.periods[period] ?: emptyList()
-        if (Stats.songs.isEmpty()) return if (period == "all") plays.top(Int.MAX_VALUE) else emptyList()   // Most played: every song
-        if (counts !== mostPlayedFor) {
-            val mine = songIndex()
-            // Two names for one song of yours (a remaster's, a feat.'s): one row, its plays added up.
-            val at = LinkedHashMap<String, Track>()
-            for (c in counts) {
-                val t = fmSong(c.title, c.artist, c.thumb, mine, c.album)
-                at[t.id] = at[t.id]?.let { it.copy(plays = it.plays + c.plays) } ?: t.copy(plays = c.plays)
-            }
-            mostPlayedMade = at.values.filter { !topMineOnly || it.isFile || lib.has(it.id) }.sortedByDescending { it.plays }
-            mostPlayedFor = counts
-        }
-        return mostPlayedMade
-    }
-    val mostPlayedFromStats get() = Stats.songs.isNotEmpty() && (LastFm.connected || SpotifyHistory.count > 0 || OtherPlays.count > 0 || AppleHistory.count > 0)
+    // Most played's lists (the songs, artists and albums of a period) are MostPlayed's own: these hand on.
+    fun topArtists(period: String = "all"): List<MostPlayed.TopArtist> = MostPlayed.artists(period)
+    fun topAlbums(period: String = "all"): List<MostPlayed.TopAlbum> = MostPlayed.albums(period)
+    fun mostPlayed(period: String = "all"): List<Track> = MostPlayed.songs(period)
+    val mostPlayedFromStats get() = MostPlayed.fromStats
 
     // Your copy of a song (which of your files a song named anywhere is) is YourCopies' own: these hand on.
     fun songIndex(): Map<Pair<String, String>, Track> = YourCopies.songIndex()

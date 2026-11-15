@@ -1640,7 +1640,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.topAlbumsItems(ui: Ui) {
         Section(if (albums.isEmpty()) "NO ALBUMS PLAYED IN THIS TIME" else "${albums.size} ALBUMS · MOST PLAYED FIRST")
         LaunchedEffect(albums.size, Music.topPeriod) { TopArt.lookUp { albums.map { TopArt.album(it.title, it.artist, it.tracks) } } }
     }
-    fun open(al: Music.TopAlbum) {
+    fun open(al: MostPlayed.TopAlbum) {
         ui.pages += Ui.Page.AlbumPage(Album("top-" + al.key, al.title, al.artist, al.tracks.first().thumb), "local", al.tracks)
     }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
