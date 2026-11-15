@@ -105,7 +105,7 @@ DJ stopped leaves the music playing; nothing written to Problems. Judged by what
 | Stale "more like" (C-2) | not yet | | Needs a service stand-in |
 | Three sets kept ready; Switch it up is instant | not yet | | |
 | Ask for something | partly | A `DjTest` | Words only |
-| Each of the 26 kinds of set: its own rule | not yet | | Most need a listening history stand-in |
+| Each kind of set: its own rule | partly | P `DjKindsTest` (On repeat, streaks, this time of day, on this day, throwback: each picks only the songs its rule is about, from a listening history of the test's own; none of the last three from no listening) | `Dj.historyStandIn` stands in for Last.fm and the imports (null in the app). Also covered elsewhere: one-hit wonders, mix, not played yet. Not yet: the kinds that go by Most played (rediscover, most played, favourites: need a stand-in for `Stats`), by skips (not skipped, second chances), by the files' tags (decade, album, genre, unreleased), by moods, and the kinds of new songs (need a stand-in for the services) |
 | Mood arc, artist spread | covered | S `SetRulesTest` (building up from a calm first song, easing down from a loud one, a song with no mood in the middle; no artist twice in a row, two of an artist at most but in an artist's own set) | The rules are `SetRules.arc` and `SetRules.spread` in the shared code |
 | The DJ never stalls (`djKeepGoing`) | not yet | | |
 | Facts and milestones | not yet | | |
