@@ -167,9 +167,15 @@ counts. Third: discovery playlists (`Discoveries`, `220c48e`): the pairs, making
 releases you pick, a song heard to the end moving to the discovered one, the review. Moved as it was, with the two
 rules that were inside other functions given names (`notYours`: the artist's songs you haven't got, album by
 album, then their top songs, none twice; `keep`: the pair made once, the songs added); P `DiscoveriesTest`. Checked
-on Linux and Windows. **Not done:** every other service in the plan's row 13 (the streaming sources' part of
-`Music`, downloads, the tagger's part, sync, the remote, the rest of playlists (your own, folders, importing a
-service's), an album's missing songs, favourites, the equalizer); not run in the real PC app or on a phone.
+on Linux and Windows. Fourth: an album's songs you haven't got (`AlbumMissing`, `e8b9686`): the tracklist read
+from Deezer and Download missing tracks…; its rules are `MissingSongs` in the shared code (a release's name without
+its kind; which listed songs aren't among yours, by name, then by length), S `MissingSongsTest`. Two things changed
+on purpose: a listed song named with "&" is your song named with "and" (3.2.28 meant this, but swapped the "&"
+after the name was tidied, when it was gone already; such a song was only told by its length); and the tracklists
+read already are kept in a map safe to read from several album pages at once. Checked on Linux and Windows. **Not
+done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, downloads, the tagger's
+part, sync, the remote, the rest of playlists (your own, folders, importing a service's), favourites, the
+equalizer); not run in the real PC app or on a phone; the Deezer lookup itself has no test (it needs the network).
 
 **Phase 7 (what your listening adds up to), first part, 14 November 2026.** The counting that the DJ's sets and facts
 are made from is out of `Dj.kt`: `TasteRules.count` in the shared code, the same loop as it was, now tested alone (S
