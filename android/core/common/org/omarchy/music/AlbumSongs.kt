@@ -34,9 +34,32 @@ object AlbumSongs {
     /** (blocking) An album page's songs now, in order. was: the songs it opened with. An album of yours (its id is one
      *  of [Music.albums]') is read again from your songs, so a song downloaded since is in it and one deleted is gone;
      *  any other list of songs keeps its songs. reread (Refresh): the track numbers are read from the files again. */
-    fun now(albumId: String, was: List<Track>, reread: Boolean = false): List<Track> {
-        val songs = if (albumId.startsWith("album:")) runCatching { Music.albums().firstOrNull { it.first.id == albumId }?.second }.getOrNull() ?: was else was
+    fun now(albumId: String, was: List<Track>, reread: Boolean = false): List<Track> = current(albumId, was, reread).second
+
+    /** (blocking) The same, with the album as it is named now (null: as it was). An album whose name or artist you
+     *  changed since (the Tagger) is another album by its id: it is found again by its songs ([follow]), so its page
+     *  shows the new names at once. */
+    fun current(albumId: String, was: List<Track>, reread: Boolean = false): Pair<Album?, List<Track>> {
+        val hit = if (!albumId.startsWith("album:")) null else runCatching {
+            val all = Music.albums()
+            all.firstOrNull { it.first.id == albumId } ?: follow(all, was)
+        }.getOrNull()
+        val songs = hit?.second ?: was
         if (reread) songs.forEach { t -> fileOf(t)?.let { numbers.remove(it); discs.remove(it) } }
-        return inOrder(songs)
+        return hit?.first to inOrder(songs)
+    }
+
+    /** Of your albums as they are now, the one the songs (was) are in: the album holding most of those very songs;
+     *  else (their files moved, so they are other songs to the app) the album with most songs named as they are, if
+     *  it still has the name or the artist it had. Null when none does. */
+    fun follow(all: List<Pair<Album, List<Track>>>, was: List<Track>): Pair<Album, List<Track>>? {
+        if (was.isEmpty()) return null
+        val ids = was.mapTo(HashSet()) { it.id }
+        all.map { g -> g to g.second.count { it.id in ids } }.filter { it.second > 0 }.maxByOrNull { it.second }?.let { return it.first }
+        val titles = was.mapTo(HashSet()) { SameArtist.title(it.title) }
+        val albumWas = albumBase(was[0].album); val artistWas = norm(was[0].artist.split(",")[0])
+        return all.filter { g -> g.second.firstOrNull()?.let { albumBase(it.album) == albumWas || norm(it.artist.split(",")[0]) == artistWas } == true }
+            .map { g -> g to g.second.count { SameArtist.title(it.title) in titles } }
+            .filter { it.second * 2 >= was.size && it.second > 0 }.maxByOrNull { it.second }?.first
     }
 }

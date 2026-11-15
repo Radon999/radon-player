@@ -1190,6 +1190,7 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
     // Refresh (the pill under its name) reads it again; an album of yours also reads itself again as your music
     // changes, so a missing song you download comes in at its place.
     var reload by remember(page) { mutableStateOf(0) }
+    var shown by remember(page) { mutableStateOf(page.album) }   // the album as it is named now (its tags may change while its page is open)
     var said by remember(page) { mutableStateOf(0) }   // the last Refresh that was answered ("… is up to date")
     val local = page.source == "local" && page.tracks != null
     LaunchedEffect(page, reload, if (local) Music.musicVersion else 0) {
@@ -1209,21 +1210,21 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
         // Yours: its songs as they are now, by track number; then what's missing from it
         val reread = asked > said
         Music.bg({
-            val now = org.omarchy.music.AlbumSongs.now(page.album.id, was, reread = reread)
-            now to if (now.isEmpty()) emptyList() else runCatching { Music.albumMissing(page.album.title, artist, now, kind) }.getOrDefault(emptyList())
+            val (al, now) = org.omarchy.music.AlbumSongs.current(page.album.id, was, reread = reread)
+            Triple(al, now, if (now.isEmpty()) emptyList() else runCatching { Music.albumMissing(al?.title ?: page.album.title, now.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: artist, now, kind) }.getOrDefault(emptyList()))
         }) { res, _ ->
-            if (res != null) { tracks = res.first; missing = res.second }
+            if (res != null) { res.first?.let { shown = it }; tracks = res.second; missing = res.third }
             done()
         }
     }
     LazyColumn(Modifier.fillMaxSize()) {
-        item { BackRow(page.album.title) { ui.pages.removeAt(ui.pages.lastIndex) } }
+        item { BackRow(shown.title) { ui.pages.removeAt(ui.pages.lastIndex) } }
         item {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                ArtImage(page.album.thumb.ifEmpty { null } ?: page.tracks?.firstOrNull()?.let { artModel(it) }, 96.dp)
+                ArtImage(page.album.thumb.ifEmpty { null } ?: (tracks ?: page.tracks)?.firstOrNull()?.let { artModel(it) }, 96.dp)
                 Column(Modifier.padding(start = 12.dp)) {
-                    Text(page.album.title, style = T.title.copy(fontSize = T.title.fontSize * 1.2f))
-                    if (page.album.sub.isNotEmpty()) Text(page.album.sub, style = T.sub)
+                    Text(shown.title, style = T.title.copy(fontSize = T.title.fontSize * 1.2f))
+                    if (shown.sub.isNotEmpty()) Text(shown.sub, style = T.sub)
                 }
             }
         }
@@ -1234,8 +1235,8 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
         }
         val t = tracks
         if (t == null) item { Section("LOADING…") } else {
-            item { ListActions(t, onDj = { ui.djFrom(Dj.From("songs", name = page.album.title, songs = t)) },
-                pin = if (page.source.isEmpty()) null else org.omarchy.music.Pin("album", page.album.id, page.album.title, page.album.sub, page.album.thumb, page.source)) }
+            item { ListActions(t, onDj = { ui.djFrom(Dj.From("songs", name = shown.title, songs = t)) },
+                pin = if (page.source.isEmpty()) null else org.omarchy.music.Pin("album", shown.id, shown.title, shown.sub, shown.thumb, page.source)) }
             tracks(t, ui, "album")
             if (missing.isNotEmpty()) {
                 item { Section("MISSING FROM THIS ${if (kind == "ep") "EP" else "ALBUM"} · ${missing.size}") }
