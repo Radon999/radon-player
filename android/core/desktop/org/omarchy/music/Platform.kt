@@ -151,7 +151,9 @@ class PrefsStore(ctx: Ctx, name: String) {
         return values.toMap()
     }
 
-    fun put(key: String, v: Any) {
+    /** One at a time: two threads saving a switch at the same moment wrote the same temporary file, and one of them
+     *  failed (or the file was left half written). The file always has the newest of every value. */
+    @Synchronized fun put(key: String, v: Any) {
         values[key] = v
         val o = kotlinx.serialization.json.JsonObject(values.mapValues { (_, x) ->
             when (x) { is Boolean -> kotlinx.serialization.json.JsonPrimitive(x); is Number -> kotlinx.serialization.json.JsonPrimitive(x)
