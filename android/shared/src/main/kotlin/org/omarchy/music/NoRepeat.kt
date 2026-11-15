@@ -33,6 +33,20 @@ object NoRepeat {
         return order(distinct, history, window(max, distinct.size, 1), rng).first()
     }
 
+    /** One of keys, with its subject taking turns: first the subject (topicOf a key: skips, moods, an artist…) is
+     *  picked, none of the last topicMax subjects told (as far as there are others), the one told longest ago when all
+     *  were; then a key of that subject, none of the last max keys. So with six things to say about skips and one
+     *  about genres, skips still come round only once in a turn of subjects. Null when keys is empty. */
+    fun pickTurn(keys: List<String>, history: List<String>, topicOf: (String) -> String, max: Int, topicMax: Int = 8,
+                 rng: Random = Random.Default): String? {
+        val distinct = keys.distinct()
+        if (distinct.isEmpty()) return null
+        val topics = distinct.map(topicOf).distinct()
+        val topic = order(topics, history.map(topicOf), window(topicMax, topics.size, 1), rng).first()
+        // Within the subject, by what was said of it (the other subjects' tellings in between don't count as time passed)
+        return pick(distinct.filter { topicOf(it) == topic }, history.filter { topicOf(it) == topic }, max, rng)
+    }
+
     /** history with key added at the end, only the last keep kept. */
     fun remember(history: List<String>, key: String, keep: Int = 40): List<String> = (history + key).takeLast(keep)
 

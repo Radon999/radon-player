@@ -1102,10 +1102,73 @@ object Dj {
             }
         }
         if (skips + outs >= 100) out["heard-out"] = "You hear ${outs * 100 / (skips + outs)} percent of songs all the way through."
-        val key = NoRepeat.pick(out.keys.toList(), said(FACT_HISTORY), NO_REPEAT) ?: return@runCatching null
+        collectionFacts(taste, nowS, next, out)
+        // The subjects take turns (FactTopics): skips, moods, an artist, your collection… each waits for the others
+        val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return@runCatching null
         remember(FACT_HISTORY, key)
         out.getValue(key)
     }.getOrNull()
+
+    /** Facts about your collection and the songs coming up in it: how big it is and how long it would play, who you
+     *  have most of, its longest song, its albums and genres, what you added lately and haven't played yet, your
+     *  starred songs and your playlists, last year's plays; and of a song coming up, how long since you played it, how
+     *  many songs of its artist, its album and its genre you have, and that you starred it. Into out, by key. */
+    private fun collectionFacts(taste: Taste, nowS: Long, next: List<Track>, out: MutableMap<String, String>) {
+        val f = taste.facts
+        val mine = runCatching { mySongs() }.getOrDefault(emptyList())
+        fun lead(t: Track) = t.artist.split(",")[0].trim()
+        val byArtist = mine.groupingBy { lead(it) }.eachCount().filterKeys { it.isNotEmpty() && !it.equals("Unknown artist", true) }
+        val genres = mine.map { genreOf(it) }.filter { it.isNotBlank() && !it.equals("Unknown genre", true) }.groupingBy { it }.eachCount()
+        if (mine.size >= 50) {
+            out["library-size"] = say("fact-library-size",
+                "Your collection holds ${num(mine.size)} songs by ${num(byArtist.size)} artists.",
+                "${num(mine.size)} songs in your collection, from ${num(byArtist.size)} artists.")
+            val secs = mine.sumOf { it.duration }
+            if (secs >= 36_000) out["library-hours"] = "Played end to end, your collection would run about ${num((secs / 3600).toInt())} hours."
+            byArtist.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (a, n) ->
+                out["library-artist"] = "You have more songs by $a than by anyone else. ${num(n)} of them."
+            }
+            mine.filter { it.duration >= 420 }.maxByOrNull { it.duration }?.let { t ->
+                out["library-longest"] = "The longest song in your collection is ${q(t)} by ${by(t)}, at ${(t.duration / 60).toInt()} minutes."
+            }
+            val albums = mine.filter { it.album.isNotBlank() }.map { norm(lead(it)) to albumBase(it.album) }.distinct().size
+            if (albums >= 20) out["library-albums"] = "There are ${num(albums)} albums and singles in your collection."
+            val unplayed = mine.count { (f.count[Stats.statsKey(it.title, it.artist)] ?: 0) == 0 }
+            if (f.total >= 200 && unplayed >= 10) out["library-unplayed"] = "${num(unplayed)} songs in your collection are still waiting for a first play."
+            val added = mine.count { it.added > 0 && nowS - it.added < 30 * 86_400L }
+            if (added >= 5) out["library-added"] = "You've added ${num(added)} songs to your collection in the last month."
+            genres.maxByOrNull { it.value }?.takeIf { it.value >= 20 }?.let { (g, n) -> out["library-genre"] = "The genre you own the most of is $g. ${num(n)} songs." }
+            if (genres.size >= 8) out["library-genres"] = "Your collection covers ${num(genres.size)} genres."
+        }
+        val starred = runCatching { mine.count { Music.favorites.has(it) } }.getOrDefault(0)
+        if (starred >= 5) out["favorites-count"] = "You've starred ${num(starred)} songs in your collection."
+        runCatching { Music.lists.all().filter { it.discovery == null } }.getOrNull()?.takeIf { it.size >= 3 }?.let { lists ->
+            val big = lists.maxByOrNull { it.tracks.size }
+            out["playlists"] = if (big != null && big.tracks.size >= 10) "You keep ${num(lists.size)} playlists. The biggest is ${big.name}, with ${num(big.tracks.size)} songs."
+                else "You keep ${num(lists.size)} playlists."
+        }
+        val thisYear = java.time.LocalDate.now().year
+        f.yearPlays[thisYear - 1]?.takeIf { it >= 100 }?.let { n -> out["year-plays:${thisYear - 1}"] = "Last year you played ${num(n)} songs." }
+        f.yearPlays[thisYear]?.takeIf { it >= 100 }?.let { n -> out["year-so-far"] = "${num(n)} plays so far this year." }
+        // The songs coming up
+        for (s in next.take(4)) {
+            val k = Stats.statsKey(s.title, s.artist)
+            val id = "${k.first}|${k.second}"
+            lastPlayed(taste, s).takeIf { it > 0 && nowS - it > 180 * 86_400L }?.let { t ->
+                out["last-played:$id"] = "You haven't played ${q(s)} since ${month(t)}. It's in this set."
+            }
+            val a = lead(s)
+            byArtist[a]?.takeIf { it >= 8 }?.let { n -> out["artist-songs:$a"] = "You have ${num(n)} songs by $a in your collection." }
+            if (s.album.isNotBlank()) {
+                val base = albumBase(s.album)
+                val n = mine.count { norm(lead(it)) == norm(a) && albumBase(it.album) == base }
+                if (n >= 4) out["album-have:${norm(a)}|$base"] = "${q(s)} is from ${s.album.trim()}. You have ${num(n)} songs from that album."
+            }
+            val g = genreOf(s)
+            genres[g]?.takeIf { it >= 10 }?.let { n -> out["genre-song:$id"] = "${q(s)} is one of ${num(n)} $g songs you have." }
+            if (runCatching { Music.favorites.has(s) }.getOrDefault(false)) out["favorite:$id"] = "${q(s)} is one of the songs you've starred."
+        }
+    }
 
     /** Facts about your moods (see [MoodTally]), from every play of your songs whose mood is known: this week's and
      *  all time's top mood, a mood you've gone for more than usual this month, your go-to song in a mood, the time of
@@ -1518,7 +1581,7 @@ object Dj {
             if (days in 1..21 && n >= 5) out["c-crush:$id"] = "You found this one $days days ago, and you've played it ${num(n)} times already."
             if (days >= 730) out["c-old:$id"] = "You first played this one back in ${month(first)}."
         }
-        val key = NoRepeat.pick(out.keys.toList(), said(FACT_HISTORY), NO_REPEAT) ?: return null
+        val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return null
         remember(FACT_HISTORY, key)
         out.getValue(key)
     }.getOrNull()

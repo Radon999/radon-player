@@ -358,3 +358,32 @@ Generated mechanically from the source: every string literal of three or more wo
 | 1684 | askAll | You asked for $asked. Here's a mix of it, starting with “${songs[0].title}” by ${names(songs.take(1))}. |  | K |
 
 Totals: keep 264, light edit 3, rewrite 85.
+
+## Added 15 November 2026: facts about your collection, and subjects that take turns
+
+The owner heard the facts between songs come back to skips again and again. Two changes. The subjects now take turns
+(`FactTopics`, `NoRepeat.pickTurn`): skips, moods, an artist, time spent, a song's history, top songs, genre, when you
+listen, totals, years, your collection, an album, favorites, playlists; a subject waits until the others have had their
+turn, and within a subject the same thing is not said again until the rest of it has been. And there is more to say
+(`Dj.collectionFacts`), all in the voice of the rest (the song and the numbers, said plainly):
+
+| key | line |
+|---|---|
+| fact:library-size | Your collection holds N songs by M artists. / N songs in your collection, from M artists. |
+| fact:library-hours | Played end to end, your collection would run about N hours. |
+| fact:library-artist | You have more songs by A than by anyone else. N of them. |
+| fact:library-longest | The longest song in your collection is "S" by A, at N minutes. |
+| fact:library-albums | There are N albums and singles in your collection. |
+| fact:library-unplayed | N songs in your collection are still waiting for a first play. |
+| fact:library-added | You've added N songs to your collection in the last month. |
+| fact:library-genre | The genre you own the most of is G. N songs. |
+| fact:library-genres | Your collection covers N genres. |
+| fact:favorites-count | You've starred N songs in your collection. |
+| fact:playlists | You keep N playlists. The biggest is P, with M songs. |
+| fact:year-plays | Last year you played N songs. |
+| fact:year-so-far | N plays so far this year. |
+| fact:last-played | You haven't played "S" since MONTH YEAR. It's in this set. |
+| fact:artist-songs | You have N songs by A in your collection. |
+| fact:album-have | "S" is from ALBUM. You have N songs from that album. |
+| fact:genre-song | "S" is one of N G songs you have. |
+| fact:favorite | "S" is one of the songs you've starred. |
