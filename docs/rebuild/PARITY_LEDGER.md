@@ -205,7 +205,15 @@ Seventh service: copies of a song and Duplicates (`Copies`, `3ac5f8b`): telling 
 copy put away once the new one is in, a song going away for another in playlists, queue and plays, Android's trash
 asks, the Duplicates list; moved as they were, with `groupsOf` (the Duplicates list) and `swapped` (the copy kept
 takes the others' place in a playlist, once) named; P `CopiesTest`. Nothing changed on purpose. Checked on Linux and
-Windows; not in build 18. **Not
+Windows; in build 19.
+
+**Covers beside a song (the owner's report from build 18), `901e401`, test build 19.** Songs showing no cover on the
+phone (unreleased ones, a few singles) hold no picture in their files (looked at, read-only, in the owner's Music
+folder on the PC): their cover is a picture in the folder (`cover.jpg`, or one lone picture under another name).
+The PC read the named ones; the phone read none (a fault of 3.2.28 too, not of the rebuild: no cover code had
+changed). `FolderCover` with `FolderCoverRules.pick` (shared; S `FolderCoverRulesTest`) is used on both now: the
+lists, Now playing, the notification. Not known: whether those pictures are on the phone beside the songs, and
+whether the phone has All files access (without it the folder can't be read); not seen on a screen by Claude. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
