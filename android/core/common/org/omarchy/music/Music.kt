@@ -1177,56 +1177,11 @@ object Music {
         AlbumMissing.find(album, artist, tracks, kind)
     fun downloadMissing(artist: String, album: String, want: List<MissingSong>) = AlbumMissing.download(artist, album, want)
 
-    /** Copy a service's playlist (Tidal, YouTube Music, Deezer, Apple Music, Spotify) into your playlists here, its
-     *  songs streaming as they are until you download them. A playlist of yours with the same name gets the songs it
-     *  hasn't got (importing again brings in what was added there since). */
-    fun importServicePlaylist(key: String, pl: Album, quiet: Boolean = false, done: ((Int) -> Unit)? = null) {
-        if (key == SoundCloud.KEY) { if (!quiet) toast(SoundCloud.APART); done?.invoke(-1); return }
-        val src = sources[key] ?: run { toast("Sign in to ${SOURCES[key]} first"); return }
-        if (!quiet) toast("Importing “${pl.title}”…")
-        bg({ src.playlist(pl.id) }) { tracks, err ->
-            if (tracks == null) {
-                val why = err?.let { ImportNotes.why(it) } ?: "the service sent nothing back"
-                if (!quiet) { ImportNotes.failed("playlists", RuntimeException("“${pl.title}” from ${SOURCES[key]}: $why")); toast("Import failed: $why") }
-                done?.invoke(-1); return@bg
-            }
-            val name = pl.title.ifBlank { "${SOURCES[key]} playlist" }
-            val mine = lists.all().firstOrNull { it.name.equals(name, ignoreCase = true) }
-            val id = mine?.id ?: lists.create(name).id
-            val n = lists.add(id, tracks)
-            musicVersion++
-            if (!quiet) (if (mine == null) "Imported “$name” from ${SOURCES[key]}: $n songs. Open it in your playlists to download it"
-                else "“$name” was imported already: $n new song${if (n != 1) "s" else ""} added").let { ImportNotes.ok("playlists", it); toast("Import worked: $it") }
-            done?.invoke(n)
-        }
-    }
-
-    /** Every playlist of yours on that service imported, one after another. */
-    fun importAllServicePlaylists(key: String, lists: List<Album>) {
-        if (key == SoundCloud.KEY) { toast(SoundCloud.APART); return }
-        val todo = lists
-        if (todo.isEmpty()) return
-        toast("Importing ${todo.size} ${SOURCES[key]} playlists…")
-        var i = 0; var songs = 0; var failed = 0
-        fun next() {
-            if (i >= todo.size) {
-                val text = "Imported ${todo.size - failed} of ${todo.size} ${SOURCES[key]} playlists ($songs songs)" + if (failed > 0) ", $failed couldn't be read" else ""
-                if (failed == todo.size) ImportNotes.failed("playlists", RuntimeException("none of the ${todo.size} ${SOURCES[key]} playlists could be read"))
-                else ImportNotes.ok("playlists", text)
-                toast(if (failed == todo.size) "Import failed: none of the playlists could be read" else "Import worked: $text"); return
-            }
-            importServicePlaylist(key, todo[i++], quiet = true) { n -> if (n < 0) failed++ else songs += n; next() }
-        }
-        next()
-    }
-
-    /** Download every song of these playlists that isn't on this device yet: your song files are skipped, and so are
-     *  songs downloaded already (and Copies decides about songs you have another copy of). */
-    fun downloadPlaylists(ids: Collection<String>) {
-        val tracks = ids.flatMap { lists.get(it)?.tracks ?: emptyList() }.distinctBy { it.id }
-        if (tracks.none { !it.isFile && !lib.has(it.id) }) { toast("Every song there is downloaded or one of your files already"); return }
-        download(tracks)
-    }
+    // Copying a service's playlists into yours, and downloading whole playlists, are YourPlaylists' own too.
+    fun importServicePlaylist(key: String, pl: Album, quiet: Boolean = false, done: ((Int) -> Unit)? = null) =
+        YourPlaylists.importFrom(key, pl, quiet, done)
+    fun importAllServicePlaylists(key: String, lists: List<Album>) = YourPlaylists.importAllFrom(key, lists)
+    fun downloadPlaylists(ids: Collection<String>) = YourPlaylists.download(ids)
 
     /** (blocking) Settings › Reset plays: every imported play cleared (Spotify's, Apple Music's, Deezer's, YouTube
      *  Music's, Tidal's), for an import that doubled plays Last.fm had already; Last.fm's scrobbles stay. */
@@ -1235,64 +1190,18 @@ object Music {
         Stats.refresh(force = true)
     }
 
-    fun newPlaylist(name: String, synced: Boolean = false): String {
-        val id = lists.create(name, synced = synced).id
-        toast(if (synced) "Made the synced playlist “$name”: it's on the ${if (Remote.paired) "PC" else "other device"} too after the next sync" else "Made “$name”")
-        musicVersion++
-        return id
-    }
-
-    fun addToPlaylist(id: String, tracks: List<Track>) {
-        val pl = lists.get(id) ?: return
-        if (tracks.any { it.source == SoundCloud.KEY }) toast("SoundCloud songs can't go in your playlists: like them on SoundCloud instead")
-        @Suppress("NAME_SHADOWING") val tracks = tracks.filter { it.source != SoundCloud.KEY }
-        if (tracks.isEmpty()) return
-        val n = lists.add(id, tracks)
-        toast(when {
-            n == 0 -> "Already in “${pl.name}”"
-            tracks.size == 1 -> "Added to “${pl.name}”"
-            else -> "$n songs added to “${pl.name}”" + if (n < tracks.size) " (${tracks.size - n} were in it)" else ""
-        })
-        musicVersion++
-    }
-
-    fun removeFromPlaylist(id: String, ids: Set<String>) { lists.remove(id, ids); musicVersion++ }
-    fun renamePlaylist(id: String, name: String) { lists.rename(id, name); musicVersion++ }
-    /** Settings a playlist to sync with the other device (Sync), or not. */
-    fun setPlaylistSynced(id: String, on: Boolean) {
-        lists.setSynced(id, on); musicVersion++
-        toast(if (on) "Synced: it's the same on your phone and PC after each sync" else "Not synced any more: each device keeps its own copy")
-        if (on) Sync.soon()
-    }
-    // ---- folders of playlists ----
-    fun newFolder(name: String, item: FolderItem? = null) {
-        val f = playlistFolders.create(name)
-        if (item != null) { playlistFolders.add(f.id, item); toast("Put “${item.title}” in the new folder “$name”") }
-        musicVersion++
-    }
-
-    fun renameFolder(id: String, name: String) { playlistFolders.rename(id, name); musicVersion++ }
-
-    fun deleteFolder(id: String) {
-        playlistFolders.get(id)?.let { toast("Deleted the folder “${it.name}”") }
-        playlistFolders.delete(id)
-        musicVersion++
-    }
-
-    fun addToFolder(id: String, item: FolderItem) {
-        val f = playlistFolders.get(id) ?: return
-        toast(if (playlistFolders.add(id, item)) "Put “${item.title}” in “${f.name}”" else "“${item.title}” is in “${f.name}” already")
-        musicVersion++
-    }
-
-    fun removeFromFolder(id: String, item: FolderItem) { playlistFolders.remove(id, item.key); musicVersion++ }
-
-    fun deletePlaylist(id: String) {
-        lists.get(id)?.let { toast("Deleted “${it.name}”") }
-        playlistFolders.forget("mine::$id")
-        lists.delete(id)
-        musicVersion++
-    }
+    // Your playlists and their folders (making, filling, deleting them) are YourPlaylists' own: these hand on.
+    fun newPlaylist(name: String, synced: Boolean = false): String = YourPlaylists.create(name, synced)
+    fun addToPlaylist(id: String, tracks: List<Track>) = YourPlaylists.add(id, tracks)
+    fun removeFromPlaylist(id: String, ids: Set<String>) = YourPlaylists.remove(id, ids)
+    fun renamePlaylist(id: String, name: String) = YourPlaylists.rename(id, name)
+    fun setPlaylistSynced(id: String, on: Boolean) = YourPlaylists.setSynced(id, on)
+    fun deletePlaylist(id: String) = YourPlaylists.delete(id)
+    fun newFolder(name: String, item: FolderItem? = null) = YourPlaylists.newFolder(name, item)
+    fun renameFolder(id: String, name: String) = YourPlaylists.renameFolder(id, name)
+    fun deleteFolder(id: String) = YourPlaylists.deleteFolder(id)
+    fun addToFolder(id: String, item: FolderItem) = YourPlaylists.addToFolder(id, item)
+    fun removeFromFolder(id: String, item: FolderItem) = YourPlaylists.removeFromFolder(id, item)
 
     fun playList(tracks: List<Track>, shuffled: Boolean = false) {
         val t = if (shuffled) shuffleSongs(tracks) else tracks
