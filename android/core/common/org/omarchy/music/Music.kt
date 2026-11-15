@@ -1126,48 +1126,15 @@ object Music {
     var repeatPeriod by mutableStateOf("week")   // Repeat's chart: week, month, year (not kept)
 
     // ---- Discovery: an artist's songs you haven't got, heard one by one ----
-    val discovering = androidx.compose.runtime.mutableStateListOf<String>()   // artists whose list is being made
-
-    /** (artist, the discovery playlist, the discovered one) of every artist you're discovering. */
-    fun discoveryLists(): List<Triple<String, Playlist?, Playlist?>> =
-        lists.all().filter { it.discovery != null }.groupBy { norm(it.discovery!!.artist) }.values.map { ps ->
-            Triple(ps.first().discovery!!.artist, ps.firstOrNull { it.discovery!!.role == "discover" },
-                ps.firstOrNull { it.discovery!!.role == "discovered" })
-        }
-
-    /** A discovery playlist for artist: every song of theirs the services have that you don't, album by
-     *  album ("Artist Discovery playlist"), and one for the songs you hear to the end ("Artist discovered"). */
-    fun makeDiscovery(artist0: String) {
-        val artist = artist0.split(",")[0].trim()
-        if (artist.isEmpty() || norm(artist) in discovering) return
-        discovering += norm(artist)
-        toast("Finding $artist's songs you haven't got…")
-        bg({
-            val info = artistInfo(artist, null) ?: error("no service knows $artist")
-            val src = sources[info.source]
-            val have = HashSet(songIndex().keys)
-            discoveryLists().firstOrNull { norm(it.first) == norm(artist) }?.let { (_, d, f) ->
-                (d?.tracks.orEmpty() + f?.tracks.orEmpty()).forEach { have += songKey(it) } }
-            val seen = HashSet<Pair<String, String>>()
-            val out = ArrayList<Track>()
-            for (al in info.albums) {
-                val songs = runCatching { src?.album(al.id) ?: emptyList() }.getOrDefault(emptyList())
-                for (t in songs) { val k = songKey(t); if (k !in have && seen.add(k)) out += if (t.album.isEmpty()) t.copy(album = al.title) else t }
-            }
-            for (t in info.top) { val k = songKey(t); if (k !in have && seen.add(k)) out += t }
-            info.name.ifEmpty { artist } to out
-        }) { res, err ->
-            discovering.remove(norm(artist))
-            if (res == null) { toast("Couldn't make it: ${err?.message?.take(100)}"); return@bg }
-            val (name, songs) = res
-            val pair = discoveryLists().firstOrNull { norm(it.first) == norm(name) }
-            val disc = pair?.second ?: lists.create("$name Discovery playlist", discovery = Discovery(name, "discover"))
-            if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"))
-            val n = lists.add(disc.id, songs)
-            toast(if (n > 0) "“${disc.name}”: $n song${if (n != 1) "s" else ""} of $name's you haven't got" else "You have every song of $name's the services list")
-            musicVersion++
-        }
-    }
+    // Discovery playlists (the pairs, making them, a song heard to the end) are Discoveries' own: these hand on.
+    val discovering get() = Discoveries.making
+    fun discoveryLists(): List<Triple<String, Playlist?, Playlist?>> = Discoveries.pairs()
+    fun makeDiscovery(artist: String) = Discoveries.make(artist)
+    fun releaseName(r: NewReleases.Release) = Discoveries.releaseName(r)
+    fun makeReleaseDiscoveries(chosen: List<Pair<NewReleases.Release, List<Track>>>, quiet: Boolean = false): List<String> =
+        Discoveries.makeForReleases(chosen, quiet)
+    fun discovered(t: Track) = Discoveries.heardOut(t)
+    fun reviewDiscovered(id: String, download: Set<String>, remove: Set<String>) = Discoveries.review(id, download, remove)
 
     // ---- New releases: straight to one, and a discovery playlist from the ones you pick ----
     private val releaseFound = java.util.concurrent.ConcurrentHashMap<String, Triple<String, Album?, List<Track>>>()
@@ -1205,9 +1172,6 @@ object Music {
         return got.map { if (it.album.isEmpty()) it.copy(album = r.title) else it }
     }
 
-    /** A discovery playlist from New releases you picked: their songs you haven't got ("New releases
-     *  Discovery playlist"), and "New releases discovered" for the ones you hear to the end, to download
-     *  or let go, as an artist's discovery playlist works. */
     // ---- An album's songs you haven't got (its page's bottom) ----
     data class Missing(val n: Int, val title: String, val short: String, val secs: Int)
     private val albumTracksSeen = HashMap<Pair<String, String>, List<Missing>>()
@@ -1294,45 +1258,6 @@ object Music {
             toast(if (err != null) "Couldn't download: ${err.message?.take(100)}" else "Downloading ${found.size} of ${want.size}" +
                 if (found.size < want.size) " (${want.size - found.size} not found)" else "")
         }
-    }
-
-    /** A release's discovery playlist's name: “Persona (Extended) from half•alive”. */
-    fun releaseName(r: NewReleases.Release) = "${r.title} from ${r.artist}"
-
-    /** A discovery playlist (and its discovered one) for each release, with the songs picked. They work as an
-     *  artist's do: a song heard to the end moves to the discovered one. */
-    fun makeReleaseDiscoveries(chosen: List<Pair<NewReleases.Release, List<Track>>>, quiet: Boolean = false): List<String> {
-        val made = ArrayList<String>()
-        for ((r, songs) in chosen) {
-            val name = releaseName(r)
-            val pair = discoveryLists().firstOrNull { norm(it.first) == norm(name) }
-            val disc = pair?.second ?: lists.create("$name Discovery playlist", discovery = Discovery(name, "discover"))
-            if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"))
-            lists.add(disc.id, songs)
-            made += name
-        }
-        if (made.isEmpty()) return made
-        if (!quiet) toast(if (made.size == 1) "Made “${made[0]} Discovery playlist”" else "Made ${made.size} discovery playlists")
-        musicVersion++
-        return made
-    }
-
-    /** A song heard to the end: out of its discovery playlist, into the discovered one. */
-    fun discovered(t: Track) {
-        for ((_, d, f) in discoveryLists()) if (d != null && f != null && d.tracks.any { it.id == t.id }) {
-            lists.remove(d.id, setOf(t.id))
-            lists.add(f.id, listOf(t))
-            musicVersion++
-            return
-        }
-    }
-
-    /** The discovered list's review: download some songs, take some out. */
-    fun reviewDiscovered(id: String, download: Set<String>, remove: Set<String>) {
-        val pl = lists.get(id) ?: return
-        pl.tracks.filter { it.id in download }.takeIf { it.isNotEmpty() }?.let { download(it) }
-        if (remove.isNotEmpty()) lists.remove(id, remove)
-        musicVersion++
     }
 
     /** Copy a service's playlist (Tidal, YouTube Music, Deezer, Apple Music, Spotify) into your playlists here, its
