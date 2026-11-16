@@ -420,117 +420,22 @@ object Music {
     fun playerReady() = PlaybackCore.playerReady()
 
     // ---- your music ----
+    // Your music as the tabs show it (by album, genre, folder, artist; which tab a release is in) is YourMusic's own: these hand on.
     /** Every song you have: downloaded here (once each) and in your folders. */
-    fun mySongs(): List<Track> {
-        val seen = HashSet<String>()
-        val saved = lib.items.values.sortedByDescending { it.added }.filter { seen.add(it.file) }.map { it.track() }
-        return saved + local.files.filter { it.file !in seen }
-    }
-
-    /** Your songs by album, the albums in name order (each with its songs in their order). */
-    fun albums(): List<Pair<Album, List<Track>>> = mySongs().groupBy { Covers.albumKey(it) }.values.map { songs ->
-        val t = songs.first()
-        val artist = songs.groupingBy { it.artist.split(",")[0].trim() }.eachCount().maxByOrNull { it.value }?.key ?: t.artist
-        Album("album:" + Covers.albumKey(t), t.album.ifEmpty { "Unknown album" }, artist, count = songs.size.toString()) to songs
-    }.sortedBy { norm(it.first.title) }
-
-    /** Which tab a release of yours is in: "album", "ep" or "single", by its album tag as taggers write it ("… - EP",
-     *  "… - Single", "… (Single)"); any other is an album, however few of its songs you have (Albums › Low song count
-     *  albums). Songs in an Artists folder (Artists/<Artist>/<Title - EP>…) go by their folder; songs with no album at
-     *  all (single) are singles. */
-    fun releaseKind(title: String, songs: List<Track>, single: Boolean = false, byCount: Boolean = true): String {
-        songs.mapNotNull { tabPicks[tabKey(it)] }.takeIf { it.size * 2 > songs.size }?.groupingBy { it }?.eachCount()
-            ?.maxByOrNull { it.value }?.let { return it.key }   // put there by hand (Tagger › Tab)
-        // Where most of its songs are, then what its album tag says: a folder named as an EP or a single decides, a
-        // plainly named one leaves it to the tag (releaseKindOf)
-        val folder = songs.mapNotNull { folderKind(folderOf(it)) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
-        return releaseKindOf(folder, if (isEp(title)) "ep" else if (single || isSingleRelease(title)) "single" else null)
-    }
-
-    /** A song's key for Tagger › Tab: its file, written one way. */
-    fun tabKey(t: Track): String = (t.file ?: lib.items[t.id]?.file ?: t.id).replace('\\', '/').lowercase()
-
-    /** Which tab one song of yours sits in ("album", "ep", "single"), as its release is sorted; null if it isn't yours. */
-    fun tabOf(t: Track): String? {
-        if (!t.isFile && !lib.has(t.id)) return null
-        tabPicks[tabKey(t)]?.let { return it }
-        val folder = folderKind(folderOf(t))
-        val tag = when { isEp(t.album) -> "ep"; isSingleRelease(t.album) -> "single"; t.album.isBlank() && folder == null -> "single"; else -> null }
-        return releaseKindOf(folder, tag)
-    }
-
-    /** Tagger › Tab: put the songs in Albums, EPs or Singles whatever their tags say (null: back to the usual way). */
-    fun setTab(tracks: List<Track>, kind: String?) {
-        for (t in tracks) if (kind == null) tabPicks.remove(tabKey(t)) else tabPicks[tabKey(t)] = kind
-        saveState(); musicVersion++
-        toast(if (kind == null) "Back where their tags put them" else "Moved to ${mapOf("album" to "Albums", "ep" to "EPs", "single" to "Singles")[kind]}")
-    }
-
-    /** A song's genre, as its file says (songs without one: Unknown genre). */
-    fun genreOf(t: Track): String {
-        val e = lib.items[t.id]
-        val id = LocalFiles.idOf(t.file ?: e?.file)
-        return id?.let { genreFix[it] }?.takeIf { it.isNotBlank() }   // written here since the last library read
-            ?: e?.genre?.takeIf { it.isNotBlank() }                    // a download: its own genre
-            ?: id?.let { local.genres[it] }?.takeIf { it.isNotBlank() } ?: "Unknown genre"
-    }
-
-    /** Genres written into files here, by file: the phone's media library can take a while to notice. */
-    private val genreFix: MutableMap<String, String> by lazy {
-        java.util.concurrent.ConcurrentHashMap(runCatching { JSON.decodeFromString(
-            GENRE_FIX_SER,
-            Prefs.text("genre_fix").ifEmpty { "{}" }) }.getOrDefault(emptyMap()))
-    }
-    private val GENRE_FIX_SER = kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer())
-    internal fun noteGenre(file: String, g: String) {
-        val id = LocalFiles.idOf(file) ?: return
-        genreFix[id] = g
-        Prefs.setText("genre_fix", JSON.encodeToString(
-            GENRE_FIX_SER,
-            genreFix.toMap()))
-    }
-
-    /** Your songs by genre, the most songs first. */
-    fun genres(): List<Pair<String, List<Track>>> = mySongs().groupBy { genreOf(it) }.toList()
-        .sortedWith(compareBy<Pair<String, List<Track>>>({ it.first == "Unknown genre" }, { -it.second.size }))
-
-    /** A song's folder on the phone ("Music/Album/"). */
-    fun folderOf(t: Track): String {
-        val f = t.file ?: lib.items[t.id]?.file
-        return local.paths[f] ?: LocalFiles.idOf(f)?.let { local.allPaths[it] } ?: LocalFiles.DOWNLOADS
-    }
-
-    /** Your songs by folder, in folder order. */
-    fun folderSongs(): List<Pair<String, List<Track>>> = mySongs().groupBy { folderOf(it) }.toList().sortedBy { it.first.lowercase() }
-
-    /** Your songs by the artist called name: saved, in your folders or playlists, or played. */
-    fun songsBy(name: String): List<Track> {
-        val want = norm(name)
-        val seen = HashSet<Pair<String, String>>()
-        return (mySongs() + lists.items.flatMap { it.tracks } + plays.recent(2000)).filter { t ->
-            want in splitArtists(t.artist).map { norm(it) } && seen.add(songKey(t))
-        }
-    }
-
-    /** The artist's songs you played or have, each with how often you played it (every play added
-     *  up: see [Stats]): the counted ones, then the rest of yours. */
-    fun artistSongs(name: String): List<Track> {
-        val mine = songIndex()
-        val seen = HashSet<Pair<String, String>>()
-        val out = ArrayList<Track>()
-        for (s in Stats.artistSongs(name)) {
-            val t = fmSong(s.title, s.artist, s.thumb, mine, s.album, sameArtistOnly = true).copy(plays = s.plays)
-            if (seen.add(songKey(t))) out += t
-        }
-        val here = plays.items.values.associate { songKey(it.track) to it.plays }
-        for (t0 in songsBy(name)) {
-            // A playlist's or a played stream's copy of a song you have: yours instead (its file plays, its cover shows).
-            val t = if (t0.isFile || t0.file != null || lib.has(t0.id)) t0
-                else fmSong(t0.title, t0.artist, t0.thumb, mine, t0.album, sameArtistOnly = true).takeIf { it.isFile || it.file != null || lib.has(it.id) } ?: t0
-            if (seen.add(songKey(t))) out += t.copy(plays = here[songKey(t0)] ?: here[songKey(t)] ?: 0)
-        }
-        return out
-    }
+    fun mySongs(): List<Track> = YourMusic.songs()
+    fun albums(): List<Pair<Album, List<Track>>> = YourMusic.albums()
+    /** Which tab a release of yours is in: "album", "ep" or "single". */
+    fun releaseKind(title: String, songs: List<Track>, single: Boolean = false, byCount: Boolean = true): String = YourMusic.releaseKind(title, songs, single)
+    fun tabKey(t: Track): String = YourMusic.tabKey(t)
+    fun tabOf(t: Track): String? = YourMusic.tabOf(t)
+    fun setTab(tracks: List<Track>, kind: String?) = YourMusic.setTab(tracks, kind)
+    fun genreOf(t: Track): String = YourMusic.genreOf(t)
+    internal fun noteGenre(file: String, g: String) = YourMusic.noteGenre(file, g)
+    fun genres(): List<Pair<String, List<Track>>> = YourMusic.genres()
+    fun folderOf(t: Track): String = YourMusic.folderOf(t)
+    fun folderSongs(): List<Pair<String, List<Track>>> = YourMusic.folderSongs()
+    fun songsBy(name: String): List<Track> = YourMusic.songsBy(name)
+    fun artistSongs(name: String): List<Track> = YourMusic.artistSongs(name)
 
     var artistsVersion by mutableStateOf(0)   // bumps when an artist's picture or bio comes in
         internal set   // ArtistLookups' to bump

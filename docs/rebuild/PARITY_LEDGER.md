@@ -325,6 +325,23 @@ on Linux and Windows. `Music.kt` is about 1,510 lines: what the screens show (st
 loading), your music's reading (rescan, relink, files moved), playback's hand-ons, and the hand-ons to the parts
 above. The owner on build 28: everything works as intended.
 
+Eighteenth: your music folders (`YourFolders`, `f7035fd`): reading them (`rescan`), choosing and removing them, and
+keeping the queue, your playlists and favorites on the right song when a file moves (`relink`, `filesMoved`,
+`fileGone`), is replaced by another version, or is the other device's (`adoptFiles`, `standIn`); genres filled into
+downloads that have none. The rules are shared (S `MusicFolderRulesTest`: which folders are kept, a moved song's
+address and id, where a song that isn't here is looked for, what is said); P `YourFoldersTest`. Checked on Linux
+and Windows. With it the Linux check's own lines (the app started, played, the 12 tabs) are in its report again.
+
+Nineteenth: looking artists up (`ArtistLookups`, `b9fca81`): their pictures and bios, a picture of your own, an
+artist's page from the first service that knows them. S `ArtistLookupRulesTest` (the names tried, the services
+asked and their order); P `ArtistLookupsTest` (the page from the service asked for, its songs from the next).
+Checked on Linux.
+
+Twentieth: your music as the tabs show it (`YourMusic`): every song you have, by album, genre, folder and artist,
+and which tab (Albums, EPs, Singles) a release is in, with a tab picked by hand winning. S `ReleaseTabRulesTest`;
+P `YourMusicTest`. `Music.kt` is about 1,170 lines: what the screens show (state), remembering (saving and
+loading), the Most played picks, playback's hand-ons, and the hand-ons to the parts above.
+
 **Test build 29 (`90862a8`): asked for at the start.** The owner: the visualizer on Now playing did nothing until the
 Visualizer tab had been opened and its permission given. The phone now asks for all it needs as it starts, at every
 start until allowed (`StartupPermissions`: Android's questions for your music, the microphone, notifications; then a
