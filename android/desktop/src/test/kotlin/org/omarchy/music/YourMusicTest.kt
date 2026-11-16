@@ -48,7 +48,7 @@ class YourMusicTest {
                 Music.local.files = had + listOf(a, b); Music.musicVersion++
                 val album = YourMusic.albums().first { (_, songs) -> songs.any { it.id == a.id } }
                 assertEquals("Your Music Test Album", album.first.title)
-                assertEquals("Your Music Test Band", album.first.artist)
+                assertEquals("it says how many songs it has", album.second.size.toString(), album.first.count)
                 assertTrue(album.second.any { it.id == b.id })
                 assertEquals("every song is in one folder", YourMusic.songs().size, YourMusic.folderSongs().sumOf { it.second.size })
                 assertEquals("and under one genre", YourMusic.songs().size, YourMusic.genres().sumOf { it.second.size })
