@@ -926,17 +926,7 @@ object Music {
 
 
 
-    /** Smart shuffle (Settings › Playback): each song's weight, more for the ones you love (play a lot) that you haven't
-     *  heard in a while; null (plain chance) with it off. */
-    fun shuffleWeight(): ((Track) -> Double)? {
-        if (!Prefs.on(Prefs.SMART_SHUFFLE)) return null
-        val plays = HashMap<Pair<String, String>, Int>()
-        for (st in Stats.songs.take(20000)) plays[Stats.statsKey(st.title, st.artist)] = st.plays
-        val last = HashMap<Pair<String, String>, Double>()
-        for (e in this.plays.items.values) { val k = Stats.statsKey(e.track.title, e.track.artist); last[k] = maxOf(last[k] ?: 0.0, e.last) }
-        val now = System.currentTimeMillis() / 1000.0
-        return { t -> Stats.statsKey(t.title, t.artist).let { k -> smartWeight(plays[k] ?: 0, last[k] ?: 0.0, now) } }
-    }
+    fun shuffleWeight(): ((Track) -> Double)? = PlaySorts.shuffleWeight()
 
     /** Settings › Sound's switches and numbers into the EQ processor. */
     fun applySound() {
@@ -1071,28 +1061,12 @@ object Music {
     fun setMusicSort(sort: String) { musicSort = sort; saveState() }
     fun pickPlaylistSort(sort: String) { playlistSort = sort; saveState() }
 
-    /** Each tab's sort (its Sort menu), kept: tab -> a key of SORT_NAMES. */
-    fun sortOf(tab: String, default: String, allowed: List<String>) = tabSorts[tab]?.takeIf { it in allowed } ?: default
-    fun setSort(tab: String, sort: String) { tabSorts[tab] = sort; saveState() }
-
-    /** (blocking) What sorting by plays needs: how often you played each song, and when last. */
-    fun sortData(sort: String): SortData {
-        if (!sortNeedsPlays(sort)) return SortData.NONE
-        val counts = runCatching { playCounts() }.getOrDefault(emptyMap())
-        val last = if (sort.startsWith("played")) runCatching { Dj.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
-        return SortData(plays = { counts[songKey(it)] ?: it.plays }, last = { last[Stats.statsKey(it.title, it.artist)] ?: 0L })
-    }
-
-    /** song key -> how often you played it: the stats (Last.fm and Spotify too), else the plays here. */
-    fun playCounts(): Map<Pair<String, String>, Int> {
-        val out = HashMap<Pair<String, String>, Int>()
-        plays.items.values.forEach { out[songKey(it.track)] = it.plays }
-        Stats.songs.forEach { s -> out.merge(songKey(Track("", title = s.title, artist = s.artist)), s.plays) { a, b -> maxOf(a, b) } }
-        return out
-    }
-
-    /** A playlist's songs as the sort chips say. */
-    fun sortedPlaylist(tracks: List<Track>) = sortSongs(tracks, playlistSort, if (playlistSort == "plays") playCounts() else emptyMap())
+    // Sorting by how you listen (each tab's sort, play counts, Smart shuffle's weights) is PlaySorts' own: these hand on.
+    fun sortOf(tab: String, default: String, allowed: List<String>) = PlaySorts.of(tab, default, allowed)
+    fun setSort(tab: String, sort: String) = PlaySorts.set(tab, sort)
+    fun sortData(sort: String): SortData = PlaySorts.data(sort)
+    fun playCounts(): Map<Pair<String, String>, Int> = PlaySorts.counts()
+    fun sortedPlaylist(tracks: List<Track>) = PlaySorts.playlist(tracks)
 }
 
 /** Something pinned: an artist, an album, a playlist (yours or a service's), a genre, a folder of songs,

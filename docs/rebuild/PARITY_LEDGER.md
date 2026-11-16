@@ -339,8 +339,14 @@ Checked on Linux.
 
 Twentieth: your music as the tabs show it (`YourMusic`): every song you have, by album, genre, folder and artist,
 and which tab (Albums, EPs, Singles) a release is in, with a tab picked by hand winning. S `ReleaseTabRulesTest`;
-P `YourMusicTest`. `Music.kt` is about 1,170 lines: what the screens show (state), remembering (saving and
-loading), the Most played picks, playback's hand-ons, and the hand-ons to the parts above.
+P `YourMusicTest`. Checked on Linux and Windows (`20108f5`).
+
+Twenty-first: your picks in the stats (`StatPicks`, `cdac635`: Joint artists, similar artists kept apart, Merge
+into, plays counted for another album or song, Not a duplicate, singles left alone; S `StatPickRulesTest`, P
+`StatPicksTest`) and the playing song's cover for the lock screen and notification (`NowArt`). Twenty-second:
+sorting by how you listen (`PlaySorts`: each tab's sort, play counts from the stats and the plays here, a
+playlist's sort, Smart shuffle's weights; P `PlaySortsTest`). `Music.kt` is about 1,080 lines: what the screens
+show (state), remembering (saving and loading), playback's hand-ons, and the hand-ons to the parts above.
 
 **Test build 29 (`90862a8`): asked for at the start.** The owner: the visualizer on Now playing did nothing until the
 Visualizer tab had been opened and its permission given. The phone now asks for all it needs as it starts, at every
