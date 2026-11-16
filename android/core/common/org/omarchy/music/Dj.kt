@@ -857,13 +857,11 @@ object Dj {
     private fun setGenre(taste: Taste): Pair<List<Track>, String>? {
         mineGenre(taste)?.let { return it }
         if (LastFm.key.isEmpty()) return null
-        val weight = HashMap<String, Int>()
         val lead = taste.artists.take(3)
-        for (name in lead) runCatching {   // else the other artists' tags
-            for ((tag, n) in LastFm.artistTags(name).take(6)) if (tag.lowercase() !in JUNK_TAGS) weight.merge(tag.lowercase(), n, Int::plus)
-        }
+        // An artist whose tags couldn't be had brings none: the other artists' tags then
+        val weight = KindRules.tagWeights(lead.map { name -> runCatching { LastFm.artistTags(name) }.getOrDefault(emptyList()) }, JUNK_TAGS)
         if (weight.isEmpty()) return null
-        val tag = weight.entries.sortedByDescending { it.value }.take(3).random().key
+        val tag = KindRules.topThree(weight).random()
         val songs = tagSongs(tag, taste)
         if (songs.size < 3) return null
         val a = lead[0]
@@ -899,7 +897,7 @@ object Dj {
         val weight = HashMap<String, Int>()
         for (t in (taste.recent + taste.all.take(100))) for (g in genreParts(genreOf(t))) weight.merge(g, 1, Int::plus)
         if (weight.isEmpty()) return null
-        for (g in weight.entries.sortedByDescending { it.value }.take(3).shuffled().map { it.key }) {
+        for (g in KindRules.topThree(weight).shuffled()) {
             val songs = genreSongs(g, taste)
             if (songs.size < 3) continue
             val name = g.lowercase()
@@ -933,12 +931,12 @@ object Dj {
         val rows = runCatching { LastFm.call("tag.getTopTracks", params = mapOf("tag" to tag, "limit" to 100)).path("tracks", "track").list }
             .getOrNull() ?: return emptyList()
         val yours = taste.artists.map { norm(it) }.toSet()
-        val pool = rows.mapNotNull { x ->
+        val pool = KindRules.yoursFirst(rows.mapNotNull { x ->
             val name = x["name"].str ?: return@mapNotNull null
             val artist = x["artist"]["name"].str ?: return@mapNotNull null
             val img = x["image"].list.reversed().firstNotNullOfOrNull { it["#text"].str?.takeIf { s -> s.isNotEmpty() } } ?: ""
             Music.fmSong(name, artist, img, taste.mine)
-        }.sortedBy { norm(it.artist.split(",")[0]) !in yours }   // stable: Last.fm's order within each
+        }, yours)   // stable: Last.fm's order within each
         return pick(pool, SET, used)
     }
 
@@ -1107,14 +1105,14 @@ object Dj {
         val f = taste.facts
         val mine = runCatching { mySongs() }.getOrDefault(emptyList())
         fun lead(t: Track) = t.artist.split(",")[0].trim()
-        val byArtist = mine.groupingBy { lead(it) }.eachCount().filterKeys { it.isNotEmpty() && !it.equals("Unknown artist", true) }
-        val genres = mine.map { genreOf(it) }.filter { it.isNotBlank() && !it.equals("Unknown genre", true) }.groupingBy { it }.eachCount()
+        val byArtist = FactRules.songsByArtist(mine.map { lead(it) })
+        val genres = FactRules.genreCounts(mine.map { genreOf(it) })
         if (mine.size >= 50) {
             out["library-size"] = say("fact-library-size",
                 "Your collection holds ${num(mine.size)} songs by ${num(byArtist.size)} artists.",
                 "${num(mine.size)} songs in your collection, from ${num(byArtist.size)} artists.")
             val secs = mine.sumOf { it.duration }
-            if (secs >= 36_000) out["library-hours"] = "Played end to end, your collection would run about ${num((secs / 3600).toInt())} hours."
+            FactRules.libraryHours(secs)?.let { hours -> out["library-hours"] = "Played end to end, your collection would run about ${num(hours)} hours." }
             byArtist.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (a, n) ->
                 out["library-artist"] = "You have more songs by $a than by anyone else. ${num(n)} of them."
             }
@@ -1124,8 +1122,8 @@ object Dj {
             val albums = mine.filter { it.album.isNotBlank() }.map { norm(lead(it)) to albumBase(it.album) }.distinct().size
             if (albums >= 20) out["library-albums"] = "There are ${num(albums)} albums and singles in your collection."
             val unplayed = mine.count { (f.count[Stats.statsKey(it.title, it.artist)] ?: 0) == 0 }
-            if (f.total >= 200 && unplayed >= 10) out["library-unplayed"] = "${num(unplayed)} songs in your collection are still waiting for a first play."
-            val added = mine.count { it.added > 0 && nowS - it.added < 30 * 86_400L }
+            if (FactRules.unplayedTold(f.total, unplayed)) out["library-unplayed"] = "${num(unplayed)} songs in your collection are still waiting for a first play."
+            val added = FactRules.addedLately(mine.map { it.added }, nowS)
             if (added >= 5) out["library-added"] = "You've added ${num(added)} songs to your collection in the last month."
             genres.maxByOrNull { it.value }?.takeIf { it.value >= 20 }?.let { (g, n) -> out["library-genre"] = "The genre you own the most of is $g. ${num(n)} songs." }
             if (genres.size >= 8) out["library-genres"] = "Your collection covers ${num(genres.size)} genres."

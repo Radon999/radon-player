@@ -163,6 +163,18 @@ counts, hours, months and places are said; in `TasteRules` the outside-plays cou
 themselves and the kinds made from the services and Last.fm (deep cuts, more like this, genre by tag) are still in
 `Dj.kt`, as are the facts between sets; no `DjSet` record; no actor.
 
+**Phase 8, fifth part: when a fact is worth telling, 16 November 2026 (`ca2cb7d`).** The bars the facts between sets
+have to clear are out of `Dj.fact` as they were, in `FactRules` in the shared code (S `FactRulesTest`): an artist's
+place among your five most played, the month's top mood and its share, an artist you've known for years or found this
+month, the hours or minutes spent with a song, a first play long ago or a new find, never skipped or often skipped,
+the hour you listen most and the shares after midnight and before ten, how many years it goes back, the biggest year,
+the percent heard out, a song unheard for half a year. Then (the commit after): the collection's counts (songs by
+artist, by genre, its hours, what came in lately, songs still unplayed) in `FactRules`, and in `KindRules` a genre
+set's tag weights from your artists' Last.fm tags, the three heaviest to choose among, and a tag's songs with your
+artists' first. **Not done:** what each fact says and the turn-taking stay in `Dj.kt`, with the smaller bars of the
+collection facts (ten songs by an artist, twenty albums…) and the mood facts (mostly `MoodTally`'s already); deep
+cuts and more-like-this are calls to the services with nothing of their own to split out.
+
 **Phase 13 (the remaining services out of `Music.kt`), begun 15 November 2026.** First: your copy of a song
 (`YourCopies`, `830f3d4`): which of your files a song named by Last.fm, an import, a service or the queue is
 (`songIndex`, `mineOf`, `localOf`, `fmSong`, `yourCopies`, the best copy). Moved as it was; `Music` keeps the names

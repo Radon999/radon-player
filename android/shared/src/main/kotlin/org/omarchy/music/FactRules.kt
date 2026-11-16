@@ -68,6 +68,24 @@ object FactRules {
     /** The percent of songs you hear all the way through, told from a hundred songs skipped or heard out. */
     fun heardOutPercent(skips: Int, heardOut: Int): Int? = if (skips + heardOut >= 100) heardOut * 100 / (skips + heardOut) else null
 
+    // ---- your collection ----
+    /** How many songs you have by each artist (leads: each song's lead artist), the nameless ones left out. */
+    fun songsByArtist(leads: List<String>): Map<String, Int> =
+        leads.groupingBy { it }.eachCount().filterKeys { it.isNotEmpty() && !it.equals("Unknown artist", true) }
+
+    /** How many songs you have of each genre (genres: each song's genre tag), the ones without one left out. */
+    fun genreCounts(genres: List<String>): Map<String, Int> =
+        genres.filter { it.isNotBlank() && !it.equals("Unknown genre", true) }.groupingBy { it }.eachCount()
+
+    /** How many hours your collection would play end to end, told from ten hours. */
+    fun libraryHours(seconds: Double): Int? = if (seconds >= 36_000) (seconds / 3600).toInt() else null
+
+    /** How many songs came into your collection in the last thirty days (added: when each did, 0 unknown). */
+    fun addedLately(added: List<Double>, now: Long): Int = added.count { it > 0 && now - it < 30 * DAY }
+
+    /** Songs still waiting for a first play are told with 200 plays in all and ten such songs or more. */
+    fun unplayedTold(totalPlays: Int, unplayed: Int): Boolean = totalPlays >= 200 && unplayed >= 10
+
     /** A song coming up that you haven't played for half a year (last: 0 unknown). */
     fun longUnheard(now: Long, last: Long): Boolean = last > 0 && now - last > 180 * DAY
 }

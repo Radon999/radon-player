@@ -85,6 +85,15 @@ class FactRulesTest {
         assertNull(FactRules.busiestYear(mapOf(2023 to 100, 2024 to 499)))
     }
 
+    @Test fun yourCollectionCounted() {
+        assertEquals(mapOf("A" to 2, "B" to 1), FactRules.songsByArtist(listOf("A", "B", "A", "", "Unknown Artist")))
+        assertEquals(mapOf("Rock" to 2, "Jazz" to 1), FactRules.genreCounts(listOf("Rock", "Jazz", "Rock", " ", "unknown genre")))
+        assertEquals(10, FactRules.libraryHours(36_000.0)); assertEquals(12, FactRules.libraryHours(45_000.0))
+        assertNull(FactRules.libraryHours(35_999.0))
+        assertEquals(2, FactRules.addedLately(listOf(0.0, (now - day).toDouble(), (now - 29 * day).toDouble(), (now - 31 * day).toDouble()), now))
+        assertTrue(FactRules.unplayedTold(200, 10)); assertFalse(FactRules.unplayedTold(199, 50)); assertFalse(FactRules.unplayedTold(900, 9))
+    }
+
     @Test fun heardOutAndLongUnheard() {
         assertEquals(75, FactRules.heardOutPercent(25, 75))
         assertNull(FactRules.heardOutPercent(20, 79))

@@ -135,6 +135,21 @@ object KindRules {
         else -> null
     }
 
+    /** A genre set from Last.fm: how much each tag weighs, from the tags of the artists you play most (each
+     *  artist's first six, in small letters, added up), the tags that say nothing about the music (junk) left out. */
+    fun tagWeights(tagsOfArtists: List<List<Pair<String, Int>>>, junk: Set<String>): Map<String, Int> {
+        val weight = HashMap<String, Int>()
+        for (tags in tagsOfArtists) for ((tag, n) in tags.take(6)) if (tag.lowercase() !in junk) weight.merge(tag.lowercase(), n, Int::plus)
+        return weight
+    }
+
+    /** A genre set: the three heaviest of the genres (or tags) to choose among. */
+    fun <K> topThree(weight: Map<K, Int>): List<K> = weight.entries.sortedByDescending { it.value }.take(3).map { it.key }
+
+    /** A tag's songs: the ones by artists you play (yours: names as [norm] makes them) first, the order kept
+     *  otherwise. */
+    fun yoursFirst(pool: List<Track>, yours: Set<String>): List<Track> = pool.sortedBy { norm(it.artist.split(",")[0]) !in yours }
+
     /** The plays of a song the DJ marks ("This is your 100th play of…"). */
     val MILESTONES = listOf(25, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000)
     fun milestone(play: Int): Boolean = play in MILESTONES

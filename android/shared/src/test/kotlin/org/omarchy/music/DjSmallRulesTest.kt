@@ -53,6 +53,25 @@ class DjSmallRulesTest {
         assertTrue(KindRules.interleave(emptyList<List<Int>>()).isEmpty())
     }
 
+    @Test fun aGenreSetWeighsTheTagsOfYourArtists() {
+        val weight = KindRules.tagWeights(listOf(
+            listOf("Indie Rock" to 100, "seen live" to 90, "rock" to 50),
+            emptyList(),
+            listOf("indie rock" to 60, "a" to 5, "b" to 4, "c" to 3, "d" to 2, "e" to 1, "seventh" to 99)), junk = setOf("seen live"))
+        assertEquals(160, weight["indie rock"])
+        assertEquals(50, weight["rock"])
+        assertNull("says nothing about the music", weight["seen live"])
+        assertNull("only an artist's first six", weight["seventh"])
+        assertEquals(listOf("indie rock", "rock", "a"), KindRules.topThree(weight))
+        assertTrue(KindRules.topThree(emptyMap<String, Int>()).isEmpty())
+    }
+
+    @Test fun aTagsSongsByYourArtistsComeFirst() {
+        val pool = listOf(Track("1", title = "One", artist = "Stranger"), Track("2", title = "Two", artist = "Mine, Guest"),
+            Track("3", title = "Three", artist = "Other"), Track("4", title = "Four", artist = "Mine"))
+        assertEquals(listOf("2", "4", "1", "3"), KindRules.yoursFirst(pool, setOf(norm("Mine"))).map { it.id })
+    }
+
     @Test fun aWordAboutTheDayOnlyWhenOneFits() {
         assertEquals("t-fri", KindRules.timeFlavor(DayOfWeek.FRIDAY, 17))
         assertNull(KindRules.timeFlavor(DayOfWeek.FRIDAY, 14))
