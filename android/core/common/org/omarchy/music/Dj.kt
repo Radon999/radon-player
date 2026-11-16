@@ -390,7 +390,7 @@ object Dj {
         val text = synchronized(recentLock) {
             val q = recent()
             for (t in tracks.distinctBy { songKey(it) }) {
-                q += SetRules.recentEntry(songKey(t), Stats.statsKey(t.title, t.artist))
+                q += TrackKey.of(t).entry()
             }
             while (q.size > SONG_GAP) q.removeFirst()
             recentCount++
@@ -406,7 +406,7 @@ object Dj {
         usedCache = Triple(n, recentCount, k)
         k
     }
-    private fun isUsed(t: Track, keys: Set<Pair<String, String>>) = songKey(t) in keys || Stats.statsKey(t.title, t.artist) in keys
+    private fun isUsed(t: Track, keys: Set<Pair<String, String>>) = TrackKey.of(t) inAny keys   // either of its two keys
 
     /** (on starting) What the last sets played, read in. */
     fun loadRecent() { synchronized(recentLock) { recent() } }
@@ -445,8 +445,8 @@ object Dj {
     /** While a set of a kind made for everything is made for songs you picked (on this thread: sets are made side
      *  by side), the songs it may have; null: any. */
     private val only = ThreadLocal<Set<Pair<String, String>>?>()
-    private fun inScope(t: Track): Boolean = only.get()?.let { songKey(t) in it || Stats.statsKey(t.title, t.artist) in it } ?: true
-    private fun newToYou(t: Track, known: Set<Pair<String, String>>) = songKey(t) !in known && Stats.statsKey(t.title, t.artist) !in known
+    private fun inScope(t: Track): Boolean = only.get()?.let { TrackKey.of(t) inAny it } ?: true
+    private fun newToYou(t: Track, known: Set<Pair<String, String>>) = !(TrackKey.of(t) inAny known)
 
     private fun known(taste: Taste): Set<Pair<String, String>> =
         taste.mine.keys + taste.all.map { songKey(it) } + taste.all.map { Stats.statsKey(it.title, it.artist) } + taste.last.keys + taste.facts.count.keys + playedHere()
