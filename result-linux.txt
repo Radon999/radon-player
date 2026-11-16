@@ -1,11 +1,14 @@
-commit 04945681afa1e0f4e75468767f1e7329b7d6a217 · run 43784238309 · Mon Nov 16 01:21:54 UTC 2026
+commit 90862a8293877e1cd2fb670ebf2a8bdc882dc3a6 · run 43785468674 · Mon Nov 16 01:34:52 UTC 2026
 SHARED TESTS: 58 suites, 302 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 29 suites, 132 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.0 s of speech in 1.5 s (with loading the voice); then 5.3 s of speech in 1.4 s (3.8x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.8 s (with loading the voice); then 4.2 s of speech in 1.4 s (3.1x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
 --- the end of the log
 > Task :desktop:classes
 > Task :app:bundleDebugClassesToCompileJar
@@ -35,5 +38,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 40s
+BUILD SUCCESSFUL in 5m 54s
 59 actionable tasks: 59 executed
