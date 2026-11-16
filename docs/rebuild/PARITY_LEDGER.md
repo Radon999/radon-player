@@ -294,7 +294,15 @@ Thirteenth service: what is an artist's among your music, and Create artist play
 `creditsArtist`, `artistOwnSongs`, `artistOwnAlbums`, `makeArtistPlaylist` moved as they were, with `isTheirs`,
 `inOrder` and `madeText` named; P `ArtistSongsTest`. Checked on Linux and Windows. Still in `Music.kt` (about 1,880
 lines, from about 2,450 when Phase 13 began): the equalizer itself, tag and cover editing, the services' part,
-remembering (state), your music's reading (rescan, relink), and the hand-ons. **Not
+remembering (state), your music's reading (rescan, relink), and the hand-ons.
+
+Fourteenth: changing tags and covers by hand (`TagEdits`, `73b483a`): `setCover`, `editTags`, what waits for the song
+playing, and `releaseFolder` (where a file belongs once its artist or album changed; P `TagEditsTest`). Fifteenth: the
+streaming services' part (`MusicServices`, `2f9f1ad`, renamed in `8f36f0c`: the phone side has a `Services`
+already, which only the phone's build could show): `browse` (its rule `browseTo`; P `MusicServicesTest`),
+`sourceReady`, `tidalLoggedIn`, `tidalDisconnect`, `syncLibrary`, `setSyncSource`. Signing in and the sync have no
+test (they need the services). At `8f36f0c` the app's own `YouTubeAudioTest.findsAudio` failed on Linux: it asks the
+real YouTube for a song's audio, and the answer could not be read (not touched by these moves; watched). **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
