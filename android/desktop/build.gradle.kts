@@ -93,7 +93,8 @@ compose.desktop {
             packageName = "Radon Player"
             packageVersion = appVersion
             // Java parts the app uses beyond the defaults: the phone remote's server (jdk.httpserver), finding it on the network
-            modules("jdk.httpserver", "java.naming", "jdk.unsupported")
+            // …and, for Linux' media keys (D-Bus signs in with the user's id): jdk.security.auth
+            modules("jdk.httpserver", "java.naming", "jdk.unsupported", "jdk.security.auth")
             description = "Radon Player, rebuilt on one codebase with the phone"
             // mpv and ffmpeg, which the Windows build puts in resources/windows (see Bins): the installer brings its own
             project.layout.projectDirectory.dir("resources").takeIf { it.asFile.isDirectory }?.let { appResourcesRootDir.set(it) }
