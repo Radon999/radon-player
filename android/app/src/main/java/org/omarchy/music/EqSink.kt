@@ -31,15 +31,26 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
      *  decoder gives 16-bit anyway, were fine). */
     override fun getFormatSupport(format: Format): Int =
         if (format.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && format.pcmEncoding == C.ENCODING_PCM_FLOAT &&
-            !Music.bitPerfectNow()) AudioSink.SINK_FORMAT_UNSUPPORTED
+            !asItIs()) AudioSink.SINK_FORMAT_UNSUPPORTED
         else super.getFormatSupport(format)
+
+    /** The music goes on with all its bits: bit-perfect in effect, or about to go straight to the DAC (SinkRules.asItIs:
+     *  asked before the DAC's stream is set up, when "in effect" could still be false and a 24-bit song became 16-bit). */
+    private fun asItIs() = SinkRules.asItIs(Music.bitPerfectNow(), runCatching { UsbDirect.wanted() }.getOrDefault(false))
 
     override fun supportsFormat(format: Format): Boolean = getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
 
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         pending = false; eos = false; eq.sinkEos = false; eq.sinkEnded = false
         inEncoding = inputFormat.pcmEncoding
-        if (inputFormat.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && hiRes(inEncoding) && !Music.bitPerfectNow()) {
+        val straight = asItIs()
+        if (straight) eq.bypass = true   // every sample as it came (set again from the output once the stream runs)
+        // Bit-perfect is on, yet a hi-res song is about to be brought down to 16 bits: said in Settings › Problems
+        // (only with a DAC plugged in: without one, bit-perfect left on has nothing to send to, and that is no fault)
+        if (Music.bitPerfect && !straight && inputFormat.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && hiRes(inEncoding) &&
+            runCatching { UsbDirect.device() != null }.getOrDefault(false))
+            Crashes.note("Bit-perfect is on and a DAC is plugged in, but this hi-res song is going out as 16-bit through Android (${UsbDirect.note})")
+        if (inputFormat.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && hiRes(inEncoding) && !straight) {
             toShort = if (inEncoding == C.ENCODING_PCM_24BIT) 3 else 4
             float = false
             super.configure(inputFormat.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build(), specifiedBufferSize, outputChannels)
