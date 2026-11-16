@@ -962,7 +962,7 @@ object Dj {
         val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
         val heard = rows.associate { songKey(it.first) to (it.second to it.third) }
         val allRank = taste.all.withIndex().associate { songKey(it.value) to it.index }
-        val artistRank = f.artistAll.entries.sortedByDescending { it.value }.take(5).withIndex().associate { it.value.key.lowercase() to (it.index + 1 to it.value.value) }
+        val artistRank = FactRules.artistRanks(f.artistAll)
         // A milestone coming up (a song's 100th play…) is always told
         for (s in next.take(4)) {
             val n = (f.count[Stats.statsKey(s.title, s.artist)] ?: 0) + 1
@@ -977,7 +977,7 @@ object Dj {
                 }
             }
         }
-        val topMood = f.moodMonth.maxByOrNull { it.value }?.takeIf { it.value >= 15 }?.key
+        val topMood = FactRules.topMood(f.moodMonth)
         val streakDays = taste.streak.associate { songKey(it.first) to it.second }
         val yearAgo = taste.dayAgo[1].orEmpty().map { songKey(it) }.toSet()
         // The songs coming up
@@ -992,39 +992,46 @@ object Dj {
             s.artist.split(",")[0].trim().takeIf { it.isNotEmpty() }?.let { a ->
                 f.artistFirst[a]?.let { t ->
                     val m = f.artistMonth[a] ?: 0
-                    if (nowS - t > 3 * 365 * 86_400L) out["artist-since:$a"] = "You've been listening to $a since ${month(t)}."
-                    else if (nowS - t < 30 * 86_400L && m >= 10) out["artist-new:$a"] = "You only found $a this month, and you've played them ${num(m)} times already."
+                    when (FactRules.artistSince(nowS, t, m)) {
+                        "since" -> out["artist-since:$a"] = "You've been listening to $a since ${month(t)}."
+                        "new" -> out["artist-new:$a"] = "You only found $a this month, and you've played them ${num(m)} times already."
+                        else -> {}
+                    }
                 }
             }
             val dur = s.duration.takeIf { it > 0 } ?: taste.mine[songKey(s)]?.duration ?: 0.0
-            if (n >= 8 && dur > 0) {
-                val h = n * dur / 3600
-                if (h >= 1) out["hours:$id"] = "You've spent about ${hoursText(h)} hours with ${q(s)}. That's ${num(n)} plays."
-                else out["minutes:$id"] = "You've played ${q(s)} ${num(n)} times, about ${(n * dur / 60).toInt()} minutes of it."
+            FactRules.timeWith(n, dur)?.let { (unit, amount) ->
+                if (unit == "hours") out["hours:$id"] = "You've spent about ${hoursText(amount)} hours with ${q(s)}. That's ${num(n)} plays."
+                else out["minutes:$id"] = "You've played ${q(s)} ${num(n)} times, about ${amount.toInt()} minutes of it."
             }
             f.first[k]?.let { t ->
                 val days = ((nowS - t) / 86_400L).toInt()
-                if (nowS - t > 2 * 365 * 86_400L) out["first:$id"] = "You first played ${q(s)} back in ${month(t)}."
-                else if (days in 1..21 && n >= 5) out["crush:$id"] = "You found ${q(s)} $days days ago, and you've played it ${num(n)} times since."
+                when (FactRules.firstPlay(nowS, t, n)) {
+                    "first" -> out["first:$id"] = "You first played ${q(s)} back in ${month(t)}."
+                    "crush" -> out["crush:$id"] = "You found ${q(s)} $days days ago, and you've played it ${num(n)} times since."
+                    else -> {}
+                }
             }
             heard[songKey(s)]?.let { (sk, full) ->
-                if (full >= 8 && sk == 0) out["never-skipped:$id"] = "You've heard ${q(s)} all the way through ${num(full)} times, and never skipped it."
-                else if (sk >= 4 && sk > full) out["skipped:$id"] = "You've skipped ${q(s)} ${num(sk)} times. Maybe today it lands."
+                when (FactRules.skipsOf(sk, full)) {
+                    "never" -> out["never-skipped:$id"] = "You've heard ${q(s)} all the way through ${num(full)} times, and never skipped it."
+                    "skipped" -> out["skipped:$id"] = "You've skipped ${q(s)} ${num(sk)} times. Maybe today it lands."
+                    else -> {}
+                }
             }
-            allRank[songKey(s)]?.takeIf { it < 10 && n >= 10 }?.let { i ->
+            allRank[songKey(s)]?.takeIf { KindRules.topTen(it, n) }?.let { i ->
                 out["top-ten:$id"] = if (i == 0) "${q(s)} is your most played song of all time."
                     else "${q(s)} is in your all time top ten. Number ${ordinal(i + 1)}."
             }
             val lead = s.artist.split(",")[0].trim()
-            artistRank[lead.lowercase()]?.takeIf { it.second >= 20 }?.let { (r, plays) ->
+            artistRank[lead.lowercase()]?.takeIf { FactRules.rankTold(it.second) }?.let { (r, plays) ->
                 out["artist-rank:$lead"] = if (r == 1) "$lead is your most played artist of all time, with ${num(plays)} plays."
                     else "$lead is number ${ordinal(r)} among your most played artists, with ${num(plays)} plays."
             }
         }
         // Your moods
-        val moodPlays = f.moodMonth.values.sum()
-        f.moodMonth.maxByOrNull { it.value }?.takeIf { moodPlays >= 20 && it.value * 4 >= moodPlays }?.let { (m, n) ->
-            out["mood-month"] = "Lately it's been mostly ${Moods.adjective(m)} songs, ${n * 100 / moodPlays} percent of what you played from your collection this month."
+        FactRules.moodShare(f.moodMonth)?.let { (m, percent) ->
+            out["mood-month"] = "Lately it's been mostly ${Moods.adjective(m)} songs, $percent percent of what you played from your collection this month."
         }
         taste.moodHour.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (m, _) ->
             out["mood-hour"] = "Around this time of day, you usually go for something ${Moods.adjective(m)}."
@@ -1049,13 +1056,9 @@ object Dj {
             out["top-genre-month"] = "Your top genre lately is $g. More of it than anything else this month."
         }
         // When you listen
-        f.hours.withIndex().maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { out["peak-hour"] = "You do most of your listening around ${hourName(it.index)}." }
-        if (f.total >= 200) {
-            val night = (0..4).sumOf { f.hours[it] } * 100 / f.total
-            val early = (5..9).sumOf { f.hours[it] } * 100 / f.total
-            if (night >= 10) out["night-share"] = "About $night percent of your listening happens after midnight."
-            if (early >= 25) out["morning-share"] = "About $early percent of your listening happens before 10 AM."
-        }
+        FactRules.peakHour(f.hours)?.let { out["peak-hour"] = "You do most of your listening around ${hourName(it)}." }
+        FactRules.nightShare(f.hours, f.total)?.let { night -> out["night-share"] = "About $night percent of your listening happens after midnight." }
+        FactRules.morningShare(f.hours, f.total)?.let { early -> out["morning-share"] = "About $early percent of your listening happens before 10 AM." }
         if (f.monthPlays >= 100) out["month-plays"] = say("fact-month-plays",
             "You've played ${num(f.monthPlays)} songs so far this month.",
             "${num(f.monthPlays)} plays this month, and it's not over.")
@@ -1063,13 +1066,12 @@ object Dj {
             out["new-artist-month"] = "Your discovery of the month is $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them."
         }
         if (f.total >= 1000) out["total-plays"] = "That's ${num(f.total)} plays, all told."
-        val years = (nowS - f.since) / (365 * 86_400L)
-        if (f.since > 0 && years >= 2) out["since"] = "Your listening goes back to ${month(f.since)}, over ${num(years.toInt())} years of music."
+        FactRules.yearsBack(nowS, f.since)?.let { years -> out["since"] = "Your listening goes back to ${month(f.since)}, over ${num(years)} years of music." }
         // Your years
         val thisYear = java.time.LocalDate.now().year
         for ((y, top) in f.yearTop) if (y < thisYear && top.second >= 10)
             out["year-top:$y"] = "Your number one song of $y was “${top.first.title}” by ${top.first.artist.split(",")[0].trim()}, with ${num(top.second)} plays."
-        f.yearPlays.takeIf { it.size >= 2 }?.maxByOrNull { it.value }?.takeIf { it.value >= 500 }?.let { (y, n) ->
+        FactRules.busiestYear(f.yearPlays)?.let { (y, n) ->
             out["busiest-year"] = if (y == thisYear) "This is already your biggest year for music, with ${num(n)} plays so far."
                 else "Your biggest year for music was $y, with ${num(n)} plays."
         }
@@ -1089,7 +1091,7 @@ object Dj {
                 out["skipped-week:${songKey(t)}"] = "This week you skipped ${q(t)} ${num(sk)} times. It'll come round again another day."
             }
         }
-        if (skips + outs >= 100) out["heard-out"] = "You hear ${outs * 100 / (skips + outs)} percent of songs all the way through."
+        FactRules.heardOutPercent(skips, outs)?.let { percent -> out["heard-out"] = "You hear $percent percent of songs all the way through." }
         collectionFacts(taste, nowS, next, out)
         // The subjects take turns (FactTopics): skips, moods, an artist, your collection… each waits for the others
         val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return@runCatching null
@@ -1142,7 +1144,7 @@ object Dj {
         for (s in next.take(4)) {
             val k = Stats.statsKey(s.title, s.artist)
             val id = "${k.first}|${k.second}"
-            lastPlayed(taste, s).takeIf { it > 0 && nowS - it > 180 * 86_400L }?.let { t ->
+            lastPlayed(taste, s).takeIf { FactRules.longUnheard(nowS, it) }?.let { t ->
                 out["last-played:$id"] = "You haven't played ${q(s)} since ${month(t)}. It's in this set."
             }
             val a = lead(s)
