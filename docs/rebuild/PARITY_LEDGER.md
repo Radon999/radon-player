@@ -359,6 +359,17 @@ time bar part way and the visualizer's bars drawn. (The build server has no soun
 so that it is heard is not shown.) Without mpv the app now says how to install it on Linux. The Linux package made
 for a release must go through `ci/linux-deps.sh` too (there is no Linux release job yet). Not tried: a real desktop
 (tray, media keys, MPRIS), the updater, sound out of a real card, a streamed song.
+**Third step (`e11b463`): the screens, seen.** The check gives the app a little music of its own (two albums, a
+single, a song in a folder named Unreleased), opens twelve tabs in turn from the command line and keeps one sheet of
+pictures (`linux-screens.jpg` on `rebuild-ci`). Seen by Claude for the first time, and as meant: the Refresh button in
+each tab's header (and none in the queue or Settings); **Unreleased** with its song, its folder, Play, Shuffle and
+Folders…; Downloads with Refresh while empty; Folders, Singles (a song with no album, and "Lone - Single"), Artists,
+Playlists, Most played and Skips (the tone, played once, never skipped), the queue, Settings' sections. Also seen:
+with the tone over, Autoplay's radio queued songs from YouTube and each failed with "YouTube probably temporarily
+blocked anonymous watch access with this IP… Sign in to confirm that you're not a bot": YouTube turns the build
+server away, which is what fails `YouTubeAudioTest` there now and then (the owner's phone plays YouTube). Albums
+showed "0 albums" with "Low song count albums (2)": the two test albums have three and two songs (as 3.2.28 files
+them). Not looked at: every other screen, the phone's layout, anything pressed with a mouse.
 
 **Test build 31 (`012a851`): Smoothest screen.** Asked for by the owner: a switch (Settings › Playback, phone, only
 where the screen has a rate above 60) that asks for the screen's highest refresh rate (`ScreenRate`); off by default.
