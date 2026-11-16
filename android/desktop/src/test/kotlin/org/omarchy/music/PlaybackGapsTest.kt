@@ -188,7 +188,7 @@ class PlaybackGapsTest {
             ui {
                 Music.queue = emptyList(); Music.index = -1; Music.repeat = "off"; Music.shuffled = false
                 Music.queueName = ""; Music.queueId = ""; Music.queues = emptyList()
-                Music::class.java.getDeclaredMethod("loadState").apply { isAccessible = true }.invoke(Music)
+                Remembered.load()
             }
             assertEquals(b.map { it.id }, Music.queue.map { it.id })
             assertEquals(1, Music.index)

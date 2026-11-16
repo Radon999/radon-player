@@ -348,6 +348,15 @@ sorting by how you listen (`PlaySorts`: each tab's sort, play counts from the st
 playlist's sort, Smart shuffle's weights; P `PlaySortsTest`). `Music.kt` is about 1,080 lines: what the screens
 show (state), remembering (saving and loading), playback's hand-ons, and the hand-ons to the parts above.
 
+Twenty-third: what the app remembers between starts (`Remembered`, `ebf97e5`: state.json's shape, reading it at the
+start, writing it; the checks on what is read are `RememberedRules`; S `RememberedRulesTest`, P `RememberedTest`).
+Twenty-fourth: the last small parts (`82a3a87`): the play buttons (`PlayButtons`: Play, Pause, Next, seek, the heart),
+casting (`Casting`), a song's radio (`SongRadio`), Settings › Sound's switches and bit-perfect (`SoundSwitches`); a
+song's speed went to `SongMarks`, lyrics into a file to `TagEdits`, the upgraded song swapped in to `Upgrades`, the
+.m3u8 export to `YourPlaylists` (S `PlayButtonRulesTest`, P `PlayLeftoversTest`). `Music.kt` is about 830 lines, and
+what is left is what it is meant to keep: what the screens show (state), starting the app (`init`), and the names the
+screens call, each handing on to its part.
+
 **Test build 29 (`90862a8`): asked for at the start.** The owner: the visualizer on Now playing did nothing until the
 Visualizer tab had been opened and its permission given. The phone now asks for all it needs as it starts, at every
 start until allowed (`StartupPermissions`: Android's questions for your music, the microphone, notifications; then a
