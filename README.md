@@ -32,7 +32,7 @@ The same text is the app's own **Features** page (☰ menu). What each version c
 
 - **Now playing:** The big cover, with ☆ to favorite and ⋯ for options. Swipe the cover for the next or previous song, swipe up for the queue, tap it for lyrics, double-tap to pause.
 - **Quality badge:** Says what you're hearing ("FLAC 24-bit/96 kHz", a stream's quality, or "Offline"). On a stream, **⤓ FLAC** saves it.
-- **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. With **Queues** on, each album, playlist and folder keeps its own queue where you left it.
+- **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. With **Queues** on, each album, playlist and folder keeps its own queue where you left it; **Q** at the top of Now playing opens them.
 - **Shuffle, Repeat and Autoplay:** **Smart shuffle** favors songs you love but haven't heard in a while (it goes by your plays everywhere, Last.fm and your imports too); Repeat one starts the song again reliably; Autoplay keeps similar songs coming when the queue ends. With the DJ on, only Repeat one is used: the DJ's sets go on in their own order.
 - **Per song:** Its own volume (−12 to +12 dB), its own EQ and its own speed, remembered each time it plays.
 - **Your copy first:** Wherever a song shows up (a playlist, search, a radio, the DJ), your own file plays when you have it, with its cover and tags.

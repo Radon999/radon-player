@@ -402,17 +402,20 @@ private fun NowTop(ui: Ui, n: Now, lay: UiLayout = UiLayouts.current) {
         // ☰ where the layout puts it: the left, the right (Right-handed, Zen), or on its bar instead
         if (lay.headerMenu && !lay.menuRight) IconButton(Ico.MENU, WHITE) { ui.openDrawer() } else Spacer(Modifier.width(8.dp))
         val t = n.t
-        val from = when {
-            n.remote -> "Playing on the desktop"
-            t == null -> ""
-            Music.shownRadio() -> "Playing a radio"
-            t.album.isNotEmpty() -> "From the album ${t.album}"
-            Music.queueName.isNotEmpty() -> "Playing from ${Music.queueName}"
-            else -> ""
-        }
-        Text(from, style = T.sub.copy(shadow = LIFT, color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
+        // Q: your queues. (Before, the words "From the album…" stood here and opened them: beside the buttons there
+        // was only room for a letter and dots, "F…", which said nothing.) As the phone's remote, the words stay: they
+        // say the music is on the desktop.
+        if (n.remote) Text("Playing on the desktop", style = T.sub.copy(shadow = LIFT, color = WHITE.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold), maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).clickable { ui.showQueues = true }.padding(vertical = 6.dp))
+        else {
+            Box(Modifier.clip(R.pill).clickable { ui.showQueues = true }
+                .semantics { contentDescription = "Your queues" }
+                .padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text("Q", style = T.tab.copy(color = WHITE, fontWeight = FontWeight.Bold, shadow = LIFT))
+            }
+            Spacer(Modifier.weight(1f))
+        }
         // Playing a DJ set: straight to the DJ's next set (its next category), skipping the rest of this one.
         if (t != null && t.dj > 0 && Music.shownDj().on) {
             // Switch it up: a new kind of set now

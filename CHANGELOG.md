@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.2: A Q button for your queues (Android, Windows and Linux)
+- **A Q button for your queues:** at the top left of Now playing, where "From the album…" stood. Beside the other buttons there was only room for "F…". Q opens your queues just as those words did.
+
 ## 4.0.1: Moods match, and Linux fixes (Android, Windows and Linux)
 - **Moods match (Settings › Remote & sync):** a new switch under Tags match, for moods only, with its own main device. At each sync the other device's songs get the main one's moods, written into their files, with nothing scanned again. For when one device's moods were lost or cleared, or when you scan on one and tag on the other.
 - **Tags match leaves moods alone:** it used to make its main device lead the moods too. Now the tags and the moods are apart: each follows the device you pick for it.
