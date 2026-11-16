@@ -146,7 +146,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 ## PC only
 
-- **System tray, media keys, Start with Windows** (on Linux: the tray and Start with Linux; the keyboard's media keys are Windows only for now) and an always-on-top **mini player**: Now playing made small, with your look, effects, visualizer and Now playing's buttons and queue.
+- **System tray, media keys, Start with Windows** (on Linux too: Start with Linux, and the media keys and the desktop's own "now playing" controls through MPRIS) and an always-on-top **mini player**: Now playing made small, with your look, effects, visualizer and Now playing's buttons and queue.
 - **Discord** shows what you're playing on your profile.
 - **Keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the Equalizer, / to search) and right-click menus everywhere.
 

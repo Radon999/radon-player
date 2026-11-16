@@ -1,0 +1,231 @@
+# An install-over build from the rebuild branch, for the owner to try BEFORE anything is released: the real apps, as a
+# release would make them, with a version of their own (ci/CANDIDATE, first line: the version, "3.3.0"), so they
+# install over the apps the owner has and keep their settings. The phone's is Radon Player Next
+# (org.omarchy.music.next) signed with the test key every release since 1.3.0 was signed with; the PC's is the .msi
+# with mpv, ffmpeg and the media controls helper; Linux' is the .deb. NOTHING IS PUBLISHED: no release is made, no
+# branch is written but rebuild-ci (where to get them: result-candidate-*.txt). The version is set here, in the
+# build, and not in the repository: bumping it there is part of a release. Made when ci/CANDIDATE changes.
+name: Install-over build (not released)
+on:
+  push:
+    branches: [rebuild]
+    paths: [ci/CANDIDATE]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  phone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Tidal's app keys
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python3 android/tools/tidal-keys.sh
+      - name: Radon Player Next, this version, with the test key
+        run: |
+          V="$(head -1 ci/CANDIDATE | tr -d '[:space:]')"; echo "V=$V" >> "$GITHUB_ENV"
+          IFS=. read -r a b c <<< "$V"; CODE=$((a * 10000 + b * 100 + c)); echo "version $V, code $CODE"
+          # The test key is kept on the android-work branch (ci/test.keystore.b64), where the releases are made
+          git fetch -q origin android-work
+          git show FETCH_HEAD:ci/test.keystore.b64 | base64 -d > "$RUNNER_TEMP/test.keystore"
+          mkdir -p ~/.local/share/omarchy-music
+          printf 'storeFile=%s\nstorePassword=varmusictest\nkeyAlias=test\nkeyPassword=varmusictest\n' "$RUNNER_TEMP/test.keystore" > ~/.local/share/omarchy-music/keystore.properties
+          # Always Radon Player Next (never the other app, "Radon Player": it can't install over Next)
+          sed -i 's/applicationId = "org.omarchy.music"/applicationId = "org.omarchy.music.next"/' android/app/build.gradle.kts
+          sed -i 's/android:label="Radon Player"/android:label="Radon Player Next"/' android/app/src/main/AndroidManifest.xml
+          sed -i -E "s/versionCode = [0-9]+/versionCode = $CODE/; s/versionName = \"[^\"]+\"/versionName = \"$V\"/" android/app/build.gradle.kts
+          grep -nE 'applicationId|versionCode|versionName' android/app/build.gradle.kts
+      - name: Build it
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleRelease > "$RUNNER_TEMP/build.log" 2>&1 || true
+          A=app/build/outputs/apk/release/app-release.apk
+          if [ -f "$A" ]; then mkdir -p "$RUNNER_TEMP/out" && cp "$A" "$RUNNER_TEMP/out/RadonPlayer-Next-$V-install-over.apk"; fi
+      - name: Is it the owner's app? (name, package, version, key)
+        id: check
+        run: |
+          A=$(ls "$RUNNER_TEMP"/out/*.apk 2>/dev/null | head -1)
+          ok=no
+          if [ -n "$A" ]; then
+            tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+            "$tools/aapt2" dump badging "$A" > "$RUNNER_TEMP/badging.txt" || true
+            "$tools/apksigner" verify --print-certs "$A" > "$RUNNER_TEMP/certs.txt" || true
+            if grep -q "package: name='org.omarchy.music.next' " "$RUNNER_TEMP/badging.txt" && grep -q "application-label:'Radon Player Next'" "$RUNNER_TEMP/badging.txt" \
+              && grep -q "versionName='$V'" "$RUNNER_TEMP/badging.txt" \
+              && grep -q "certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9$" "$RUNNER_TEMP/certs.txt"; then ok=yes; fi
+            # One that isn't the owner's app in every way is not handed out: it could not install over it
+            [ "$ok" = yes ] || rm -f "$A"
+          fi
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        id: keep
+        with:
+          name: RadonPlayer-install-over-phone
+          path: ${{ runner.temp }}/out/*.apk
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Say how it went (the rebuild-ci branch)
+        if: always()
+        run: |
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            if [ "${{ steps.check.outputs.ok }}" = yes ]; then echo "PHONE INSTALL-OVER: made, Radon Player Next $V, the test key: it installs over the app on the phone"; else echo "PHONE INSTALL-OVER: not made (or not the owner's app in every way: not handed out)"; fi
+            head -1 "$RUNNER_TEMP/badging.txt" 2>/dev/null
+            grep -E "application-label:|SHA-256" "$RUNNER_TEMP/badging.txt" "$RUNNER_TEMP/certs.txt" 2>/dev/null | head -3
+            echo "DOWNLOAD: ${{ steps.keep.outputs.artifact-url }}"
+            echo "--- errors"
+            grep -E "^e: |error:|What went wrong|FAILED" -A6 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -60
+            echo "--- the end of the log"
+            tail -12 "$RUNNER_TEMP/build.log"
+          } > "$RUNNER_TEMP/result-candidate-phone.txt" || true
+          cat "$RUNNER_TEMP/result-candidate-phone.txt"
+          for try in 1 2 3; do
+            r="$(mktemp -d)"; cd "$r" && git init -q
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+            if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+            cp "$RUNNER_TEMP/result-candidate-phone.txt" result-candidate-phone.txt
+            git add -A
+            git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: install-over phone build for ${GITHUB_SHA::7}" || true
+            if git push -q origin rebuild-ci; then break; fi
+            sleep 20
+          done
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Tidal's app keys
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python3 android/tools/tidal-keys.sh
+      - name: Build the package, this version
+        working-directory: android
+        run: |
+          V="$(head -1 ../ci/CANDIDATE | tr -d '[:space:]')"
+          sed -i -E "s/^val appVersion = \"[^\"]+\"/val appVersion = \"$V\"/" desktop/build.gradle.kts; grep -n '^val appVersion' desktop/build.gradle.kts
+          chmod +x gradlew
+          ./gradlew --no-daemon :desktop:packageDeb > "$RUNNER_TEMP/build.log" 2>&1 || true
+          deb=$(ls desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
+          if [ -n "$deb" ]; then bash ../ci/linux-deps.sh "$deb" > /dev/null 2>&1 || true; mkdir -p "$RUNNER_TEMP/out" && cp "$deb" "$RUNNER_TEMP/out/"; fi
+      - uses: actions/upload-artifact@v4
+        id: keep
+        with:
+          name: RadonPlayer-install-over-linux
+          path: ${{ runner.temp }}/out/*.deb
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Say how it went (the rebuild-ci branch)
+        if: always()
+        run: |
+          deb=$(ls "$RUNNER_TEMP"/out/*.deb 2>/dev/null | head -1)
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            if [ -n "$deb" ]; then echo "LINUX INSTALL-OVER: made, $(basename "$deb"), $(du -h "$deb" | cut -f1), needs: $(dpkg-deb -f "$deb" Depends)"; else echo "LINUX INSTALL-OVER: not made"; fi
+            echo "DOWNLOAD: ${{ steps.keep.outputs.artifact-url }}"
+            echo "--- errors"
+            grep -E "^e: |error:|What went wrong|FAILED" -A6 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -60
+            echo "--- the end of the log"
+            tail -12 "$RUNNER_TEMP/build.log"
+          } > "$RUNNER_TEMP/result-candidate-linux.txt" || true
+          cat "$RUNNER_TEMP/result-candidate-linux.txt"
+          for try in 1 2 3; do
+            r="$(mktemp -d)"; cd "$r" && git init -q
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+            if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+            cp "$RUNNER_TEMP/result-candidate-linux.txt" result-candidate-linux.txt
+            git add -A
+            git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: install-over linux build for ${GITHUB_SHA::7}" || true
+            if git push -q origin rebuild-ci; then break; fi
+            sleep 25
+          done
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: mpv and ffmpeg, for the installer to bring its own
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=android/desktop/resources/windows; mkdir -p "$D"
+          T="$(cygpath -u "$RUNNER_TEMP")"
+          A=$(gh release view -R shinchiro/mpv-winbuild-cmake --json assets -q '.assets[].name' | grep -E '^mpv-x86_64-[0-9]{8}-git-[0-9a-f]+\.7z$' | head -1)
+          echo "mpv: $A"
+          gh release download -R shinchiro/mpv-winbuild-cmake -p "$A" -D "$T"
+          7z e -y "$T/$A" -o"$D" mpv.exe > /dev/null
+          curl -sSfL --retry 4 -o "$T/ff.zip" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          7z e -y "$T/ff.zip" -o"$D" ffmpeg.exe -r > /dev/null
+          ls -la "$D"
+      - name: The Windows media controls helper (radon-media.exe)
+        continue-on-error: true
+        working-directory: android/desktop/smtc
+        run: |
+          dotnet publish -c Release -o out
+          mkdir -p ../resources/windows && cp out/radon-media.exe ../resources/windows/
+          ls -la ../resources/windows
+      - name: Tidal's app keys
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet tidalapi
+          OMARCHY_MUSIC_PYTHON=python android/tools/tidal-keys.sh
+      - name: The PC installer, this version
+        working-directory: android
+        run: |
+          V="$(head -1 ../ci/CANDIDATE | tr -d '[:space:]')"
+          sed -i -E "s/^val appVersion = \"[^\"]+\"/val appVersion = \"$V\"/" desktop/build.gradle.kts; grep -n '^val appVersion' desktop/build.gradle.kts
+          ./gradlew --no-daemon :desktop:packageMsi > ../build-candidate.log 2>&1 || true
+          ls -la desktop/build/compose/binaries/main/msi/ || true
+      - uses: actions/upload-artifact@v4
+        id: keep
+        with:
+          name: RadonPlayer-install-over-pc
+          path: android/desktop/build/compose/binaries/main/msi/*.msi
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Say how it went (the rebuild-ci branch)
+        if: always()
+        run: |
+          M=$(ls android/desktop/build/compose/binaries/main/msi/*.msi 2>/dev/null | head -1)
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            if [ -n "$M" ]; then echo "PC INSTALL-OVER: made, $(basename "$M"), $(du -h "$M" | cut -f1)"; else echo "PC INSTALL-OVER: not made"; fi
+            echo "BRINGS: $(ls android/desktop/resources/windows 2>/dev/null | tr '\n' ' ')"
+            echo "DOWNLOAD: ${{ steps.keep.outputs.artifact-url }}"
+            echo "--- errors"
+            grep -E "^e: |error:|What went wrong|FAILED" -A6 build-candidate.log | grep -v "^w: " | head -60
+            echo "--- the end of the log"
+            tail -12 build-candidate.log
+          } > result-candidate-windows.txt || true
+          cat result-candidate-windows.txt
+          here="$PWD"
+          for try in 1 2 3; do
+            r="$(mktemp -d)"; cd "$r" && git init -q
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+            if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+            cp "$here/result-candidate-windows.txt" result-candidate-windows.txt
+            git add -A
+            git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: install-over pc build for ${GITHUB_SHA::7}" || true
+            if git push -q origin rebuild-ci; then break; fi
+            cd "$here"; sleep 15
+          done
