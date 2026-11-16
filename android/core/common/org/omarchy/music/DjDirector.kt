@@ -172,6 +172,7 @@ object DjDirector {
             .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
         Dj.played(b.songs + songs)   // none again for the next 300 songs
         Dj.commit(b.id)   // it's played: its kind has had its turn, its fact is told (held till now, see Dj.Hold)
+        Dj.queuedAs(b.id, n)
         return songs.map { it.copy(dj = n) }
     }
 
@@ -354,6 +355,7 @@ object DjDirector {
         val line = djLines.getOrPut(res.line + "\n" + res.fact) {
             Spoken.humanize(res.line) + if (res.fact.isNotEmpty()) " " + Spoken.humanize(res.fact, filler = 0.0) else "" }
         Voice.prepare(djClean(line))
+        Dj.voiced(res.id)
     }
 
     // ---- a set begins, and a word between songs ----
@@ -369,6 +371,7 @@ object DjDirector {
             return
         }
         dj = dj.copy(shown = n)
+        Dj.announced(t.dj ?: 0)
         toast("DJ · ${set.line}")
         djCommentAhead()
         // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice

@@ -33,6 +33,11 @@ object PlaySorts {
         return out
     }
 
+    /** When each song was last heard: the later of the play here and the one heard anywhere (seconds), into here. */
+    fun <K> latest(here: MutableMap<K, Double>, anywhere: Map<K, Long>?) {
+        anywhere?.forEach { (k, t) -> if (t > (here[k] ?: 0.0)) here[k] = t.toDouble() }
+    }
+
     /** A playlist's songs as the sort chips say. */
     fun playlist(tracks: List<Track>): List<Track> =
         sortSongs(tracks, Music.playlistSort, if (Music.playlistSort == "plays") counts() else emptyMap())
@@ -45,6 +50,8 @@ object PlaySorts {
         for (st in Stats.songs.take(20000)) plays[Stats.statsKey(st.title, st.artist)] = st.plays
         val last = HashMap<Pair<String, String>, Double>()
         for (e in Music.plays.items.values) { val k = Stats.statsKey(e.track.title, e.track.artist); last[k] = maxOf(last[k] ?: 0.0, e.last) }
+        // …and when you last heard it anywhere (Last.fm, your imports), from what TasteService has now: never waited for
+        latest(last, TasteService.current?.last)
         val now = System.currentTimeMillis() / 1000.0
         return { t -> Stats.statsKey(t.title, t.artist).let { k -> smartWeight(plays[k] ?: 0, last[k] ?: 0.0, now) } }
     }

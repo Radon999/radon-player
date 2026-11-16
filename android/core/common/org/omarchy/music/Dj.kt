@@ -304,7 +304,19 @@ object Dj {
     }
 
     /** The set was let go unplayed: what it held is forgotten, as if it had never been made. */
-    fun discard(set: Long) { synchronized(lock) { holds.removeAll { it.set == set } } }
+    fun discard(set: Long) { unhold(set); life.move(set, SetState.DROPPED) }
+    private fun unhold(set: Long) { synchronized(lock) { holds.removeAll { it.set == set } } }
+
+    // Where each set made lately is in its life (the plan's DjSet record: planned, scripted, voiced, queued,
+    // announced, or dropped): kept as the sets move on, to be asked (a test, Problems), changing nothing they do.
+    private val life = SetLife.Book()
+    fun stateOf(set: Long): SetState? = life.of(set)
+    /** The set's line was made as speech ahead. */
+    fun voiced(set: Long) { life.move(set, SetState.VOICED) }
+    /** The set's songs went into the queue as set number n. */
+    fun queuedAs(set: Long, n: Int) { life.queuedAs(set, n) }
+    /** Set number n of the queue began: its line was shown or said. */
+    fun announced(n: Int) { life.announced(n) }
 
     /** One of lines, from a shuffle bag kept for key: none said again until all the others have been. */
     private fun say(key: String, vararg lines: String): String = synchronized(lock) {
@@ -1680,6 +1692,7 @@ object Dj {
         outNow.set(usedInLast(window()) + coming)   // kept out of every set from the start (see outNow)
         val id = setIds.incrementAndGet()
         building.set(id)   // what it adds to the histories is held until it's played (see Hold)
+        life.planned(id)
         try {
         for (k in tries) {
             val sc = scope
@@ -1713,7 +1726,7 @@ object Dj {
             }
             if (got == null) {   // can't make one now: tried after the others for a while, and not counted
                 if (kind == null) dead["$key:$k"] = now()
-                discard(id)   // nothing of a kind that made no set is held
+                unhold(id)   // nothing of a kind that made no set is held
                 continue
             }
             dead.remove("$key:$k")
@@ -1732,9 +1745,11 @@ object Dj {
                 synchronized(lock) { holds.removeAll { it.set == id && it.key == FACT_HISTORY } }
             }
             // Every song you have yourself (a file or a download) plays from your copy, its cover and tags shown from the start
+            life.move(id, SetState.SCRIPTED)
             return Built(k, Music.localsOf(songs), line, fact, id, opener, first, timeKey())
         }
         } finally { outNow.set(null); building.set(null) }
+        life.move(id, SetState.DROPPED)   // no kind could make a set
         return null
     }
 }

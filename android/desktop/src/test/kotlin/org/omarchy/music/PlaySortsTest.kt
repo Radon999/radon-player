@@ -16,6 +16,14 @@ class PlaySortsTest {
         assertEquals(mapOf("a" to 40, "b" to 2, "c" to 7), counts)
     }
 
+    @Test fun aSongHeardElsewhereSinceCountsAsHeardThen() {
+        val last = hashMapOf("a" to 100.0, "b" to 500.0)
+        PlaySorts.latest(last, mapOf("a" to 300L, "b" to 200L, "c" to 50L))
+        assertEquals(mapOf("a" to 300.0, "b" to 500.0, "c" to 50.0), last)
+        PlaySorts.latest(last, null)
+        assertEquals(3, last.size)
+    }
+
     @Test fun aTabsSortIsKept() {
         Harness.ctx
         val tab = "play-sorts-test-tab"

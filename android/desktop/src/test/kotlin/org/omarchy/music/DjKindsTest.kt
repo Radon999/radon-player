@@ -67,6 +67,15 @@ class DjKindsTest {
         only("throwback", "Throwback") { assertTrue(it.line, it.line.contains(year.toString())) }
     }
 
+    @Test fun aSetMadeHasItsLineAndOneLetGoIsDropped() = withHistory {
+        val b = Dj.build(kind = "repeat")!!
+        assertEquals(SetState.SCRIPTED, Dj.stateOf(b.id))
+        Dj.discard(b.id)
+        assertEquals(SetState.DROPPED, Dj.stateOf(b.id))
+        Dj.queuedAs(b.id, 1)
+        assertEquals("a dropped set is never queued", SetState.DROPPED, Dj.stateOf(b.id))
+    }
+
     @Test fun withNoListeningTheseKindsMakeNoSet() {
         Harness.ctx
         Dj.playFrom(null, null)
