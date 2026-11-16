@@ -350,12 +350,19 @@ real app on a screen nobody sees (Xvfb), with data of its own, and keeps what it
 (`linux-start.txt`, `linux-start.jpg`). First run: **it starts and stays up** (45 s), its window draws (Now playing,
 "Nothing playing": the first picture of any screen of the rebuild Claude has seen), no Problems written. Found:
 **mpv is not in the Linux package** ("mpv isn't there": nothing can play until mpv is installed or bundled; plan D2);
-no tray on that screen (expected without a desktop); the drawing falls back from OpenGL (expected there). Not tried:
-playing anything, media keys, the updater, a real desktop.
+no tray on that screen (expected without a desktop); the drawing falls back from OpenGL (expected there).
+**Second step (`06dfb05`): it plays.** `ci/linux-deps.sh` adds mpv and ffmpeg to what the .deb asks for; the check
+installs the package with apt, as a person would, and mpv comes with it (0.41). The running app is then asked from a
+command line to play a 40 s tone and says "Playing: Linux test tone · Radon checks (0:07 of 0:40)", then 0:14: the
+song loads and its time moves. The picture shows Now playing with the song, its format (FLAC · 16-bit · 44.1 kHz), the
+time bar part way and the visualizer's bars drawn. (The build server has no sound card: mpv plays into nothing there,
+so that it is heard is not shown.) Without mpv the app now says how to install it on Linux. The Linux package made
+for a release must go through `ci/linux-deps.sh` too (there is no Linux release job yet). Not tried: a real desktop
+(tray, media keys, MPRIS), the updater, sound out of a real card, a streamed song.
 
 **Test build 31 (`012a851`): Smoothest screen.** Asked for by the owner: a switch (Settings › Playback, phone, only
 where the screen has a rate above 60) that asks for the screen's highest refresh rate (`ScreenRate`); off by default.
-The PC draws at its monitor's rate already. No test (a window's attribute); **not seen by Claude**. **Not
+The PC draws at its monitor's rate already. No test (a window's attribute). **The owner on build 31: it shows, and it is smoother.** **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
