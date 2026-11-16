@@ -81,6 +81,14 @@ object FlacDepths {
         }
     }.getOrNull()
 
+    /** (blocking, quick) A FLAC's or WAV's own bit depth: what was read of it before, else its first bytes now; null
+     *  for any other file or one that can't be read. For the format shown under Now playing on the PC. */
+    fun fileBits(uri: String): Int? {
+        load()
+        known[uri]?.bits?.takeIf { it > 0 }?.let { return it }
+        return head(uri)?.first?.takeIf { it > 0 }
+    }
+
     /** (blocking) Read the songs not read yet. */
     fun scan() {
         load()

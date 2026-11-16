@@ -120,7 +120,11 @@ object Outputs {
             val w = (0 until 8).map { b[it * 2] or (b[it * 2 + 1] shl 8) }
             listOf(w[0], w[1], w[3], w[4], w[5], w[6], w[7]).joinToString("") { "%05d".format(it) }
         }.getOrDefault("")
-        val best = devs.values.filter { it.state == 1 }.maxByOrNull { stamp(it.role) } ?: return null
+        // The one Windows itself names as its default (the Sound panel's green tick); if it can't be asked, the active
+        // one most recently made the default by hand, as before (wrong for a DAC Windows chose as it was plugged in)
+        val active = devs.entries.filter { it.value.state == 1 }
+        val key = WinOutputRules.pick(active.map { it.key to stamp(it.value.role) }, WinDefaultOutput.guid()) ?: return null
+        val best = devs.getValue(key)
         fun p(k: String) = best.props[k]?.takeIf { it.isNotBlank() }
         val desc = p("{a45c254e-df1c-4efd-8020-67d146a850e0},2") ?: "Speakers"
         val iface = p("{b3f8fa53-0004-438e-9003-51a46e139bfc},6") ?: ""

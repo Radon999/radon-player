@@ -125,7 +125,10 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                     "audio-params" -> (d as? JsonObject)?.let { a ->
                         rate = a["samplerate"]?.jsonPrimitive?.intOrNull ?: 0
                         val fmt = a["format"]?.jsonPrimitive?.content ?: ""
-                        bits = when { fmt.startsWith("s16") -> 16; fmt.startsWith("s24") -> 24; fmt.startsWith("s32") || fmt.startsWith("float") -> 32; else -> 0 }
+                        // The file's own depth, not what mpv decoded it into (a 24-bit FLAC comes out as 32-bit numbers,
+                        // and was shown as "32-bit"; MP3 and AAC come out as floating point, which is no depth at all)
+                        val own = path?.takeIf { !it.startsWith("http") }?.let { runCatching { FlacDepths.fileBits(it) }.getOrNull() }
+                        bits = WinOutputRules.shownBits(fmt, own)
                         showFormat()
                     }
                     "audio-device-list" -> (d as? kotlinx.serialization.json.JsonArray)?.let { list -> devicesNow(list) }

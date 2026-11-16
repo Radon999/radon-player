@@ -1,8 +1,0 @@
-v4.0.2
-Radon Player 4.0.2: a Q button for your queues
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.2.msi` (Windows), `radon-player_4.0.2_amd64.deb` (Linux), or Settings › Update inside the app.
-
-**What's new**
-- **A Q button for your queues:** at the top left of Now playing, where "From the album…" stood. Beside the other buttons there was only room for "F…". Q opens your queues just as those words did.
-
-4.0.1, an hour before it, brought **Moods match** and the Linux fixes: see its notes. Everything the app does is in the [README](https://github.com/Radon999/radon-player#readme).
