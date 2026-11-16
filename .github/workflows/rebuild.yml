@@ -44,13 +44,23 @@ jobs:
             else
               sudo apt-get update -qq >/dev/null 2>&1 || true
               sudo apt-get install -y -qq xvfb imagemagick >/dev/null 2>&1 || true
-              sudo dpkg -i "$deb" >/dev/null 2>&1 || sudo apt-get install -y -f -qq >/dev/null 2>&1 || true
+              # The package asks for mpv and ffmpeg (the app runs them and does not bring them on Linux), and installing
+              # it the way a person would (apt, which fetches what a package asks for) must bring them in
+              echo "LINUX PACKAGE NEEDS: $(bash ci/linux-deps.sh "$deb" 2>&1 | tail -1)"
+              sudo apt-get install -y -qq "./$deb" >/dev/null 2>&1 || sudo dpkg -i "$deb" >/dev/null 2>&1 || true
+              echo "LINUX MPV: $(command -v mpv >/dev/null 2>&1 && mpv --version 2>/dev/null | head -1 || echo 'not installed by the package')"
               pkg=$(dpkg-deb -f "$deb" Package)
               exe=$(dpkg -L "$pkg" 2>/dev/null | grep -E '/bin/[^/]+$' | head -1)
               if [ -z "$exe" ]; then
                 echo "LINUX START: the package installed, but no program was found in it ($pkg)"
               else
                 export RADON_DATA="$RUNNER_TEMP/radon-data"; mkdir -p "$RADON_DATA"
+                # The build server has no sound card: mpv plays into nothing (--ao=null), through a stand-in the app is
+                # pointed at (RADON_MPV). Everything else is the app's own.
+                printf '#!/bin/sh\nexec mpv --ao=null "$@"\n' > "$RUNNER_TEMP/mpv-quiet"; chmod +x "$RUNNER_TEMP/mpv-quiet"
+                export RADON_MPV="$RUNNER_TEMP/mpv-quiet"
+                tone="$RUNNER_TEMP/Linux test tone.flac"
+                ffmpeg -loglevel error -f lavfi -i "sine=frequency=440:duration=40" -metadata title="Linux test tone" -metadata artist="Radon checks" "$tone" 2>/dev/null || true
                 Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
                 sleep 3
                 DISPLAY=:99 "$exe" > "$RUNNER_TEMP/app.log" 2>&1 &
@@ -60,6 +70,16 @@ jobs:
                   echo "LINUX START: the installed app started and was still running after 45 s"
                 else
                   wait "$pid"; echo "LINUX START: the app stopped within 45 s (exit code $?)"
+                fi
+                # A song, asked for the way a person would from a command line (the app running takes it), then what
+                # the app says is playing, twice, to see the time move
+                if [ -f "$tone" ]; then
+                  DISPLAY=:99 timeout 20 "$exe" "$tone" >/dev/null 2>&1 || true
+                  sleep 8; one=$(DISPLAY=:99 timeout 20 "$exe" status 2>/dev/null | head -1)
+                  sleep 6; two=$(DISPLAY=:99 timeout 20 "$exe" status 2>/dev/null | head -1)
+                  echo "LINUX PLAY: asked to play a 40 s tone. After 8 s: ${one:-no answer}. After 14 s: ${two:-no answer}"
+                else
+                  echo "LINUX PLAY: no tone could be made (ffmpeg)"
                 fi
                 if DISPLAY=:99 import -window root "$RUNNER_TEMP/shot.png" 2>/dev/null && convert "$RUNNER_TEMP/shot.png" -resize 60% -quality 72 "$RUNNER_TEMP/linux-start.jpg" 2>/dev/null; then
                   echo "LINUX START: a picture of its window was taken (linux-start.jpg)"
@@ -104,7 +124,7 @@ jobs:
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
-            head -2 "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
+            grep -E '^LINUX (START|PLAY|MPV|PACKAGE NEEDS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
             echo "--- errors"
             grep -E "^e: |error:|What went wrong|FAILED" -A2 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -120
             echo "--- the end of the log"

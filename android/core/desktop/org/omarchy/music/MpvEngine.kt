@@ -328,7 +328,11 @@ class MpvEngine(private val main: Boolean = true) : Engine {
     private var exclusive = false
 
     companion object {
-        const val MISSING = "Can't play: mpv (the player) isn't on this PC. The next Radon Player installer brings its own"
+        /** Said when mpv can't be run. Windows' installer brings its own; on Linux it comes from the system (the package
+         *  asks for it, and it can be put in by hand). */
+        val MISSING: String = if (System.getProperty("os.name").lowercase().contains("win"))
+            "Can't play: mpv (the player) isn't on this PC. The next Radon Player installer brings its own"
+            else "Can't play: mpv (the player) isn't installed. Install it (on Ubuntu or Debian: sudo apt install mpv ffmpeg) and start Radon Player again"
         private val COUNT = AtomicInteger()
         private val all = java.util.Collections.newSetFromMap(java.util.WeakHashMap<MpvEngine, Boolean>())
         init {   // however the app ends, its players end with it (one left running would keep bit-perfect's hold on the sound card)
