@@ -230,6 +230,25 @@ previous version of the app"; the settings and favourited presets of the app bef
 screen off was still to do. **Decided the same day:** the DAC phases dropped, the actors, `store` and the
 measurements closed (plan D18, D19).
 
+**4.0.0 released (16 November 2026, `648e1f6`, tag `v4.0.0`):** the phone's app, the .msi and the .deb, by
+`candidate.yml` with `ci/RELEASE`; the same commit is `radon-player`. The README and the app's Features page are one
+text; the app's Changelog starts at 4.0.
+
+**After 4.0: Linux, from the owner's first report** ("settings not working correctly, logging into Tidal, not opening
+up the link, the window is flashing weirdly"; no more detail yet). Found and changed, for a release after 4.0:
+links went through Java's own opener, which on Linux often does nothing and says nothing: they go through the
+desktop's own (xdg-open, else gio), and a link that can't be opened is copied with a word about it (`Opening`,
+`9d6b778`); Tidal's sign-in said its page opens in your browser but only opened it from its button: it opens by
+itself now (`5d7bd2f`, every system). **Seen in the check:** asked for Tidal's sign-in, the desktop's opener was
+handed `https://login.tidal.com/authorize`. With no tray (GNOME) closing the window left the app playing with no way
+back: it minimizes there. Settings › General › Software drawing (Linux; or `RADON_RENDER=software`): the window drawn
+without the graphics card, for where it flickers. Songs that can't be had one after another made the player skip on
+through the whole queue, a note for each and the window changing colour with every cover (seen in the check's own
+pictures, where YouTube turns the server away): it stops after four in a row now and says why (`PlayRules.givesUp`,
+every system). The check pictures each of Settings' ten sections (`linux-settings.jpg`): all draw, Start with Linux
+and Software drawing are there. **Not known:** whether the flashing the owner saw was this or the graphics card
+(not reproducible in the check, which has none), and which settings misbehaved.
+
 **Where the plan stood before those decisions.** Done or done as far as it can be without the owner: Phases 0, 2 (but `store`), 6,
 7, 8 (but the actor), 9 (but the actor), 12 (Linux but media keys; Windows' install-over is the owner's), 13.
 **Waiting for the owner:** Phase 11 (the phone: an hour's soak with the screen off, Android Auto, the widget,
