@@ -153,6 +153,16 @@ services and from Last.fm (new for you, deep cuts, more like this, artists for y
 spotlight's choice of artist still have their rules in `Dj.kt`; no `DjSet` record; not run in the real PC app (no
 behaviour was meant to change, and the tests of each kind passed).
 
+**Phase 8, fourth part: the DJ's smaller rules, 16 November 2026 (`3c676ba`).** More out of `Dj.kt` as it was, each
+tested alone (S `DjSmallRulesTest`): in `KindRules` the part of the day a "usual for this hour" set names, which mood
+a mood set takes (this hour's plays counted double, the top three, the heavier likelier, and when the mood is said to
+be this hour's), new-for-you's songs taken in turns from their seeds, which word about the day fits now, and what may
+be said before a song (the milestone plays, your top ten, never skipped, a new obsession, an old friend); in `SetRules`
+how a song the DJ played is kept and read back (the line in `dj_recent_songs`, unchanged); in `ScriptRules` how
+counts, hours, months and places are said; in `TasteRules` the outside-plays count. **Not done:** the lines
+themselves and the kinds made from the services and Last.fm (deep cuts, more like this, genre by tag) are still in
+`Dj.kt`, as are the facts between sets; no `DjSet` record; no actor.
+
 **Phase 13 (the remaining services out of `Music.kt`), begun 15 November 2026.** First: your copy of a song
 (`YourCopies`, `830f3d4`): which of your files a song named by Last.fm, an import, a service or the queue is
 (`songIndex`, `mineOf`, `localOf`, `fmSong`, `yourCopies`, the best copy). Moved as it was; `Music` keeps the names
