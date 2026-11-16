@@ -1,17 +1,17 @@
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
-LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:13 of 0:40)
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
 LINUX START: a picture of its window was taken (linux-start.jpg)
 LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
 --- what the app wrote as it started
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Lone - Single/Lone.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:121 isLastBlock:false
-Nov 16, 2026 5:06:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Night Drive/02 Dawn.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:119 isLastBlock:false
-Nov 16, 2026 5:06:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Lone - Single/Lone.flac StartByte:167 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 16, 2026 5:06:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Night Drive/02 Dawn.flac StartByte:165 BlockType:PADDING DataLength:8192 isLastBlock:true
+INFO: /home/runner/work/_temp/music/Artists/Other Voices/Night Drive/01 Dusk.flac StartByte:165 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 16, 2026 7:28:21 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/music/Artists/Check Band/First Record/03 Gamma.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
+Nov 16, 2026 7:28:21 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/music/Artists/Check Band/First Record/03 Gamma.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:119 isLastBlock:false
+Nov 16, 2026 7:28:21 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/music/Artists/Check Band/First Record/03 Gamma.flac StartByte:165 BlockType:PADDING DataLength:8192 isLastBlock:true
 radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
 <html lang="en">
   <head>
