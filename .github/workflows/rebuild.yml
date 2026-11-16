@@ -74,6 +74,11 @@ jobs:
                 song "Unreleased/Check Band/Demo Tape.flac" 450 "Demo Tape" "Check Band" "" 1
                 Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
                 sleep 3
+                # A session bus, as a desktop has one: the app announces itself on it as a media player (MPRIS), which is
+                # how a Linux desktop sends it the media keys. Asked below the way the desktop would.
+                sudo apt-get install -y -qq dbus libglib2.0-bin >/dev/null 2>&1 || true
+                DBUS_SESSION_BUS_ADDRESS=$(dbus-daemon --session --fork --print-address 2>/dev/null | head -1) || true
+                export DBUS_SESSION_BUS_ADDRESS
                 DISPLAY=:99 "$exe" > "$RUNNER_TEMP/app.log" 2>&1 &
                 pid=$!
                 sleep 45
@@ -91,6 +96,22 @@ jobs:
                   echo "LINUX PLAY: asked to play a 40 s tone. After 8 s: ${one:-no answer}. After 14 s: ${two:-no answer}"
                 else
                   echo "LINUX PLAY: no tone could be made (ffmpeg)"
+                fi
+                # The media keys, pressed the way a desktop presses them: over the session bus (MPRIS), while the tone plays
+                if [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; then
+                  mp() { timeout 10 gdbus call --session --dest org.mpris.MediaPlayer2.radonplayer --object-path /org/mpris/MediaPlayer2 --method "$@" 2>&1 | tr '\n' ' ' | head -c 500; }
+                  st() { mp org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus; }
+                  says() { DISPLAY=:99 timeout 20 "$exe" status 2>/dev/null | head -1; }
+                  echo "LINUX MEDIA KEYS: the app is on the bus as a media player: $(timeout 10 gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus --method org.freedesktop.DBus.NameHasOwner org.mpris.MediaPlayer2.radonplayer 2>&1 | tr '\n' ' ')"
+                  echo "LINUX MEDIA KEYS: it says it is: $(st)"
+                  echo "LINUX MEDIA KEYS: the song it shows: $(mp org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata)"
+                  mp org.mpris.MediaPlayer2.Player.Pause >/dev/null; sleep 3
+                  echo "LINUX MEDIA KEYS: after the Pause key: $(st) · the app: $(says)"
+                  mp org.mpris.MediaPlayer2.Player.PlayPause >/dev/null; sleep 3
+                  echo "LINUX MEDIA KEYS: after the Play/Pause key: $(st) · the app: $(says)"
+                  echo "LINUX MEDIA KEYS: the player's name: $(mp org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2 Identity)"
+                else
+                  echo "LINUX MEDIA KEYS: no session bus could be started here, so they were not tried"
                 fi
                 if DISPLAY=:99 import -window root "$RUNNER_TEMP/shot.png" 2>/dev/null && convert "$RUNNER_TEMP/shot.png" -resize 60% -quality 72 "$RUNNER_TEMP/linux-start.jpg" 2>/dev/null; then
                   echo "LINUX START: a picture of its window was taken (linux-start.jpg)"
@@ -150,7 +171,7 @@ jobs:
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
-            grep -aE '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
+            grep -aE '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS|MEDIA KEYS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
             echo "--- errors"
             grep -E "^e: |error:|What went wrong|FAILED" -A2 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -120
             echo "--- the end of the log"

@@ -28,6 +28,7 @@ object PcApp {
         DacPeqWin.start()   // a FiiO DAC's own EQ presets, switched from the Equalizer
         Discord.init()
         MediaSession.start()   // Windows' media controls: the flyout, widgets and wallpapers see what's playing
+        Mpris.start()   // Linux' media keys and the desktop's own "now playing" (MPRIS)
         Updater.startTimer()   // a new release: looked for at start and every 12 hours
         MpvEngine.setLevel(Prefs.num("pc_volume", 1f), save = false)   // the volume you left it at
         Music.player = MpvEngine()
