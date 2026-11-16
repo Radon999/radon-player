@@ -4,6 +4,14 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.1: Moods match, and Linux fixes (Android, Windows and Linux)
+- **Moods match (Settings › Remote & sync):** a new switch under Tags match, for moods only, with its own main device. At each sync the other device's songs get the main one's moods, written into their files, with nothing scanned again. For when one device's moods were lost or cleared, or when you scan on one and tag on the other.
+- **Tags match leaves moods alone:** it used to make its main device lead the moods too. Now the tags and the moods are apart: each follows the device you pick for it.
+- **Moods only sync when you ask:** a sync used to carry moods both ways by itself. Now they go across only with Moods match on. Turn it on if you want your two devices' moods kept the same.
+- **Tidal's sign-in page opens by itself (computer),** as its text said it did.
+- **The music stops after four songs in a row that can't be played** (no connection, a service turning the app away), and says why, instead of skipping on through the whole queue.
+- **Linux:** links open in your browser (sign-ins, the update's page, folders); a link that can't be opened is copied instead. With no tray, closing the window minimizes it instead of hiding it for good. Software drawing (Settings › General) for a window that flickers.
+
 ## 4.0.0: Rebuilt, and on Linux too (Android, Windows and Linux)
 - **Rebuilt from the inside:** the app was taken apart and put back together as separate parts (playback, the DJ, your library, downloads, the stats, the sound), each with its own tests. It does what it did, more smoothly and more reliably, and your settings, stats, playlists and presets carry over.
 - **Linux:** Radon Player now runs on Linux as well as Windows and Android, as a .deb package that brings mpv and ffmpeg with it. It has the tray, Start with Linux, updates from inside the app, and the keyboard's and a headset's media keys with the desktop's own "now playing" controls.

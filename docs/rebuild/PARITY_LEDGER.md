@@ -249,6 +249,17 @@ every system). The check pictures each of Settings' ten sections (`linux-setting
 and Software drawing are there. **Not known:** whether the flashing the owner saw was this or the graphics card
 (not reproducible in the check, which has none), and which settings misbehaved.
 
+**4.0.1 (16 November 2026): Moods match, asked for by the owner** (the phone's moods cleared by mistake, its tags
+edited there: the moods wanted from the PC without a rescan, the phone's tags kept). Settings › Remote & sync, under
+Tags match: a switch for moods only with its own main device (`MoodMatch`, `MoodMatchRules`, S `MoodMatchRulesTest`).
+At a sync the device that isn't its main one takes the other's moods (`Moods.restoreLater`, as before from a main
+device: every song's but the ones you picked yourself) and now writes them into the files at once (`writeTaken`).
+**Changed on purpose:** Tags match no longer leads the moods; and a sync no longer carries moods at all unless Moods
+match is on (before, they went both ways by themselves). It also brings moods to a device where Remove all moods
+was used (before, those waited for a scan). **Released untried**, on the owner's word ("release it as a new version
+immediately … I will test it"): the giving and writing of moods across two real devices was not run by Claude; only
+the rules are tested. The Linux fixes above are in it.
+
 **Where the plan stood before those decisions.** Done or done as far as it can be without the owner: Phases 0, 2 (but `store`), 6,
 7, 8 (but the actor), 9 (but the actor), 12 (Linux but media keys; Windows' install-over is the owner's), 13.
 **Waiting for the owner:** Phase 11 (the phone: an hour's soak with the screen off, Android Auto, the widget,

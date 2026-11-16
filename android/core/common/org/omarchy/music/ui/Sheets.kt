@@ -999,6 +999,7 @@ private fun SyncLines(ui: Ui) {
         Switch(s.songsOn, { s.setSongsOn(it) }, colors = swColors())
     }
     TagMatchLine(other)
+    MoodMatchLine(other)
     if (s.undoAt > 0) Line("Undo last sync", "Puts this $DEVICE's data back as it was just before the sync ${s.ago(s.undoAt)} " +
         "(changes made here since go too). The $other keeps its own: undo there too if you want", false) {
         Pill("Undo", quiet = true) { ui.confirm = "Put this $DEVICE's playlists, favorites and settings back as they were before the last sync?" to { s.undo() } }
@@ -1041,7 +1042,7 @@ private fun TagMatchLine(other: String) {
     val mainName = if (m.main == "pc") "the PC" else "the phone"
     val receiver = if (m.main == "pc") "the phone" else "the PC"
     Line("Tags match", "Fills in what the songs on both devices are missing: their tags (title, artist, album, " +
-        "album artist, genre, year, track; moods sync on their own). The main device sends, the other takes: at each sync $receiver's " +
+        "album artist, genre, year, track; never the moods: those are Moods match's, below). The main device sends, the other takes: at each sync $receiver's " +
         "copies get what $mainName's have and they don't. A tag that's filled in is never changed by it, and covers are never " +
         "synced: a song without one gets it from Songs without covers. Tag edits you make in the Tagger or Edit tags on either still go to both. A song is matched by its ISRC, " +
         "its title and artist, or its file's name, when the lengths agree. On the phone only the songs the app downloaded can be " +
@@ -1063,6 +1064,37 @@ private fun TagMatchLine(other: String) {
         confirmButton = { TextButton({ asking = false; P.setText(m.MAIN, "pc"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
             Text("The PC", color = C.accent) } },
         dismissButton = { TextButton({ asking = false; P.setText(m.MAIN, "phone"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
+            Text("The phone", color = C.accent) } })
+}
+
+/** Moods match: the moods of the songs on both devices made the same as the main device's, apart from Tags match. */
+@Composable
+private fun MoodMatchLine(other: String) {
+    val m = org.omarchy.music.MoodMatch
+    val P = org.omarchy.music.Prefs
+    var asking by remember { mutableStateOf(false) }
+    val on = P.on(m.ON)
+    val mainName = if (m.main == "pc") "the PC" else "the phone"
+    val receiver = if (m.main == "pc") "the phone" else "the PC"
+    Line("Moods match", "Like Tags match, but only for the moods: at each sync $receiver's copies of your songs get the moods " +
+        "$mainName's have, written into their files, with nothing scanned again. It has its own main device, so the tags can " +
+        "follow one device and the moods the other. Moods you picked yourself for a song stay. Off: a sync leaves each device's " +
+        "moods as they are. A song is matched by its title and artist, its length and its album. On the phone, moods go into " +
+        "the files the app may change (all of yours with All files access)", on,
+        note = org.omarchy.music.MoodMatchRules.note(on, m.main, m.here, DEVICE, other, org.omarchy.music.Moods.prevented)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (on) Pill("Main: ${if (m.main == "pc") "PC" else "phone"}", quiet = true) { asking = true }
+            Switch(on, { v -> if (v) asking = true else P.set(m.ON, false) }, colors = swColors())
+        }
+    }
+    if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
+        title = { Text("Whose moods are kept?", style = T.title) },
+        text = { Text("The main device's moods are put on the other's copies of the same songs at each sync, and written into " +
+            "their files. Pick the one whose moods are right (where you scan). The other device's moods are replaced, except the " +
+            "ones you picked yourself.", style = T.sub) },
+        confirmButton = { TextButton({ asking = false; P.setText(m.MAIN, "pc"); P.set(m.ON, true); org.omarchy.music.Sync.soon() }) {
+            Text("The PC", color = C.accent) } },
+        dismissButton = { TextButton({ asking = false; P.setText(m.MAIN, "phone"); P.set(m.ON, true); org.omarchy.music.Sync.soon() }) {
             Text("The phone", color = C.accent) } })
 }
 

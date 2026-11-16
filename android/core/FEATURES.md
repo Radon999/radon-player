@@ -58,7 +58,7 @@ Every song gets the moods that fit it, from 12: Happy, Energetic, Party, Hype, C
 - **Fix one:** Tagger › Tags › Mood. Songs that sound like it learn from your fix. The Moods tab lists songs it's unsure of.
 - **Starting over** (Settings › Reset mood and lyrics scans, each asks first): **Reset moods** works them out again from what was already heard and read; **Reset sound scan** has every song heard again; **Clear my moods** forgets the ones you picked; **Remove all moods** starts from scratch.
 - **Prevent auto mood scans** (Settings › Scanner) freezes every mood as it is.
-- **Used in:** Mood lists, Smart playlists, the DJ, Most played and Wrapped. Sync and backups carry them.
+- **Used in:** Mood lists, Smart playlists, the DJ, Most played and Wrapped. Backups carry them, and **Moods match** (Settings › Remote & sync) puts one device's moods on the other.
 
 ## The DJ
 
@@ -123,8 +123,9 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 ## Phone + computer together
 
 - **Phone remote:** Turn on Phone remote on the computer, enter its code on the phone, and the phone plays, queues, skips and sets the volume there.
-- **Sync now:** Tap it on either device: plays, skips, favorites, moods, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**.
-- **Tags & covers match:** Pick a main device and the songs on both are made the same as on it, except folders you tell sync to leave alone.
+- **Sync now:** Tap it on either device: plays, skips, favorites, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**.
+- **Tags match:** Pick a main device and the songs on the other get the tags theirs are missing (title, artist, album, genre, year, track), except folders you tell sync to leave alone. It never touches moods.
+- **Moods match:** The same for moods only, with its own main device: at each sync the other device's songs get the main one's moods, written into their files, with nothing scanned again. So the tags can follow the phone and the moods the PC. Off, each device keeps its own moods.
 - **Continue where you left off** on the other device, and **back up and restore** everything in one file.
 
 ## Phone only
@@ -140,7 +141,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Start with Windows / Start with Linux** (Settings › General): in the tray when you sign in.
 - **Discord** shows what you're playing on your profile.
 - **Keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the Equalizer, / to search) and right-click menus everywhere.
-- **Linux:** new in 4.0, as a .deb package that brings mpv and ffmpeg with it. Not on Linux yet: the DAC's own EQ and dictation.
+- **Linux:** new in 4.0, as a .deb package that brings mpv and ffmpeg with it. Where a desktop has no tray, closing the window minimizes it. **Software drawing** (Settings › General) is for a PC or virtual machine where the window flickers. Not on Linux yet: the DAC's own EQ and dictation.
 
 ## Help
 

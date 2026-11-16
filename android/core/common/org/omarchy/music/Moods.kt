@@ -1287,12 +1287,12 @@ object Moods {
         if (fromSync && prevented) return   // Prevent auto mood scans: your moods stay as they are
         runCatching { JSON.decodeFromString(ListSerializer(MoodBackupSong.serializer()), text) }.getOrNull() ?: return
         if (fromSync) {
-            // All moods were removed here and the songs haven't been heard again yet: the other device's old moods wait
-            if (Prefs.on(CLEARED_KEY)) return
-            // Tags & covers match: the main device leads the moods too, so it never takes the other's
-            if (TagMatch.on && TagMatch.isMain) return
+            // Moods only come across with Moods match on (Settings › Remote & sync), and only to the device that isn't
+            // its main one. It is apart from Tags match: the tags can follow one device and the moods the other. (Asked
+            // for outright, so it also brings moods back to a device where Remove all moods was used.)
+            if (!MoodMatch.takes) return
             snapshot()   // what the moods were, so Undo last sync can put them back
-            if (TagMatch.on) mainFile.writeText("1") else mainFile.delete()
+            mainFile.writeText("1")
         } else mainFile.delete()
         writeAtomic(restoreFile, text)
     }
@@ -1371,6 +1371,7 @@ object Moods {
         val byPath = songs.toMap()
         val got = MoodBackup.match(saved, songs.map { (p, t) -> MoodSongHere(p, t.title, t.artist, t.album, t.duration) })
         var n = 0
+        val taken = ArrayList<Pair<String, Track>>()   // Moods match: the songs given the main device's moods
         for ((p, b) in got) {
             val t = byPath[p] ?: continue
             val e = synchronized(lock) { known[p] }
@@ -1396,13 +1397,42 @@ object Moods {
                     looked = base.looked && base.mtime == m)
             }
             n++
+            if (better && fromMain) taken += p to t
         }
         val used = got.values.toHashSet()
         val left = saved.filter { it !in used }
         if (left.isEmpty()) { restoreFile.delete(); mainFile.delete() } else writeAtomic(restoreFile, JSON.encodeToString(ListSerializer(MoodBackupSong.serializer()), left))
+        // Moods match: the main device's moods go into the files here too, straight away (no scan to tap)
+        val wrote = if (fromMain && taken.isNotEmpty()) runCatching { writeTaken(taken) }.getOrDefault(0) else 0
         if (n > 0) {
             save()
-            Music.scope.launch { version++; Music.toast("Moods from your backup given to ${"%,d".format(n)} song${if (n != 1) "s" else ""}") }
+            val said = if (fromMain) MoodMatchRules.takenText(n, wrote, MoodMatch.mainName)
+                else "Moods from your backup given to ${"%,d".format(n)} song${if (n != 1) "s" else ""}"
+            Music.scope.launch { version++; Music.toast(said) }
         }
+    }
+
+    /** (blocking) Moods match: the moods just taken from the main device written into these songs' files (the ones
+     *  the app may change; not the song playing, and not while a scan is hearing songs: Scan moods writes the rest).
+     *  How many files. */
+    private fun writeTaken(songs: List<Pair<String, Track>>): Int {
+        if (prevented) return 0
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        var wrote = 0
+        for ((p, t) in songs) {
+            if (running || writing) break
+            if (p == playing || !canWrite(p)) continue
+            var e = synchronized(lock) { known[p] } ?: continue
+            e = e.copy(wrote = e.inFile)   // whatever was in the file is the app's to replace now
+            synchronized(lock) { known[p] = e }
+            val want = moodsFor(t, e)
+            if (want.isEmpty() || want == e.inFile) continue
+            if (runCatching { LyricsTags.writeMood(Music.ctx, p, want) }.getOrDefault(false)) {
+                e = e.copy(inFile = want, wrote = want, mtime = runCatching { AudioTools.modified(p) }.getOrNull() ?: e.mtime)
+                synchronized(lock) { known[p] = e }
+                wrote++
+            }
+        }
+        return wrote
     }
 }
