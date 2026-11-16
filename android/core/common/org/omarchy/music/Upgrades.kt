@@ -46,7 +46,7 @@ object Upgrades {
             val lib = Music.lib
             val playing = Music.current()?.id
             // The song playing carries on in its new file from the same moment; its old file goes with the rest.
-            out.done.firstOrNull { (old, id) -> old.id == playing && lib.has(id) }?.let { (old, id) -> Music.swapPlaying(old, id) }
+            out.done.firstOrNull { (old, id) -> old.id == playing && lib.has(id) }?.let { (old, id) -> swapPlaying(old, id) }
             val done = out.done.filter { (_, id) -> lib.has(id) }
             if (done.isNotEmpty()) Music.queueTrash(Music.TrashJob(done.map { it.first }, done.associate { (old, id) -> old.id to lib.items[id]!!.track() }, "upgraded songs"))
             toast(doneText(done.size, out.missing.size, out.kept.size, out.failed.size))
@@ -87,5 +87,17 @@ object Upgrades {
             Music.savedVersion++; Music.musicVersion++
             toast(refreshedText(n ?: 0))
         }
+    }
+
+    /** The song playing (old) was upgraded to id: play on in the new file from where you are. */
+    internal fun swapPlaying(old: Track, id: String) {
+        val new = Music.lib.items[id]?.track() ?: return
+        val at = Music.player?.positionMs?.let { it / 1000.0 } ?: Music.position
+        val wasPaused = Music.paused
+        Music.retarget(listOf(old.id), new)
+        Music.queue = Music.queue.toMutableList().also { if (Music.index in it.indices) it[Music.index] = new.slim() }
+        Music.resumeAt = at
+        PlaybackCore.goingBack = true   // not a skip
+        Music.loadCurrent(autoplay = !wasPaused)
     }
 }

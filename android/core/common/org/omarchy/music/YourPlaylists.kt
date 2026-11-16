@@ -160,4 +160,15 @@ object YourPlaylists {
         if (toDownload(ids).isEmpty()) { toast("Every song there is downloaded or one of your files already"); return }
         Music.download(ids.flatMap { lists.get(it)?.tracks ?: emptyList() }.distinctBy { it.id })
     }
+
+    /** Write tracks as an .m3u8 playlist to uri (a file you picked). */
+    fun exportM3u8(uri: String, tracks: List<Track>) {
+        Music.bg({
+            val text = m3u8Text(tracks) { t ->
+                val f = Music.lib.items[t.id]?.file ?: t.file
+                f?.let { a -> Music.local.paths[a]?.let { p -> "/storage/emulated/0/$p" + (Music.ctx.displayName(a) ?: "") } ?: if (a.startsWith("/")) a else null }
+            }
+            Music.ctx.openOut(uri)!!.use { it.write(text.toByteArray()) }
+        }) { _, err -> toast(if (err != null) "Couldn't save the playlist: ${err.message?.take(80)}" else "Playlist saved: ${tracks.size} songs") }
+    }
 }

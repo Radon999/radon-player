@@ -57,4 +57,22 @@ object SongMarks {
 
     /** The same as what the sound is multiplied by. */
     internal fun gainOf(t: Track) = Math.pow(10.0, gainNow(t) / 20)
+
+    /** The speed and pitch t plays at: its own (Speed...), or as it is in bit-perfect. */
+    internal fun playback(t: Track): Pair<Float, Float> = if (Music.bitPerfect) 1f to 1f else Music.speeds.get(t).let { s ->
+        s.speed.toFloat() to (if (s.pitch) s.speed.toFloat() else 1f)
+    }
+
+    /** What Speed... says: speed is the one kept now (1: none). */
+    fun speedText(tracks: List<Track>, speed: Double): String = if (speed == 1.0) "${what(tracks)} back to normal speed" else "${what(tracks)} at ${fmtSpeed(speed)}"
+
+    /** Play tracks at speed from now on (the playing one too, at once). */
+    fun speed(tracks: List<Track>, speed: Double, pitch: Boolean) {
+        if (tracks.isEmpty()) return
+        Music.speeds.set(tracks, speed, pitch)
+        val cur = Music.current()
+        if (cur != null && tracks.any { SongSpeeds.key(it) == SongSpeeds.key(cur) }) playback(cur).let { (sp, pi) -> Music.player?.setSpeed(sp, pi) }
+        toast(speedText(tracks, Music.speeds.get(tracks[0]).speed))
+        Music.musicVersion++
+    }
 }

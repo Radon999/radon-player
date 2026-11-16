@@ -58,34 +58,13 @@ object Music {
 
     var castHost = ""   // the cast device's address (the phone's files are served to it)
 
-    internal fun castMime(t: Track, uri: String): String {
-        val name = (t.file ?: lib.items[t.id]?.file ?: uri).substringBefore('?').lowercase()
-        return when {
-            name.endsWith(".mp3") -> "audio/mpeg"; name.endsWith(".m4a") || name.endsWith(".aac") -> "audio/mp4"
-            name.endsWith(".ogg") || name.endsWith(".opus") -> "audio/ogg"; name.endsWith(".wav") -> "audio/wav"
-            else -> "audio/flac"
-        }
-    }
+    internal fun castMime(t: Track, uri: String): String = Casting.mime(t, uri)
 
     /** A cast device connected: what's playing goes there, from where it was. */
-    fun castStarted(p: Engine, name: String) {
-        val at = position
-        val wasPlaying = !paused
-        localPlayer?.pause()
-        cast = p; castName = name
-        toast("Casting to $name")
-        if (current() != null) { resumeAt = at; loadCurrent(autoplay = wasPlaying) }
-    }
+    fun castStarted(p: Engine, name: String) = Casting.started(p, name)
 
     /** Back to this phone, where the cast left off. */
-    fun castStopped() {
-        if (cast == null) return
-        val at = position
-        val wasPlaying = !paused
-        cast = null; castName = ""
-        toast(if (platformName == "android") "Playing on this phone" else "Playing on this PC")
-        if (current() != null) { resumeAt = at; loadCurrent(autoplay = wasPlaying) }
-    }
+    fun castStopped() = Casting.stopped()
 
     // ---- what the screens show ----
     // The queue's own state is the playback service's (PlaybackCore); these names hand on to it.
@@ -100,7 +79,6 @@ object Music {
     var resumeAt: Double get() = PlaybackCore.resumeAt; set(v) { PlaybackCore.resumeAt = v }
     // Lyrics into the files: what's found for a song goes into its own tags once it's done playing.
     var lyricsToFiles by mutableStateOf(true)
-    private var lyricsWarned = false
     var index: Int get() = PlaybackCore.index; set(v) { PlaybackCore.index = v }
     var paused: Boolean get() = PlaybackCore.paused; set(v) { PlaybackCore.paused = v }
     var position: Double get() = PlaybackCore.position; set(v) { PlaybackCore.position = v }
@@ -169,23 +147,9 @@ object Music {
     @Volatile var usbDirect = false
 
     /** The song playing, loaded again where it is: bit-perfect turned on (or the DAC allowed) takes effect at once. */
-    fun replayForBitPerfect() {
-        if (current() == null || Remote.active || cast != null) return
-        val at = position; val wasPlaying = !paused
-        resumeAt = at; loadCurrent(autoplay = wasPlaying)
-    }
+    fun replayForBitPerfect() = SoundSwitches.replayForBitPerfect()
 
-    fun chooseBitPerfect(on: Boolean) {
-        bitPerfect = on
-        eqProcessor.bypass = bitPerfectNow()
-        if (on) eqProcessor.rgGain = 1.0
-        current()?.let { t -> playbackOf(t).let { (sp, pi) -> player?.setSpeed(sp, pi) } }
-        val rate = player?.audioRate ?: 0; val bits = player?.audioBits ?: 0
-        bg({ dacNote = AudioQuality.applyBitPerfect(ctx, on, rate, bits) }) { _, _ ->
-            if (platformName == "android") replayForBitPerfect()   // the song goes (or stops going) straight to the DAC now
-        }
-        saveState()
-    }
+    fun chooseBitPerfect(on: Boolean) = SoundSwitches.chooseBitPerfect(on)
 
     fun chooseReplayGain(mode: String) { replayGain = mode; saveState(); toast(if (mode == "off") "ReplayGain off" else "ReplayGain: by $mode, from the next song") }
 
@@ -203,7 +167,6 @@ object Music {
     var upgrading by mutableStateOf<String?>(null)   // Upgrade running: how far
     var upgradeKept by mutableStateOf<List<Pair<Track, String>>?>(null)   // kept as good already: replace anyway?
     @Volatile var upgradeStop = false
-    private var goingBack: Boolean get() = PlaybackCore.goingBack; set(v) { PlaybackCore.goingBack = v }    // Previous: going back isn't skipping
 
     /** Your files to put in Android's trash (it asks you), and the songs that take their places. */
     data class TrashJob(val tracks: List<Track>, val replacements: Map<String, Track> = emptyMap(), val what: String = "")
@@ -229,8 +192,6 @@ object Music {
     val sourceErrors = mutableStateMapOf<String, String>()
     internal val likes = HashMap<String, Set<String>>()   // each service's liked songs (MusicServices fills it)
 
-    private var radioFrom: String? get() = PlaybackCore.radioFrom; set(v) { PlaybackCore.radioFrom = v }
-    private var context: Int get() = PlaybackCore.context; set(v) { PlaybackCore.context = v }
     var downloadNote by mutableStateOf("")   // "Downloading in FLAC · 3 of 40" while a Download runs
         internal set   // Downloads' to write
 
@@ -434,16 +395,10 @@ object Music {
     val djVoice get() = DjDirector.djVoice
     fun chooseDjVoice(on: Boolean) = DjDirector.chooseDjVoice(on)
     val djTalking: Boolean get() = DjDirector.djTalking
-    private var loadedFor: String? get() = PlaybackCore.loadedFor; set(v) { PlaybackCore.loadedFor = v }   // the song the player has in now (its id)
 
     /** Play from the headphones, the car, the lock screen or the notification: what the app's own Play does, so the DJ
      *  is never left stuck (talking that never came, a set it was still picking, a set it hadn't introduced yet). */
-    fun sessionPlay() {
-        if (Remote.active) { Remote.cmd("play"); return }
-        val p = player ?: return
-        if (DjDirector.djPlay(p)) return   // the DJ's part of Play: it is never left stuck
-        if (p.state == Engine.IDLE || !p.hasItem) loadCurrent() else p.play()
-    }
+    fun sessionPlay() = PlayButtons.play()
 
     /** The DJ stops talking (Play, Pause, a skip): the music goes on. */
     fun djHush() = DjDirector.djHush()
@@ -585,17 +540,6 @@ object Music {
     // ---- Upgrade: your files for Tidal's FLAC where it's better ----
     fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) = Upgrades.songs(tracks, force)
 
-    /** The song playing (old) was upgraded to id: play on in the new file from where you are. */
-    internal fun swapPlaying(old: Track, id: String) {
-        val new = lib.items[id]?.track() ?: return
-        val at = player?.positionMs?.let { it / 1000.0 } ?: position
-        val wasPaused = paused
-        retarget(listOf(old.id), new)
-        queue = queue.toMutableList().also { if (index in it.indices) it[index] = new.slim() }
-        resumeAt = at
-        goingBack = true   // not a skip
-        loadCurrent(autoplay = !wasPaused)
-    }
 
     // ---- favorites, a song's volume, moods by hand, looks ----
     // A favorite and a song's own volume are SongMarks' own: these hand on.
@@ -638,37 +582,17 @@ object Music {
     fun chooseDupeAction(a: String) { dupeAction = a; saveState() }
 
     /** Write tracks as an .m3u8 playlist to uri (a file you picked). */
-    fun exportM3u8(uri: String, tracks: List<Track>) {
-        bg({
-            val text = m3u8Text(tracks) { t ->
-                val f = lib.items[t.id]?.file ?: t.file
-                f?.let { a -> local.paths[a]?.let { p -> "/storage/emulated/0/$p" + (displayName(a) ?: "") } ?: if (a.startsWith("/")) a else null }
-            }
-            ctx.openOut(uri)!!.use { it.write(text.toByteArray()) }
-        }) { _, err -> toast(if (err != null) "Couldn't save the playlist: ${err.message?.take(80)}" else "Playlist saved: ${tracks.size} songs") }
-    }
+    fun exportM3u8(uri: String, tracks: List<Track>) = YourPlaylists.exportM3u8(uri, tracks)
 
-    private fun displayName(uri: String): String? = ctx.displayName(uri)
 
     // A cover picked by hand (and the ones waiting for the song playing to end) is TagEdits' own: these hand on.
     internal fun waitingCoversSoon(t: Track) = TagEdits.waitingCoversSoon(t)
     fun setCover(tracks: List<Track>, source: String, wholeAlbum: Boolean = true, done: () -> Unit = {}) = TagEdits.setCover(tracks, source, wholeAlbum, done)
 
-    internal fun playbackOf(t: Track): Pair<Float, Float> = if (bitPerfect) 1f to 1f else speeds.get(t).let { s ->
-        s.speed.toFloat() to (if (s.pitch) s.speed.toFloat() else 1f)
-    }
+    internal fun playbackOf(t: Track): Pair<Float, Float> = SongMarks.playback(t)
 
     /** Play tracks at speed from now on (the playing one too, at once). */
-    fun setSpeed(tracks: List<Track>, speed: Double, pitch: Boolean) {
-        if (tracks.isEmpty()) return
-        speeds.set(tracks, speed, pitch)
-        val cur = current()
-        if (cur != null && tracks.any { SongSpeeds.key(it) == SongSpeeds.key(cur) }) playbackOf(cur).let { (sp, pi) -> player?.setSpeed(sp, pi) }
-        val s = speeds.get(tracks[0]).speed
-        val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
-        toast(if (s == 1.0) "$what back to normal speed" else "$what at ${fmtSpeed(s)}")
-        musicVersion++
-    }
+    fun setSpeed(tracks: List<Track>, speed: Double, pitch: Boolean) = SongMarks.speed(tracks, speed, pitch)
 
     // Tag changes by hand (and the ones waiting for the song playing to end) are TagEdits' own: these hand on.
     internal fun heldTagsSoon() = TagEdits.heldTagsSoon()
@@ -731,22 +655,7 @@ object Music {
     fun canWriteOwnFiles() = canWriteOwnFiles(ctx)
 
     /** Write the lyrics found for t into its file's tags (if it has none). Your own files need All files access. */
-    fun lyricsIntoFile(t: Track, force: Boolean = false) {   // force: asked for (the Tagger), whatever the setting
-        if ((!lyricsToFiles && !force) || Remote.active) return
-        val uri = (lib.items[t.id]?.file ?: t.file)?.takeIf { Tags.writable(it) } ?: return
-        val own = lib.items[t.id] == null
-        if (own && !canWriteOwnFiles()) return
-        bg({
-            val words = Lyrics.get(ctx, t)?.let { LyricsTags.words(it) } ?: return@bg false
-            LyricsTags.write(ctx, uri, words)
-        }) { wrote, err ->
-            if (err is SecurityException && !lyricsWarned) {
-                lyricsWarned = true
-                toast("Couldn't put the lyrics into “${t.title}”: allow All files access in Settings › Lyrics into files")
-            }
-            if (wrote == true) savedVersion++
-        }
-    }
+    fun lyricsIntoFile(t: Track, force: Boolean = false) = TagEdits.lyricsIntoFile(t, force)
 
     fun deleteQueue(id: String) = PlaybackCore.deleteQueue(id)
     fun removeOtherQueues() = PlaybackCore.removeOtherQueues()
@@ -758,17 +667,7 @@ object Music {
 
     fun unqueueMany(indices: Collection<Int>) = PlaybackCore.unqueueMany(indices)
 
-    internal fun radioTracks(t: Track): List<Track> {
-        var last: Throwable? = null
-        for (key in listOf(t.source, source, "ytm", "tidal").distinct()) {
-            val src = sources[key] ?: continue
-            if (key in setOf("apple", "spotify") || (key == "tidal" && !src.signedIn)) continue
-            val found = try { src.radio(t) } catch (e: Exception) { last = e; continue }
-            if (found.isNotEmpty()) return found
-        }
-        last?.let { throw it }
-        return emptyList()
-    }
+    internal fun radioTracks(t: Track): List<Track> = SongRadio.tracks(t)
 
     /** ∞: a couple of songs before the end, songs like the last one, so there's no gap. */
     private fun autoplaySoon() = PlaybackCore.autoplaySoon()
@@ -792,13 +691,7 @@ object Music {
      *  (not while the DJ is talking), it switches it up: a new kind of set, which starts playing at once. Pause with your
      *  headphones, then double tap. Playing, Next skips one song as always. (Two double taps in a row were meant to do
      *  it before, but earbuds wait after each tap to see if more are coming, so the two came too far apart.) */
-    fun sessionNext() {
-        if (dj.on && !Remote.active && paused && !djTalking && current() != null) {
-            djSwitch()
-            return
-        }
-        next()
-    }
+    fun sessionNext() = PlayButtons.next()
 
 
     fun next() = PlaybackCore.next()
@@ -814,36 +707,15 @@ object Music {
      *  back: a minute later Android closed it (the app "crashing" every couple of songs). */
     var advancing: Boolean get() = PlaybackCore.advancing; private set(v) { PlaybackCore.advancing = v }
 
-    /** Done moving on (playing the next song, or stopped): the notification gets the player's real state. */
-    private fun doneAdvancing() = PlaybackCore.doneAdvancing()
-
-
-
-
     fun shuffleWeight(): ((Track) -> Double)? = PlaySorts.shuffleWeight()
 
     /** Settings › Sound's switches and numbers into the EQ processor. */
-    fun applySound() {
-        eqProcessor.limiter = Prefs.on(Prefs.CLIP_GUARD)
-        eqProcessor.dither = Prefs.on(Prefs.DITHER)
-        eqProcessor.smooth = Prefs.on(Prefs.SMOOTH_PEAKS)
-        eqProcessor.balance =Prefs.num(Prefs.BALANCE, 0f).toDouble()
-        eqProcessor.crossfeedK = Prefs.num(Prefs.CROSSFEED_K, 0.3f).toDouble()
-        eqProcessor.tilt = Prefs.num(Prefs.TILT, 0f).toDouble()
-        eqProcessor.detail = Prefs.on(Prefs.DETAIL)
-        Loudness.apply()
-    }
+    fun applySound() = SoundSwitches.apply()
 
-    fun setSoundNum(key: String, v: Float) { Prefs.setNum(key, v); applySound() }
+    fun setSoundNum(key: String, v: Float) = SoundSwitches.setNum(key, v)
 
     /** One of 2.0's switches (Prefs), with what it takes to take effect. */
-    fun setOpt(key: String, on: Boolean) {
-        Prefs.set(key, on)
-        if (key == Prefs.CROSSFEED) eqProcessor.crossfeed = on
-        if (key == Prefs.AUTO_MONO) AutoMono.check()
-        if (key == Prefs.CLIP_GUARD || key == Prefs.DITHER || key == Prefs.LOUDNESS || key == Prefs.DETAIL || key == Prefs.SMOOTH_PEAKS) applySound()
-        if (key == Prefs.MONO) { eqProcessor.mono = on || AutoMono.active; if (on && bitPerfect) toast("Mono isn't heard in bit-perfect: turn bit-perfect off for it") }
-    }
+    fun setOpt(key: String, on: Boolean) = SoundSwitches.setOpt(key, on)
 
     /** Songs of one album, one after the other: Smart transitions leaves them to flow into each other. */
     fun sameAlbum(a: Track, b: Track) = a.album.isNotBlank() && norm(albumEdition(a.album).first) == norm(albumEdition(b.album).first) &&
@@ -860,37 +732,11 @@ object Music {
     /** Shuffle what's coming up; the songs you queued stay first, in your order. */
     fun shuffle() = PlaybackCore.shuffle()
 
-    fun togglePause() {
-        if (Remote.active) { Remote.cmd(if (Remote.status.paused) "play" else "pause"); return }
-        val p = player ?: return
-        if (current() == null) return
-        // Pause while the DJ talks: she stops, and the set's song waits paused at its start
-        if (djTalking) { djHush(); p.pause(); return }
-        if (p.isPlaying) p.pause() else sessionPlay()
-    }
+    fun togglePause() = PlayButtons.togglePause()
 
-    fun seek(seconds: Double) {
-        if (Remote.active) { Remote.cmd("seek", "position" to seconds); return }
-        player?.seekTo((seconds * 1000).toLong())
-        position = seconds
-    }
+    fun seek(seconds: Double) = PlayButtons.seek(seconds)
 
-    fun toggleLike() {
-        if (Remote.active) { Remote.cmd("like"); return }
-        val t = current() ?: return
-        val src = sources[t.source] ?: return
-        if (!src.signedIn) return
-        val like = t.id !in liked
-        liked = if (like) liked + t.id else liked - t.id
-        bg({ src.rate(t, like); if (LastFm.connected) runCatching { LastFm.love(t, like) } }) { _, err ->
-            if (err != null) {
-                liked = if (like) liked - t.id else liked + t.id
-                toast("Couldn't ${if (like) "like" else "unlike"} it: ${err.message?.take(80)}")
-            }
-        }
-    }
-
-    private fun afterQueueChange() = PlaybackCore.afterQueueChange()
+    fun toggleLike() = PlayButtons.toggleLike()
 
     fun loadCurrent(autoplay: Boolean = true) = PlaybackCore.loadCurrent(autoplay)
 

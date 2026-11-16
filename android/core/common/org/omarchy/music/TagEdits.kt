@@ -189,4 +189,24 @@ object TagEdits {
             savedVersion++; musicVersion++
         }
     }
+
+    private var lyricsWarned = false
+
+    /** Write the lyrics found for t into its file's tags (if it has none). Your own files need All files access. */
+    fun lyricsIntoFile(t: Track, force: Boolean = false) {   // force: asked for (the Tagger), whatever the setting
+        if ((!Music.lyricsToFiles && !force) || Remote.active) return
+        val uri = (lib.items[t.id]?.file ?: t.file)?.takeIf { Tags.writable(it) } ?: return
+        val own = lib.items[t.id] == null
+        if (own && !Music.canWriteOwnFiles()) return
+        bg({
+            val words = Lyrics.get(ctx, t)?.let { LyricsTags.words(it) } ?: return@bg false
+            LyricsTags.write(ctx, uri, words)
+        }) { wrote, err ->
+            if (err is SecurityException && !lyricsWarned) {
+                lyricsWarned = true
+                toast("Couldn't put the lyrics into “${t.title}”: allow All files access in Settings › Lyrics into files")
+            }
+            if (wrote == true) savedVersion++
+        }
+    }
 }
