@@ -5,13 +5,13 @@ LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Ra
 LINUX START: a picture of its window was taken (linux-start.jpg)
 LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
 --- what the app wrote as it started
+INFO: /home/runner/work/_temp/music/Artists/Check Band/First Record/02 Beta.flac StartByte:164 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 16, 2026 10:16:53 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/music/Artists/Check Band/First Record/01 Alpha.flac StartByte:165 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 16, 2026 10:16:53 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/music/Unreleased/Check Band/Demo Tape.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:101 isLastBlock:false
+Nov 16, 2026 10:16:53 AM org.jaudiotagger.audio.flac.FlacInfoReader read
 INFO: /home/runner/work/_temp/music/Unreleased/Check Band/Demo Tape.flac StartByte:147 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 16, 2026 10:01:55 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Night Drive/02 Dawn.flac StartByte:165 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 16, 2026 10:01:55 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Lone - Single/Lone.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:121 isLastBlock:false
-Nov 16, 2026 10:01:55 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/music/Artists/Other Voices/Lone - Single/Lone.flac StartByte:167 BlockType:PADDING DataLength:8192 isLastBlock:true
 radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -31,4 +31,4 @@ radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content
 --- its Problems
---- the files it made: 70
+--- the files it made: 71

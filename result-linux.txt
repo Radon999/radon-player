@@ -1,8 +1,8 @@
-commit 8f55322a935052e14dcc67eb9542f6f129ffd6e5 · run 43843176586 · Mon Nov 16 10:02:47 UTC 2026
+commit 5b1ce22a47c288a3ed3975f76dde88cb911c969c · run 43845371644 · Mon Nov 16 10:17:46 UTC 2026
 SHARED TESTS: 70 suites, 379 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 37 suites, 153 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.2 s (with loading the voice); then 5.1 s of speech in 1.0 s (5.1x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.4 s (with loading the voice); then 4.5 s of speech in 1.3 s (3.5x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_3.2.28_amd64.deb, 88M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -13,10 +13,10 @@ LINUX START: a picture of its window was taken (linux-start.jpg)
 LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
 --- errors
 --- the end of the log
-> Task :app:compileDebugJavaWithJavac
-> Task :app:processDebugJavaRes
-> Task :app:bundleDebugClassesToCompileJar
-> Task :app:bundleDebugClassesToRuntimeJar
+
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
@@ -41,5 +41,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 12s
+BUILD SUCCESSFUL in 4m 46s
 59 actionable tasks: 59 executed
