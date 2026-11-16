@@ -31,6 +31,51 @@ jobs:
           chmod +x gradlew
           # packageDeb: Linux is a target again, so its installer must at least build (it isn't tested or published)
           ./gradlew --no-daemon --continue :shared:test :app:testDebugUnitTest :desktop:test :desktop:packageDeb > "$RUNNER_TEMP/build.log" 2>&1 || true
+      # The package installed and the real app started, on a screen nobody sees (Xvfb), with data of its own: that it
+      # starts and stays up, a picture of its window, what it wrote, and its Problems. Never fails the job.
+      - name: Start the real app on Linux
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/linux-start.txt"
+          deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
+          {
+            if [ -z "$deb" ]; then
+              echo "LINUX START: no package to start"
+            else
+              sudo apt-get update -qq >/dev/null 2>&1 || true
+              sudo apt-get install -y -qq xvfb imagemagick >/dev/null 2>&1 || true
+              sudo dpkg -i "$deb" >/dev/null 2>&1 || sudo apt-get install -y -f -qq >/dev/null 2>&1 || true
+              pkg=$(dpkg-deb -f "$deb" Package)
+              exe=$(dpkg -L "$pkg" 2>/dev/null | grep -E '/bin/[^/]+$' | head -1)
+              if [ -z "$exe" ]; then
+                echo "LINUX START: the package installed, but no program was found in it ($pkg)"
+              else
+                export RADON_DATA="$RUNNER_TEMP/radon-data"; mkdir -p "$RADON_DATA"
+                Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
+                sleep 3
+                DISPLAY=:99 "$exe" > "$RUNNER_TEMP/app.log" 2>&1 &
+                pid=$!
+                sleep 45
+                if kill -0 "$pid" 2>/dev/null; then
+                  echo "LINUX START: the installed app started and was still running after 45 s"
+                else
+                  wait "$pid"; echo "LINUX START: the app stopped within 45 s (exit code $?)"
+                fi
+                if DISPLAY=:99 import -window root "$RUNNER_TEMP/shot.png" 2>/dev/null && convert "$RUNNER_TEMP/shot.png" -resize 60% -quality 72 "$RUNNER_TEMP/linux-start.jpg" 2>/dev/null; then
+                  echo "LINUX START: a picture of its window was taken (linux-start.jpg)"
+                else
+                  echo "LINUX START: no picture could be taken"
+                fi
+                kill "$pid" 2>/dev/null || true
+                echo "--- what the app wrote as it started"
+                tail -25 "$RUNNER_TEMP/app.log" 2>/dev/null
+                echo "--- its Problems"
+                find "$RADON_DATA" -name 'problems*' -exec tail -15 {} \; 2>/dev/null
+                echo "--- the files it made: $(find "$RADON_DATA" -type f 2>/dev/null | wc -l)"
+              fi
+            fi
+          } > "$out" 2>&1 || true
+          cat "$out"
       - name: Say how it went
         if: always()
         run: |
@@ -59,6 +104,7 @@ jobs:
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
+            head -2 "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
             echo "--- errors"
             grep -E "^e: |error:|What went wrong|FAILED" -A2 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -120
             echo "--- the end of the log"
@@ -72,6 +118,8 @@ jobs:
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
           if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
           cp "$RUNNER_TEMP/result-linux.txt" result-linux.txt
+          cp "$RUNNER_TEMP/linux-start.txt" linux-start.txt 2>/dev/null || true
+          cp "$RUNNER_TEMP/linux-start.jpg" linux-start.jpg 2>/dev/null || true
           # The app's own compiled code (three small jars, made from this branch's source and nothing else: no keys, no
           # installer), so a test build already on the PC can be brought up to date without a download that needs signing in
           rm -rf jars && mkdir jars

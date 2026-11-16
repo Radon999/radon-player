@@ -342,7 +342,8 @@ and `bitPerfectNow` are as they were). Fixed: the song also goes on as it is whe
 DAC (`UsbDirect.wanted()`; `SinkRules`, shared, S `SinkRulesTest`), the EQ is bypassed then, and Problems gets a line
 if a hi-res song still goes out as 16-bit with a DAC plugged in. **Not proven by Claude** (no phone, no DAC): the
 owner checks that Settings says 24-bit for 24-bit songs, over several songs and after a pause. How often it happened
-before is not known; the earlier "works perfect with the DAC" was about noise and song changes, not bit depth. **Not
+before is not known; the earlier "works perfect with the DAC" was about noise and song changes, not bit depth.
+**Confirmed by the owner on build 30 (16 November 2026): Settings says 24-bit now.** **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
