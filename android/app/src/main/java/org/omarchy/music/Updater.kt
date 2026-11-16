@@ -62,29 +62,57 @@ object Updater {
     private const val NEXT_APK = "https://raw.githubusercontent.com/$REPO/android-work/ci/next/RadonPlayer-Next.apk"
 
     /** Look for a newer release (quiet: no message when there's none, as at start). */
+    private var checkNo = 0   // which look this is: an answer to an older one (given up on) is dropped
+
     fun check(quiet: Boolean = true) {
         if (checking) return
         checking = true
-        Music.bg({
-            httpJson("https://api.github.com/repos/$REPO/releases/latest",
-                mapOf("User-Agent" to "omarchy-music-android/$version", "Accept" to "application/vnd.github+json"))
-        }) { rel, err ->
+        val mine = ++checkNo
+        // Radon Player Next (org.omarchy.music.next) takes only its own file: the release's RadonPlayer-Next.apk.
+        // Else RadonPlayer.apk (from the update after 3.0.0), or its old name OmarchyMusic.apk
+        val names = if (ctx.packageName.endsWith(".next")) listOf(NEXT_NAME) + APK_NAMES else APK_NAMES
+        val agent = "omarchy-music-android/$version"
+        // On a thread of its own, and with an end to it. Before, it waited its turn among the app's background work
+        // (all of it busy during a scan or a sync) with no time limit of its own, and "checking for a newer version…"
+        // could stay up for good.
+        Thread({
+            var err: Throwable? = null
+            var tag: String? = null; var url: String? = null
+            try {
+                val rel = UpdateRules.jsonWithin("https://api.github.com/repos/$REPO/releases/latest",
+                    mapOf("User-Agent" to agent, "Accept" to "application/vnd.github+json"))
+                tag = rel["tag_name"].str
+                val assets = rel["assets"].list
+                url = names.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
+            } catch (e: Throwable) {
+                err = e
+                // GitHub's list of the release's files wasn't had (it answers only so many times an hour): the version
+                // from where its "latest release" page sends on to, and the app's file where every release has it
+                runCatching { UpdateRules.latestTag(REPO) }.getOrNull()?.let { t -> tag = t; url = UpdateRules.assetUrl(REPO, t, names[0]); err = null }
+            }
+            val t = tag; val u = url; val e = err
+            Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (mine == checkNo) checked(quiet, t, u, e) }
+        }, "update-check").apply { isDaemon = true }.start()
+        // Whatever the network does, the looking ends
+        Music.scope.launch {
+            delay(75_000)
+            if (checking && mine == checkNo) { checkNo++; checked(quiet, null, null, java.io.IOException("no answer from GitHub")) }
+        }
+    }
+
+    private fun checked(quiet: Boolean, tag: String?, url: String?, err: Throwable?) {
+        run {
             checking = false
             checkedAt = now()
             checkError = err?.let { "couldn't check: ${it.message?.take(60)}" } ?: ""
             Music.accountsVersion++
             if (err != null && !quiet) Music.toast("Couldn't check for an update (no internet?)")
-            val tag = rel["tag_name"].str ?: return@bg
-            if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
-            // The release's APK: RadonPlayer.apk (from the update after 3.0.0), else its old name OmarchyMusic.apk
-            val assets = rel["assets"].list
-            // Radon Player Next (org.omarchy.music.next) takes only its own file: the release's RadonPlayer-Next.apk
-            val names = if (ctx.packageName.endsWith(".next")) listOf(NEXT_NAME) + APK_NAMES else APK_NAMES
-            val url = names.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
+            if (tag == null) return
+            if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return }
             if (url == null) {   // the release is still being put up: its APK comes a few minutes after
                 if (!quiet) Music.toast("Radon Player ${tag.removePrefix("v")} is on its way: its Android app isn't up yet")
                 Music.scope.launch { delay(5 * 60_000L); check() }
-                return@bg
+                return
             }
             if (latest != tag.removePrefix("v")) Music.toast("Radon Player ${tag.removePrefix("v")} is out: update it in Settings (⚙)")
             // Radon Player Next updates from the release's RadonPlayer-Next.apk; a release from before 3.2.19 has only the
@@ -93,6 +121,15 @@ object Updater {
             apk = if (ctx.packageName.endsWith(".next") && !url.endsWith("/$NEXT_NAME")) NEXT_APK else url
             Music.accountsVersion++
         }
+    }
+
+    /** Work on a thread of its own (the app's shared background workers can all be busy, and an update must not wait
+     *  for them); what came of it handed back on the app's own thread. */
+    private fun <T> alone(name: String, work: () -> T, done: (T?, Throwable?) -> Unit) {
+        Thread({
+            val r = runCatching(work)
+            Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { done(r.getOrNull(), r.exceptionOrNull()) }
+        }, name).apply { isDaemon = true }.start()
     }
 
     /** The Settings opened: look again if the last look is over ten minutes old. */
@@ -123,7 +160,7 @@ object Updater {
             return
         }
         state = "working"
-        Music.bg({
+        alone("update-install", {
             val file = File(ctx.cacheDir, "update.apk")
             HTTP.newCall(Request.Builder().url(url).build()).execute().use { r ->
                 if (!r.isSuccessful) throw HttpError(r.code, "", url)

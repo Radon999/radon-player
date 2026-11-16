@@ -45,24 +45,53 @@ object Updater {
     fun check(quiet: Boolean = true, announce: Boolean = false) {
         if (checking) return
         checking = true
-        Music.bg({
-            httpJson("https://api.github.com/repos/$REPO/releases/latest",
-                mapOf("User-Agent" to "radon-player-pc/$version", "Accept" to "application/vnd.github+json"))
-        }) { rel, err ->
-            checking = false
-            checkedAt = System.currentTimeMillis()
-            checkError = err?.let { "couldn't check: ${it.message?.take(60)}" } ?: ""
-            Music.accountsVersion++
-            if (err != null && !quiet) Music.toast("Couldn't check for an update (no internet?)")
-            val tag = rel["tag_name"].str ?: return@bg
-            if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
-            latest = tag.removePrefix("v"); page = rel["html_url"].str
-            // This system's installer among the release's files: the .msi on Windows, the .deb on Linux
-            val mine = StartupRules.installer(rel["assets"].list.mapNotNull { it["name"].str }, System.getProperty("os.name"))
-            installer = rel["assets"].list.firstOrNull { mine != null && it["name"].str == mine }?.get("browser_download_url").str
-            if (announce) Music.toast("Radon Player ${latest} is out: Settings › Update")
-            Music.accountsVersion++
+        val mine = ++checkNo
+        val agent = "radon-player-pc/$version"
+        val os = System.getProperty("os.name")
+        // On a thread of its own, and with an end to it (as on the phone): it never waits for the app's other
+        // background work, and a network that stalls can't leave "checking…" up for good
+        Thread({
+            var err: Throwable? = null
+            var tag: String? = null; var pageUrl: String? = null; var file: String? = null
+            try {
+                val rel = UpdateRules.jsonWithin("https://api.github.com/repos/$REPO/releases/latest",
+                    mapOf("User-Agent" to agent, "Accept" to "application/vnd.github+json"))
+                tag = rel["tag_name"].str; pageUrl = rel["html_url"].str
+                // This system's installer among the release's files: the .msi on Windows, the .deb on Linux
+                val name = StartupRules.installer(rel["assets"].list.mapNotNull { it["name"].str }, os)
+                file = rel["assets"].list.firstOrNull { name != null && it["name"].str == name }?.get("browser_download_url").str
+            } catch (e: Throwable) {
+                err = e
+                // GitHub's list wasn't had (it answers only so many times an hour): the version from where its "latest
+                // release" page sends on to, and the installer where every release has it
+                runCatching { UpdateRules.latestTag(REPO) }.getOrNull()?.let { t ->
+                    tag = t; pageUrl = "https://github.com/$REPO/releases/tag/$t"
+                    file = UpdateRules.pcInstallerName(t, os)?.let { UpdateRules.assetUrl(REPO, t, it) }; err = null
+                }
+            }
+            val t = tag; val p = pageUrl; val f = file; val e = err
+            Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (mine == checkNo) checked(quiet, announce, t, p, f, e) }
+        }, "update-look").apply { isDaemon = true }.start()
+        Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            kotlinx.coroutines.delay(75_000)
+            if (checking && mine == checkNo) { checkNo++; checked(quiet, announce, null, null, null, java.io.IOException("no answer from GitHub")) }
         }
+    }
+
+    private var checkNo = 0   // which look this is: an answer to an older one (given up on) is dropped
+
+    private fun checked(quiet: Boolean, announce: Boolean, tag: String?, pageUrl: String?, file: String?, err: Throwable?) {
+        checking = false
+        checkedAt = System.currentTimeMillis()
+        checkError = err?.let { "couldn't check: ${it.message?.take(60)}" } ?: ""
+        Music.accountsVersion++
+        if (err != null && !quiet) Music.toast("Couldn't check for an update (no internet?)")
+        if (tag == null) return
+        if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return }
+        latest = tag.removePrefix("v"); page = pageUrl
+        installer = file
+        if (announce) Music.toast("Radon Player ${latest} is out: Settings › Update")
+        Music.accountsVersion++
     }
 
     fun checkSoon() { if (System.currentTimeMillis() - checkedAt > 600_000) check() }
