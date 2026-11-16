@@ -208,7 +208,29 @@ only moves and the three small things named above (smart shuffle also going by L
 Linux, Update on Linux). The `YouTubeAudioTest` in the checks now asks three times before failing (YouTube turns the
 build server away now and then; `3a72b9b` failed on that alone).
 
-**Where the plan stands after it.** Done or done as far as it can be without the owner: Phases 0, 2 (but `store`), 6,
+**Phase 12, fifth step: the media keys on Linux, 16 November 2026 (`ecc0db1`, `747ae57`).** Asked for by the owner
+as the one thing still needed. On Linux the app is a media player on the session's D-Bus (MPRIS,
+`org.mpris.MediaPlayer2.radonplayer`): the song, its artists, album, length and cover, playing or paused, and Play,
+Pause, Play/Pause, Next, Previous, Stop and seeks taken from the keyboard's and a headset's keys and the desktop's
+own controls (`Mpris` on the PC's side with dbus-java; the values in `MprisRules`, S `MprisRulesTest`). **Tried for
+real in the Linux check**, on a session bus started there, asked the way a desktop asks: the app is on the bus;
+it says "Playing"; the song shown is the tone with its artist and length (40 s); after the Pause key it says
+"Paused" and the app itself says Paused; after Play/Pause both say Playing again; its name is "Radon Player". (The
+first try failed: the packaged app lacked `jdk.security.auth`, which D-Bus signs in with; added.) **Not tried:** a
+real desktop (GNOME's or KDE's own controls, a real keyboard's keys, a headset), Next and Previous, the cover shown.
+Raise and Quit from the desktop do nothing (it is told so).
+
+**Test build 33 and the first install-over build (16 November 2026).** Build 33: build 32 with the Linux media keys.
+The install-over build (`candidate.yml`, `ci/CANDIDATE`: 3.3.0) is the real apps as a release would make them, kept
+with the run and not released: Radon Player Next for the phone with the test key (checked: name, package, version,
+key, before it is handed out), the .msi, the .deb.
+
+**The owner on build 32 (16 November 2026):** "Everything is working as intended and is way smoother than the
+previous version of the app"; the settings and favourited presets of the app before came across. The hour with the
+screen off was still to do. **Decided the same day:** the DAC phases dropped, the actors, `store` and the
+measurements closed (plan D18, D19).
+
+**Where the plan stood before those decisions.** Done or done as far as it can be without the owner: Phases 0, 2 (but `store`), 6,
 7, 8 (but the actor), 9 (but the actor), 12 (Linux but media keys; Windows' install-over is the owner's), 13.
 **Waiting for the owner:** Phase 11 (the phone: an hour's soak with the screen off, Android Auto, the widget,
 install-over), Windows install-over, a real Linux desktop, the DAC (D18: Phases 3, 4, 5 and 10 postponed until then).
