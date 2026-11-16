@@ -1,19 +1,12 @@
-commit 012a85166395fe310cd9638ff814a0032f60e729 · run 43790890315 · Mon Nov 16 02:20:31 UTC 2026
+commit 5b1ce22a47c288a3ed3975f76dde88cb911c969c · run 43845371594 · Mon Nov 16 10:10:51 UTC 2026
 TEST BUILD: made
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43790890315/artifacts/14192911557
-RUN: https://github.com/Radon999/radon-player/actions/runs/43790890315
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43845371594/artifacts/14214928664
+RUN: https://github.com/Radon999/radon-player/actions/runs/43845371594
 MPV: android/desktop/build/compose/binaries/main/app/Radon Player/app/resources/mpv.exe
 FFMPEG: android/desktop/build/compose/binaries/main/app/Radon Player/app/resources/ffmpeg.exe
 VOICE: sherpa-onnx-pocket-tts-int8-2026-01-26
 SIZE: 574M
 --- errors
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-
-> Task :ui-common:assembleDesktopMainResources
-> Task :ui-common:desktopProcessResources
-> Task :desktop:assembleMainResources
-> Task :desktop:writeBuildInfo
 --- the end of the log
 > Task :desktop:compileJava NO-SOURCE
 > Task :desktop:classes
@@ -28,5 +21,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 46s
+BUILD SUCCESSFUL in 5m 30s
 18 actionable tasks: 18 executed
