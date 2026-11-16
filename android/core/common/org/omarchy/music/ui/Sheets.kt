@@ -909,12 +909,13 @@ private fun LyricsMoodsLines(ui: Ui) {
 @Composable
 private fun StartupLine() {
     var on by remember { mutableStateOf(org.omarchy.music.Startup.isOn()) }
-    Line("Start with Windows", if (on) "On: Radon Player starts quietly in the system tray each time you sign in to " +
-        "Windows, so the media keys and the phone remote work straight away. Click its tray icon to open the window"
-        else "Starts Radon Player in the system tray (by the clock) as soon as you sign in to Windows, " +
+    val sys = org.omarchy.music.Startup.system   // "Windows" or "Linux"
+    Line("Start with $sys", if (on) "On: Radon Player starts quietly in the system tray each time you sign in to " +
+        "$sys, so the media keys and the phone remote work straight away. Click its tray icon to open the window"
+        else "Starts Radon Player in the system tray (by the clock) as soon as you sign in to $sys, " +
         "without opening its window, ready for your keyboard's media keys and the phone remote", on) {
         Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
-            else Music.toast("Couldn't: only the installed app can start with Windows") }, colors = swColors())
+            else Music.toast("Couldn't: only the installed app can start with $sys") }, colors = swColors())
     }
 }
 

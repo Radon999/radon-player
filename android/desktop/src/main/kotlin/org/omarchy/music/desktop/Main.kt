@@ -69,7 +69,9 @@ fun main(args: Array<String>) {
 private fun app(args: Array<String>) = application {
     remember { org.omarchy.music.PcApp.start() }
     LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.Startup.moveOld() } } }
-    var shown by remember { mutableStateOf("--tray" !in args) }   // started with Windows: in the tray
+    // Started with Windows (or Linux): in the tray. On a desktop with no tray (some Linux ones) its window opens
+    // instead: started hidden there, nothing would show it was running.
+    var shown by remember { mutableStateOf("--tray" !in args || !runCatching { java.awt.SystemTray.isSupported() }.getOrDefault(true)) }
     val tray = androidx.compose.ui.window.rememberTrayState()
     // A new song while the window is closed: a note by the clock, as the phone's notification
     val cur = Music.current()

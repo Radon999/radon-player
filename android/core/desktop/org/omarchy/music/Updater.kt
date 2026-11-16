@@ -57,7 +57,9 @@ object Updater {
             val tag = rel["tag_name"].str ?: return@bg
             if (!newer(tag, version)) { if (!quiet) Music.toast("No update: Radon Player $version is the newest"); return@bg }
             latest = tag.removePrefix("v"); page = rel["html_url"].str
-            installer = rel["assets"].list.firstOrNull { (it["name"].str ?: "").endsWith(".msi", true) }?.get("browser_download_url").str
+            // This system's installer among the release's files: the .msi on Windows, the .deb on Linux
+            val mine = StartupRules.installer(rel["assets"].list.mapNotNull { it["name"].str }, System.getProperty("os.name"))
+            installer = rel["assets"].list.firstOrNull { mine != null && it["name"].str == mine }?.get("browser_download_url").str
             if (announce) Music.toast("Radon Player ${latest} is out: Settings › Update")
             Music.accountsVersion++
         }
@@ -67,7 +69,9 @@ object Updater {
 
     fun install() {
         val msi = installer
-        val windows = System.getProperty("os.name").lowercase().contains("win")
+        val os = System.getProperty("os.name").lowercase()
+        val windows = os.contains("win")
+        if (msi != null && os.contains("linux")) { installOnLinux(msi); return }
         if (msi == null || !windows) {
             val url = page ?: return
             runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
@@ -86,6 +90,24 @@ object Updater {
             runCatching { ProcessBuilder("msiexec", "/i", f.path, "/passive").start() }
                 .onFailure { state = ""; Music.toast("Couldn't start the installer: ${it.message?.take(80)}"); return@bg }
             closeApp(null)
+        }
+    }
+
+    /** Linux: the release's .deb is downloaded to your Downloads folder and opened with the system's own installer
+     *  (it asks for your password; the app can't install over itself there). If nothing opens it, its folder is shown. */
+    private fun installOnLinux(url: String) {
+        state = "Downloading the update…"
+        Music.bg({
+            val dir = java.io.File(System.getProperty("user.home"), "Downloads").takeIf { it.isDirectory } ?: java.io.File(System.getProperty("java.io.tmpdir"))
+            val f = java.io.File(dir, "radon-player_${latest ?: "update"}_amd64.deb")
+            java.net.URI(url).toURL().openStream().use { inp -> f.outputStream().use { inp.copyTo(it) } }
+            f
+        }) { f, err ->
+            state = ""
+            if (f == null) { Music.toast("Couldn't download the update: ${err?.message?.take(80)}"); return@bg }
+            val opened = runCatching { ProcessBuilder("xdg-open", f.path).start(); true }.getOrDefault(false)
+            if (!opened) runCatching { java.awt.Desktop.getDesktop().open(f.parentFile) }
+            Music.toast("The update is in ${f.parentFile.name}: install ${f.name} (close Radon Player first)")
         }
     }
 
