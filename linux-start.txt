@@ -1,11 +1,11 @@
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
-LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:13 of 0:40)
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
 LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
 LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
 LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
-LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:13 of 0:40)
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:14 of 0:40)
 LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
 LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
 LINUX START: a picture of its window was taken (linux-start.jpg)
