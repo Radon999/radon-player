@@ -10,6 +10,8 @@ LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing:
 LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
 LINUX START: a picture of its window was taken (linux-start.jpg)
 LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
+LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
+LINUX LINKS: Tidal's sign-in was asked for, and nothing was handed to the desktop's opener
 --- what the app wrote as it started
 Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
 [SKIKO] warn: Fallback to next API
@@ -33,4 +35,4 @@ radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content
 --- its Problems
---- the files it made: 76
+--- the files it made: 171
