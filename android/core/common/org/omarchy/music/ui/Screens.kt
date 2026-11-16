@@ -62,6 +62,30 @@ import org.omarchy.music.norm
 
 private fun searchName(key: String) = if (key == "local") "your music" else SOURCES[key] ?: ""
 
+/** Search: the songs of each artist and album you picked whole (hold or right-click its row), by the row's key. */
+private val searchPicks = androidx.compose.runtime.mutableStateMapOf<String, List<Track>>()
+
+/** Whether a row's songs are all picked: its tick while you're picking (null: no tick, not picking). */
+private fun pickedAll(ui: Ui, key: String): Boolean? =
+    if (!ui.selecting) null else searchPicks[key]?.let { s -> s.isNotEmpty() && s.all { it.id in ui.selected } } ?: false
+
+/** An artist's or an album's songs, all picked at once (or, all picked already, all taken out again). songs is
+ *  asked off the screen's thread: a service's album or artist has to be fetched. */
+private fun pickAll(ui: Ui, key: String, what: String, songs: () -> List<Track>) {
+    val had = searchPicks[key]
+    if (ui.selecting && had != null && had.isNotEmpty() && had.all { it.id in ui.selected }) { had.forEach { ui.selected.remove(it.id) }; return }
+    Music.bg(songs) { got, err ->
+        if (got.isNullOrEmpty()) {
+            Music.toast(if (err != null) "Couldn't get the songs of $what: ${err.message?.take(80)}" else "No songs found for $what")
+            return@bg
+        }
+        searchPicks[key] = got
+        if (!ui.selecting) ui.startSelecting(got, null, null)
+        got.forEach { ui.selected[it.id] = it }
+        Music.toast("%,d song%s of %s picked".format(got.size, if (got.size != 1) "s" else "", what))
+    }
+}
+
 @Composable
 fun SearchTab(ui: Ui) {
     val res = ui.found
@@ -82,7 +106,14 @@ fun SearchTab(ui: Ui) {
                     item { androidx.compose.runtime.LaunchedEffect(res) { Music.lookUpArtists(res.artists.map { it.title }) } }
                     items(res.artists.size) { i ->
                         val a = res.artists[i]
-                        PlaylistRow(a, artistArt(a.title, a.thumb)) { ui.pages += Ui.Page.Artist(a.title, ui.foundIn.takeIf { it in SOURCES }) }
+                        val key = "artist:${ui.foundIn}:${norm(a.title)}"
+                        val from = ui.foundIn
+                        // Hold (right-click on the PC): every song of theirs picked, as songs are picked. In your music,
+                        // all you have of them; on a service, the songs their page lists. Picking: a tap does the same.
+                        val pick = { pickAll(ui, key, a.title) {
+                            if (from in SOURCES) Music.artistInfo(a.title, from)?.top.orEmpty() else Music.artistSongs(a.title) } }
+                        PlaylistRow(a, artistArt(a.title, a.thumb), onLongClick = pick, checked = pickedAll(ui, key)) {
+                            if (ui.selecting) pick() else ui.pages += Ui.Page.Artist(a.title, ui.foundIn.takeIf { it in SOURCES }) }
                     }
                 }
                 if (res.albums.isNotEmpty()) {
@@ -90,7 +121,12 @@ fun SearchTab(ui: Ui) {
                     items(res.albums.size) { i ->
                         val al = res.albums[i]
                         val mine = res.albumTracks[al.id]
-                        PlaylistRow(al, mine?.firstOrNull()?.let { artModel(it) }) { ui.pages += Ui.Page.AlbumPage(al, ui.foundIn, mine) }
+                        val key = "album:${ui.foundIn}:${al.id}"
+                        val from = ui.foundIn
+                        // Hold (right-click): all the album's songs picked; yours when it's one of yours, else the service's
+                        val pick = { pickAll(ui, key, al.title) { mine ?: Music.sources[from]?.album(al.id).orEmpty() } }
+                        PlaylistRow(al, mine?.firstOrNull()?.let { artModel(it) }, onLongClick = pick, checked = pickedAll(ui, key)) {
+                            if (ui.selecting) pick() else ui.pages += Ui.Page.AlbumPage(al, ui.foundIn, mine) }
                     }
                 }
                 if (res.songs.isNotEmpty()) {

@@ -20,6 +20,29 @@ class WinOutputRulesTest {
         assertNull(WinOutputRules.pick(emptyList(), "{ka17}"))
     }
 
+    @Test fun theVisualizerListensToYourFileOnlyWhenItIsOnThisPc() {
+        val here = setOf("C:/Music/a.flac")
+        assertEquals("C:/Music/a.flac", WinOutputRules.spectrumSource(listOf("C:/Music/a.flac"), "C:/Temp/radon-stream-1.mpd") { it in here })
+        assertEquals("the file is only on the phone: what the player plays", "C:/Temp/radon-stream-1.mpd",
+            WinOutputRules.spectrumSource(listOf("/storage/emulated/0/Music/a.flac", null), "C:/Temp/radon-stream-1.mpd") { it in here })
+        assertEquals("a phone's own address is never a file here", "https://x/stream",
+            WinOutputRules.spectrumSource(listOf("content://media/1"), "https://x/stream") { true })
+        assertEquals("the second name is the one that's here", "C:/Music/a.flac",
+            WinOutputRules.spectrumSource(listOf("D:/gone.flac", "C:/Music/a.flac"), null) { it in here })
+        assertNull(WinOutputRules.spectrumSource(listOf(null, ""), null) { true })
+    }
+
+    @Test fun aStreamsListMayNameTheWeb() {
+        val a = WinOutputRules.spectrumArgs("ffmpeg", "C:/Temp/radon-stream-1.mpd", 12.5)
+        val w = a.indexOf("-protocol_whitelist"); val i = a.indexOf("-i")
+        assertEquals("ffmpeg", a.first())
+        assertEquals(true, w in 1 until i)
+        assertEquals(true, a[w + 1].split(",").containsAll(listOf("file", "https", "tls", "tcp", "crypto")))
+        assertEquals("12.50", a[a.indexOf("-ss") + 1])
+        assertEquals("C:/Temp/radon-stream-1.mpd", a[i + 1])
+        assertEquals("-", a.last())
+    }
+
     @Test fun aSongsDepthIsItsFilesNotTheDecoders() {
         assertEquals("a 24-bit FLAC, decoded into 32-bit numbers", 24, WinOutputRules.shownBits("s32", 24))
         assertEquals("a stream: no file to ask", 24, WinOutputRules.shownBits("s32", null))

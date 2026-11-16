@@ -23,7 +23,9 @@ object PcSpectrum {
     private fun watch() {
         while (users > 0) {
             val t = Music.current()
-            val uri = t?.let { it.file ?: Music.lib.items[it.id]?.file ?: (Music.player as? MpvEngine)?.currentUri }
+            // Your own file of the song when it's on this PC, else what the player is playing (a stream)
+            val uri = t?.let { WinOutputRules.spectrumSource(listOf(it.file, Music.lib.items[it.id]?.file), (Music.player as? MpvEngine)?.currentUri) { f ->
+                runCatching { File(if (f.startsWith("file:")) java.net.URI(f).path else f).isFile }.getOrDefault(false) } }
             val playing = !Music.paused && uri != null
             val expected = startedPos + (System.currentTimeMillis() - startedAt) / 1000.0
             val drift = kotlin.math.abs(expected - Music.position)
@@ -44,8 +46,7 @@ object PcSpectrum {
     private fun start(uri: String, pos: Double) {
         val src = if (uri.startsWith("file:")) java.net.URI(uri).path else uri
         val p = runCatching {
-            ProcessBuilder(ffmpeg(), "-v", "quiet", "-nostdin", "-ss", "%.2f".format(java.util.Locale.US, pos), "-i", src,
-                "-ac", "1", "-ar", "44100", "-f", "f32le", "-")
+            ProcessBuilder(WinOutputRules.spectrumArgs(ffmpeg(), src, pos))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start()
         }.getOrNull() ?: return
         proc = p; startedAt = System.currentTimeMillis(); startedPos = pos
