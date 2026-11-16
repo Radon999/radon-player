@@ -306,13 +306,24 @@ real YouTube for a song's audio, and the answer could not be read (not touched b
 at `26488dd` and failed again at `d4afc7b`: two of three runs in an hour, the same error (`ParsingException` from the
 extractor), after passing all day. Not known which: YouTube turning the build server away now and then (it does
 that to servers), or its page having changed so that the extractor in the app needs a newer version. To tell: a song
-played from YouTube without Tidal on the owner's phone.
+played from YouTube without Tidal on the owner's phone. **The owner tried it (15 November 2026): it plays.** So the
+app's YouTube reading works, and the failures are YouTube turning the build server away now and then: a failure of
+that one test alone is run again, not taken for a fault.
 
 Sixteenth: deleting songs (`DeletingSongs`, `d4afc7b`): `deleteDownloads`, `phoneFilesDeleted`, `removeDownload`,
 `phoneFile`, `deletable`; `downloadsToDelete` named; P `DeletingSongsTest`. Checked on Linux and Windows (the PC
 tests; the app's tests but for the YouTube one above). **Plan decision D18 (the owner, 15 November 2026): Phases 3,
 4, 5 and 10 (the native audio module, the USB path rebuilt on it) are postponed**; the DAC is tested again once all
-else is done, and then it is decided whether they are needed. **Not
+else is done, and then it is decided whether they are needed.
+
+Seventeenth: the equalizer as you use it (`EqControl`, `3ba0a51`): changing its settings, what it plays, each
+output keeping its own, the switch between outputs, a song's own EQ, Boost, Dual volume, Bass and Treble with
+bit-perfect, ReplayGain's factor. Its rules are named and tested (P `EqControlTest`: `kept`, `played`, `moved`,
+`boost`, `rgFactor`, `outLabel`); the settings and what the screens read stay in `Music`. Written out again by hand
+from the code as it was, not moved line for line: **not heard**, and an output switch not tried on a device. Checked
+on Linux and Windows. `Music.kt` is about 1,510 lines: what the screens show (state), remembering (saving and
+loading), your music's reading (rescan, relink, files moved), playback's hand-ons, and the hand-ons to the parts
+above. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
