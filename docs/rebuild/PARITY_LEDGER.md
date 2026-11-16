@@ -323,7 +323,26 @@ bit-perfect, ReplayGain's factor. Its rules are named and tested (P `EqControlTe
 from the code as it was, not moved line for line: **not heard**, and an output switch not tried on a device. Checked
 on Linux and Windows. `Music.kt` is about 1,510 lines: what the screens show (state), remembering (saving and
 loading), your music's reading (rescan, relink, files moved), playback's hand-ons, and the hand-ons to the parts
-above. **Not
+above. The owner on build 28: everything works as intended.
+
+**Test build 29 (`90862a8`): asked for at the start.** The owner: the visualizer on Now playing did nothing until the
+Visualizer tab had been opened and its permission given. The phone now asks for all it needs as it starts, at every
+start until allowed (`StartupPermissions`: Android's questions for your music, the microphone, notifications; then a
+box for All files access or one refused twice); Now playing and the Visualizer tab look again once answered. And a
+folder of music is asked for at each start while none is chosen (`AskForMusicFolder`; a fresh install starts with
+the Music folder chosen, so it is not asked then). Screens only: no test, **not seen by Claude**.
+
+**Test build 30 (`650867e`): bit-perfect was not bit-perfect for some songs. Found by the owner.** Settings said
+16-bit/48 kHz for a 24-bit/48 kHz FLAC, bit-perfect on, FiiO KA17. It was true. `EqSink` brings hi-res down to 16-bit
+unless `Music.bitPerfectNow()`, which on the phone means a USB output listed by Android or a stream straight to the
+DAC already running; it is asked before each song's stream is set up. With the DAC's stream closed in between (and
+Android kept off the DAC, so no USB output listed), it was false: the decoder was not asked for all the bits and the
+song reached the DAC as dithered 16-bit, under the words "Bit-perfect". A fault of 3.2.28 too (`EqSink`, `UsbDirect`
+and `bitPerfectNow` are as they were). Fixed: the song also goes on as it is when it is about to go straight to the
+DAC (`UsbDirect.wanted()`; `SinkRules`, shared, S `SinkRulesTest`), the EQ is bypassed then, and Problems gets a line
+if a hi-res song still goes out as 16-bit with a DAC plugged in. **Not proven by Claude** (no phone, no DAC): the
+owner checks that Settings says 24-bit for 24-bit songs, over several songs and after a pause. How often it happened
+before is not known; the earlier "works perfect with the DAC" was about noise and song changes, not bit depth. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
