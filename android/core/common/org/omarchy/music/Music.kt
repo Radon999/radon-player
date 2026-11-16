@@ -533,76 +533,14 @@ object Music {
     }
 
     var artistsVersion by mutableStateOf(0)   // bumps when an artist's picture or bio comes in
-        private set
-    private val lookingUp = HashSet<String>()
+        internal set   // ArtistLookups' to bump
 
-    /** Look up the pictures and bios of the artists named, one after another off the main thread. */
-    fun lookUpArtists(names: List<String>) {
-        val todo = names.distinctBy { norm(it) }.filter { n -> !Pictures.settled(Pictures.known(n)) &&
-            synchronized(lookingUp) { lookingUp.add(norm(n)) } }
-        if (todo.isEmpty()) return
-        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            for (n in todo) {
-                runCatching { Pictures.artist(n) }
-                runCatching { Pictures.keepOnPhone(n) }   // the picture itself kept on the phone: not loaded again
-                synchronized(lookingUp) { lookingUp.remove(norm(n)) }
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { artistsVersion++ }
-            }
-        }
-        // Ones looked up before pictures were kept on the phone: kept now (no lookup, just the picture)
-        val unsaved = names.distinctBy { norm(it) }.filter { n -> Pictures.known(n)?.let { it.saved.isEmpty() && it.image.startsWith("http") } == true }
-        if (unsaved.isNotEmpty()) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            var got = 0
-            for (n in unsaved) if (runCatching { Pictures.keepOnPhone(n) }.getOrNull() != null) got++
-            if (got > 0) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { artistsVersion++ }
-        }
-    }
-
-    /** The pictures of artists gone from your music (no songs of theirs left, and no plays in your stats): forgotten,
-     *  their files deleted. */
-    fun prunePictures() {
-        val songs = runCatching { mySongs() }.getOrDefault(emptyList())
-        if (songs.isEmpty()) return
-        val keep = (songs.flatMap { ownArtists(it.artist) } + Stats.artists.map { it.name }).map { norm(it) }.toSet()
-        bg({ Pictures.prune(keep) })
-    }
-
-    /** Keep source (a picture's web address, or a content:// one you picked) as the artist's picture. */
-    fun setArtistPicture(name: String, source: String) {
-        bg({
-            val url = if (source.startsWith("content://")) {
-                val f = File(File(ctx.filesDir, "artists").apply { mkdirs() }, "${randomHex(8)}.jpg")
-                ctx.openIn(source)!!.use { input -> f.outputStream().use { input.copyTo(it) } }
-                f.path
-            } else source
-            Pictures.chooseArtist(name, url)
-        }) { _, err ->
-            toast(if (err != null) "Couldn't use it: ${err.message?.take(100)}" else "New picture for $name")
-            artistsVersion++
-        }
-    }
-
+    // Looking artists up (pictures, bios, an artist's page) is ArtistLookups' own: these hand on.
+    fun lookUpArtists(names: List<String>) = ArtistLookups.lookUp(names)
+    fun prunePictures() = ArtistLookups.prunePictures()
+    fun setArtistPicture(name: String, source: String) = ArtistLookups.setPicture(name, source)
     /** (blocking) The artist's page from the first service that knows them. */
-    fun artistInfo(name: String, prefer: String?): ArtistInfo? {
-        var info: ArtistInfo? = null
-        var last: Throwable? = null
-        val names = listOf(name) + (if (" & " in name) listOf(name.split(" & ")[0]) else emptyList())
-        for (key in listOfNotNull(prefer, source, "ytm", "tidal", "apple", "spotify").distinct()) {
-            val src = sources[key] ?: continue
-            if (key in setOf("tidal", "spotify") && !src.signedIn) continue
-            var found: ArtistInfo? = null
-            for (n in names) {
-                found = try { src.artist(n) } catch (e: Exception) { last = e; null }
-                if (found != null) break
-            }
-            found ?: continue
-            if (info == null) info = found.copy(source = key, topSource = key)
-            else if (found.top.isNotEmpty()) info = info.copy(top = found.top, topSource = key)
-            if (info.top.isNotEmpty()) break
-        }
-        if (info == null && last != null) throw last!!
-        return info
-    }
+    fun artistInfo(name: String, prefer: String?): ArtistInfo? = ArtistLookups.info(name, prefer)
 
     // ---- most played ----
     var showDiscoveryLists by mutableStateOf(false)   // Playlists: the discovery playlists unfolded
