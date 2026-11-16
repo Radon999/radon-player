@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.5: Checking for an update always finishes (Android, Windows and Linux)
+- **Checking for an update always finishes:** Settings could stay on "checking for a newer version…" for good. The check waited its turn among the app's other background work (all of it busy during a scan or a sync) and had no time limit of its own. It now runs by itself, ends within about a minute whatever the network does, and has a second way to find the newest version when GitHub won't give its list. Downloading the update no longer waits for other work either.
+
 ## 4.0.4: A song you have is never downloaded twice (Android, Windows and Linux)
 - **A song you have is never downloaded twice:** if you already have a song with the same title and artist (whatever its album is tagged as), Download leaves it and says so: your copy is the one that plays. Before, a download whose tags you changed (a single moved into its album) could be taken for a song you didn't have, streamed instead of played from your file, and downloaded again as a second copy. "Keep both" (Settings, or when asked about a near match) still downloads it.
 - **A download follows its file:** when a downloaded song's file has moved (after a tag change put it in another folder), the app finds your file of that song again and goes on playing it, instead of streaming it.
