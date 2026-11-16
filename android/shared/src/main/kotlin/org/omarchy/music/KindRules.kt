@@ -89,4 +89,65 @@ object KindRules {
 
     /** The unreleased corner: a file in a folder (or with a name) that says unreleased. */
     fun unreleased(path: String): Boolean = path.contains("unreleased", ignoreCase = true)
+
+    /** Your usual for this hour: how the DJ names the time ("this morning", "tonight") and the part of the day
+     *  ("morning", "evening"). */
+    fun dayPart(hour: Int): Pair<String, String> = when (hour) {
+        in 5..11 -> "this morning" to "morning"
+        in 12..16 -> "this afternoon" to "afternoon"
+        in 17..22 -> "tonight" to "evening"
+        else -> "at this hour" to "late night"
+    }
+
+    /** A mood's set: the moods to pick from, each with its weight, the heaviest first: the plays of each mood lately,
+     *  and the ones around this hour counted double; the top three, and only moods with a weight of three or more. */
+    fun moodsToPick(lately: Map<String, Int>, thisHour: Map<String, Int>): List<Pair<String, Int>> {
+        val weight = HashMap<String, Int>()
+        lately.forEach { (m, n) -> weight.merge(m, n, Int::plus) }
+        thisHour.forEach { (m, n) -> weight.merge(m, 2 * n, Int::plus) }
+        return weight.entries.sortedByDescending { it.value }.take(3).filter { it.value >= 3 }.map { it.key to it.value }
+    }
+
+    /** One of a few things, the heavier likelier: roll is a number from 0 up to (not with) the weights' sum. */
+    fun <T> weighted(choices: List<Pair<T, Int>>, roll: Int): T {
+        var r = roll
+        return choices.first { r -= it.second; r < 0 }.first
+    }
+
+    /** A mood is said to be this hour's (not just lately's) when its plays around this hour, doubled, reach its
+     *  plays lately. */
+    fun moodByHour(mood: String, lately: Map<String, Int>, thisHour: Map<String, Int>): Boolean = (thisHour[mood] ?: 0) * 2 >= (lately[mood] ?: 0)
+
+    /** New for you: what each seed song brought, taken in turns (the first of each, then the second of each…), so no
+     *  one seed fills the set. */
+    fun <T> interleave(lists: List<List<T>>): List<T> =
+        (0 until (lists.maxOfOrNull { it.size } ?: 0)).flatMap { i -> lists.mapNotNull { it.getOrNull(i) } }
+
+    /** A word about the day before a set: which one fits now ("t-fri": Friday evening, "t-sat": Saturday, "t-sun":
+     *  Sunday morning, "t-mon": Monday morning, "t-late": past midnight, "t-early": very early), null for none. */
+    fun timeFlavor(day: java.time.DayOfWeek, hour: Int): String? = when {
+        day == java.time.DayOfWeek.FRIDAY && hour >= 17 -> "t-fri"
+        day == java.time.DayOfWeek.SATURDAY -> "t-sat"
+        day == java.time.DayOfWeek.SUNDAY && hour < 13 -> "t-sun"
+        day == java.time.DayOfWeek.MONDAY && hour in 5..11 -> "t-mon"
+        hour in 0..3 -> "t-late"
+        hour in 5..7 -> "t-early"
+        else -> null
+    }
+
+    /** The plays of a song the DJ marks ("This is your 100th play of…"). */
+    val MILESTONES = listOf(25, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000)
+    fun milestone(play: Int): Boolean = play in MILESTONES
+
+    /** Before a song: it's in your all time top ten (place: 0 the first) and you've played it ten times or more. */
+    fun topTen(place: Int, plays: Int): Boolean = place in 0..9 && plays >= 10
+
+    /** Before a song: never skipped, and heard out eight times or more. */
+    fun neverSkipped(skips: Int, heardOut: Int): Boolean = skips == 0 && heardOut >= 8
+
+    /** Before a song: a new obsession, found in the last three weeks and played five times or more already. */
+    fun newObsession(daysSinceFirst: Int, plays: Int): Boolean = daysSinceFirst in 1..21 && plays >= 5
+
+    /** Before a song: an old friend, first played two years ago or more. */
+    fun oldFriend(daysSinceFirst: Int): Boolean = daysSinceFirst >= 730
 }

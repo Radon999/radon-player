@@ -92,4 +92,8 @@ object TasteRules {
         }
         return c
     }
+
+    /** Most played's count as the DJ takes it: when there are plays from outside the app at all (Last.fm, an
+     *  import), only those (the plays here taken off); with none, the plays here are all there is. */
+    fun outside(all: Int, here: Int, anyOutside: Boolean): Int = if (anyOutside) all - here else all
 }

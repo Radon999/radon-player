@@ -333,7 +333,7 @@ object Dj {
 
     private fun q(t: Track) = "“${t.title}”"
     private fun by(t: Track) = names(listOf(t))
-    private fun num(n: Int) = String.format(java.util.Locale.ENGLISH, "%,d", n)
+    private fun num(n: Int) = ScriptRules.num(n)
 
     // ---- what you like ----
     /** all: your most played songs of all time; recent: of the last 30 days; hour: what you play around this
@@ -375,8 +375,7 @@ object Dj {
         recentSongs = q
     }
 
-    private fun keysOf(entry: String): List<Pair<String, String>> = entry.split('\t').filter { it.contains('|') }
-        .map { it.substringBeforeLast('|') to it.substringAfterLast('|') }
+    private fun keysOf(entry: String): List<Pair<String, String>> = SetRules.recentKeys(entry)
 
     /** How many of the last songs are kept out now: all [SONG_GAP], or playing from a few songs (a playlist), fewer, so
      *  there are always some to pick (the ones played longest ago come back first). */
@@ -399,8 +398,7 @@ object Dj {
         val text = synchronized(recentLock) {
             val q = recent()
             for (t in tracks.distinctBy { songKey(it) }) {
-                val a = songKey(t); val b = Stats.statsKey(t.title, t.artist)
-                q += "${a.first}|${a.second}\t${b.first}|${b.second}".replace("\n", " ")
+                q += SetRules.recentEntry(songKey(t), Stats.statsKey(t.title, t.artist))
             }
             while (q.size > SONG_GAP) q.removeFirst()
             recentCount++
@@ -491,7 +489,7 @@ object Dj {
         // Deezer, YouTube Music and Tidal imports (with or without a time), an artist's under one name. The plays here
         // only count when there's nothing from those at all.
         val anyOutside = Stats.artists.any { it.plays > it.here }
-        fun outside(all: Int, here: Int) = if (anyOutside) all - here else all
+        fun outside(all: Int, here: Int) = TasteRules.outside(all, here, anyOutside)
         if (Stats.artists.isNotEmpty()) { artistAll.clear(); Stats.artists.forEach { val n = outside(it.plays, it.here); if (n > 0) artistAll.merge(it.name, n, Int::plus) } }
         val statSongs = HashMap<Pair<String, String>, Int>()
         Stats.songs.forEach { statSongs.merge(Stats.statsKey(it.title, it.artist), outside(it.plays, it.here), Int::plus) }
@@ -626,9 +624,7 @@ object Dj {
         val songs = pick(ok(taste, taste.hour.take(60)), SET, used)
         if (songs.size < 3) return null
         val s = songs[0]
-        val h = clock().hour
-        val whenText = if (h in 5..11) "this morning" else if (h in 12..16) "this afternoon" else if (h in 17..22) "tonight" else "at this hour"
-        val part = if (h in 5..11) "morning" else if (h in 12..16) "afternoon" else if (h in 17..22) "evening" else "late night"
+        val (whenText, part) = KindRules.dayPart(clock().hour)
         return songs to say("hour",
             "Here's what you usually play $whenText, starting with ${q(s)}.",
             "Your usual for this time of day: ${names(songs, 3)}.",
@@ -644,15 +640,10 @@ object Dj {
     /** The moods you've been in: what you've played lately, and what you play around this hour counted double; a
      *  mood picked from the top three, the bigger likelier. Null when none of your plays has a mood yet. */
     private fun pickMood(taste: Taste): Pair<String, Boolean>? {
-        val weight = HashMap<String, Int>()
-        taste.moods.forEach { (m, n) -> weight.merge(m, n, Int::plus) }
-        taste.moodHour.forEach { (m, n) -> weight.merge(m, 2 * n, Int::plus) }
-        val top = weight.entries.sortedByDescending { it.value }.take(3).filter { it.value >= 3 }
+        val top = KindRules.moodsToPick(taste.moods, taste.moodHour)
         if (top.isEmpty()) return null
-        var r = Random.nextInt(top.sumOf { it.value })
-        val mood = top.first { r -= it.value; r < 0 }.key
-        val byHour = (taste.moodHour[mood] ?: 0) * 2 >= (taste.moods[mood] ?: 0)
-        return mood to byHour
+        val mood = KindRules.weighted(top, Random.nextInt(top.sumOf { it.second }))
+        return mood to KindRules.moodByHour(mood, taste.moods, taste.moodHour)
     }
 
     // ---- Mood mix: one mood at a time, a different one each time ----
@@ -830,7 +821,7 @@ object Dj {
             val got = radio(seed, keys[i % keys.size]).ifEmpty { radio(seed, keys[(i + 1) % keys.size]) }
             got.filter { newToYou(it, known) }
         }
-        val mixed = (0 until (found.maxOfOrNull { it.size } ?: 0)).flatMap { i -> found.mapNotNull { it.getOrNull(i) } }
+        val mixed = KindRules.interleave(found)
         val songs = pick(mixed.take(30), SET, used)
         if (songs.size < 3) return null
         val from = names(seeds)
@@ -952,14 +943,11 @@ object Dj {
     }
 
     // ---- what the DJ tells you between sets ----
-    private fun month(t: Long): String {
-        val d = java.time.Instant.ofEpochSecond(t).atZone(java.time.ZoneId.systemDefault())
-        return d.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH) + " " + d.year
-    }
-    private fun hoursText(h: Double) = if (h >= 10) String.format(java.util.Locale.ENGLISH, "%.0f", h)
-        else String.format(java.util.Locale.ENGLISH, "%.1f", h).removeSuffix(".0")
-    private fun hourName(h: Int) = when (h) { 0 -> "midnight"; 12 -> "noon"; else -> "${if (h % 12 == 0) 12 else h % 12} ${if (h < 12) "AM" else "PM"}" }
-    private fun ordinal(n: Int) = when (n) { 1 -> "one"; 2 -> "two"; 3 -> "three"; 4 -> "four"; 5 -> "five"; else -> n.toString() }
+    // How the DJ says numbers and times is ScriptRules' own: these hand on.
+    private fun month(t: Long): String = ScriptRules.month(t, java.time.ZoneId.systemDefault())
+    private fun hoursText(h: Double) = ScriptRules.hoursText(h)
+    private fun hourName(h: Int) = ScriptRules.hourName(h)
+    private fun ordinal(n: Int) = ScriptRules.ordinal(n)
 
     /** (blocking) Something the DJ can tell you, about the songs coming up or your listening: how long you've spent
      *  on a song, when you first played it, that you never skip it (or always do), your artists, genres and moods, the
@@ -978,7 +966,7 @@ object Dj {
         // A milestone coming up (a song's 100th play…) is always told
         for (s in next.take(4)) {
             val n = (f.count[Stats.statsKey(s.title, s.artist)] ?: 0) + 1
-            if (n in MILESTONES) {
+            if (KindRules.milestone(n)) {
                 val key = "milestone:${songKey(s)}:$n"
                 if (key !in said(FACT_HISTORY)) {
                     remember(FACT_HISTORY, key)
@@ -1536,19 +1524,16 @@ object Dj {
     private fun timeFlavor(): String {
         if (Random.nextInt(10) >= 3) return ""
         val n = clock()
-        val h = n.hour
-        return when {
-            n.dayOfWeek == java.time.DayOfWeek.FRIDAY && h >= 17 -> say("t-fri", "Friday night at last.", "Friday night, and the weekend starts here.", "Happy Friday.")
-            n.dayOfWeek == java.time.DayOfWeek.SATURDAY -> say("t-sat", "Saturday, no rush.", "It's the weekend. Time for records.", "Saturday listening, coming up.")
-            n.dayOfWeek == java.time.DayOfWeek.SUNDAY && h < 13 -> say("t-sun", "Easy Sunday morning.", "A slow Sunday. Good.", "Sunday mornings are for music.")
-            n.dayOfWeek == java.time.DayOfWeek.MONDAY && h in 5..11 -> say("t-mon", "Monday morning. Let's ease into the week.", "New week, new songs.", "Mondays go better with music.")
-            h in 0..3 -> say("t-late", "It's late, and we're still playing.", "Past midnight, and the music's still on.", "The late shift now.")
-            h in 5..7 -> say("t-early", "Early start today.", "Up before most. Good time for music.")
+        return when (KindRules.timeFlavor(n.dayOfWeek, n.hour)) {
+            "t-fri" -> say("t-fri", "Friday night at last.", "Friday night, and the weekend starts here.", "Happy Friday.")
+            "t-sat" -> say("t-sat", "Saturday, no rush.", "It's the weekend. Time for records.", "Saturday listening, coming up.")
+            "t-sun" -> say("t-sun", "Easy Sunday morning.", "A slow Sunday. Good.", "Sunday mornings are for music.")
+            "t-mon" -> say("t-mon", "Monday morning. Let's ease into the week.", "New week, new songs.", "Mondays go better with music.")
+            "t-late" -> say("t-late", "It's late, and we're still playing.", "Past midnight, and the music's still on.", "The late shift now.")
+            "t-early" -> say("t-early", "Early start today.", "Up before most. Good time for music.")
             else -> ""
         }
     }
-
-    private val MILESTONES = listOf(25, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000)
 
     /** (quick: from what's known already, nothing loaded) What the DJ might say before a song in the middle of a set:
      *  a milestone this play reaches (always), else now and then something about the song (your top ten, never skipped,
@@ -1559,23 +1544,23 @@ object Dj {
         val k = Stats.statsKey(t.title, t.artist)
         val n = f.count[k] ?: 0
         val mk = "milestone:${songKey(t)}:${n + 1}"
-        if (n + 1 in MILESTONES && mk !in said(FACT_HISTORY)) {
+        if (KindRules.milestone(n + 1) && mk !in said(FACT_HISTORY)) {
             remember(FACT_HISTORY, mk)
             return "This is your ${num(n + 1)}th play of ${q(t)}."
         }
         if (Random.nextInt(10) >= 3) return null
         val out = LinkedHashMap<String, String>()
         val id = songKey(t).toString()
-        taste.all.indexOfFirst { songKey(it) == songKey(t) }.takeIf { it in 0..9 && n >= 10 }?.let { i ->
+        taste.all.indexOfFirst { songKey(it) == songKey(t) }.takeIf { KindRules.topTen(it, n) }?.let { i ->
             out["c-top:$id"] = if (i == 0) "Your most played song of all time, coming up." else "This one's in your all time top ten. Number ${ordinal(i + 1)}."
         }
         Music.songStats.rows().firstOrNull { songKey(it.first) == songKey(t) }?.let { (_, sk, full) ->
-            if (sk == 0 && full >= 8) out["c-never:$id"] = "You've never skipped this one. ${num(full)} times, start to finish."
+            if (KindRules.neverSkipped(sk, full)) out["c-never:$id"] = "You've never skipped this one. ${num(full)} times, start to finish."
         }
         f.first[k]?.let { first ->
             val days = ((now().toLong() - first) / 86_400L).toInt()
-            if (days in 1..21 && n >= 5) out["c-crush:$id"] = "You found this one $days days ago, and you've played it ${num(n)} times already."
-            if (days >= 730) out["c-old:$id"] = "You first played this one back in ${month(first)}."
+            if (KindRules.newObsession(days, n)) out["c-crush:$id"] = "You found this one $days days ago, and you've played it ${num(n)} times already."
+            if (KindRules.oldFriend(days)) out["c-old:$id"] = "You first played this one back in ${month(first)}."
         }
         val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return null
         remember(FACT_HISTORY, key)

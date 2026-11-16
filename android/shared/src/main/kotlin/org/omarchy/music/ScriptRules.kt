@@ -33,4 +33,24 @@ object ScriptRules {
         val o = if (first) hello() else ""
         return (if (o.isEmpty()) body else "$o $body") to o
     }
+
+    // ---- how the DJ says numbers and times ----
+    /** A count, with its thousands apart: 1,234. */
+    fun num(n: Int): String = String.format(java.util.Locale.ENGLISH, "%,d", n)
+
+    /** A time as a month and its year: "March 2021". */
+    fun month(seconds: Long, zone: java.time.ZoneId): String {
+        val d = java.time.Instant.ofEpochSecond(seconds).atZone(zone)
+        return d.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH) + " " + d.year
+    }
+
+    /** Hours of listening: whole from ten up ("12"), else to one place ("3.5", "4"). */
+    fun hoursText(h: Double): String = if (h >= 10) String.format(java.util.Locale.ENGLISH, "%.0f", h)
+        else String.format(java.util.Locale.ENGLISH, "%.1f", h).removeSuffix(".0")
+
+    /** An hour of the day: "midnight", "noon", "3 PM". */
+    fun hourName(h: Int): String = when (h) { 0 -> "midnight"; 12 -> "noon"; else -> "${if (h % 12 == 0) 12 else h % 12} ${if (h < 12) "AM" else "PM"}" }
+
+    /** A place in a list, in words up to five ("Number three"), in figures after. */
+    fun ordinal(n: Int): String = when (n) { 1 -> "one"; 2 -> "two"; 3 -> "three"; 4 -> "four"; 5 -> "five"; else -> n.toString() }
 }

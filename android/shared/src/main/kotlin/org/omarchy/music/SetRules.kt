@@ -91,4 +91,13 @@ object SetRules {
         val h = n.hour
         return "${n.dayOfWeek} " + if (h in 5..11) "morning" else if (h in 12..16) "afternoon" else if (h in 17..22) "evening" else "night"
     }
+
+    /** A song the DJ played, as it's kept (so it isn't picked again for a while): its two keys (the song's own and
+     *  Most played's, each a title and an artist) on one line, "title|artist<tab>title|artist". */
+    fun recentEntry(own: Pair<String, String>, stats: Pair<String, String>): String =
+        "${own.first}|${own.second}\t${stats.first}|${stats.second}".replace("\n", " ")
+
+    /** The keys a kept line holds (see [recentEntry]); a title may have a | in it, an artist key hasn't. */
+    fun recentKeys(entry: String): List<Pair<String, String>> = entry.split('\t').filter { it.contains('|') }
+        .map { it.substringBeforeLast('|') to it.substringAfterLast('|') }
 }
