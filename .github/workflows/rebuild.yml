@@ -138,6 +138,17 @@ jobs:
                 else
                   echo "LINUX SCREENS: the sheet of pictures could not be made"
                 fi
+                # Each section of Settings opened in turn and pictured, on a sheet of its own (linux-settings.jpg)
+                mkdir -p "$RUNNER_TEMP/sshots"; n=10
+                for s in "General" "Personalization" "Playback" "Backup" "Remote & sync" "Accounts" "Your music" "Scanner" "Sound quality" "Last.fm & your stats"; do
+                  DISPLAY=:99 timeout 20 "$exe" show settings "$s" >/dev/null 2>&1 || true
+                  sleep 4
+                  DISPLAY=:99 import -window root "$RUNNER_TEMP/sshots/$n.png" 2>/dev/null || true
+                  n=$((n + 1))
+                done
+                if montage "$RUNNER_TEMP"/sshots/*.png -tile 2x -geometry 960x600+6+6 -background '#202020' "$RUNNER_TEMP/ssheet.png" 2>/dev/null && convert "$RUNNER_TEMP/ssheet.png" -quality 70 "$RUNNER_TEMP/linux-settings.jpg" 2>/dev/null; then
+                  echo "LINUX SCREENS: Settings' $(ls "$RUNNER_TEMP/sshots" | wc -l) sections pictured on one sheet (linux-settings.jpg)"
+                fi
                 # A sign-in page (Tidal's), asked for the way its button asks: what the desktop's opener was handed
                 DISPLAY=:99 timeout 20 "$exe" --tidal-login >/dev/null 2>&1 || true
                 sleep 6
@@ -203,6 +214,7 @@ jobs:
           cp "$RUNNER_TEMP/linux-start.jpg" linux-start.jpg 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-screens.jpg" linux-screens.jpg 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-signin.jpg" linux-signin.jpg 2>/dev/null || true
+          cp "$RUNNER_TEMP/linux-settings.jpg" linux-settings.jpg 2>/dev/null || true
           # The app's own compiled code (three small jars, made from this branch's source and nothing else: no keys, no
           # installer), so a test build already on the PC can be brought up to date without a download that needs signing in
           rm -rf jars && mkdir jars

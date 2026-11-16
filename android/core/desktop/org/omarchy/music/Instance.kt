@@ -120,6 +120,8 @@ object Instance {
             null, "show", "open", "back" -> {
                 if ("--tray" in args) return
                 show()
+                // "show settings Playback": Settings with that section open (its name as Settings shows it)
+                if (ui != null && rest.lowercase().startsWith("settings ")) { ui.openSettings(rest.drop(9).trim()); return }
                 if (ui != null && rest.isNotEmpty()) when (rest.lowercase()) {
                     "now", "player", "nowplaying" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art" }
                     "lyrics" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "lyrics" }
