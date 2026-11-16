@@ -1,0 +1,9 @@
+LINUX START: the installed app started and was still running after 45 s
+LINUX START: a picture of its window was taken (linux-start.jpg)
+--- what the app wrote as it started
+radon-player: mpv isn't there: java.io.IOException: Cannot run program "mpv": Exec failed, error: 2 (No such file or directory) 
+Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
+[SKIKO] warn: Fallback to next API
+org.jetbrains.skiko.RenderException: Cannot create Linux GL context
+--- its Problems
+--- the files it made: 3
