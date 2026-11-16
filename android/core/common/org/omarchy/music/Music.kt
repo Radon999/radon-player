@@ -1419,73 +1419,21 @@ object Music {
     fun streamBroke() = PlaybackCore.streamBroke()
 
     // ---- the equalizer ----
-    fun setEq(f: (EqSettings) -> EqSettings) {
-        var n = f(eq)
-        // The output the settings are for keeps them as they are now, always (not only when the sound moves away), with
-        // when they last changed: so a sync carries the latest, and never brings older ones back over yours
-        if (n.perOutput && n.output.isNotEmpty()) {
-            val old = n.outputs[n.output]
-            val mine = n.toOutput(old?.label?.ifEmpty { null } ?: outLabel(n.output))
-            if (!mine.sameAs(old)) n = n.copy(outputs = n.outputs + (n.output to mine.copy(at = System.currentTimeMillis())))
-        }
-        eq = n
-        applyEq()
-        saveState()
-    }
-
-    /** The playing song's own EQ on this output (Custom EQ…), if it has one: then it's what's heard. */
-    fun songEqNow(t: Track? = current()): OutputEq? = t?.let { if (::songEqs.isInitialized) songEqs.get(it, outputNow.key) else null }
+    // What the equalizer plays, each output's settings and the switch between outputs are EqControl's own: these
+    // hand on. The settings (eq) and what the screens read (the output now, a song's own EQ in effect) stay here.
+    fun setEq(f: (EqSettings) -> EqSettings) = EqControl.set(f)
+    fun songEqNow(t: Track? = current()): OutputEq? = EqControl.songEqNow(t)
     var songEqActive by mutableStateOf(false)   // the playing song's own EQ is in effect (Now playing's C EQ, red)
-        private set
-
-    /** What the EQ plays: this output's, or the playing song's own for this output (its correction, Sound and Boost; the
-     *  bass and treble, crossfeed, dither and the rest stay as they are). */
-    internal fun applyEq() {
-        val s = songEqNow()
-        songEqActive = s != null
-        val e = if (s == null) eq else eq.copy(on = true, headphones = s.headphones, preset = s.preset, bands = s.bands,
-            custom = s.custom, count = s.count, boost = s.boost)
-        // Dual volume off: a song with its own volume (Volume…) plays at that volume alone, without the Boost on top
-        eqProcessor.update(if (!dualVolume() && eqProcessor.songGain != 1.0) e.copy(boost = 0.0) else e)
-    }
-
-    /** Dual volume (Equalizer): on, the Boost and a song's own volume go together; off, a song with its own volume
-     *  plays at just that one (the songs without one keep the Boost). */
-    fun dualVolume() = Prefs.on(DUAL_VOLUME, true)
-    fun setDualVolume(on: Boolean) { Prefs.set(DUAL_VOLUME, on); applyEq(); musicVersion++ }
-    private const val DUAL_VOLUME = "eq_dual_volume"
-
-    /** Custom EQ…: e (null: take it away) for tracks, on the output playing now. */
-    fun setSongEq(tracks: List<Track>, e: OutputEq?) {
-        if (tracks.isEmpty()) return
-        songEqs.set(tracks, outputNow.key, e?.copy(label = outputNow.label))
-        applyEq()
-        val what = if (tracks.size == 1) "“${tracks[0].title}”" else "${tracks.size} songs"
-        toast(if (e == null) "$what back to the usual EQ on ${outputNow.label}" else "$what with its own EQ on ${outputNow.label}")
-        musicVersion++
-    }
-
-    fun setEqOn(on: Boolean) = setEq { it.copy(on = on) }
-    fun setEqHeadphones(key: String, remember: Boolean = true) = setEq {
-        val out = output
-        it.copy(headphones = key, on = true, devices = if (remember && out.isNotEmpty()) it.devices + (out to key) else it.devices)
-    }
-
+        internal set
+    internal val songEqsReady get() = ::songEqs.isInitialized
+    internal fun applyEq() = EqControl.apply()
+    fun dualVolume() = EqControl.dualVolume()
+    fun setDualVolume(on: Boolean) = EqControl.setDualVolume(on)
+    fun setSongEq(tracks: List<Track>, e: OutputEq?) = EqControl.setSongEq(tracks, e)
+    fun setEqOn(on: Boolean) = EqControl.setOn(on)
+    fun setEqHeadphones(key: String, remember: Boolean = true) = EqControl.setHeadphones(key, remember)
     fun importEqFile(uri: String) = SoundPresets.importEqFile(uri)
-
-    /** ReplayGain's gain for a song (dB from its tags) at the levelling target: never louder than full scale unless
-     *  Clip guard is on to limit the peaks. */
-    /** ReplayGain's gain for a song tagged db (and its peak, when tagged). Making a quiet song louder stops where its
-     *  loudest moment would reach full scale (with Clip guard, a little past it: the limiter catches the odd peak), and at
-     *  +6 dB at most when the file doesn't say its peak. Before, a quiet song could get +12 dB and the limiter then
-     *  squashed it flat: loud, distorted, the bass pumping. */
-    fun rgFactor(db: Double, peak: Double? = null): Double {
-        val g = Math.pow(10.0, (db + Prefs.num(Prefs.RG_TARGET, -18f) + 18) / 20)
-        if (g <= 1.0) return g
-        if (!Prefs.on(Prefs.CLIP_GUARD)) return 1.0
-        val most = peak?.let { 1.12 / it } ?: 2.0   // up to 1 dB over the peak, or +6 dB untagged
-        return g.coerceAtMost(most.coerceIn(1.0, 2.0))
-    }
+    fun rgFactor(db: Double, peak: Double? = null): Double = EqControl.rgFactor(db, peak)
 
     // Sound presets of yours and headphones corrections (saved, imported, exported, collected) are SoundPresets' own.
     fun savePreset(name: String, bands: List<Double> = eq.bands, count: Int = eq.count) = SoundPresets.savePreset(name, bands, count)
@@ -1497,85 +1445,25 @@ object Music {
     fun addAutoEq(e: AutoEq.Entry, filters: List<Filter>) = SoundPresets.addAutoEq(e, filters)
 
     var output by mutableStateOf("")   // the headphones the sound goes to now ("" for the phone's own speaker)
-        private set
-
-    /** The sound goes somewhere else: that output's own EQ, just as you left it (its headphones correction only if you
-     *  picked one for it, its Boost…). A correction is never picked for you: the Equalizer says when AutoEq has one. */
-    fun outputChanged() {
-        switchEqOutput()
-        output = AutoEq.output(ctx)
-    }
-    fun setEqPreset(key: String) = setEq { it.copy(preset = key, bands = Eq.presetOf(it, key, it.count) ?: it.custom.takeIf { c -> c.size == it.count }
-        ?: List(it.count) { 0.0 }, on = true) }
-    fun setEqBand(i: Int, gain: Double) = setEq {
-        if (i !in it.bands.indices) return@setEq it
-        val b = it.bands.toMutableList().also { l -> l[i] = Eq.clamp(gain) }
-        it.copy(bands = b, custom = b, preset = "custom", on = true)
-    }
-    /** 3, 5, 10, 15 or 31 bands: the curve you had, read onto the new ones. */
-    fun setEqCount(n: Int) = setEq {
-        if (n == it.count || n !in Eq.COUNTS) return@setEq it
-        val from = Eq.bandsFor(it.count)
-        it.copy(count = n, bands = Eq.resample(it.bands, from, n), custom = Eq.resample(it.custom.takeIf { c -> c.size == it.count } ?: it.bands, from, n))
-    }
-    /** A separate EQ for each output, or one for all. */
-    fun setEqPerOutput(on: Boolean) = setEq { it.copy(perOutput = on) }
-    /** Edit (and, if it's the one playing, hear) another output's EQ. */
-    fun editEqOutput(key: String) {
-        if (key == eq.output) return
-        val isNew = eq.outputs[key] == null
-        setEq { e ->
-            val k = e.output.ifEmpty { "speaker" }
-            val saved = e.outputs + (k to e.toOutput(e.outputs[e.output]?.label ?: outLabel(e.output)).copy(at = e.outputs[k]?.at ?: 0))
-            e.copy(outputs = saved).withOutput(key, saved[key])
-        }
-        if (isNew && key == CAR) setEqPreset("colorado")   // the truck, set up before it's been driven with: its tuning
-    }
+        internal set
+    fun outputChanged() = EqControl.outputChanged()
+    fun setEqPreset(key: String) = EqControl.setPreset(key)
+    fun setEqBand(i: Int, gain: Double) = EqControl.setBand(i, gain)
+    fun setEqCount(n: Int) = EqControl.setCount(n)
+    fun setEqPerOutput(on: Boolean) = EqControl.setPerOutput(on)
+    fun editEqOutput(key: String) = EqControl.editOutput(key)
     /** The Chevy (Android Auto, wired or wireless): always in the Equalizer's list on the phone, to set up any time. */
     const val CAR = "car:Chevrolet"
-    fun forgetEqOutput(key: String) = setEq { it.copy(outputs = it.outputs - key) }
-    fun outLabel(key: String) = when (key) { "speaker", "" -> "Built-in speaker"; "wired" -> "Headphones (jack)"
-        "headset" -> "Headset (jack, with mic)"; CAR -> "Chevrolet Colorado · Android Auto"; else -> key.substringAfter(':') }
+    fun forgetEqOutput(key: String) = EqControl.forgetOutput(key)
+    fun outLabel(key: String) = EqControl.outLabel(key)
     var outputNow by mutableStateOf(Outputs.Out("speaker", "Built-in speaker", "speaker"))
-        private set
-
-    /** The sound went somewhere else: that output's own EQ comes in (a separate EQ for each output). */
-    private fun switchEqOutput() {
-        val o = Outputs.now(ctx)
-        outputNow = o
-        eqProcessor.bypass = bitPerfectNow()
-        current()?.let { eqProcessor.songGain = gainOf(it) }   // a song's volume change for this output, if it has one
-        applyEq()
-        if (!eq.perOutput || o.key == eq.output) {
-            if (eq.output.isEmpty()) setEq { it.copy(output = o.key, outputs = it.outputs + (o.key to it.toOutput(o.label))) }
-            return
-        }
-        val was = eq.output
-        val isNew = eq.outputs[o.key] == null
-        setEq { e ->
-            val saved = (if (was.isNotEmpty()) e.outputs + (was to e.toOutput(e.outputs[was]?.label ?: outLabel(was)).copy(at = e.outputs[was]?.at ?: 0)) else e.outputs)
-            val mine = saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
-            e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
-        }
-        if (isNew && o.key == CAR) setEqPreset("colorado")   // the Chevy starts on the Colorado's tuning
-        if (isNew) SoundPresets.addDevicePreset(o)   // its own Sound preset to start from
-        if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (eq.on) "" else " (off)")
-    }
-    /** Boost: dB louder than normal (0-12) on everything, kept for this output. */
-    fun setEqBoost(db: Double) = setEq { it.copy(boost = (kotlin.math.round(db.coerceIn(0.0, Eq.BOOST_MAX) * 2) / 2)) }
-
+        internal set
+    fun setEqBoost(db: Double) = EqControl.setBoost(db)
     /** Bit-perfect, but the equalizer's Bass and Treble heard anyway (Equalizer): the rest stays untouched. */
     var bpTones by mutableStateOf(false)
-    fun chooseBpTones(on: Boolean) {
-        bpTones = on; Prefs.set(Prefs.BP_TONES, on)
-        eqProcessor.update(eq)   // the PC's filters again
-        toast(if (on) "Bass and Treble on with bit-perfect (the rest of the sound untouched)" else "Bit-perfect: every sample untouched again")
-    }
-    fun bpTonesNow() = bitPerfect && bpTones && eq.on && (eq.bass != 0.0 || eq.treble != 0.0)
-
-    fun setEqTone(name: String, gain: Double) = setEq {
-        if (name == "bass") it.copy(bass = Eq.clamp(gain), on = true) else it.copy(treble = Eq.clamp(gain), on = true)
-    }
+    fun chooseBpTones(on: Boolean) = EqControl.chooseBpTones(on)
+    fun bpTonesNow() = EqControl.bpTonesNow()
+    fun setEqTone(name: String, gain: Double) = EqControl.setTone(name, gain)
 
     @JvmName("chooseArtColors")
     fun setArtColors(on: Boolean) { artColors = on; saveState() }
