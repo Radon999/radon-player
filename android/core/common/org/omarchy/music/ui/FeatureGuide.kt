@@ -36,6 +36,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Unreleased** (☰ menu): your songs in any folder named Unreleased, and in the folders you put there with **Folders…**, a row for each folder, with Play, Shuffle and the DJ for all of them.",
     "- **Two-disc albums** list disc one, then disc two, each by track number.",
     "- **Everything asked for at the start (phone):** as the app starts it asks for all it needs, at every start until each is allowed: your music, the microphone (for the visualizer on Now playing; nothing is recorded), notifications, and All files access (Allow opens Android's page for it). So the visualizer and the rest work the first time. The PC needs none.",
+    "- **Smoothest screen (phone, Settings › Playback):** on a phone whose screen can show more than 60 pictures a second (90, 120, 144 Hz), a switch asks for its highest rate while the app is on screen, for smoother scrolling and visualizer. Off by default; a little more battery; Android can still hold it at 60.",
     "- **A music folder asked for at the start:** when no folder of music is chosen, the app asks you to choose one at each start until you do.",
     "- **The Tagger keeps what you saved:** after Save the tags, the fields go on showing the names you saved.",
     "- **Singles and EPs by their tag, in any folder:** a release tagged “… - Single” or “… - EP” is in Singles or EPs even when its folder under Artists has a plain name; a folder named as an EP or a single still decides.",

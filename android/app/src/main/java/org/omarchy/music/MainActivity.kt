@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
         // nothing playing, and they changed the ringer instead of the music (and the DAC)
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        ScreenRate.attach(window)   // Settings › Smoothest screen: the screen's highest refresh rate, if you chose it
         // (Notifications, with everything else that needs leave, are asked for by the screens as they start: StartupPermissions.)
         shared(intent)
         androidx.core.content.ContextCompat.registerReceiver(this, miniButtons, android.content.IntentFilter(MINI),

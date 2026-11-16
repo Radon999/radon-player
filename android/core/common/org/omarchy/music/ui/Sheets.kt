@@ -1236,6 +1236,15 @@ private fun PlaybackLines(ui: Ui) {
         if (lock && !allowed) { Pill("Allow", quiet = true) { org.omarchy.music.LockScreen.askAllowed(ctx) }; Spacer(Modifier.width(6.dp)) }
         Switch(lock, { P.set(P.LOCK_SCREEN, it); if (it && !allowed) org.omarchy.music.LockScreen.askAllowed(ctx) }, colors = swColors())
     }
+    // Smoothest screen: only on a phone whose screen can show more than 60 pictures a second
+    val hz = org.omarchy.music.ScreenRate.maxHz()
+    val smooth = P.on(org.omarchy.music.ScreenRate.PREF)
+    if (onPhone && hz > 60) Line("Smoothest screen ($hz Hz)", if (smooth) "On: the app asks the screen for its highest rate, $hz pictures a second, " +
+        "so scrolling, the covers and the visualizer move more smoothly. It uses a little more battery, and Android can still hold it at 60 " +
+        "(battery saver, or the phone's own motion setting on Standard)"
+        else "Off: Android picks the rate, as always. Switch on to ask for $hz pictures a second while the app is on screen", smooth) {
+        Switch(smooth, { P.set(org.omarchy.music.ScreenRate.PREF, it); org.omarchy.music.ScreenRate.apply(); Music.resumed++ }, colors = swColors())
+    }
     val shuffleBtn = P.on(P.NOTIF_SHUFFLE, true)
     if (onPhone) Line("Shuffle button in the notification", if (shuffleBtn) "On: Shuffle is beside Repeat in the notification and on the lock " +
         "screen. Switch off to have a Download button there instead (Android has room for only two of the app's own buttons)"
