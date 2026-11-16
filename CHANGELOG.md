@@ -4,6 +4,12 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.3: The visualizer for streams, picking in Search, and PC fixes (Android, Windows and Linux)
+- **The visualizer works for streamed songs (computer):** it stood still for any song that was streaming rather than playing from a file on that computer (a hi-res stream, or a song you only have on the phone). It listens to the stream now.
+- **Pick an artist's or an album's songs whole, in Search:** hold an artist or an album in the search results (right-click on a computer) and all its songs are picked, as songs are; while picking, a tap does the same and a tick shows it. Then play, queue, download, tag or delete them together. In your music it's every song you have of them; on a service, an album's songs and the songs an artist's page lists.
+- **The right bit depth under Now playing (computer):** a 24-bit FLAC was shown as "32-bit" (the player decodes it into 32-bit numbers, and that was what the app showed). It shows the file's own depth now, and none for MP3 and AAC, which have no bit depth. The 32-bit FLACs tab was right all along.
+- **A USB DAC is recognised as the output (Windows):** the app worked out Windows' default output from when a device was last picked by hand, so a DAC Windows chose as it was plugged in (a FiiO KA17) wasn't seen: the Equalizer showed another device and used its settings. The app now asks Windows itself. The music always went to the right device; only the app's idea of it was wrong.
+
 ## 4.0.2: A Q button for your queues (Android, Windows and Linux)
 - **A Q button for your queues:** at the top left of Now playing, where "From the album…" stood. Beside the other buttons there was only room for "F…". Q opens your queues just as those words did.
 

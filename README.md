@@ -50,7 +50,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **Unreleased:** your songs in any folder named Unreleased, and in the folders you put there with **Folders…**, with Play, Shuffle and the DJ for all of them.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, Duplicates, and Pinned items at the top of the menu.
 - **Refresh in every tab:** ↻ at the top reads your files again, or adds up your listening again, whichever the tab shows.
-- **Select:** Hold down on a song (right-click on a computer) to pick several songs, albums, playlists or folders, then play, queue, download, tag or delete them together.
+- **Select:** Hold down on a song (right-click on a computer) to pick several songs, albums, playlists or folders, then play, queue, download, tag or delete them together. In Search, holding an artist or an album picks all its songs at once.
 - **Search** ignores symbols ("acdc" finds AC/DC) and takes voice typing; Back returns to what you searched for.
 - **Covers:** found for songs without one; a song with no picture in its file shows the cover in its folder (cover.jpg, folder.jpg…). **Covers from folders** (Settings › Scanner) puts that picture into each file that has none.
 - **Moved files are followed,** so playlists still find them, and a song you have under another name of its artist isn't called missing.
