@@ -15,7 +15,7 @@ object PlaySorts {
     fun data(sort: String): SortData {
         if (!sortNeedsPlays(sort)) return SortData.NONE
         val counts = runCatching { counts() }.getOrDefault(emptyMap())
-        val last = if (sort.startsWith("played")) runCatching { Dj.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
+        val last = if (sort.startsWith("played")) runCatching { TasteService.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
         return SortData(plays = { counts[songKey(it)] ?: it.plays }, last = { last[Stats.statsKey(it.title, it.artist)] ?: 0L })
     }
 

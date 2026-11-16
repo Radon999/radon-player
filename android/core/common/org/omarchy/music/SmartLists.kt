@@ -49,7 +49,7 @@ object SmartLists {
         val need = SmartRules.needs(rules, sm.order)
         val songs = Music.mySongs()
         val counts = if ("plays" in need) runCatching { Music.playCounts() }.getOrDefault(emptyMap()) else emptyMap()
-        val heard = if ("lastplayed" in need) runCatching { Dj.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
+        val heard = if ("lastplayed" in need) runCatching { TasteService.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
         val here = if ("lastplayed" in need) runCatching {
             Music.plays.items.values.toList().associate { songKey(it.track) to it.last.toLong() } }.getOrDefault(emptyMap()) else emptyMap()
         fun facts(t: Track): SongFacts {
