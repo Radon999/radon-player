@@ -5,17 +5,25 @@
 # with mpv, ffmpeg and the media controls helper; Linux' is the .deb. NOTHING IS PUBLISHED: no release is made, no
 # branch is written but rebuild-ci (where to get them: result-candidate-*.txt). The version is set here, in the
 # build, and not in the repository: bumping it there is part of a release. Made when ci/CANDIDATE changes.
+#
+# A RELEASE, only when the owner has said "publish it": ci/RELEASE (first line: the tag, "v4.0.0"; second: the title;
+# the rest: the notes). The same three are built with the tag's version, checked again (the phone's app must be Radon
+# Player Next, org.omarchy.music.next, that version, the test key), and a GitHub release is made on this commit with
+# RadonPlayer-Next.apk, Radon-Player-x.y.z.msi and radon-player_x.y.z_amd64.deb. Delete ci/RELEASE after a release.
 name: Install-over build (not released)
 on:
   push:
     branches: [rebuild]
-    paths: [ci/CANDIDATE]
+    paths: [ci/CANDIDATE, ci/RELEASE]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   phone:
     runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+      tag: ${{ steps.rel.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -29,7 +37,7 @@ jobs:
           OMARCHY_MUSIC_PYTHON=python3 android/tools/tidal-keys.sh
       - name: Radon Player Next, this version, with the test key
         run: |
-          V="$(head -1 ci/CANDIDATE | tr -d '[:space:]')"; echo "V=$V" >> "$GITHUB_ENV"
+          V="$(head -1 ci/RELEASE 2>/dev/null | tr -d '[:space:]' | sed 's/^v//')"; [ -n "$V" ] || V="$(head -1 ci/CANDIDATE | tr -d '[:space:]')"; echo "V=$V" >> "$GITHUB_ENV"
           IFS=. read -r a b c <<< "$V"; CODE=$((a * 10000 + b * 100 + c)); echo "version $V, code $CODE"
           # The test key is kept on the android-work branch (ci/test.keystore.b64), where the releases are made
           git fetch -q origin android-work
@@ -64,6 +72,10 @@ jobs:
             [ "$ok" = yes ] || rm -f "$A"
           fi
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
+      - name: A release? (ci/RELEASE)
+        id: rel
+        if: hashFiles('ci/RELEASE') != ''
+        run: echo "tag=$(head -1 ci/RELEASE | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         id: keep
         with:
@@ -112,7 +124,7 @@ jobs:
       - name: Build the package, this version
         working-directory: android
         run: |
-          V="$(head -1 ../ci/CANDIDATE | tr -d '[:space:]')"
+          V="$(head -1 ../ci/RELEASE 2>/dev/null | tr -d '[:space:]' | sed 's/^v//')"; [ -n "$V" ] || V="$(head -1 ../ci/CANDIDATE | tr -d '[:space:]')"
           sed -i -E "s/^val appVersion = \"[^\"]+\"/val appVersion = \"$V\"/" desktop/build.gradle.kts; grep -n '^val appVersion' desktop/build.gradle.kts
           chmod +x gradlew
           ./gradlew --no-daemon :desktop:packageDeb > "$RUNNER_TEMP/build.log" 2>&1 || true
@@ -192,7 +204,7 @@ jobs:
       - name: The PC installer, this version
         working-directory: android
         run: |
-          V="$(head -1 ../ci/CANDIDATE | tr -d '[:space:]')"
+          V="$(head -1 ../ci/RELEASE 2>/dev/null | tr -d '[:space:]' | sed 's/^v//')"; [ -n "$V" ] || V="$(head -1 ../ci/CANDIDATE | tr -d '[:space:]')"
           sed -i -E "s/^val appVersion = \"[^\"]+\"/val appVersion = \"$V\"/" desktop/build.gradle.kts; grep -n '^val appVersion' desktop/build.gradle.kts
           ./gradlew --no-daemon :desktop:packageMsi > ../build-candidate.log 2>&1 || true
           ls -la desktop/build/compose/binaries/main/msi/ || true
@@ -228,4 +240,67 @@ jobs:
             git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: install-over pc build for ${GITHUB_SHA::7}" || true
             if git push -q origin rebuild-ci; then break; fi
             cd "$here"; sleep 15
+          done
+
+  release:
+    needs: [phone, linux, windows]
+    if: needs.phone.outputs.tag != '' && needs.phone.outputs.ok == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: RadonPlayer-install-over-phone
+          path: apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: RadonPlayer-install-over-pc
+          path: msi
+      - uses: actions/download-artifact@v4
+        with:
+          name: RadonPlayer-install-over-linux
+          path: deb
+      - name: Check, then release
+        id: make
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.phone.outputs.tag }}
+        run: |
+          set -euo pipefail
+          V="${TAG#v}"
+          cp "$(ls apk/*.apk | head -1)" RadonPlayer-Next.apk   # always Radon Player Next: installs over it, settings and stats kept
+          cp "$(ls msi/*.msi | head -1)" "Radon-Player-$V.msi"
+          cp "$(ls deb/*.deb | head -1)" "radon-player_${V}_amd64.deb"
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$tools/aapt2" dump badging RadonPlayer-Next.apk > badging.txt; head -1 badging.txt
+          grep -q "package: name='org.omarchy.music.next' " badging.txt && grep -q "application-label:'Radon Player Next'" badging.txt && grep -q "versionName='$V'" badging.txt
+          "$tools/apksigner" verify --print-certs RadonPlayer-Next.apk | tee certs.txt
+          grep -q "certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9$" certs.txt
+          [ "$(dpkg-deb -f "radon-player_${V}_amd64.deb" Version | cut -d- -f1)" = "$V" ]
+          dpkg-deb -f "radon-player_${V}_amd64.deb" Depends | grep -q mpv
+          ls -la RadonPlayer-Next.apk "Radon-Player-$V.msi" "radon-player_${V}_amd64.deb"
+          TITLE="$(sed -n 2p ci/RELEASE)"; sed 1,2d ci/RELEASE > notes.md
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "$TITLE" --notes-file notes.md \
+            RadonPlayer-Next.apk "Radon-Player-$V.msi" "radon-player_${V}_amd64.deb"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          echo "url=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url -q .url)" >> "$GITHUB_OUTPUT"
+      - name: Say how it went (the rebuild-ci branch)
+        if: always()
+        run: |
+          {
+            echo "commit $GITHUB_SHA · run $GITHUB_RUN_ID · $(date -u)"
+            if [ -n "${{ steps.make.outputs.url }}" ]; then echo "RELEASE: made, ${{ needs.phone.outputs.tag }}: ${{ steps.make.outputs.url }}"; else echo "RELEASE: not made (${{ needs.phone.outputs.tag }}): see the run"; fi
+            echo "RUN: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            ls -la RadonPlayer-Next.apk Radon-Player-*.msi radon-player_*.deb 2>/dev/null
+          } > "$RUNNER_TEMP/result-release.txt" || true
+          cat "$RUNNER_TEMP/result-release.txt"
+          for try in 1 2 3; do
+            r="$(mktemp -d)"; cd "$r" && git init -q
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+            if git fetch -q origin rebuild-ci; then git checkout -q -b rebuild-ci FETCH_HEAD; else git checkout -q --orphan rebuild-ci; fi
+            cp "$RUNNER_TEMP/result-release.txt" result-release.txt
+            git add -A
+            git -c user.name=Radon999 -c user.email=Radon999@users.noreply.github.com commit -qm "ci: release result for ${GITHUB_SHA::7}" || true
+            if git push -q origin rebuild-ci; then break; fi
+            sleep 20
           done

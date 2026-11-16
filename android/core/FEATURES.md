@@ -1,8 +1,8 @@
 # Radon Player
 
-**All your music in one place, on your phone and your PC.**
+**All your music in one place, on your phone and your computer.**
 
-Radon Player plays your own music files and the streaming services you use, together, in FLAC (hi-res where it's available). The Android and Windows apps are one app built from the same code: the same screens, settings and features. Pair them and the phone becomes the PC's remote, and Sync keeps your plays, playlists and moods the same on both.
+Radon Player plays your own music files and the streaming services you use, together, in FLAC (hi-res where it's available). The Android, Windows and Linux apps are one app built from the same code: the same screens, settings and features. Pair a phone and a computer and the phone becomes its remote, and Sync keeps your plays, playlists and moods the same on both.
 
 **Works best with:** a Tidal subscription plus your own song files. Tidal streams and downloads in FLAC; the other services bring your playlists and history over.
 
@@ -13,128 +13,117 @@ Radon Player plays your own music files and the streaming services you use, toge
 - **Now playing:** The big cover, with ☆ to favorite and ⋯ for options. Swipe the cover for the next or previous song, swipe up for the queue, tap it for lyrics, double-tap to pause.
 - **Quality badge:** Says what you're hearing ("FLAC 24-bit/96 kHz", a stream's quality, or "Offline"). On a stream, **⤓ FLAC** saves it.
 - **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. With **Queues** on, each album, playlist and folder keeps its own queue where you left it.
-- **Shuffle, Repeat and Autoplay:** Smart shuffle favors songs you love but haven't heard in a while; Repeat one starts the song again reliably; Autoplay keeps similar songs coming when the queue ends. With the DJ, Repeat is just Repeat one (a song you want again before the DJ goes on) or off, and shuffle and Autoplay aren't used: the DJ's sets go on in their own order, a new one after each, for as long as the DJ is on.
+- **Shuffle, Repeat and Autoplay:** **Smart shuffle** favors songs you love but haven't heard in a while (it goes by your plays everywhere, Last.fm and your imports too); Repeat one starts the song again reliably; Autoplay keeps similar songs coming when the queue ends. With the DJ on, only Repeat one is used: the DJ's sets go on in their own order.
 - **Per song:** Its own volume (−12 to +12 dB), its own EQ and its own speed, remembered each time it plays.
-- **Mono** puts both sides in one earbud; **casting** sends music to a Chromecast, Google speaker or TV.
 - **Your copy first:** Wherever a song shows up (a playlist, search, a radio, the DJ), your own file plays when you have it, with its cover and tags.
+- **Mono** puts both sides in one earbud; **casting** sends music to a Chromecast, Google speaker or TV.
+- **It remembers:** the queue, where you were in the song, and every setting come back when the app starts again.
 
 ## Your library
 
 Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid, with its own search and sort, remembered.
 
-- **My music, Albums, EPs, Singles, Artists, Genres and Folders,** from your files and downloads. An album shows **Missing from this album** to download the rest.
-- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways. The **Discovery** screen lists every artist's discovery playlists; hold one (or Select) to pick several and delete or download them together.
-- **Playlists:** Make, sort, fold into folders, import and export (.m3u8). **Smart playlists** fill themselves by rules (genre, mood, plays, format, skips, length…), with ready-made ones.
-- **Albums in order, folders that hold:** An album or EP of yours lists its songs by track number, with **↻ Refresh** on its page (and always in Downloads, empty or not). A playlist put in a folder shows in its folder only; hold a folder to **Select** several, then Delete…, Rename… or Download. A song you have under another name of its artist (your “Forrest”, the services' “Forrest Frank”) isn't called missing from its album or put in a Discovery playlist.
-- **Covers beside your songs:** A song with no picture inside its file shows the cover in its folder (cover.jpg, folder.jpg…, or the folder's only picture), on the phone as on the PC, in the lists, Now playing and the notification. The phone needs All files access for it (Settings › Tagger). **Covers from folders** (Settings › Scanner) puts that picture, or else the cover you picked in the app, into each song's file that has none, and reads it back to be sure.
-- **Unreleased** (☰ menu): your songs in any folder named Unreleased, and in the folders you put there with **Folders…**, a row for each folder, with Play, Shuffle and the DJ for all of them.
-- **Two-disc albums** list disc one, then disc two, each by track number.
-- **Everything asked for at the start (phone):** as the app starts it asks for all it needs, at every start until each is allowed: your music, the microphone (for the visualizer on Now playing; nothing is recorded), notifications, and All files access (Allow opens Android's page for it). So the visualizer and the rest work the first time. The PC needs none.
-- **Smoothest screen (phone, Settings › Playback):** on a phone whose screen can show more than 60 pictures a second (90, 120, 144 Hz), a switch asks for its highest rate while the app is on screen, for smoother scrolling and visualizer. Off by default; a little more battery; Android can still hold it at 60.
-- **A music folder asked for at the start:** when no folder of music is chosen, the app asks you to choose one at each start until you do.
-- **The Tagger keeps what you saved:** after Save the tags, the fields go on showing the names you saved.
-- **Singles and EPs by their tag, in any folder:** a release tagged “… - Single” or “… - EP” is in Singles or EPs even when its folder under Artists has a plain name; a folder named as an EP or a single still decides.
-- **Refresh in every tab:** a ↻ button at the top of each tab that has something to read again. In Most played, Skips, Favorites, Not favorited, Repeat and Recently played it adds up your listening again; in My music, Albums, EPs, Singles, Artists, Genres, Moods, Folders, Unreleased and the FLAC tabs it reads your song files again; in Downloads, Smart playlists, Mood lists and Duplicates it does each one's own refresh.
-- **The DJ's facts take turns:** what it tells you between songs goes round by subject (skips, moods, an artist, your collection, an album, genres, your years, favorites, playlists…), so no subject comes back until the others have had a turn, and nothing is said twice until the rest of its subject has been. New things it can tell you: how big your collection is and how long it would play, who you have most of, your longest song, what you added lately and haven't played yet, how long since you played a song, how many songs of its artist and genre you have.
-- **Bit-perfect keeps every bit, every song:** with bit-perfect on and a USB DAC, a 24-bit song now always reaches the DAC as 24-bit. Before, a song set up at a moment when no stream to the DAC was running was brought down to 16-bit first (Settings showed 16-bit for a 24-bit file). If that ever happens with a DAC plugged in, Settings › Problems says so.
-- **Tidal first, always:** with Tidal connected a song streams from Tidal in the quality you picked. If Tidal doesn't answer for a moment it is asked again (twice) before YouTube's audio is used, and a song that did fall to YouTube that way is looked up on Tidal again the next time it plays (Settings › Problems says when it happened). YouTube is only for songs Tidal hasn't got.
-- **Back keeps your search:** search a list, open something from it, and Back returns to what you searched for; Back again closes the search.
-- **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, and Pinned items at the top of the menu.
-- **Select:** Hold down on a song (right-click on the PC) to pick several songs, albums or playlists, then play, queue, download, tag or delete them together.
-- **Search** ignores symbols ("acdc" finds AC/DC), takes voice typing, and shows artists with the same pictures as the Artists tab. **Covers** are found for songs without one, and **moved files** are followed, so playlists still find them.
+- **My music, Albums, EPs, Singles, Artists, Genres and Folders,** from your files and downloads. An album lists its songs by track number (two discs: disc one, then disc two) and shows **Missing from this album** to download the rest.
+- **Which tab a release is in:** a release tagged "… - Single" or "… - EP" is in Singles or EPs, in any folder; a folder named as an EP or a single decides too, and the Tagger can put a release in any of the three by hand.
+- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways. The **Discovery** screen lists every artist's discovery playlists.
+- **Playlists:** Make, sort, fold into folders, import and export (.m3u8). A playlist in a folder shows in its folder only. **Smart playlists** fill themselves by rules (genre, mood, plays, format, skips, length…), with ready-made ones.
+- **Unreleased:** your songs in any folder named Unreleased, and in the folders you put there with **Folders…**, with Play, Shuffle and the DJ for all of them.
+- **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, Duplicates, and Pinned items at the top of the menu.
+- **Refresh in every tab:** ↻ at the top reads your files again, or adds up your listening again, whichever the tab shows.
+- **Select:** Hold down on a song (right-click on a computer) to pick several songs, albums, playlists or folders, then play, queue, download, tag or delete them together.
+- **Search** ignores symbols ("acdc" finds AC/DC) and takes voice typing; Back returns to what you searched for.
+- **Covers:** found for songs without one; a song with no picture in its file shows the cover in its folder (cover.jpg, folder.jpg…). **Covers from folders** (Settings › Scanner) puts that picture into each file that has none.
+- **Moved files are followed,** so playlists still find them, and a song you have under another name of its artist isn't called missing.
+- **Asked for at the start (phone):** your music, the microphone (for the visualizer; nothing is recorded), notifications and All files access, until each is allowed; and a music folder, until one is chosen.
 - **Nothing is deleted without asking.**
 
 ## Streaming & downloads
 
 - **Tidal:** Streams and downloads in FLAC; its favorites, playlists and radios work as a library.
 - **Spotify, Apple Music, Deezer, YouTube Music:** Sign in to bring your library and playlists over (**Import all into my playlists**). Their songs play from Tidal, or YouTube when Tidal doesn't have one.
-- **SoundCloud:** Streaming only, with your own SoundCloud app's sign-in: search, your likes and playlists, artists and radio. Its songs stay in their own queue and can't be downloaded or put in your playlists (★ likes them on SoundCloud).
+- **Tidal first, always:** with Tidal connected a song streams from Tidal in the quality you picked. If Tidal doesn't answer it is asked again before YouTube's audio is used, and a song that fell to YouTube is looked up on Tidal again the next time. Settings › Problems says when it happened.
+- **SoundCloud:** Streaming only, with your own sign-in: search, your likes and playlists, artists and radio. Its songs stay in their own queue and can't be downloaded.
 - **Search any of them** from the menu by the search bar, or paste a link from another app.
-- **Downloads:** Any song comes from Tidal with full tags, cover and genre, from the artist's own album first, into Music › Artists › the artist › the release. Whole playlists download too, skipping songs you have.
-- **Quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately for streaming and downloads.
-- **Clean or explicit** (Settings › Your music): downloads come as the explicit version, or the clean one, wherever Tidal has both.
+- **Downloads:** Any song comes from Tidal with full tags, cover and genre, from the artist's own album first, into Music › Artists › the artist › the release. Whole playlists download too, skipping songs you have. A download you have already asks whether to keep both or replace.
+- **Quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately for streaming and downloads. **Clean or explicit** versions, wherever Tidal has both.
 - **New releases:** Checks every artist you have for albums, EPs and singles from the last week, month or year.
 
 ## Moods
 
-Every song gets the moods that fit it, from 12: Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark and Intense. Its best fit is its main mood.
+Every song gets the moods that fit it, from 12: Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark and Intense (four a song at most). Its best fit is its main mood.
 
-- **How they're worked out:** **Scan moods** hears every song whole (its energy, tempo, brightness and key) and reads what its words mean, whole lines and sayings, not single words. The sound counts more for Energetic, Party and Chill, the words more for Sad, Romantic and Dark. Only once a song's sound and words are both done are its moods written into its file.
-- **Scanned once:** No scan starts by itself; Scan moods runs only when you tap it, says about how long it will take, and shows the time left. Stop any time; it carries on from there. A song is scanned once and never again unless you reset the scans in Settings.
-- **AI reading (optional):** Add your own Anthropic API key and Claude reads the lyrics instead, catching irony and sad stories told cheerfully. **Test the key** always says whether it works. The key stays on the device.
-- **Fix one:** Tagger › Tags › Mood. Songs that sound like it learn from your fix. The Moods tab lists songs it's unsure of to check.
-- **Saved in your files:** Scan moods puts every song's moods in its file's MOOD tag (nothing else writes them, apart from moods you pick yourself), and Sync and backups carry them all.
-- **Starting over:** Settings › Reset mood and lyrics scans (each asks first): **Reset moods** works the moods out again from what was already heard and read, without hearing anything again; **Reset sound scan** has every song heard again; **Clear my moods** forgets the ones you picked; **Remove all moods** takes the mood out of every song's file and forgets everything, so the next Scan moods starts from scratch.
-- **Used in:** Mood lists, Smart playlists, the DJ, Most played and Wrapped.
+- **How the scan works:** **Scan moods** hears every song whole (its energy, tempo, brightness and key) and reads what its words mean, whole lines and sayings, not single words. The sound counts more for Energetic, Party and Chill, the words more for Sad, Romantic and Dark. Only once a song's sound and words are both done are its moods written into its file's MOOD tag.
+- **Scanned once:** No scan starts by itself. Scan moods runs when you tap it, says about how long it will take, and shows the time left. Stop any time; it carries on from there.
+- **AI reading (optional):** Add your own Anthropic API key and Claude reads the lyrics instead, catching irony and sad stories told cheerfully. **Test the key** says whether it works. The key stays on the device.
+- **Fix one:** Tagger › Tags › Mood. Songs that sound like it learn from your fix. The Moods tab lists songs it's unsure of.
+- **Starting over** (Settings › Reset mood and lyrics scans, each asks first): **Reset moods** works them out again from what was already heard and read; **Reset sound scan** has every song heard again; **Clear my moods** forgets the ones you picked; **Remove all moods** starts from scratch.
+- **Prevent auto mood scans** (Settings › Scanner) freezes every mood as it is.
+- **Used in:** Mood lists, Smart playlists, the DJ, Most played and Wrapped. Sync and backups carry them.
 
 ## The DJ
 
 Short sets built from *your* listening, with a voice like a radio host's, over the music.
 
-- **Sets:** What you've had on repeat, what you play at this time of day, your most played (from well down the list, not just the top), throwbacks, songs you loved but forgot, ten mood sets (Energetic, Party & Hype together; Happy; Chill; Calm; Dreamy; Focus; Romantic; Sad; Dark; Intense, each its own), a genre, new music like yours, an artist spotlight, an album moment (three in a row, in order), on this day years ago, a decade trip, your one-hit wonders, not skipped this month (songs you played this month and always heard to the end, the ones you've heard out most likeliest; a song you skipped once isn't out for good), second chances, your unreleased songs and this week's streaks. Each set flows by mood, no artist plays twice in a row (or more than twice in a set, but for an artist's own set), and every kind of set gets its turn before any comes back: the DJ remembers which it played, whatever it plays from (everything or a playlist) and after it's turned off or the app is closed. No song the DJ played comes back, in any set, until it's played 300 others. Skips never keep a song out (you may just not be in the mood): they're only counted, for Skips and the DJ's facts about them.
-- **The voice:** Says what's coming and fun facts about your listening over the start of the song, the music turned down under her (never paused or started again, bit-perfect to a USB DAC too): milestones (a song's 100th play) always, greetings for the time and the day, and now and then a word before a song in the middle of a set. The PC has a natural voice; the phone uses its own voice, or downloads the natural one once (about 130 MB) and lets you pick either in DJ › Voice settings, or remove it.
-- **Instant:** The first set is ready before you tap DJ, and three more are kept ready with their lines, so switching category is immediate however fast you skip. Switch it up is on Now playing (✦, beside the set button) and over the queue too. From your headphones: pause, then Next (a double tap) switches it up and plays.
+- **How it works:** The DJ adds up everything you've played (Last.fm and your imports; the plays in the app when there are none) and makes one set after another, each of one kind, with a line to introduce it. It always plays from your whole library: your files, downloads, saved songs and every song in your playlists. With **Include new songs**, new songs like the ones you listen to come in too.
+- **The kinds of set:** on repeat, this time of day, your most played, throwbacks, songs you loved and forgot, ten mood sets, a genre, new music like yours, deep cuts, an artist spotlight, an album moment (three in a row, in order), on this day years ago, a decade trip, one-hit wonders, not skipped this month, second chances, your unreleased songs and this week's streaks.
+- **Taking turns:** every kind gets its turn before any comes back, remembered across restarts. No song the DJ played comes back until it's played 300 others. Each set flows by mood, and no artist plays twice in a row. Skips never keep a song out; they're only counted.
+- **The voice:** She says what's coming over the start of the song, the music turned down under her, never paused (bit-perfect to a USB DAC too): a hello for the time and day, milestones (a song's 100th play), and now and then a word before a song. The natural voice is the same on the phone and the computer; it's fetched once (about 95 MB) from DJ › Voice settings.
+- **Facts about your listening:** between sets, now and then: time spent with a song, when you first played it, your top artists and moods, the hours you listen at, your biggest year, your collection's size, what you skip. The subjects take turns, and nothing is said twice until the rest has been.
+- **Instant:** The first set is ready before you tap DJ, and more are kept ready with their lines. **Switch it up** (✦ on Now playing) jumps to another kind; from your headphones, pause then Next does the same.
 - **Ask for something:** Type or say an artist, a genre, a decade, a mood or a vibe ("workout").
-- **Your whole library:** The DJ always plays from every song in your library as one group: your own files, your downloads and saved songs, and every song in your playlists (streams too). With Include new songs, new songs like the ones you listen to come in too. Artist spotlight picks any artist with five or more of your songs, and none comes back until most of the others have had a turn.
 
 ## Stats & Wrapped
 
-- **Your plays:** Counted from Last.fm and the histories you import (Spotify, Apple Music, Deezer, YouTube Music, Tidal), never twice.
-- **Most played:** Top songs, albums, artists and moods for a week, month, year or all time, by plays or time, with charts of when you listen. Plus Repeat, Milestones and Skips.
-- **Tidy stats:** Merge an artist or song counted under two names.
-- **Wrapped:** Any period as full-screen slides: top 15s (songs, artists, albums, singles, EPs, genres, moods), minutes, streaks, discoveries, your listener type and a summary card. Singles and EPs are checked online. Every slide saves or shares as a picture.
-- **Wrapped styles:** Pick how the slides look in Style, including **Your look** (the app's look in use, with its stars and effects) and the ones you made. Make your own Wrapped shows every slide of yours to swipe through as you change it.
+- **How plays are counted:** from Last.fm and the histories you import (Spotify, Apple Music, Deezer, YouTube Music, Tidal), added together and never twice. A song is the same song across all of them, featurings and punctuation aside (K.Flay = KFlay). Imports are a one-time picture; Last.fm brings the new plays. Without Last.fm, the plays in the app count.
+- **Most played:** Top songs, albums, artists and moods for a week, month, year or all time, by plays or by time, with charts of when you listen. Plus Repeat, Milestones and Skips.
+- **Tidy stats:** Merge an artist or a song counted under two names, say whose plays a joint credit's are, and keep look-alike artists apart.
+- **Wrapped:** Any period as full-screen slides: top 15s (songs, artists, albums, singles, EPs, genres, moods), minutes, streaks, discoveries, your listener type and a summary card. Every slide saves or shares as a picture.
+- **Wrapped styles:** Pick how the slides look, including **Your look** (the app's look in use) and the ones you made.
 
 ## Lyrics
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
-- **Lyrics card:** Tick up to 25 lines for a picture to share or save. Its **Style** menu has Your look (the Lyrics screen in your look: its background, stars and effects, the words on a rounded card, the song and its cover above), Now playing (as the Now playing screen looks, in the cover's colours), 30 ready-made styles, and your own.
+- **Lyrics card:** Tick up to 25 lines for a picture to share or save, in Your look, Now playing's colours, 30 ready-made styles, or your own.
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
 ## Sound
 
-- **Equalizer:** One for each output (speaker, wired headphones, each Bluetooth device, a USB DAC, the car), switched in by itself. 3 to 31 bands, presets, your own presets, and **Auto EQ** headphone correction by name. Each output keeps everything as you left it (its correction, bands, Bass and Treble, Boost and the rest), even across a sync with the PC (only a later change there comes across); a correction is only ever used when you pick it, never by itself.
-- **Dual volume:** On, a song's own volume and the Boost go together; off, a song with its own volume plays at just that volume, without the Boost.
-- **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows.
+- **Equalizer:** One for each output (speaker, wired headphones, each Bluetooth device, a USB DAC, the car), switched in by itself. 3 to 31 bands, presets, your own presets, and **Auto EQ** headphone correction by name. Each output keeps everything as you left it.
+- **Boost, Crossfeed and Crossfade,** with smart transitions that never fade inside an album that flows. **Dual volume** decides whether a song's own volume and the Boost go together.
 - **Sound quality:** clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on from the start, each can be turned off), and loudness compensation (off from the start).
-- **Bit-perfect** to a USB DAC (phone) or the PC's sound card. On phones whose Android has no bit-perfect mode (Samsung's), Radon Player takes the DAC over and streams each song to it itself, untouched at its own sample rate and bit depth (after you allow it to use the DAC; the phone's volume buttons set the DAC's own volume, and while it holds the DAC other apps can't play through it). **Bass and Treble with bit-perfect** (Equalizer, phone and PC) keeps just the equalizer's Bass and Treble working with bit-perfect on, with headroom so nothing clips; at 0 dB the music is untouched again. **The DAC's own EQ** (a FiiO KA17, in the Equalizer and Settings, phone and PC): turn the PEQ stored in the DAC off and on, or pick which of its presets is used, without opening FiiO Control. Also **Ignore Bluetooth devices** so the car doesn't take the music (with Android Auto too: the map stays on the car's screen while the music plays on your headphones). **Newest Bluetooth device wins** goes with it: with two connected (an earbud left on the seat and the car), the last to connect has the music and its EQ, and an ignored one never does. **Car always wins** (the phone) is the failsafe: whenever the car is connected, it has the music.
+- **Bit-perfect** to a USB DAC (phone) or the computer's sound card: each song reaches the DAC untouched, at its own sample rate and bit depth (a 24-bit song always as 24-bit). On phones whose Android has no bit-perfect mode (Samsung's), Radon Player takes the DAC over and streams to it itself. **Bass and Treble with bit-perfect** keeps just those two working, with headroom so nothing clips.
+- **The DAC's own EQ** (a FiiO KA17; phone and Windows): turn the PEQ stored in the DAC off and on, or pick its preset, without FiiO Control.
+- **Bluetooth:** **Ignore Bluetooth devices** so the car doesn't take the music; **Newest Bluetooth device wins**; **Car always wins** (phone).
 
 ## Personalization
 
-Settings › Personalization (or the palette on Now playing) changes how the app looks, Wrapped's style and the lyrics card's style included, and each menu shows a picture of every choice. Each device keeps its own choices.
+Settings › Personalization (or the palette on Now playing) changes how the app looks, Wrapped's style and the lyrics card's style included. Each menu shows a picture of every choice, and each device keeps its own choices.
 
 - **Looks** are the colours: Light, Dark, **Now playing** (every screen in the playing cover's colours), and dozens of themes and neon looks.
 - **Themes** are how things are drawn (Rounded, Sharp, Compact, Glass, Retro…), with any look.
-- **Layouts** are where things are: the ☰ menu, a bottom bar, a side rail or top tabs, the mini player's style, and 6 ways to arrange Now playing. Every layout reaches every feature.
-- **Effects:** 61 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula, petals, lightning, a moon, warp speed…); on the phone the first tap shows one's picture, a second puts it on or off. A look you made keeps its own; the ready-made looks take the ones picked in Settings. Each effect can have its own colour, and rain and snow fall over the buttons too.
-- **Presets:** **Personalization presets** has 30 ready-made setups that go together (Midnight drive, Northern lights, Cherry blossom, Code rain, Vaporwave, Moonlight…), each with its own look, theme, layout, effects, Dual visualizer and colour, Wrapped style and lyrics card style. **Save as a preset** keeps everything on the tab under a name of yours (marked yours in the menu); pick any to put it all back at once. Tap one to see its pictures (Now playing, a Wrapped slide and its lyrics card) and swipe through them; tap it again to put it on. **Personalization Preset Shuffle** (at the top of the tab) puts on a different favourite preset every 5, 10, 15 or 30 minutes; it only shuffles favourites.
-- **Favorite, Edit, Delete:** Hold down on any look, theme, layout, effect, visualizer, colour blend, Wrapped style, preset or lyrics card style, or tap its ⋯ (right-click on the PC). ★ Favorite moves it to the top; the ones you made can also be edited or deleted there (the menu stays open). Everything you made is in its own menu.
-
-### Make your own
-
-- **Look:** Your background, cards, text and accent colours, a fade, neon glow, stars and effects (each in its colour), shown on the whole app as you go.
-- **Layout:** The bar's buttons and their order, the mini player, Now playing's arrangement and many finer choices, with a big live preview.
-- **Visualizer:** Start from any style and shape it (mirror, flip, spin, glow, strength), or make a colour blend. **Dual** plays a middle style and a bottom style at once, each with its own shape and colour; **Full screen on Now playing** draws it over the whole screen, coming out of the cover's centre. Play any song right there to test it.
-- **Lyrics card:** Every colour (background, the card behind the words, words, song name, soft text), how see-through the card is, its corners, the type and its size, a round cover, and stars and effects each in its own colour, with the card shown as you go.
-- **Wrapped:** Its colours and a colour for each slide (or rainbow), glow and neon text, bold or light type, text size, spacing, corners, round covers and their size, bar thickness, tiles, and stars and effects behind the slides, with a slide shown as you go.
-- **Start points:** **Randomize** sets everything at random, **Randomize colours** only the colours, **Copy my look** (Wrapped) your look's colours and effects, and **Saved colours** keeps your colour sets (named as you save them; hold one to rename it) beside 15 ready-made ones.
-- **Yours everywhere:** Everything you make (looks, layouts, visualizers and colour blends, Wrapped styles, lyrics card styles, Personalization presets, saved colours) and your favourites go into backups and to your other device at each Sync, added to what's there (one made on the phone is on the PC after the next sync). Which look, theme and layout each device wears stays its own; a preset carries a whole setup across in one tap.
+- **Layouts** are where things are: the ☰ menu, a bottom bar, a side rail or top tabs, the mini player's style, and 6 ways to arrange Now playing.
+- **Effects:** 61 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula, petals, lightning, a moon, warp speed…), each in its own colour.
+- **Presets:** 30 ready-made setups that go together (Midnight drive, Northern lights, Cherry blossom, Code rain, Vaporwave…), each with its own look, theme, layout, effects, visualizer, Wrapped style and lyrics card style. **Save as a preset** keeps yours. **Preset Shuffle** puts on a different favourite every 5 to 30 minutes.
+- **Favorite, Edit, Delete:** Hold down on any choice (or its ⋯, or right-click). ★ Favorite moves it to the top.
+- **Make your own:** a **look** (colours, fade, glow, stars and effects), a **layout** (the bar's buttons, the mini player, Now playing's arrangement), a **visualizer** (shape, mirror, spin, glow, colour blend, **Dual**), a **lyrics card** and a **Wrapped** style, each shown live as you change it. **Randomize** and **Saved colours** give you a start.
+- **Yours everywhere:** everything you make and favourite goes into backups and to your other device at each Sync.
 
 ## Visualizer
 
-- **60 styles** and dozens of colour blends, in the Visualizer tab: ones along the bottom (bars, waves, city lights, flames, meadow, 8-bit…) and ones around a middle (rings, starfield, galaxy, tunnel, orbits, supernova, mandala, heart…).
-- **On Now playing:** Slim bars, any style or yours, with its own strength, or **Dual**: one style in the middle and another along the bottom at once. The ones around a middle come out of the cover's exact centre in every layout (Starfield fills the whole screen); the rest go along the bottom, and Rain and Code rain fall down the whole screen. It only hears the app's own sound.
+- **60 styles** and dozens of colour blends: ones along the bottom (bars, waves, city lights, flames, meadow, 8-bit…) and ones around a middle (rings, starfield, galaxy, tunnel, orbits, supernova, mandala, heart…).
+- **On Now playing:** Slim bars, any style or yours, or **Dual**: one style in the middle and another along the bottom at once, or **full screen** behind everything. It only hears the app's own sound.
+- **Smoothest screen (phone, Settings › Playback):** asks a 90, 120 or 144 Hz screen for its highest rate while the app is on screen. Off by default.
 
 ## Tags & tidying
 
-- **Tagger:** A song's tags (with **Find tags online**, which shows every change first), cover, info, lyrics, mood, and which tab a release goes in (Albums, EPs or Singles). Changed artist or album? Its file moves to match. On the phone it works on any of your files once you allow All files access.
+- **Tagger:** A song's tags (with **Find tags online**, which shows every change first), cover, info, lyrics, mood, and which tab a release goes in. Changed artist or album? Its file moves to match. On the phone it works on any of your files once you allow All files access.
 - **Scanner tools** (Settings › Scanner): Fix genre names, Duplicates, Upgrade to FLAC, Songs without covers, Identify by sound and Similar artists.
-- **PC only:** Fix albums and artists, Empty folders, and folders to leave alone.
+- **Computer only:** Fix albums and artists, Empty folders, and folders to leave alone.
 
-## Phone + PC together
+## Phone + computer together
 
-- **Phone remote:** Turn on Phone remote on the PC, enter its code on the phone, and the phone plays, queues, skips and sets the volume on the PC.
-- **Sync now:** Tap it on either device: plays, skips, favorites, moods, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**. Each device keeps its own look, theme and layout; the looks, layouts and visualizers you made are added to both.
+- **Phone remote:** Turn on Phone remote on the computer, enter its code on the phone, and the phone plays, queues, skips and sets the volume there.
+- **Sync now:** Tap it on either device: plays, skips, favorites, moods, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**.
 - **Tags & covers match:** Pick a main device and the songs on both are made the same as on it, except folders you tell sync to leave alone.
 - **Continue where you left off** on the other device, and **back up and restore** everything in one file.
 
@@ -142,17 +131,19 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 - **Android Auto** with covers, Favorite and Shuffle, and the car's own EQ.
 - **Lock screen player, notification and home screen widget,** in the song's colours, a picture-in-picture mini player, and **Auto mono** for chosen earbuds.
-- **Download from the notification:** in Settings, switch off Shuffle button in the notification. Then, while a streamed song you don't have is playing, a Download button takes the place of Shuffle in the notification and on the lock screen: it keeps the song without opening the app. Once the song is yours, Shuffle is back.
+- **Download from the notification:** in Settings, switch off Shuffle button in the notification. Then, while a streamed song you don't have is playing, a Download button takes Shuffle's place in the notification and on the lock screen.
 
-## PC only
+## Computer only (Windows and Linux)
 
-- **System tray, media keys, Start with Windows** (on Linux too: Start with Linux, and the media keys and the desktop's own "now playing" controls through MPRIS) and an always-on-top **mini player**: Now playing made small, with your look, effects, visualizer and Now playing's buttons and queue.
+- **System tray** and an always-on-top **mini player**: Now playing made small, with your look, effects, visualizer and queue.
+- **Media keys:** the keyboard's and a headset's play, next and previous keys, and the system's own "now playing" controls (Windows' media flyout; on Linux the desktop's controls, through MPRIS).
+- **Start with Windows / Start with Linux** (Settings › General): in the tray when you sign in.
 - **Discord** shows what you're playing on your profile.
 - **Keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the Equalizer, / to search) and right-click menus everywhere.
+- **Linux:** new in 4.0, as a .deb package that brings mpv and ffmpeg with it. Not on Linux yet: the DAC's own EQ and dictation.
 
 ## Help
 
-- **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it.
+- **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it (on Linux it downloads the package and opens it with your system's installer).
 - **Changelog and Features** are in the ☰ menu.
 - **Problems:** Settings shows anything that went wrong recently, with a Copy button.
-- **Phone menus** always end above the phone's own Back and Home buttons, so nothing is out of reach.

@@ -35,6 +35,15 @@ and Linux**, stays Kotlin, and is restructured into separate services with one s
 
 ## Making a release (only when the owner says to)
 
+**From 4.0 on** (the rebuilt app): bump the versions; add the section to `CHANGELOG.md` (here) and to
+`android/core/CHANGELOG.md` (the app's Changelog tab, which starts at 4.0), update `android/core/FEATURES.md`, then
+run `android/core/gen-guide.ps1` (or `.py`); the README's feature sections are FEATURES.md's. Write `ci/RELEASE`
+(first line: the tag, `v4.0.1`; second: the title; the rest: the notes) and push: `.github/workflows/candidate.yml`
+builds the phone app (Radon Player Next, the test key, checked), the `.msi` and the `.deb`, and makes the GitHub
+release on that commit. Then push the same commit to `radon-player` (a plain push, it follows on) and **delete
+`ci/RELEASE`**. `ci/CANDIDATE` makes the same three without releasing, to try installing over first. The steps below
+are how it was done before 4.0 (the `android-work` patches); the rules in them about the app's name and key still hold.
+
 1. Bump the versions; add a CHANGELOG section (here and in the app's Changelog tab).
 2. On `android-work`, `ci/next/rN.patch.b64` patches are built by `.github/workflows/next.yml`. With
    `ci/next/PUSH` (first line: the branch, `radon-player`) the built tree is committed to that branch; with
