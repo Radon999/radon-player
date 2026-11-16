@@ -266,7 +266,7 @@ object Music {
         dl.streamQuality = { streamQuality }
         dl.folder = { downloadFolder() }
         dl.onSaved = { id -> scope.launch { Copies.afterSaved(id); Tagger.start(listOf(id)) } }
-        loadState()
+        Remembered.load()
         scope.launch { kotlinx.coroutines.delay(10_000); if (tidal.connected) Tagger.start() }
         if (tidal.connected) sources["tidal"] = tidal
         bg({ lib.prune() }) { _, _ -> savedVersion++ }
@@ -298,118 +298,12 @@ object Music {
     }
 
     // ---- remembering ----
-    @Serializable
-    private data class State(
-        val queue: List<Track> = emptyList(), val index: Int = -1, val radio_from: String? = null,
-        val repeat: String = "off", val eq: EqSettings = EqSettings(), val source: String = "ytm",
-        val sync_sources: Map<String, Boolean> = emptyMap(), val lyrics_mode: String = "genius",
-        val folders: List<String> = listOf("Music/"), val art_colors: Boolean = true, val keep_played: Boolean = false,
-        val music_sort: String = "title", val search_in: String = "tidal", val dj: Dj.State = Dj.State(),
-        val api_keys: Map<String, String> = emptyMap(), val shuffled: Boolean = false, val playlist_sort: String = "order",
-        val browse_local: Boolean = false, val search_before_local: String = "tidal",
-        val look: String = "default", val vis_preset: String = "bars", val wrapped_style: String = "classic",
-        val skip_order: String = "most", val download_dir: String = "", val dupe_action: String = "ask",
-        val queues: List<SavedQueue> = emptyList(), val queue_name: String = "", val queue_id: String = "",
-        val multi_queue: Boolean = true, val styled: Boolean = false, val lyrics_to_files: Boolean = true,
-        val apple_ui: Boolean = false, val autoplay: Boolean = true, val np_fallback: String = "apple-dark",
-        val drawer_folds: Map<String, Boolean> = mapOf("music" to true),
-        val pins: List<Pin> = emptyList(), val layouts: Map<String, String> = emptyMap(), val mic_asked: Boolean = false,
-        val skip_period: String = "all", val bit_perfect: Boolean = false, val replay_gain: String = "off",
-        val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
-        val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
-        val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
-        val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(), val not_dupes: List<String> = emptyList(),
-        val tab_sorts: Map<String, String> = emptyMap(), val tab_picks: Map<String, String> = emptyMap(),
-    )
-
-    private val stateFile get() = File(ctx.filesDir, "state.json")
-
-    private fun loadState() {
-        val st = readText(stateFile)?.let { runCatching { JSON.decodeFromString(State.serializer(), it) }.getOrNull() } ?: State()
-        // The queue and its place are the playback service's to put back (PlaybackCore); what goes into the player, at the end
-        PlaybackCore.restore(PlaybackCore.Saved(st.queue, st.index, st.radio_from, st.repeat, st.shuffled, st.queues, st.queue_name, st.queue_id, st.multi_queue))
-        source = st.source.takeIf { it in SOURCES } ?: "ytm"
-        // Nothing downloads on its own until you switch a service's sync on.
-        SOURCES.keys.forEach { syncSources[it] = st.sync_sources[it] ?: false }
-        lyricsMode = st.lyrics_mode
-        folders = st.folders
-        artColors = st.art_colors
-        keepPlayed = false   // Keep (Accounts) was taken out in 3.0.0: songs you play are saved only when you pick Download
-        musicSort = st.music_sort
-        searchIn = st.search_in.takeIf { it in SEARCH_IN } ?: "tidal"
-        dj = st.dj
-        apiKeys = st.api_keys.filterKeys { it in API_KEYS }
-        playlistSort = st.playlist_sort.takeIf { it in PLAYLIST_SORTS } ?: "order"
-        tabSorts.clear(); tabSorts.putAll(st.tab_sorts.filterValues { it in SORT_NAMES })
-        tabPicks.clear(); tabPicks.putAll(st.tab_picks.filterValues { it in setOf("album", "ep", "single") })
-        browseLocal = st.browse_local
-        searchBeforeLocal = st.search_before_local.takeIf { it in SEARCH_IN && it != "local" } ?: "tidal"
-        // The Apple Music look came with 1.3: everyone starts on it (dark if the phone is), and can pick any other after.
-        // 1.4 keeps Light, Dark and Now playing: any other look becomes Light or Dark, as the phone is.
-        look = st.look.takeIf { st.apple_ui && org.omarchy.music.ui.Looks.known(it) } ?: "nowplaying"   // 2.0: a first start is on Now playing
-        npFallback = st.np_fallback.takeIf { org.omarchy.music.ui.Looks.knownFallback(it) } ?: "apple-dark"
-        drawerFolds.clear(); drawerFolds.putAll(st.drawer_folds)
-        pins.clear(); pins.addAll(st.pins)
-        micAsked = st.mic_asked
-        skipPeriod = st.skip_period.takeIf { it in setOf("week", "month", "year", "all") } ?: "all"
-        bitPerfect = st.bit_perfect
-        djNew = st.dj_new
-        topMineOnly = st.top_mine_only
-        topPeriod = st.top_period.takeIf { it in setOf("week", "month", "year", "all") } ?: "all"
-        topKind = (if (st.top_kind == "time") "time_artists" else st.top_kind)
-            .takeIf { it in setOf("songs", "albums", "artists", "time_songs", "time_albums", "time_artists") } ?: "songs"
-        collageSize = st.collage_size.takeIf { it in listOf(5, 10, 15, 20, 25) } ?: 25
-        artistPicks = st.artist_picks
-        similarKept = st.similar_kept
-        albumPicks = st.album_picks
-        songPicks = st.song_picks
-        singlesKept = st.singles_kept.toSet()
-        notDupes = st.not_dupes.toSet()
-        Dj.withNew = djNew
-        replayGain = "off"   // ReplayGain, Balance and Tilt were taken out in 3.0.0: back to off, centre and neutral
-        if (Prefs.num(Prefs.BALANCE, 0f) != 0f) Prefs.setNum(Prefs.BALANCE, 0f)
-        if (Prefs.num(Prefs.TILT, 0f) != 0f) Prefs.setNum(Prefs.TILT, 0f)
-        eqProcessor.bypass = bitPerfectNow()
-        layouts.clear(); layouts.putAll(st.layouts.filterValues { it in LAYOUTS })
-        autoplay = st.autoplay
-        applyLook()
-        visPreset = st.vis_preset
-        wrappedStyle = st.wrapped_style
-        skipOrder = st.skip_order.takeIf { it in setOf("most", "least", "heard") } ?: "most"
-        downloadDir = st.download_dir
-        // 3.0.1: downloads that went straight into Music/ go to Music/Artists/ from now on (once; pick another after)
-        if (!Prefs.on("downloads_to_artists")) {
-            Prefs.set("downloads_to_artists", true)
-            if (downloadDir.trim().trimEnd('/', '\\').let { it.isNotEmpty() && it.equals("Music", true) }) {
-                downloadDir = ""
-                scope.launch(Dispatchers.Main) { saveState() }   // kept: the state file says Music/Artists/ from now on
-            }
-        }
-        dupeAction = st.dupe_action.takeIf { it in setOf("ask", "keep", "replace") } ?: "ask"
-        eq = st.eq
-        applyEq()
-        lyricsToFiles = st.lyrics_to_files
-        PlaybackCore.restored()   // the song from last time into the player (not playing), or waiting for the player and the login
-    }
-
+    // What the app remembers between starts (state.json: read at the start, written at each change) is Remembered's own: these hand on.
     var restoring = false   // a backup is going back in: nothing saved over it
 
     /** The state written now, not in the background (a backup is being made of it). */
-    fun saveStateNow() { if (!restoring) writeAtomic(stateFile, JSON.encodeToString(State.serializer(), stateNow())) }
-
-    fun saveState() {
-        if (restoring) return
-        val st = stateNow()
-        bg({ writeAtomic(stateFile, JSON.encodeToString(State.serializer(), st)) })
-    }
-
-    private fun stateNow(): State {
-        val q = PlaybackCore.saved()   // the queue's part
-        return State(q.queue, q.index, q.radioFrom, q.repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, q.shuffled, playlistSort,
-            browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
-            q.queues, q.queueName, q.queueId, q.multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
-    }
+    fun saveStateNow() = Remembered.saveNow()
+    fun saveState() = Remembered.save()
 
     fun saveApiKeys(keys: Map<String, String>) {
         apiKeys = keys.mapValues { it.value.trim() }.filter { it.key in API_KEYS && it.value.isNotEmpty() }
