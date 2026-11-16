@@ -61,6 +61,17 @@ jobs:
                 export RADON_MPV="$RUNNER_TEMP/mpv-quiet"
                 tone="$RUNNER_TEMP/Linux test tone.flac"
                 ffmpeg -loglevel error -f lavfi -i "sine=frequency=440:duration=40" -metadata title="Linux test tone" -metadata artist="Radon checks" "$tone" 2>/dev/null || true
+                # A little music of the check's own for the app to read (RADON_MUSIC): two albums, a single, and a song
+                # in a folder named Unreleased, so its tabs have something in them for the pictures below
+                m="$RUNNER_TEMP/music"; export RADON_MUSIC="$m"
+                song() { mkdir -p "$(dirname "$m/$1")"; ffmpeg -loglevel error -f lavfi -i "sine=frequency=$2:duration=20" -metadata title="$3" -metadata artist="$4" -metadata album="$5" -metadata track="$6" "$m/$1" 2>/dev/null || true; }
+                song "Artists/Check Band/First Record/01 Alpha.flac" 330 "Alpha" "Check Band" "First Record" 1
+                song "Artists/Check Band/First Record/02 Beta.flac" 350 "Beta" "Check Band" "First Record" 2
+                song "Artists/Check Band/First Record/03 Gamma.flac" 370 "Gamma" "Check Band" "First Record" 3
+                song "Artists/Other Voices/Night Drive/01 Dusk.flac" 390 "Dusk" "Other Voices" "Night Drive" 1
+                song "Artists/Other Voices/Night Drive/02 Dawn.flac" 410 "Dawn" "Other Voices" "Night Drive" 2
+                song "Artists/Other Voices/Lone - Single/Lone.flac" 430 "Lone" "Other Voices" "Lone - Single" 1
+                song "Unreleased/Check Band/Demo Tape.flac" 450 "Demo Tape" "Check Band" "" 1
                 Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
                 sleep 3
                 DISPLAY=:99 "$exe" > "$RUNNER_TEMP/app.log" 2>&1 &
@@ -85,6 +96,21 @@ jobs:
                   echo "LINUX START: a picture of its window was taken (linux-start.jpg)"
                 else
                   echo "LINUX START: no picture could be taken"
+                fi
+                # Each tab opened in turn, the way "Radon Player show albums" does from a command line, and a picture of
+                # each: the screens as they are, all on one sheet (linux-screens.jpg), in this order
+                tabs="music albums singles artists folders unreleased downloads playlists top skips queue settings"
+                mkdir -p "$RUNNER_TEMP/shots"; n=10
+                for t in $tabs; do
+                  DISPLAY=:99 timeout 20 "$exe" show "$t" >/dev/null 2>&1 || true
+                  sleep 4
+                  DISPLAY=:99 import -window root "$RUNNER_TEMP/shots/$n-$t.png" 2>/dev/null || true
+                  n=$((n + 1))
+                done
+                if montage "$RUNNER_TEMP"/shots/*.png -tile 3x -geometry 640x400+6+6 -background '#202020' "$RUNNER_TEMP/sheet.png" 2>/dev/null && convert "$RUNNER_TEMP/sheet.png" -quality 68 "$RUNNER_TEMP/linux-screens.jpg" 2>/dev/null; then
+                  echo "LINUX SCREENS: pictures of $(ls "$RUNNER_TEMP/shots" | wc -l) tabs on one sheet (linux-screens.jpg): $tabs"
+                else
+                  echo "LINUX SCREENS: the sheet of pictures could not be made"
                 fi
                 kill "$pid" 2>/dev/null || true
                 echo "--- what the app wrote as it started"
@@ -124,7 +150,7 @@ jobs:
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
-            grep -E '^LINUX (START|PLAY|MPV|PACKAGE NEEDS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
+            grep -E '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS)'"$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
             echo "--- errors"
             grep -E "^e: |error:|What went wrong|FAILED" -A2 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -120
             echo "--- the end of the log"
@@ -140,6 +166,7 @@ jobs:
           cp "$RUNNER_TEMP/result-linux.txt" result-linux.txt
           cp "$RUNNER_TEMP/linux-start.txt" linux-start.txt 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-start.jpg" linux-start.jpg 2>/dev/null || true
+          cp "$RUNNER_TEMP/linux-screens.jpg" linux-screens.jpg 2>/dev/null || true
           # The app's own compiled code (three small jars, made from this branch's source and nothing else: no keys, no
           # installer), so a test build already on the PC can be brought up to date without a download that needs signing in
           rm -rf jars && mkdir jars
