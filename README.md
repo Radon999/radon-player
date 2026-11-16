@@ -64,7 +64,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **Tidal first, always:** with Tidal connected a song streams from Tidal in the quality you picked. If Tidal doesn't answer it is asked again before YouTube's audio is used, and a song that fell to YouTube is looked up on Tidal again the next time. Settings › Problems says when it happened.
 - **SoundCloud:** Streaming only, with your own sign-in: search, your likes and playlists, artists and radio. Its songs stay in their own queue and can't be downloaded.
 - **Search any of them** from the menu by the search bar, or paste a link from another app.
-- **Downloads:** Any song comes from Tidal with full tags, cover and genre, from the artist's own album first, into Music › Artists › the artist › the release. Whole playlists download too, skipping songs you have. A download you have already asks whether to keep both or replace.
+- **Downloads:** Any song comes from Tidal with full tags, cover and genre, from the artist's own album first, into Music › Artists › the artist › the release. Whole playlists download too, skipping songs you have. A song you have already (the same title and artist, whatever its album) isn't downloaded again; a near match asks whether to keep both or replace.
 - **Quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately for streaming and downloads. **Clean or explicit** versions, wherever Tidal has both.
 - **New releases:** Checks every artist you have for albums, EPs and singles from the last week, month or year.
 

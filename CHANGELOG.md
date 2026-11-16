@@ -4,6 +4,10 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.4: A song you have is never downloaded twice (Android, Windows and Linux)
+- **A song you have is never downloaded twice:** if you already have a song with the same title and artist (whatever its album is tagged as), Download leaves it and says so: your copy is the one that plays. Before, a download whose tags you changed (a single moved into its album) could be taken for a song you didn't have, streamed instead of played from your file, and downloaded again as a second copy. "Keep both" (Settings, or when asked about a near match) still downloads it.
+- **A download follows its file:** when a downloaded song's file has moved (after a tag change put it in another folder), the app finds your file of that song again and goes on playing it, instead of streaming it.
+
 ## 4.0.3: The visualizer for streams, picking in Search, and PC fixes (Android, Windows and Linux)
 - **The visualizer works for streamed songs (computer):** it stood still for any song that was streaming rather than playing from a file on that computer (a hi-res stream, or a song you only have on the phone). It listens to the stream now.
 - **Pick an artist's or an album's songs whole, in Search:** hold an artist or an album in the search results (right-click on a computer) and all its songs are picked, as songs are; while picking, a tap does the same and a tick shows it. Then play, queue, download, tag or delete them together. In your music it's every song you have of them; on a service, an album's songs and the songs an artist's page lists.
