@@ -4,6 +4,11 @@ package org.omarchy.music
  *  playback service, docs/rebuild/RADON_REBUILD_PLAN.md, Phase 9) so they can be read and tested by themselves.
  *  Seconds throughout. */
 object PlayRules {
+    /** Songs that can't be had one after another (no connection, a service turning the app away): after this many
+     *  with none played between, the music stops instead of skipping on through the whole queue. */
+    const val FAILS_BEFORE_STOPPING = 4
+    fun givesUp(failedInARow: Int): Boolean = failedInARow >= FAILS_BEFORE_STOPPING
+
     /** A song counts as played (Recently played, Most played) once half of it has been heard; one whose length
      *  isn't known, after playAfter seconds. */
     fun countsAsPlay(heard: Double, length: Double, playAfter: Double): Boolean = heard >= (if (length > 0) length / 2 else playAfter)

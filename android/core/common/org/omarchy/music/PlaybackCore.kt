@@ -246,6 +246,7 @@ object PlaybackCore {
     private var lastLoaded: Track? = null
     private var loadSeq = 0
     private var streamRetry = -1
+    private var failedInARow = 0             // songs that couldn't be had, one after another (none played between)
     private var finishing = false            // the song playing ran out on its own (not a skip)
     var goingBack = false                    // Previous: going back isn't skipping
 
@@ -479,10 +480,20 @@ object PlaybackCore {
             step(if (err != null || ready == null) "couldn't get it: ${err?.message?.take(60)}" else "got it${if (Music.player == null) " (no player yet)" else ""}")
             Music.status = ""
             if (err != null || ready == null) {
+                failedInARow++
+                // Song after song that can't be had (no connection, a service turning the app away): it stops after
+                // a few instead of skipping through the whole queue, each one flashing by with its own note
+                if (autoplay && PlayRules.givesUp(failedInARow)) {
+                    failedInARow = 0
+                    Music.toast("${PlayRules.FAILS_BEFORE_STOPPING} songs in a row couldn't be played, so the music has stopped. The last: ${err?.message?.take(120)}")
+                    paused = true; doneAdvancing()
+                    return@bg
+                }
                 Music.toast(if (err is NoLosslessMatch) "Skipped “${t.title}”: ${err.message}" else "Couldn't get “${t.title}”: ${err?.message}")
                 if (autoplay) Music.scope.launch { delay(1500); if (seq == loadSeq) next() } else { paused = true; doneAdvancing() }
                 return@bg
             }
+            failedInARow = 0
             if (!ready.onDisk) streaming = true   // Keep found no FLAC to save: it streams
             val start = { play(t, ready, autoplay, at) }
             if (Music.player == null) pendingLoad = start else start()

@@ -108,6 +108,9 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
                 .onFailure { problem = "Last.fm said: ${it.message?.take(80)}"; return@LaunchedEffect }
         }
     }
+    // Tidal's (a sign-in that ends on an address to paste): its page opens by itself too, as the others' do and as
+    // its own text says. Before, it only opened from the button.
+    if (!by) LaunchedEffect(url) { open() }
     Dialog(onDismissRequest = { done(null) }) {
         Column(Modifier.widthIn(max = 520.dp).background(C.light, R.card).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Sign in", style = T.title)
