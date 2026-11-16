@@ -1,12 +1,18 @@
-commit 04945681afa1e0f4e75468767f1e7329b7d6a217 · run 43784237978 · Mon Nov 16 01:10:50 UTC 2026
+commit 90862a8293877e1cd2fb670ebf2a8bdc882dc3a6 · run 43785468671 · Mon Nov 16 01:22:48 UTC 2026
 PHONE TEST APP: made, 82M
 package: name='org.omarchy.music.rebuild' versionCode='30228' versionName='3.2.28' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
 minSdkVersion:'29'
 V2 Signer: certificate DN: CN=Radon Rebuild Test, O=Test only
 V2 Signer: certificate SHA-256 digest: ea8f50085a6973c474c9d0716b4f31db926761feb59abfb0a8dee9b303440f99
 V2 Signer: certificate SHA-1 digest: 5a137b306e6fb8f8e0a186afa83272eb44d97a05
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43784237978/artifacts/14189901724
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/43785468671/artifacts/14189254475
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
+> Task :shared:compileJava NO-SOURCE
+> Task :shared:classes UP-TO-DATE
+> Task :app:checkReleaseAarMetadata
 --- the end of the log
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
@@ -21,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 21s
+BUILD SUCCESSFUL in 4m 20s
 95 actionable tasks: 95 executed
