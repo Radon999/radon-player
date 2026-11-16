@@ -343,7 +343,19 @@ DAC (`UsbDirect.wanted()`; `SinkRules`, shared, S `SinkRulesTest`), the EQ is by
 if a hi-res song still goes out as 16-bit with a DAC plugged in. **Not proven by Claude** (no phone, no DAC): the
 owner checks that Settings says 24-bit for 24-bit songs, over several songs and after a pause. How often it happened
 before is not known; the earlier "works perfect with the DAC" was about noise and song changes, not bit depth.
-**Confirmed by the owner on build 30 (16 November 2026): Settings says 24-bit now.** **Not
+**Confirmed by the owner on build 30 (16 November 2026): Settings says 24-bit now.**
+
+**Phase 12, first step: the app run on Linux (`87b915f`).** The Linux check now installs the package and starts the
+real app on a screen nobody sees (Xvfb), with data of its own, and keeps what it found on `rebuild-ci`
+(`linux-start.txt`, `linux-start.jpg`). First run: **it starts and stays up** (45 s), its window draws (Now playing,
+"Nothing playing": the first picture of any screen of the rebuild Claude has seen), no Problems written. Found:
+**mpv is not in the Linux package** ("mpv isn't there": nothing can play until mpv is installed or bundled; plan D2);
+no tray on that screen (expected without a desktop); the drawing falls back from OpenGL (expected there). Not tried:
+playing anything, media keys, the updater, a real desktop.
+
+**Test build 31 (`012a851`): Smoothest screen.** Asked for by the owner: a switch (Settings › Playback, phone, only
+where the screen has a rate above 60) that asks for the screen's highest refresh rate (`ScreenRate`); off by default.
+The PC draws at its monitor's rate already. No test (a window's attribute); **not seen by Claude**. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
