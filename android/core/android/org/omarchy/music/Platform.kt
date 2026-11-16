@@ -234,6 +234,13 @@ object Discord {
 
 
 /** Starting with the computer is the PC's. */
+/** Drawing the window without the graphics card: a Linux PC's setting (see the PC's side); nothing on the phone. */
+object SoftwareDrawing {
+    val supported = false
+    fun isOn() = false
+    fun set(on: Boolean) = false
+}
+
 object Startup {
     val supported = false
     val system = ""

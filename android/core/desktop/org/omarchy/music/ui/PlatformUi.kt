@@ -216,7 +216,7 @@ fun shareFiles(uris: List<String>, title: String) {
     val f = uris.firstOrNull()?.let { File(if (it.startsWith("file:")) java.net.URI(it).path else it) } ?: return
     runCatching {
         if (System.getProperty("os.name").lowercase().contains("win")) ProcessBuilder("explorer.exe", "/select,", f.path).start()
-        else java.awt.Desktop.getDesktop().open(f.parentFile)
+        else org.omarchy.music.Opening.path(f.parentFile)
     }
 }
 
@@ -351,7 +351,7 @@ fun fullScreenDialog() = androidx.compose.ui.window.DialogProperties(usePlatform
 /** A folder of your music as a full path ("Music/Rock" → your home's Music/Rock). */
 fun fullFolderPath(rel: String) = File(rel).takeIf { it.isAbsolute }?.path ?: File(System.getProperty("user.home"), rel).path
 const val canOpenFolders = true
-fun openFolder(path: String) { runCatching { java.awt.Desktop.getDesktop().open(File(path)) } }
+fun openFolder(path: String) { org.omarchy.music.Opening.path(File(path)) }
 fun sharable(file: String) = !file.startsWith("http")
 
 /** Cast…: the Chromecasts, Google speakers and TVs on the network; tap one to play there, or "This PC" to come back.

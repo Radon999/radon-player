@@ -79,6 +79,11 @@ jobs:
                 sudo apt-get install -y -qq dbus libglib2.0-bin >/dev/null 2>&1 || true
                 DBUS_SESSION_BUS_ADDRESS=$(dbus-daemon --session --fork --print-address 2>/dev/null | head -1) || true
                 export DBUS_SESSION_BUS_ADDRESS
+                # A stand-in for the desktop's opener (xdg-open), which writes down what it is asked to open: there is no
+                # browser here, and this shows that a link (Tidal's sign-in) really reaches the desktop
+                mkdir -p "$RUNNER_TEMP/bin"
+                printf '#!/bin/sh\necho "$@" >> "%s/opened.txt"\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/bin/xdg-open"; chmod +x "$RUNNER_TEMP/bin/xdg-open"
+                export PATH="$RUNNER_TEMP/bin:$PATH"
                 DISPLAY=:99 "$exe" > "$RUNNER_TEMP/app.log" 2>&1 &
                 pid=$!
                 sleep 45
@@ -133,6 +138,15 @@ jobs:
                 else
                   echo "LINUX SCREENS: the sheet of pictures could not be made"
                 fi
+                # A sign-in page (Tidal's), asked for the way its button asks: what the desktop's opener was handed
+                DISPLAY=:99 timeout 20 "$exe" --tidal-login >/dev/null 2>&1 || true
+                sleep 6
+                if [ -s "$RUNNER_TEMP/opened.txt" ]; then
+                  echo "LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: $(head -1 "$RUNNER_TEMP/opened.txt" | sed 's/[?].*//' | head -c 120)"
+                else
+                  echo "LINUX LINKS: Tidal's sign-in was asked for, and nothing was handed to the desktop's opener"
+                fi
+                DISPLAY=:99 import -window root "$RUNNER_TEMP/signin.png" 2>/dev/null && convert "$RUNNER_TEMP/signin.png" -resize 60% -quality 72 "$RUNNER_TEMP/linux-signin.jpg" 2>/dev/null || true
                 kill "$pid" 2>/dev/null || true
                 echo "--- what the app wrote as it started"
                 tail -25 "$RUNNER_TEMP/app.log" 2>/dev/null
@@ -171,7 +185,7 @@ jobs:
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
-            grep -aE '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS|MEDIA KEYS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
+            grep -aE '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS|MEDIA KEYS|LINKS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
             echo "--- errors"
             grep -E "^e: |error:|What went wrong|FAILED" -A2 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -120
             echo "--- the end of the log"
@@ -188,6 +202,7 @@ jobs:
           cp "$RUNNER_TEMP/linux-start.txt" linux-start.txt 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-start.jpg" linux-start.jpg 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-screens.jpg" linux-screens.jpg 2>/dev/null || true
+          cp "$RUNNER_TEMP/linux-signin.jpg" linux-signin.jpg 2>/dev/null || true
           # The app's own compiled code (three small jars, made from this branch's source and nothing else: no keys, no
           # installer), so a test build already on the PC can be brought up to date without a download that needs signing in
           rm -rf jars && mkdir jars

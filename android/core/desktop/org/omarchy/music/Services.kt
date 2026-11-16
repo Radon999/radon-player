@@ -86,6 +86,6 @@ object Services {
 
     /** A page in your browser. */
     fun open(url: String) {
-        runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+        Opening.linkOrCopy(url)
     }
 }

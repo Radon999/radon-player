@@ -74,7 +74,7 @@ object Updater {
         if (msi != null && os.contains("linux")) { installOnLinux(msi); return }
         if (msi == null || !windows) {
             val url = page ?: return
-            runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+            Opening.link(url)
             Music.toast("The release's page is open: run its installer (close Radon Player first)")
             return
         }
@@ -105,8 +105,8 @@ object Updater {
         }) { f, err ->
             state = ""
             if (f == null) { Music.toast("Couldn't download the update: ${err?.message?.take(80)}"); return@bg }
-            val opened = runCatching { ProcessBuilder("xdg-open", f.path).start(); true }.getOrDefault(false)
-            if (!opened) runCatching { java.awt.Desktop.getDesktop().open(f.parentFile) }
+            val opened = Opening.path(f)
+            if (!opened) Opening.path(f.parentFile)
             Music.toast("The update is in ${f.parentFile.name}: install ${f.name} (close Radon Player first)")
         }
     }

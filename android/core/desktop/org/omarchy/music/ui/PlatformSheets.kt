@@ -47,7 +47,7 @@ fun WebLogin(url: String, isDone: (String) -> Boolean, desktop: Boolean = false,
         url.startsWith("https://www.deezer.com") -> "deezer"
         else -> null
     }
-    fun open() { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(if (cookieKey == "ytm") "https://music.youtube.com" else url)) } }
+    fun open() { org.omarchy.music.Opening.linkOrCopy(if (cookieKey == "ytm") "https://music.youtube.com" else url) }
     val serviceName = when (cookieKey) { "ytm" -> "YouTube Music"; "deezer" -> "Deezer"; else -> "Apple Music" }
     val site = when (cookieKey) { "ytm" -> "music.youtube.com"; "deezer" -> "www.deezer.com"; else -> "music.apple.com" }
     if (cookieKey != null) {

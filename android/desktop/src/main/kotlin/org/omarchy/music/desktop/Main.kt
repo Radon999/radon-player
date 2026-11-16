@@ -63,6 +63,7 @@ private object AppIcon : Painter() {
 fun main(args: Array<String>) {
     // Already running: hand it what was asked (a song file, next, show…) and end here, as the Python app does
     if (org.omarchy.music.Instance.handOff(args.ifEmpty { arrayOf("show") })) return
+    org.omarchy.music.SoftwareDrawing.applyAtStart()   // Linux: drawn without the graphics card, if that's switched on
     app(args)
 }
 
@@ -99,7 +100,12 @@ private fun app(args: Array<String>) = application {
         Separator()
         Item("Quit", onClick = { quit() })
     }
+    // With no tray (some Linux desktops) a closed window would leave the app playing with no way back to it: there
+    // closing minimizes it instead, and the music goes on
+    val hasTray = remember { runCatching { java.awt.SystemTray.isSupported() }.getOrDefault(true) }
+    val mainWindow = rememberWindowState(width = 1100.dp, height = 800.dp)
     if (shown && !PcWindows.mini) Window(onCloseRequest = {
+            if (org.omarchy.music.OpeningRules.onClose(hasTray) == "minimize") { mainWindow.isMinimized = true; return@Window }
             shown = false
             if (bitPerfectOff()) tray.sendNotification(androidx.compose.ui.window.Notification("Bit-perfect turned off",
                 "So the PC's other sound is heard while Radon Player is in the tray. Turn it on again in Settings › Sound quality."))
@@ -110,11 +116,11 @@ private fun app(args: Array<String>) = application {
                     "It's in the system tray by the clock: click its icon to open it, or right-click to quit."))
             }
         }, title = "Radon Player", icon = AppIcon,
-        state = rememberWindowState(width = 1100.dp, height = 800.dp),
+        state = mainWindow,
         onPreviewKeyEvent = { e ->
             org.omarchy.music.ui.HeldKeys.ctrl = e.isCtrlPressed; org.omarchy.music.ui.HeldKeys.shift = e.isShiftPressed
             e.type == KeyEventType.KeyDown && e.key == Key.Escape && !org.omarchy.music.ui.Typing.now &&
-                (Back.press() || (org.omarchy.music.ui.Ui.current?.tab == "player").also { if (it) shown = false })
+                (Back.press() || (org.omarchy.music.ui.Ui.current?.tab == "player").also { if (it) { if (hasTray) shown = false else mainWindow.isMinimized = true } })
         },
         onKeyEvent = { e -> shortcut(e) { quit() } }) {
         LaunchedEffect(Unit) {
