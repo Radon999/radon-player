@@ -1157,41 +1157,12 @@ object Music {
     internal fun heldTagsSoon() = TagEdits.heldTagsSoon()
     fun editTags(tracks: List<Track>, changes: Map<String, String>, renameFiles: Boolean = false) = TagEdits.editTags(tracks, changes, renameFiles)
 
-    /** A song on the phone of another app's (yours) that Android can be asked to delete: its address, or null. */
-    fun phoneFile(t: Track): String? =   // on the PC: a file of yours it may change (it goes to the Recycle Bin)
-        t.file?.takeIf { t.isFile && !lib.has(t.id) &&
-            ((it.startsWith("content://media/") && sdkAtLeast(30)) || (!it.startsWith("content:") && FileTags.canWrite(it))) }
-
-    fun deletable(t: Track) = lib.has(t.id) || phoneFile(t) != null
-
-    /** Delete the downloads among tracks (the app's own files, no asking Android); the phone's
-     *  songs are deleted by Android once you say yes to it, then [phoneFilesDeleted]. */
-    fun deleteDownloads(tracks: List<Track>) {
-        val playing = current()?.id
-        val ids = tracks.filter { lib.has(it.id) && it.id != playing }.map { it.id }
-        if (tracks.any { it.id == playing && lib.has(it.id) }) toast("The playing song is left as it is: skip it first")
-        if (ids.isEmpty()) return
-        bg({ ids.forEach { lib.remove(it) } }) { _, err ->
-            toast(if (err != null) "Couldn't delete them: ${err.message}" else "Deleted ${ids.size} download${if (ids.size != 1) "s" else ""}")
-            savedVersion++; musicVersion++
-        }
-    }
-
-    /** The phone's songs tracks were deleted: out of your music, the queue and your playlists. */
-    fun phoneFilesDeleted(tracks: List<Track>) {
-        FolderCleanup.afterSongs(tracks)   // their folders, if no music is left in them
-        val ids = tracks.map { it.id }.toSet()
-        local.files = local.files.filter { it.id !in ids }
-        unqueueMany(queue.indices.filter { queue[it].id in ids })
-        lists.all().filter { p -> p.tracks.any { it.id in ids } }.forEach { lists.remove(it.id, ids) }
-        toast("Deleted ${ids.size} song${if (ids.size != 1) "s" else ""}")
-        musicVersion++
-    }
-
-    fun removeDownload(id: String) {
-        if (current()?.id == id) { toast("That song is playing; skip it first"); return }
-        bg({ lib.remove(id) }) { _, _ -> savedVersion++; musicVersion++ }
-    }
+    // Deleting songs (the app's downloads at once, your own files once you say yes) is DeletingSongs' own: these hand on.
+    fun phoneFile(t: Track): String? = DeletingSongs.ownFile(t)
+    fun deletable(t: Track) = DeletingSongs.deletable(t)
+    fun deleteDownloads(tracks: List<Track>) = DeletingSongs.downloads(tracks)
+    fun phoneFilesDeleted(tracks: List<Track>) = DeletingSongs.filesDeleted(tracks)
+    fun removeDownload(id: String) = DeletingSongs.download(id)
 
     @JvmName("chooseKeepPlayed")
     fun setKeepPlayed(on: Boolean) { keepPlayed = on; saveState() }
