@@ -175,6 +175,28 @@ artists' first. **Not done:** what each fact says and the turn-taking stay in `D
 collection facts (ten songs by an artist, twenty albums…) and the mood facts (mostly `MoodTally`'s already); deep
 cuts and more-like-this are calls to the services with nothing of their own to split out.
 
+**Phase 7, second part: `TasteService`, 16 November 2026 (`983eda7`).** What your listening adds up to (the plays it
+goes by, the counting in `TasteRules`, the picture kept fresh by `KeptFresh`) is a service of its own, moved out of
+`Dj.kt` as it was; `Dj` reads it, and Sort › Recently played, smart playlists and the mood pages ask it directly
+instead of through the DJ (P `TasteServiceTest`: plays counted, the picture kept and given again, made again once
+cleared). Checked on Linux and Windows. **One thing changed on purpose (`adb9dc4`):** smart shuffle's "not heard in
+a while" now also goes by when you last heard a song anywhere (Last.fm, your imports), read from what `TasteService`
+has at that moment and never waited for (before: only the plays in the app); P `PlaySortsTest`. Not heard by Claude.
+
+**Phase 8, sixth part: a set's life, 16 November 2026 (`adb9dc4`).** `SetLife` in the shared code (S `SetLifeTest`):
+planned, scripted, voiced, queued, announced or dropped, only forward, dropped any time before it's announced. `Dj`
+keeps where each set made lately is, as the DJ's own steps happen (made; its line made as speech ahead; queued as set
+n; its line shown; let go), and can be asked (`Dj.stateOf`; P `DjKindsTest`). Nothing the sets do goes by it yet.
+**Not done, on purpose:** the record's voice part (the native module's, D18) and the DJ as an actor.
+
+**Phase 12, fourth step: Linux starts with the system and updates, 16 November 2026 (`a0fe9fe`).** Start with Linux
+(Settings › General: an autostart file, `~/.config/autostart/radon-player.desktop`, starting the app in the tray; where
+a desktop has no tray its window opens instead of starting hidden), and Update on Linux (the release's .deb to
+Downloads, opened with the system's installer; before, only the release's page opened). The rules are `StartupRules`
+(S `StartupRulesTest`). Test builds make the Linux package too (`result-testbuild-linux.txt`). **Not tried on a real
+Linux desktop** (the checks have no desktop, no tray and no release to update from). Not done: media keys and MPRIS
+on Linux.
+
 **Phase 13 (the remaining services out of `Music.kt`), begun 15 November 2026.** First: your copy of a song
 (`YourCopies`, `830f3d4`): which of your files a song named by Last.fm, an import, a service or the queue is
 (`songIndex`, `mineOf`, `localOf`, `fmSong`, `yourCopies`, the best copy). Moved as it was; `Music` keeps the names
