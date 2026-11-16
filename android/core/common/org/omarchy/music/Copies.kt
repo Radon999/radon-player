@@ -36,13 +36,43 @@ object Copies {
     internal fun replaceLater(id: String, copies: List<Track>) { synchronized(replaceAfter) { replaceAfter[id] = copies } }
 
     private var copyIndex: Pair<Triple<Int, Int, Double>, Map<String, List<Track>>>? = null
+        set(v) { field = v; if (v == null) copyIndexFor = -1 }
+    private var copyIndexFor = -1   // your music as it was (Music.musicVersion) when the index was made: a tag change makes it anew
 
     /** Your songs on the phone by the first letters of their title (squashed): kept until your songs change. */
     private fun copyPool(t: Track): List<Track> {
         val sig = Triple(lib.items.size, local.files.size, local.scanned)
-        val idx = copyIndex?.takeIf { it.first == sig }?.second ?: mySongs().groupBy { squashKey(cleanTitle(it.title)).take(4) }
-            .also { copyIndex = sig to it }
+        val idx = copyIndex?.takeIf { it.first == sig && copyIndexFor == musicVersion }?.second ?: mySongs().groupBy { squashKey(cleanTitle(it.title)).take(4) }
+            .also { copyIndex = sig to it; copyIndexFor = musicVersion }
         return idx[squashKey(cleanTitle(t.title)).take(4)] ?: emptyList()
+    }
+
+    /** A download whose file isn't where the app has it any more (moved or renamed by a tag change that wasn't noted,
+     *  or outside the app). Your file of the same song (the same title and artist, whatever its album says now) is
+     *  taken as its file, so it goes on playing from your copy and is still called downloaded. With no such file it
+     *  is forgotten as a download (nothing is deleted): it streams, and can be downloaded again. Before, it went on
+     *  being called downloaded while it streamed, and downloading it again made a second copy beside the moved one. */
+    internal fun heal(t: Track) {
+        val e = lib.items[t.id] ?: return
+        if (Music.dl.standIn != null) return   // a test's stand-in for the services: its songs have no files
+        if (e.file.isEmpty() || !runCatching { Music.ctx.uriMissing(e.file) }.getOrDefault(false)) return
+        val found = runCatching { mySongs() }.getOrDefault(emptyList()).firstOrNull { s ->
+            val f = s.file
+            s.isFile && f != null && f != e.file && CopyRules.sameSong(s.title, s.artist, e.title, e.artist) &&
+                !runCatching { Music.ctx.uriMissing(f) }.getOrDefault(true)
+        }
+        if (found != null) lib.update(e.id) { it.copy(file = found.file!!, album = found.album.ifEmpty { it.album }) }
+        else lib.forget(e.id)
+        copyIndex = null
+        musicVersion++; savedVersion++
+    }
+
+    /** Your own copy of a song asked to be downloaded: the same title and artist (never another version), a file or
+     *  a download that is really there. Null when you have none. */
+    fun ownCopy(t: Track): Track? {
+        if (t.isFile || lib.has(t.id)) return null
+        val m = runCatching { Music.localOf(t) }.getOrNull() ?: return null
+        return m.takeIf { it !== t && it.id != t.id && (it.isFile || lib.has(it.id)) && CopyRules.sameSong(it.title, it.artist, t.title, t.artist) }
     }
 
     /** Your songs on the phone that are likely t (close is enough: it's asked about), t itself left out. */

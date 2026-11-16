@@ -448,6 +448,7 @@ object PlaybackCore {
         Music.heldTagsSoon()   // the song that was playing: its tag changes, once its file is free
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
+        if (!Remote.active) Copies.heal(c)   // a download whose file was moved (a tag change): your file of it is found again
         val t0 = if (Remote.active) c else Music.localOf(c)
         if (t0 !== c) {
             queue = queue.toMutableList().also { it[index] = t0 }

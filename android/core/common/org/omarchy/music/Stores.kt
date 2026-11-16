@@ -94,6 +94,10 @@ class Library(private val ctx: Ctx) {
         items[id]?.let { items[id] = it.copy(plays = it.plays + 1, last = now()); save() }
     }
 
+    /** A saved song whose file is gone: forgotten, and nothing deleted (there's nothing left of it to delete). */
+    @Synchronized
+    fun forget(id: String) { if (items.remove(id) != null) save() }
+
     /** Forget a saved song and delete its file (unless another service's entry shares it). */
     @Synchronized
     fun remove(id: String) {

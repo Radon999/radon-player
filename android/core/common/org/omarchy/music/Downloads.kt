@@ -44,8 +44,14 @@ object Downloads {
     fun start(tracks: List<Track>, checked: Boolean = false) {
         val waiting = Music.downloads.map { it.id }.toSet()
         if (tracks.isNotEmpty() && tracks.all { it.source == SoundCloud.KEY }) { toast("SoundCloud songs can't be downloaded: they only stream"); return }
-        val new = newOf(tracks, { Music.lib.has(it) }, waiting)
-        if (new.isEmpty()) { toast("Those are downloaded already"); return }
+        tracks.forEach { Copies.heal(it) }   // a download whose file was moved: found again, before it's called missing
+        val asked = newOf(tracks, { Music.lib.has(it) }, waiting)
+        if (asked.isEmpty()) { toast("Those are downloaded already"); return }
+        // A song you have already (the same title and artist, whatever its album is tagged as) is never downloaded a
+        // second time: your copy is the one that plays. Unless you said to keep both (in Settings, or when asked).
+        val (new, have) = CopyRules.toDownload(asked, keepBoth = checked || Music.dupeAction != "ask") { Copies.ownCopy(it) != null }
+        if (have.isNotEmpty()) toast(CopyRules.haveText(have.map { it.title }))
+        if (new.isEmpty()) return
         if (!checked && Music.dupeAction != "keep") {
             val dupes = new.mapNotNull { t -> Music.copiesOf(t).takeIf { it.isNotEmpty() }?.let { t to it } }
             if (dupes.isNotEmpty()) {
