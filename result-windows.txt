@@ -1,32 +1,97 @@
-commit 73b483a37a0b3cf80dab30fcb1faf40a71aea48b · run 43775721825 · Sun Nov 15 23:55:05 UTC 2026
-PC TESTS ON WINDOWS: 26 suites, tests 118, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.5 s of speech in 2.6 s (with loading the voice); then 4.9 s of speech in 2.2 s (2.2x real time)
-WINDOWS INSTALLER: Radon Player-3.2.28.msi, 94M
+commit 2f9f1ad50c37b9244e8e6f950447b3d03b7c8164 · run 43777479349 · Mon Nov 16 00:03:58 UTC 2026
+PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
+THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
+WINDOWS INSTALLER: not built
 --- errors
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Services.kt:8:8 Redeclaration:
+object Services : Any
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/NowPlaying.kt:591:96 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:89:70 Unresolved reference 'ytmCookiesReady'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:90:62 Unresolved reference 'ytmSignedIn'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:92:79 Unresolved reference 'appleCookiesReady'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:93:62 Unresolved reference 'appleSignedIn'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:95:79 Unresolved reference 'deezerCookiesReady'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:96:62 Unresolved reference 'deezerSignedIn'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:99:47 Unresolved reference 'spotifyLoginUrl'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:101:97 Unresolved reference 'spotifyFinish'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:246:110 Unresolved reference 'signOut'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:463:110 Unresolved reference 'spotifyDisconnect'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:474:54 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:475:40 Unresolved reference 'spotifySetClient'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:506:80 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:533:62 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:564:54 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:606:54 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:635:55 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:666:55 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:878:56 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:1155:67 Unresolved reference 'open'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/App.kt:25:18 Unresolved reference 'start'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:6:8 Redeclaration:
+object Services : Any
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:11:13 Unresolved reference 'started'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:12:9 Unresolved reference 'started'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:13:9 Unresolved reference 'ctx'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:14:9 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:14:25 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:14:43 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:14:63 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:20:50 Unresolved reference 'YTM_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:21:39 Unresolved reference 'ctx'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:21:55 Unresolved reference 'APPLE_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:22:47 Unresolved reference 'DEEZER_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:23:33 Unresolved reference 'ctx'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:31:43 Unresolved reference 'DEEZER_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:32:28 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:34:64 Unresolved reference 'YTM_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:35:65 Unresolved reference 'APPLE_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:44:27 Unresolved reference 'DEEZER_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:49:49 Unresolved reference 'YTM_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:49:62 Unresolved reference 'APPLE_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:53:25 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:54:27 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:56:41 Unresolved reference 'YTM_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:56:75 Unresolved reference 'DEEZER_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:56:91 Unresolved reference 'APPLE_KEY'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:57:9 Unresolved reference 'connect'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:64:37 Unresolved reference 'spotify'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:67:18 Unresolved reference 'spotify'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:73:18 Unresolved reference 'spotify'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:74:52 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Services.kt:82:18 Unresolved reference 'spotify'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/PlatformSheets.kt:74:70 Unresolved reference 'setCookies'.
 
-> Task :ui-common:assembleDesktopMainResources
-> Task :ui-common:desktopProcessResources
-> Task :desktop:assembleMainResources
-> Task :desktop:writeBuildInfo
+> Task :desktop:compileKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+--
+BUILD FAILED in 4m 7s
+17 actionable tasks: 17 executed
 --- the end of the log
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1321:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:80:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/PlatformSheets.kt:74:70 Unresolved reference 'setCookies'.
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:compileTestKotlin
-> Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-3.2.28.msi
+> Task :desktop:compileKotlin FAILED
 
-> Task :desktop:compileTestJava NO-SOURCE
-> Task :desktop:testClasses
-> Task :desktop:test
+FAILURE: Build failed with an exception.
 
-D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
-OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -34,5 +99,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 19s
-21 actionable tasks: 21 executed
+BUILD FAILED in 4m 7s
+17 actionable tasks: 17 executed
