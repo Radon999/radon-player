@@ -182,6 +182,9 @@ object Perm {
     const val NOTIFY = "notify"
 }
 fun hasPermission(p: String) = true
+/** The phone asks for what it needs as it starts; the PC needs no one's leave for any of it. */
+@Composable
+fun StartupPermissions() {}
 class PermissionAsk(val launch: (String) -> Unit)
 @Composable
 fun rememberPermission(onResult: (Boolean) -> Unit): PermissionAsk = remember { PermissionAsk { onResult(true) } }

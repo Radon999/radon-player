@@ -28,8 +28,7 @@ class MainActivity : ComponentActivity() {
         // nothing playing, and they changed the ringer instead of the music (and the DAC)
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        // (Notifications, with everything else that needs leave, are asked for by the screens as they start: StartupPermissions.)
         shared(intent)
         androidx.core.content.ContextCompat.registerReceiver(this, miniButtons, android.content.IntentFilter(MINI),
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)

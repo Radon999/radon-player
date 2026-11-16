@@ -185,9 +185,11 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(art) ?: GREY }
     // The bars behind Now playing hear the music through Android's visualizer, which needs the
     // microphone permission (nothing is recorded): asked once, the first time Now playing shows.
-    var micOk by remember { mutableStateOf(hasPermission(Perm.MIC)) }
+    // Looked at again when you come back to the app or answer the questions asked at the start (Music.resumed), so the
+    // visualizer here works as soon as it is allowed, without a visit to the Visualizer tab
+    var micOk by remember(Music.resumed) { mutableStateOf(hasPermission(Perm.MIC)) }
     val askMic = rememberPermission { micOk = it }
-    LaunchedEffect(Unit) { if (!micOk && !Music.micAsked) { Music.micAsked = true; Music.saveState(); askMic.launch(Perm.MIC) } }
+    // (It is asked for as the app starts now, with the rest: StartupPermissions. Asking here too put two questions at once.)
     // Settings › Look: the background (the cover's colours and the cover blurred, or plain black) and the visualizer behind.
     val plain = Vis.plainNow()
     val cover = coverLook   // only the Now playing look takes the cover's colours and blurs it behind

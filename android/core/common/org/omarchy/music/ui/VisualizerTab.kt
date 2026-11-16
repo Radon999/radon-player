@@ -1696,7 +1696,7 @@ fun VisColorDot(bg: Color, dot: Brush) {
  *  only this app's sound, never the mic; on the PC the song decoded again in step). A style and, apart from it, a colour. */
 @Composable
 fun VisualizerTab() {
-    var allowed by remember { mutableStateOf(hasPermission(Perm.MIC)) }
+    var allowed by remember(Music.resumed) { mutableStateOf(hasPermission(Perm.MIC)) }
     val ask = rememberPermission { allowed = it }
     if (!allowed && !org.omarchy.music.Remote.active) {   // the PC's remote: the PC's sound, no permission needed
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center,

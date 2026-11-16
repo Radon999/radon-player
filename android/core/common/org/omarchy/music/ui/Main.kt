@@ -181,16 +181,11 @@ fun App() {
         }
     }
 
-    // The phone, each time the app starts without All files access: asked for (Allow opens Android's page for it).
-    // Without it the app can't change your own songs' tags and covers, or see the cover beside a song. The PC needs none.
-    var askFiles by remember { androidx.compose.runtime.mutableStateOf(onPhone && runCatching { !Music.canWriteOwnFiles() }.getOrDefault(false)) }
-    if (askFiles) androidx.compose.material3.AlertDialog(onDismissRequest = { askFiles = false }, containerColor = C.light,
-        title = { Text("Allow access to your music files?", style = T.head) },
-        text = { Text("Radon Player needs Android's “All files access” to change your own songs' tags and covers, and to show the cover " +
-            "kept in a song's folder. ${TAP.cap()} Allow, turn it on for Radon Player, then come back. Without it your music still plays; " +
-            "you'll be asked again next time the app starts.", style = T.body) },
-        confirmButton = { androidx.compose.material3.TextButton({ askFiles = false; openSystemSettings("allfiles") }) { Text("Allow", color = C.accent) } },
-        dismissButton = { androidx.compose.material3.TextButton({ askFiles = false }) { Text("Not now", color = C.muted) } })
+    // Everything that needs leave is asked for as the app starts, at every start until it is allowed (the phone: your
+    // music, the microphone for the visualizer, notifications, All files access; the PC needs none), and a folder of
+    // music when none is chosen: so each thing works the first time it is used.
+    StartupPermissions()
+    AskForMusicFolder()
 
     val lay = UiLayouts.current
     // The ☰ menu slides in from the right in a right-handed layout: the drawer is laid out right to left, its insides
@@ -473,6 +468,23 @@ private fun ScreenHeader(ui: Ui, page: Ui.Page?, title: String) {
         else if (ui.filter != null && laidOut(ui)) FilterField(ui, title)
         if (ui.tab == "library" && page == null && !Music.browseLocal) SourceChips(ui, Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
     }
+}
+
+/** No folder of music is chosen (My music would be empty): asked at each start until one is. On the PC a folder
+ *  picker opens; on the phone the folders with music on it, to tick. "Not now" closes it until the next start. */
+@Composable
+private fun AskForMusicFolder() {
+    var later by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var browsing by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val pick = rememberFolderPick { path -> if (path != null) Music.setFolders(Music.folders + path) }
+    if (browsing) { FolderBrowser { browsing = false }; return }
+    if (later || Music.folders.isNotEmpty()) return
+    androidx.compose.material3.AlertDialog(onDismissRequest = { later = true }, containerColor = C.light,
+        title = { Text("Where is your music?", style = T.head) },
+        text = { Text("No folder of music is chosen, so My music, Albums and the rest are empty. Choose the folder your songs are in " +
+            "(everything inside it comes too). You can add more, or change it, in Settings.", style = T.body) },
+        confirmButton = { androidx.compose.material3.TextButton({ if (pick != null) pick() else browsing = true }) { Text("Choose a folder…", color = C.accent) } },
+        dismissButton = { androidx.compose.material3.TextButton({ later = true }) { Text("Not now", color = C.muted) } })
 }
 
 /** The header's Refresh: what the tab shows is read again (RefreshRules says which reading a tab needs). */
