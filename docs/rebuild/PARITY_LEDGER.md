@@ -302,7 +302,17 @@ streaming services' part (`MusicServices`, `2f9f1ad`, renamed in `8f36f0c`: the 
 already, which only the phone's build could show): `browse` (its rule `browseTo`; P `MusicServicesTest`),
 `sourceReady`, `tidalLoggedIn`, `tidalDisconnect`, `syncLibrary`, `setSyncSource`. Signing in and the sync have no
 test (they need the services). At `8f36f0c` the app's own `YouTubeAudioTest.findsAudio` failed on Linux: it asks the
-real YouTube for a song's audio, and the answer could not be read (not touched by these moves; watched). **Not
+real YouTube for a song's audio, and the answer could not be read (not touched by these moves; watched). It passed
+at `26488dd` and failed again at `d4afc7b`: two of three runs in an hour, the same error (`ParsingException` from the
+extractor), after passing all day. Not known which: YouTube turning the build server away now and then (it does
+that to servers), or its page having changed so that the extractor in the app needs a newer version. To tell: a song
+played from YouTube without Tidal on the owner's phone.
+
+Sixteenth: deleting songs (`DeletingSongs`, `d4afc7b`): `deleteDownloads`, `phoneFilesDeleted`, `removeDownload`,
+`phoneFile`, `deletable`; `downloadsToDelete` named; P `DeletingSongsTest`. Checked on Linux and Windows (the PC
+tests; the app's tests but for the YouTube one above). **Plan decision D18 (the owner, 15 November 2026): Phases 3,
+4, 5 and 10 (the native audio module, the USB path rebuilt on it) are postponed**; the DAC is tested again once all
+else is done, and then it is decided whether they are needed. **Not
 done (Phase 13):** the rest. **Not
 done:** every other service in the plan's row 13 (the streaming sources' part of `Music`, the tagger's
 part, sync, the remote, favourites, the equalizer); not run in the real PC app or on a phone; the Deezer lookup
