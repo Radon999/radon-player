@@ -197,6 +197,26 @@ Downloads, opened with the system's installer; before, only the release's page o
 Linux desktop** (the checks have no desktop, no tray and no release to update from). Not done: media keys and MPRIS
 on Linux.
 
+**Phase 2: a song's two keys in one place, 16 November 2026 (`8f55322`).** `TrackKey` (a song's own key and Most
+played's, together) and `KeySet` in the shared code (S `TrackKeyTest`: the same answers as asking each key by hand,
+which is what the code did). The DJ's `isUsed`, `inScope`, `newToYou` and the songs it keeps as played go through
+them. Checked on Linux. Not done: the key kept with the track (it is worked out at each asking, as before); `store`.
+
+**Test build 32 (16 November 2026): everything up to here**, for the phone (the side-by-side test app), the PC (the
+folder that runs without installing) and, for the first time, Linux (the .deb). What it has that build 31 hadn't:
+only moves and the three small things named above (smart shuffle also going by Last.fm's last play, Start with
+Linux, Update on Linux). The `YouTubeAudioTest` in the checks now asks three times before failing (YouTube turns the
+build server away now and then; `3a72b9b` failed on that alone).
+
+**Where the plan stands after it.** Done or done as far as it can be without the owner: Phases 0, 2 (but `store`), 6,
+7, 8 (but the actor), 9 (but the actor), 12 (Linux but media keys; Windows' install-over is the owner's), 13.
+**Waiting for the owner:** Phase 11 (the phone: an hour's soak with the screen off, Android Auto, the widget,
+install-over), Windows install-over, a real Linux desktop, the DAC (D18: Phases 3, 4, 5 and 10 postponed until then).
+**Not done, on purpose:** the services as actors with mailboxes (R-S1, R-S2), which changes the thread the queue and
+the DJ run on and how every screen reads them: a step to take with the owner listening, not the night before a
+test; `store` as the one writer; Phase 1's measurements on 3.2.28 and Phase 14's comparison with them (they need the
+devices); MPRIS on Linux.
+
 **Phase 13 (the remaining services out of `Music.kt`), begun 15 November 2026.** First: your copy of a song
 (`YourCopies`, `830f3d4`): which of your files a song named by Last.fm, an import, a service or the queue is
 (`songIndex`, `mineOf`, `localOf`, `fmSong`, `yourCopies`, the best copy). Moved as it was; `Music` keeps the names
