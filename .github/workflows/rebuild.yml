@@ -150,7 +150,7 @@ jobs:
             if [ -d android/desktop/build/classes/kotlin/main ]; then echo "PC COMPILES: yes"; else echo "PC COMPILES: no"; fi
             deb=$(ls android/desktop/build/compose/binaries/main/deb/*.deb 2>/dev/null | head -1)
             if [ -n "$deb" ]; then echo "LINUX PACKAGE: $(basename "$deb"), $(du -h "$deb" | cut -f1)"; else echo "LINUX PACKAGE: not built"; fi
-            grep -E '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS)'"$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
+            grep -aE '^LINUX (START|PLAY|MPV|PACKAGE NEEDS|SCREENS)' "$RUNNER_TEMP/linux-start.txt" 2>/dev/null || echo "LINUX START: not tried"
             echo "--- errors"
             grep -E "^e: |error:|What went wrong|FAILED" -A2 "$RUNNER_TEMP/build.log" | grep -v "^w: " | head -120
             echo "--- the end of the log"
