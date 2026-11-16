@@ -462,57 +462,19 @@ object Music {
     var songPicks by mutableStateOf<Map<String, String>>(emptyMap())
     /** Duplicates: groups you marked "Not a duplicate" (their copies' files, sorted, joined): never shown again. */
     var notDupes: Set<String> = emptySet()
-    fun dupeKey(g: List<Track>) = g.map { lib.items[it.id]?.file ?: it.file ?: it.id }.sorted().joinToString("\u0001")
-    fun markNotDupe(g: List<Track>) {
-        notDupes = notDupes + dupeKey(g); saveState()
-        dupes = dupes?.filter { it !== g }
-        toast("“${g[0].title}”: not a duplicate, remembered")
-    }
+    fun dupeKey(g: List<Track>) = StatPicks.dupeKey(g)
+    fun markNotDupe(g: List<Track>) = StatPicks.markNotDupe(g)
     var singlesKept: Set<String> = emptySet()   // Singles › Single scan: songs left alone (their files)
-    fun keepSingles(more: Collection<String>) { singlesKept = singlesKept + more; saveState() }
-    fun addSongPicks(more: Map<String, String>) { songPicks = songPicks + more; saveState(); Stats.refresh(force = true) }
-    fun addAlbumPicks(more: Map<String, String>) { albumPicks = albumPicks + more; saveState(); Stats.refresh(force = true) }
-    fun keepApart(from: String, to: String) {
-        val k = norm(from).replace(Regex("[\\W_]+"), "") + ">" + norm(to).replace(Regex("[\\W_]+"), "")
-        if (k !in similarKept) { similarKept = similarKept + k; saveState() }
-    }
-    fun setArtistPick(credit: String, name: String?) {
-        artistPicks = if (name == null) artistPicks - pairKey(credit) else artistPicks + (pairKey(credit) to name)
-        saveState()
-    }
-    /** Merge into…: name's plays count as to's from now on, and name's songs the app downloaded get to in their tags
-     *  (name's part of a pair's credit, or the whole credit). The desktop's merge_artist. */
-    fun mergeArtist(name: String, to: String) {
-        setArtistPick(name, to)
-        val k = norm(name).replace(Regex("[\\W_]+"), "")
-        fun same(n: String) = norm(n).replace(Regex("[\\W_]+"), "") == k
-        fun swap(credit: String): String = if (same(credit)) to
-            else credit.split(Regex("(?<=( & | x |, |;))|(?=( & | x |, |;))")).joinToString("") { if (same(it)) to else it }
-        bg({
-            var n = 0
-            for (t in mySongs()) {
-                val uri = Tags.editable(t) ?: continue
-                val new = swap(t.artist)
-                if (new == t.artist) continue
-                runCatching { Tags.write(ctx, uri, mapOf("artist" to new, "albumartist" to new)) }.onSuccess { n++ }
-            }
-            n
-        }) { n, _ ->
-            toast("$name is $to now" + if ((n ?: 0) > 0) ": $n song${if (n != 1) "s" else ""} retagged" else "")
-            Stats.refresh(force = true)
-            musicVersion++
-        }
-    }
+    // Your picks in the stats (what they do when you make one) are StatPicks' own: these hand on. The picks are kept here.
+    fun keepSingles(more: Collection<String>) = StatPicks.keepSingles(more)
+    fun addSongPicks(more: Map<String, String>) = StatPicks.addSongPicks(more)
+    fun addAlbumPicks(more: Map<String, String>) = StatPicks.addAlbumPicks(more)
+    fun keepApart(from: String, to: String) = StatPicks.keepApart(from, to)
+    fun setArtistPick(credit: String, name: String?) = StatPicks.setArtistPick(credit, name)
+    fun mergeArtist(name: String, to: String) = StatPicks.mergeArtist(name, to)
 
-    private var resolverCache: Pair<Any, (String) -> String>? = null
-    /** artistResolver for your songs and your Joint artists… picks, kept until either changes. */
-    fun artistResolver(): (String) -> String {
-        val sig = listOf(lib.items.size, local.files.size, musicVersion, artistPicks)
-        resolverCache?.let { if (it.first == sig) return it.second }
-        val r = artistResolver(runCatching { mySongs() }.getOrDefault(emptyList()), artistPicks)
-        resolverCache = sig to r
-        return r
-    }
+    /** artistResolver for your songs and your Joint artists picks, kept until either changes. */
+    fun artistResolver(): (String) -> String = StatPicks.artistResolver()
     fun chooseCollageSize(n: Int) { if (n != collageSize) { collageSize = n; saveState() } }
 
     var topPeriod by mutableStateOf("all")      // Most played over: week, month, year, all
@@ -1048,33 +1010,8 @@ object Music {
 
     fun loadCurrent(autoplay: Boolean = true) = PlaybackCore.loadCurrent(autoplay)
 
-    /** The cover the lock screen, the notification, Android Auto and Windows' media controls show: the same one the app
-     *  shows (the download's, one you picked in the Tagger or Pick a cover, the service's), else the file's own (FLAC, MP3,
-     *  M4A, WAV) or its folder's cover.jpg / folder.jpg, saved as a picture in the cache once per song. */
-    internal fun nowArt(t: Track): String? {
-        lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && java.io.File(it).exists() }?.let { return it }
-        val name = t.album.ifEmpty { t.title }
-        // A cover from the web: its copy on disk once it's been loaded (kept the first time), not downloaded again.
-        fun web(u: String): String = if (!u.startsWith("http")) u else CoverCache.local(u)?.path ?: u.also { CoverCache.keepLater(it) }
-        Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return web(it) }
-        if (t.thumb.isNotEmpty()) return web(sizedThumb(t.thumb, 544))
-        if (t.file == null) SongCovers.shown(t.title, t.artist).takeIf { it.isNotEmpty() }?.let { return web(sizedThumb(it, 544)) }
-        val old = Pictures.oldCover(t.artist, name).ifEmpty { null }
-        return t.file?.let { fileArt(it) } ?: old?.let { web(it) }
-    }
-    private val fileArts = java.util.concurrent.ConcurrentHashMap<String, String>()
-    private fun fileArt(file: String): String? {
-        fileArts[file]?.let { return it.ifEmpty { null } }
-        val bytes = runCatching { embeddedPicture(ctx, file) }.getOrNull() ?: FolderCover.bytes(file)
-        val out = bytes?.let { b -> runCatching {
-            val dir = java.io.File(ctx.cacheDir, "now-art").apply { mkdirs() }
-            // Named by the whole path (SHA-1), not its hashCode: two songs whose paths share one would share a cover.
-            val name = java.security.MessageDigest.getInstance("SHA-1").digest(file.toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
-            java.io.File(dir, "$name.jpg").apply { writeBytes(b) }.path
-        }.getOrNull() }
-        fileArts[file] = out ?: ""
-        return out
-    }
+    /** The cover the lock screen, the notification, Android Auto and Windows' media controls show (NowArt's own). */
+    internal fun nowArt(t: Track): String? = NowArt.of(t)
 
     /** Tidal's stream stopped short: look it up again and carry on from the same place, once per song. */
     fun streamBroke() = PlaybackCore.streamBroke()
