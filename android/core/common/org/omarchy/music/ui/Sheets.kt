@@ -1312,6 +1312,11 @@ private fun PlaybackLines(ui: Ui) {
         P.on(P.SMART_SHUFFLE)) {
         Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
     }
+    Line("Move, don't duplicate", "What Play next and Add to queue do with a song that's already waiting in the queue. " +
+        "Off: it is put in again, so it plays where you put it and again where it was. On: it is moved to where you put " +
+        "it, so it's in the queue once", P.on(P.QUEUE_MOVE)) {
+        Switch(P.on(P.QUEUE_MOVE), { P.set(P.QUEUE_MOVE, it) }, colors = swColors())
+    }
 }
 
 

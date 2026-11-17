@@ -56,6 +56,7 @@ object Prefs {
     const val AUTO_MONO_DEVICE = "auto_mono_device"   // which earbuds (their Bluetooth name)
     const val CONTINUE = "continue_across"       // continue where you left off, across the PC and the phone
     const val SMART_SHUFFLE = "smart_shuffle"
+    const val QUEUE_MOVE = "queue_move"          // Play next / Add to queue: a song already waiting is moved up, not put in twice
     const val LOUDNESS_CHECK = "loudness_check"
     const val LOCK_SCREEN = "lock_screen_player"
     /** On (as it always was): Shuffle beside Repeat in the notification and on the lock screen; off: Download in its place. */

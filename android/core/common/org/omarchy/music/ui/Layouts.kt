@@ -157,7 +157,7 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     Box(modifier) {
         Tile(artModel(own, tilePx(compact)), own.title, own.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
-            onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
+            onLongClick = { if (ui.selecting) ui.optionsHere(t) else ui.startSelecting(place.group, place, t) },   // hold: picking starts
             over = {
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                     Icon(if (Music.paused) Ico.PAUSE else Ico.PLAY, C.accent, if (compact) 20.dp else 26.dp)

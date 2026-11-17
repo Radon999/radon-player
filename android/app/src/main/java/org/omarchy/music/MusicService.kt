@@ -32,6 +32,7 @@ class MusicService : MediaLibraryService() {
     private var switching: Job? = null
     private var players = emptyList<Player>()
     private var retriedFor: String? = null   // the song played again once after an audio error
+    private var noisyPause = 0L              // when Android's "becoming noisy" last paused the music (0: not waiting on one)
 
     override fun onCreate() {
         super.onCreate()
@@ -60,6 +61,7 @@ class MusicService : MediaLibraryService() {
                     exo.play(); return
                 }
                 Music.paused = !playWhenReady
+                if (playWhenReady) noisyPause = 0L   // playing again (by you, or by itself): nothing left to undo
                 if (!playWhenReady) pausedAt = android.os.SystemClock.elapsedRealtime()
             }
 
@@ -129,8 +131,36 @@ class MusicService : MediaLibraryService() {
                 if (UsbDirect.ownsOrJustMoved() && UsbDirect.device() != null) {
                     return
                 }
-                if (exo.playWhenReady) exo.pause()
+                if (!exo.playWhenReady) return
+                exo.pause()
+                // With two things connected (earbuds and the car), the music moving from one to the other is told to
+                // the app the same way as headphones being unplugged, and the song stopped partway for no reason you
+                // could see. So: paused at once, as for an unplug (nothing ever blares from the phone's speaker), and a
+                // moment later, if headphones, a car or a DAC are still connected to play through, it goes on by itself.
+                val stoppedAt = android.os.SystemClock.elapsedRealtime()
+                noisyPause = stoppedAt
+                val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                val h = android.os.Handler(mainLooper)
+                fun look(tries: Int) {
+                    if (noisyPause != stoppedAt || exo.playWhenReady) return   // started again, or paused again, meanwhile
+                    if (stillPlugged(am)) {
+                        Crashes.note("The sound moved to another device mid-song (not an unplug): the music went on by itself")
+                        noisyPause = 0L
+                        exo.play()
+                    } else if (tries < 3) h.postDelayed({ look(tries + 1) }, 900)
+                }
+                h.postDelayed({ look(0) }, 1200)
             }
+
+            /** Something other than the phone's own speaker is connected to play through: Bluetooth (earbuds, a car),
+             *  wired headphones, a USB DAC, a hearing aid. */
+            private fun stillPlugged(am: android.media.AudioManager): Boolean = runCatching {
+                val kinds = setOf(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                    android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES, android.media.AudioDeviceInfo.TYPE_USB_HEADSET,
+                    android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_HEARING_AID,
+                    26 /* BLE headset */, 27 /* BLE speaker */)
+                am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any { it.type in kinds }
+            }.getOrDefault(false)
         }, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

@@ -39,4 +39,25 @@ object QueueRules {
      *  order you put them in stays. */
     fun swap(queues: List<SavedQueue>, keep: SavedQueue, to: String): List<SavedQueue> =
         queues.filter { it.id != keep.id }.map { if (it.id == to) keep else it }
+
+    /** Shuffle: the whole list again, not only what's still to come. The song playing goes first, then the songs you
+     *  queued by hand (in your order), then every other song of the list, the ones already played too, shuffled
+     *  (shuffle does that). No song is lost and none comes twice. The song playing is at 0 afterwards. */
+    fun reshuffled(queue: List<Track>, index: Int, shuffle: (List<Track>) -> List<Track>): List<Track> {
+        if (index !in queue.indices) return queue
+        val coming = queue.drop(index + 1)
+        return listOf(queue[index]) + coming.filter { it.queued } + shuffle(queue.take(index) + coming.filter { !it.queued })
+    }
+
+    /** The queue with songs added: right after the one playing (next), or after the songs queued by hand before.
+     *  move (Settings › Playback): a song that is already waiting further on is taken from there, so it is in the
+     *  queue once; without it the song is there twice (where it was, and where you put it). What has played, and
+     *  the song playing, stay as they are. */
+    fun enqueued(queue: List<Track>, index: Int, add: List<Track>, next: Boolean, move: Boolean): List<Track> {
+        var coming = queue.drop(index + 1)
+        if (move) { val ids = add.mapTo(HashSet()) { it.id }; coming = coming.filter { it.id !in ids } }
+        var pos = 0
+        if (!next) while (pos < coming.size && coming[pos].queued) pos++
+        return queue.take(index + 1) + coming.take(pos) + add + coming.drop(pos)
+    }
 }

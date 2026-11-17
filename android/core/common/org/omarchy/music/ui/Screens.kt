@@ -1154,12 +1154,25 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 Pill("Merge into…", quiet = true) { ui.mergeArtist = page.name }
             }
         }
+        // Their albums and singles first: that's where all their music is. Then your songs, then their top songs.
+        if (albums.isNotEmpty()) {
+            item { Section(if (onlyMine) "YOUR ALBUMS AND SINGLES" else "ALBUMS AND SINGLES") }
+            val shown = albums.filter { fits(ui, it.al.title, it.al.sub) }
+            laidOutItems(shown, ui, key = { "aa-" + shown[it].al.id + "#" + it }, row = { j ->
+                val a = shown[j]
+                PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+            }) { j, mod, compact ->
+                val a = shown[j]
+                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
+                    onLongClick = { albumMenu(a) }) { openAlbum(a) }
+            }
+        }
         if (mine.isNotEmpty()) {
             item { Section("YOUR SONGS") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("most" to "Most played", "least" to "Least played", "title" to "Title", "album" to "Album", "added" to "Newest")
-                        .forEach { (k, l) -> Chip(l, sort == k) { Music.artistSort = k } }
+                    listOf("album" to "Album", "most" to "Most played", "least" to "Least played", "title" to "Title", "added" to "Newest")
+                        .forEach { (k, l) -> Chip(l, sort == k) { Music.artistSort = k; org.omarchy.music.Prefs.setText("artist_sort", k) } }
                 }
             }
             tracks(mine, ui, "artist") { t -> "${t.plays} play${if (t.plays != 1) "s" else ""}" }
@@ -1173,18 +1186,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 item { Section(if (onlyMine) "YOUR COPIES OF THEIR TOP SONGS"
                     else "TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
                 tracks(top, ui, "artist", radio = true, section = "artist-top")
-            }
-        }
-        if (albums.isNotEmpty()) {
-            item { Section(if (onlyMine) "YOUR ALBUMS AND SINGLES" else "ALBUMS AND SINGLES") }
-            val shown = albums.filter { fits(ui, it.al.title, it.al.sub) }
-            laidOutItems(shown, ui, key = { "aa-" + shown[it].al.id + "#" + it }, row = { j ->
-                val a = shown[j]
-                PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
-            }) { j, mod, compact ->
-                val a = shown[j]
-                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
-                    onLongClick = { albumMenu(a) }) { openAlbum(a) }
             }
         }
     }

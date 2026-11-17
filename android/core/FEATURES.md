@@ -12,8 +12,8 @@ Radon Player plays your own music files and the streaming services you use, toge
 
 - **Now playing:** The big cover, with ☆ to favorite and ⋯ for options. Swipe the cover for the next or previous song, swipe up for the queue, tap it for lyrics, double-tap to pause.
 - **Quality badge:** Says what you're hearing ("FLAC 24-bit/96 kHz", a stream's quality, or "Offline"). On a stream, **⤓ FLAC** saves it.
-- **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. With **Queues** on, each album, playlist and folder keeps its own queue where you left it; **Q** at the top of Now playing opens them.
-- **Shuffle, Repeat and Autoplay:** **Smart shuffle** favors songs you love but haven't heard in a while (it goes by your plays everywhere, Last.fm and your imports too); Repeat one starts the song again reliably; Autoplay keeps similar songs coming when the queue ends. With the DJ on, only Repeat one is used: the DJ's sets go on in their own order.
+- **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. Play next and Add to queue put a song in again if it is already waiting, or with **Move, don't duplicate** (Settings › Playback) move it there instead. With **Queues** on, each album, playlist and folder keeps its own queue where you left it; **Q** at the top of Now playing opens them.
+- **Shuffle, Repeat and Autoplay:** Shuffle mixes the whole list, the songs already played too, with the one playing first. **Smart shuffle** favors songs you love but haven't heard in a while (it goes by your plays everywhere, Last.fm and your imports too); Repeat one starts the song again reliably; Autoplay keeps similar songs coming when the queue ends. With the DJ on, only Repeat one is used: the DJ's sets go on in their own order.
 - **Per song:** Its own volume (−12 to +12 dB), its own EQ and its own speed, remembered each time it plays.
 - **Your copy first:** Wherever a song shows up (a playlist, search, a radio, the DJ), your own file plays when you have it, with its cover and tags.
 - **Mono** puts both sides in one earbud; **casting** sends music to a Chromecast, Google speaker or TV.
@@ -25,12 +25,12 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 
 - **My music, Albums, EPs, Singles, Artists, Genres and Folders,** from your files and downloads. An album lists its songs by track number (two discs: disc one, then disc two) and shows **Missing from this album** to download the rest.
 - **Which tab a release is in:** a release tagged "… - Single" or "… - EP" is in Singles or EPs, in any folder; a folder named as an EP or a single decides too, and the Tagger can put a release in any of the three by hand.
-- **Artist pages:** Your songs, **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways. The **Discovery** screen lists every artist's discovery playlists.
+- **Artist pages:** Their albums and singles first, then your songs (by album, or the sort you pick), **Change picture…**, a **Discovery playlist** (their songs you don't have), an artist playlist, and **Merge into…** for an artist written two ways. The **Discovery** screen lists every artist's discovery playlists.
 - **Playlists:** Make, sort, fold into folders, import and export (.m3u8). A playlist in a folder shows in its folder only. **Smart playlists** fill themselves by rules (genre, mood, plays, format, skips, length…), with ready-made ones.
 - **Unreleased:** your songs in any folder named Unreleased, and in the folders you put there with **Folders…**, with Play, Shuffle and the DJ for all of them.
 - **More lists:** Favorites, Recently played, Downloads, 24-bit and 32-bit FLACs, Skips, Duplicates, and Pinned items at the top of the menu.
 - **Refresh in every tab:** ↻ at the top reads your files again, or adds up your listening again, whichever the tab shows.
-- **Select:** Hold down on a song (right-click on a computer) to pick several songs, albums, playlists or folders, then play, queue, download, tag or delete them together. In Search, holding an artist or an album picks all its songs at once.
+- **Select:** Hold down on a song (right-click on a computer) and picking starts with it picked; pick several songs, albums, playlists or folders, then play, queue, download, tag or delete them together. In Search, holding an artist or an album picks all its songs at once.
 - **Search** ignores symbols ("acdc" finds AC/DC) and takes voice typing; Back returns to what you searched for.
 - **Covers:** found for songs without one; a song with no picture in its file shows the cover in its folder (cover.jpg, folder.jpg…). **Covers from folders** (Settings › Scanner) puts that picture into each file that has none.
 - **Moved files are followed,** so playlists still find them, and a song you have under another name of its artist isn't called missing.

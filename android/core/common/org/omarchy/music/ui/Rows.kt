@@ -297,7 +297,9 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                             else -> onPlay()
                         }
                     },
-                    onLongClick = { if (ui.selecting) ui.optionsHere(t) else menu = true },
+                    // Hold (right-click on a computer): picking starts at once, with this song picked. Its own menu is
+                    // the ⋮ on the row; while picking, holding a song opens the options for what's picked.
+                    onLongClick = { if (ui.selecting) ui.optionsHere(t) else ui.startSelecting(place.group, place, t) },
                 )
                 .padding(horizontal = Themes.gap(8.dp), vertical = Themes.gap(6.dp)),
             verticalAlignment = Alignment.CenterVertically,

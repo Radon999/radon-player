@@ -2,6 +2,14 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.6 · November 2026
+- **Hold a song and picking starts:** holding a song (right-click on a computer) starts multi-select at once with that song picked, everywhere: lists, grids and the queue. Before, some places opened the song's menu and Select was at the bottom of it. A song's own menu is its ⋮; while picking, holding a song opens the options for what's picked.
+- **Shuffle shuffles the whole list:** started halfway down a playlist, Shuffle used to mix only what was still to come, so the songs above never played. It now takes every song of the list, with the one playing first and the ones you queued next.
+- **Move, don't duplicate (Settings › Playback):** a switch for what Play next and Add to queue do with a song already waiting in the queue. Off, as it always was: it's put in again. On: it's moved to where you put it, so it's in the queue once.
+- **The app's messages get out of the way:** tap one, or swipe it to either side, and it's gone, so it never keeps you from Play, Pause or Skip.
+- **An artist's page starts with their albums and singles,** then your songs, then their top songs; and your songs are sorted by album until you pick another sort (which is then kept).
+- **The music no longer stops when the sound moves between your earbuds and the car (phone):** with both connected, Android tells the app the same thing as when headphones are unplugged, and the song paused partway. It still pauses for a moment, then goes on by itself when something is still connected to play through. Unplugging your only headphones pauses as before.
+
 ## 4.0.5 · November 2026
 - **Checking for an update always finishes:** Settings could stay on "checking for a newer version…" for good. The check waited its turn among the app's other background work (all of it busy during a scan or a sync) and had no time limit of its own. It now runs by itself, ends within about a minute whatever the network does, and has a second way to find the newest version when GitHub won't give its list. Downloading the update no longer waits for other work either.
 

@@ -257,7 +257,19 @@ fun App() {
             }
             // Rain and snow fall over the screens, the seek bar and the buttons (a plain Canvas: taps go through to them)
             LookEffects(LookFx.over(C.fx))
-            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp))
+            // The app's notes (the white messages). They can sit over the play buttons, so a tap or a swipe to either
+            // side sends one away at once: no waiting for it to go by itself.
+            SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp)) { data ->
+                var dx by remember(data) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                androidx.compose.material3.Snackbar(data, Modifier
+                    .graphicsLayer(translationX = dx, alpha = (1f - kotlin.math.abs(dx) / 500f).coerceIn(0.15f, 1f))
+                    .pointerInput(data) {
+                        androidx.compose.foundation.gestures.detectHorizontalDragGestures(
+                            onDragEnd = { if (kotlin.math.abs(dx) > 70f) data.dismiss() else dx = 0f },
+                            onDragCancel = { dx = 0f }) { _, d -> dx += d }
+                    }
+                    .pointerInput(data) { androidx.compose.foundation.gestures.detectTapGestures { data.dismiss() } })
+            }
             DesktopVolume(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
             Sheets(ui)
             if (ui.showOptions) OptionsSheet(ui)

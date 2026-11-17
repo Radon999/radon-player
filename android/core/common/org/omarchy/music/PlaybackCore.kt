@@ -175,9 +175,8 @@ object PlaybackCore {
         val ts = Music.localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
         if (current() == null) { playFrom(ts, 0, false); return }
-        var pos = index + 1
-        if (how != "next") while (pos < queue.size && queue[pos].queued) pos++
-        queue = queue.take(pos) + ts + queue.drop(pos)
+        // Settings › Playback › Move, don't duplicate: a song already waiting further on is moved up, not put in twice
+        queue = QueueRules.enqueued(queue, index, ts, next = how == "next", move = Prefs.on(Prefs.QUEUE_MOVE))
         afterQueueChange()
         val many = if (ts.size > 1) "${ts.size} songs" else "“${ts[0].title}”"
         Music.toast(if (ts.size > 1) "$many ${if (how == "next") "play next" else "added to the queue"}"
@@ -224,12 +223,15 @@ object PlaybackCore {
         Music.saveState()
     }
 
-    /** Shuffle what's coming up; the songs you queued stay first, in your order. */
+    /** Shuffle the whole list (the songs already played too): the song playing first, the songs you queued next, in
+     *  your order, then all the rest shuffled. (Before, only what was still to come was shuffled: started halfway
+     *  down a playlist, the songs above never came.) */
     fun shuffle() {
         if (Remote.active) { Remote.cmd("shuffle"); return }
         if (djSide.on) { Music.toast("The DJ plays each set in its own order, so shuffle isn't used with the DJ"); return }
-        val rest = queue.drop(index + 1)
-        queue = queue.take(index + 1) + rest.filter { it.queued } + shuffleSongs(rest.filter { !it.queued })
+        if (index !in queue.indices) return
+        queue = QueueRules.reshuffled(queue, index) { shuffleSongs(it) }
+        index = 0
         shuffled = true
         afterQueueChange()
     }

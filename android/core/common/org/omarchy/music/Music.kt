@@ -129,7 +129,7 @@ object Music {
     var visPreset by mutableStateOf("bars")    // the Visualizer tab's look
     var autoplay by mutableStateOf(true)       // ∞: when the queue runs out, songs like the last one play on
     var wrappedStyle by mutableStateOf("classic")   // Wrapped's look
-    var artistSort by mutableStateOf("most")   // an artist's page: their songs by most played, least, title, album, newest
+    var artistSort by mutableStateOf("album")   // an artist's page: their songs by album (unless you pick another: kept), most played, least, title, newest
     var skipOrder by mutableStateOf("most")    // how Skips is sorted: most, least, heard
     var topMineOnly by mutableStateOf(true)   // Most played: only the songs on the phone (plays from everywhere)
     fun chooseTopMineOnly(on: Boolean) { topMineOnly = on; MostPlayed.forget(); musicVersion++; saveState() }
@@ -205,6 +205,7 @@ object Music {
         // The theme (Settings › Personalization › Theme) is read from the settings, as Compose state, so a change redraws
         org.omarchy.music.ui.Themes.source = { Prefs.text(org.omarchy.music.ui.Themes.PREF, org.omarchy.music.ui.Themes.STANDARD) }
         loadDownloadQuality()
+        artistSort = Prefs.text("artist_sort", "album").takeIf { it in setOf("album", "most", "least", "title", "added") } ?: "album"
         MusicTools.init()
         QualityCheck.init(ctx)
         TagScan.Done.init(ctx)
