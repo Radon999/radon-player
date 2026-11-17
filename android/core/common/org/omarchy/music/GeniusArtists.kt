@@ -59,6 +59,28 @@ object GeniusArtists {
         return out
     }
 
+    private val albumLists = HashMap<String, List<Album>>()
+
+    /** (blocking) The releases Genius lists for the artist (albums, EPs, singles with a page of their own), the
+     *  year under each. Remembered while the app runs. */
+    fun albums(id: String): List<Album> {
+        synchronized(albumLists) { albumLists[id] }?.let { return it }
+        val out = ArrayList<Album>()
+        var page: Long? = 1
+        var pages = 0
+        while (page != null && pages++ < 6) {
+            val res = httpJson("https://genius.com/api/artists/$id/albums?per_page=50&page=$page")["response"]
+            for (a in res["albums"].list) {
+                val aid = a["id"].long ?: continue
+                val name = a["name"].str?.takeIf { it.isNotBlank() } ?: continue
+                out += Album(aid.toString(), name, a.path("release_date_components", "year").long?.toString() ?: "",
+                    (a["cover_art_thumbnail_url"].str ?: "").let { if ("default_cover" in it) "" else it })
+            }
+            page = res["next_page"].long
+        }
+        return out.also { synchronized(albumLists) { albumLists[id] = it } }
+    }
+
     /** A service's releases gone through with Genius's list: the releases that aren't theirs (their ids), and the
      *  songs of the ones that are. */
     class Sorted(val notTheirs: Set<String>, val songs: List<Track>)
@@ -78,7 +100,7 @@ object GeniusArtists {
         val out = HashSet<String>()
         for ((i, al) in releases.withIndex()) {
             progress(i, releases.size)
-            val tracks = runCatching { src.album(al.id) }.getOrNull() ?: continue
+            val tracks = ArtistLookups.releaseSongs(info.source, al.id) ?: continue
             if (al.id in own && !GeniusRules.releaseIsTheirs(tracks.map { it.title }, theirs)) out += al.id else got += al to tracks
         }
         progress(releases.size, releases.size)

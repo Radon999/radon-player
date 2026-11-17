@@ -213,7 +213,22 @@ class YouTubeMusic(private val cookie: String?) : Source {
             h.contains("Album", true) || h.contains("Single", true) || h.contains("EP", false)
         }.flatMap { c ->
             val singles = text(find(c["header"], "title").firstOrNull()).contains("Single", true)
-            find(c, "musicTwoRowItemRenderer").mapNotNull { twoRow(it) }.map { a ->
+            // The artist's page shows only the first ten or so of each kind; the row's "More" leads to all of them
+            // (asked for, its further pages too). Without it, an older EP or single was missing from the page.
+            val more = find(c["header"], "moreContentButton").firstOrNull()?.let { find(it, "browseEndpoint").firstOrNull() }
+            val rest = more?.let { ep ->
+                runCatching {
+                    val pages = mutableListOf(browse(ep["browseId"].str ?: return@runCatching emptyList<JsonElement>(), ep["params"].str))
+                    var token = continuation(pages.last())
+                    val seen = HashSet<String>()
+                    while (token != null && seen.add(token) && pages.size < 8) {
+                        pages += call("browse", buildJsonObject { put("continuation", token!!) })
+                        token = continuation(pages.last())
+                    }
+                    pages.flatMap { find(it, "musicTwoRowItemRenderer") }
+                }.getOrNull()
+            }.orEmpty()
+            (find(c, "musicTwoRowItemRenderer") + rest).mapNotNull { twoRow(it) }.map { a ->
                 val year = Regex("\\b(19|20)\\d\\d\\b").find(a.sub)?.value ?: if (singles) "Single" else ""
                 a.copy(sub = year)
             }

@@ -3,6 +3,11 @@
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
 ## 4.0.7 · November 2026
+- **An artist's whole discography:** a release could be missing from an artist's page (an older EP, say). YouTube Music's artist page shows only the first few of each kind, and the app never asked for the rest: it does now. And the releases Genius lists for the artist that the service still leaves out are added, marked "on Genius"; open one and its songs play from your copy, or are looked for on Tidal and YouTube.
+- **Singles that are on an album or EP already are folded away (streaming only):** on an artist's page a service's single whose song is on one of their albums or EPs is left out, so the song is found on its release and the list is shorter. In a service's search, a song found both as its single and on a release shows as the release's, and the single is not listed among the albums. An EP always stays, also when an album has its songs. Your own files are never touched by this: a single you have stays in your music. What was left out is under Show what's left out, and can be put back.
+- **Only streaming, on an artist's page:** a third choice in the menu at the top, beside Everything and Only my music: what the services have, without your own files.
+- **Sort an artist's page as the other tabs:** a Sort menu for their releases (newest, oldest, by name), for your songs (title, album, added, most and least played, last played, length, shuffled) and for Every song. Each is kept.
+- **Genius search finds artists and releases too:** it used to list only songs. It now shows artists, then albums, EPs and singles, and a song by itself only when it was released by itself: a song on an album or EP shows as that release, which opens with all its songs. Tapping one of several same-named artists opens that name's page sorted with the one you tapped.
 - **Picking a song in the queue picks that one only:** with the same song waiting in the queue more than once, holding one of them picked every one. Each row of the queue is now its own: pick one and only it is ticked, and Remove from the queue takes out just the rows you picked.
 
 ## 4.0.6 · November 2026

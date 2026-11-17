@@ -71,6 +71,24 @@ object ArtistLookups {
     fun choices(name: String, source: String): List<ArtistChoice> =
         runCatching { Music.sources[source]?.artistsNamed(name) }.getOrNull().orEmpty()
 
+    private val releaseCache = HashMap<String, List<Track>>()
+
+    /** (blocking) A release's songs from its service, or null when they can't be had. Remembered while the app runs:
+     *  an artist's page asks for each of their releases (to leave out singles that are on a release, to sort two
+     *  bands apart, to list every song), and each is asked for once. */
+    fun releaseSongs(source: String, id: String): List<Track>? {
+        val key = "$source:$id"
+        synchronized(releaseCache) { releaseCache[key] }?.let { return it }
+        val got = runCatching { Music.sources[source]?.album(id) }.getOrNull() ?: return null
+        synchronized(releaseCache) { if (releaseCache.size > 800) releaseCache.clear(); releaseCache[key] = got }
+        return got
+    }
+
+    /** (blocking) The service's singles of an artist that are on one of their albums or EPs already (their ids):
+     *  left out of the page, the song is on its release. See [ReleaseRules]. */
+    fun foldedSingles(info: ArtistInfo): Set<String> =
+        ReleaseRules.foldedSingles(info.albums.take(80).mapNotNull { al -> releaseSongs(info.source, al.id)?.let { al to it } })
+
     /** (blocking) Every song on the artist's releases (their albums, EPs and singles, then the compilations they're
      *  on), each once, your own copy in place of each one you have. Each release is asked for in turn: progress
      *  says how far (done, of). A release that can't be had is passed over. */
@@ -80,7 +98,7 @@ object ArtistLookups {
         val got = ArrayList<Pair<Album, List<Track>>>()
         for ((i, al) in releases.withIndex()) {
             progress(i, releases.size)
-            runCatching { src.album(al.id) }.getOrNull()?.let { got += al to it }
+            releaseSongs(info.source, al.id)?.let { got += al to it }
         }
         progress(releases.size, releases.size)
         val who = info.name.ifEmpty { name }
