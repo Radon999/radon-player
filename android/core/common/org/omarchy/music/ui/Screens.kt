@@ -1145,6 +1145,23 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     var from by remember { mutableStateOf(org.omarchy.music.Prefs.text(Music.ARTIST_PAGE_FROM).ifEmpty { "all" }) }
     val onlyMine = from == "mine"
     val onlyStream = from == "stream"
+    // Every song of theirs is listed without being asked for: as soon as the page knows them (and, with a Genius
+    // artist picked, Genius's list), their releases are gone through. Again when either changes.
+    var everySeq by remember(page) { mutableStateOf(0) }
+    LaunchedEffect(info, gPick, gSongs, onlyMine) {
+        val i = info ?: return@LaunchedEffect
+        if (onlyMine || (gPick != null && gSongs == null)) return@LaunchedEffect   // Genius's list is on its way
+        val hits = gSongs?.takeIf { it.isNotEmpty() }
+        val seq = ++everySeq
+        every = null
+        everyAt = 0 to (i.albums.size + i.also.size)
+        Music.bg({
+            val step = { d: Int, n: Int -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (seq == everySeq && everyAt != null) everyAt = d to n }; Unit }
+            // With a Genius artist picked: the songs of the releases that are theirs, then the ones only Genius lists
+            if (hits != null) org.omarchy.music.GeniusArtists.every(org.omarchy.music.GeniusArtists.sort(i, page.name, hits, step), hits)
+            else org.omarchy.music.ArtistLookups.everySong(i, page.name, step)
+        }) { res, _ -> if (seq == everySeq) { every = res.orEmpty(); everyAt = null } }
+    }
     fun yours(t: Track) = t.isFile || t.file != null || Music.lib.has(t.id)
     val ownAlbums = remember(page, Music.musicVersion) { runCatching { Music.artistOwnAlbums(page.name) }.getOrDefault(emptyList()) }
     val allRaw = remember(songs, coverTick, v, from) { songs.filter { (!onlyMine || yours(it)) && (!onlyStream || !yours(it)) }.map { withCover(it) } }
@@ -1317,7 +1334,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 Pill("Merge into…", quiet = true) { ui.mergeArtist = page.name }
             }
         }
-        // Their albums and singles first: that's where all their music is. Then your songs, then their top songs.
+        // Their albums and singles first, every one of them; then every song; then your songs and their top songs.
         if (albums.isNotEmpty()) {
             item { Section(if (onlyMine) "YOUR ALBUMS AND SINGLES" else "ALBUMS AND SINGLES") }
             item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { SortMenu("artist-albums", ARTIST_ALBUM_SORTS) } }
@@ -1329,6 +1346,22 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 val a = shown[j]
                 Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
                     onLongClick = { albumMenu(a) }) { openAlbum(a) }
+            }
+        }
+        // Every song they have, always (no button to ask for it): the songs of all their releases, and of the
+        // compilations they're on, each once; with a Genius artist picked, the ones only Genius lists too. It fills
+        // in a moment after the page opens (each release is asked for).
+        if (i != null && !onlyMine && (i.albums.isNotEmpty() || i.also.isNotEmpty() || gSongs?.isNotEmpty() == true)) {
+            val list = everyList
+            val at = everyAt
+            item { Section(if (list != null) "EVERY SONG · ${list.size}" else "EVERY SONG") }
+            if (list == null) item {
+                Text(if (at != null) "Going through their releases… ${at.first} of ${at.second}" else "Going through their releases…", style = T.sub,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            } else if (list.isEmpty()) item { Text("No songs could be listed", style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
+            else {
+                item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { SortMenu("artist-every", everySorts) } }
+                tracks(list, ui, "artist", section = "artist-every") { t -> t.album }
             }
         }
         if (mine.isNotEmpty()) {
@@ -1345,31 +1378,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 item { Section(if (onlyMine) "YOUR COPIES OF THEIR TOP SONGS"
                     else "TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
                 tracks(top, ui, "artist", radio = true, section = "artist-top")
-            }
-        }
-        // Every song they have: the songs of all their releases (and the compilations they're on), each once. The
-        // top songs above are only the service's twenty most played; a song that isn't one of those is here.
-        if (i != null && !onlyMine && (i.albums.isNotEmpty() || i.also.isNotEmpty())) {
-            val list = everyList
-            val at = everyAt
-            val hits = gSongs?.takeIf { it.isNotEmpty() }
-            item { Section(if (list != null) "EVERY SONG · ${list.size}" else "EVERY SONG") }
-            if (list == null) item {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (at == null) Pill("Show every song", quiet = true) {
-                        everyAt = 0 to (i.albums.size + i.also.size)
-                        Music.bg({
-                            val step = { d: Int, n: Int -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (everyAt != null) everyAt = d to n }; Unit }
-                            // With a Genius artist picked: the songs of the releases that are theirs, then the ones only Genius lists
-                            if (hits != null) org.omarchy.music.GeniusArtists.every(org.omarchy.music.GeniusArtists.sort(i, page.name, hits, step), hits)
-                            else org.omarchy.music.ArtistLookups.everySong(i, page.name, step)
-                        }) { res, _ -> every = res.orEmpty(); everyAt = null }
-                    } else Text("Going through their releases… ${at.first} of ${at.second}", style = T.sub)
-                }
-            } else if (list.isEmpty()) item { Text("No songs could be listed", style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
-            else {
-                item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { SortMenu("artist-every", everySorts) } }
-                tracks(list, ui, "artist", section = "artist-every") { t -> t.album }
             }
         }
         // What's left out of the page: hidden by you, or not on Genius's list. Nothing is gone; any of it can be put back.
