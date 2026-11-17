@@ -744,6 +744,11 @@ fun OptionsSheet(ui: Ui) {
                         add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
                     if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
                 }
+                // On an artist's page: hide songs from it yourself (two bands under one name), or put left-out ones back
+                (ui.pages.lastOrNull() as? Ui.Page.Artist)?.let { ap ->
+                    if (place?.kind == "artist-left") add(Triple(Ico.CHECK, "Show on ${ap.name}'s page") { org.omarchy.music.ArtistShown.songs(ap.name, picked, hide = false) })
+                    else if (place?.kind == "artist") add(Triple(Ico.CLOSE, "Hide from ${ap.name}'s page") { org.omarchy.music.ArtistShown.songs(ap.name, picked, hide = true) })
+                }
                 if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
                     val ids = picked.map { it.id }.toSet()
                     ui.confirm = "Take ${ids.size} song${if (ids.size != 1) "s" else ""} out of this playlist? They stay in your music." to {

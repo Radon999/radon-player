@@ -1056,6 +1056,20 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     // Every song on their releases, once asked for (each release is fetched in turn: everyAt says how far)
     var every by remember(page, reload) { mutableStateOf<List<Track>?>(null) }
     var everyAt by remember(page, reload) { mutableStateOf<Pair<Int, Int>?>(null) }
+    // Genius as a second opinion on whose a song is (a service can mix two bands of one name; Genius keeps them
+    // apart, mostly): the Genius artists of this name, the one you picked, its songs, and the service's releases
+    // gone through with them. Apart from the service's own "which one?" below: either can be used, or both.
+    var gChoices by remember(page) { mutableStateOf<List<org.omarchy.music.ArtistChoice>>(emptyList()) }
+    val gPick = remember(page, Music.artistsVersion) { org.omarchy.music.GeniusArtists.picked(page.name) }
+    var gSongs by remember(page, gPick) { mutableStateOf<List<org.omarchy.music.GeniusRules.Hit>?>(null) }
+    var gFailed by remember(page, gPick) { mutableStateOf(false) }
+    var sorted by remember(page, gPick, reload) { mutableStateOf<org.omarchy.music.GeniusArtists.Sorted?>(null) }
+    var sortAt by remember(page, gPick, reload) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var showLeft by remember(page) { mutableStateOf(false) }
+    LaunchedEffect(page) { Music.bg({ org.omarchy.music.GeniusArtists.choices(page.name) }) { c, _ -> gChoices = c.orEmpty() } }
+    LaunchedEffect(page, gPick) {
+        if (gPick != null) Music.bg({ org.omarchy.music.GeniusArtists.songs(gPick) }) { got, _ -> gSongs = got.orEmpty(); gFailed = got.isNullOrEmpty() }
+    }
     LaunchedEffect(page, reload) {
         Music.lookUpArtists(listOf(page.name))
         // Their top songs: your own copy of each you have (it plays your file, shows its cover), the service's otherwise.
@@ -1064,6 +1078,17 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             failed = err?.message ?: if (res == null) "No service knows ${page.name}" else null
             if (res != null && res.source.isNotEmpty() && choices.isEmpty())
                 Music.bg({ org.omarchy.music.ArtistLookups.choices(page.name, res.source) }) { c, _ -> choices = c.orEmpty() }
+        }
+    }
+    LaunchedEffect(info, gSongs) {
+        val i = info; val hits = gSongs
+        if (i != null && !hits.isNullOrEmpty() && sorted == null && sortAt == null) {
+            sortAt = 0 to (i.albums.size + i.also.size)
+            Music.bg({
+                org.omarchy.music.GeniusArtists.sort(i, page.name, hits) { d, n ->
+                    Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (sortAt != null) sortAt = d to n }
+                }
+            }) { res, _ -> sorted = res; sortAt = null }
         }
     }
     val v = Music.artistsVersion
@@ -1090,11 +1115,11 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val onlyMine = from == "mine"
     fun yours(t: Track) = t.isFile || t.file != null || Music.lib.has(t.id)
     val ownAlbums = remember(page, Music.musicVersion) { runCatching { Music.artistOwnAlbums(page.name) }.getOrDefault(emptyList()) }
-    val all = remember(songs, coverTick, v, onlyMine) { songs.filter { !onlyMine || yours(it) }.map { withCover(it) } }
-    val top = remember(info, coverTick, v, onlyMine) { info?.top.orEmpty().filter { !onlyMine || yours(it) }.map { withCover(it) } }
+    val allRaw = remember(songs, coverTick, v, onlyMine) { songs.filter { !onlyMine || yours(it) }.map { withCover(it) } }
+    val topRaw = remember(info, coverTick, v, onlyMine) { info?.top.orEmpty().filter { !onlyMine || yours(it) }.map { withCover(it) } }
     // The albums: only yours; or the service's (yours in place of each one you have: its cover, your songs), then
     // yours the service doesn't list.
-    val albums = remember(info, ownAlbums, onlyMine) {
+    val albumsRaw = remember(info, ownAlbums, onlyMine) {
         if (onlyMine) ownAlbums.map { ArtistAlbum(it.first, it, streamed = false) }
         else {
             val byBase = ownAlbums.associateBy { org.omarchy.music.albumBase(it.first.title) }
@@ -1103,6 +1128,20 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             streamed + ownAlbums.filter { it.first.id !in used }.map { ArtistAlbum(it.first, it, streamed = false) }
         }
     }
+    // What shows: what you hid yourself is off the page, what you put back is on it; with a Genius artist picked, a
+    // song or release of the service's that isn't on Genius's list for them is left out too (never your own files).
+    val marks = remember(page, v) { org.omarchy.music.ArtistShown.marks(page.name) }
+    val theirs = remember(gSongs) { gSongs?.takeIf { it.isNotEmpty() }?.let { org.omarchy.music.GeniusRules.judge(it) } }
+    fun songShown(t: Track) = org.omarchy.music.ArtistShownRules.shown(marks[org.omarchy.music.ArtistShownRules.songKey(t.title)],
+        theirs == null || yours(t) || theirs(t.title))
+    fun albumShown(a: ArtistAlbum) = org.omarchy.music.ArtistShownRules.shown(marks[org.omarchy.music.ArtistShownRules.albumKey(a.al.title)],
+        !a.streamed || a.own != null || sorted?.notTheirs?.contains(a.al.id) != true)
+    val all = allRaw.filter { songShown(it) }
+    val top = topRaw.filter { songShown(it) }
+    val albums = albumsRaw.filter { albumShown(it) }
+    val everyShown = every?.filter { songShown(it) }
+    val leftSongs = (allRaw + topRaw + every.orEmpty()).filter { !songShown(it) }.distinctBy { it.id }
+    val leftAlbums = albumsRaw.filter { !albumShown(it) }
     var opening by remember(page) { mutableStateOf(false) }
     /** An album: yours opens your album's page (your files, their covers and tags); the service's is looked up first, and
      *  opens as your album when you have every song on it, else as the service's with your copy of each song you have. */
@@ -1132,7 +1171,9 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         val own = a.own
         val pin = if (a.streamed || own == null) org.omarchy.music.Pin("album", a.al.id, a.al.title, a.al.sub, a.al.thumb, info?.source.orEmpty())
             else org.omarchy.music.Pin("album", own.first.id, own.first.title, own.first.sub, source = "local")
-        ui.choices = a.al.title to listOf(pinChoice(pin))
+        val hidden = !albumShown(a)
+        ui.choices = a.al.title to listOf(pinChoice(pin),
+            (if (hidden) "Show on ${page.name}'s page" else "Hide from ${page.name}'s page") to { org.omarchy.music.ArtistShown.album(page.name, a.al.title, hide = !hidden) })
     }
     val sort = Music.artistSort
     val mine = when (sort) {
@@ -1161,6 +1202,28 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                         })
                     }
                 }
+            }
+        }
+        // Genius's word on whose songs these are (shown when Genius has more than one artist of this name, or you
+        // picked one): only what's on that artist's list on Genius stays; Off shows all the service has.
+        if (gChoices.size > 1 || gPick != null) item {
+            var open by remember { mutableStateOf(false) }
+            val name = gChoices.firstOrNull { it.id == gPick }?.name
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
+                Box {
+                    Chip(if (gPick == null) "Mixed with another ${page.name}? Sort with Genius ▾" else "Sorted with Genius${name?.let { ": $it" } ?: ""} ▾", gPick != null) { open = true }
+                    DropdownMenu(open, { open = false }, containerColor = C.light) {
+                        DropdownMenuItem({ Text((if (gPick == null) "✓  " else "     ") + "Off · show all the service has", style = T.body) }, {
+                            open = false; if (gPick != null) org.omarchy.music.GeniusArtists.pick(page.name, null) })
+                        gChoices.forEach { c ->
+                            DropdownMenuItem({ Text((if (c.id == gPick) "✓  " else "     ") + c.name + (if (c.hint.isNotEmpty()) " · ${c.hint}" else ""), style = T.body) }, {
+                                open = false; if (c.id != gPick) { every = null; everyAt = null; org.omarchy.music.GeniusArtists.pick(page.name, c.id) } })
+                        }
+                    }
+                }
+                val at = sortAt
+                if (gPick != null && gFailed) Text("Genius couldn't be reached: showing all the service has", style = T.sub)
+                else if (at != null) Text("Going through their releases with Genius's list… ${at.first} of ${at.second}", style = T.sub)
             }
         }
         item {
@@ -1233,22 +1296,47 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         // Every song they have: the songs of all their releases (and the compilations they're on), each once. The
         // top songs above are only the service's twenty most played; a song that isn't one of those is here.
         if (i != null && !onlyMine && (i.albums.isNotEmpty() || i.also.isNotEmpty())) {
-            val list = every
+            val list = everyShown
             val at = everyAt
+            val hits = gSongs?.takeIf { it.isNotEmpty() }
             item { Section(if (list != null) "EVERY SONG · ${list.size}" else "EVERY SONG") }
             if (list == null) item {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (at == null) Pill("Show every song", quiet = true) {
                         everyAt = 0 to (i.albums.size + i.also.size)
                         Music.bg({
-                            org.omarchy.music.ArtistLookups.everySong(i, page.name) { d, n ->
-                                Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (everyAt != null) everyAt = d to n }
-                            }
+                            val step = { d: Int, n: Int -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (everyAt != null) everyAt = d to n }; Unit }
+                            // With a Genius artist picked: the songs of the releases that are theirs, then the ones only Genius lists
+                            if (hits != null) org.omarchy.music.GeniusArtists.every(org.omarchy.music.GeniusArtists.sort(i, page.name, hits, step), hits)
+                            else org.omarchy.music.ArtistLookups.everySong(i, page.name, step)
                         }) { res, _ -> every = res.orEmpty(); everyAt = null }
                     } else Text("Going through their releases… ${at.first} of ${at.second}", style = T.sub)
                 }
             } else if (list.isEmpty()) item { Text("No songs could be listed", style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
             else tracks(list, ui, "artist", section = "artist-every") { t -> t.album }
+        }
+        // What's left out of the page: hidden by you, or not on Genius's list. Nothing is gone; any of it can be put back.
+        val left = leftSongs.size + leftAlbums.size
+        if (left > 0) {
+            item {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Pill(if (showLeft) "Hide what's left out" else "Show what's left out · $left", quiet = true) { showLeft = !showLeft }
+                }
+            }
+            if (showLeft) {
+                item { Section("LEFT OUT OF THIS PAGE · $left") }
+                item { Text("Hidden by you" + (if (theirs != null) ", or not on Genius's list for them" else "") + ". A song's Options (an album's menu) has “Show on ${page.name}'s page”.",
+                    style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+                laidOutItems(leftAlbums, ui, key = { "al-" + leftAlbums[it].al.id + "#" + it }, row = { j ->
+                    val a = leftAlbums[j]
+                    PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                }) { j, mod, compact ->
+                    val a = leftAlbums[j]
+                    Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
+                        onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                }
+                tracks(leftSongs, ui, "artist-left", section = "artist-left") { t -> t.album }
+            }
         }
     }
 }
