@@ -754,8 +754,8 @@ fun OptionsSheet(ui: Ui) {
                     ui.confirm = "Take ${ids.size} song${if (ids.size != 1) "s" else ""} out of this playlist? They stay in your music." to {
                         Music.removeFromPlaylist(place.playlistId, ids) } })
                 if (place?.kind == "queue" && one == null) add(Triple(Ico.CLOSE, "Remove from the queue") {
-                    val ids = picked.map { it.id }.toSet()
-                    Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids }) })
+                    // Only the rows picked: of a song waiting twice, the one you picked stays out, the other stays in
+                    Music.unqueueMany(org.omarchy.music.SelectRules.queuePlaces(ui.selected.keys.toList(), Music.queue.map { it.id })) })
                 val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
                 if (org.omarchy.music.AudioTools.supported && picked.size == 1 && (picked[0].file ?: Music.lib.items[picked[0].id]?.file) != null)
                     add(Triple(Ico.SEARCH, "Identify by sound…") { ui.identifyFor = picked[0] })

@@ -151,20 +151,26 @@ class Ui {
         selecting = true
         selectPool = pool
         selectPlace = place
-        first?.let { selected[it.id] = it }
+        first?.let { selected[pickKey(it, place)] = it }
     }
 
     /** An option was used on the songs picked: the selection closes, unless you keep it for more. */
     fun afterOption() { if (closeAfter) stopSelecting() }
 
-    fun selectAllHere() { selectPool.forEach { selected[it.id] = it } }
-    fun deselectAllHere() { selectPool.forEach { selected.remove(it.id) } }
-    fun invertHere() { selectPool.forEach { if (it.id in selected) selected.remove(it.id) else selected[it.id] = it } }
+    /** What a picked row is known by: the song, and in the queue its place too (the same song can wait there twice:
+     *  each is its own row, see [org.omarchy.music.SelectRules]). */
+    fun pickKey(t: Track, place: RowPlace?) = org.omarchy.music.SelectRules.key(t.id, place?.kind ?: "", place?.queueIndex ?: -1)
+    private fun poolKey(i: Int) = org.omarchy.music.SelectRules.key(selectPool[i].id, selectPlace?.kind ?: "", if (selectPlace?.kind == "queue") i else -1)
+    fun picked(t: Track, place: RowPlace?) = pickKey(t, place) in selected
+    fun pick(t: Track, place: RowPlace?) { selected[pickKey(t, place)] = t }
+    fun selectAllHere() { selectPool.indices.forEach { selected[poolKey(it)] = selectPool[it] } }
+    fun deselectAllHere() { selectPool.indices.forEach { selected.remove(poolKey(it)) } }
+    fun invertHere() { selectPool.indices.forEach { val k = poolKey(it); if (k in selected) selected.remove(k) else selected[k] = selectPool[it] } }
     /** The songs between the first and the last picked one in the list in front. */
     fun selectBetween() {
-        val at = selectPool.indices.filter { selectPool[it].id in selected }
+        val at = selectPool.indices.filter { poolKey(it) in selected }
         if (at.size < 2) return
-        for (i in at.first()..at.last()) selected[selectPool[i].id] = selectPool[i]
+        for (i in at.first()..at.last()) selected[poolKey(i)] = selectPool[i]
     }
 
     /** Start the DJ on f (see [org.omarchy.music.Dj.From]) and show it. */
@@ -206,21 +212,21 @@ class Ui {
     }
 
     /** Picking songs: a long-press is the Options button's sheet for them, this song picked too. */
-    fun optionsHere(t: Track) {
-        selected[t.id] = t
+    fun optionsHere(t: Track, place: RowPlace? = null) {
+        selected[pickKey(t, place)] = t
         showOptions = true
     }
 
     /** One song's options (a long-press or ⋮): the same sheet as a selection's, with that song's own extras. */
     var oneSong by mutableStateOf<Track?>(null)
     fun songMenu(t: Track, place: RowPlace) {
-        if (selecting) { optionsHere(t); return }
+        if (selecting) { optionsHere(t, place); return }
         oneSong = t
         selectPlace = place
         showOptions = true
     }
 
-    fun toggle(t: Track) { if (t.id in selected) selected.remove(t.id) else selected[t.id] = t }
+    fun toggle(t: Track, place: RowPlace? = null) { val k = pickKey(t, place); if (k in selected) selected.remove(k) else selected[k] = t }
     fun selectedTracks() = selected.values.toList()
 }
 
@@ -275,7 +281,7 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
     var menu by remember { mutableStateOf(false) }
     Music.savedVersion   // redraw when downloads change
     val saved = Music.lib.items[own.id]
-    val checked = t.id in ui.selected
+    val checked = ui.picked(t, place)
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     // The theme's spacing and cover size (Compact, Roomy…), and its card behind each row (Cards, Glass, Outline…)
     val art = Themes.art(48.dp)
@@ -292,19 +298,19 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                     onClick = {   // on the PC, Ctrl+click picks songs and Shift+click picks a run of them (as the Python app)
                         when {
                             !ui.selecting && (HeldKeys.ctrl || HeldKeys.shift) -> ui.startSelecting(place.group, place, t)
-                            ui.selecting && HeldKeys.shift -> { ui.selected[t.id] = t; ui.selectBetween() }
-                            ui.selecting -> ui.toggle(t)
+                            ui.selecting && HeldKeys.shift -> { ui.pick(t, place); ui.selectBetween() }
+                            ui.selecting -> ui.toggle(t, place)
                             else -> onPlay()
                         }
                     },
                     // Hold (right-click on a computer): picking starts at once, with this song picked. Its own menu is
                     // the ⋮ on the row; while picking, holding a song opens the options for what's picked.
-                    onLongClick = { if (ui.selecting) ui.optionsHere(t) else ui.startSelecting(place.group, place, t) },
+                    onLongClick = { if (ui.selecting) ui.optionsHere(t, place) else ui.startSelecting(place.group, place, t) },
                 )
                 .padding(horizontal = Themes.gap(8.dp), vertical = Themes.gap(6.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (ui.selecting) Checkbox(checked = checked, onCheckedChange = { ui.toggle(t) },
+            if (ui.selecting) Checkbox(checked = checked, onCheckedChange = { ui.toggle(t, place) },
                 colors = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = C.muted))
             Box(contentAlignment = Alignment.Center) {
                 ArtImage(if (remoteQueue) Remote.artModel(t) else artModel(own), art, Modifier.padding(start = 2.dp))

@@ -152,23 +152,23 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
     val own = remember(t, Music.musicVersion, Music.savedVersion) { Music.localOf(t) }
     val nowId = Music.shownTrack()?.id
     val playing = nowId != null && (nowId == t.id || nowId == own.id)
-    val checked = t.id in ui.selected
+    val checked = ui.picked(t, place)
     var menu by remember { mutableStateOf(false) }
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     Box(modifier) {
         Tile(artModel(own, tilePx(compact)), own.title, own.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
-            onLongClick = { if (ui.selecting) ui.optionsHere(t) else ui.startSelecting(place.group, place, t) },   // hold: picking starts
+            onLongClick = { if (ui.selecting) ui.optionsHere(t, place) else ui.startSelecting(place.group, place, t) },   // hold: picking starts
             over = {
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                     Icon(if (Music.paused) Ico.PAUSE else Ico.PLAY, C.accent, if (compact) 20.dp else 26.dp)
                 }
-                if (ui.selecting) Checkbox(checked, { ui.toggle(t) }, Modifier.align(Alignment.TopStart),
+                if (ui.selecting) Checkbox(checked, { ui.toggle(t, place) }, Modifier.align(Alignment.TopStart),
                     colors = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = Color.White))
             }) {
                 when {
                     !ui.selecting && (HeldKeys.ctrl || HeldKeys.shift) -> ui.startSelecting(place.group, place, t)
-                    ui.selecting && HeldKeys.shift -> { ui.selected[t.id] = t; ui.selectBetween() }
-                    ui.selecting -> ui.toggle(t)
+                    ui.selecting && HeldKeys.shift -> { ui.pick(t, place); ui.selectBetween() }
+                    ui.selecting -> ui.toggle(t, place)
                     else -> onPlay()
                 }
             }

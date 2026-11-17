@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.7 · November 2026
+- **Picking a song in the queue picks that one only:** with the same song waiting in the queue more than once, holding one of them picked every one. Each row of the queue is now its own: pick one and only it is ticked, and Remove from the queue takes out just the rows you picked.
+
 ## 4.0.6 · November 2026
 - **Hold a song and picking starts:** holding a song (right-click on a computer) starts multi-select at once with that song picked, everywhere: lists, grids and the queue. Before, some places opened the song's menu and Select was at the bottom of it. A song's own menu is its ⋮; while picking, holding a song opens the options for what's picked.
 - **Shuffle shuffles the whole list:** started halfway down a playlist, Shuffle used to mix only what was still to come, so the songs above never played. It now takes every song of the list, with the one playing first and the ones you queued next.
