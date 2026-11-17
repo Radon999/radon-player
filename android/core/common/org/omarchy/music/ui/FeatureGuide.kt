@@ -169,6 +169,7 @@ val CHANGELOG: String = listOf(
     "- **Move, don't duplicate (Settings › Playback):** a switch for what Play next and Add to queue do with a song already waiting in the queue. Off, as it always was: it's put in again. On: it's moved to where you put it, so it's in the queue once.",
     "- **The app's messages get out of the way:** tap one, or swipe it to either side, and it's gone, so it never keeps you from Play, Pause or Skip.",
     "- **An artist's page starts with their albums and singles,** then your songs, then their top songs; and your songs are sorted by album until you pick another sort (which is then kept).",
+    "- **Streamed songs have their covers in Android Auto:** the cover of a song that streams was handed to the car in a way it could not open, so only downloaded songs and your own files showed one. It is also fetched before the song starts now, so it is there the first time.",
     "- **The music no longer stops when the sound moves between your earbuds and the car (phone):** with both connected, Android tells the app the same thing as when headphones are unplugged, and the song paused partway. It still pauses for a moment, then goes on by itself when something is still connected to play through. Unplugging your only headphones pauses as before.",
     "",
     "## 4.0.5 · November 2026",

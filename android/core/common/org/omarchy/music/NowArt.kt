@@ -20,6 +20,18 @@ object NowArt {
         return t.file?.let { fileArt(it) } ?: old?.let { web(it) }
     }
 
+    /** (blocking, but never for long) A streamed song's cover fetched and kept before the song starts, so the very
+     *  first time it plays its cover is a picture on this device. Android Auto (and the lock screen on some phones)
+     *  can't show a cover that is only an address on the web: a streamed song had no cover in the car until it had
+     *  been played once before. Waits most seconds at the longest; the song never waits longer for its picture. */
+    fun warm(t: Track, most: Double = 2.5) {
+        val u = runCatching { of(t) }.getOrNull() ?: return
+        if (!u.startsWith("http") || CoverCache.local(u) != null) return
+        val done = java.util.concurrent.CountDownLatch(1)
+        Thread({ runCatching { CoverCache.bytes(u) { a -> httpBytes(a) } }; done.countDown() }, "now-art").apply { isDaemon = true }.start()
+        done.await((most * 1000).toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+    }
+
     /** The name of a file's cover in the cache: by its whole address (SHA-1), not its hashCode: two songs whose
      *  addresses share a hashCode would share a cover. */
     fun cacheName(file: String): String =

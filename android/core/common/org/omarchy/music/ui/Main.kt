@@ -264,11 +264,11 @@ fun App() {
                 androidx.compose.material3.Snackbar(data, Modifier
                     .graphicsLayer(translationX = dx, alpha = (1f - kotlin.math.abs(dx) / 500f).coerceIn(0.15f, 1f))
                     .pointerInput(data) {
-                        androidx.compose.foundation.gestures.detectHorizontalDragGestures(
+                        detectHorizontalDragGestures(
                             onDragEnd = { if (kotlin.math.abs(dx) > 70f) data.dismiss() else dx = 0f },
                             onDragCancel = { dx = 0f }) { _, d -> dx += d }
                     }
-                    .pointerInput(data) { androidx.compose.foundation.gestures.detectTapGestures { data.dismiss() } })
+                    .pointerInput(data) { detectTapGestures { data.dismiss() } })
             }
             DesktopVolume(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
             Sheets(ui)

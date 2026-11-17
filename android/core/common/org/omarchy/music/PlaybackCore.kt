@@ -476,8 +476,11 @@ object PlaybackCore {
         val onDisk = Music.lib.has(t.id) || t.isFile
         streaming = !(onDisk || (Music.keepPlayed && Music.autoSaveOk(t)))
         Music.status = if (onDisk) "" else if (Music.keepPlayed) "Downloading FLAC…" else "Loading the stream…"
-        val work: () -> Downloader.Ready = if (streaming || onDisk) ({ Music.dl.stream(t) })
+        val get: () -> Downloader.Ready = if (streaming || onDisk) ({ Music.dl.stream(t) })
             else ({ try { Music.dl.download(t, youtubeToo = false) } catch (_: Exception) {}; Music.dl.stream(t) })   // no FLAC to keep (or saving failed): stream what there is
+        // …and a streamed song's cover with it, kept on this device before it starts (the car can't show one that is
+        // only an address on the web). Not for a test's stand-in songs.
+        val work: () -> Downloader.Ready = { get().also { if (!onDisk && Music.dl.standIn == null) runCatching { NowArt.warm(t) } } }
         Music.bg(work) { ready, err ->
             if (seq != loadSeq) return@bg   // you moved on while it loaded
             step(if (err != null || ready == null) "couldn't get it: ${err?.message?.take(60)}" else "got it${if (Music.player == null) " (no player yet)" else ""}")

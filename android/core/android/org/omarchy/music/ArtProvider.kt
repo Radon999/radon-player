@@ -31,7 +31,9 @@ class ArtProvider : ContentProvider() {
     override fun update(uri: Uri, v: ContentValues?, s: String?, a: Array<out String>?) = 0
 
     companion object {
-        private val PICTURES = setOf("jpg", "jpeg", "png", "webp")
+        // "img": a cover from the web as the app keeps it (CoverCache). Without it, a streamed song's cover was handed
+        // to the car as a file address, which the car can't open: streamed songs had no cover in Android Auto.
+        private val PICTURES = setOf("jpg", "jpeg", "png", "webp", "img")
         private fun roots(ctx: android.content.Context) = listOfNotNull(ctx.filesDir, ctx.cacheDir, ctx.externalCacheDir, ctx.getExternalFilesDir(null))
             .map { it.canonicalFile }
         private fun allowed(ctx: android.content.Context, f: File) =
