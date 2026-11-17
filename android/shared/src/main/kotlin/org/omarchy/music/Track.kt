@@ -41,7 +41,12 @@ data class Found(val songs: List<Track>, val artists: List<Album> = emptyList(),
 
 /** An artist's page: their top songs and their albums, from whichever service knew them. */
 data class ArtistInfo(val name: String, val thumb: String, val top: List<Track>, val albums: List<Album>,
-                      val source: String = "", val topSource: String = "")
+                      val source: String = "", val topSource: String = "",
+                      /** The service's own id for them ("" unknown), and releases of others they are on (compilations). */
+                      val id: String = "", val also: List<Album> = emptyList())
+
+/** One of several artists a service has under the same name: its id there, and what tells it from the others. */
+data class ArtistChoice(val id: String, val name: String, val thumb: String = "", val hint: String = "")
 
 val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false; isLenient = true }
 

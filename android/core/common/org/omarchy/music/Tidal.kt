@@ -414,19 +414,41 @@ class Tidal(ctx: Ctx) : Source {
     override fun artist(name: String): ArtistInfo? {
         val found = api("search", mapOf("query" to name, "types" to "ARTISTS", "limit" to 5)).path("artists", "items").list
         val a = bestNamed(found, name) { it["name"].str ?: "" } ?: return null
+        return artistPage(a, name)
+    }
+
+    /** One artist's page: their top songs, their albums, EPs and singles, and the compilations they are on. */
+    private fun artistPage(a: JsonElement, name: String): ArtistInfo {
         val id = a["id"].long
         val top = tracks(api("artists/$id/toptracks", mapOf("limit" to 20))["items"].list)
         val albums = api("artists/$id/albums", mapOf("limit" to 50))["items"].list +
             api("artists/$id/albums", mapOf("limit" to 50, "filter" to "EPSANDSINGLES"))["items"].list
         val seen = HashSet<Pair<String, String>>()
-        val out = albums.mapNotNull { al ->
+        fun release(al: JsonElement): Album? {
             val year = (al["releaseDate"].str ?: "").take(4)
             // Tidal lists the same album twice (explicit and clean, say): once is enough.
-            if (!seen.add(norm(al["title"].str) to year)) null
-            else Album(al["id"].long.toString(), al["title"].str ?: "Album", year, image(al["cover"].str, 320))
+            return if (!seen.add(norm(al["title"].str) to year)) null
+                else Album(al["id"].long.toString(), al["title"].str ?: "Album", year, image(al["cover"].str, 320))
         }
-        return ArtistInfo(a["name"].str ?: name, image(a["picture"].str, 320), top, out)
+        val out = albums.mapNotNull { release(it) }
+        val also = runCatching { api("artists/$id/albums", mapOf("limit" to 50, "filter" to "COMPILATIONS"))["items"].list }
+            .getOrDefault(emptyList()).mapNotNull { release(it) }
+        return ArtistInfo(a["name"].str ?: name, image(a["picture"].str, 320), top, out, id = id?.toString().orEmpty(), also = also)
     }
+
+    /** Two bands with one name: every artist Tidal has called exactly this, with a song each is known for. */
+    override fun artistsNamed(name: String): List<ArtistChoice> {
+        val found = api("search", mapOf("query" to name, "types" to "ARTISTS", "limit" to 12)).path("artists", "items").list
+        val same = found.filter { norm(it["name"].str) == norm(name) }.take(6)
+        if (same.size < 2) return emptyList()
+        return same.map { a ->
+            val id = a["id"].long
+            val known = runCatching { api("artists/$id/toptracks", mapOf("limit" to 1))["items"].list.firstOrNull()?.get("title").str }.getOrNull()
+            ArtistChoice(id?.toString().orEmpty(), a["name"].str ?: name, image(a["picture"].str, 320), ArtistLookupRules.knownFor(known))
+        }.filter { it.id.isNotEmpty() }
+    }
+
+    override fun artistById(id: String): ArtistInfo? = artistPage(api("artists/$id"), "")
 
     override fun album(id: String): List<Track> = tracks(api("albums/$id/tracks", mapOf("limit" to 100))["items"].list)
 

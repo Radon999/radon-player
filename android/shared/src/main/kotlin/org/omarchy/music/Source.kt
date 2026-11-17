@@ -18,6 +18,11 @@ interface Source {
     fun likedIds(): Set<String>
     fun rate(t: Track, like: Boolean)
     fun artist(name: String): ArtistInfo?
+    /** The artists the service has under exactly this name, when there's more than one (two bands called the same),
+     *  each with something to tell them apart by; empty when there's one or none, or the service can't say. */
+    fun artistsNamed(name: String): List<ArtistChoice> = emptyList()
+    /** The page of one of those, by the id [artistsNamed] gave; null when the service has no pages by id. */
+    fun artistById(id: String): ArtistInfo? = null
     fun album(id: String): List<Track>
     fun radio(t: Track): List<Track> = emptyList()
     /** The songs of the service's playlist for q ("chill", "2010s hits"), for the DJ; empty if none. */

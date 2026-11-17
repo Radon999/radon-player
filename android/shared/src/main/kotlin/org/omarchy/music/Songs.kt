@@ -23,7 +23,7 @@ val API_KEYS = linkedMapOf(
 const val LASTFM_BLANK = "2a96cbd8b46e442fc41c2b86b821562f"   // Last.fm's grey star, for "no picture"
 
 /** Where the search bar's dropdown can search. */
-val SEARCH_IN = linkedMapOf("tidal" to "Tidal", "ytm" to "YouTube Music", "soundcloud" to "SoundCloud", "local" to "Your music")
+val SEARCH_IN = linkedMapOf("tidal" to "Tidal", "ytm" to "YouTube Music", "soundcloud" to "SoundCloud", "local" to "Your music", "genius" to "Genius")
 
 /** How long (ms) after the last key to search as you type, or null not to: two letters at least;
  *  a moment for your own songs, a little longer for a service; a pasted link at once. */

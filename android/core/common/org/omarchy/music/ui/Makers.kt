@@ -643,7 +643,7 @@ fun LayoutMaker(ui: Ui, editing: String?) {
 @Composable
 private fun TestSong() {
     var open by remember { mutableStateOf(false) }
-    var where by remember { mutableStateOf(if (Music.searchIn in org.omarchy.music.SEARCH_IN) Music.searchIn else "local") }
+    var where by remember { mutableStateOf(if (Music.searchIn in org.omarchy.music.SEARCH_IN && Music.searchIn != "genius") Music.searchIn else "local") }
     var q by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<org.omarchy.music.Track>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -681,7 +681,7 @@ private fun TestSong() {
         }
         if (open) {
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChoicePill(org.omarchy.music.SEARCH_IN.toList(), where, prefix = "In ") { where = it }
+                ChoicePill(org.omarchy.music.SEARCH_IN.toList().filter { it.first != "genius" }, where, prefix = "In ") { where = it }
                 Box(Modifier.weight(1f)) { Field(q, "A song, an artist\u2026") { q = it } }
             }
             if (busy) Text("Searching\u2026", style = T.sub, modifier = Modifier.padding(top = 4.dp))

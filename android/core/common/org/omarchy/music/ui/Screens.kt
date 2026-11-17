@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.material3.DropdownMenu
+import kotlinx.coroutines.launch
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
@@ -60,7 +61,7 @@ import org.omarchy.music.localMatches
 import org.omarchy.music.rankSongs
 import org.omarchy.music.norm
 
-private fun searchName(key: String) = if (key == "local") "your music" else SOURCES[key] ?: ""
+private fun searchName(key: String) = if (key == "local") "your music" else if (key == "genius") "Genius" else SOURCES[key] ?: ""
 
 /** Search: the songs of each artist and album you picked whole (hold or right-click its row), by the row's key. */
 private val searchPicks = androidx.compose.runtime.mutableStateMapOf<String, List<Track>>()
@@ -133,7 +134,9 @@ fun SearchTab(ui: Ui) {
                     if (res.artists.isNotEmpty() || res.albums.isNotEmpty()) item { Section("SONGS") }
                     tracks(res.songs, ui, "search", radio = res.songs.size > 1 && !ui.resultsAreList) { t ->
                         // Your own songs: which tab of My music they're in
-                        when (Music.tabOf(t)) { "album" -> "In Albums"; "ep" -> "In EPs"; "single" -> "In Singles"; else -> "" }
+                        when (Music.tabOf(t)) { "album" -> "In Albums"; "ep" -> "In EPs"; "single" -> "In Singles"
+                            // Genius has no music: a song found there that isn't yours says where it would play from
+                            else -> if (ui.foundIn == "genius" && !(t.isFile || t.file != null || Music.lib.has(t.id))) org.omarchy.music.GeniusRules.NOTE else "" }
                     }
                 }
             }
@@ -156,6 +159,20 @@ fun runSearch(ui: Ui, quiet: Boolean = false) {
     val seq = ++ui.searchSeq
     ui.tab = "search"
     ui.resultsAreList = Regex("/(playlist|album|mix)/|list=").containsMatchIn(q)
+    if (key == "genius") {   // Genius: names only (it has no music), for songs no service has
+        ui.foundIn = key
+        val cacheKey = "$key|${q.lowercase()}"
+        SearchCache.get(cacheKey)?.let { ui.searching = false; ui.found = it; return }
+        ui.searching = true
+        Music.bg({ org.omarchy.music.GeniusSearch.find(q) }) { res, err ->
+            if (res != null && err == null) SearchCache.put(cacheKey, res)
+            if (seq != ui.searchSeq) return@bg
+            ui.searching = false
+            if (err != null) { ui.found = Found(emptyList()); if (!quiet) Music.toast("Genius couldn't be searched: ${err.message?.take(100)}") }
+            else ui.found = res
+        }
+        return
+    }
     if (key == "local") {   // your own songs: looked through off the screen's thread, so typing never stutters
         ui.foundIn = key
         ui.searching = true
@@ -1032,12 +1049,21 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     var info by remember(page) { mutableStateOf<ArtistInfo?>(null) }
     var failed by remember(page) { mutableStateOf<String?>(null) }
     var morePics by remember(page) { mutableStateOf(false) }
-    LaunchedEffect(page) {
+    // Two bands with one name: the ones the service has under this name (when more than one), to say which is meant;
+    // the page is looked up again once you've said (reload).
+    var choices by remember(page) { mutableStateOf<List<org.omarchy.music.ArtistChoice>>(emptyList()) }
+    var reload by remember(page) { mutableStateOf(0) }
+    // Every song on their releases, once asked for (each release is fetched in turn: everyAt says how far)
+    var every by remember(page, reload) { mutableStateOf<List<Track>?>(null) }
+    var everyAt by remember(page, reload) { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(page, reload) {
         Music.lookUpArtists(listOf(page.name))
         // Their top songs: your own copy of each you have (it plays your file, shows its cover), the service's otherwise.
         Music.bg({ Music.artistInfo(page.name, page.prefer)?.let { it.copy(top = Music.yourCopies(it.top)) } }) { res, err ->
             info = res
             failed = err?.message ?: if (res == null) "No service knows ${page.name}" else null
+            if (res != null && res.source.isNotEmpty() && choices.isEmpty())
+                Music.bg({ org.omarchy.music.ArtistLookups.choices(page.name, res.source) }) { c, _ -> choices = c.orEmpty() }
         }
     }
     val v = Music.artistsVersion
@@ -1121,6 +1147,22 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         item { BackRow(page.name) { ui.pages.removeAt(ui.pages.lastIndex) } }
         item { ArtistFromMenu(from) { from = it; org.omarchy.music.Prefs.setText(Music.ARTIST_PAGE_FROM, it) } }
         val i = info
+        // Two bands with one name: which one this page is (kept: the name means that one from now on)
+        if (choices.size > 1 && i != null) item {
+            var open by remember { mutableStateOf(false) }
+            val now = org.omarchy.music.ArtistLookups.picked(page.name)?.second ?: i.id
+            Box(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
+                Chip("${choices.size} artists are called ${page.name}: which one? ▾", false) { open = true }
+                DropdownMenu(open, { open = false }, containerColor = C.light) {
+                    choices.forEach { c ->
+                        DropdownMenuItem({ Text((if (c.id == now) "✓  " else "     ") + c.name + (if (c.hint.isNotEmpty()) " · ${c.hint}" else ""), style = T.body) }, {
+                            open = false
+                            if (c.id != now) { org.omarchy.music.ArtistLookups.pick(page.name, i.source, c.id); info = null; reload++ }
+                        })
+                    }
+                }
+            }
+        }
         item {
             Row(Modifier.padding(12.dp)) {
                 RoundArt(artistArt(page.name, i?.thumb ?: ""), 112.dp)
@@ -1187,6 +1229,26 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     else "TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
                 tracks(top, ui, "artist", radio = true, section = "artist-top")
             }
+        }
+        // Every song they have: the songs of all their releases (and the compilations they're on), each once. The
+        // top songs above are only the service's twenty most played; a song that isn't one of those is here.
+        if (i != null && !onlyMine && (i.albums.isNotEmpty() || i.also.isNotEmpty())) {
+            val list = every
+            val at = everyAt
+            item { Section(if (list != null) "EVERY SONG · ${list.size}" else "EVERY SONG") }
+            if (list == null) item {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (at == null) Pill("Show every song", quiet = true) {
+                        everyAt = 0 to (i.albums.size + i.also.size)
+                        Music.bg({
+                            org.omarchy.music.ArtistLookups.everySong(i, page.name) { d, n ->
+                                Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (everyAt != null) everyAt = d to n }
+                            }
+                        }) { res, _ -> every = res.orEmpty(); everyAt = null }
+                    } else Text("Going through their releases… ${at.first} of ${at.second}", style = T.sub)
+                }
+            } else if (list.isEmpty()) item { Text("No songs could be listed", style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
+            else tracks(list, ui, "artist", section = "artist-every") { t -> t.album }
         }
     }
 }

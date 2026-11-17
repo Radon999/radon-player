@@ -58,8 +58,44 @@ object ArtistLookups {
         }
     }
 
+    /** The one of several same-named artists you picked: (the service, its id for them), or null. */
+    fun picked(name: String): Pair<String, String>? = ArtistLookupRules.readPick(Prefs.text(ArtistLookupRules.pickKey(name)))
+
+    /** Pick which of the same-named artists this name means from now on (null: none, the service's first again). */
+    fun pick(name: String, source: String, id: String?) {
+        Prefs.setText(ArtistLookupRules.pickKey(name), if (id == null) "" else ArtistLookupRules.pick(source, id))
+        Music.artistsVersion++
+    }
+
+    /** (blocking) The artists a service has under exactly this name, when there's more than one. */
+    fun choices(name: String, source: String): List<ArtistChoice> =
+        runCatching { Music.sources[source]?.artistsNamed(name) }.getOrNull().orEmpty()
+
+    /** (blocking) Every song on the artist's releases (their albums, EPs and singles, then the compilations they're
+     *  on), each once, your own copy in place of each one you have. Each release is asked for in turn: progress
+     *  says how far (done, of). A release that can't be had is passed over. */
+    fun everySong(info: ArtistInfo, name: String, progress: (Int, Int) -> Unit = { _, _ -> }): List<Track> {
+        val src = Music.sources[info.source] ?: return emptyList()
+        val releases = info.albums + info.also
+        val got = ArrayList<Pair<Album, List<Track>>>()
+        for ((i, al) in releases.withIndex()) {
+            progress(i, releases.size)
+            runCatching { src.album(al.id) }.getOrNull()?.let { got += al to it }
+        }
+        progress(releases.size, releases.size)
+        val who = info.name.ifEmpty { name }
+        return Music.yourCopies(ArtistLookupRules.everySong(got) { t -> Music.creditsArtist(t, who) || Music.creditsArtist(t, name) })
+    }
+
     /** (blocking) The artist's page from the first service that knows them. */
     fun info(name: String, prefer: String?): ArtistInfo? {
+        // Two bands with one name, and you said which one (the artist's page: Which one?): that one's own page, from
+        // the service it was picked on, and nothing of another service's (which may know only the other band)
+        picked(name)?.let { (key, id) ->
+            val src = Music.sources[key]
+            if (src != null && ArtistLookupRules.asked(key, src.signedIn))
+                runCatching { src.artistById(id) }.getOrNull()?.let { return it.copy(source = key, topSource = key) }
+        }
         var info: ArtistInfo? = null
         var last: Throwable? = null
         val names = ArtistLookupRules.names(name)
