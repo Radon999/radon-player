@@ -49,7 +49,9 @@ object SmartRules {
         "mood" -> listOf("is" to "is", "not" to "isn't")
         "artist", "album", "title" -> listOf("contains" to "contains", "is" to "is", "not" to "doesn't contain")
         "release", "format" -> listOf("is" to "is", "not" to "isn't")
-        "source" -> listOf("downloaded" to "is downloaded", "files" to "is one of my files")
+        // (either: every song in your music, however it got there. A playlist of "all my music" needs it: with only
+        // the other two, one made from "is one of my files" left out everything downloaded in the app.)
+        "source" -> listOf("downloaded" to "is downloaded", "files" to "is one of my files", "any" to "is either (all my music)")
         "favorite" -> listOf("yes" to "is a favorite", "no" to "isn't a favorite")
         "plays" -> listOf("more" to "more than", "less" to "less than")
         "lastplayed" -> listOf("within" to "within the last", "not" to "not within the last")
@@ -166,7 +168,7 @@ object SmartRules {
                 val hit = fmt != null && words.any { w -> val u = w.uppercase(); fmt == u || fmt.startsWith("$u ") }
                 if (r.op == "not") fmt != null && !hit else hit || (fmt != null && words.isEmpty())
             }
-            "source" -> if (r.op == "files") f.myFile else f.downloaded
+            "source" -> when (r.op) { "files" -> f.myFile; "any" -> f.myFile || f.downloaded; else -> f.downloaded }
             "favorite" -> if (r.op == "no") !f.favorite else f.favorite
             "plays" -> if (r.op == "less") f.plays < r.n else f.plays > r.n
             "lastplayed" -> {

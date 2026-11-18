@@ -45,6 +45,9 @@ class SmartRulesTest {
         assertTrue(fits(SmartRule("source", "downloaded"), a))
         assertFalse(fits(SmartRule("source", "downloaded"), b))
         assertTrue(fits(SmartRule("source", "files"), b))
+        assertFalse("a download is not one of your files", fits(SmartRule("source", "files"), a))
+        assertTrue("either: every song in your music", fits(SmartRule("source", "any"), a))
+        assertTrue(fits(SmartRule("source", "any"), b))
         assertTrue(fits(SmartRule("favorite", "yes"), a))
         assertTrue(fits(SmartRule("favorite", "no"), b))
     }
