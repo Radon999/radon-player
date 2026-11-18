@@ -32,7 +32,7 @@ The same text is the app's own **Features** page (☰ menu). What each version c
 
 - **Now playing:** The big cover, with ☆ to favorite and ⋯ for options. Swipe the cover for the next or previous song, swipe up for the queue, tap it for lyrics, double-tap to pause.
 - **Quality badge:** Says what you're hearing ("FLAC 24-bit/96 kHz", a stream's quality, or "Offline"). On a stream, **⤓ FLAC** saves it.
-- **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. Play next and Add to queue put a song in again if it is already waiting, or with **Move, don't duplicate** (Settings › Playback) move it there instead. With **Queues** on, each album, playlist and folder keeps its own queue where you left it; **Q** at the top of Now playing opens them.
+- **Queue:** What you added comes first, then the rest of what you started. Drag to reorder. **Undo** at its top takes back your last changes to it (cleared, shuffled, moved, removed or added), up to ten, without interrupting the song. Play next and Add to queue put a song in again if it is already waiting, or with **Move, don't duplicate** (Settings › Playback) move it there instead. With **Queues** on, each album, playlist and folder keeps its own queue where you left it; **Q** at the top of Now playing opens them.
 - **Shuffle, Repeat and Autoplay:** Shuffle mixes the whole list, the songs already played too, with the one playing first. **Smart shuffle** favors songs you love but haven't heard in a while (it goes by your plays everywhere, Last.fm and your imports too); Repeat one starts the song again reliably; Autoplay keeps similar songs coming when the queue ends. With the DJ on, only Repeat one is used: the DJ's sets go on in their own order.
 - **Per song:** Its own volume (−12 to +12 dB), its own EQ and its own speed, remembered each time it plays.
 - **Your copy first:** Wherever a song shows up (a playlist, search, a radio, the DJ), your own file plays when you have it, with its cover and tags.
@@ -103,7 +103,7 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 ## Lyrics
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
-- **Lyrics card:** Tick up to 25 lines for a picture to share or save, in Your look, Now playing's colours, 30 ready-made styles, or your own.
+- **Lyrics card:** Tick up to 25 lines for a picture to share or save, in Your look, Now playing's colours, 60 ready-made styles, or your own.
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
 ## Sound
@@ -117,20 +117,23 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 
 ## Personalization
 
-Settings › Personalization (or the palette on Now playing) changes how the app looks, Wrapped's style and the lyrics card's style included. Each menu shows a picture of every choice, and each device keeps its own choices.
+Settings › Personalization (or the palette on Now playing) changes how the app looks, Wrapped's style and the lyrics card's style included. Each menu shows every choice as live screens to swipe through (Now playing with its visualizer moving, My music, Albums, slides of Wrapped, the lyrics card), and each device keeps its own choices.
 
-- **Looks** are the colours: Light, Dark, **Now playing** (every screen in the playing cover's colours), and dozens of themes and neon looks.
-- **Themes** are how things are drawn (Rounded, Sharp, Compact, Glass, Retro…), with any look.
-- **Layouts** are where things are: the ☰ menu, a bottom bar, a side rail or top tabs, the mini player's style, and 6 ways to arrange Now playing.
-- **Effects:** 61 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula, petals, lightning, a moon, warp speed…), each in its own colour.
-- **Presets:** 30 ready-made setups that go together (Midnight drive, Northern lights, Cherry blossom, Code rain, Vaporwave…), each with its own look, theme, layout, effects, visualizer, Wrapped style and lyrics card style. **Save as a preset** keeps yours. **Preset Shuffle** puts on a different favourite every 5 to 30 minutes.
+- **Looks** are the colours: Light, Dark, **Now playing** (every screen in the playing cover's colours), and over ninety themes: light, dark, neon, and thirty looks after materials and places (Stained glass, Blueprint, Tea house, Kite sky…), each with an effect of its own.
+- **Themes** are how things are drawn: 45 of them (Rounded, Sharp, Compact, Glass, Retro, Brutalist, Storybook, Ledger…), with any look.
+- **Layouts** are where things are: the ☰ menu, a bottom bar, a side rail or top tabs, the mini player's style, and 6 ways to arrange Now playing: 45 ready-made layouts.
+- **Effects:** 91 to pick from (twinkling stars, aurora, rain, snow, synthwave grid, nebula, petals, lightning, a moon, warp speed, stained glass, paper cranes, lanterns, kites…), each in its own colour.
+- **Presets:** 60 ready-made setups that go together (Midnight drive, Northern lights, Cherry blossom, Code rain, Vaporwave, Cathedral, Drawing office, Tea ceremony, Windy day…), each with its own look, theme, layout, effects, visualizer, Wrapped style and lyrics card style. **Save as a preset** keeps yours. **Preset Shuffle** puts on a different favourite every 5 to 30 minutes.
+- **Follows the cover:** a preset that changes with every song: the cover's own colours blurred out behind see-through cards, and a scene to match (effects and two visualizers in the cover's colour) out of 17, one for any colour a cover can be.
+- **Glass cover:** a preset with the playing song's cover blurred behind the whole app and everything over it see-through.
+- **Menus in sections:** each Personalization menu is folded into a few sections (Looks: Basics, Light, Dark, Neon, Materials and places; Effects: Sky, Nature, Patterns, Light, Things…), your favourites first, so a long list is a short one to start with.
 - **Favorite, Edit, Delete:** Hold down on any choice (or its ⋯, or right-click). ★ Favorite moves it to the top.
 - **Make your own:** a **look** (colours, fade, glow, stars and effects), a **layout** (the bar's buttons, the mini player, Now playing's arrangement), a **visualizer** (shape, mirror, spin, glow, colour blend, **Dual**), a **lyrics card** and a **Wrapped** style, each shown live as you change it. **Randomize** and **Saved colours** give you a start.
 - **Yours everywhere:** everything you make and favourite goes into backups and to your other device at each Sync.
 
 ## Visualizer
 
-- **60 styles** and dozens of colour blends: ones along the bottom (bars, waves, city lights, flames, meadow, 8-bit…) and ones around a middle (rings, starfield, galaxy, tunnel, orbits, supernova, mandala, heart…).
+- **90 styles** and over eighty colours and blends: ones along the bottom (bars, waves, city lights, flames, meadow, 8-bit…) and ones around a middle (rings, starfield, galaxy, tunnel, orbits, supernova, mandala, heart…), and thirty that are things: organ pipes, an abacus, piano keys, a rose window, a lotus, a snow crystal, a kite.
 - **On Now playing:** Slim bars, any style or yours, or **Dual**: one style in the middle and another along the bottom at once, or **full screen** behind everything. It only hears the app's own sound.
 - **Smoothest screen (phone, Settings › Playback):** asks a 90, 120 or 144 Hz screen for its highest rate while the app is on screen. Off by default.
 
@@ -144,7 +147,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 - **Phone remote:** Turn on Phone remote on the computer, enter its code on the phone, and the phone plays, queues, skips and sets the volume there.
 - **Sync now:** Tap it on either device: plays, skips, favorites, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**.
-- **Playlists that sync:** A list of all your playlists with a switch each, smart playlists, Listen later and the discovery playlists among them. New playlists sync by themselves (Settings › Your files › New playlists sync turns that off), and every list of playlists marks each one ⇄ SYNCED or THIS DEVICE ONLY. The ones switched on are the same on both devices after each Sync (two of the same name become one with the songs of both, as do Listen later and an artist's discovery playlists); the rest stay where they are.
+- **Playlists that sync:** A list of all your playlists with a switch each, smart playlists, Listen later and the discovery playlists among them. New playlists sync by themselves (Settings › Your files › New playlists sync turns that off), and every list of playlists marks each one ⇄ SYNCED (with CHANGES WAITING when you changed it since the last sync) or THIS DEVICE ONLY. The ones switched on are the same on both devices after each Sync (two of the same name become one with the songs of both, as do Listen later and an artist's discovery playlists); the rest stay where they are.
 - **Send a playlist:** Copies one playlist (or Listen later, or a discovery playlist) to the other device once, without syncing it, and names any songs the other device hasn't got.
 - **Auto playlist sync:** A switch: the synced playlists sync by themselves when the phone's app finds the PC's, and when one changes while both are open. Everything else waits for Sync now.
 - **Tags match:** Pick a main device and the songs on the other get the tags theirs are missing (title, artist, album, genre, year, track), except folders you tell sync to leave alone. It never touches moods.
