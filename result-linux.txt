@@ -1,5 +1,5 @@
-commit aaf0f8df488b015ec696b5a224363f54d26c5359 · run 44203315301 · Wed Nov 18 00:03:45 UTC 2026
-SHARED TESTS: 83 suites, 438 tests, 0 failed
+commit 905b5bebd0846fa62edcf97fb0e90cc2b4a025be · run 44205219551 · Wed Nov 18 00:12:00 UTC 2026
+SHARED TESTS: 84 suites, 440 tests, 0 failed
 APP TESTS: no results (it didn't get that far)
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
@@ -7,25 +7,25 @@ PC COMPILES: yes
 LINUX PACKAGE: not built
 LINUX START: no package to start
 --- errors
-> Task :app:compileDebugKotlin FAILED
+> Task :desktop:compileKotlin FAILED
 e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:52 Unsupported escape sequence.
 e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:54 Unsupported escape sequence.
 
-> Task :desktop:compileKotlin FAILED
+> Task :app:compileDebugKotlin FAILED
 e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:52 Unsupported escape sequence.
 e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:54 Unsupported escape sequence.
 
 FAILURE: Build completed with 2 failures.
 --
 * What went wrong:
-Execution failed for task ':app:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
---
-* What went wrong:
 Execution failed for task ':desktop:compileKotlin'.
 > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
 --
-BUILD FAILED in 3m 1s
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+--
+BUILD FAILED in 3m 10s
 48 actionable tasks: 48 executed
 --- the end of the log
 
@@ -39,7 +39,7 @@ BUILD FAILED in 3m 1s
 2: Task failed with an exception.
 -----------
 * What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
+Execution failed for task ':app:compileDebugKotlin'.
 > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
    > Compilation error. See log for more details
 
@@ -56,5 +56,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 1s
+BUILD FAILED in 3m 10s
 48 actionable tasks: 48 executed
