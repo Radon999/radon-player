@@ -1294,17 +1294,20 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     }
     // Your songs, as a list of songs or as your albums, EPs and singles of theirs (the dropdown by its Sort; kept)
     var songsView by remember { mutableStateOf(org.omarchy.music.Prefs.text("artist_songs_view").ifEmpty { "songs" }) }
-    val ownSort = sortNow("artist-own-albums", ARTIST_OWN_SORTS)
-    val ownShown = remember(ownAlbums, ownSort, marks) {
-        val l = ownAlbums.filter { marks[org.omarchy.music.ArtistShownRules.albumKey(it.first.title)] != org.omarchy.music.ArtistShownRules.HIDE }
-        when (ownSort) {
-            "name" -> l.sortedBy { norm(it.first.title) }
-            "name-desc" -> l.sortedByDescending { norm(it.first.title) }
-            "songs" -> l.sortedWith(compareByDescending<Pair<Album, List<Track>>> { it.second.size }.thenBy { norm(it.first.title) })
-            "songs-least" -> l.sortedWith(compareBy<Pair<Album, List<Track>>> { it.second.size }.thenBy { norm(it.first.title) })
-            else -> l
-        }
+    // The releases follow the same sort as the songs (the one menu): a song's sort as it fits a release (by title is
+    // by the release's name; most played is the release whose songs you played most)
+    val ownFit = remember(ownAlbums, marks) {
+        ownAlbums.filter { marks[org.omarchy.music.ArtistShownRules.albumKey(it.first.title)] != org.omarchy.music.ArtistShownRules.HIDE } }
+    val ownSort = when (sort) { "title", "album", "artist" -> "name"; "title-desc", "artist-desc" -> "name-desc"; else -> sort }
+    val ownShown = rememberSorted(ownFit, ownSort) { d ->
+        org.omarchy.music.sortGroups(ownFit, ownSort, d) { a -> org.omarchy.music.GroupFacts(a.first.title, songs = a.second) } }
+    // How often you played each song, shown on its row while a list is sorted by plays (worked out off the screen's thread)
+    val byPlays = sort.startsWith("plays") || sortNow("artist-every", org.omarchy.music.songSorts(true)).startsWith("plays")
+    val playData by androidx.compose.runtime.produceState<org.omarchy.music.SortData?>(null, byPlays, Music.musicVersion) {
+        value = if (!byPlays) null else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { Music.sortData("plays") }.getOrNull() }
     }
+    fun playsText(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
+    fun playsOf(t: Track) = playData?.plays?.invoke(t) ?: t.plays
     val everySorts = org.omarchy.music.songSorts(true)
     val everySort = sortNow("artist-every", everySorts)
     val everyList = everyShown?.let { l -> rememberSorted(l, everySort) { d -> org.omarchy.music.sortTracks(l, everySort, d) } }
@@ -1445,7 +1448,9 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             } else if (list.isEmpty()) item { Text("No songs could be listed", style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
             else {
                 item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { SortMenu("artist-every", everySorts) } }
-                tracks(list, ui, "artist", section = "artist-every") { t -> t.album }
+                // Sorted by plays: each song's plays first, then its album
+                val everyByPlays = everySort.startsWith("plays")
+                tracks(list, ui, "artist", section = "artist-every") { t -> if (everyByPlays) listOf(playsText(playsOf(t)), t.album).filter { it.isNotEmpty() }.joinToString(" · ") else t.album }
             }
         }
         if (mine.isNotEmpty()) {
@@ -1467,19 +1472,21 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                             }
                         }
                     }
-                    if (asReleases) SortMenu("artist-own-albums", ARTIST_OWN_SORTS) else SortMenu("artist-songs", songSorts, "album")
+                    SortMenu("artist-songs", songSorts, "album")   // one sort for both: the releases follow it
                 }
             }
             if (asReleases) {
                 laidOutItems(ownShown, ui, key = { "ao-" + ownShown[it].first.id + "#" + it }, row = { j ->
                     val a = ArtistAlbum(ownShown[j].first, ownShown[j], streamed = false)
-                    PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                    // Sorted by plays: how often you played its songs, by its name
+                    val al = if (sort.startsWith("plays")) a.al.copy(sub = listOf(a.al.sub, playsText(a.own!!.second.sumOf { playsOf(it) })).filter { it.isNotEmpty() }.joinToString(" · ")) else a.al
+                    PlaylistRow(al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
                 }) { j, mod, compact ->
                     val a = ArtistAlbum(ownShown[j].first, ownShown[j], streamed = false)
                     Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
                         onLongClick = { albumMenu(a) }) { openAlbum(a) }
                 }
-            } else tracks(mine, ui, "artist") { t -> "${t.plays} play${if (t.plays != 1) "s" else ""}" }
+            } else tracks(mine, ui, "artist") { t -> playsText(playsOf(t)) }
         }
         if (onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("None of their music is yours yet",
             "You have no downloads or files of ${page.name}'s. Pick “Everything” at the top to see their songs on the streaming services.") }
@@ -1523,7 +1530,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
 
 /** An album on an artist's page: the service's (streamed) or one of yours, with your copy of it (album, songs) if you have one. */
 private val ARTIST_ALBUM_SORTS = listOf("order", "created", "created-old", "name", "name-desc")
-private val ARTIST_OWN_SORTS = listOf("order", "name", "name-desc", "songs", "songs-least")
 
 /** (genius: one only Genius lists, added so the discography is whole.) */
 private data class ArtistAlbum(val al: Album, val own: Pair<Album, List<Track>>?, val streamed: Boolean, val genius: Boolean = false) {
