@@ -299,6 +299,9 @@ fun App() {
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
             ui.songCard?.let { SongCardDialog(ui, it) }
+            // A playlist's Set a cover…: the picture picker, opened when a playlist asks for one
+            val coverPick = rememberOpenFile { uri -> ui.coverFor?.let { id -> if (uri != null) PlaylistCovers.set(id, uri) }; ui.coverFor = null }
+            LaunchedEffect(ui.coverFor) { if (ui.coverFor != null) coverPick.launch(arrayOf("image/*")) }
         }
         }
     }
@@ -368,6 +371,24 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"))),
 )
 
+/** The ☰ menu's entries you chose to hide (Settings › Personalization › Menu entries): a screen you never use needn't
+ *  be in the menu. A hidden one is still there to reach from Search's results, a bar button of your layout, or by
+ *  showing it again. Now playing can't be hidden (a layout with no bar would have no way to it). */
+object MenuHidden {
+    private const val PREF = "menu_hidden"
+    private var version by androidx.compose.runtime.mutableStateOf(0)
+    fun all(): Set<String> = version.let { org.omarchy.music.Prefs.text(PREF).split(';').filter { it.isNotBlank() }.toSet() }
+    fun toggle(key: String) {
+        val now = all(); org.omarchy.music.Prefs.setText(PREF, (if (key in now) now - key else now + key).joinToString(";")); version++
+    }
+}
+private fun entryKey(e: Entry) = e.tab + "|" + (e.view ?: "")
+private fun shownInMenu(e: Entry) = e.tab == "player" || entryKey(e) !in MenuHidden.all()
+
+/** Every entry of the ☰ menu, for Settings' list of them: (its section's name, its key, its name, whether it can be hidden). */
+internal fun menuEntryList(): List<List<String>> =
+    (listOf(Triple("top", "At the top", topEntries())) + sections()).flatMap { (_, name, list) -> list.map { listOf(name, entryKey(it), it.label, if (it.tab == "player") "" else "y") } }
+
 @Composable
 private fun DrawerSheet(ui: Ui, right: Boolean = false) {
     ModalDrawerSheet(drawerContainerColor = if (C.apple) (if (C.gradient != null) C.darker else C.bg) else C.light,
@@ -394,8 +415,8 @@ private fun DrawerSheet(ui: Ui, right: Boolean = false) {
                     else { goTo(ui, e.tab, e.view); if (e.tab == "player") ui.pane = "art" }
                 }
             }
-            topEntries().forEach { item(it) }
-            sections().forEach { (key, name, list) ->
+            topEntries().filter { shownInMenu(it) }.forEach { item(it) }
+            sections().map { Triple(it.first, it.second, it.third.filter { e -> shownInMenu(e) }) }.filter { it.third.isNotEmpty() }.forEach { (key, name, list) ->
                 val open = Music.drawerFolds[key] == true
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp).clip(R.card).clickable { Music.foldSection(key) }
                     .padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

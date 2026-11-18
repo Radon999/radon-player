@@ -1423,6 +1423,7 @@ private fun PersonalizationBody(ui: Ui) {
             }
             EffectsLines()
             NowPlayingLookLines()
+            MenuEntriesLines()
             MakerLines(ui)
 }
 
@@ -2907,4 +2908,26 @@ private fun WhatsNewCard(ui: Ui) {
         } },
         confirmButton = { TextButton({ done(); ui.sheet = null; ui.changelog = true }) { Text("Read about them", color = C.accent) } },
         dismissButton = { TextButton({ done() }) { Text("Later", color = C.muted) } })
+}
+
+/** Settings › Personalization › Menu entries: each entry of the ☰ menu with a switch; off, it isn't in the menu. */
+@Composable
+private fun MenuEntriesLines() {
+    var open by remember { mutableStateOf(false) }
+    val hidden = MenuHidden.all()
+    val all = remember(Music.source, Music.browseLocal) { menuEntryList() }
+    Line("Menu entries", "Take the screens you never use out of the ☰ menu, so it is shorter. A hidden one isn't gone: it can still be a button on your " +
+        "layout's bar, and switching it back on here returns it. Now playing always stays", hidden.isNotEmpty(),
+        note = if (hidden.isEmpty()) "All %,d shown".format(all.size) else "%,d hidden".format(all.count { it[1] in hidden })) {
+        Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }
+    }
+    if (!open) return
+    var section = ""
+    all.forEach { (sec, key, label, can) ->
+        if (sec != section) { section = sec; Text(sec.uppercase(), style = T.section, modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 2.dp)) }
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = T.body, modifier = Modifier.weight(1f))
+            Switch(key !in hidden, { MenuHidden.toggle(key) }, enabled = can.isNotEmpty(), colors = swColors())
+        }
+    }
 }

@@ -831,6 +831,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             else ActionRow("⇄  New synced playlist") { ui.askName = Triple("New synced playlist", "") { n -> Music.newPlaylist(n, synced = true) } }
         }
         item { ActionRow("＋  New folder") { ui.askName = Triple("New folder", "") { n -> Music.newFolder(n) } } }
+        // This week's mix: what you have been playing, with songs you haven't heard in a long while among them
+        item { ActionRow("✦  Make this week's mix") { org.omarchy.music.YourPlaylists.weeklyMix() } }
         item {
             val busy = Music.importing
             if (busy != null) Text(busy, style = T.sub.copy(color = C.accent), modifier = Modifier.padding(12.dp))
@@ -858,6 +860,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
                 "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
                 (if (pl.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(pl.id, pl.synced != true) },
                 ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(pl) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
+                "Set a cover…" to { ui.coverFor = pl.id },
+                ("Remove its cover" to { PlaylistCovers.clear(pl.id) }).takeIf { PlaylistCovers.of(pl.id) != null },
                 "Select" to { ui.startPick("playlists", pl.id, pl.tracks) })
         }
         fun tapList(pl: org.omarchy.music.Playlist) {
@@ -892,14 +896,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
+            PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), PlaylistCovers.of(pl.id) ?: cover?.let { artModel(it) },
                 onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null,
                 badge = org.omarchy.music.Sync.mark(pl), badgeOn = pl.synced == true) { tapList(pl) }
         }) { i, mod, compact ->
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.shown, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
+            Tile(PlaylistCovers.of(pl.id) ?: cover?.let { artModel(it, tilePx(compact)) }, pl.shown, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
                 onLongClick = { menu(pl) }) { tapList(pl) }
         }
         lay(shown.filter { it.discovery == null })
@@ -926,6 +930,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
             ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(open) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
+            "Set a cover…" to { ui.coverFor = open.id },
+            ("Remove its cover" to { PlaylistCovers.clear(open.id) }).takeIf { PlaylistCovers.of(open.id) != null },
             // A discovered playlist: review just its songs (download them or let them go).
             if (open.discovery?.role == "discovered" && open.tracks.isNotEmpty()) "Review" to { ui.reviewFor = open } else null,
             "Delete" to { ui.confirm = "Delete the playlist “${open.name}”? The songs stay where they are." to { Music.deletePlaylist(open.id); ui.openMine = null } },

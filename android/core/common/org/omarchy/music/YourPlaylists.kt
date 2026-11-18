@@ -67,6 +67,25 @@ object YourPlaylists {
         changed()
     }
 
+    /** The weekly mix (WeeklyMixRules): made into the playlist "Weekly mix" (its songs replaced each time it is made). */
+    fun weeklyMix() {
+        toast("Making this week's mix…")
+        Music.bg({
+            val t = TasteService.get()
+            val at = now().toLong()
+            val recentKeys = t.recent.map { songKey(it) }.toSet()
+            val songs = WeeklyMixRules.pick(t.recent, Music.mySongs(), { t.last[Stats.statsKey(it.title, it.artist)] }, at, { songKey(it).toString() }, at / (7 * 86_400L))
+            songs.map { Music.mineOf(it) } to songs.count { songKey(it) !in recentKeys }
+        }) { r, err ->
+            val (songs, old) = r ?: (emptyList<Track>() to 0)
+            if (songs.isEmpty()) { toast(if (err != null) "Couldn't make the mix: ${err.message?.take(80)}" else WeeklyMixRules.said(0, 0)); return@bg }
+            val pl = lists.named(WeeklyMixRules.NAME) ?: lists.create(WeeklyMixRules.NAME)
+            lists.replaceTracks(pl.id, songs.map { it.slim() })
+            changed()
+            toast(WeeklyMixRules.said(songs.size, old))
+        }
+    }
+
     // ---- folders of playlists ----
     fun newFolder(name: String, item: FolderItem? = null) {
         val f = folders.create(name)
