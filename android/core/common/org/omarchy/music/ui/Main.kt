@@ -207,6 +207,7 @@ fun App() {
         drawerContent = { androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides ltr) { DrawerSheet(ui, lay.menuRight) } }) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides ltr) {
         Box(Modifier.fillMaxSize().background(bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)) {
+            if (CoverScene.glassNow) CoverGlassBackdrop()   // Glass cover: the cover blurred behind every screen
             if (C.stars) Stars()
             LookEffects(LookFx.behind(C.fx))   // a look of yours: its effects (rain and snow go over everything, below)
             val screens: @Composable (Modifier) -> Unit = { m -> Box(m) {

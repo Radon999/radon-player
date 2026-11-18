@@ -932,6 +932,10 @@ object MyPresets {
         // theme (see-through cards over the cover's colours). The layout named here is never put on: yours stays.
         Preset(CoverScene.PRESET, "Follows the cover", Looks.NOW_PLAYING, "glass", UiLayouts.CLASSIC, false, "", "apple-dark", "ring", true, "wave",
             "look", LyricsCards.NOW, "cover"),
+        // Glass cover: the Now playing look with the cover itself blurred behind the whole app, on the Frosted pills theme
+        // (see-through pills and cards). Your effects, visualizers and layout stay as they are.
+        Preset(CoverScene.GLASS_PRESET, "Glass cover", Looks.NOW_PLAYING, "frosted", UiLayouts.CLASSIC, false, "", "apple-dark", "ring", true, "wave",
+            "look", LyricsCards.NOW, "cover"),
         b(1, "Midnight drive", "neon-retrowave", "glass", "classic", "grid,sun,twinkle", "sunburst", "skyline", "pink", 1, "synthwave"),
         b(2, "Northern lights", "nord", "rounded", "tabbar", "aurora,twinkle,constellation", "ring", "aurora", "green", 2, "aurora"),
         b(3, "Golden hour", "sunset", "elegant", "classic", "sunbeams,embers", "sunburst", "hills", "gold", 3, "sunset"),
@@ -1044,8 +1048,9 @@ object MyPresets {
         val p = of(key) ?: return
         // Follows the cover: its scenes on (any other preset: off). It changes colours, effects and visualizers with each
         // song, on the Glass theme, and leaves your layout alone.
-        val cover = p.key == CoverScene.PRESET
-        Prefs.set(CoverScene.ON, cover)
+        val cover = p.key == CoverScene.PRESET || p.key == CoverScene.GLASS_PRESET
+        Prefs.set(CoverScene.ON, p.key == CoverScene.PRESET)
+        Prefs.set(CoverScene.GLASS, p.key == CoverScene.GLASS_PRESET)   // Glass cover: the cover blurred behind everything
         val skip = if (cover) skip + "layout" else skip
         if ("theme" !in skip && Themes.known(p.theme)) Prefs.setText(Themes.PREF, p.theme)
         if ("effects" !in skip && !cover) { Prefs.set(LookFx.OWN, p.own); Prefs.setText(LookFx.PICK, p.fx) }

@@ -1375,6 +1375,13 @@ private fun EffectsLines() {
         scenes, note = if (!scenes) "" else if (Music.look != Looks.NOW_PLAYING) "Waiting for the Now playing look: put it on under Look" else if (sc == null) "Play a song with a cover to see one" else "Now: ${sc.name}") {
         Switch(scenes, { CoverScene.set(it); MyPresets.applied++ }, colors = swColors())
     }
+    val glass = CoverScene.glassOn()
+    Line("Blurred cover behind everything", "With the Now playing look: the cover of the song playing is drawn blurred behind every screen, washed " +
+        "in its own colour, and the lists, cards and bars sit over it. It shows through most with a see-through theme (Glass, Frosted pills, Cut glass); " +
+        "the preset Glass cover turns this on with Frosted pills",
+        glass, note = if (glass && Music.look != Looks.NOW_PLAYING) "Waiting for the Now playing look: put it on under Look" else "") {
+        Switch(glass, { CoverScene.setGlass(it); MyPresets.applied++ }, colors = swColors())
+    }
     var own by remember { mutableStateOf(LookFx.ownOn()) }
     var picked by remember { mutableStateOf(LookFx.picked()) }
     Line("Look's own effects", "On: each look keeps its own effects (the galaxy looks' stars, a look of yours with its " +
