@@ -29,12 +29,22 @@ import org.omarchy.music.Stats
 object Collage {
     val SIZES = listOf(5, 10, 15, 20, 25)
 
-    data class Item(val title: String, val sub: String, val plays: Int, val model: Any?)
+    /** unit: what plays counts ("play"; "repeat" on the Repeats tab's collage). */
+    data class Item(val title: String, val sub: String, val plays: Int, val model: Any?, val unit: String = "play")
 
     /** kind: "songs", "albums" or "artists" (Most played's period), "albums-all" or "artists-all" (all time). */
-    fun period(kind: String) = if (kind.endsWith("-all")) "all" else Music.topPeriod
+    fun period(kind: String) = if (kind == "repeats") "repeats-" + Music.repeatsPeriod else if (kind.endsWith("-all")) "all" else Music.topPeriod
+
+    /** The Repeats tab's collage: your most repeated songs of the time the tab shows, each with its repeats. */
+    private fun repeats(): List<Item> {
+        val days = mapOf("year" to 365, "month" to 30, "week" to 7)[Music.repeatsPeriod] ?: 0
+        return org.omarchy.music.RepeatLoopRules.top(org.omarchy.music.RepeatLoops.all(), org.omarchy.music.RepeatLoops.since(days)).map { (l, n) ->
+            val t = if (l.track.id.startsWith("repeat:")) Music.mineOf(l.track) else l.track
+            Item(l.track.title, l.track.artist, n, artModel(t, 600), "repeat") }
+    }
 
     fun items(kind: String): List<Item> = when (kind.removeSuffix("-all")) {
+        "repeats" -> repeats()
         "songs" -> Music.mostPlayed(period(kind)).map { Item(it.title, it.artist, it.plays, artModel(it, 600)) }
         "albums" -> Music.topAlbums(period(kind)).map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
         "eps" -> Music.topAlbums(period(kind)).filter { Music.releaseKind(it.title, it.tracks, byCount = false) == "ep" }.map { Item(it.title, it.artist, it.plays, artModel(it.tracks.first(), 600)) }
@@ -70,7 +80,7 @@ object Collage {
             pt.gradient(x, y + cell * 0.45f, x + cell, y + cell, 0x00000000, 0xD9000000.toInt())
             val pad = cell * 0.06f; val w = cell - 2 * pad
             val lines = listOfNotNull(Triple(it.title, big, true), it.sub.ifEmpty { null }?.let { s -> Triple(s, small, false) },
-                Triple("%,d play%s".format(it.plays, if (it.plays != 1) "s" else ""), small, false))
+                Triple("%,d %s%s".format(it.plays, it.unit, if (it.plays != 1) "s" else ""), small, false))
             var yy = y + cell - pad - lines.sumOf { (_, sz, _) -> (sz * 1.25f).toDouble() }.toFloat()
             for ((t, sz, bold) in lines) {
                 yy += sz
@@ -94,11 +104,12 @@ fun CollageSheet(ui: Ui, kind: String) {
     var bmp by remember { mutableStateOf<ImageBitmap?>(null) }
     var status by remember { mutableStateOf("") }
     val items = remember(kind) { runCatching { Collage.items(kind) }.getOrDefault(emptyList()) }
-    val name = mapOf("songs" to "Top songs", "albums" to "Top albums", "eps" to "Top EPs", "singles" to "Top singles")[kind.removeSuffix("-all")] ?: "Top artists"
-    val period = mapOf("week" to "This week", "month" to "This month", "year" to "This year")[Collage.period(kind)] ?: "All time"
+    val name = mapOf("songs" to "Top songs", "albums" to "Top albums", "eps" to "Top EPs", "singles" to "Top singles", "repeats" to "Most repeated")[kind.removeSuffix("-all")] ?: "Top artists"
+    val period = mapOf("week" to "This week", "month" to "This month", "year" to "This year",
+        "repeats-week" to "The last 7 days", "repeats-month" to "The last 30 days", "repeats-year" to "The last year")[Collage.period(kind)] ?: "All time"
     LaunchedEffect(n, labels) {
         Music.chooseCollageSize(n)
-        if (items.isEmpty()) { status = "Nothing played yet to make a collage of"; return@LaunchedEffect }
+        if (items.isEmpty()) { status = if (kind == "repeats") "No repeats in this time to make a collage of" else "Nothing played yet to make a collage of"; return@LaunchedEffect }
         val want = minOf(items.size, n * n)
         status = "Getting $want pictures…"
         Music.bg({ Collage.draw(items, n, labels) }) { b, err ->
@@ -113,7 +124,7 @@ fun CollageSheet(ui: Ui, kind: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Collage.SIZES.forEach { k -> Chip("$k×$k", n == k) { n = k } }
-                Chip("Names and plays", labels) { labels = !labels }
+                Chip(if (kind == "repeats") "Names and repeats" else "Names and plays", labels) { labels = !labels }
             }
             Text(status, style = T.sub)
             bmp?.let { b ->

@@ -1968,6 +1968,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             periods.forEach { (k, l) -> Chip(l.first, Music.repeatsPeriod == k) { Music.repeatsPeriod = k } }
+            Chip("Collage…", false) { ui.collageFor = "repeats" }   // as on Most played: the covers in a grid, each with its repeats
         }
     }
     val days = periods.firstOrNull { it.first == Music.repeatsPeriod }?.second?.second ?: 0
