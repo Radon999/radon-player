@@ -2639,6 +2639,20 @@ private fun PresetShuffleLines() {
         ChoicePill(MyPresets.SHUFFLE_TIMES.map { it.toString() to "$it minutes" }, every.toString()) {
             every = it.toInt(); MyPresets.setShuffleMinutes(every) }
     }
+    // What the shuffle leaves alone: each kind of choice a preset holds (each dropdown of this tab) can be left out,
+    // so it stays as you set it while the rest changes (shuffle the visualizers, keep your look)
+    if (on) {
+        var skip by remember { mutableStateOf(MyPresets.shuffleSkip()) }
+        Line("Leave out of the shuffle", "Tap a kind to leave it out: it stays as you set it while the shuffle changes the others. " +
+            "Tap it again to let the shuffle change it. Picking a preset yourself still puts on all of it",
+            skip.isNotEmpty(), note = org.omarchy.music.PresetShuffleRules.note(skip)) {}
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            org.omarchy.music.PresetShuffleRules.PARTS.forEach { (k, label) ->
+                Chip(if (k in skip) "✕ $label" else label, k in skip) { MyPresets.toggleShuffleSkip(k); skip = MyPresets.shuffleSkip() }
+            }
+        }
+    }
 }
 
 /** Settings › Personalization: the presets menu and Save. */

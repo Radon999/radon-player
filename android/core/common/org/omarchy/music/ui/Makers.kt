@@ -1002,21 +1002,31 @@ object MyPresets {
     }
 
     /** Puts every choice of the preset on (the ones it names that are gone now, a deleted look say, are left as they are). */
-    fun apply(key: String) {
+    /** skip: the kinds of choice left as they are (Personalization Preset Shuffle's "Leave out of the shuffle":
+     *  [org.omarchy.music.PresetShuffleRules.PARTS]). Picking a preset yourself leaves nothing out. */
+    fun apply(key: String, skip: Set<String> = emptySet()) {
         val p = of(key) ?: return
-        if (Themes.known(p.theme)) Prefs.setText(Themes.PREF, p.theme)
-        Prefs.set(LookFx.OWN, p.own)
-        Prefs.setText(LookFx.PICK, p.fx)
-        if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
-        Prefs.set(Vis.NOW_DUAL, p.dual)
-        if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
-        if (p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
-        if (p.card.isNotBlank()) LyricsCards.pick(p.card)
-        if (p.visColor.isNotBlank()) Prefs.setText(Vis.COLOR, p.visColor)
-        Music.chooseNpFallback(p.npFallback)
-        if (Looks.known(p.look)) Music.chooseLook(p.look) else Music.applyLook()
-        if (UiLayouts.all().any { it.key == p.layout }) UiLayouts.choose(p.layout)
+        if ("theme" !in skip && Themes.known(p.theme)) Prefs.setText(Themes.PREF, p.theme)
+        if ("effects" !in skip) { Prefs.set(LookFx.OWN, p.own); Prefs.setText(LookFx.PICK, p.fx) }
+        if ("visualizer" !in skip) {
+            if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
+            Prefs.set(Vis.NOW_DUAL, p.dual)
+            if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
+        }
+        if ("wrapped" !in skip && p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
+        if ("card" !in skip && p.card.isNotBlank()) LyricsCards.pick(p.card)
+        if ("viscolor" !in skip && p.visColor.isNotBlank()) Prefs.setText(Vis.COLOR, p.visColor)
+        if ("nowplaying" !in skip) Music.chooseNpFallback(p.npFallback)
+        if ("look" !in skip && Looks.known(p.look)) Music.chooseLook(p.look) else Music.applyLook()
+        if ("layout" !in skip && UiLayouts.all().any { it.key == p.layout }) UiLayouts.choose(p.layout)
         applied++
+    }
+
+    /** The kinds of choice Personalization Preset Shuffle leaves as you set them. */
+    private const val SHUFFLE_SKIP = "preset_shuffle_skip"
+    fun shuffleSkip(): Set<String> = org.omarchy.music.PresetShuffleRules.read(Prefs.text(SHUFFLE_SKIP))
+    fun toggleShuffleSkip(part: String) {
+        Prefs.setText(SHUFFLE_SKIP, org.omarchy.music.PresetShuffleRules.write(org.omarchy.music.PresetShuffleRules.toggled(shuffleSkip(), part)))
     }
 
     /** Personalization Preset Shuffle: on, a different favourite preset (★) is put on every 5, 10, 15 or 30 minutes; only
@@ -1039,7 +1049,7 @@ object MyPresets {
         val p = pool.filter { it.key != last }.ifEmpty { pool }.random()
         Prefs.setText(SHUFFLE_LAST, p.key)
         Prefs.setText(SHUFFLE_AT, System.currentTimeMillis().toString())
-        apply(p.key)
+        apply(p.key, shuffleSkip())   // what you left out of the shuffle stays as you set it
     }
     /** Called every so often while the app is open: the next one when its minutes have gone by (not while you edit one). */
     fun shuffleTick() {
