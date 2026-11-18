@@ -216,6 +216,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
             SyncLines(ui)
+            AutoPlaylistSyncLine()
             SyncedPlaylistsLines()
             SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
@@ -2675,7 +2676,7 @@ private fun SyncedPlaylistsLines() {
     val pairs = remember(v) { Music.discoveryLists() }
     val n = plain.count { it.synced == true } + (if (later?.synced == true) 1 else 0) + pairs.count { it.second?.synced == true || it.third?.synced == true }
     Line("Playlists that sync", "Switch on the playlists to keep the same on your phone and PC; the rest stay on the $DEVICE they are on. " +
-        "Nothing is sent when you flip a switch: tap Sync now (above) and they go across, both ways. " +
+        "Nothing is sent when you flip a switch: tap Sync now (above) and they go across, both ways (or turn on Auto playlist sync, above). " +
         "A synced playlist's songs come together: what you add or take out on one is on the other. Two synced playlists of the same name " +
         "(one made on each) become one with the songs of both; so do the two Listen laters, and the two discovery playlists for an artist " +
         "(a song heard to the end on either is heard). A smart playlist's rules go across, and each " +
@@ -2684,7 +2685,8 @@ private fun SyncedPlaylistsLines() {
         Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }
     }
     // Said in full view, switches open or not: "synced" must not be taken for "sent as I go"
-    Text(org.omarchy.music.SyncPlaylists.NOTICE + ". Until the first Sync after a playlist is switched on, nothing of it has crossed at all.",
+    val byItself = org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO_SYNC)
+    Text(org.omarchy.music.SyncPlaylists.notice(byItself) + (if (byItself) "" else ". Until the first Sync after a playlist is switched on, nothing of it has crossed at all"),
         style = T.sub.copy(color = C.accent), modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
     if (!open) return
     fun songs(k: Int) = "%,d song%s".format(k, if (k != 1) "s" else "")
@@ -2699,6 +2701,21 @@ private fun SyncedPlaylistsLines() {
             disc?.synced == true || done?.synced == true) { Music.setPlaylistSynced(id, it) }
     }
     if (plain.isEmpty() && pairs.isEmpty()) Text("You have no other playlists yet", style = T.sub, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+}
+
+/** Settings › Remote & sync › Auto playlist sync: the synced playlists sync by themselves when the two apps meet. */
+@Composable
+private fun AutoPlaylistSyncLine() {
+    val s = org.omarchy.music.Sync
+    val on = org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO_SYNC)
+    val v = Music.musicVersion
+    Line("Auto playlist sync", "On: your synced playlists (⇄) sync by themselves, so you needn't remember Sync now. It happens the moment the phone's app " +
+        "finds the PC's (both open, on the same network), and again within about 20 seconds whenever you add or take out a song on either while both " +
+        "are open. Only the playlists go: plays, favorites, settings and the rest still wait for Sync now. It can't happen while one of the apps is " +
+        "closed or the two aren't on the same network; they catch up when they next meet. The switch counts on either device. Both need this version",
+        on, note = if (s.autoAt > 0) "Playlists last synced by themselves ${s.ago(s.autoAt)}" else "") {
+        Switch(on, { org.omarchy.music.Prefs.set(org.omarchy.music.SyncPlaylists.AUTO_SYNC, it); Music.musicVersion++; if (it) s.soon() }, colors = swColors())
+    }
 }
 
 @Composable

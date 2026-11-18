@@ -135,7 +135,10 @@ object RemoteHost {
             return when (path) {
                 "/status" -> answer(ex, 200, onUi { status(q["qv"]) })
                 "/art" -> art(q["id"] ?: "")?.let { answer(ex, 200, it, "image/jpeg") } ?: answer(ex, 404, err("no picture"))
-                "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()) })   // Sync now, tapped here
+                // Sync now, tapped here; and for Auto playlist sync: that this PC can sync the playlists alone, whether its
+                // switch is on (it counts on either device), and when its playlists last changed
+                "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()); put("playlistsOnly", true)
+                    put("autoPlaylists", Prefs.on(SyncPlaylists.AUTO_SYNC)); put("playlistsAt", Sync.playlistsAt()) })
                 // The visualizer's levels for the phone's (its remote): the spectrum runs while the phone asks
                 "/levels" -> { holdSpectrum(); answer(ex, 200, kotlinx.serialization.json.JsonArray(
                     PcSpectrum.levels.map { kotlinx.serialization.json.JsonPrimitive((it * 1000).toInt() / 1000f) })) }

@@ -46,7 +46,7 @@ object YourPlaylists {
         val ids = if (artist == null) listOf(id) else lists.all().filter { it.discovery?.artist?.trim().equals(artist, ignoreCase = true) }.map { it.id }
         ids.forEach { lists.setSynced(it, on) }
         changed()
-        toast(if (on) "Set to sync. " + SyncPlaylists.NOTICE else "Not synced any more: each device keeps its own copy")
+        toast(if (on) "Set to sync. " + SyncPlaylists.notice(Prefs.on(SyncPlaylists.AUTO_SYNC)) else "Not synced any more: each device keeps its own copy")
         if (on) Sync.soon()
     }
 

@@ -148,8 +148,44 @@ object Sync {
      *  reached again after it couldn't (the app opened, back on the same Wi-Fi, the PC woken). */
     private var met = false
     private fun connected() {
-        // Sync only when you ask for it (Sync now, here or on the PC): meeting the PC no longer syncs by itself
+        // Sync only when you ask for it (Sync now, here or on the PC): meeting the PC no longer syncs by itself.
+        // (Auto playlist sync does, for the playlists alone: [playlistsNow], asked from [tick])
         met = true
+    }
+
+    // ---- Auto playlist sync: the synced playlists alone, by themselves ----
+
+    private val playlistsFile get() = File(dir, "playlists.json")
+    private fun playlistFiles() = linkedMapOf("playlists.json" to SyncPlaylists.shared(readText(playlistsFile)?.takeIf { it.isNotBlank() } ?: "[]"))
+    /** When this device's playlists last changed (for GET /sync/wanted, and the phone's own). */
+    fun playlistsAt(): Long = runCatching { playlistsFile.lastModified() }.getOrDefault(0L)
+    private var seenPc = -1L
+    private var seenMine = -1L
+    var autoAt by mutableStateOf(0L)   // when the playlists last synced by themselves (seconds; 0: not since the app opened)
+        private set
+
+    /** (the phone) The synced playlists alone, with the PC: merged as Sync now merges them (songs added on either are
+     *  on both, songs taken out on either are out of both), nothing else touched, no word said unless something
+     *  changed. "Undo last sync" still puts back what was there before the last Sync now. */
+    private fun playlistsNow() {
+        if (!Remote.paired || !running.compareAndSet(false, true)) return
+        val with = Remote.name.ifEmpty { "the PC" }
+        val host = Remote.host; val headers = Remote.headers()
+        Music.bg({
+            val mine = playlistFiles()
+            val (_, theirs) = post(host, headers, head("phone", false, auto = true, only = true), mine)
+            val sent = parse(mine); val here = parse(playlistFiles())
+            val result = SyncMerge.mergeAll(sent, here, parse(theirs.filterKeys { it == "playlists.json" }), preferLocal = false)
+            result.mapValues { it.value.toString() } to result.filter { (n, v) -> here[n] != v }.keys
+        }) { d, _ ->
+            running.set(false)
+            if (d == null) return@bg   // (the PC couldn't be reached after all: tried again when it can)
+            val before = playlistsAt()
+            // (nothing differs: nothing is written or read again, so the check every 20 seconds costs next to nothing)
+            if (d.second.isNotEmpty()) runCatching { putInPlace(d.first, d.second) }.onFailure { Crashes.caught(it, "Auto playlist sync") }
+            seenMine = playlistsAt(); autoAt = secs()
+            if (seenMine != before) Music.toast("Playlists synced with $with")
+        }
     }
 
     private class Done(val files: Map<String, String>, val changed: Set<String>, val summary: String, val moods: String?, val nothing: Boolean,
@@ -185,7 +221,7 @@ object Sync {
     /** (the phone) Just paired with a PC: sync straight away. */
     fun paired() { met = false; nextCheck = 0L }
     /** Something to send soon (a playlist made synced): on the phone, a sync in a few seconds. */
-    fun soon() = Unit   // (a sync only ever starts from Sync now)
+    fun soon() { if (Prefs.on(SyncPlaylists.AUTO_SYNC)) nextCheck = 0L }   // (with Auto playlist sync on; else a sync only ever starts from Sync now)
 
     /** (the phone, every few seconds) Whether the PC's Sync now is waiting for this phone: then sync. A quick question
      *  every 20 seconds, every 30 seconds while the PC can't be reached; meeting it again syncs ([connected]). */
@@ -197,7 +233,12 @@ object Sync {
         val host = Remote.host; val h = Remote.headers()
         Music.bg({ httpJson("http://$host/sync/wanted", h) }) { s, err ->
             if (err != null) { met = false; nextCheck = System.currentTimeMillis() + 30_000; return@bg }
-            if (s["wanted"].bool == true) now(fromPc = true) else connected()
+            val pcAt = s["playlistsAt"].long ?: 0L
+            if (s["wanted"].bool == true) now(fromPc = true)
+            // Auto playlist sync (on here or on the PC): on meeting, and when a playlist changed on either since
+            else if (SyncPlaylists.autoNow(Prefs.on(SyncPlaylists.AUTO_SYNC) || s["autoPlaylists"].bool == true, s["playlistsOnly"].bool == true,
+                    met, pcAt, seenPc, playlistsAt(), seenMine)) { seenPc = pcAt; playlistsNow() }
+            else connected()
             met = true
         }
     }
@@ -224,15 +265,18 @@ object Sync {
     fun serve(peer: String, peerName: String, ins: InputStream): (OutputStream) -> Unit {
         if (!running.compareAndSet(false, true)) throw IllegalStateException("the PC is already syncing")
         try {
-            onMain { busy = "Syncing with $peerName…"; wantedAt = 0L }
             val (asked, theirs) = readZip(ins)
             if (asked["app"].str != "radon-player") throw IllegalArgumentException("that isn't a Radon Player sync")
-            val songs = asked["songs"].bool == true && songsOn
+            // Auto playlist sync: the synced playlists alone are merged; everything else here is left exactly as it is
+            // (and a Sync now that is waiting for the phone goes on waiting)
+            val only = asked["only"].str == "playlists"
+            onMain { if (!only) { busy = "Syncing with $peerName…"; wantedAt = 0L } }
+            val songs = asked["songs"].bool == true && songsOn && !only
             val (st, sw) = onMain { stateJson() to switchesJson() }
-            val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
-            val myMoods = runCatching { Moods.backup() }.getOrNull()
+            val mine = if (only) playlistFiles() else files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
+            val myMoods = if (only) null else runCatching { Moods.backup() }.getOrNull()
             theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the phone's stretches (each one once)
-            val tagged = (theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0) +   // the phone's tag changes
+            val tagged = if (only) 0 else (theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0) +   // the phone's tag changes
                 runCatching { TagMatch.take(theirs[TagMatch.FILE]) }.getOrDefault(0)   // Tags & covers match: the phone's, when it's the main one
             val local = parse(mine)
             val remote = parse(theirs).filterKeys { songs || it !in SyncRules.SONG_FILES }
@@ -242,17 +286,27 @@ object Sync {
             val merged = SyncMerge.mergeAll(base, local, remote, preferLocal = asked["prefer"].str == "pc")
             val sum = SyncMerge.summary(merged, local); val summary = sum.text()
             val out = merged.mapValues { it.value.toString() }
-            saveUndo(mine, peerName)
-            onMain {
-                runCatching { putInPlace(out, merged.filter { (n, v) -> local[n] != v }.keys) }.onFailure { Crashes.caught(it, "Sync") }
+            if (!only) saveUndo(mine, peerName)
+            val before = playlistsAt()
+            val differs = merged.filter { (n, v) -> local[n] != v }.keys
+            if (!only || differs.isNotEmpty()) onMain {
+                runCatching { putInPlace(out, differs) }.onFailure { Crashes.caught(it, "Sync") }
                 theirs[SyncRules.MOODS]?.let { runCatching { Moods.restoreLater(it, fromSync = true); Moods.auto() } }
                 theirs[DOWNLOADS]?.let { runCatching { DownloadSync.take(it, peerName) } }
                 if (tagged > 0) Music.rescan()
             }
             // The phone's songs this PC hasn't got (kept for Settings › Remote & sync › Other device's songs)
-            runCatching { LibraryMatch.take(theirs[SONGS_HERE], peerName) }
+            if (!only) runCatching { LibraryMatch.take(theirs[SONGS_HERE], peerName) }
             runCatching { onMain { Music.musicVersion++ } }
             val back = head("pc", songs)
+            if (only) {
+                // What the two agreed on for the playlists, into what they agreed on for the rest at the last Sync now
+                val rest = if (baseFile.isFile) runCatching { FileInputStream(baseFile).use { readZip(it) }.second }.getOrDefault(emptyMap()) else emptyMap()
+                writeZipFile(baseFile, back, rest + out)
+                val changed = playlistsAt() != before
+                onMain { autoAt = secs(); if (changed) Music.toast("Playlists synced with $peerName") }
+                return { os -> writeZip(os, back, out) }
+            }
             writeZipFile(baseFile, back, out)   // what these two agreed on: next time, what's gone from one side is deleted
             onMain { finished(summary + (if (tagged > 0) " · tags changed on $tagged song${if (tagged != 1) "s" else ""}" else ""), peerName,
                 quiet = asked["auto"].bool == true && sum.changed == 0 && tagged == 0) }
@@ -301,8 +355,9 @@ object Sync {
 
     // ---- this device's side ----
 
-    private fun head(prefer: String, songs: Boolean, auto: Boolean = false) = buildJsonObject {
+    private fun head(prefer: String, songs: Boolean, auto: Boolean = false, only: Boolean = false) = buildJsonObject {
         put("app", "radon-player"); put("v", 1); put("platform", platformName); put("device", deviceName); put("auto", auto)
+        if (only) put("only", "playlists")   // Auto playlist sync: the synced playlists and nothing else
         put("prefer", prefer); put("songs", songs); put("made", secs()); put("fresh", Prefs.on(FRESH))
     }
 

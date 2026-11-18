@@ -101,8 +101,21 @@ object SyncPlaylists {
     /** The mark every list of playlists shows on each one, so it is plain which sync and which don't. */
     fun mark(synced: Boolean): String = if (synced) "⇄ SYNCED" else "THIS DEVICE ONLY"
 
-    /** Said wherever a playlist is set to sync, so nobody takes "synced" for "sent as I go": nothing crosses by itself. */
-    const val NOTICE = "Nothing crosses by itself: songs you add or take out reach the other device only when you tap Sync now (Settings › Remote & sync)"
+    /** The switch "Auto playlist sync" (Settings › Remote & sync), off until you turn it on: the synced playlists are
+     *  synced by themselves when the phone's app finds the PC's (the app opened, back on the same network), and again
+     *  when one of them changes on either while both are open. Only the playlists: the rest waits for Sync now. */
+    const val AUTO_SYNC = "playlists_sync_by_themselves"
+
+    /** Said wherever a playlist is set to sync, so nobody takes "synced" for "sent as I go" when it isn't. */
+    fun notice(auto: Boolean): String =
+        if (auto) "Auto playlist sync is on: songs you add or take out reach the other device by themselves while Radon Player is open on both, on the same network. Otherwise at the next time they meet, or when you tap Sync now"
+        else "Nothing crosses by itself: songs you add or take out reach the other device only when you tap Sync now, unless you turn on Auto playlist sync (both in Settings › Remote & sync)"
+
+    /** Whether the phone syncs the playlists now. met: it had found the PC already (false: it just did, or the app
+     *  just opened). pcAt, myAt: when each device's playlists last changed; seenPc, seenMine: as they were at the last
+     *  sync by itself. So: once on meeting, then only when something changed on either. */
+    fun autoNow(on: Boolean, pcCan: Boolean, met: Boolean, pcAt: Long, seenPc: Long, myAt: Long, seenMine: Long): Boolean =
+        on && pcCan && (!met || pcAt != seenPc || myAt != seenMine)
 
     /** What Settings says under Playlists that sync. */
     fun said(n: Int): String = if (n == 0) "None yet: each device keeps its own playlists"

@@ -3,7 +3,9 @@ package org.omarchy.music
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SyncPlaylistsTest {
@@ -86,6 +88,19 @@ class SyncPlaylistsTest {
             {"id":"e","name":"Listen later","smart":{"live":true},"synced":true},{"id":"f","name":"Best","smart":{"live":true},"synced":true},
             {"id":"g","name":"Best","smart":{"live":false},"synced":true}]""")
         assertEquals(two, SyncPlaylists.oneOfEach(two))
+    }
+
+    @Test fun playlistsSyncByThemselvesOnMeetingAndWhenOneChanges() {
+        fun now(on: Boolean = true, can: Boolean = true, met: Boolean = true, pc: Long = 5, seenPc: Long = 5, mine: Long = 7, seenMine: Long = 7) =
+            SyncPlaylists.autoNow(on, can, met, pc, seenPc, mine, seenMine)
+        assertTrue("the phone just found the PC (or the app just opened)", now(met = false))
+        assertFalse("nothing changed since: not again every 20 seconds", now())
+        assertTrue("a playlist changed on the PC", now(pc = 6))
+        assertTrue("a playlist changed on the phone", now(mine = 8))
+        assertFalse("the switch is off on both", now(on = false, met = false))
+        assertFalse("a PC app from before this: it would take it for a whole sync", now(can = false, met = false))
+        assertTrue(SyncPlaylists.notice(false).startsWith("Nothing crosses by itself"))
+        assertTrue(SyncPlaylists.notice(true).startsWith("Auto playlist sync is on"))
     }
 
     @Test fun whatSettingsSays() {
