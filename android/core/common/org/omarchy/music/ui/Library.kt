@@ -247,6 +247,8 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
     val left = remember(v, reading == null) { if (reading == null) moods.scanLeft() else 0 to 0L }
     val scanned = remember(v, reading == null) { moods.scannedCount() }
     val toWrite = remember(v, reading == null) { if (reading == null) moods.toWrite() else 0 }
+    // What the Write moods into the files button fills in: scanned songs whose files have no moods at all
+    val toFill = remember(v, reading == null, moods.writing) { if (reading == null) moods.toFill() else 0 }
     val prevented = moods.prevented
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -256,8 +258,8 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
                 (moods.readingLeft?.let { moodsLeft(it) } ?: "working out the time left…"), style = T.sub.copy(color = C.accent))
         } else if (prevented) {
             // Writing by hand is still yours to ask for: the switch stops what the app does by itself
-            if (toWrite > 0 && !moods.writing && !moods.wordsBusy && moods.removing == null)
-                Chip("Write moods into the files (%,d song%s)".format(toWrite, if (toWrite != 1) "s" else ""), false) { moods.writeFiles(scannedOnly = true) }
+            if (toFill > 0 && !moods.writing && !moods.wordsBusy && moods.removing == null)
+                Chip("Write moods into the files (%,d song%s)".format(toFill, if (toFill != 1) "s" else ""), false) { moods.writeFiles(scannedOnly = true) }
             Text("Prevent auto mood scans is on (Settings › Scanner): the moods in your files stay as they are and no song is scanned",
                 style = T.sub.copy(color = C.accent))
         } else if (looking == null && !moods.wordsBusy && moods.removing == null) {
@@ -265,8 +267,8 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             if (left.first > 0) Chip("Scan moods (%,d song%s, %s)".format(left.first, if (left.first != 1) "s" else "", moodsTime(left.second)) +
                 (if (moods.aiOn()) " · AI" else ""), false) { moods.scan() }
             // Songs scanned already whose moods aren't in their files: written by themselves, without scanning the rest first
-            if (left.first > 0 && toWrite > 0 && !moods.writing)
-                Chip("Write moods into the files (%,d song%s)".format(toWrite, if (toWrite != 1) "s" else ""), false) { moods.writeFiles(scannedOnly = true) }
+            if (left.first > 0 && toFill > 0 && !moods.writing)
+                Chip("Write moods into the files (%,d song%s)".format(toFill, if (toFill != 1) "s" else ""), false) { moods.writeFiles(scannedOnly = true) }
             else if (left.first > 0) {}
             else if (toWrite > 0) Chip("Write moods into the files (%,d song%s)".format(toWrite, if (toWrite != 1) "s" else ""), false) { moods.scan() }
             else if (counts.total > 0) Chip("Scan moods (moods into the files)", false) { moods.scan() }

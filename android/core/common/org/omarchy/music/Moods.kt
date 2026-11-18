@@ -1226,20 +1226,23 @@ object Moods {
         return out
     }
 
-    /** (blocking) The scanned songs whose moods aren't in their files yet, each with the moods to write: what
-     *  [toWrite] counts. */
+    /** (blocking) The scanned songs whose files have no moods in them at all, each with the moods to write. A file
+     *  that has moods already is left as it is, whatever they are: this only fills in the empty ones. */
     private fun scannedToWrite(): List<Pair<String, String>> {
         load()
         return Music.mySongs().mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }.mapNotNull { (p, t) ->
             val e = synchronized(lock) { known[p] } ?: return@mapNotNull null
-            if (e.picked.isNotEmpty() || !scanned(e) || !canWrite(p)) null
-            else moodsFor(t, e).takeIf { it.isNotEmpty() && it != e.inFile }?.let { p to it }
+            if (e.picked.isNotEmpty() || e.inFile.isNotBlank() || !scanned(e) || !canWrite(p)) null
+            else moodsFor(t, e).takeIf { it.isNotEmpty() }?.let { p to it }
         }
     }
 
+    /** How many files the Moods tab's Write moods into the files would fill in (scanned songs with no moods in their files). */
+    fun toFill(): Int = runCatching { scannedToWrite().size }.getOrDefault(0)
+
     /** Write the songs' moods into their files' MOOD tags, in the background (the playing song's waits till next time).
-     *  scannedOnly: the Moods tab's own button, pressed by hand: just the scanned songs whose moods aren't in their
-     *  files yet, nothing scanned. It works with Prevent auto mood scans on too: that stops what the app does by
+     *  scannedOnly: the Moods tab's own button, pressed by hand: just the scanned songs whose files have no moods in
+     *  them yet (a file that has moods keeps them), nothing scanned. It works with Prevent auto mood scans on too: that stops what the app does by
      *  itself, not what you ask for. */
     fun writeFiles(scannedOnly: Boolean = false) {
         if (writing || running) return   // not while songs are being heard (a file isn't rewritten while it's read)
