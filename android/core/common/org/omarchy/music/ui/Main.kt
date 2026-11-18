@@ -300,8 +300,8 @@ fun App() {
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
             ui.songCard?.let { SongCardDialog(ui, it) }
             // A playlist's Set a cover…: the picture picker, opened when a playlist asks for one
-            val coverPick = rememberOpenFile { uri -> ui.coverFor?.let { id -> if (uri != null) PlaylistCovers.set(id, uri) }; ui.coverFor = null }
-            LaunchedEffect(ui.coverFor) { if (ui.coverFor != null) coverPick.launch(arrayOf("image/*")) }
+            val coverPick = rememberOpenFile { uri -> ui.playlistCoverFor?.let { id -> if (uri != null) PlaylistCovers.set(id, uri) }; ui.playlistCoverFor = null }
+            LaunchedEffect(ui.playlistCoverFor) { if (ui.playlistCoverFor != null) coverPick.launch(arrayOf("image/*")) }
         }
         }
     }

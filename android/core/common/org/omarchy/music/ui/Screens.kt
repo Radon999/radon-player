@@ -860,7 +860,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
                 "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
                 (if (pl.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(pl.id, pl.synced != true) },
                 ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(pl) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
-                "Set a cover…" to { ui.coverFor = pl.id },
+                "Set a cover…" to { ui.playlistCoverFor = pl.id },
                 ("Remove its cover" to { PlaylistCovers.clear(pl.id) }).takeIf { PlaylistCovers.of(pl.id) != null },
                 "Select" to { ui.startPick("playlists", pl.id, pl.tracks) })
         }
@@ -930,7 +930,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
             ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(open) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
-            "Set a cover…" to { ui.coverFor = open.id },
+            "Set a cover…" to { ui.playlistCoverFor = open.id },
             ("Remove its cover" to { PlaylistCovers.clear(open.id) }).takeIf { PlaylistCovers.of(open.id) != null },
             // A discovered playlist: review just its songs (download them or let them go).
             if (open.discovery?.role == "discovered" && open.tracks.isNotEmpty()) "Review" to { ui.reviewFor = open } else null,
