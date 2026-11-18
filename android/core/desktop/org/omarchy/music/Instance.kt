@@ -122,6 +122,11 @@ object Instance {
                 show()
                 // "show settings Playback": Settings with that section open (its name as Settings shows it)
                 if (ui != null && rest.lowercase().startsWith("settings ")) { ui.openSettings(rest.drop(9).trim()); return }
+                // "show preset preset-31": that Personalization preset put on, with Now playing in front (the checks picture each)
+                if (ui != null && rest.lowercase().startsWith("preset ")) {
+                    org.omarchy.music.ui.MyPresets.apply(rest.drop(7).trim())
+                    org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
+                }
                 if (ui != null && rest.isNotEmpty()) when (rest.lowercase()) {
                     "now", "player", "nowplaying" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art" }
                     "lyrics" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "lyrics" }
