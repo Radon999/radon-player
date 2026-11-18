@@ -164,6 +164,7 @@ val CHANGELOG: String = listOf(
     "What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).",
     "",
     "## 4.0.11 · November 2026",
+    "- **Every menu entry can go on your bar:** making a layout of your own, the bar's buttons offered only some of the app's screens (Discovery, for one, was nowhere to pick). Everything in the ☰ menu can be put on the bar now: Discovery, Listen later, Downloads, EPs, Singles, Folders, Smart playlists, Mood lists, New releases, Pinned, Skips, the FLAC tabs, Lyrics and the rest.",
     "- **Why a mood couldn't be written:** writing moods into the files could end with \"48 couldn't be written\" and nothing more. It now says why (the kind of file, or what the phone answered), and Settings › Problems lists the reasons with how many files each, and a few of the files by name.",
     "",
     "## 4.0.10 · November 2026",
