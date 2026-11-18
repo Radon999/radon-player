@@ -921,7 +921,7 @@ fun QueueTab(ui: Ui) {
     val idx = Music.shownIndex()
     PlaceColumn(Modifier.fillMaxSize()) {
         if (!Remote.active) item { QueueHeader(ui) }
-        if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@LazyColumn }
+        if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@PlaceColumn }
         if (djQueueOn()) item("djnote") { DjQueueNote(modifier = Modifier.padding(horizontal = 12.dp)) }
         item { Section("NOW PLAYING") }
         item { TrackRow(q[idx], RowPlace(q, idx, "queue", queueIndex = idx), ui, djKindOf(q[idx])) { } }
