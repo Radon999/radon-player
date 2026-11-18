@@ -1291,6 +1291,10 @@ object Moods {
         Music.bg({
             val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
             var done = 0; var failed = 0
+            // Why a file couldn't be written, counted: said afterwards, and noted in full (Settings › Problems), so a
+            // failure is never just a number
+            val whys = LinkedHashMap<String, Int>()
+            val examples = ArrayList<String>()
             val check = if (scannedOnly) fillCheck() else null
             val list = if (differingOnly) differing() else check?.ready ?: writable()
             // (the button always answers: with nothing it can write, it says why)
@@ -1304,7 +1308,13 @@ object Moods {
                     val wl = if (d < 10) null else ((list.size - d) * spent / d).toLong()
                     if (d >= 10) rate(RATE_WRITE, spent / d)
                     Music.scope.launch { writeProgress = d to list.size; writeLeft = wl } }
-                if (runCatching { LyricsTags.writeMood(Music.ctx, p, m) }.getOrDefault(false)) {   // only the mood changes, never the album or artist
+                val wrote = runCatching { LyricsTags.writeMood(Music.ctx, p, m) }
+                if (wrote.isFailure || wrote.getOrNull() != true) {
+                    val why = MoodWriteRules.why(wrote.exceptionOrNull()?.message, p)
+                    whys[why] = (whys[why] ?: 0) + 1
+                    if (examples.size < 4) examples += MoodWriteRules.fileName(p)
+                }
+                if (wrote.getOrDefault(false)) {   // only the mood changes, never the album or artist
                     done++
                     // The file changed because of us: remember its new time, so it isn't read again for it.
                     val mt = runCatching { AudioTools.modified(p) }.getOrNull()
@@ -1313,12 +1323,13 @@ object Moods {
                 if (done > 0 && done % 50 == 0) save()
             }
             save()
-            done to failed
+            if (failed > 0) runCatching { Crashes.note(MoodWriteRules.note(failed, whys, examples)) }
+            Triple(done, failed, MoodWriteRules.said(whys))
         }) { r, _ ->
             writing = false; toWrite = 0; version++
-            val (done, failed) = r ?: (0 to 0)
+            val (done, failed, why) = r ?: Triple(0, 0, "")
             if (done > 0 || failed > 0) Music.toast("Moods written into ${"%,d".format(done)} file${if (done != 1) "s" else ""}" +
-                if (failed > 0) " (${"%,d".format(failed)} couldn't be written)" else "")
+                if (failed > 0) " (${"%,d".format(failed)} couldn't be written: $why. More in Settings › Problems)" else "")
         }
     }
 
