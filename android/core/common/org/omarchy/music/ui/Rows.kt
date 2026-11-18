@@ -313,7 +313,7 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
     // The theme's spacing and cover size (Compact, Roomy…), and its card behind each row (Cards, Glass, Outline…)
     val art = Themes.art(48.dp)
     val carded = Themes.current.cards != CardStyle.NONE
-    Box {
+    Box(Modifier.swipeToAct(t, ui)) {   // (the phone: a swipe to either side does what Settings › Playback › Swipe a song says)
         Row(
             Modifier.fillMaxWidth()
                 .padding(horizontal = Themes.gap(6.dp), vertical = Themes.gap(if (carded) 3.dp else 1.dp))

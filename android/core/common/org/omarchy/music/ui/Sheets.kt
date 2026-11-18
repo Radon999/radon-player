@@ -1367,6 +1367,19 @@ private fun PlaybackLines(ui: Ui) {
     IgnoreBtLines(ui)
     NewestBtLine()
     if (onPhone) CarFirstLine()
+    // Swipe a song (the phone): what a swipe to each side of a song's row does
+    if (onPhone) {
+        val right = SwipeActions.right(); val left = SwipeActions.left()
+        Line("Swipe a song", "Drag a song's row to the right or the left and let go, and it does what you choose here: add it to the queue, play it next, " +
+            "put it on Listen later, favorite it, or add it to a playlist. Both start on Nothing. A short drag does nothing, and scrolling isn't affected",
+            right.isNotEmpty() || left.isNotEmpty()) {}
+        listOf("Swipe right" to SwipeActions.RIGHT, "Swipe left" to SwipeActions.LEFT).forEach { (name, side) ->
+            Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = T.body, modifier = Modifier.weight(1f))
+                ChoicePill(SwipeActions.CHOICES, if (side == SwipeActions.RIGHT) right else left) { SwipeActions.set(side, it) }
+            }
+        }
+    }
     Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
         "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
         P.on(P.SMART_SHUFFLE)) {
