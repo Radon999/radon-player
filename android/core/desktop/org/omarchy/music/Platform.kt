@@ -49,6 +49,9 @@ const val platformName = "pc"
 val deviceName: String get() = runCatching { java.net.InetAddress.getLocalHost().hostName }.getOrDefault("PC")
 fun sdkAtLeast(n: Int) = true
 
+/** (the phone's: a notification in its shade. On the PC what the app has to say is said in the app itself.) */
+fun notifyUser(ctx: Ctx, title: String, text: String): Boolean = false
+
 /** How much room is left on the disk downloads go to, and how big it is, in bytes. folder: the download folder (one
  *  that isn't a full path is in your home folder). (-1, 0): not known. */
 fun diskSpace(folder: String): Pair<Long, Long> = runCatching {

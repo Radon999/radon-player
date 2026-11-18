@@ -1367,6 +1367,29 @@ private fun PlaybackLines(ui: Ui) {
     IgnoreBtLines(ui)
     NewestBtLine()
     if (onPhone) CarFirstLine()
+    // Wake-up timer: at a time you set, a playlist starts playing (while the app is running)
+    val W = org.omarchy.music.WakeUp; val PR = org.omarchy.music.Prefs
+    var wakeOn by remember { mutableStateOf(PR.on(W.ON)) }
+    var wakeTime by remember { mutableStateOf(PR.text(W.TIME)) }
+    var wakeWhat by remember { mutableStateOf(PR.text(W.WHAT)) }
+    val wakeAt = org.omarchy.music.WakeUpRules.minutes(wakeTime)
+    Line("Wake-up timer", "At the time you set, the app starts playing the playlist you choose (or a hundred of your songs, shuffled). It is a timer inside " +
+        "the app, not the $DEVICE's alarm clock: it goes off only while Radon Player is running" + (if (onPhone) ", so leave the app open (on its stand, charging); " +
+        "if the phone has closed the app overnight it won't go off. Don't rely on it for something you can't be late for" else ""), wakeOn,
+        note = if (!wakeOn) "" else if (wakeAt == null) "Type a time like 7:30" else "Every day at ${org.omarchy.music.WakeUpRules.shown(wakeAt)}") {
+        Switch(wakeOn, { wakeOn = it; PR.set(W.ON, it) }, colors = swColors())
+    }
+    if (wakeOn) Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.width(110.dp)) { Field(wakeTime, "7:30") { wakeTime = it.take(5); PR.setText(W.TIME, wakeTime) } }
+        ChoicePill(listOf("" to "Your songs, shuffled") + Music.lists.all().filter { it.smart == null }.map { it.id to it.name }, wakeWhat) { wakeWhat = it; PR.setText(W.WHAT, it) }
+    }
+    // New releases looked for by the app itself, once a day
+    var relAuto by remember { mutableStateOf(PR.on(org.omarchy.music.NewReleases.AUTO)) }
+    Line("New releases by themselves", "On: once a day while the app is open it looks at what the artists you have music by put out in the last week, and tells you " +
+        "when there is something new" + (if (onPhone) " with a notification" else "") + ". Each release is told once. The look takes a few minutes in the background " +
+        "with a big library; what it finds is on the New releases screen", relAuto) {
+        Switch(relAuto, { relAuto = it; PR.set(org.omarchy.music.NewReleases.AUTO, it) }, colors = swColors())
+    }
     // Swipe a song (the phone): what a swipe to each side of a song's row does
     if (onPhone) {
         val right = SwipeActions.right(); val left = SwipeActions.left()

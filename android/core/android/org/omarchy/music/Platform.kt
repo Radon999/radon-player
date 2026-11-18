@@ -50,6 +50,22 @@ const val platformName = "android"
 val deviceName: String get() = android.os.Build.MODEL
 fun sdkAtLeast(n: Int) = android.os.Build.VERSION.SDK_INT >= n
 
+/** A notification from the app (a new release found): shown in the phone's notification shade; a tap opens the app.
+ *  False if it couldn't be shown (notifications not allowed). */
+fun notifyUser(ctx: Ctx, title: String, text: String): Boolean = runCatching {
+    val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+    if (!nm.areNotificationsEnabled()) return@runCatching false
+    if (nm.getNotificationChannel("news") == null)
+        nm.createNotificationChannel(android.app.NotificationChannel("news", "New releases", android.app.NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "When an artist you have music by puts out something new" })
+    val open = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)?.let {
+        android.app.PendingIntent.getActivity(ctx, 4, it, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT) }
+    val n = android.app.Notification.Builder(ctx, "news").setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(title).setContentText(text)
+        .setStyle(android.app.Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(open).build()
+    nm.notify(7411, n)
+    true
+}.getOrDefault(false)
+
 /** How much room is left where music is kept (the phone's own storage), and how big it is, in bytes. (-1, 0): not known. */
 fun diskSpace(folder: String): Pair<Long, Long> =
     runCatching { android.os.Environment.getExternalStorageDirectory().let { it.usableSpace to it.totalSpace } }.getOrDefault(-1L to 0L)

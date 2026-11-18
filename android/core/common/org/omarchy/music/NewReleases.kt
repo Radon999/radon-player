@@ -89,7 +89,29 @@ object NewReleases {
     }
 
     /** Look at each artist's releases from the last week, month or year (in the background). */
-    fun scan(period: String) {
+    // ---- Look by itself: once a day while the app is open, and say when there is something new ----
+    const val AUTO = "new_releases_auto"
+    private const val AUTO_AT = "new_releases_auto_at"
+    private const val SEEN = "new_releases_seen"
+    /** Called every so often while the app is open: a look at the last week, once a day, in the background. */
+    fun tick() {
+        if (!Prefs.on(AUTO) || status != null) return
+        val t = System.currentTimeMillis() / 1000
+        if (t - (Prefs.text(AUTO_AT).toLongOrNull() ?: 0L) < 86_400L) return
+        Prefs.setText(AUTO_AT, t.toString())
+        scan("week", quiet = true)
+    }
+    /** After a look by itself: the releases not told about before are said (a notification on the phone, a line in the app). */
+    private fun announce(res: List<Release>) {
+        val seen = Prefs.text(SEEN).split('\n').filter { it.isNotBlank() }
+        val new = NewReleaseRules.fresh(res.map { key(it) to (it.title to it.artist) }, seen.toSet())
+        if (new.isEmpty()) return
+        Prefs.setText(SEEN, (new.map { it.first } + seen).take(600).joinToString("\n"))
+        val text = NewReleaseRules.said(new.map { it.second })
+        if (!runCatching { notifyUser(Music.ctx, NewReleaseRules.title(new.size), text) }.getOrDefault(false)) Music.toast(NewReleaseRules.title(new.size) + ": " + text)
+    }
+
+    fun scan(period: String, quiet: Boolean = false) {
         if (status != null) return
         readArtists(Music.mySongs())   // every artist with songs on the phone, read again each time
         status = "Looking…"
@@ -115,10 +137,10 @@ object NewReleases {
             out.sortedByDescending { it.date }
         }) { res, err ->
             status = null
-            if (res == null) { Music.toast("Couldn't look: ${err?.message?.take(100)}"); return@bg }
+            if (res == null) { if (!quiet) Music.toast("Couldn't look: ${err?.message?.take(100)}"); return@bg }
             found = res; scanned = now(); range = period
             Music.bg({ save() })
-            Music.toast("${res.size} new release${if (res.size != 1) "s" else ""}")
+            if (quiet) announce(res) else Music.toast("${res.size} new release${if (res.size != 1) "s" else ""}")
         }
     }
 }
