@@ -42,6 +42,24 @@ object CoverSceneRules {
         return Triple(if (h < 0) h + 360f else h, s.coerceIn(0f, 1f), l)
     }
 
+    /** A colour from hue (0 to 360), saturation and lightness (0 to 1), as 0xRRGGBB. */
+    fun rgb(h: Float, s: Float, l: Float): Int {
+        val c = (1f - kotlin.math.abs(2f * l - 1f)) * s; val hh = ((h % 360f) + 360f) % 360f / 60f
+        val x = c * (1f - kotlin.math.abs(hh % 2f - 1f)); val m = l - c / 2f
+        val (r, g, b) = when (hh.toInt()) { 0 -> Triple(c, x, 0f); 1 -> Triple(x, c, 0f); 2 -> Triple(0f, c, x); 3 -> Triple(0f, x, c); 4 -> Triple(x, 0f, c); else -> Triple(c, 0f, x) }
+        fun ch(v: Float) = ((v + m) * 255f + 0.5f).toInt().coerceIn(0, 255)
+        return (ch(r) shl 16) or (ch(g) shl 8) or ch(b)
+    }
+
+    /** The whole app's background with this preset: the cover as if blurred right out behind everything, its own
+     *  colours running down the window (bands: the cover's colour at its top, middle and bottom). Each keeps its hue,
+     *  with its brightness brought into the range white text reads on and its colour calmed a little, so a cover that
+     *  is teal above, red in the middle and navy below gives a window that is too. Fewer than two bands: null. */
+    fun backdrop(bands: List<Int>): List<Int>? {
+        if (bands.size < 2) return null
+        return bands.map { val (h, s, l) = hsl(it); rgb(h, s.coerceAtMost(0.7f), l.coerceIn(0.15f, 0.36f)) }
+    }
+
     /** The scene for a cover's main colour (0xRRGGBB). null (no cover, nothing playing): none, the app as you set it. */
     fun scene(rgb: Int?): Scene? {
         if (rgb == null) return null

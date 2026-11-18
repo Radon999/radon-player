@@ -138,7 +138,12 @@ object LookFx {
         // The Now playing preset (Follows the cover): the scene the cover's colour picks, in place of the look's own
         // effects and of the ones picked here, which are kept and come back when it is off
         CoverScene.update()
-        CoverScene.now?.let { sc -> C.stars = sc.stars; C.fx = sc.fx.toSet(); return }
+        CoverScene.now?.let { sc ->
+            C.stars = sc.stars; C.fx = sc.fx.toSet()
+            // the window's background: the cover's own colours running down it, as if the cover were blurred behind everything
+            CoverColour.bands?.let { org.omarchy.music.CoverSceneRules.backdrop(it) }?.let { g -> C.gradient = g.map { v -> Color(0xFF000000L or v.toLong()) } }
+            return
+        }
         if (ownOn()) return
         // A look you made keeps the effects you gave it: the ones picked here go with the ready-made looks only
         if (org.omarchy.music.Music.look.startsWith("mylook-")) return

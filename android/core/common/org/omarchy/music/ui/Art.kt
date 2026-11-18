@@ -118,6 +118,18 @@ object Tint {
         return shade(0.15f) to shade(0.09f)
     }
 
+    /** A cover's colour at its top, its middle and its bottom (each third's average): what it would be blurred right
+     *  out, for the backdrop of the preset Follows the cover. null: no picture. */
+    suspend fun bandsOf(model: Any?): List<Int>? = loadImage(model, 64)?.let { img ->
+        val (px, w, h) = pixelsOf(img)
+        if (w <= 0 || h < 3) return@let null
+        List(3) { band ->
+            var r = 0L; var g = 0L; var b = 0L; var n = 0L
+            for (y in band * h / 3 until (band + 1) * h / 3) for (x in 0 until w) { val p = px[y * w + x]; r += Rgb.red(p); g += Rgb.green(p); b += Rgb.blue(p); n++ }
+            if (n == 0L) Rgb.rgb(24, 24, 24) else Rgb.rgb((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
+        }
+    }
+
     /** A cover's main colour (null: no picture). */
     suspend fun rgbOf(model: Any?): Int? = loadImage(model, 64)?.let { artColor(it) }
 

@@ -126,6 +126,9 @@ fun App() {
     // The playing song's cover colour, for "Album cover's colour" (a visualizer in it under any look)
     LaunchedEffect(cur?.id, Music.savedVersion) {
         CoverColour.rgb = if (cur == null) null else runCatching { Tint.rgbOf(if (Remote.active) Remote.artModel(cur) else artModel(cur)) }.getOrNull()
+        // ... and its colours top to bottom, for the preset Follows the cover (its backdrop is the cover blurred right out)
+        CoverColour.bands = if (cur == null) null else runCatching { Tint.bandsOf(if (Remote.active) Remote.artModel(cur) else artModel(cur)) }.getOrNull()
+        if (CoverScene.on()) Music.applyLook()
     }
     // A link shared from another app: search it on the service it's from.
     LaunchedEffect(Music.shared) {

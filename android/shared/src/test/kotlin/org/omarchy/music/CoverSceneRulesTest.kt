@@ -46,6 +46,19 @@ class CoverSceneRulesTest {
         assertEquals(12, (0 until 360 step 5).map { h -> CoverSceneRules.scene(hslRgb(h.toFloat()))!!.name }.toSet().size)
     }
 
+    @Test fun theBackdropKeepsTheCoversColoursDarkEnoughToReadOn() {
+        // teal sky above, a red coat in the middle, wet navy road below
+        val back = CoverSceneRules.backdrop(listOf(0x4FC4C8, 0xB03A48, 0x1B2A5C))!!
+        assertEquals(3, back.size)
+        val hues = back.map { CoverSceneRules.hsl(it).first }
+        assertTrue("teal stays teal: " + hues[0], hues[0] in 170f..195f)
+        assertTrue("red stays red: " + hues[1], hues[1] > 340f || hues[1] < 10f)
+        assertTrue("navy stays navy: " + hues[2], hues[2] in 215f..240f)
+        for (c in back) { val l = CoverSceneRules.hsl(c).third; assertTrue("white text reads on it: $l", l in 0.13f..0.38f) }
+        assertEquals("white becomes a dark grey, not a colour", 0f, CoverSceneRules.hsl(CoverSceneRules.backdrop(listOf(0xFFFFFF, 0xFFFFFF))!![0]).second, 0.02f)
+        assertNull(CoverSceneRules.backdrop(listOf(0x4FC4C8)))
+    }
+
     /** A strong mid-bright colour of that hue. */
     private fun hslRgb(h: Float): Int {
         val c = 0.8f; val x = c * (1 - kotlin.math.abs((h / 60f) % 2 - 1)); val m = 0.1f

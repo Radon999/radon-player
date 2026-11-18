@@ -125,6 +125,7 @@ object Instance {
                 // "show preset preset-31": that Personalization preset put on, with Now playing in front (the checks picture each)
                 if (ui != null && rest.lowercase().startsWith("preset ")) {
                     org.omarchy.music.ui.MyPresets.apply(rest.drop(7).trim())
+                    ui.sheet = null   // (Settings, if it is open, would be in the way)
                     org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
                 }
                 if (ui != null && rest.isNotEmpty()) when (rest.lowercase()) {

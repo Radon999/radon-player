@@ -135,6 +135,8 @@ private val NEON_LOOK_GRADS: Map<String, VisGrad> by lazy {
  *  up to date by Main as songs change; null when there's no cover (then the look's colour stands in). */
 object CoverColour {
     var rgb by mutableStateOf<Int?>(null)
+    /** Its colour at its top, middle and bottom (Follows the cover's backdrop); null with no cover. */
+    var bands by mutableStateOf<List<Int>?>(null)
     /** As it's drawn: bright enough to see ([org.omarchy.music.CoverColourRules]). */
     val color: Color? get() = rgb?.let { Color(org.omarchy.music.CoverColourRules.shown(it)) }
 }
