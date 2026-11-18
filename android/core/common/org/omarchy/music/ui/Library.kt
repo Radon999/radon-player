@@ -241,7 +241,7 @@ private fun moodsLeft(secs: Long): String = when {
 private class MoodsView(val all: List<Pair<String, List<Track>>>, val counts: org.omarchy.music.Moods.Counts,
                         val check: List<Pair<Track, org.omarchy.music.Moods.Judged>>)
 private var moodsView: Pair<String, MoodsView>? = null
-private class MoodNums(val left: Pair<Int, Long>, val scanned: Int, val toWrite: Int, val toFill: Int)
+private class MoodNums(val left: Pair<Int, Long>, val scanned: Int, val toWrite: Int, val toFill: Int, val differ: Int = 0)
 private var moodNums = MoodNums(0 to 0L, 0, 0, 0)
 
 /** The Moods tab's one scan (Scan moods: each song heard whole and its words read, then its moods written into its
@@ -255,7 +255,8 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
     val idle = reading == null
     val nums by androidx.compose.runtime.produceState(moodNums, v, idle, moods.writing) {
         val made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            MoodNums(if (idle) moods.scanLeft() else 0 to 0L, moods.scannedCount(), if (idle) moods.toWrite() else 0, if (idle) moods.toFill() else 0)
+            MoodNums(if (idle) moods.scanLeft() else 0 to 0L, moods.scannedCount(), if (idle) moods.toWrite() else 0, if (idle) moods.toFill() else 0,
+                if (idle) runCatching { moods.differing().size }.getOrDefault(0) else 0)
         }
         moodNums = made
         value = made
@@ -276,6 +277,13 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             // always there; with nothing to write it says why when tapped.
             if (!moods.writing && !moods.wordsBusy && moods.removing == null)
                 Chip("Write moods into the files" + (if (toFill > 0) " (%,d song%s)".format(toFill, if (toFill != 1) "s" else "") else ""), false) { moods.writeFiles(scannedOnly = true) }
+            // The files that hold other moods than the app worked out since: counted, and yours to overwrite (asked first:
+            // the moods in those files now are replaced)
+            if (nums.differ > 0 && !moods.writing) Chip("Overwrite the moods that differ (%,d song%s)…".format(nums.differ, if (nums.differ != 1) "s" else ""), false) {
+                ui.confirm = ("%,d song%s: the file%s other moods than the app has worked out since. Replace them with the app's? " +
+                    "The moods in %s now are written over. Files with no moods, and files whose moods match, aren't touched.").format(
+                    nums.differ, if (nums.differ != 1) "s" else "", if (nums.differ != 1) "s hold" else " holds", if (nums.differ != 1) "those files" else "that file") to {
+                    moods.writeFiles(differingOnly = true) } }
             Text("Prevent auto mood scans is on (Settings › Scanner): the moods in your files stay as they are and no song is scanned",
                 style = T.sub.copy(color = C.accent))
         } else if (looking == null && !moods.wordsBusy && moods.removing == null) {
@@ -288,6 +296,13 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             // the buttons for that and scan again). With nothing to write, it says why.
             if (!moods.writing) Chip("Write moods into the files" + (if (toFill > 0) " (%,d song%s)".format(toFill, if (toFill != 1) "s" else "") else ""), false) {
                 moods.writeFiles(scannedOnly = true) }
+            // The files that hold other moods than the app worked out since: counted, and yours to overwrite (asked first:
+            // the moods in those files now are replaced)
+            if (nums.differ > 0 && !moods.writing) Chip("Overwrite the moods that differ (%,d song%s)…".format(nums.differ, if (nums.differ != 1) "s" else ""), false) {
+                ui.confirm = ("%,d song%s: the file%s other moods than the app has worked out since. Replace them with the app's? " +
+                    "The moods in %s now are written over. Files with no moods, and files whose moods match, aren't touched.").format(
+                    nums.differ, if (nums.differ != 1) "s" else "", if (nums.differ != 1) "s hold" else " holds", if (nums.differ != 1) "those files" else "that file") to {
+                    moods.writeFiles(differingOnly = true) } }
         }
     }
     Column(Modifier.padding(horizontal = 14.dp)) {
@@ -304,13 +319,13 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             // What there is to write, said as it is: files with no moods (the Write moods into the files button fills
             // those in), and files that hold other moods than the app worked out (those are kept, never written over
             // by the button). Before, both were one number under words that named a button which wasn't always there.
-            val differ = (toWrite - toFill).coerceAtLeast(0)
+            val differ = nums.differ
             if (toFill > 0) Text("%,d scanned song%s %s no moods in %s file%s yet: Write moods into the files (above) fills %s in".format(
                 toFill, if (toFill != 1) "s" else "", if (toFill != 1) "have" else "has", if (toFill != 1) "their" else "its",
                 if (toFill != 1) "s" else "", if (toFill != 1) "them" else "it"), style = T.sub.copy(color = C.accent))
             if (differ > 0) Text("%,d scanned song%s: the file%s other moods than the app worked out. %s".format(
                 differ, if (differ != 1) "s" else "", if (differ != 1) "s hold" else " holds",
-                if (prevented) "They are left as they are" else "Scan moods writes the app's into them"), style = T.sub)
+                "They are left as they are unless you tap Overwrite the moods that differ"), style = T.sub)
             if (toFill == 0 && prevented) Text("Write moods into the files has nothing to fill in: no scanned song's file is without moods" +
                 (if (counts.total > scanned) " (%,d song%s not scanned yet: turn Prevent auto mood scans off to scan %s)".format(
                     counts.total - scanned, if (counts.total - scanned != 1) "s are" else " is", if (counts.total - scanned != 1) "them" else "it") else ""),
