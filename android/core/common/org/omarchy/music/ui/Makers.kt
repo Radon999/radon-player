@@ -1088,9 +1088,18 @@ object MyPresets {
         if ("theme" !in skip && Themes.known(p.theme)) Prefs.setText(Themes.PREF, p.theme)
         if ("effects" !in skip && !cover) { Prefs.set(LookFx.OWN, p.own); Prefs.setText(LookFx.PICK, p.fx) }
         if ("visualizer" !in skip && !cover) {
-            if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
-            Prefs.set(Vis.NOW_DUAL, p.dual)
-            if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
+            // Presets leave my middle / bottom visualizer (PresetVisRules): yours kept where its switch is on
+            val VR = org.omarchy.music.PresetVisRules
+            val keepM = Prefs.on(VR.KEEP_MIDDLE); val keepB = Prefs.on(VR.KEEP_BOTTOM)
+            if (!keepM && !keepB) {
+                if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
+                Prefs.set(Vis.NOW_DUAL, p.dual)
+                if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
+            } else {
+                val yours = Vis.stored()
+                val t = VR.mix(yours, VR.Trio(p.npVis.ifBlank { yours.now }, p.dual, p.npBottom.ifBlank { yours.bottom }), keepM, keepB, Vis::isBottomStyle)
+                Prefs.setText(Vis.NOW, t.now); Prefs.set(Vis.NOW_DUAL, t.dual); Prefs.setText(Vis.NOW_BOTTOM, t.bottom)
+            }
         }
         if ("wrapped" !in skip && p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
         if ("card" !in skip && p.card.isNotBlank()) LyricsCards.pick(p.card)

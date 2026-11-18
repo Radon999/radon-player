@@ -2877,6 +2877,21 @@ private fun PresetShuffleLines() {
             }
         }
     }
+    // Presets and your visualizers: a preset (picked, shuffled, by the time of day, or a scene from the cover) leaves
+    // Now playing's middle one, its bottom one, or both as you set them
+    val VR = org.omarchy.music.PresetVisRules
+    var keepM by remember { mutableStateOf(org.omarchy.music.Prefs.on(VR.KEEP_MIDDLE)) }
+    var keepB by remember { mutableStateOf(org.omarchy.music.Prefs.on(VR.KEEP_BOTTOM)) }
+    Line("Presets leave my middle visualizer", "On: a preset no longer changes the visualizer in the middle of Now playing (round the cover): " +
+        "it stays as you set it, or stays off if you have none. This goes for presets you pick, the shuffle, presets by time of day and Follows the cover. " +
+        "With the next switch on as well, presets bring only their looks", keepM,
+        note = if (keepM && keepB) "Presets change no visualizer: just the look, theme, effects and the rest" else "") {
+        Switch(keepM, { keepM = it; org.omarchy.music.Prefs.set(VR.KEEP_MIDDLE, it); MyPresets.applied++ }, colors = swColors())
+    }
+    Line("Presets leave my bottom visualizer", "On: a preset no longer changes the visualizer along the bottom of Now playing. With only this one " +
+        "on, you get a preset's middle visualizer over your own bottom one; with only the one above on, a preset's bottom one and no middle one but yours", keepB) {
+        Switch(keepB, { keepB = it; org.omarchy.music.Prefs.set(VR.KEEP_BOTTOM, it); MyPresets.applied++ }, colors = swColors())
+    }
 }
 
 /** Settings › Personalization: the presets menu and Save. */

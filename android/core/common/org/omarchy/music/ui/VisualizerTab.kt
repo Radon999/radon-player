@@ -169,16 +169,25 @@ object Vis {
     /** The style; an old colour preset ("red"…) is Bars in that colour. */
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
     fun color(): String = if (CoverScene.now != null) "cover" else Prefs.text(COLOR).ifEmpty { Music.visPreset.takeIf { Looks.NEON.containsKey(it) } ?: "auto" }
-    fun nowStyle(): String = CoverScene.now?.vis ?: Prefs.text(NOW, "slim").let { k -> if (NP_VIS_STYLES.any { it.first == k }) k else "slim" }
+    /** Now playing's visualizers as you set them (the style, Dual, Dual's bottom style). */
+    fun stored() = org.omarchy.music.PresetVisRules.Trio(Prefs.text(NOW, "slim").let { k -> if (NP_VIS_STYLES.any { it.first == k }) k else "slim" },
+        Prefs.on(NOW_DUAL), Prefs.text(NOW_BOTTOM, "slim"))
+    fun isBottomStyle(k: String): Boolean = BOTTOM_STYLES.any { it.first == k }
+    /** Follows the cover's scene on: its two visualizers, with yours kept where "Presets leave my … visualizer" is on. */
+    private fun scene(): org.omarchy.music.PresetVisRules.Trio? = CoverScene.now?.let { sc ->
+        val R = org.omarchy.music.PresetVisRules; val t = R.Trio(sc.vis, true, sc.bottom)
+        val m = Prefs.on(R.KEEP_MIDDLE); val b = Prefs.on(R.KEEP_BOTTOM)
+        if (!m && !b) t else R.mix(stored(), t, m, b, ::isBottomStyle) }
+    fun nowStyle(): String = scene()?.now ?: stored().now
     /** Dual on Now playing (its visualizer button): one style in the middle (nowStyle) and one along the bottom. */
     const val NOW_DUAL = "np_vis_dual"
     const val NOW_BOTTOM = "np_vis_bottom"
-    fun nowDual(): Boolean = CoverScene.now != null || Prefs.on(NOW_DUAL)
+    fun nowDual(): Boolean = scene()?.dual ?: Prefs.on(NOW_DUAL)
     /** The styles for the middle (around the cover) and for the bottom, as Dual offers them. */
     val MIDDLE_STYLES: List<Pair<String, String>> get() = NP_VIS_STYLES.filter { it.first in OVER_COVER && !dual(it.first) }
     val BOTTOM_STYLES: List<Pair<String, String>> get() = NP_VIS_STYLES.filter { it.first != "off" && it.first !in CENTRED && !full(it.first) }
     /** Dual's bottom style ("slim" until one's picked). */
-    fun nowBottom(): String = CoverScene.now?.bottom ?: Prefs.text(NOW_BOTTOM, "slim").let { k -> if (BOTTOM_STYLES.any { it.first == k }) k else "slim" }
+    fun nowBottom(): String = (scene()?.bottom ?: Prefs.text(NOW_BOTTOM, "slim")).let { k -> if (BOTTOM_STYLES.any { it.first == k }) k else "slim" }
     /** The bottom style drawn with the middle one now (Dual on, and a middle style picked), else null. */
     fun nowSecond(): String? = if (nowDual() && nowStyle() in OVER_COVER && !dual(nowStyle())) nowBottom() else null
     /** Dual on or off: on, the style in use goes to the middle (a middle one if it isn't). */
