@@ -1417,7 +1417,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     }
     // Concerts: their coming shows, asked for when the section is opened (only with a key of yours in Settings › Remote & sync)
     val concertsOn = org.omarchy.music.Concerts.on
-    val links = androidx.compose.ui.platform.LocalUriHandler.current
     val concerts by androidx.compose.runtime.produceState<Pair<List<org.omarchy.music.ConcertRules.Concert>?, String>>(null to "", page.name, concertsOn, isOpen("concerts")) {
         if (!concertsOn || !isOpen("concerts")) return@produceState
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
