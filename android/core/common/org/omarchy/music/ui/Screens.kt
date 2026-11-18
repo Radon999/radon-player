@@ -1246,7 +1246,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val mine = rememberSorted(all, sort) { d -> org.omarchy.music.sortTracks(all, sort, d) }
     val albumSort = sortNow("artist-albums", ARTIST_ALBUM_SORTS)
     val albumsSorted = remember(albums, albumSort) {
-        fun year(a: ArtistAlbum) = Regex("""(19|20)dd""").find(a.al.sub)?.value?.toInt() ?: 0
+        fun year(a: ArtistAlbum) = Regex("""\b(19|20)\d\d\b""").find(a.al.sub)?.value?.toInt() ?: 0
         when (albumSort) {
             "created" -> albums.sortedWith(compareByDescending<ArtistAlbum> { year(it) }.thenBy { norm(it.al.title) })
             "created-old" -> albums.sortedWith(compareBy<ArtistAlbum> { year(it).let { y -> if (y == 0) 9999 else y } }.thenBy { norm(it.al.title) })
