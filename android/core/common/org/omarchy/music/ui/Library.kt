@@ -781,6 +781,7 @@ fun OptionsSheet(ui: Ui) {
                 }
                 add(Triple(Ico.PLAY, "Play") { Music.playList(picked) })
                 add(Triple(Ico.SHUFFLE, "Shuffle play") { Music.playList(picked, shuffled = true) })
+                if (picked.size == 1 && !org.omarchy.music.Remote.active) add(Triple(Ico.SPARKLE, "Song radio (songs like this)") { Music.songRadio(picked[0]) })
                 add(Triple(Ico.NEXT, "Play after the current song") { Music.enqueue(picked, "next") })
                 add(Triple(Ico.QUEUE, "Add to the queue") { Music.enqueue(picked) })
                 add(Triple(Ico.PLAYLIST, "Add to a playlist…") { ui.pickPlaylistFor = picked })

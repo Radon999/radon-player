@@ -691,6 +691,17 @@ object Music {
 
     internal fun radioTracks(t: Track): List<Track> = SongRadio.tracks(t)
 
+    /** Song radio (a song's Options): this song, then songs like it from your streaming service, as a queue of its own. */
+    fun songRadio(t: Track) {
+        toast("Finding songs like “${t.title}”…")
+        bg({ radioTracks(t) }) { found, err ->
+            val more = found.orEmpty().filter { it.id != t.id }.distinctBy { it.id }
+            if (more.isEmpty()) { toast("No radio for “${t.title}”" + (err?.message?.let { ": ${it.take(70)}" } ?: ": your streaming service has no songs like it")); return@bg }
+            playFrom(listOf(t) + more, 0, true)
+            toast("Song radio: “${t.title}” and %,d songs like it".format(more.size))
+        }
+    }
+
     /** ∞: a couple of songs before the end, songs like the last one, so there's no gap. */
     private fun autoplaySoon() = PlaybackCore.autoplaySoon()
 
