@@ -1,6 +1,6 @@
-commit 851c25fb149954b08989dbe7c2a5f262dd3d8d9c · run 44367139869 · Wed Nov 18 18:46:49 UTC 2026
+commit 06781e2274adb77bedb189ea6a649bd5bd0cd37a · run 44372884072 · Wed Nov 18 19:06:15 UTC 2026
 PC TESTS ON WINDOWS: 40 suites, tests 159, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.4 s (with loading the voice); then 5.0 s of speech in 1.6 s (3.1x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.1 s (with loading the voice); then 4.4 s of speech in 1.2 s (3.8x real time)
 WINDOWS INSTALLER: Radon Player-4.0.15.msi, 96M
 --- errors
 --- the end of the log
