@@ -144,6 +144,9 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 - **Phone remote:** Turn on Phone remote on the computer, enter its code on the phone, and the phone plays, queues, skips and sets the volume there.
 - **Sync now:** Tap it on either device: plays, skips, favorites, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**.
+- **Playlists that sync:** A list of all your playlists with a switch each, smart playlists, Listen later and the discovery playlists among them. New playlists sync by themselves (Settings › Your files › New playlists sync turns that off), and every list of playlists marks each one ⇄ SYNCED or THIS DEVICE ONLY. The ones switched on are the same on both devices after each Sync (two of the same name become one with the songs of both, as do Listen later and an artist's discovery playlists); the rest stay where they are.
+- **Send a playlist:** Copies one playlist (or Listen later, or a discovery playlist) to the other device once, without syncing it, and names any songs the other device hasn't got.
+- **Auto playlist sync:** A switch: the synced playlists sync by themselves when the phone's app finds the PC's, and when one changes while both are open. Everything else waits for Sync now.
 - **Tags match:** Pick a main device and the songs on the other get the tags theirs are missing (title, artist, album, genre, year, track), except folders you tell sync to leave alone. It never touches moods.
 - **Moods match:** The same for moods only, with its own main device: at each sync the other device's songs get the main one's moods, written into their files, with nothing scanned again. So the tags can follow the phone and the moods the PC. Off, each device keeps its own moods.
 - **Continue where you left off** on the other device, and **back up and restore** everything in one file.
