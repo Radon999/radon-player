@@ -14,6 +14,9 @@ class SupportRulesTest {
     }
 
     @Test fun sizesAsTheyAreSaid() {
+        val two = "18 Nov 2026, 08:03:11 · 4.0.14 · Moods couldn't be written\njava.lang.Exception: x\n\tat a.b(c.kt:1)\n\n9 Nov 2026, 21:40:02 · 4.0.13 · The app closed (main)\njava.lang.Error\n"
+        assertEquals(2, SupportRules.count(two)); assertEquals(0, SupportRules.count(""))
+        assertTrue(SupportRules.holds(two).startsWith("It holds 2 problems noted")); assertEquals("No problems are noted in it now", SupportRules.holds(" "))
         assertEquals("1 KB", SupportRules.size(1))
         assertEquals("512 MB", SupportRules.size(512_000_000))
         assertEquals("3.4 GB", SupportRules.size(3_400_000_000))

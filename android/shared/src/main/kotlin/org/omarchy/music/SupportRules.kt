@@ -14,6 +14,17 @@ object SupportRules {
         append('\n')
     }
 
+    /** How many problems Settings › Problems' text holds (each starts with a line "18 Nov 2026, 08:03:11 · 4.0.14 · what"). */
+    fun count(problems: String): Int = problems.lineSequence().count { STAMP.containsMatchIn(it) }
+    private val STAMP = Regex("^\\d{1,2} \\p{L}{3,} \\d{4}, \\d{2}:\\d{2}:\\d{2} · ")
+
+    /** What the Details for support line says is in it now, after its description. */
+    fun holds(problems: String): String = when (val n = count(problems)) {
+        0 -> if (problems.isBlank()) "No problems are noted in it now" else "It holds what Problems says now; Clear empties that, for once it is fixed"
+        1 -> "It holds 1 problem noted; Clear empties that, for once it is fixed"
+        else -> "It holds $n problems noted; Clear empties them, for once they are fixed"
+    }
+
     /** A number of bytes as people say it: "512 MB", "3.4 GB". */
     fun size(bytes: Long): String = when {
         bytes < 0 -> ""

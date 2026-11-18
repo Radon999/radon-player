@@ -178,12 +178,17 @@ private fun AccountsSheet(ui: Ui) {
                 if (!Updater.checking) Pill("Check", quiet = true) { Updater.check(quiet = false) }
             }
             // Everything someone helping would ask for, in one go: the version, the device, how the app is set up and Problems
+            val problems = org.omarchy.music.Crashes.last
             Line("Details for support", "One block of text to paste into a message when something is wrong: the version, this $DEVICE, how many " +
-                "songs and playlists, the look and layout, sync, free space, and what Problems says. No sign-ins, folders or song names are in it", false) {
+                "songs and playlists, the look and layout, sync, free space, and what Problems says. No sign-ins, folders or song names are in it. " +
+                org.omarchy.music.SupportRules.holds(problems), false) {
                 Pill("Copy", quiet = true) { copyText("Radon Player details", Music.supportReport()); Music.toast("Copied: paste it into your message") }
+                // The problems noted so far taken out of it (they are Settings › Problems'), once they are fixed
+                if (problems.isNotBlank()) Pill("Clear", quiet = true) {
+                    ui.confirm = "Clear the problems noted so far? The details will hold only what goes wrong from now on" to { org.omarchy.music.Crashes.clear(); Music.toast("Cleared: the details hold no problems now") }
+                }
             }
             // What went wrong lately (the app closing, or errors it lived through): copy it to send it on.
-            val problems = org.omarchy.music.Crashes.last
             if (problems.isNotEmpty()) {
                 Line("Problems", problems.lineSequence().first().split(" · ").let { "${it.last()} · ${it.first()}" }, false) {
                     Pill("Copy", quiet = true) {
