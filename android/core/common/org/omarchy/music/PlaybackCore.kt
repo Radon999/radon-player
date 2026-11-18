@@ -87,6 +87,7 @@ object PlaybackCore {
             playFrom(apart, apart.indexOf(tapped).coerceAtLeast(0), radio); return
         }
         if (Remote.active) { Remote.playFrom(tracks, i, radio); return }
+        forgetUndo()
         ListenLog.picked(tracks.getOrNull(i), listName)   // Wrapped's Most searched: a song tapped in search results
         val newQueue = multiQueue && listName.isNotEmpty() && listName != queueName
         if (multiQueue) startQueue(listName)
@@ -119,6 +120,7 @@ object PlaybackCore {
     fun switchQueue(id: String) {
         val q = queues.firstOrNull { it.id == id } ?: return
         if (Remote.active) { Remote.playFrom(q.tracks, q.index.coerceIn(0, maxOf(0, q.tracks.size - 1)), false); return }
+        forgetUndo()
         if (queue.isNotEmpty() && index >= 0) {
             val keep = SavedQueue(queueId.ifEmpty { randomHex(6) }, queueName.ifEmpty { "Queue" }, queue.map { it.copy(queued = false) }, index, Music.livePosition(), now())
             // The queue you leave takes the place of the one you go to: the order you put them in stays.
@@ -160,6 +162,42 @@ object PlaybackCore {
     /** The next of your other queues with songs still to play (the last one used first), or null. */
     fun nextQueue(): SavedQueue? = if (!multiQueue) null else QueueRules.next(queues, queueId)
 
+    // ---- Undo for the queue (QueueUndoRules) ----
+    private class Before(val queue: List<Track>, val index: Int, val shuffled: Boolean, val what: String, val n: Int)
+    private var befores = listOf<Before>()
+    private var keptAt = 0L
+    /** What Undo would put back, as the button says it ("": nothing to undo). */
+    var undoLabel by mutableStateOf("")
+        private set
+
+    /** The queue as it is, kept before a change to it. */
+    private fun keepForUndo(what: String, n: Int = 0) {
+        if (index !in queue.indices) return
+        // One drag is one change, however many places the song passes on its way
+        val t = System.currentTimeMillis()
+        val sameDrag = what == "move" && befores.lastOrNull()?.what == "move" && t - keptAt < 1500
+        keptAt = t
+        if (sameDrag) return
+        befores = QueueUndoRules.kept(befores, Before(queue, index, shuffled, what, n))
+        undoLabel = QueueUndoRules.label(what, n)
+    }
+
+    /** Something new was started (a song tapped, another queue): the queues kept are of what played before. */
+    private fun forgetUndo() { befores = emptyList(); undoLabel = "" }
+
+    /** The queue put back as it was before your last change to it. The song playing goes on untouched. */
+    fun undoQueue() {
+        if (Remote.active) { Music.toast("Undo the queue on the desktop"); return }
+        val b = befores.lastOrNull() ?: return
+        befores = befores.dropLast(1)
+        undoLabel = befores.lastOrNull()?.let { QueueUndoRules.label(it.what, it.n) } ?: ""
+        val at = QueueUndoRules.indexIn(b.queue.map { it.id }, b.index, current()?.id)
+        if (at == null) { forgetUndo(); Music.toast("Nothing to undo: another queue plays now"); return }
+        queue = b.queue; index = at; shuffled = b.shuffled
+        afterQueueChange()
+        Music.toast(QueueUndoRules.done(b.what))
+    }
+
     // ---- what's in the queue ----
     /** "next" plays the songs right after this one, "queue" after the songs you queued before. */
     fun enqueue(tracks: List<Track>, how: String = "queue") {
@@ -175,6 +213,7 @@ object PlaybackCore {
         val ts = Music.localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
         if (current() == null) { playFrom(ts, 0, false); return }
+        keepForUndo("add", ts.size)
         // Settings › Playback › Move, don't duplicate: a song already waiting further on is moved up, not put in twice
         queue = QueueRules.enqueued(queue, index, ts, next = how == "next", move = Prefs.on(Prefs.QUEUE_MOVE))
         afterQueueChange()
@@ -187,6 +226,8 @@ object PlaybackCore {
     fun unqueueMany(indices: Collection<Int>) {
         if (Remote.active) { Remote.cmd("unqueue", "indices" to indices.toList()); return }
         val drop = indices.filter { it in queue.indices && it != index }.toSet()
+        if (drop.isEmpty()) return
+        keepForUndo("remove", drop.size)
         val before = drop.count { it < index }
         queue = queue.filterIndexed { i, _ -> i !in drop }
         index -= before
@@ -196,6 +237,7 @@ object PlaybackCore {
     /** The queue's Clear: the songs you queued by hand go (what plays on from the list stays). */
     fun clearQueued() {
         if (Remote.active) { Music.toast("Clear the queue on the desktop"); return }
+        keepForUndo("clear")
         queue = queue.take(index + 1) + queue.drop(index + 1).filter { !it.queued }
         afterQueueChange()
     }
@@ -203,6 +245,7 @@ object PlaybackCore {
     /** The song at i, dragged to j (both after the one playing). */
     fun moveInQueue(i: Int, j: Int) {
         if (Remote.active || i == j || i !in queue.indices || j !in queue.indices || i <= index || j <= index) return
+        keepForUndo("move")
         val q = queue.toMutableList()
         val t = q.removeAt(i)
         q.add(j, t)
@@ -230,6 +273,7 @@ object PlaybackCore {
         if (Remote.active) { Remote.cmd("shuffle"); return }
         if (djSide.on) { Music.toast("The DJ plays each set in its own order, so shuffle isn't used with the DJ"); return }
         if (index !in queue.indices) return
+        keepForUndo("shuffle")
         queue = QueueRules.reshuffled(queue, index) { shuffleSongs(it) }
         index = 0
         shuffled = true

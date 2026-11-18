@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.14 · November 2026
+- **Undo for the queue:** cleared the queue, shuffled it, dragged a song to the wrong place or removed one by accident? An **Undo** button shows at the top of the queue (Up next, and Now playing's queue) and puts it back as it was, saying what it undoes ("Undo: shuffled"). The last ten changes are kept, so you can step back through them. The song that's playing is never interrupted. Starting something new (a song tapped, another queue) isn't a change to undo.
+
 ## 4.0.13 · November 2026
 - **Moods into files that kept refusing them (phone):** writing moods could end with "48 couldn't be written: its tag is of a kind the app leaves alone" and no more. Three kinds of file were being turned away without a try: WAV files, MP3s whose tag the app's own writer can't read, and songs downloaded as Opus or M4A (from YouTube Music). They are now written through the tag library, in their own format, as your other files are. And when a file still can't take a mood, the message says what kind of file it is and what stood in the way (All files access not allowed, the file not where the phone says, the phone not letting the app change it), with the files' real names in Settings › Problems instead of numbers.
 

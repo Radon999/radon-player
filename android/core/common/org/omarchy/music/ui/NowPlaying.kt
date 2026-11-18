@@ -800,6 +800,7 @@ private fun QueuePane(ui: Ui, n: Now) {
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
             // The DJ's queue: what it said, the category and its stat, as on the DJ tab
             if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
+            if (!n.remote && Music.queueUndoLabel.isNotEmpty()) item("undo") { QueueUndo() }
             if (queued.isNotEmpty()) {
                 item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
                 itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }

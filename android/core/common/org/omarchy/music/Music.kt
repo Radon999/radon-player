@@ -675,6 +675,10 @@ object Music {
     /** The queue's Clear: the songs you queued by hand go (what plays on from the list stays). */
     fun clearQueued() = PlaybackCore.clearQueued()
 
+    /** Undo for the queue: what the button says ("": nothing to undo), and the queue put back as it was. */
+    val queueUndoLabel: String get() = PlaybackCore.undoLabel
+    fun undoQueue() = PlaybackCore.undoQueue()
+
     /** The song at i, dragged to j (both after the one playing). */
     fun moveInQueue(i: Int, j: Int) = PlaybackCore.moveInQueue(i, j)
 

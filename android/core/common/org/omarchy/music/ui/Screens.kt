@@ -959,12 +959,19 @@ internal fun DjQueueNote(text: Color = C.fg, soft: Color = C.muted, accent: Colo
     }
 }
 
+/** Undo for the queue: there while there is a change of yours to take back (cleared, shuffled, moved, removed, added). */
+@Composable
+fun QueueUndo(modifier: Modifier = Modifier) {
+    Row(modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { Pill("↶  " + Music.queueUndoLabel, quiet = true) { Music.undoQueue() } }
+}
+
 @Composable
 fun QueueTab(ui: Ui) {
     val q = Music.shownQueue()
     val idx = Music.shownIndex()
     PlaceColumn(Modifier.fillMaxSize()) {
         if (!Remote.active) item { QueueHeader(ui) }
+        if (!Remote.active && Music.queueUndoLabel.isNotEmpty()) item("undo") { QueueUndo() }
         if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@PlaceColumn }
         if (djQueueOn()) item("djnote") { DjQueueNote(modifier = Modifier.padding(horizontal = 12.dp)) }
         item { Section("NOW PLAYING") }
