@@ -856,6 +856,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
                 ("Download ($toGet song${if (toGet != 1) "s" else ""} not on this $DEVICE)" to { Music.downloadPlaylists(listOf(pl.id)) }).takeIf { toGet > 0 },
                 "Put in a folder…" to { ui.folderFor = FolderItem.mine(pl) },
                 (if (pl.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(pl.id, pl.synced != true) },
+                ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(pl) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
                 "Select" to { ui.startPick("playlists", pl.id, pl.tracks) })
         }
         fun tapList(pl: org.omarchy.music.Playlist) {
@@ -923,6 +924,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
+            ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(open) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
             // A discovered playlist: review just its songs (download them or let them go).
             if (open.discovery?.role == "discovered" && open.tracks.isNotEmpty()) "Review" to { ui.reviewFor = open } else null,
             "Delete" to { ui.confirm = "Delete the playlist “${open.name}”? The songs stay where they are." to { Music.deletePlaylist(open.id); ui.openMine = null } },

@@ -218,6 +218,7 @@ private fun AccountsSheet(ui: Ui) {
             SyncLines(ui)
             AutoPlaylistSyncLine()
             SyncedPlaylistsLines()
+            SendPlaylistLines()
             SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
@@ -2715,6 +2716,44 @@ private fun AutoPlaylistSyncLine() {
         "closed or the two aren't on the same network; they catch up when they next meet. The switch counts on either device. Both need this version",
         on, note = if (s.autoAt > 0) "Playlists last synced by themselves ${s.ago(s.autoAt)}" else "") {
         Switch(on, { org.omarchy.music.Prefs.set(org.omarchy.music.SyncPlaylists.AUTO_SYNC, it); Music.musicVersion++; if (it) s.soon() }, colors = swColors())
+    }
+}
+
+/** Settings › Remote & sync › Send a playlist: a copy of one playlist made on the other device, once. Not a sync. */
+@Composable
+private fun SendPlaylistLines() {
+    val ps = org.omarchy.music.PlaylistSend
+    val other = if (onPhone) "PC" else "phone"
+    val v = Music.musicVersion
+    var open by remember { mutableStateOf(false) }
+    var showMissing by remember { mutableStateOf(false) }
+    Line("Send a playlist to the $other", "Copies one playlist to the $other, once: not a sync, so the two go their own ways afterwards. " +
+        "The $other adds the songs it can play (the ones that stream, and its own copy of each of your files). A song that is only a file on this $DEVICE, " +
+        "with no copy on the $other, is left out and named, so you know what is missing. Listen later goes onto the $other's Listen later, a discovery " +
+        "playlist into its discovery playlist for that artist, and a playlist of a name the $other has gets only the songs it hasn't: nothing there is taken out. " +
+        (if (onPhone) "It goes at once" else "The phone takes it within 20 seconds when Radon Player is open on it, on the same network") +
+        (if (ps.canSend) "" else ". Pair the two first"), false, note = ps.last) {
+        if (ps.canSend) Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }
+    }
+    val missing = ps.lastMissing
+    if (missing.isNotEmpty()) {
+        Row(Modifier.padding(start = 8.dp, bottom = 4.dp)) {
+            Pill(if (showMissing) "Hide the songs left out" else "Show the %,d left out".format(missing.lines().size), quiet = true) { showMissing = !showMissing }
+        }
+        if (showMissing) Text(missing, style = T.sub, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+    }
+    if (!open || !ps.canSend) return
+    val later = remember(v) { org.omarchy.music.ListenLater.playlist() }
+    val all = remember(v) { Music.lists.all().filter { it.smart == null } }
+    fun songs(k: Int) = "%,d song%s".format(k, if (k != 1) "s" else "")
+    (listOfNotNull(later) + all.filter { it.discovery == null && it.id != later?.id }.sortedBy { it.name.lowercase() } + all.filter { it.discovery != null }).forEach { p ->
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                Text(p.name, style = T.body, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(songs(p.tracks.size), style = T.sub)
+            }
+            Pill("Send", quiet = true) { ps.send(p) }
+        }
     }
 }
 

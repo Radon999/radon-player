@@ -19,6 +19,9 @@ object ListenLater {
         Music.setPlaylistSynced(pl.id, on)
     }
 
+    /** The playlist behind it, made if nothing was ever put aside (a playlist sent from the other device lands on it). */
+    fun ensure(): Playlist = (playlist() ?: Music.lists.create(ListenLaterRules.NAME)).also { Prefs.setText(ID, it.id) }
+
     /** Its songs, the last added first. */
     fun tracks(): List<Track> = playlist()?.tracks.orEmpty().asReversed()
 

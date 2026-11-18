@@ -233,6 +233,7 @@ object Sync {
         val host = Remote.host; val h = Remote.headers()
         Music.bg({ httpJson("http://$host/sync/wanted", h) }) { s, err ->
             if (err != null) { met = false; nextCheck = System.currentTimeMillis() + 30_000; return@bg }
+            if ((s["sent"].long ?: 0L) > 0) PlaylistSend.fetch()   // playlists the PC sent this phone (Send a playlist)
             val pcAt = s["playlistsAt"].long ?: 0L
             if (s["wanted"].bool == true) now(fromPc = true)
             // Auto playlist sync (on here or on the PC): on meeting, and when a playlist changed on either since
