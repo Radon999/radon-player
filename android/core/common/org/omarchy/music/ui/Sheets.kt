@@ -2731,7 +2731,8 @@ private fun SendPlaylistLines() {
         "The $other adds the songs it can play (the ones that stream, and its own copy of each of your files). A song that is only a file on this $DEVICE, " +
         "with no copy on the $other, is left out and named, so you know what is missing. Listen later goes onto the $other's Listen later, a discovery " +
         "playlist into its discovery playlist for that artist, and a playlist of a name the $other has gets only the songs it hasn't: nothing there is taken out. " +
-        (if (onPhone) "It goes at once" else "The phone takes it within 20 seconds when Radon Player is open on it, on the same network") +
+        "How long it takes: from the phone to the PC it is there at once. From the PC to the phone it can take a little while, up to about 20 seconds, " +
+        "and only while Radon Player is open on the phone, on the same network (the PC can't call the phone, so it waits for the phone to ask)" +
         (if (ps.canSend) "" else ". Pair the two first"), false, note = ps.last) {
         if (ps.canSend) Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }
     }

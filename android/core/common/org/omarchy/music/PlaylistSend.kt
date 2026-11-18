@@ -66,10 +66,10 @@ object PlaylistSend {
         if (p.tracks.isEmpty()) { Music.toast("“${pl.name}” has no songs to send"); return }
         if (pc) {
             synchronized(outbox) { outbox += p }
-            Music.toast("“${pl.name}” goes to the phone as soon as Radon Player is open on it, on the same network (within 20 seconds)")
+            Music.toast("Sending “${pl.name}” to the phone. This way round can take a little while: up to about 20 seconds, with Radon Player open on the phone, on the same network. You'll be told here when it's there")
             return
         }
-        Music.toast("Sending “${pl.name}” to $other…")
+        Music.toast("Sending “${pl.name}” to $other: from the phone it's there at once…")
         val host = Remote.host; val headers = Remote.headers()
         Music.bg({
             val r = httpJson("http://$host/playlist/send", headers, jsonBody(JSON.encodeToJsonElement(Parcel.serializer(), p)))
