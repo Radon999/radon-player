@@ -43,6 +43,9 @@ class CensoredTest {
         assertEquals("one space is just two words", "a f k", Censored.plain("a f k"))
         assertEquals("bad bitch (remix)", Censored.plain("bad b*tch (remix)"))
         assertEquals("holy shit!", Censored.plain("holy sh*t!"))
+        assertEquals("what the fuck?!", Censored.plain("what the f**k?!"))
+        assertEquals("signs only at its end: those are the letters left out", "kiss my ass", Censored.plain("kiss my a**"))
+        assertEquals("fuck it", Censored.plain("f*** it"))
     }
 
     @Test fun yourCensoredCopyIsTheSameSong() {

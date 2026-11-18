@@ -31,9 +31,12 @@ object Censored {
         }
         t = CANDIDATE.replace(t) { m ->
             val c = m.value
-            // (signs after the word are just what follows it, "sh*t!": tried without them, and put back)
+            // Signs after the word are just what follows it ("sh*t!" is "shit!", not a longer word): when the word has
+            // signs inside it, it is read without the ones at its end, and those are put back. Only a word whose signs
+            // are all at its end ("a**", "f***") is read with them.
             val core = c.trimEnd { !it.isLetter() }
-            word(c) ?: (if (core.length < c.length) word(core)?.let { it + c.substring(core.length) } else null) ?: c
+            if (core.any { !it.isLetter() }) word(core)?.let { it + c.substring(core.length) } ?: word(c) ?: c
+            else word(c) ?: c
         }
         return t
     }
