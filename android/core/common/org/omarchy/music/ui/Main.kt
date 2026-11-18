@@ -164,7 +164,7 @@ fun App() {
     val leaveNow = onPhone && atPlayer && ui.drawer && !ui.selecting && ui.pane == "art"
     val smartEditing = SmartEdit.draft != null && ui.tab == "music" && ui.musicView == "smartlists" && page == null   // Back leaves the editor
     PlatformBack(enabled = !leaveNow && (ui.drawer || ui.selecting || ui.pickingAlbums || ui.pane != "art" || page != null || ui.openMine != null || smartEditing ||
-        ui.openList != null || ui.openFolder != null || ui.tab != "player" || (onPhone && atPlayer))) {
+        ui.openList != null || ui.openFolder != null || ui.tab != "player" || (onPhone && atPlayer) || (atPlayer && ui.cameFrom != null))) {
         when {
             ui.drawer -> ui.drawer = false
             ui.selecting -> ui.stopSelecting()
@@ -176,6 +176,9 @@ fun App() {
             ui.openMine != null -> ui.openMine = null
             ui.openList != null -> ui.openList = null
             ui.openFolder != null -> ui.openFolder = null
+            // On Now playing, having come from a list (a search, an artist's page, a playlist): back to it, as it was.
+            // Only when you weren't anywhere before does Back open the menu.
+            atPlayer && ui.cameFrom != null -> ui.goBackToPlace()
             onPhone && atPlayer -> ui.openDrawer()
             else -> goTo(ui, "player")
         }
@@ -302,6 +305,8 @@ internal fun Stars() {
 }
 
 fun goTo(ui: Ui, tab: String, view: String? = null) {
+    // To Now playing from somewhere: that place is kept, for Back to return to. To any other tab: there's nowhere to go back to.
+    if (tab == "player" && ui.tab != "player") ui.rememberPlace() else if (tab != "player") ui.cameFrom = null
     ui.pages.clear(); ui.openMine = null; ui.openList = null; ui.openFolder = null   // what you've picked stays picked
     ui.filter = null; ui.filters.clear()   // another tab: no search carried over, none left to come back to
     if (view != null) ui.musicView = view

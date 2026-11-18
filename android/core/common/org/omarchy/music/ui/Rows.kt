@@ -124,6 +124,31 @@ class Ui {
     /** Each place's search, kept while you are further in: Back comes back to what you searched for there. */
     val filters = HashMap<String, String>()
     var filterPlace = ""                                // the place [filter] is for
+
+    /** Where you were when you went to Now playing (a search's results, an artist's page, a playlist…): Back on Now
+     *  playing goes back there, as you left it. null: you weren't anywhere (the app opened on Now playing), and Back
+     *  opens the menu as it always did. Forgotten once you've gone back, or gone to another tab yourself. */
+    class Place(val tab: String, val view: String, val pages: List<Page>, val openMine: String?, val openFolder: String?,
+                val openList: Pair<Album, List<Track>?>?, val filters: Map<String, String>)
+    var cameFrom by mutableStateOf<Place?>(null)
+
+    fun rememberPlace() {
+        val f = HashMap(filters)
+        filter?.takeIf { it.isNotBlank() && filterPlace.isNotEmpty() }?.let { f[filterPlace] = it }
+        cameFrom = Place(tab, musicView, pages.toList(), openMine, openFolder, openList, f)
+    }
+
+    /** Back to where you were before Now playing. */
+    fun goBackToPlace() {
+        val p = cameFrom ?: return
+        cameFrom = null
+        pages.clear(); pages.addAll(p.pages)
+        openMine = p.openMine; openFolder = p.openFolder; openList = p.openList
+        filter = null; filters.clear(); filters.putAll(p.filters); filterPlace = ""
+        musicView = p.view
+        tab = p.tab
+        drawer = false
+    }
     var reviewFor by mutableStateOf<org.omarchy.music.Playlist?>(null)
     var castPick by mutableStateOf(false)               // Cast…: the devices to play on
     var releasePick by mutableStateOf<List<org.omarchy.music.NewReleases.Release>?>(null)   // releases to make discovery playlists of   // a discovered list, being reviewed
