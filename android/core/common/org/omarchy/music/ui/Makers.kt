@@ -928,6 +928,10 @@ object MyPresets {
         Preset("preset-$n", name, look, theme, layout, false, fx.replace(",", ";"), "apple-dark", vis, bottom.isNotEmpty(), bottom,
             wrapped, "card-$card", color)
     val BUILT: List<Preset> = listOf(
+        // Follows the cover: the Now playing look, and with it a scene from each song's cover (CoverScene). The theme and
+        // layout named here are never put on: this preset leaves yours as they are.
+        Preset(CoverScene.PRESET, "Follows the cover", Looks.NOW_PLAYING, Themes.STANDARD, UiLayouts.CLASSIC, false, "", "apple-dark", "ring", true, "wave",
+            "look", LyricsCards.NOW, "cover"),
         b(1, "Midnight drive", "neon-retrowave", "glass", "classic", "grid,sun,twinkle", "sunburst", "skyline", "pink", 1, "synthwave"),
         b(2, "Northern lights", "nord", "rounded", "tabbar", "aurora,twinkle,constellation", "ring", "aurora", "green", 2, "aurora"),
         b(3, "Golden hour", "sunset", "elegant", "classic", "sunbeams,embers", "sunburst", "hills", "gold", 3, "sunset"),
@@ -1038,16 +1042,21 @@ object MyPresets {
      *  [org.omarchy.music.PresetShuffleRules.PARTS]). Picking a preset yourself leaves nothing out. */
     fun apply(key: String, skip: Set<String> = emptySet()) {
         val p = of(key) ?: return
+        // Follows the cover: its scenes on (any other preset: off). It changes colours, effects and visualizers with each
+        // song, and leaves your theme and layout alone.
+        val cover = p.key == CoverScene.PRESET
+        Prefs.set(CoverScene.ON, cover)
+        val skip = if (cover) skip + "theme" + "layout" else skip
         if ("theme" !in skip && Themes.known(p.theme)) Prefs.setText(Themes.PREF, p.theme)
-        if ("effects" !in skip) { Prefs.set(LookFx.OWN, p.own); Prefs.setText(LookFx.PICK, p.fx) }
-        if ("visualizer" !in skip) {
+        if ("effects" !in skip && !cover) { Prefs.set(LookFx.OWN, p.own); Prefs.setText(LookFx.PICK, p.fx) }
+        if ("visualizer" !in skip && !cover) {
             if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
             Prefs.set(Vis.NOW_DUAL, p.dual)
             if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
         }
         if ("wrapped" !in skip && p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
         if ("card" !in skip && p.card.isNotBlank()) LyricsCards.pick(p.card)
-        if ("viscolor" !in skip && p.visColor.isNotBlank()) Prefs.setText(Vis.COLOR, p.visColor)
+        if ("viscolor" !in skip && p.visColor.isNotBlank() && !cover) Prefs.setText(Vis.COLOR, p.visColor)
         if ("nowplaying" !in skip) Music.chooseNpFallback(p.npFallback)
         if ("look" !in skip && Looks.known(p.look)) Music.chooseLook(p.look) else Music.applyLook()
         if ("layout" !in skip && UiLayouts.all().any { it.key == p.layout }) UiLayouts.choose(p.layout)

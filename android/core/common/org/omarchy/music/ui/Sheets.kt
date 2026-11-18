@@ -1364,6 +1364,17 @@ private fun PersonalizationBody(ui: Ui) {
 /** Settings › Personalization › Effects: the looks' own effects, or any of them with any look or theme. */
 @Composable
 private fun EffectsLines() {
+    // Scenes from the cover: with the Now playing look, each song's cover picks the effects and the two visualizers too
+    val scenes = CoverScene.on()
+    val sc = CoverScene.now
+    Line("Scenes from the cover", "With the Now playing look: each song's cover picks a whole scene to go with its colours, the effects behind " +
+        "everything and Now playing's two visualizers, all in the cover's colour, so the app changes with every song. There are 17 scenes: twelve by " +
+        "colour (Embers for red, Lantern light for orange, Reef for teal, Rain for blue, Galaxy for violet, Blossom for pink…), and Noir, Silver, Mist, " +
+        "Night and Daylight for covers that are black-and-white, grey, very dark or very pale. The effects and visualizers you picked yourself are kept " +
+        "and come back when this is off. The preset Follows the cover turns it on with the Now playing look",
+        scenes, note = if (!scenes) "" else if (Music.look != Looks.NOW_PLAYING) "Waiting for the Now playing look: put it on under Look" else if (sc == null) "Play a song with a cover to see one" else "Now: ${sc.name}") {
+        Switch(scenes, { CoverScene.set(it); MyPresets.applied++ }, colors = swColors())
+    }
     var own by remember { mutableStateOf(LookFx.ownOn()) }
     var picked by remember { mutableStateOf(LookFx.picked()) }
     Line("Look's own effects", "On: each look keeps its own effects (the galaxy looks' stars, a look of yours with its " +

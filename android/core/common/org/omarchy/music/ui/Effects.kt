@@ -135,6 +135,10 @@ object LookFx {
     fun describe(k: String): String = if (k == "stars") "A few stars over the background, as the galaxy looks have" else ALL.firstOrNull { it.key == k }?.desc.orEmpty()
     /** After a look is put on: with its own effects off, the ones picked here instead. */
     fun override() {
+        // The Now playing preset (Follows the cover): the scene the cover's colour picks, in place of the look's own
+        // effects and of the ones picked here, which are kept and come back when it is off
+        CoverScene.update()
+        CoverScene.now?.let { sc -> C.stars = sc.stars; C.fx = sc.fx.toSet(); return }
         if (ownOn()) return
         // A look you made keeps the effects you gave it: the ones picked here go with the ready-made looks only
         if (org.omarchy.music.Music.look.startsWith("mylook-")) return

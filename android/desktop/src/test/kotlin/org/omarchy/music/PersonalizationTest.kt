@@ -30,7 +30,7 @@ class PersonalizationTest {
         assertTrue("the thirty new looks are in the Look menu", looks.containsAll(MenuGroups.NEW))
         assertEquals(30, MenuGroups.NEW.size)
         assertEquals(45, Themes.ALL.size); assertEquals(45, UiLayouts.BUILT_IN.size)
-        assertEquals(91, LookFx.ALL.size); assertEquals(60, LyricsCards.PRESETS.size); assertEquals(60, MyPresets.BUILT.size)
+        assertEquals(91, LookFx.ALL.size); assertEquals(60, LyricsCards.PRESETS.size); assertEquals("sixty, and Follows the cover", 61, MyPresets.BUILT.size)
         assertEquals(30, WRAPS_BUILT.size)
         assertEquals("ninety visualizers", 90, VIS_STYLES.count { !it.first.startsWith("myvis-") })
         for (k in MenuGroups.NEW) assertTrue("a colour blend for $k", VIS_COLORS.any { it.first == k })
@@ -54,7 +54,7 @@ class PersonalizationTest {
             assertTrue("${p.name}: its visualizer ${p.npVis}", p.npVis in vis)
             if (p.npBottom.isNotEmpty()) assertTrue("${p.name}: its bottom visualizer ${p.npBottom}", p.npBottom in vis)
             if (p.wrapped.isNotEmpty()) assertTrue("${p.name}: its Wrapped style ${p.wrapped}", p.wrapped in wraps)
-            if (p.card.isNotEmpty()) assertTrue("${p.name}: its lyrics card ${p.card}", LyricsCards.of(p.card) != null)
+            if (p.card.isNotEmpty()) assertTrue("${p.name}: its lyrics card ${p.card}", p.card == LyricsCards.LOOK || p.card == LyricsCards.NOW || LyricsCards.of(p.card) != null)
             if (p.visColor.isNotEmpty()) assertTrue("${p.name}: its visualizer colour ${p.visColor}", p.visColor in colours)
         }
         // each new look's own effect is one that can be drawn
@@ -73,5 +73,17 @@ class PersonalizationTest {
         sections("Layouts", UiLayouts.BUILT_IN.map { it.key }, MenuGroups::layout, 30)
         sections("Effects", LookFx.MENU.map { it.first }, MenuGroups::effect, 40)
         sections("Visualizers", NP_VIS_STYLES.map { it.first }, MenuGroups::vis, 36)
+    }
+
+    @Test fun everySceneFromACoverCanBeDrawn() {
+        Harness.ctx
+        val fx = LookFx.ALL.map { it.key }.toSet()
+        val middle = org.omarchy.music.ui.Vis.BUILT_CENTRED
+        val all = VIS_STYLES.map { it.first }.toSet()
+        for (s in CoverSceneRules.ALL) {
+            for (e in s.fx) assertTrue("${s.name}: its effect $e", e in fx)
+            assertTrue("${s.name}: ${s.vis} goes round the cover", s.vis in middle)
+            assertTrue("${s.name}: ${s.bottom} stands along the bottom", s.bottom in all && s.bottom !in middle)
+        }
     }
 }
