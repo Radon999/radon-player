@@ -1097,7 +1097,7 @@ object MyPresets {
                 if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
             } else {
                 val yours = Vis.stored()
-                val t = VR.mix(yours, VR.Trio(p.npVis.ifBlank { yours.now }, p.dual, p.npBottom.ifBlank { yours.bottom }), keepM, keepB, Vis::isBottomStyle)
+                val t = VR.mix(yours, org.omarchy.music.PresetVisRules.Trio(p.npVis.ifBlank { yours.now }, p.dual, p.npBottom.ifBlank { yours.bottom }), keepM, keepB, Vis::isBottomStyle)
                 Prefs.setText(Vis.NOW, t.now); Prefs.set(Vis.NOW_DUAL, t.dual); Prefs.setText(Vis.NOW_BOTTOM, t.bottom)
             }
         }

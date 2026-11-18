@@ -175,7 +175,7 @@ object Vis {
     fun isBottomStyle(k: String): Boolean = BOTTOM_STYLES.any { it.first == k }
     /** Follows the cover's scene on: its two visualizers, with yours kept where "Presets leave my … visualizer" is on. */
     private fun scene(): org.omarchy.music.PresetVisRules.Trio? = CoverScene.now?.let { sc ->
-        val R = org.omarchy.music.PresetVisRules; val t = R.Trio(sc.vis, true, sc.bottom)
+        val R = org.omarchy.music.PresetVisRules; val t = org.omarchy.music.PresetVisRules.Trio(sc.vis, true, sc.bottom)
         val m = Prefs.on(R.KEEP_MIDDLE); val b = Prefs.on(R.KEEP_BOTTOM)
         if (!m && !b) t else R.mix(stored(), t, m, b, ::isBottomStyle) }
     fun nowStyle(): String = scene()?.now ?: stored().now
