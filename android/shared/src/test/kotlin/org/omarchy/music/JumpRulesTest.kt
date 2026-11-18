@@ -34,6 +34,13 @@ class JumpRulesTest {
         assertNull("all one letter", JumpRules.anchors(oneLetter.size) { oneLetter[it] })
     }
 
+    @Test fun aRealLibraryWithAFewNamesOutOfPlaceStillHasItsStrip() {
+        // filed under their bracket or quote at the top, an accent after Z, another alphabet and numbers at the end
+        val list = listOf("(Don't Fear) The Reaper", "'Till I Collapse", "1979") + names("Apple" to 10, "Banana" to 10, "cherry" to 10, "Drew" to 10, "Eel" to 10) +
+            listOf("Zebra", "Édith", "Привет", "99 Luftballons")
+        assertEquals(listOf("#" to 2, "A" to 3, "B" to 13, "C" to 23, "D" to 33, "E" to 43, "Z" to 53), JumpRules.anchors(list.size) { list[it] })
+    }
+
     @Test fun theRowOfAPlaceInAListOrAGrid() {
         assertEquals(12, JumpRules.row(2, 10, 1))
         assertEquals("the fourth row of a grid three across, under two rows of header", 5, JumpRules.row(2, 10, 3))

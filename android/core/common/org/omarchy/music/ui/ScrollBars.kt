@@ -96,8 +96,10 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
     // down the side goes there
     val jump = remember(place) { JumpIndex() }
     androidx.compose.foundation.layout.Box(modifier) {
-        LazyColumn(Modifier.fillMaxWidth(), state = state) { jump.begin(); CountingScope(this, jump).content() }
-        androidx.compose.runtime.SideEffect { jump.publish() }
+        LazyColumn(Modifier.fillMaxWidth(), state = state) { jump.begin(); CountingScope(this, jump).content(); jump.told.trySend(Unit) }
+        // The list's rows are worked out as it is measured, which is after this is drawn: so the letters are handed on
+        // when the list says it has them (4.0.14 looked once, before there were any, and the strip never showed)
+        androidx.compose.runtime.LaunchedEffect(jump) { for (x in jump.told) jump.publish() }
         val letters = jump.shown
         if (letters.isNotEmpty()) LetterStrip(letters, state, Modifier.align(Alignment.CenterEnd))
     }
@@ -107,7 +109,9 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
  *  laid out. Gathered in a plain list first: the rows are laid out inside a read-only step of drawing, where nothing
  *  the screen watches may be changed, and handed on to [shown] straight after. */
 class JumpIndex {
-    private var found: List<Pair<String, Int>> = emptyList()
+    @Volatile private var found: List<Pair<String, Int>> = emptyList()
+    /** Said each time the rows have been gone through: [publish] then. */
+    val told = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
     var shown by mutableStateOf<List<Pair<String, Int>>>(emptyList())
         private set
     fun begin() { found = emptyList() }
