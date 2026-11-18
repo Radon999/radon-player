@@ -63,7 +63,12 @@ private val placeScroll = HashMap<String, Pair<Int, Int>>()
 @Composable
 fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
     val place = LocalPlace.current
-    val state = androidx.compose.runtime.key(place) { rememberLazyListState() }
+    // Started at its place at once (no jump from the top) when the list is there in full as the screen appears, which
+    // it is for a list already in memory; the step below is only for a list that fills in afterwards.
+    val state = androidx.compose.runtime.key(place) {
+        val at = if (place.isEmpty()) null else placeScroll[place]
+        rememberLazyListState(at?.first ?: 0, at?.second ?: 0)
+    }
     if (place.isNotEmpty()) {
         val wasAt = remember(place) { placeScroll[place] }
         var returned by remember(place) { mutableStateOf(wasAt == null) }
@@ -76,7 +81,7 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
         val rows = state.layoutInfo.totalItemsCount
         androidx.compose.runtime.LaunchedEffect(place, rows) {
             if (returned || wasAt == null) return@LaunchedEffect
-            if (state.isScrollInProgress || state.firstVisibleItemIndex > 0) { returned = true; return@LaunchedEffect }
+            if (state.isScrollInProgress || state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > 0) { returned = true; return@LaunchedEffect }
             if (rows > wasAt.first) { returned = true; state.scrollToItem(wasAt.first, wasAt.second) }
         }
     }

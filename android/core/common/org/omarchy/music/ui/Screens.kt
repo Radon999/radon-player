@@ -1074,36 +1074,43 @@ fun ArtistsTab(ui: Ui) {
 
 @Composable
 private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
-    var info by remember(page) { mutableStateOf<ArtistInfo?>(null) }
+    // What the page found the last time it was open (within the half hour): it is shown from that at once, so coming
+    // back from an album is as quick as any other screen, at the place you were, with nothing looked up again.
+    val snapKey = norm(page.name) + "|" + (page.prefer ?: "")
+    val snap = remember(page) { artistSnaps[snapKey]?.takeIf { System.currentTimeMillis() - it.at < 30 * 60_000L } }
+    var info by remember(page) { mutableStateOf<ArtistInfo?>(snap?.info) }
     var failed by remember(page) { mutableStateOf<String?>(null) }
     var morePics by remember(page) { mutableStateOf(false) }
     // Two bands with one name: the ones the service has under this name (when more than one), to say which is meant;
     // the page is looked up again once you've said (reload).
-    var choices by remember(page) { mutableStateOf<List<org.omarchy.music.ArtistChoice>>(emptyList()) }
+    var choices by remember(page) { mutableStateOf<List<org.omarchy.music.ArtistChoice>>(snap?.choices ?: emptyList()) }
     var reload by remember(page) { mutableStateOf(0) }
     // Every song on their releases, once asked for (each release is fetched in turn: everyAt says how far)
-    var every by remember(page, reload) { mutableStateOf<List<Track>?>(null) }
+    var every by remember(page, reload) { mutableStateOf<List<Track>?>(if (reload == 0) snap?.every else null) }
+    var everyFor by remember(page, reload) { mutableStateOf(if (reload == 0) snap?.everyFor else null) }
     var everyAt by remember(page, reload) { mutableStateOf<Pair<Int, Int>?>(null) }
     // Genius as a second opinion on whose a song is (a service can mix two bands of one name; Genius keeps them
     // apart, mostly): the Genius artists of this name, the one you picked, its songs, and the service's releases
     // gone through with them. Apart from the service's own "which one?" below: either can be used, or both.
-    var gChoices by remember(page) { mutableStateOf<List<org.omarchy.music.ArtistChoice>>(emptyList()) }
+    var gChoices by remember(page) { mutableStateOf<List<org.omarchy.music.ArtistChoice>>(snap?.gChoices ?: emptyList()) }
     val gPick = remember(page, Music.artistsVersion) { org.omarchy.music.GeniusArtists.picked(page.name) }
-    var gSongs by remember(page, gPick) { mutableStateOf<List<org.omarchy.music.GeniusRules.Hit>?>(null) }
+    val snapG = snap?.takeIf { it.gPick == gPick }   // (what was kept of Genius is for the Genius artist picked then)
+    var gSongs by remember(page, gPick) { mutableStateOf<List<org.omarchy.music.GeniusRules.Hit>?>(snapG?.gSongs) }
     var gFailed by remember(page, gPick) { mutableStateOf(false) }
-    var sorted by remember(page, gPick, reload) { mutableStateOf<org.omarchy.music.GeniusArtists.Sorted?>(null) }
+    var sorted by remember(page, gPick, reload) { mutableStateOf<org.omarchy.music.GeniusArtists.Sorted?>(if (reload == 0) snapG?.sorted else null) }
     var sortAt by remember(page, gPick, reload) { mutableStateOf<Pair<Int, Int>?>(null) }
-    LaunchedEffect(page) { Music.bg({ org.omarchy.music.GeniusArtists.choices(page.name) }) { c, _ -> gChoices = c.orEmpty() } }
+    LaunchedEffect(page) { if (snap == null) Music.bg({ org.omarchy.music.GeniusArtists.choices(page.name) }) { c, _ -> gChoices = c.orEmpty() } }
     // Their whole discography: the releases Genius lists for them that the page doesn't have are added to it (a
     // service's artist page can leave some out). From the Genius artist you picked, or its only one of the name.
     val gId = gPick ?: gChoices.singleOrNull()?.id
-    var gAlbums by remember(page, gId) { mutableStateOf<List<Album>>(emptyList()) }
-    LaunchedEffect(page, gId) { if (gId != null) Music.bg({ org.omarchy.music.GeniusArtists.albums(gId) }) { a, _ -> gAlbums = a.orEmpty() } }
+    var gAlbums by remember(page, gId) { mutableStateOf<List<Album>>(snap?.takeIf { it.gId == gId }?.gAlbums ?: emptyList()) }
+    LaunchedEffect(page, gId) { if (gId != null && gAlbums.isEmpty()) Music.bg({ org.omarchy.music.GeniusArtists.albums(gId) }) { a, _ -> gAlbums = a.orEmpty() } }
     LaunchedEffect(page, gPick) {
-        if (gPick != null) Music.bg({ org.omarchy.music.GeniusArtists.songs(gPick) }) { got, _ -> gSongs = got.orEmpty(); gFailed = got.isNullOrEmpty() }
+        if (gPick != null && gSongs == null) Music.bg({ org.omarchy.music.GeniusArtists.songs(gPick) }) { got, _ -> gSongs = got.orEmpty(); gFailed = got.isNullOrEmpty() }
     }
     LaunchedEffect(page, reload) {
         Music.lookUpArtists(listOf(page.name))
+        if (reload == 0 && info != null) return@LaunchedEffect   // shown from what was kept: nothing to look up again
         // Their top songs: your own copy of each you have (it plays your file, shows its cover), the service's otherwise.
         Music.bg({ Music.artistInfo(page.name, page.prefer)?.let { it.copy(top = Music.yourCopies(it.top)) } }) { res, err ->
             info = res
@@ -1125,14 +1132,15 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     }
     // Featured on: other artists' songs that credit this one (found once the page knows them; a moment, as their
     // releases are asked for)
-    var feats by remember(page, reload) { mutableStateOf<org.omarchy.music.FeatureRules.Featured?>(null) }
+    var feats by remember(page, reload) { mutableStateOf<org.omarchy.music.FeatureRules.Featured?>(if (reload == 0) snapG?.feats else null) }
     LaunchedEffect(info, gPick) {   // (Genius's list of features only from the Genius artist you picked: a name alone can be someone else)
         val i = info ?: return@LaunchedEffect
+        if (feats != null && i === snap?.info) return@LaunchedEffect
         Music.bg({ org.omarchy.music.ArtistLookups.features(i, page.name, gPick) }) { f, _ -> if (f != null) feats = f }
     }
     // The service's singles that are on an album or an EP of theirs already: left out (the song is on its release).
     // Their releases' songs are asked for one by one, so they go a moment after the page shows.
-    var folded by remember(page, reload) { mutableStateOf<Set<String>>(emptySet()) }
+    var folded by remember(page, reload) { mutableStateOf<Set<String>>(if (reload == 0) snap?.folded ?: emptySet() else emptySet()) }
     LaunchedEffect(info) {
         val i = info
         if (i != null && i.albums.size > 1) Music.bg({ org.omarchy.music.ArtistLookups.foldedSingles(i) }) { f, _ -> folded = f.orEmpty() }
@@ -1167,6 +1175,10 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         val i = info ?: return@LaunchedEffect
         if (onlyMine || (gPick != null && gSongs == null)) return@LaunchedEffect   // Genius's list is on its way
         val hits = gSongs?.takeIf { it.isNotEmpty() }
+        // Listed already for just this (shown from what was kept): left as it is
+        val what = "${System.identityHashCode(i)}|$gPick|${hits?.size ?: -1}"
+        if (every != null && everyFor == what) return@LaunchedEffect
+        everyFor = what
         val seq = ++everySeq
         every = null
         everyAt = 0 to (i.albums.size + i.also.size)
@@ -1332,6 +1344,14 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val everySorts = org.omarchy.music.songSorts(true)
     val everySort = sortNow("artist-every", everySorts)
     val everyList = everyShown?.let { l -> rememberSorted(l, everySort) { d -> org.omarchy.music.sortTracks(l, everySort, d) } }
+    // Kept for the next time the page is opened (coming back from an album, or the same artist again soon)
+    androidx.compose.runtime.SideEffect {
+        val i = info
+        if (i != null) {
+            if (artistSnaps.size > 12) artistSnaps.remove(artistSnaps.keys.first())
+            artistSnaps[snapKey] = ArtistSnap(snap?.takeIf { it.info === i }?.at ?: System.currentTimeMillis(), i, choices, every, everyFor, gChoices, gPick, gId, gSongs, sorted, gAlbums, feats, folded)
+        }
+    }
     val links = androidx.compose.ui.platform.LocalUriHandler.current
     // The page's sections fold open and shut, as Settings' do, and are all shut when the page opens: a list of what
     // there is to look through (their albums and singles, featured on, every song, your songs, top songs, what's
@@ -1569,6 +1589,13 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
 
 /** An album on an artist's page: the service's (streamed) or one of yours, with your copy of it (album, songs) if you have one. */
 private val ARTIST_ALBUM_SORTS = listOf("order", "created", "created-old", "name", "name-desc")
+
+/** What an artist's page found, kept in memory for a while so the page shows at once the next time. */
+private class ArtistSnap(val at: Long, val info: ArtistInfo, val choices: List<org.omarchy.music.ArtistChoice>, val every: List<Track>?, val everyFor: String?,
+                         val gChoices: List<org.omarchy.music.ArtistChoice>, val gPick: String?, val gId: String?,
+                         val gSongs: List<org.omarchy.music.GeniusRules.Hit>?, val sorted: org.omarchy.music.GeniusArtists.Sorted?,
+                         val gAlbums: List<Album>, val feats: org.omarchy.music.FeatureRules.Featured?, val folded: Set<String>)
+private val artistSnaps = LinkedHashMap<String, ArtistSnap>()
 
 /** Which of each artist page's sections are open (by the page: [LocalPlace]). */
 private val artistOpen = HashMap<String, Set<String>>()

@@ -237,6 +237,13 @@ private fun moodsLeft(secs: Long): String = when {
     else -> "about ${secs / 3600} h ${(secs % 3600 + 30) / 60 % 60} min left".replace(" 0 min", "")
 }
 
+/** What the Moods tab shows, worked out from all your songs: kept from one opening of the tab to the next. */
+private class MoodsView(val all: List<Pair<String, List<Track>>>, val counts: org.omarchy.music.Moods.Counts,
+                        val check: List<Pair<Track, org.omarchy.music.Moods.Judged>>)
+private var moodsView: Pair<String, MoodsView>? = null
+private class MoodNums(val left: Pair<Int, Long>, val scanned: Int, val toWrite: Int, val toFill: Int)
+private var moodNums = MoodNums(0 to 0L, 0, 0, 0)
+
 /** The Moods tab's one scan (Scan moods: each song heard whole and its words read, then its moods written into its
  *  file), Stop, how far it's got and about how long is left. */
 @Composable
@@ -244,11 +251,19 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
     val moods = org.omarchy.music.Moods
     val v = moods.version
     val looking = moods.looking
-    val left = remember(v, reading == null) { if (reading == null) moods.scanLeft() else 0 to 0L }
-    val scanned = remember(v, reading == null) { moods.scannedCount() }
-    val toWrite = remember(v, reading == null) { if (reading == null) moods.toWrite() else 0 }
-    // What the Write moods into the files button fills in: scanned songs whose files have no moods at all
-    val toFill = remember(v, reading == null, moods.writing) { if (reading == null) moods.toFill() else 0 }
+    // How much is left to scan and to write: counted beside the screen too (each goes through all your songs)
+    val idle = reading == null
+    val nums by androidx.compose.runtime.produceState(moodNums, v, idle, moods.writing) {
+        val made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            MoodNums(if (idle) moods.scanLeft() else 0 to 0L, moods.scannedCount(), if (idle) moods.toWrite() else 0, if (idle) moods.toFill() else 0)
+        }
+        moodNums = made
+        value = made
+    }
+    val left = nums.left
+    val scanned = nums.scanned
+    val toWrite = nums.toWrite
+    val toFill = nums.toFill   // what the Write moods into the files button fills in: scanned songs whose files have no moods at all
     val prevented = moods.prevented
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -285,10 +300,21 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             Text("Scan moods hears each song whole and reads its words" + (if (moods.aiOn()) " with the AI" else "") + ", and only " +
                 "once both are done writes its moods into its file. A song is scanned once; Settings › Reset mood and lyrics " +
                 "scans starts over. Stop any time: it carries on from there.", style = T.sub)
-            if (toWrite > 0) Text("%,d scanned song%s still to have %s moods written into %s file%s: Write moods into the files does it".format(
-                toWrite, if (toWrite != 1) "s" else "", if (toWrite != 1) "their" else "its", if (toWrite != 1) "their" else "its",
-                if (toWrite != 1) "s" else ""), style = T.sub.copy(color = C.accent))
-            else if (left.first == 0 && scanned >= counts.total) Text("Every song is scanned", style = T.sub.copy(color = C.accent))
+            // What there is to write, said as it is: files with no moods (the Write moods into the files button fills
+            // those in), and files that hold other moods than the app worked out (those are kept, never written over
+            // by the button). Before, both were one number under words that named a button which wasn't always there.
+            val differ = (toWrite - toFill).coerceAtLeast(0)
+            if (toFill > 0) Text("%,d scanned song%s %s no moods in %s file%s yet: Write moods into the files (above) fills %s in".format(
+                toFill, if (toFill != 1) "s" else "", if (toFill != 1) "have" else "has", if (toFill != 1) "their" else "its",
+                if (toFill != 1) "s" else "", if (toFill != 1) "them" else "it"), style = T.sub.copy(color = C.accent))
+            if (differ > 0) Text("%,d scanned song%s: the file%s other moods than the app worked out. %s".format(
+                differ, if (differ != 1) "s" else "", if (differ != 1) "s hold" else " holds",
+                if (prevented) "They are left as they are" else "Scan moods writes the app's into them"), style = T.sub)
+            if (toFill == 0 && prevented) Text("Write moods into the files has nothing to fill in: no scanned song's file is without moods" +
+                (if (counts.total > scanned) " (%,d song%s not scanned yet: turn Prevent auto mood scans off to scan %s)".format(
+                    counts.total - scanned, if (counts.total - scanned != 1) "s are" else " is", if (counts.total - scanned != 1) "them" else "it") else ""),
+                style = T.sub)
+            if (toWrite == 0 && left.first == 0 && scanned >= counts.total) Text("Every song is scanned", style = T.sub.copy(color = C.accent))
         }
     }
     MoodsWords(ui, counts)
@@ -328,16 +354,30 @@ private fun MoodsWords(ui: Ui, counts: org.omarchy.music.Moods.Counts) {
 fun MoodsTab(ui: Ui) {
     val reading = org.omarchy.music.Moods.reading
     val v = org.omarchy.music.Moods.version
-    val all = remember(Music.musicVersion, Music.savedVersion, v) {
-        runCatching { org.omarchy.music.Moods.ALL.map { it to org.omarchy.music.Moods.songs(it) }.filter { it.second.isNotEmpty() } }.getOrDefault(emptyList())
+    // Every mood's songs, the counts and the songs to check are worked out from all your songs: a moment's work with
+    // a few thousand of them. It used to be done on the screen's own thread as the tab opened, which held the whole
+    // app still for that moment. Now it's done beside it (the tab says so the first time), and kept: the tab opens
+    // at once after that, and is worked out again only when your music or its moods change.
+    val key = listOf(Music.musicVersion, Music.savedVersion, v, reading == null, org.omarchy.music.Moods.looking == null,
+        org.omarchy.music.Moods.wordsReading == null, org.omarchy.music.Moods.checked).joinToString("|")
+    val view by androidx.compose.runtime.produceState(moodsView?.second, key) {
+        val kept = moodsView
+        if (kept != null && kept.first == key) { value = kept.second; return@produceState }
+        val made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            MoodsView(
+                runCatching { org.omarchy.music.Moods.ALL.map { it to org.omarchy.music.Moods.songs(it) }.filter { it.second.isNotEmpty() } }.getOrDefault(emptyList()),
+                runCatching { org.omarchy.music.Moods.counts() }.getOrDefault(org.omarchy.music.Moods.Counts(0, 0, 0)),
+                // Songs whose moods may well be wrong (after the moods above, so they're worked out already: cheap)
+                runCatching { org.omarchy.music.Moods.checkThese() }.getOrDefault(emptyList()))
+        }
+        moodsView = key to made
+        value = made
     }
-    val counts = remember(Music.musicVersion, v, reading == null, org.omarchy.music.Moods.looking == null, org.omarchy.music.Moods.wordsReading == null) {
-        runCatching { org.omarchy.music.Moods.counts() }.getOrDefault(org.omarchy.music.Moods.Counts(0, 0, 0))
-    }
-    // Songs whose moods may well be wrong (after the moods above, so they're worked out already: cheap)
-    val check = remember(Music.musicVersion, Music.savedVersion, v, org.omarchy.music.Moods.checked) {
-        runCatching { org.omarchy.music.Moods.checkThese() }.getOrDefault(emptyList())
-    }
+    val shownView = view
+    if (shownView == null) { Empty("Looking through your moods…"); androidx.compose.runtime.LaunchedEffect(Music.musicVersion) { org.omarchy.music.Moods.lookFiles() }; return }
+    val all = shownView.all
+    val counts = shownView.counts
+    val check = shownView.check
     // Opening the tab: a quick look at the files for moods already in them (no scan needed for those)
     androidx.compose.runtime.LaunchedEffect(Music.musicVersion) { org.omarchy.music.Moods.lookFiles() }
     if (all.isEmpty()) {
