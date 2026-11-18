@@ -3,6 +3,7 @@
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
 ## 4.0.11 · November 2026
+- **Other device's songs (☰ menu, by Listen later):** keeps your phone's and your PC's music the same without moving files across or downloading everything twice. At each Sync the two tell each other every song they have (names only: no files cross). Each then lists the songs the other has that it hasn't, as a checklist: tick the ones you want, and Options › Download gets them from your streaming service into My music; Options › Leave out takes the rest off the list for good (Bring back undoes that). Songs are matched as Most played matches them, however each device's files are tagged. Nothing is downloaded by itself. Both devices need this version.
 - **Every menu entry can go on your bar:** making a layout of your own, the bar's buttons offered only some of the app's screens (Discovery, for one, was nowhere to pick). Everything in the ☰ menu can be put on the bar now: Discovery, Listen later, Downloads, EPs, Singles, Folders, Smart playlists, Mood lists, New releases, Pinned, Skips, the FLAC tabs, Lyrics and the rest.
 - **Why a mood couldn't be written:** writing moods into the files could end with "48 couldn't be written" and nothing more. It now says why (the kind of file, or what the phone answered), and Settings › Problems lists the reasons with how many files each, and a few of the files by name.
 

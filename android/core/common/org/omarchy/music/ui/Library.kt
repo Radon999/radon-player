@@ -785,6 +785,8 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.QUEUE, "Add to the queue") { Music.enqueue(picked) })
                 add(Triple(Ico.PLAYLIST, "Add to a playlist…") { ui.pickPlaylistFor = picked })
                 // Listen later: what's picked (songs, or the songs of the albums and EPs picked) put aside for another time
+                // Other device's songs: the ones ticked that you don't want here, never offered again
+                if (place?.kind == "theirs") add(Triple(Ico.CLOSE, "Leave out (don't offer again)") { org.omarchy.music.LibraryMatch.leaveOut(picked) })
                 if (place?.kind == "later") add(Triple(Ico.CLOSE, "Remove from Listen later") { org.omarchy.music.ListenLater.remove(picked) })
                 else add(Triple(Ico.CLOCK, "Add to Listen later playlist") { org.omarchy.music.ListenLater.add(picked) })
                 if (one != null) {

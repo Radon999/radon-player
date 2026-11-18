@@ -161,6 +161,7 @@ object UiLayouts {
         Slot("library", "Service library", Ico.CLOUD, { it.tab == "library" }) { goTo(it, "library") },
         Slot("newreleases", "New releases", Ico.SPARKLE, { it.tab == "music" && it.musicView == "newreleases" }) { goTo(it, "music", "newreleases") },
         Slot("discovery", "Discovery", Ico.COMPASS, { it.tab == "music" && it.musicView == "discovery" }) { goTo(it, "music", "discovery") },
+        Slot("theirs", "Other device's songs", Ico.CLOUD, { it.tab == "music" && it.musicView == "theirs" }) { goTo(it, "music", "theirs") },
         Slot("later", "Listen later", Ico.CLOCK, { it.tab == "music" && it.musicView == "later" }) { goTo(it, "music", "later") },
         Slot("skips", "Skips", Ico.SKIP, { it.tab == "music" && it.musicView == "skips" }) { goTo(it, "music", "skips") },
         Slot("unfavorited", "Not favorited", Ico.STAR_LINE, { it.tab == "music" && it.musicView == "unfavorited" }) { goTo(it, "music", "unfavorited") },

@@ -355,6 +355,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
         add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
         add(Entry("Listen later", Ico.CLOCK, "music", "later"))   // what you put aside to hear another time
+        add(Entry("Other device's songs", Ico.CLOUD, "music", "theirs"))   // what your phone or PC has that this one hasn't
     }),
     Triple("stats", "Statistics and favorites", listOf(Entry("Most played", Ico.CHART, "music", "top"),
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),

@@ -366,7 +366,11 @@ fun MusicTab(ui: Ui) {
     Music.musicVersion
     Music.savedVersion
     // My music, Favorites, Not favorited and Recently played: songs, as their Sort menu says.
-    val songView = ui.musicView in setOf("all", "favorites", "unfavorited", "recent", "later")
+    val songView = ui.musicView in setOf("all", "favorites", "unfavorited", "recent", "later", "theirs")
+    // Other device's songs: what it has that this device hasn't (worked out from all of both libraries, so kept until
+    // your music changes or a Sync brings a new list)
+    val theirsList = if (ui.musicView == "theirs") remember(Music.musicVersion, Music.savedVersion, org.omarchy.music.LibraryMatch.at) {
+        runCatching { org.omarchy.music.LibraryMatch.missing() }.getOrDefault(emptyList()) } else emptyList()
     val songTab = "music-" + ui.musicView
     val songOpts = org.omarchy.music.songSorts(withOrder = ui.musicView != "all")
     val songSort = sortNow(songTab, songOpts, if (ui.musicView == "all") Music.musicSort.takeIf { it in songOpts } ?: "title" else "order")
@@ -375,6 +379,7 @@ fun MusicTab(ui: Ui) {
         "recent" -> Music.plays.recent().map { Music.mineOf(it) }   // your own files first
         "favorites" -> Music.favorites.tracks()
         "later" -> org.omarchy.music.ListenLater.tracks().map { Music.mineOf(it) }   // (your own copy of each one you have since got)
+        "theirs" -> theirsList
         else -> Music.mySongs().filter { !Music.favorites.has(it) }.sortedBy { norm(it.title) }
     } }.getOrDefault(emptyList())
     val songSorted = rememberSorted(songBase, songSort) { d -> org.omarchy.music.sortTracks(songBase, songSort, d) }
@@ -406,7 +411,7 @@ fun MusicTab(ui: Ui) {
                         .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) } else emptyList()
                     val skipInfo = skipRows.associate { (t, k, f) -> org.omarchy.music.songKey(t) to (k to f) }
                     val tracks = when (ui.musicView) {
-                        "all", "recent", "favorites", "unfavorited", "later" -> songSorted
+                        "all", "recent", "favorites", "unfavorited", "later", "theirs" -> songSorted
                         "skips" -> {
                             val r = { a: Int, b: Int -> org.omarchy.music.SongStats.rate(a, b) }
                             when (Music.skipOrder) {
@@ -423,6 +428,10 @@ fun MusicTab(ui: Ui) {
                             "recent" -> "Nothing played yet" to "The songs you listen to show up here, the last one first."
                             "favorites" -> "No favorites yet" to "${LONG_PRESS.cap()} a song (or select a few) and pick Favorite, or $TAP the ☆ by the song playing."
                             "unfavorited" -> "Every song is a favorite" to "Your songs you haven't starred show up here."
+                            "theirs" -> org.omarchy.music.LibraryMatch.from.let { dev ->
+                                if (dev.isEmpty()) "Sync with your other device first" to "At a Sync (Settings › Remote & sync) your phone and PC tell each other every song they have. The songs the other has that this one hasn't are listed here, to tick and download or to leave out. Both need this version of the app."
+                                else org.omarchy.music.LibraryMatchRules.heading(0, dev) to "Counted at the last Sync. Sync again after adding music on $dev." +
+                                    (if (org.omarchy.music.LibraryMatch.leftOutCount > 0) " %,d left out by you aren't shown.".format(org.omarchy.music.LibraryMatch.leftOutCount) else "") }
                             "later" -> "Nothing on Listen later yet" to "For music you want to hear but can't right now. Pick songs, albums or EPs (${LONG_PRESS} one), open Options and choose “Add to Listen later playlist”: they wait here until you have time for them."
                             "skips" -> "No skips counted yet" to "Go on to the next song with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left and it counts as a skip; hear it to the end and it counts as heard out. Last.fm keeps no skips, so this starts now."
                             else -> "Nothing played yet" to "The songs you play most show up here."
@@ -462,12 +471,29 @@ fun MusicTab(ui: Ui) {
                                 "favorites" -> "${tracks.size} FAVORITES"
                                 "unfavorited" -> "${tracks.size} SONGS NOT FAVORITED"
                                 "later" -> "LISTEN LATER · ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}"
+                                "theirs" -> org.omarchy.music.LibraryMatchRules.heading(tracks.size, org.omarchy.music.LibraryMatch.from.ifEmpty { "your other device" }).uppercase()
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
                             if (ui.musicView == "recent") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Pill("Refresh", quiet = true) { Music.musicVersion++; Music.toast("Recently played is up to date") }
                                 SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "Last played first"))
+                            }
+                            if (ui.musicView == "theirs") {
+                                // The checklist: every one ticked to start with; untick what you don't want, then Options ›
+                                // Download (or Leave out, for the ones never to be offered again)
+                                Text("Tick the ones you want on this device and download them: each is found on your streaming service and saved into My music. " +
+                                    "The ones you leave out aren't offered again. Nothing is downloaded by itself.", style = T.sub,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp))
+                                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Pill("Tick them all") { ui.startSelecting(tracks, RowPlace(tracks, 0, "theirs"), null); ui.selectAllHere() }
+                                    Pill("Download all %,d".format(tracks.size), quiet = true) {
+                                        ui.confirm = "Download all %,d song%s to this device?".format(tracks.size, if (tracks.size != 1) "s" else "") to { Music.download(tracks, checked = true) } }
+                                    if (org.omarchy.music.LibraryMatch.leftOutCount > 0) Pill("Bring back the %,d left out".format(org.omarchy.music.LibraryMatch.leftOutCount), quiet = true) {
+                                        org.omarchy.music.LibraryMatch.bringBack() }
+                                    SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "As on the other device"))
+                                }
                             }
                             if (ui.musicView == "later") Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
