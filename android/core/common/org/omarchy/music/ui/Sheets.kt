@@ -266,7 +266,12 @@ private fun AccountsSheet(ui: Ui) {
             Group("Your music", ui) {
             // ---- your music ----
             val n = Music.local.files.size
-            Line("Folders", state = if (Music.local.scanning) "Reading your music folders for songs…" else "$n song${if (n != 1) "s" else ""} found in the folders below, shown in My music. " +
+            // Your downloads are files in those folders too, but the app keeps them as downloads, apart from the files
+            // it finds: so the folders hold more songs than "found" used to say (the folder chooser counts them all).
+            // Said as it is: every song in My music, and how that divides.
+            val dl = Music.savedVersion.let { Music.lib.items.size }
+            Line("Folders", state = if (Music.local.scanning) "Reading your music folders for songs…" else "%,d song%s in My music: %,d file%s found in the folders below and %,d download%s. ".format(
+                    n + dl, if (n + dl != 1) "s" else "", n, if (n != 1) "s" else "", dl, if (dl != 1) "s" else "") +
                 "Add the folders where your music files are kept and the app reads them in; Remove only stops reading a folder, it deletes nothing", ok = n > 0) {
                 FolderPicker()
             }
@@ -1651,6 +1656,10 @@ private fun FolderPicker() {
     var open by remember { mutableStateOf(false) }
     val pickFolder = rememberFolderPick { path -> if (path != null) Music.setFolders(Music.folders + path) }
     if (pickFolder != null) Pill("Add a folder…", quiet = true) { pickFolder() }
+    Spacer(Modifier.width(6.dp))
+    // Read the folders again now (new files, ones moved or retagged elsewhere). It also happens by itself when the
+    // app opens, when you change the folders, and when downloads finish.
+    Pill("Refresh", quiet = true) { if (Music.local.scanning) Music.toast("Already reading your music folders…") else { Music.toast("Reading your music folders again…"); Music.rescan() } }
     Spacer(Modifier.width(6.dp))
     Pill("Choose") { open = true }
     if (open) FolderBrowser { open = false }

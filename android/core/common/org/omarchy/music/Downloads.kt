@@ -68,7 +68,12 @@ object Downloads {
     /** The songs waiting, saved together; then any that came in meanwhile; the tagger waits until all are in. */
     private fun next() {
         if (Music.downloads.isEmpty()) {
-            if (running) Tagger.resume()   // the songs that came in are tagged together now
+            if (running) {
+                Tagger.resume()   // the songs that came in are tagged together now
+                // Every download of the batch is in: your folders are read again, so the new files are counted and
+                // anything else new in them shows too (one download, or hundreds: once, when the last is done)
+                runCatching { Music.rescan() }
+            }
             running = false; Music.downloadNote = ""; Music.savedVersion++; Music.musicVersion++; return
         }
         if (!running) Tagger.pause()
