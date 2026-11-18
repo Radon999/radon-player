@@ -1312,7 +1312,7 @@ object Moods {
                 if (wrote.isFailure || wrote.getOrNull() != true) {
                     val why = MoodWriteRules.why(wrote.exceptionOrNull()?.message, p)
                     whys[why] = (whys[why] ?: 0) + 1
-                    if (examples.size < 4) examples += MoodWriteRules.fileName(p)
+                    if (examples.size < 4) examples += runCatching { FileTags.nameOf(p) }.getOrNull() ?: MoodWriteRules.fileName(p)
                 }
                 if (wrote.getOrDefault(false)) {   // only the mood changes, never the album or artist
                     done++

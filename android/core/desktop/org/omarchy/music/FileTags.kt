@@ -13,6 +13,13 @@ object FileTags {
     /** On the PC your own FLACs keep their own writer (Tags.write); this is the phone's. */
     const val OWN_BY_TAGLIB = false
     fun writeOwn(uri: String, changes: Map<String, String>): Boolean = false
+    /** (the phone's: a song's file name when its address is a number; on the PC the address is the path) */
+    fun nameOf(uri: String): String? = null
+    /** Why this file's tags can't be written, in words ("" when nothing known stands in the way). */
+    fun whyNot(uri: String): String = runCatching {
+        val f = file(uri)
+        if (!f.isFile) "the file isn't there any more (${f.name})" else if (!f.canWrite()) "the file can't be changed: it is read-only or open in another app (${f.name})" else ""
+    }.getOrDefault("")
 
     private val KEYS = mapOf("title" to FieldKey.TITLE, "artist" to FieldKey.ARTIST, "albumartist" to FieldKey.ALBUM_ARTIST,
         "album" to FieldKey.ALBUM, "tracknumber" to FieldKey.TRACK, "date" to FieldKey.YEAR, "genre" to FieldKey.GENRE,

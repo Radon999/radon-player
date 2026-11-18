@@ -92,17 +92,27 @@ object LyricsTags {
     fun writeMood(ctx: Ctx, uri: String, mood: String): Boolean {
         val head = ctx.openIn(uri)!!.use { s -> ByteArray(12).also { b -> var n = 0; while (n < 12) { val r = s.read(b, n, 12 - n); if (r < 0) break; n += r } } }
         val magic = String(head, 0, 4, Charsets.ISO_8859_1)
+        val kind = MoodWriteRules.kindOf(head).ifEmpty { "A file of a kind the app doesn't know" }
+        // Through the tag library (the file itself, in its own format). When that can't be done it is said why (the
+        // kind of file, and what stood in the way): never just "no"
+        fun byLibrary(): Boolean {
+            if (FileTags.write(ctx, uri, mapOf("mood" to mood))) return true
+            error("$kind: " + FileTags.whyNot(uri).ifEmpty { "its tags couldn't be written" })
+        }
         return when {
             magic == "fLaC" -> { Tags.write(ctx, uri, mapOf("mood" to mood)); true }
-            magic.startsWith("ID3") && isFlacBehindId3(ctx, uri) -> FileTags.write(ctx, uri, mapOf("mood" to mood))
+            magic.startsWith("ID3") && isFlacBehindId3(ctx, uri) -> byLibrary()
             magic.startsWith("ID3") || (head[0].toInt() and 0xFF == 0xFF && head[1].toInt() and 0xE0 == 0xE0 && head[1].toInt() and 0x06 != 0) -> {
                 val all = ctx.openIn(uri)!!.use { it.readBytes() }
-                val out = TagWrite.mp3(all, null, emptyMap(), mood) ?: return false   // a tag we leave alone (ID3v2.2…)
+                // (a tag of a kind this writer leaves alone, ID3v2.2 or one it can't read: the tag library has a go)
+                val out = TagWrite.mp3(all, null, emptyMap(), mood) ?: return byLibrary()
                 replace(ctx, uri, all, out, ".mp3"); true
             }
             magic == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "WAVE" ->
-                !uri.startsWith("content:") && TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), null, emptyMap(), mood)
-            else -> FileTags.write(ctx, uri, mapOf("mood" to mood))
+                // (on the phone a song's address is not a file's path: its WAVs never got a mood this way)
+                if (uri.startsWith("content:")) byLibrary()
+                else TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), null, emptyMap(), mood) || error("WAV: its tags couldn't be written")
+            else -> byLibrary()
         }
     }
 

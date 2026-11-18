@@ -43,6 +43,24 @@ object FileTags {
         return f.takeIf { it.isFile && it.canWrite() && it.extension.lowercase() in EXTS }
     }
 
+    /** What stood in the way the last time a file's tags couldn't be written ("" if nothing did). */
+    @Volatile private var lastError = ""
+
+    /** A song's file name (from its real path), or null when the phone doesn't say where it is. */
+    fun nameOf(uri: String): String? = pathOf(uri)?.substringAfterLast('/')?.takeIf { it.isNotEmpty() }
+
+    /** Why this file's tags can't be written here, in words ("" when nothing known stands in the way). */
+    fun whyNot(uri: String): String = runCatching {
+        if (!Music.canWriteOwnFiles()) return@runCatching "the app isn't allowed to change your files: allow All files access (Settings › Tagger)"
+        val f = java.io.File(pathOf(uri) ?: return@runCatching "the phone doesn't say where the file is, so it can't be opened to write")
+        when {
+            !f.isFile -> "the file isn't where the phone says it is (${f.name})"
+            !f.canWrite() -> "the phone doesn't let the app change this file (${f.name})"
+            f.extension.lowercase() !in EXTS -> "." + f.extension.lowercase() + " files can't be tagged here"
+            else -> lastError
+        }
+    }.getOrDefault("")
+
     /** The app's downloaded FLACs; and, with All files access, any music file of yours. */
     fun canWrite(uri: String) = Music.lib.items.values.any { it.file == uri && it.format == "flac" } ||
         (!isDownload(uri) && runCatching { ownFile(uri) != null }.getOrDefault(false))
@@ -89,7 +107,7 @@ object FileTags {
 
     /** Your own file's tags written in its own format ("" clears a field); true if it worked. */
     fun writeOwn(uri: String, changes: Map<String, String>): Boolean = runCatching {
-        val f = ownFile(uri) ?: error("can't write it")
+        val f = fileOf(uri) ?: error("can't write it")
         if (isWav(f)) {
             val rest = changes.filterKeys { it != "lyrics" }
             val ok = (rest.isEmpty() || runCatching { WavTags.write(f, rest); true }.getOrDefault(false)) &&
@@ -112,8 +130,9 @@ object FileTags {
         if (pictures.isNotEmpty()) keepPictures(f, pictures)
         // Android's list of songs reads the new tags
         runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
+        lastError = ""
         true
-    }.getOrDefault(false)
+    }.getOrElse { lastError = "the tag library said: " + (it.message?.take(70) ?: it.javaClass.simpleName); false }
 
     /** After a write: the file's pictures put back if the tag library dropped them (it has with some files), so a
      *  song's cover never goes when its other tags change. */
@@ -126,11 +145,27 @@ object FileTags {
         Crashes.note("Put the cover back into ${f.name}: the tag write had dropped it")
     }
 
-    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean =
-        if (!isDownload(uri) && ownFile(uri) != null) {
+    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean {
+        // A download that isn't a FLAC (an Opus or M4A from YouTube) has no writer of the app's own: it is written
+        // as a file of yours is, through the tag library. (It was refused outright: "only FLAC files…")
+        val download = Music.lib.items.values.firstOrNull { it.file == uri }
+        val other = download != null && download.format != "flac"
+        return if ((download == null && ownFile(uri) != null) || (other && fileOf(uri) != null)) {
             val before = runCatching { read(ctx, uri) }.getOrNull()
             writeOwn(uri, changes).also { ok -> if (ok && before != null) TagSync.note(before["title"].orEmpty(), before["artist"].orEmpty(), changes) }
-        } else runCatching { Tags.write(ctx, uri, changes); true }.getOrDefault(false)
+        }
+        // (such a download whose file can't be reached: said so. Handing it to Tags.write sent it straight back here,
+        // round and round until the app ran out of room, which is how it came to be refused without a word)
+        else if (other) { lastError = ""; false }
+        else runCatching { Tags.write(ctx, uri, changes); lastError = ""; true }.getOrElse { lastError = it.message?.take(90).orEmpty(); false }
+    }
+
+    /** The file to write: a file of yours (with All files access), or one of the app's own downloads, which it may
+     *  always change. */
+    private fun fileOf(uri: String): java.io.File? = ownFile(uri) ?: runCatching {
+        if (!isDownload(uri)) return@runCatching null
+        java.io.File(pathOf(uri) ?: return@runCatching null).takeIf { it.isFile && it.canWrite() && it.extension.lowercase() in EXTS }
+    }.getOrNull()
 
     /** The picture inside the file, whatever its format (it read FLACs' only, so a sync took every MP3's, M4A's and
      *  WAV's for one with no cover and put the other device's in its place). */
