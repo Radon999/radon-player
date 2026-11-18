@@ -27,46 +27,30 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.omarchy.music.Music
 
-/** What a Personalization preset looks like, in pictures to swipe through: Now playing (its look, effects and
- *  visualizer, both of Dual's), one slide of Wrapped in its Wrapped style and its lyrics card. On the PC (where the
+/** What a Personalization preset looks like, in live screens to swipe through ([PreviewPager]): Now playing (its look, effects and
+ *  visualizer, both of Dual's), My music and Albums in its look, theme and layout, three slides of Wrapped in its
+ *  Wrapped style, and its lyrics card. On the PC (where the
  *  picture sits beside the menu, out of the pointer's way) it turns to the next one by itself. */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PresetPreview(key: String) {
     val p = MyPresets.of(key) ?: return
-    val names = listOf("Now playing", "Wrapped", "Lyrics card")
-    val pager = rememberPagerState { names.size }
-    val scope = rememberCoroutineScope()
-    if (!onPhone) LaunchedEffect(key) {
-        while (true) { delay(2600); pager.animateScrollToPage((pager.currentPage + 1) % names.size) }
-    }
     val pw = 240.dp; val ph = 300.dp
     val fx = remember(p.key, p.fx, p.own) { if (p.own) null else p.fx.split(';').map { it.trim() }.filter { it.isNotEmpty() }.toSet() }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        HorizontalPager(pager, Modifier.size(pw, ph), pageSpacing = 12.dp) { i ->
-            Box(Modifier.size(pw, ph), contentAlignment = Alignment.Center) {
-                when (i) {
-                    0 -> LookPreview(p.look, wide = false, fx = fx, visStyle = p.npVis.ifEmpty { Vis.nowStyle() },
-                        bottom = if (p.dual) p.npBottom.takeIf { it.isNotEmpty() } else null,
-                        visColor = p.visColor.ifEmpty { Vis.color() }, pw = pw, ph = ph)
-                    1 -> WrapPresetSlide(p.wrapped.ifEmpty { Music.wrappedStyle }, p.look, Modifier.size(pw, ph))
-                    else -> PresetCard(p.card.ifEmpty { LyricsCards.picked() })
-                }
-            }
-        }
-        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            names.forEachIndexed { i, n ->
-                val on = pager.currentPage == i
-                Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (on) C.accent.copy(alpha = 0.18f) else C.fg.copy(alpha = 0.05f))
-                    .clickable { scope.launch { pager.animateScrollToPage(i) } }.padding(horizontal = 8.dp, vertical = 3.dp)) {
-                    Text(n, style = T.sub.copy(color = if (on) C.accent else C.muted))
-                }
-            }
-        }
-        if (onPhone) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            names.indices.forEach { i ->
-                Box(Modifier.size(6.dp).clip(CircleShape).background(if (pager.currentPage == i) C.accent else C.muted.copy(alpha = 0.4f)))
-            }
+    val lay = remember(p.layout) { UiLayouts.all().firstOrNull { it.key == p.layout } ?: UiLayouts.BUILT_IN.first() }
+    val wrap = p.wrapped.ifEmpty { Music.wrappedStyle }
+    // Every screen the preset changes, live: Now playing with its visualizers moving, the lists in its look, theme and
+    // layout with its effects behind them, three slides of Wrapped in its style, and its lyrics card
+    PreviewPager(key, listOf("Now playing", "My music", "Albums", "Wrapped", "Top artist", "Your year", "Lyrics card"), pw, ph) { i ->
+        when (i) {
+            0 -> LookPreview(p.look, wide = false, fx = fx, visStyle = p.npVis.ifEmpty { Vis.nowStyle() },
+                bottom = if (p.dual) p.npBottom.takeIf { it.isNotEmpty() } else null,
+                visColor = p.visColor.ifEmpty { Vis.color() }, pw = pw, ph = ph)
+            1 -> MusicPagePreview(p.look, p.theme, lay, fx, pw, ph)
+            2 -> MusicPagePreview(p.look, p.theme, lay, fx, pw, ph, albums = true)
+            3 -> WrapPresetSlide(wrap, p.look, Modifier.size(pw, ph))
+            4 -> WrapPresetSlide2(wrap, p.look, Modifier.size(pw, ph), artist = true)
+            5 -> WrapPresetSlide2(wrap, p.look, Modifier.size(pw, ph), artist = false)
+            else -> PresetCard(p.card.ifEmpty { LyricsCards.picked() })
         }
     }
 }

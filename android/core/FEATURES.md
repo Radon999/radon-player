@@ -97,7 +97,7 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 
 ## Personalization
 
-Settings › Personalization (or the palette on Now playing) changes how the app looks, Wrapped's style and the lyrics card's style included. Each menu shows a picture of every choice, and each device keeps its own choices.
+Settings › Personalization (or the palette on Now playing) changes how the app looks, Wrapped's style and the lyrics card's style included. Each menu shows every choice as live screens to swipe through (Now playing with its visualizer moving, My music, Albums, slides of Wrapped, the lyrics card), and each device keeps its own choices.
 
 - **Looks** are the colours: Light, Dark, **Now playing** (every screen in the playing cover's colours), and over ninety themes: light, dark, neon, and thirty looks after materials and places (Stained glass, Blueprint, Tea house, Kite sky…), each with an effect of its own.
 - **Themes** are how things are drawn: 45 of them (Rounded, Sharp, Compact, Glass, Retro, Brutalist, Storybook, Ledger…), with any look.

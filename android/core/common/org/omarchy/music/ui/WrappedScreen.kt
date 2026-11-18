@@ -1451,3 +1451,55 @@ fun WrapPresetSlide(style: String, look: String, modifier: Modifier) {
         }
     }
 }
+
+/** Two more sample slides in a Wrapped style, for the previews in Personalization: your top artist (a big round
+ *  cover, the plays, the hours you listen at), or your year in numbers (minutes, songs, a mood, the months as bars). */
+@Composable
+fun WrapPresetSlide2(style: String, look: String, modifier: Modifier, artist: Boolean) {
+    val c = remember(look) { Looks.colors(look) }
+    val p = wrapPal(style, c)
+    fun k(v: Float) = (v * p.scale).sp
+    val wt = { heavy: FontWeight, light: FontWeight -> if (p.heavy) heavy else light }
+    BoxWithConstraints(modifier.clip(RoundedCornerShape(18.dp)).background(p.bg)) {
+        val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+        val g = if (p.gradients) 1f else 0f
+        Box(Modifier.fillMaxSize()
+            .background(Brush.linearGradient(0f to p.glow.copy(alpha = p.tintAlpha * g), 0.62f to p.bg.copy(alpha = 0f), start = Offset(w * 0.6f, 0f), end = Offset(w * 0.2f, h)))
+            .background(Brush.radialGradient(listOf(p.tint.copy(alpha = 0.28f * g), Color.Transparent), center = Offset(w * 0.1f, h * 0.12f), radius = maxOf(w, h) * 0.4f))) {
+            if (p.stars) Stars()
+            if (p.fx.isNotEmpty()) LookEffects(p.fx, accent = p.accent, fg = p.fg, bg = p.bg)
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                horizontalAlignment = if (artist) Alignment.CenterHorizontally else Alignment.Start) {
+                Text(if (artist) "YOUR TOP ARTIST" else "YOUR YEAR", style = T.body.copy(color = p.fg.copy(alpha = 0.72f), fontWeight = wt(FontWeight.ExtraBold, FontWeight.SemiBold),
+                    letterSpacing = 2.sp, fontSize = k(10f)))
+                if (artist) {
+                    Box(Modifier.size(96.dp).clip(if (p.round) CircleShape else RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(p.accent, p.tint.copy(alpha = 0.6f), p.bg))))
+                    Text("An artist", style = T.body.copy(color = p.fg, fontSize = k(24f), fontWeight = wt(FontWeight.Black, FontWeight.Light), shadow = p.shadow))
+                    Text("1,204 plays · 61 hours", style = T.body.copy(color = p.muted, fontSize = k(11f)))
+                    // the hours of the day you listen at, as bars
+                    Row(Modifier.padding(top = 8.dp).fillMaxWidth().height(46.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        listOf(0.2f, 0.12f, 0.08f, 0.3f, 0.55f, 0.4f, 0.62f, 0.8f, 1f, 0.72f, 0.5f, 0.34f).forEach { v ->
+                            Box(Modifier.weight(1f).fillMaxHeight(v).clip(RoundedCornerShape((p.bar * 0.4f).dp)).background(p.accent.copy(alpha = 0.45f + 0.55f * v))) }
+                    }
+                    Text("You listen most in the evening", style = T.body.copy(color = p.fg.copy(alpha = 0.85f), fontSize = k(10.5f)))
+                } else {
+                    Text("12,480", style = T.body.copy(color = p.fg, fontSize = k(40f), fontWeight = wt(FontWeight.Black, FontWeight.Light), lineHeight = k(44f), shadow = p.shadow))
+                    Text("minutes of music", style = T.body.copy(color = p.fg.copy(alpha = 0.85f), fontSize = k(13f)))
+                    Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("2,317" to "songs", "214" to "artists", "Chill" to "top mood").forEach { (n, what) ->
+                            Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(p.fg.copy(alpha = 0.07f)).padding(8.dp)) {
+                                Text(n, style = T.body.copy(color = p.accent, fontWeight = wt(FontWeight.ExtraBold, FontWeight.Medium), fontSize = k(14f), shadow = p.shadow), maxLines = 1)
+                                Text(what, style = T.body.copy(color = p.muted, fontSize = k(9.5f)), maxLines = 1)
+                            }
+                        }
+                    }
+                    Row(Modifier.padding(top = 8.dp).fillMaxWidth().height(54.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(0.5f, 0.42f, 0.6f, 0.7f, 0.55f, 0.9f, 1f, 0.8f, 0.66f, 0.74f, 0.58f, 0.85f).forEachIndexed { i, v ->
+                            Box(Modifier.weight(1f).fillMaxHeight(v).clip(RoundedCornerShape((p.bar * 0.4f).dp)).background(if (i == 6) p.accent else p.tint.copy(alpha = 0.55f))) }
+                    }
+                    Text("July was your biggest month", style = T.body.copy(color = p.muted, fontSize = k(10f)))
+                }
+            }
+        }
+    }
+}
