@@ -39,37 +39,58 @@ object SyncPlaylists {
     private fun songs(o: JsonObject) = (o["tracks"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
     private fun songKey(t: JsonObject) = LibraryMatchRules.key(t["title"].str ?: "", t["artist"].str ?: "")
 
-    /** What a playlist is, when there may only be one of it: Listen later, or an artist's discovery playlist (or its
-     *  discovered one). null: an ordinary playlist, of which there can be any number by any name. */
+    /** What two playlists must share to be the same playlist made twice (once on each device): Listen later; an
+     *  artist's discovery playlist, or its discovered one; else a playlist's name. null: a smart playlist (two sets of
+     *  rules can't be joined, so smart playlists of one name stay two). */
     private fun kind(o: JsonObject): String? {
         val d = o["discovery"] as? JsonObject
         if (d != null) return "d|" + (d["artist"].str ?: "").trim().lowercase() + "|" + (d["role"].str ?: "")
-        return if (!real(o["smart"]) && o["name"].str == ListenLaterRules.NAME) "later" else null
+        if (real(o["smart"])) return null
+        val name = o["name"].str?.trim().orEmpty()
+        return if (name == ListenLaterRules.NAME) "later" else if (name.isEmpty()) null else "n|" + name.lowercase()
     }
 
-    /** Each device makes its own Listen later, and its own discovery playlists for an artist. Once one of them syncs,
-     *  a device would have two: the synced one and its own. So there is one again: the synced one (the oldest, if both
-     *  devices made theirs synced, so both choose the same). Listen later takes in the songs of the other, so nothing
-     *  put aside is lost; a synced discovery playlist takes the place of the device's own for that artist. Playlists
-     *  that don't sync, and ordinary playlists, are left as they are. */
+    /** Syncing a playlist means its songs come together: what you add on the phone is on the PC's, and the other way.
+     *  A playlist both devices have under one id does that already. But each device may have made its own: "Gym" on
+     *  the phone and "Gym" on the PC, its own Listen later, its own discovery playlists for an artist. Once they sync,
+     *  a device would have two of the same. So they are joined into one: the oldest that syncs is kept (both devices
+     *  choose the same one), with the songs of all of them, each song once. A discovery playlist loses the songs its
+     *  joined discovered list holds (heard to the end on either device is heard). Which are joined: playlists of one
+     *  name that both sync; for Listen later and discovery playlists, of which a device can only have one, this
+     *  device's own too once the other's syncs. A playlist you keep to its device (not synced) is otherwise left
+     *  alone, and so are smart playlists. */
     fun oneOfEach(all: List<JsonObject>): List<JsonObject> {
         val drop = ArrayList<JsonObject>()
         val change = HashMap<String?, JsonObject>()
-        for ((k, group) in all.filter { kind(it) != null }.groupBy { kind(it) }) {
-            if (group.size < 2 || group.none(::on)) continue
-            val keep = group.filter(::on).minWith(compareBy<JsonObject>({ num(it, "created") }, { it["id"].str ?: "" }))
-            val rest = group.filter { it !== keep }
+        val joined = HashSet<String>()   // the discovery pairs something was joined in (their artists)
+        fun top(group: List<JsonObject>) = JsonPrimitive(group.maxOf { num(it, "updated") } + 1)
+        for ((k, group) in all.filter { kind(it) != null }.groupBy { kind(it)!! }) {
+            val single = !k.startsWith("n|")
+            val some = if (single) group else group.filter(::on)
+            if (some.size < 2 || some.none(::on)) continue
+            val keep = some.filter(::on).minWith(compareBy<JsonObject>({ num(it, "created") }, { it["id"].str ?: "" }))
+            val rest = some.filter { it !== keep }
             drop += rest
-            if (k != "later") continue
+            if (k.startsWith("d|")) joined += k.split("|")[1]
             val have = songs(keep)
             val ids = have.mapNotNullTo(HashSet()) { it["id"].str }
             val keys = have.mapTo(HashSet()) { songKey(it) }
             val more = rest.flatMap { songs(it) }.filter { t -> t["id"].str.let { it != null && it !in ids } && keys.add(songKey(t)) }
-            if (more.isNotEmpty()) change[keep["id"].str] = JsonObject(keep + ("tracks" to JsonArray(have + more)) +
-                ("updated" to JsonPrimitive(group.maxOf { num(it, "updated") } + 1)))
+            if (more.isNotEmpty()) change[keep["id"].str] = JsonObject(keep + ("tracks" to JsonArray(have + more)) + ("updated" to top(group)))
         }
         if (drop.isEmpty()) return all
-        return all.filter { o -> drop.none { it === o } }.map { o -> change[o["id"].str] ?: o }
+        val out = all.filter { o -> drop.none { it === o } }.map { o -> change[o["id"].str] ?: o }
+        if (joined.isEmpty()) return out
+        // Heard to the end on either device: out of the songs still to hear
+        return out.map { o ->
+            val artist = kind(o)?.takeIf { it.startsWith("d|") && it.endsWith("|discover") }?.split("|")?.get(1)
+            val heard = if (artist == null || artist !in joined) null else out.firstOrNull { kind(it) == "d|$artist|discovered" }
+            if (heard == null) return@map o
+            val ids = songs(heard).mapNotNullTo(HashSet()) { it["id"].str }
+            val keys = songs(heard).mapTo(HashSet()) { songKey(it) }
+            val left = songs(o).filter { (it["id"].str ?: "") !in ids && songKey(it) !in keys }
+            if (left.size == songs(o).size) o else JsonObject(o + ("tracks" to JsonArray(left)) + ("updated" to top(listOf(o, heard))))
+        }
     }
 
     /** The switch "New playlists sync" (Settings › Your files), on from the start: a playlist made while it is on (a

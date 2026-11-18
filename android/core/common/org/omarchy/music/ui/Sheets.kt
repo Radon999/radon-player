@@ -2676,8 +2676,9 @@ private fun SyncedPlaylistsLines() {
     val n = plain.count { it.synced == true } + (if (later?.synced == true) 1 else 0) + pairs.count { it.second?.synced == true || it.third?.synced == true }
     Line("Playlists that sync", "Switch on the playlists to keep the same on your phone and PC; the rest stay on the $DEVICE they are on. " +
         "Nothing is sent when you flip a switch: tap Sync now (above) and they go across, both ways. " +
-        "Listen later becomes one list on both, with the songs of both. A discovery playlist syncs with its discovered list, and " +
-        "takes the place of the other device's own discovery playlist for that artist. A smart playlist's rules go across, and each " +
+        "A synced playlist's songs come together: what you add or take out on one is on the other. Two synced playlists of the same name " +
+        "(one made on each) become one with the songs of both; so do the two Listen laters, and the two discovery playlists for an artist " +
+        "(a song heard to the end on either is heard). A smart playlist's rules go across, and each " +
         "$DEVICE fills it from its own music. New playlists start switched on (Your files › New playlists sync). Both devices need this version",
         ok = n > 0, note = org.omarchy.music.SyncPlaylists.said(n)) {
         Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }

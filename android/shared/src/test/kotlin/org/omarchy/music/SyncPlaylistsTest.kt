@@ -50,18 +50,41 @@ class SyncPlaylistsTest {
         }
     }
 
-    @Test fun aSyncedDiscoveryPairTakesThePlaceOfThisDevicesOwn() {
-        val local = """[{"id":"d1","name":"HOAX Discovery playlist","discovery":{"artist":"HOAX","role":"discover"},"created":1},
-            {"id":"d2","name":"HOAX discovered","discovery":{"artist":"HOAX","role":"discovered"},"created":1},
+    @Test fun aDiscoveryPairBecomesOneWithWhatEachDeviceHeard() {
+        fun t(id: String, title: String) = """{"id":"$id","title":"$title","artist":"HOAX"}"""
+        // Here: Drew and Soju still to hear, TV heard. There: Drew heard, Soju and Clouds still to hear
+        val local = """[{"id":"d1","name":"HOAX Discovery playlist","discovery":{"artist":"HOAX","role":"discover"},"created":1,"updated":4,"tracks":[${t("1", "Drew")},${t("2", "Soju")}]},
+            {"id":"d2","name":"HOAX discovered","discovery":{"artist":"HOAX","role":"discovered"},"created":1,"updated":4,"tracks":[${t("3", "TV")}]},
             {"id":"j1","name":"Joji Discovery playlist","discovery":{"artist":"Joji","role":"discover"},"created":1}]"""
-        val got = """[{"id":"s1","name":"HOAX Discovery playlist","synced":true,"discovery":{"artist":"hoax","role":"discover"},"created":3},
-            {"id":"s2","name":"HOAX discovered","synced":true,"discovery":{"artist":"hoax","role":"discovered"},"created":3}]"""
-        assertEquals("Joji's isn't synced: it stays this device's own", listOf("j1", "s1", "s2"), ids(SyncPlaylists.putBack(local, got)!!))
+        val got = """[{"id":"s1","name":"HOAX Discovery playlist","synced":true,"discovery":{"artist":"hoax","role":"discover"},"created":3,"updated":5,"tracks":[${t("2", "Soju")},${t("4", "Clouds")}]},
+            {"id":"s2","name":"HOAX discovered","synced":true,"discovery":{"artist":"hoax","role":"discovered"},"created":3,"updated":5,"tracks":[${t("9", "drew")}]}]"""
+        val out = arr(SyncPlaylists.putBack(local, got)!!)
+        assertEquals("Joji's isn't synced and has no twin: it stays this device's own", listOf("j1", "s1", "s2"), out.map { it["id"].str })
+        assertEquals("heard on either device", listOf("drew", "TV"), titles(out[2]))
+        assertEquals("still to hear on both: Drew was heard there, so it is off the list", listOf("Soju", "Clouds"), titles(out[1]))
+    }
+
+    @Test fun playlistsOfOneNameThatBothSyncBecomeOne() {
+        val phone = """{"id":"p","name":"Gym","synced":true,"created":5,"updated":5,"tracks":[{"id":"1","title":"Drew","artist":"HOAX"},{"id":"2","title":"TV","artist":"HOAX"}]}"""
+        val pc = """{"id":"c","name":"gym ","synced":true,"created":9,"updated":12,"tracks":[{"id":"7","title":"TV","artist":"Hoax"},{"id":"3","title":"Soju","artist":"HOAX"}]}"""
+        for (order in listOf("[$phone,$pc]", "[$pc,$phone]")) {
+            val out = SyncPlaylists.oneOfEach(arr(order))
+            assertEquals("the older is kept on both devices", listOf("p"), out.map { it["id"].str })
+            assertEquals("the songs of both, each once", listOf("Drew", "TV", "Soju"), titles(out[0]))
+            assertEquals(13.0, out[0]["updated"].str!!.toDouble(), 0.0)
+        }
+    }
+
+    @Test fun aPlaylistKeptToItsDeviceIsNotJoined() {
+        val mine = arr("""[{"id":"a","name":"Gym","tracks":[{"id":"1","title":"Drew","artist":"HOAX"}]},{"id":"b","name":"Gym","synced":true,"tracks":[]},
+            {"id":"c","name":"Mix","synced":false},{"id":"d","name":"Mix","synced":true}]""")
+        assertEquals(mine, SyncPlaylists.oneOfEach(mine))
     }
 
     @Test fun nothingIsJoinedThatDoesNotSync() {
         val two = arr("""[{"id":"a","name":"Listen later"},{"id":"b","name":"Listen later"},{"id":"c","name":"Mix","synced":true},{"id":"d","name":"Mix"},
-            {"id":"e","name":"Listen later","smart":{"live":true},"synced":true}]""")
+            {"id":"e","name":"Listen later","smart":{"live":true},"synced":true},{"id":"f","name":"Best","smart":{"live":true},"synced":true},
+            {"id":"g","name":"Best","smart":{"live":false},"synced":true}]""")
         assertEquals(two, SyncPlaylists.oneOfEach(two))
     }
 
