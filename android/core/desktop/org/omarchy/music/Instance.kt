@@ -128,6 +128,16 @@ object Instance {
                     ui.sheet = null   // (Settings, if it is open, would be in the way)
                     org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
                 }
+                // "show vis blocks": that visualizer alone along Now playing's bottom, at full strength, with Now playing in
+                // front (the checks film it for the website)
+                if (ui != null && rest.lowercase().startsWith("vis ")) {
+                    org.omarchy.music.Prefs.setText(org.omarchy.music.ui.Vis.NOW, rest.drop(4).trim())
+                    org.omarchy.music.Prefs.set(org.omarchy.music.ui.Vis.NOW_DUAL, false)
+                    org.omarchy.music.Prefs.setNum(org.omarchy.music.ui.Vis.NOW_STRENGTH, 1f)
+                    org.omarchy.music.ui.MyPresets.applied++
+                    ui.sheet = null
+                    org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
+                }
                 if (ui != null && rest.isNotEmpty()) when (rest.lowercase()) {
                     "now", "player", "nowplaying" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art" }
                     "lyrics" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "lyrics" }
