@@ -1335,14 +1335,14 @@ private fun PersonalizationBody(ui: Ui) {
                 "that's playing, the way the Now playing screen is), or one of the others, from Midnight to Bubblegum",
                 false, note = Looks.describe(Music.look)) {
                 // Right-click (or hold) one: ★ Favourite (to the top), or Delete one you made
-                ChoicePill(Favs.sorted(Favs.LOOKS, Looks.ALL), Music.look, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
+                ChoicePill(Favs.sorted(Favs.LOOKS, Looks.ALL), Music.look, group = { MenuGroups.look(it) }, swatch = { k -> Looks.swatch(k).let { it.first to SolidColor(it.second) } },
                     describe = { lookDesc(it) }, preview = { LookPreview(it) }, menu = { k, l -> Favs.menu(Favs.LOOKS, k, l) }) { Music.chooseLook(it) }
             }
             // The app's style, apart from its colours: kept with the other settings (so backups and Sync carry it too).
             val theme = org.omarchy.music.Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD
             Line("Theme", "How the app is drawn, whatever its colours: its corners, type, spacing, cards and lines",
                 false, note = Themes.ALL[theme]?.desc.orEmpty()) {
-                ChoicePill(Favs.sorted(Favs.THEMES, Themes.MENU), theme, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) },
+                ChoicePill(Favs.sorted(Favs.THEMES, Themes.MENU), theme, group = { MenuGroups.theme(it) }, describe = { Themes.ALL[it]?.desc.orEmpty() }, preview = { ThemePreview(it) },
                     menu = { k, l -> Favs.menu(Favs.THEMES, k, l) }) {
                     org.omarchy.music.Prefs.setText(Themes.PREF, it) }
             }
@@ -1352,7 +1352,7 @@ private fun PersonalizationBody(ui: Ui) {
                 "down the side or tabs along the top), the mini player and how Now playing is arranged. Every layout has every " +
                 "feature: what isn't on its bar is in the ☰ menu", false, note = lay.explain()) {
                 fun of(k: String) = UiLayouts.all().firstOrNull { it.key == k }
-                ChoicePill(Favs.sorted(Favs.LAYOUTS, UiLayouts.MENU), lay.key, describe = { of(it)?.explain().orEmpty() },
+                ChoicePill(Favs.sorted(Favs.LAYOUTS, UiLayouts.MENU), lay.key, group = { MenuGroups.layout(it) }, describe = { of(it)?.explain().orEmpty() },
                     preview = { k -> of(k)?.let { LayoutPreview(it) } }, thumb = { k -> of(k)?.let { LayoutThumb(it) } },
                     later = true, menu = { k, l -> Favs.menu(Favs.LAYOUTS, k, l) }) { UiLayouts.choose(it) }
             }
@@ -1372,7 +1372,7 @@ private fun EffectsLines() {
     }
     if (!own) Line("Effects", "Drawn over the background, behind everything else, with the ready-made looks, any theme " +
         "and layout (a look you made keeps its own effects). Pick as many as you like; point at one (on the PC) to see it", false) {
-        ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = LookFx.keys(picked),
+        ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", group = { MenuGroups.effect(it) }, describe = { LookFx.describe(it) }, preview = { FxPreview(it) }, chosen = LookFx.keys(picked),
             menu = { k, l -> Favs.menu(Favs.EFFECTS, k, l) }) {
             LookFx.toggle(it); picked = LookFx.picked()
         }
@@ -1394,7 +1394,7 @@ private fun NowPlayingLookLines() {
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
         var now by remember { mutableStateOf(Vis.nowStyle()) }
-        ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, preview = { NowVisPreview(it) },
+        ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, group = { MenuGroups.vis(it) }, preview = { NowVisPreview(it) },
             menu = { k, l -> if (k == "slim" || k == "off") emptyList() else Favs.menu(Favs.VIS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
     }
     // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button)
@@ -1405,17 +1405,17 @@ private fun NowPlayingLookLines() {
     }
     if (dual) Line("Along the bottom", "Dual's style along the bottom of Now playing", false) {
         var bottom by remember { mutableStateOf(Vis.nowBottom()) }
-        ChoicePill(Vis.BOTTOM_STYLES, bottom, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW_BOTTOM, it); bottom = it }
+        ChoicePill(Vis.BOTTOM_STYLES, bottom, group = { MenuGroups.vis(it) }, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW_BOTTOM, it); bottom = it }
     }
     // Wrapped's look and the lyrics card's style, here too (they stay in Wrapped and the Lyrics card), so a preset keeps them
     Line("Wrapped style", "How Wrapped's slides look (the same as Style in Wrapped): the ready-made ones, Your look, and yours", false) {
-        ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) },
+        ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, group = { MenuGroups.wrapped(it) }, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) },
             preview = { k -> WrapPresetSlide(k, Music.look, Modifier.size(220.dp, 290.dp)) }) { Music.chooseWrappedStyle(it) }
     }
     Line("Lyrics card style", "How lyrics cards look (the same as Style in the Lyrics card box): Your look, Now playing, 30 " +
         "ready-made styles and yours", false) {
         var card by remember { mutableStateOf(LyricsCards.picked()) }
-        ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), card, describe = { LyricsCards.describe(it) },
+        ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), card, group = { MenuGroups.card(it) }, describe = { LyricsCards.describe(it) },
             preview = { k -> PresetCard(k) },
             menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { LyricsCards.pick(it); card = it }
     }
@@ -2763,7 +2763,7 @@ fun PresetLines(ui: Ui) {
                 (!p.dual || p.npBottom == here.npBottom) && (p.wrapped.isEmpty() || p.wrapped == here.wrapped) &&
                 (p.card.isEmpty() || p.card == here.card) && (p.visColor.isEmpty() || p.visColor == here.visColor) }?.key.orEmpty()
             val opts = Favs.sorted(Favs.PRESETS, presets.map { it.key to MyPresets.label(it) })
-            ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current,
+            ChoicePill(if (current.isEmpty()) listOf("" to "Pick one") + opts else opts, current, group = { MenuGroups.preset(it) },
                 describe = { MyPresets.describe(it) }, twice = true, preview = { k -> if (k.isNotEmpty()) PresetPreview(k) },
                 menu = { k, l -> if (k.isEmpty()) emptyList() else Favs.menu(Favs.PRESETS, k, l) }) { if (it.isNotEmpty()) MyPresets.apply(it) }
         }

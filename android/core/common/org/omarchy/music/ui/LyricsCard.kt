@@ -191,7 +191,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                 // Style: hold one or tap its ⋯ (right-click on the PC) to favourite it; yours can be edited or deleted too
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
                     Text("Style", style = T.sub, modifier = Modifier.padding(end = 8.dp))
-                    ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), styleKey, describe = { LyricsCards.describe(it) },
+                    ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), styleKey, group = { MenuGroups.card(it) }, describe = { LyricsCards.describe(it) },
                         preview = { k -> val b = remember(k, t.id, mine) { lyricsCard(lines.toList().take(3), t, LyricsCards.of(k), k == LyricsCards.NOW) }
                             Image(b, null, Modifier.size(144.dp, 180.dp)) },
                         menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) {

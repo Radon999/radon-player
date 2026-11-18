@@ -921,7 +921,7 @@ object MyPresets {
         val mine get() = key.startsWith("mypreset-")
     }
 
-    /** 30 ready-made presets, each a whole matching setup: a look and theme, a layout, effects, Now playing's visualizer
+    /** 60 ready-made presets, each a whole matching setup: a look and theme, a layout, effects, Now playing's visualizer
      *  (Dual: one in the middle, one along the bottom) and its colour, Wrapped's style and the lyrics card's style. */
     private fun b(n: Int, name: String, look: String, theme: String, layout: String, fx: String, vis: String, bottom: String,
                   wrapped: String, card: Int, color: String) =
@@ -958,6 +958,38 @@ object MyPresets {
         b(28, "Contours", "mint", "minimal", "magazine", "topo", "ripples", "curtain", "green", 28, "mint"),
         b(29, "Meteor night", "neon-nebula", "glass", "stage", "meteors,constellation,twinkle", "starfield", "echoes", "purple", 29, "galaxy"),
         b(30, "Dream orbs", "lavender", "rounded", "dock", "orbs,drift,sparkle", "orbits", "bubbles", "purple", 30, "twilight"),
+        // 4.0.14: thirty more, each built on one of the thirty new looks with its own effect, a new theme and layout, two of
+        // the new visualizers in the look's own colour blend, and the Wrapped style and lyrics card made to match
+        b(31, "Cathedral", "stainedglass", "cutglass", "songfirst", "mosaic", "rosewindow", "glasstiles", "wrap-stainedglass", 31, "stainedglass"),
+        b(32, "Old penny", "patina", "calm", "railpill", "patina", "target", "pipes", "wrap-patina", 32, "patina"),
+        b(33, "Drawing office", "blueprint", "ledger", "sounddesk", "draft", "compass", "draftbars", "wrap-blueprint", 33, "blueprint"),
+        b(34, "Tile floor", "terrazzo", "squircle", "bottomclassic", "chips", "gem", "abacus", "wrap-terrazzo", 34, "terrazzo"),
+        b(35, "Picture palace", "artdeco", "broadsheet", "bigtype", "fans", "decofan", "ziggurat", "wrap-artdeco", 35, "artdeco"),
+        b(36, "Design school", "bauhaus", "brutal", "twobuttons", "shapes", "target", "shards", "wrap-bauhaus", 36, "bauhaus"),
+        b(37, "Jade garden", "jade", "frosted", "nightstand", "swirls", "lotus", "drapefolds", "wrap-jade", 37, "jade"),
+        b(38, "Reef dive", "coralreef", "bubble", "explorer", "coral", "anemone", "coralbars", "wrap-coralreef", 38, "coralreef"),
+        b(39, "Honey jar", "amber", "storybook", "playlistbar", "drops", "whirlpool", "stalactites", "wrap-amber", 39, "amber"),
+        b(40, "Calligraphy", "inkwash", "hairline", "rightpill", "blots", "enso", "inkstrokes", "wrap-inkwash", 40, "inkwash"),
+        b(41, "Blue jeans", "denim", "dotted", "pinnedbar", "weave", "stringart", "stitches", "wrap-denim", 41, "denim"),
+        b(42, "Opening night", "velvet", "poster", "centrestage", "drapes", "beacon", "drapefolds", "wrap-velvet", 42, "velvet"),
+        b(43, "Ice cave", "glacier", "whisper", "playerontop", "icicles", "crystal", "stalactites", "wrap-glacier", 43, "glacier"),
+        b(44, "Volcano glass", "obsidian", "slab", "sidebyside", "facets", "gem", "shards", "wrap-obsidian", 44, "obsidian"),
+        b(45, "Fruit stand", "tropical", "sticker", "albumsfirst", "slices", "pinwheel", "toadstools", "wrap-tropical", 45, "tropical"),
+        b(46, "Fairground", "carnival", "bigbuttons", "djbooth", "bunting", "pinwheel", "pennants", "wrap-carnival", 46, "carnival"),
+        b(47, "Paper folds", "origami", "notched", "searchfirst", "cranes", "kite", "shards", "wrap-origami", 47, "origami"),
+        b(48, "Museum", "marble", "novel", "librarytabs", "veins", "compass", "pipes", "wrap-marble", 48, "marble"),
+        b(49, "Riverbank", "moss", "airy", "nomini", "pebbles", "lotus", "toadstools", "wrap-moss", 49, "moss"),
+        b(50, "Royal garden", "peacock", "capsule", "moodtabs", "feathers", "peacockfan", "lanternrow", "wrap-peacock", 50, "peacock"),
+        b(51, "Harbour light", "lighthouse", "ruled", "topdeck", "beam", "beacon", "stitches", "wrap-lighthouse", 51, "lighthouse"),
+        b(52, "Tea ceremony", "teahouse", "gallery", "rightbar", "steam", "enso", "inkstrokes", "wrap-teahouse", 52, "teahouse"),
+        b(53, "Colouring book", "crayon", "sticker", "baronly", "scribbles", "kite", "abacus", "wrap-crayon", 53, "crayon"),
+        b(54, "Lantern night", "lanternfest", "frosted", "singalong", "lanterns", "lotus", "lanternrow", "wrap-lanternfest", 54, "lanternfest"),
+        b(55, "Player two", "cartridge", "console", "statsrail", "pixels", "target", "glasstiles", "wrap-cartridge", 55, "cartridge"),
+        b(56, "Fairy ring", "glowshroom", "monoround", "collector", "spores", "anemone", "toadstools", "wrap-glowshroom", 56, "glowshroom"),
+        b(57, "Moonstone", "opal", "listfirst", "everything", "shimmer", "crystal", "pianokeys", "wrap-opal", 57, "opal"),
+        b(58, "Shipyard", "foundry", "dense", "widescreen", "rivets", "stringart", "pipes", "wrap-foundry", 58, "foundry"),
+        b(59, "Wine cellar", "plumwine", "zine", "statsdesk", "eddy", "whirlpool", "drapefolds", "wrap-plumwine", 59, "plumwine"),
+        b(60, "Windy day", "kitesky", "ticket", "filecabinet", "kites", "kite", "pennants", "wrap-kitesky", 60, "kitesky"),
     )
 
     /** Goes up each time a preset is put on, so the tab's lines show the new choices. */

@@ -93,7 +93,8 @@ private val BUILT_VIS_STYLES: List<Pair<String, String>> = listOf("bars" to "Bar
     // 15 more around the middle (out of the cover's centre on Now playing)
     "orbits" to "Orbits", "spiral" to "Spiral", "polygons" to "Polygons", "radar" to "Radar", "lightrays" to "Light rays",
     "atom" to "Atom", "mandala" to "Mandala", "ripples" to "Ripples", "nova" to "Supernova", "honeycomb" to "Honeycomb",
-    "heart" to "Heart", "sunflower" to "Sunflower", "vortex" to "Vortex", "iris" to "Iris", "clockwork" to "Clockwork")
+    "heart" to "Heart", "sunflower" to "Sunflower", "vortex" to "Vortex", "iris" to "Iris", "clockwork" to "Clockwork") +
+    MORE_VIS_BOTTOM + MORE_VIS_CENTRED   // 4.0.14: thirty more (Visualizer2.kt)
 /** The built-in styles that the style maker can start from. */
 val VIS_BASES: List<Pair<String, String>> get() = BUILT_VIS_STYLES
 /** Every style: the built-in ones, then the ones you made (Make your own visualizer). */
@@ -107,11 +108,13 @@ internal fun numbered(items: List<Pair<String, String>>): List<Pair<String, Stri
 
 /** The colours, for any style: the look's own (its accent; on Now playing the cover's), the blends, then plain ones
  *  (the colours that used to be styles of their own). The blends' keys never clash with the plain ones (Looks.NEON). */
+/** 4.0.14: thirty more blends, one in the colours of each of the new looks. */
+private val MORE_VIS_COLORS: List<Pair<String, String>> = listOf("stainedglass" to "Stained glass", "patina" to "Copper patina", "blueprint" to "Blueprint", "terrazzo" to "Terrazzo", "artdeco" to "Art deco", "bauhaus" to "Bauhaus", "jade" to "Jade", "coralreef" to "Coral reef", "amber" to "Amber", "inkwash" to "Ink wash", "denim" to "Denim", "velvet" to "Velvet theatre", "glacier" to "Glacier cave", "obsidian" to "Obsidian", "tropical" to "Tropical punch", "carnival" to "Carnival", "origami" to "Origami", "marble" to "Marble hall", "moss" to "Moss and stone", "peacock" to "Peacock", "lighthouse" to "Lighthouse", "teahouse" to "Tea house", "crayon" to "Crayon box", "lanternfest" to "Lantern festival", "cartridge" to "Game cartridge", "glowshroom" to "Glowshroom", "opal" to "Opal", "foundry" to "Rust and steel", "plumwine" to "Plum wine", "kitesky" to "Kite sky")
 private val BUILT_VIS_COLORS: List<Pair<String, String>> = listOf("auto" to "Look's colour", "cover" to "Album cover's colour", "rainbow" to "Rainbow", "twilight" to "Twilight",
     "fire" to "Fire", "ice" to "Ice", "ocean" to "Ocean", "sunset" to "Sunset", "aurora" to "Aurora", "neonpop" to "Neon pop",
     "forest" to "Forest", "magma" to "Magma", "candy" to "Candy", "goldleaf" to "Gold leaf", "synthwave" to "Synthwave",
     "mint" to "Mint", "galaxy" to "Galaxy", "pastel" to "Pastel", "bloodmoon" to "Blood moon", "acid" to "Acid",
-    "silver" to "Silver") + Looks.NEON.map { (k, v) -> k to v.first } + Looks.NEON_LOOKS.map { it.first to it.second }
+    "silver" to "Silver") + MORE_VIS_COLORS + Looks.NEON.map { (k, v) -> k to v.first } + Looks.NEON_LOOKS.map { it.first to it.second }
 /** Every colour: the built-in ones, then the blends you made. */
 val VIS_COLORS: List<Pair<String, String>> get() = BUILT_VIS_COLORS + numbered(MyVis.colors().map { it.key to it.name }).map { (k, n) -> k to "$n (yours)" }
 
@@ -149,7 +152,7 @@ object Vis {
     /** The styles drawn around the middle of the space (the others stand on its bottom). */
     val BUILT_CENTRED = setOf("circle", "ring", "particles", "pulse", "starfield", "sunburst", "galaxy", "flower", "vinyl",
         "lissajous", "kaleido", "tunnel", "orbits", "spiral", "polygons", "radar", "lightrays", "atom", "mandala", "ripples", "nova",
-        "honeycomb", "heart", "sunflower", "vortex", "iris", "clockwork")
+        "honeycomb", "heart", "sunflower", "vortex", "iris", "clockwork") + MORE_VIS_CENTRED.map { it.first }
     /** ... and the styles you made from one of them. */
     val CENTRED: Set<String> get() = BUILT_CENTRED + MyVis.styles().filter { it.base in BUILT_CENTRED || it.dual }.map { it.key }
     /** Yours with Dual on: one style in the middle (over the cover on Now playing) and one along the bottom. */
@@ -232,7 +235,38 @@ private val VIS_GRADS: Map<String, VisGrad> = mapOf(
     "galaxy" to VisGrad(VisGrad.LOUD, 0xFF2B1B6B, 0xFF7C4DFF, 0xFFFF6EC7, 0xFFFFF0FA),
     "bloodmoon" to VisGrad(VisGrad.LOUD, 0xFF3A0008, 0xFFB3001B, 0xFFFF5A36, 0xFFFFE3D3),
     "acid" to VisGrad(VisGrad.ALONG, 0xFF9B00FF, 0xFF00C2FF, 0xFF39FF14, 0xFFEFFF00),
-    "silver" to VisGrad(VisGrad.LOUD, 0xFF4B515C, 0xFF8E95A1, 0xFFC8CDD6, 0xFFFFFFFF))
+    "silver" to VisGrad(VisGrad.LOUD, 0xFF4B515C, 0xFF8E95A1, 0xFFC8CDD6, 0xFFFFFFFF),
+    // 4.0.14: thirty more
+    "stainedglass" to VisGrad(VisGrad.STRIPES, 0xFFE23D5A, 0xFFFFD23F, 0xFF2F8FFF, 0xFF37D67A),
+    "patina" to VisGrad(VisGrad.LOUD, 0xFFC97B4A, 0xFF3FD0B0, 0xFF7FE3CF, 0xFFF2D0A9),
+    "blueprint" to VisGrad(VisGrad.LOUD, 0xFF7FB2FF, 0xFFE8F1FF, 0xFFFFFFFF, 0xFFBFD9FF),
+    "terrazzo" to VisGrad(VisGrad.STRIPES, 0xFF3D7A8A, 0xFFC8553D, 0xFFE2A53B, 0xFF8C6BB1),
+    "artdeco" to VisGrad(VisGrad.ALONG, 0xFF1F8A7A, 0xFFE8C25A, 0xFFF5EBD0, 0xFFB8862B),
+    "bauhaus" to VisGrad(VisGrad.STRIPES, 0xFF1F5FBF, 0xFFE63329, 0xFFF5C518, 0xFF1A1A1A),
+    "jade" to VisGrad(VisGrad.LOUD, 0xFF3FBF8A, 0xFF9FE8B8, 0xFFD7F5E3, 0xFF1E8F6A),
+    "coralreef" to VisGrad(VisGrad.ALONG, 0xFFFFC857, 0xFFFF7A6B, 0xFF2EC4B6, 0xFFFF4F79),
+    "amber" to VisGrad(VisGrad.LOUD, 0xFFFF7A00, 0xFFFFB000, 0xFFFFE08A, 0xFFC85A00),
+    "inkwash" to VisGrad(VisGrad.LOUD, 0xFF1D1D1D, 0xFFB3261E, 0xFF6B6B6B, 0xFFB3261E),
+    "denim" to VisGrad(VisGrad.ALONG, 0xFF6FA8FF, 0xFFF2A93B, 0xFFFFFFFF, 0xFFF2A93B),
+    "velvet" to VisGrad(VisGrad.LOUD, 0xFFC8102E, 0xFFF2C14E, 0xFFFFD98A, 0xFF8A1030),
+    "glacier" to VisGrad(VisGrad.LOUD, 0xFF3FA9F5, 0xFF7FE7FF, 0xFFE6FBFF, 0xFF2B6CB0),
+    "obsidian" to VisGrad(VisGrad.LOUD, 0xFF8A8A96, 0xFFFF5A3C, 0xFFFFB199, 0xFFB01E0A),
+    "tropical" to VisGrad(VisGrad.STRIPES, 0xFFFF9F1C, 0xFFE8336D, 0xFF2EC4B6, 0xFF8AC926),
+    "carnival" to VisGrad(VisGrad.STRIPES, 0xFFFF3B6B, 0xFFFFD400, 0xFF2ED1FF, 0xFF5BE36A),
+    "origami" to VisGrad(VisGrad.ALONG, 0xFF2B6CB0, 0xFFE8590C, 0xFFF2B705, 0xFF26282B),
+    "marble" to VisGrad(VisGrad.LOUD, 0xFF6C7078, 0xFF8A6D1D, 0xFFC9A44A, 0xFF222326),
+    "moss" to VisGrad(VisGrad.LOUD, 0xFF7FA650, 0xFFB5D46A, 0xFFD9E4B8, 0xFF8A8F7C),
+    "peacock" to VisGrad(VisGrad.ALONG, 0xFF1E6BFF, 0xFF2FE0C2, 0xFFB58CFF, 0xFFFFD166),
+    "lighthouse" to VisGrad(VisGrad.LOUD, 0xFFFF6B5A, 0xFFFFE28A, 0xFFFFFFFF, 0xFF5FA8D3),
+    "teahouse" to VisGrad(VisGrad.LOUD, 0xFFA3B86C, 0xFF5E7D2B, 0xFFC46A3C, 0xFF2B2A22),
+    "crayon" to VisGrad(VisGrad.STRIPES, 0xFFF23B3B, 0xFF2F6FED, 0xFFF7C325, 0xFF27AE60),
+    "lanternfest" to VisGrad(VisGrad.LOUD, 0xFFFF5C8A, 0xFFFF9F45, 0xFFFFD27A, 0xFFB26BFF),
+    "cartridge" to VisGrad(VisGrad.STRIPES, 0xFFE94F64, 0xFF9D8CFF, 0xFF53D8A8, 0xFFF2C94C),
+    "glowshroom" to VisGrad(VisGrad.ALONG, 0xFFB46BFF, 0xFF5CF2E0, 0xFF9CFF6B, 0xFFFF7AD9),
+    "opal" to VisGrad(VisGrad.ALONG, 0xFF5CC8D6, 0xFF7A5CE0, 0xFFF08FC0, 0xFFF2C879),
+    "foundry" to VisGrad(VisGrad.LOUD, 0xFFB0B6BD, 0xFFFF7A2F, 0xFFFFC08A, 0xFF8A4B1E),
+    "plumwine" to VisGrad(VisGrad.LOUD, 0xFFB03A8C, 0xFFFF8FB8, 0xFFFFD1E3, 0xFF7A1F6A),
+    "kitesky" to VisGrad(VisGrad.STRIPES, 0xFF2F80ED, 0xFFE8452C, 0xFFF2C94C, 0xFF27AE60))
 
 /** A colour for a spot in the picture: t is where along the spectrum (0 the bass … 1 the treble), lv how loud. */
 class VisPalette(val key: String, private val base: Color, private val shift: Float) {
@@ -555,6 +589,7 @@ var starReach = 1f
 
 fun DrawScope.drawVis(style: String, s: VisState, pal: VisPalette, fg: Color, backdrop: Boolean) {
     MyVis.style(style)?.let { drawMyVis(it, s, pal, fg, backdrop); return }
+    if (drawVis2(style, s, pal, fg, backdrop)) return   // one of the thirty added in 4.0.14
     val lv = s.levels
     val n = lv.size
     val w = size.width
@@ -1456,6 +1491,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                later: Boolean = false,        // the phone: put on when the menu closes (a layout rebuilds the screen, menu and all)
                twice: Boolean = false,        // a tap shows its picture (and stays open), a second tap on it puts it on
                menu: ((String, String) -> List<Pair<String, () -> Unit>>)? = null,   // right-click (or hold) on one: these
+               group: ((String) -> String)? = null,   // a long menu in sections that fold: the section each choice is in (MenuGroups)
                pick: (String) -> Unit) {
     Box {
         var open by remember { mutableStateOf(false) }
@@ -1591,8 +1627,23 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                 }
             }
             val perCol = if (onPhone) options.size else ((screenHeightDp() - 72) / 48).coerceAtLeast(6)
+            // A long menu in sections that fold open and shut, so it is a short list of sections first: your favourites,
+            // then each kind. The section the one in use is in starts open; the rest are a tap away. (A short menu, or
+            // one where all are of one kind, stays a plain list.)
+            val sections = if (group == null) null else remember(options) {
+                LinkedHashMap<String, MutableList<Pair<String, String>>>().also { m ->
+                    options.forEach { o -> m.getOrPut(if (o.second.startsWith("★ ")) "★ Favourites" else group(o.first)) { ArrayList() }.add(o) } } }
+            if (sections != null && sections.size > 1 && options.size > 12) {
+                var openSection by remember(open) { mutableStateOf(sections.entries.firstOrNull { e -> e.value.any { it.first == current || chosen?.contains(it.first) == true } }?.key
+                    ?: sections.keys.first()) }
+                sections.forEach { (name, items) -> androidx.compose.runtime.key("section:$name") {
+                    DropdownMenuItem(text = { Text((if (openSection == name) "▾  " else "▸  ") + name + "   " + items.size,
+                        style = T.body.copy(color = C.accent, fontWeight = FontWeight.SemiBold)) }, onClick = { openSection = if (openSection == name) "" else name })
+                    if (openSection == name) items.forEach { (k, label) -> androidx.compose.runtime.key(k) { item(k, label) } }
+                } }
+            }
             // Each one keyed by what it is, so after a favourite moves to the top its taps and holds still go to it
-            if (options.size <= perCol) options.forEach { (k, label) -> androidx.compose.runtime.key(k) { item(k, label) } }
+            else if (options.size <= perCol) options.forEach { (k, label) -> androidx.compose.runtime.key(k) { item(k, label) } }
             else {
                 val cols = (options.size + perCol - 1) / perCol
                 val chunks = options.chunked((options.size + cols - 1) / cols)
@@ -1719,7 +1770,7 @@ fun VisualizerTab() {
             if (styleScroll.canScrollForward) Chip("›", false) { step(420f) }
             Spacer(Modifier.width(4.dp))
             val accent = C.accent
-            ChoicePill(Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), colorKey, swatch = { visSwatch(it, accent) },
+            ChoicePill(Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), colorKey, group = { MenuGroups.visColour(it) }, swatch = { visSwatch(it, accent) },
                 menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { Prefs.setText(Vis.COLOR, it) }
         }
         val accent = C.accent

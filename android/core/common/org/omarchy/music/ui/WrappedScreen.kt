@@ -111,6 +111,71 @@ data class MyWrap(val key: String, val name: String, val bg: Long, val fg: Long,
         fx.joinToString(","), stars, bar, tiles, coverSize, spacing).joinToString("|")
 }
 
+/** 4.0.14: thirty ready-made Wrapped styles, one for each of the new looks: its colours, a colour for each slide in
+ *  turn, and its own effect behind every slide. They are styles like the ones you make, only they come with the app. */
+val WRAPS_BUILT: List<MyWrap> = listOf(
+    MyWrap("wrap-stainedglass", "Stained glass", 0xFF0F0B1E, 0xFFF3EEFF, 0xFF9A8FC0, 0xFFFFD23F, listOf(0xFFFFD23F, 0xFFE23D5A, 0xFF2F8FFF, 0xFF37D67A),
+        gradients = true, glow = 0.45f, heavy = true, corners = 3, roundCovers = false, fx = setOf("mosaic"), bar = 12f, tiles = true, coverSize = 1.1f, spacing = 1.05f),
+    MyWrap("wrap-patina", "Copper patina", 0xFF2A1A12, 0xFFF6E9DD, 0xFFB89A84, 0xFF3FD0B0, listOf(0xFF3FD0B0, 0xFFC97B4A, 0xFF7FE3CF, 0xFFF2D0A9),
+        gradients = true, glow = 0.45f, heavy = false, corners = 7, roundCovers = false, fx = setOf("patina"), bar = 3f, tiles = true, coverSize = 0.9f, spacing = 1f),
+    MyWrap("wrap-blueprint", "Blueprint", 0xFF0F3D7A, 0xFFEAF2FF, 0xFF9DB9E0, 0xFFE8F1FF, listOf(0xFFE8F1FF, 0xFF7FB2FF, 0xFFFFFFFF, 0xFFBFD9FF),
+        gradients = true, glow = 0.45f, heavy = false, corners = 0, roundCovers = false, fx = setOf("draft"), bar = 5f, tiles = false, coverSize = 1f, spacing = 1.15f),
+    MyWrap("wrap-terrazzo", "Terrazzo", 0xFFF4EFE6, 0xFF2E2A26, 0xFF7C746A, 0xFFC8553D, listOf(0xFFC8553D, 0xFF3D7A8A, 0xFFE2A53B, 0xFF8C6BB1),
+        gradients = true, glow = 0.25f, heavy = true, corners = 10, roundCovers = true, fx = setOf("chips"), bar = 8f, tiles = true, coverSize = 1.1f, spacing = 0.9f),
+    MyWrap("wrap-artdeco", "Art deco", 0xFF0C1B1A, 0xFFF5EBD0, 0xFFA89F7E, 0xFFE8C25A, listOf(0xFFE8C25A, 0xFF1F8A7A, 0xFFF5EBD0, 0xFFB8862B),
+        gradients = false, glow = 0.45f, heavy = true, corners = 0, roundCovers = false, fx = setOf("fans"), bar = 12f, tiles = true, coverSize = 0.9f, spacing = 1.05f),
+    MyWrap("wrap-bauhaus", "Bauhaus", 0xFFF2EDE0, 0xFF1A1A1A, 0xFF6B6B6B, 0xFFE63329, listOf(0xFFE63329, 0xFF1F5FBF, 0xFFF5C518, 0xFF1A1A1A),
+        gradients = true, glow = 0.25f, heavy = true, corners = 0, roundCovers = false, fx = setOf("shapes"), bar = 3f, tiles = false, coverSize = 1f, spacing = 1f),
+    MyWrap("wrap-jade", "Jade", 0xFF0B2A22, 0xFFE8F7EE, 0xFF8DB5A2, 0xFF9FE8B8, listOf(0xFF9FE8B8, 0xFF3FBF8A, 0xFFD7F5E3, 0xFF1E8F6A),
+        gradients = true, glow = 0.45f, heavy = false, corners = 12, roundCovers = true, fx = setOf("swirls"), bar = 5f, tiles = true, coverSize = 1.1f, spacing = 1.15f),
+    MyWrap("wrap-coralreef", "Coral reef", 0xFF06283A, 0xFFEAF8FF, 0xFF86B4C8, 0xFFFF7A6B, listOf(0xFFFF7A6B, 0xFFFFC857, 0xFF2EC4B6, 0xFFFF4F79),
+        gradients = true, glow = 0.45f, heavy = false, corners = 16, roundCovers = true, fx = setOf("coral"), bar = 8f, tiles = true, coverSize = 0.9f, spacing = 0.9f),
+    MyWrap("wrap-amber", "Amber", 0xFF2B1500, 0xFFFFF3DC, 0xFFC9A36B, 0xFFFFB000, listOf(0xFFFFB000, 0xFFFF7A00, 0xFFFFE08A, 0xFFC85A00),
+        gradients = true, glow = 0.45f, heavy = true, corners = 13, roundCovers = true, fx = setOf("drops"), bar = 12f, tiles = false, coverSize = 1f, spacing = 1.05f),
+    MyWrap("wrap-inkwash", "Ink wash", 0xFFF3EFE7, 0xFF1D1D1D, 0xFF77736B, 0xFFB3261E, listOf(0xFFB3261E, 0xFF1D1D1D, 0xFF6B6B6B, 0xFFB3261E),
+        gradients = false, glow = 0.25f, heavy = false, corners = 1, roundCovers = false, fx = setOf("blots"), bar = 3f, tiles = true, coverSize = 1.1f, spacing = 1f),
+    MyWrap("wrap-denim", "Denim", 0xFF1E3557, 0xFFEDF2FA, 0xFF9FB2CC, 0xFFF2A93B, listOf(0xFFF2A93B, 0xFF6FA8FF, 0xFFFFFFFF, 0xFFF2A93B),
+        gradients = true, glow = 0.45f, heavy = true, corners = 4, roundCovers = false, fx = setOf("weave"), bar = 5f, tiles = true, coverSize = 0.9f, spacing = 1.15f),
+    MyWrap("wrap-velvet", "Velvet theatre", 0xFF3A0714, 0xFFFFEFE6, 0xFFC99AA0, 0xFFF2C14E, listOf(0xFFF2C14E, 0xFFC8102E, 0xFFFFD98A, 0xFF8A1030),
+        gradients = true, glow = 0.45f, heavy = true, corners = 6, roundCovers = false, fx = setOf("drapes"), bar = 8f, tiles = false, coverSize = 1f, spacing = 0.9f),
+    MyWrap("wrap-glacier", "Glacier cave", 0xFF061A2E, 0xFFEAF8FF, 0xFF8FB6CC, 0xFF7FE7FF, listOf(0xFF7FE7FF, 0xFF3FA9F5, 0xFFE6FBFF, 0xFF2B6CB0),
+        gradients = true, glow = 0.45f, heavy = false, corners = 2, roundCovers = false, fx = setOf("icicles"), bar = 12f, tiles = true, coverSize = 1.1f, spacing = 1.05f),
+    MyWrap("wrap-obsidian", "Obsidian", 0xFF0A0A0D, 0xFFEDEDF2, 0xFF8A8A96, 0xFFFF5A3C, listOf(0xFFFF5A3C, 0xFF8A8A96, 0xFFFFB199, 0xFFB01E0A),
+        gradients = true, glow = 0.45f, heavy = true, corners = 0, roundCovers = false, fx = setOf("facets"), bar = 3f, tiles = true, coverSize = 0.9f, spacing = 1f),
+    MyWrap("wrap-tropical", "Tropical punch", 0xFFFFF4D6, 0xFF3A2030, 0xFF8A6A70, 0xFFE8336D, listOf(0xFFE8336D, 0xFFFF9F1C, 0xFF2EC4B6, 0xFF8AC926),
+        gradients = false, glow = 0.25f, heavy = true, corners = 20, roundCovers = true, fx = setOf("slices"), bar = 5f, tiles = false, coverSize = 1f, spacing = 1.15f),
+    MyWrap("wrap-carnival", "Carnival", 0xFF1B1464, 0xFFFFF8E8, 0xFFB3ACD9, 0xFFFFD400, listOf(0xFFFFD400, 0xFFFF3B6B, 0xFF2ED1FF, 0xFF5BE36A),
+        gradients = true, glow = 0.45f, heavy = true, corners = 8, roundCovers = true, fx = setOf("bunting"), bar = 8f, tiles = true, coverSize = 1.1f, spacing = 0.9f),
+    MyWrap("wrap-origami", "Origami", 0xFFF7F5F0, 0xFF26282B, 0xFF7B7F85, 0xFFE8590C, listOf(0xFFE8590C, 0xFF2B6CB0, 0xFFF2B705, 0xFF26282B),
+        gradients = true, glow = 0.25f, heavy = false, corners = 0, roundCovers = false, fx = setOf("cranes"), bar = 12f, tiles = true, coverSize = 0.9f, spacing = 1.05f),
+    MyWrap("wrap-marble", "Marble hall", 0xFFEEEDEA, 0xFF222326, 0xFF7A7C82, 0xFF8A6D1D, listOf(0xFF8A6D1D, 0xFF6C7078, 0xFFC9A44A, 0xFF222326),
+        gradients = true, glow = 0.25f, heavy = false, corners = 2, roundCovers = false, fx = setOf("veins"), bar = 3f, tiles = false, coverSize = 1f, spacing = 1f),
+    MyWrap("wrap-moss", "Moss and stone", 0xFF22261F, 0xFFECEFE4, 0xFF9AA38C, 0xFFB5D46A, listOf(0xFFB5D46A, 0xFF7FA650, 0xFFD9E4B8, 0xFF8A8F7C),
+        gradients = true, glow = 0.45f, heavy = false, corners = 11, roundCovers = true, fx = setOf("pebbles"), bar = 5f, tiles = true, coverSize = 1.1f, spacing = 1.15f),
+    MyWrap("wrap-peacock", "Peacock", 0xFF0A1440, 0xFFEEF2FF, 0xFF97A2D6, 0xFF2FE0C2, listOf(0xFF2FE0C2, 0xFF1E6BFF, 0xFFB58CFF, 0xFFFFD166),
+        gradients = false, glow = 0.45f, heavy = true, corners = 14, roundCovers = true, fx = setOf("feathers"), bar = 8f, tiles = true, coverSize = 0.9f, spacing = 0.9f),
+    MyWrap("wrap-lighthouse", "Lighthouse", 0xFF0B1626, 0xFFEEF3FA, 0xFF8FA3BD, 0xFFFFE28A, listOf(0xFFFFE28A, 0xFFFF6B5A, 0xFFFFFFFF, 0xFF5FA8D3),
+        gradients = true, glow = 0.45f, heavy = false, corners = 4, roundCovers = false, fx = setOf("beam"), bar = 12f, tiles = false, coverSize = 1f, spacing = 1.05f),
+    MyWrap("wrap-teahouse", "Tea house", 0xFFF2EBDD, 0xFF2B2A22, 0xFF7C7766, 0xFF5E7D2B, listOf(0xFF5E7D2B, 0xFFA3B86C, 0xFFC46A3C, 0xFF2B2A22),
+        gradients = true, glow = 0.25f, heavy = false, corners = 6, roundCovers = false, fx = setOf("steam"), bar = 3f, tiles = true, coverSize = 1.1f, spacing = 1f),
+    MyWrap("wrap-crayon", "Crayon box", 0xFFFFFDF7, 0xFF222222, 0xFF707070, 0xFF2F6FED, listOf(0xFF2F6FED, 0xFFF23B3B, 0xFFF7C325, 0xFF27AE60),
+        gradients = true, glow = 0.25f, heavy = true, corners = 12, roundCovers = true, fx = setOf("scribbles"), bar = 5f, tiles = true, coverSize = 0.9f, spacing = 1.15f),
+    MyWrap("wrap-lanternfest", "Lantern festival", 0xFF140A2E, 0xFFFFF2E6, 0xFFBFA6C9, 0xFFFF9F45, listOf(0xFFFF9F45, 0xFFFF5C8A, 0xFFFFD27A, 0xFFB26BFF),
+        gradients = true, glow = 0.45f, heavy = false, corners = 16, roundCovers = true, fx = setOf("lanterns"), bar = 8f, tiles = false, coverSize = 1f, spacing = 0.9f),
+    MyWrap("wrap-cartridge", "Game cartridge", 0xFF2B2D3A, 0xFFECECF4, 0xFFA2A5B8, 0xFF9D8CFF, listOf(0xFF9D8CFF, 0xFFE94F64, 0xFF53D8A8, 0xFFF2C94C),
+        gradients = false, glow = 0.45f, heavy = true, corners = 1, roundCovers = false, fx = setOf("pixels"), bar = 12f, tiles = true, coverSize = 1.1f, spacing = 1.05f),
+    MyWrap("wrap-glowshroom", "Glowshroom", 0xFF150B26, 0xFFF0EAFF, 0xFFA596C8, 0xFF5CF2E0, listOf(0xFF5CF2E0, 0xFFB46BFF, 0xFF9CFF6B, 0xFFFF7AD9),
+        gradients = true, glow = 0.45f, heavy = false, corners = 18, roundCovers = true, fx = setOf("spores"), bar = 3f, tiles = true, coverSize = 0.9f, spacing = 1f),
+    MyWrap("wrap-opal", "Opal", 0xFFF1F4F8, 0xFF262A36, 0xFF7C8497, 0xFF7A5CE0, listOf(0xFF7A5CE0, 0xFF5CC8D6, 0xFFF08FC0, 0xFFF2C879),
+        gradients = true, glow = 0.25f, heavy = false, corners = 15, roundCovers = true, fx = setOf("shimmer"), bar = 5f, tiles = false, coverSize = 1f, spacing = 1.15f),
+    MyWrap("wrap-foundry", "Rust and steel", 0xFF1C1F22, 0xFFE8EAEC, 0xFF949BA3, 0xFFFF7A2F, listOf(0xFFFF7A2F, 0xFFB0B6BD, 0xFFFFC08A, 0xFF8A4B1E),
+        gradients = true, glow = 0.45f, heavy = true, corners = 0, roundCovers = false, fx = setOf("rivets"), bar = 8f, tiles = true, coverSize = 1.1f, spacing = 0.9f),
+    MyWrap("wrap-plumwine", "Plum wine", 0xFF2A0A2E, 0xFFFCEBFA, 0xFFC29AC6, 0xFFFF8FB8, listOf(0xFFFF8FB8, 0xFFB03A8C, 0xFFFFD1E3, 0xFF7A1F6A),
+        gradients = true, glow = 0.45f, heavy = false, corners = 14, roundCovers = true, fx = setOf("eddy"), bar = 12f, tiles = true, coverSize = 0.9f, spacing = 1.05f),
+    MyWrap("wrap-kitesky", "Kite sky", 0xFFDDF1FF, 0xFF16324A, 0xFF5E7C96, 0xFFE8452C, listOf(0xFFE8452C, 0xFF2F80ED, 0xFFF2C94C, 0xFF27AE60),
+        gradients = false, glow = 0.25f, heavy = true, corners = 10, roundCovers = true, fx = setOf("kites"), bar = 3f, tiles = false, coverSize = 1f, spacing = 1f),
+)
+
 /** The Wrapped styles you made, kept with the settings (Sync and backups carry them, added to the other device's). */
 object MyWraps {
     const val PREF = "my_wrapped"
@@ -129,7 +194,7 @@ object MyWraps {
         }
         return cache
     }
-    fun style(key: String): MyWrap? = all().firstOrNull { it.key == key }
+    fun style(key: String): MyWrap? = WRAPS_BUILT.firstOrNull { it.key == key } ?: all().firstOrNull { it.key == key }
     fun save(w: MyWrap): MyWrap {
         val keyed = if (w.key.startsWith("mywrap-")) w else w.copy(key = "mywrap-" + System.currentTimeMillis().toString(36))
         org.omarchy.music.Prefs.setText(PREF, (all().filter { it.key != keyed.key } + keyed).joinToString("\n") { it.encode() })
@@ -149,9 +214,9 @@ object MyWraps {
 object WS {
     val STYLES: List<Pair<String, String>> get() = listOf("classic" to "Classic", "look" to "Your look", "neon" to "Neon",
         "minimal" to "Minimal", "paper" to "Paper", "mono" to "Mono") + Looks.NEON.map { (k, v) -> k to "Neon ${v.first.lowercase()}" } +
-        MyWraps.all().map { it.key to "${it.name} (yours)" }
+        WRAPS_BUILT.map { it.key to it.name } + MyWraps.all().map { it.key to "${it.name} (yours)" }
     private val style get() = Music.wrappedStyle
-    private val my: MyWrap? get() = MyWraps.draft ?: if (style.startsWith("mywrap-")) MyWraps.style(style) else null
+    private val my: MyWrap? get() = MyWraps.draft ?: if (style.startsWith("mywrap-") || style.startsWith("wrap-")) MyWraps.style(style) else null
     private val look get() = my == null && style == "look"
     private val neon get() = if (my != null || look) null else Looks.NEON[style]?.second
     private val black get() = my == null && !look && (style == "neon" || style == "mono" || neon != null)
@@ -447,7 +512,7 @@ fun WrappedScreen(onClose: () -> Unit) {
                         .background(WS.fg.copy(alpha = 0.12f)).pointerInput(about) { detectTapGestures { about = !about } }
                         .padding(horizontal = 12.dp, vertical = 8.dp))
                     // The styles: hold one down (or its ⋯, or right-click) to favourite it, or edit or delete one you made
-                    ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, prefix = "Style: ",
+                    ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, prefix = "Style: ", group = { MenuGroups.wrapped(it) },
                         menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) }) { Music.chooseWrappedStyle(it) }
                     Text("✕", style = T.title.copy(color = WS.fg), modifier = Modifier.clip(CircleShape).background(WS.bg.copy(alpha = 0.4f))
                         .pointerInput(Unit) { detectTapGestures { onClose() } }.padding(horizontal = 11.dp, vertical = 7.dp))
@@ -1315,7 +1380,7 @@ private class WrapPal(val bg: Color, val fg: Color, val muted: Color, val accent
                       val bar: Float, val fx: Set<String>, val stars: Boolean)
 
 private fun wrapPal(style: String, c: Looks.LookColors): WrapPal {
-    val my = if (style.startsWith("mywrap-")) MyWraps.style(style) else null
+    val my = if (style.startsWith("mywrap-") || style.startsWith("wrap-")) MyWraps.style(style) else null
     if (my != null) return WrapPal(Color(my.bg), Color(my.fg), Color(my.muted), Color(my.accent), my.gradients, my.glow,
         Color(my.slides[0]), Color(my.slides[1 % my.slides.size]), if (my.neonText) Shadow(Color(my.accent).copy(alpha = 0.85f), blurRadius = 18f) else null,
         my.heavy, my.textScale, my.roundCovers, my.bar, my.fx, my.stars)

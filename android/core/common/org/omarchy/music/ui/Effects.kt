@@ -95,7 +95,7 @@ object LookFx {
         Fx("glitch", "Glitch", "Now and then bands of the screen glitch sideways", true),
         Fx("warp", "Warp speed", "Stars streaking out from the middle", true),
         Fx("sunbeams", "Sunbeams", "Warm beams of light from a top corner", true),
-    )
+    ) + MORE_FX   // 4.0.14: thirty more (Effects2.kt)
     fun moves(fx: Set<String>) = keys(fx).let { k -> ALL.any { it.moves && it.key in k } }
 
     // An effect's own colour rides in its entry: "rain@ff4fd8ff" (ARGB hex); a plain "rain" draws in the look's colours.
@@ -175,6 +175,7 @@ internal fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, lookAcce
     val accent = tint ?: lookAccent
     fun m(def: Color) = tint ?: def
     val light = lerp(accent, Color.White, 0.5f)
+    if (drawFx2(k, t, s, accent, fg, bg, tint)) return   // one of the thirty added in 4.0.14
     when (k) {
         "twinkle" -> for (i in 0 until 90) { val p = s[i]
             val a = 0.15f + 0.75f * (0.5f + 0.5f * sin(t * (0.6f + p[2] * 1.4f) + p[3] * 6.28f))

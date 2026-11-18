@@ -17,7 +17,7 @@ data class MyCard(val key: String, val name: String, val top: Long, val bottom: 
         roundCover, textScale).joinToString("|")
 }
 
-/** Lyrics card styles: Your look (the card in the app's look, as it always was), 30 ready-made ones, and the ones you make
+/** Lyrics card styles: Your look (the card in the app's look, as it always was), 60 ready-made ones, and the ones you make
  *  (Settings › Personalization › Make your own › New lyrics card), kept with the app's settings so Sync and backups carry
  *  them. The Lyrics card box picks one; the last one picked stays. */
 object LyricsCards {
@@ -63,6 +63,37 @@ object LyricsCards {
         p(28, "Contours", 0xFF1E2A22, 0xFF0E1510, 0xFF000000, 0.30f, 0xFFEAF2E6, 0xFFC9E4A3, 0xFF9AAE94, "topo@ff4d6b55", corners = 24f),
         p(29, "Meteor night", 0xFF0B0B1A, 0xFF1A0B0B, 0xFF000000, 0.30f, 0xFFFFEDE0, 0xFFFFB347, 0xFFC8A890, "meteors,constellation", stars = true),
         p(30, "Dream orbs", 0xFF1A1033, 0xFF33104A, 0xFF000000, 0.25f, 0xFFFBF4FF, 0xFFFFC2F2, 0xFFC9B4DA, "orbs,drift,sparkle", round = true, corners = 52f),
+        // 4.0.14: thirty more, one for each of the new looks (its colours and its own effect behind the words)
+        p(31, "Stained glass", 0xFF0F0B1E, 0xFF1E1147, 0xFF000000, 0.30f, 0xFFF3EEFF, 0xFFFFD23F, 0xFF9A8FC0, "mosaic", corners = 16f, heavy = true),
+        p(32, "Copper patina", 0xFF2A1A12, 0xFF143A34, 0xFF000000, 0.30f, 0xFFF6E9DD, 0xFF3FD0B0, 0xFFB89A84, "patina", corners = 28f),
+        p(33, "Blueprint", 0xFF0F3D7A, 0xFF0A2C5C, 0xFF000000, 0.30f, 0xFFEAF2FF, 0xFFE8F1FF, 0xFF9DB9E0, "draft", corners = 8f),
+        p(34, "Terrazzo", 0xFFF4EFE6, 0xFFE9E0D0, 0xFFFFFFFF, 0.60f, 0xFF2E2A26, 0xFFC8553D, 0xFF7C746A, "chips", corners = 36f, heavy = true, round = true),
+        p(35, "Art deco", 0xFF0C1B1A, 0xFF14302D, 0xFF000000, 0.30f, 0xFFF5EBD0, 0xFFE8C25A, 0xFFA89F7E, "fans", corners = 6f, heavy = true, scale = 1.08f),
+        p(36, "Bauhaus", 0xFFF2EDE0, 0xFFE6DFCC, 0xFFFFFFFF, 0.60f, 0xFF1A1A1A, 0xFFE63329, 0xFF6B6B6B, "shapes", corners = 6f, heavy = true),
+        p(37, "Jade", 0xFF0B2A22, 0xFF14473A, 0xFF000000, 0.30f, 0xFFE8F7EE, 0xFF9FE8B8, 0xFF8DB5A2, "swirls", corners = 42f, round = true),
+        p(38, "Coral reef", 0xFF06283A, 0xFF0A4458, 0xFF000000, 0.30f, 0xFFEAF8FF, 0xFFFF7A6B, 0xFF86B4C8, "coral", corners = 54f, round = true),
+        p(39, "Amber", 0xFF2B1500, 0xFF5A2E00, 0xFF000000, 0.30f, 0xFFFFF3DC, 0xFFFFB000, 0xFFC9A36B, "drops", corners = 46f, heavy = true, round = true),
+        p(40, "Ink wash", 0xFFF3EFE7, 0xFFE6DFD2, 0xFFFFFFFF, 0.60f, 0xFF1D1D1D, 0xFFB3261E, 0xFF77736B, "blots", corners = 10f),
+        p(41, "Denim", 0xFF1E3557, 0xFF142844, 0xFF000000, 0.30f, 0xFFEDF2FA, 0xFFF2A93B, 0xFF9FB2CC, "weave", corners = 20f, heavy = true),
+        p(42, "Velvet theatre", 0xFF3A0714, 0xFF5C0B22, 0xFF000000, 0.30f, 0xFFFFEFE6, 0xFFF2C14E, 0xFFC99AA0, "drapes", corners = 26f, heavy = true, scale = 1.08f),
+        p(43, "Glacier cave", 0xFF061A2E, 0xFF0E3A5C, 0xFF000000, 0.30f, 0xFFEAF8FF, 0xFF7FE7FF, 0xFF8FB6CC, "icicles", corners = 12f),
+        p(44, "Obsidian", 0xFF0A0A0D, 0xFF15151B, 0xFF000000, 0.30f, 0xFFEDEDF2, 0xFFFF5A3C, 0xFF8A8A96, "facets", corners = 6f, heavy = true),
+        p(45, "Tropical punch", 0xFFFFF4D6, 0xFFFFE3A8, 0xFFFFFFFF, 0.60f, 0xFF3A2030, 0xFFE8336D, 0xFF8A6A70, "slices", corners = 66f, heavy = true, round = true),
+        p(46, "Carnival", 0xFF1B1464, 0xFF2B1FA0, 0xFF000000, 0.30f, 0xFFFFF8E8, 0xFFFFD400, 0xFFB3ACD9, "bunting", corners = 32f, heavy = true, round = true),
+        p(47, "Origami", 0xFFF7F5F0, 0xFFECE8DF, 0xFFFFFFFF, 0.60f, 0xFF26282B, 0xFFE8590C, 0xFF7B7F85, "cranes", corners = 6f),
+        p(48, "Marble hall", 0xFFEEEDEA, 0xFFE0DED8, 0xFFFFFFFF, 0.60f, 0xFF222326, 0xFF8A6D1D, 0xFF7A7C82, "veins", corners = 14f),
+        p(49, "Moss and stone", 0xFF22261F, 0xFF2E3329, 0xFF000000, 0.30f, 0xFFECEFE4, 0xFFB5D46A, 0xFF9AA38C, "pebbles", corners = 40f, round = true, scale = 1.08f),
+        p(50, "Peacock", 0xFF0A1440, 0xFF0B3A5A, 0xFF000000, 0.30f, 0xFFEEF2FF, 0xFF2FE0C2, 0xFF97A2D6, "feathers", corners = 50f, heavy = true, round = true),
+        p(51, "Lighthouse", 0xFF0B1626, 0xFF13233A, 0xFF000000, 0.30f, 0xFFEEF3FA, 0xFFFFE28A, 0xFF8FA3BD, "beam", corners = 18f),
+        p(52, "Tea house", 0xFFF2EBDD, 0xFFE6DCC6, 0xFFFFFFFF, 0.60f, 0xFF2B2A22, 0xFF5E7D2B, 0xFF7C7766, "steam", corners = 24f),
+        p(53, "Crayon box", 0xFFFFFDF7, 0xFFFFF4D9, 0xFFFFFFFF, 0.60f, 0xFF222222, 0xFF2F6FED, 0xFF707070, "scribbles", corners = 44f, heavy = true, round = true),
+        p(54, "Lantern festival", 0xFF140A2E, 0xFF2E1040, 0xFF000000, 0.30f, 0xFFFFF2E6, 0xFFFF9F45, 0xFFBFA6C9, "lanterns", corners = 56f, round = true),
+        p(55, "Game cartridge", 0xFF2B2D3A, 0xFF20222C, 0xFF000000, 0.30f, 0xFFECECF4, 0xFF9D8CFF, 0xFFA2A5B8, "pixels", corners = 10f, heavy = true),
+        p(56, "Glowshroom", 0xFF150B26, 0xFF0B2A30, 0xFF000000, 0.30f, 0xFFF0EAFF, 0xFF5CF2E0, 0xFFA596C8, "spores", corners = 62f, round = true, scale = 1.08f),
+        p(57, "Opal", 0xFFF1F4F8, 0xFFE8EEF6, 0xFFFFFFFF, 0.60f, 0xFF262A36, 0xFF7A5CE0, 0xFF7C8497, "shimmer", corners = 52f, round = true),
+        p(58, "Rust and steel", 0xFF1C1F22, 0xFF2A2E33, 0xFF000000, 0.30f, 0xFFE8EAEC, 0xFFFF7A2F, 0xFF949BA3, "rivets", corners = 8f, heavy = true),
+        p(59, "Plum wine", 0xFF2A0A2E, 0xFF48103E, 0xFF000000, 0.30f, 0xFFFCEBFA, 0xFFFF8FB8, 0xFFC29AC6, "eddy", corners = 48f, round = true),
+        p(60, "Kite sky", 0xFFDDF1FF, 0xFFC6E6FF, 0xFFFFFFFF, 0.60f, 0xFF16324A, 0xFFE8452C, 0xFF5E7C96, "kites", corners = 38f, heavy = true, round = true),
     )
 
     private var from = "\u0000"; private var cache: List<MyCard> = emptyList()
