@@ -1267,6 +1267,20 @@ private fun BackupLines(activity: Any?) {
         Pill("Restore…", quiet = true) { open.launch(arrayOf("application/zip", "application/octet-stream")) }
         Pill("Back up…") { save.launch("Radon Player backup ${java.time.LocalDate.now()}.zip") }
     }
+    // Back up by itself: every day or week, into the app's own folder, the newest five kept
+    val B = org.omarchy.music.Backup
+    var every by remember { mutableStateOf(B.autoEvery()) }
+    val newest = remember(every, B.autoAt) { B.newestAuto(ctx) }
+    val copy = rememberSaveFile("application/zip") { uri ->
+        if (uri != null) Music.bg({ B.saveNewest(ctx, uri) }) { _, err -> Music.toast(if (err != null) "Couldn't save it: ${err.message?.take(100)}" else "Saved a copy of the newest backup") }
+    }
+    Line("Back up by itself", "Every day or every week the app saves a backup by itself (the same as Back up… makes) and keeps the newest five, so there is " +
+        "always a recent one to go back to. They are kept in the app's own folder" + (if (onPhone) ", which goes when the app is uninstalled: use Save a copy to put the newest somewhere safe" else "") +
+        ". It is made while the app is open", every != "off",
+        note = if (newest != null) "Newest: ${newest.name.removePrefix("Radon Player backup ").removeSuffix(".zip")}" else if (every != "off") "The first one is made within a minute" else "") {
+        if (newest != null) Pill("Save a copy…", quiet = true) { copy.launch(newest.name) }
+        ChoicePill(org.omarchy.music.BackupScheduleRules.CHOICES, every) { every = it; B.setAuto(it) }
+    }
     asking?.let { uri ->
         AlertDialog(onDismissRequest = { asking = null }, containerColor = C.light,
             title = { Text("Restore this backup?", style = T.title) },

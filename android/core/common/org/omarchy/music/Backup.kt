@@ -19,10 +19,45 @@ object Backup {
     private const val MOODS = "moods-backup.json"   // songs' moods (Moods.backup)
 
     /** (blocking) Into the zip at uri. How many files went in. */
-    fun make(ctx: Ctx, uri: String): Int {
+    fun make(ctx: Ctx, uri: String): Int = write(ctx, ctx.openOut(uri, "w")!!)
+
+    // ---- Back up by itself (BackupScheduleRules) ----
+    const val AUTO = "backup_auto"          // "off", "daily" or "weekly"
+    private const val AUTO_AT = "backup_auto_at"
+    fun autoEvery(): String = Prefs.text(AUTO, "off").ifEmpty { "off" }
+    fun setAuto(every: String) { Prefs.setText(AUTO, every) }
+    val autoAt: Long get() = Prefs.text(AUTO_AT).toLongOrNull() ?: 0L
+    private fun autoDir(ctx: Ctx) = File(ctx.filesDir, "auto-backups")
+    /** The newest backup the app made by itself, or null. */
+    fun newestAuto(ctx: Ctx): File? = autoDir(ctx).listFiles()?.filter { it.name.endsWith(".zip") }?.maxByOrNull { it.name }
+    @Volatile private var autoBusy = false
+    /** Called every so often while the app is open: a backup made when one is due, the old ones beyond the newest five deleted. */
+    fun tick() {
+        val now = System.currentTimeMillis() / 1000
+        if (autoBusy || !BackupScheduleRules.due(autoEvery(), autoAt, now)) return
+        autoBusy = true
+        val ctx = Music.ctx
+        Music.bg({
+            val dir = autoDir(ctx).apply { mkdirs() }
+            val f = File(dir, BackupScheduleRules.name(java.time.LocalDate.now().toString()))
+            val tmp = File(dir, f.name + ".part")
+            write(ctx, tmp.outputStream())
+            if (f.exists()) f.delete()
+            if (!tmp.renameTo(f)) error("couldn't keep it")
+            BackupScheduleRules.old(dir.list()?.toList().orEmpty()).forEach { File(dir, it).delete() }
+        }) { _, err ->
+            autoBusy = false
+            Prefs.setText(AUTO_AT, now.toString())   // (a failure is noted and tried again at the next one due, not every half minute)
+            if (err != null) runCatching { Crashes.caught(err, "Back up by itself") }
+        }
+    }
+    /** (blocking) The newest backup made by itself, copied to where you chose. */
+    fun saveNewest(ctx: Ctx, uri: String) { val f = newestAuto(ctx) ?: error("there is none yet"); ctx.openOut(uri, "w")!!.use { os -> f.inputStream().use { it.copyTo(os) } } }
+
+    private fun write(ctx: Ctx, out: java.io.OutputStream): Int {
         Music.saveStateNow()
         var n = 0
-        ctx.openOut(uri, "w")!!.use { os ->
+        out.use { os ->
             ZipOutputStream(os).use { z ->
                 z.putNextEntry(ZipEntry("radon-backup.json"))
                 // song_settings_from: where the songs' volumes and Custom EQs in here were made (they restore only there)
