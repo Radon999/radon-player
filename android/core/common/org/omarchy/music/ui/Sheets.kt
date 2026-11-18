@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
@@ -120,6 +121,7 @@ fun Sheets(ui: Ui) {
     ToolScreens(ui)
     if (ui.guide) GuideScreen(ui)
     if (ui.changelog) GuideScreen(ui, changelog = true)
+    WhatsNewCard(ui)
     if (ui.jointArtists) JointArtistsScreen(ui)
     if (ui.similarArtists) SimilarArtistsScreen(ui)
     if (ui.albumPlays) AlbumPlaysScreen(ui)
@@ -724,6 +726,37 @@ private fun ProtectLines() {
 /** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
 @Composable
 private fun ToolLines(ui: Ui) {
+    // Storage and damaged files: what takes the space, and the files that are empty, cut short or not music at all
+    val fc = org.omarchy.music.FileCheck
+    val res = fc.result
+    Line("Storage and damaged files", "Looks at every song file once (its size and its first few bytes; nothing is played, changed or deleted) and says " +
+        "what takes the space, by kind of file, artist and album, with the biggest songs. It also finds files that are damaged in a way that shows " +
+        "without playing them: empty, not a music file, or far too small for the song's length (cut short in copying or downloading). A file that is " +
+        "whole but has a fault somewhere inside can only be found by playing it", false, note = fc.busy ?: res?.said ?: "") {
+        if (fc.busy == null) Pill(if (res == null) "Check…" else "Check again", quiet = true) { fc.run() }
+        if (res != null && fc.busy == null) Pill("Copy", quiet = true) { copyText("Radon Player storage", fc.text()); Music.toast("Copied") }
+    }
+    if (res != null) Column(Modifier.padding(start = 8.dp, bottom = 8.dp)) {
+        @Composable fun part(name: String, rows: List<Pair<String, Long>>) {
+            Text(name, style = T.sub.copy(color = C.accent), modifier = Modifier.padding(top = 6.dp))
+            val most = rows.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
+            rows.take(8).forEach { (what, bytes) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(what, style = T.sub.copy(color = C.fg), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Box(Modifier.padding(horizontal = 8.dp).width(70.dp).height(5.dp).clip(R.small).background(C.fg.copy(alpha = 0.08f))) {
+                        Box(Modifier.fillMaxWidth((bytes.toFloat() / most).coerceIn(0.02f, 1f)).height(5.dp).background(C.accent)) }
+                    Text(org.omarchy.music.SupportRules.size(bytes), style = T.sub)
+                }
+            }
+        }
+        if (res.damaged.isNotEmpty()) {
+            Text("Damaged files", style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 6.dp))
+            res.damaged.take(25).forEach { (name, why) -> Text("$name: $why", style = T.sub.copy(color = C.fg)) }
+            if (res.damaged.size > 25) Text("…and %,d more: Copy has them all".format(res.damaged.size - 25), style = T.sub)
+        }
+        part("By kind of file", res.summary.byKind); part("Artists taking the most", res.summary.artists)
+        part("Albums taking the most", res.summary.albums); part("Biggest songs", res.summary.biggest)
+    }
     // New playlists sync: on from the start (most people want every playlist on both devices)
     val auto = org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO, true)
     Line("New playlists sync", "On: every playlist you make from now on is set to sync with your phone or PC (⇄ SYNCED) at each Sync now, never by itself: normal and smart playlists " +
@@ -2814,3 +2847,24 @@ fun PresetLines(ui: Ui) {
         modifier = Modifier.padding(bottom = 8.dp))
 }
 
+/** What's new (WhatsNewRules): once after each update, a card naming what it brought, with the way to the Changelog. */
+@Composable
+private fun WhatsNewCard(ui: Ui) {
+    val key = "whats_new_seen"
+    val now = org.omarchy.music.appVersion
+    var show by remember { mutableStateOf(org.omarchy.music.WhatsNewRules.show(org.omarchy.music.Prefs.text(key), now).also {
+        if (!it) org.omarchy.music.Prefs.setText(key, now) }) }   // (a fresh install, or seen: noted for next time)
+    if (!show) return
+    val heads = remember { org.omarchy.music.WhatsNewRules.headlines(CHANGELOG, now) }
+    val more = remember { org.omarchy.music.WhatsNewRules.more(CHANGELOG, now, heads.size) }
+    fun done() { org.omarchy.music.Prefs.setText(key, now); show = false }
+    if (heads.isEmpty()) { done(); return }
+    AlertDialog(onDismissRequest = { done() }, containerColor = C.light,
+        title = { Text("Radon Player $now: what's new", style = T.title) },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            heads.forEach { Text("•  $it", style = T.body, modifier = Modifier.padding(vertical = 3.dp)) }
+            if (more > 0) Text("…and %,d more".format(more), style = T.sub, modifier = Modifier.padding(top = 4.dp))
+        } },
+        confirmButton = { TextButton({ done(); ui.sheet = null; ui.changelog = true }) { Text("Read about them", color = C.accent) } },
+        dismissButton = { TextButton({ done() }) { Text("Later", color = C.muted) } })
+}
