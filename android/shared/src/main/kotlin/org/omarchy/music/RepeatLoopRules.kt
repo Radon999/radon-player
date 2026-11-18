@@ -93,8 +93,8 @@ object RepeatLoopRules {
     /** "repeated 50 times", "repeated once". */
     fun times(n: Int): String = when (n) { 1 -> "repeated once"; 2 -> "repeated twice"; else -> "repeated %,d times".format(n) }
 
-    /** A song's line in the Repeats list: its place, its count, and its longest run when that is worth saying. */
-    fun line(rank: Int, count: Int, best: Int): String = "#$rank · " + times(count) + if (best >= 3) " · $best in a row at most" else ""
+    /** A song's line in the Repeats list: its place, its count (the number alone: the tab says what it counts, and a longer line was cut short on a tile), and its longest run when that is worth saying. */
+    fun line(rank: Int, count: Int, best: Int): String = "#$rank · %,d".format(count) + if (best >= 3) " · $best in a row" else ""
 
     /** What the top of the Repeats tab says. */
     fun summary(songs: Int, total: Int): String =

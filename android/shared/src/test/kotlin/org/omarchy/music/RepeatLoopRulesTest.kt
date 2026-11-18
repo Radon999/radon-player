@@ -28,8 +28,8 @@ class RepeatLoopRulesTest {
     }
 
     @Test fun inWords() {
-        assertEquals("#1 · repeated 50 times · 12 in a row at most", RepeatLoopRules.line(1, 50, 12))
-        assertEquals("#2 · repeated once", RepeatLoopRules.line(2, 1, 1))
+        assertEquals("#1 · 50 · 12 in a row", RepeatLoopRules.line(1, 50, 12))
+        assertEquals("#2 · 1", RepeatLoopRules.line(2, 1, 1))
         assertEquals("2 songs let play again 5 times with Repeat one", RepeatLoopRules.summary(2, 5))
         assertEquals("1,204 plays", RepeatLoopRules.plays(1204)); assertEquals("", RepeatLoopRules.plays(0))
     }
