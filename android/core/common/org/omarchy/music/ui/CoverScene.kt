@@ -34,7 +34,7 @@ object CoverScene {
 
     fun on(): Boolean = Prefs.on(ON)
 
-    /** Glass cover (its own preset, and the switch Blurred cover behind everything): with the Now playing look, the
+    /** Glass cover (its own preset, which is what turns this on; any other preset turns it off): with the Now playing look, the
      *  cover of the song playing is drawn blurred behind the whole app, and everything sits over it see-through. */
     const val GLASS = "np_cover_glass"
     const val GLASS_PRESET = "preset-glass"
@@ -42,7 +42,6 @@ object CoverScene {
     var glassNow by mutableStateOf(false)
         private set
     fun glassOn(): Boolean = Prefs.on(GLASS)
-    fun setGlass(on: Boolean) { Prefs.set(GLASS, on); Music.applyLook() }
 
     /** Worked out again: called whenever the look is put on, which is also each time the cover's colour changes. */
     fun update() {

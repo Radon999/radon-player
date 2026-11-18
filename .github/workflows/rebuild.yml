@@ -149,10 +149,10 @@ jobs:
                 if montage "$RUNNER_TEMP"/sshots/*.png -tile 2x -geometry 960x600+6+6 -background '#202020' "$RUNNER_TEMP/ssheet.png" 2>/dev/null && convert "$RUNNER_TEMP/ssheet.png" -quality 70 "$RUNNER_TEMP/linux-settings.jpg" 2>/dev/null; then
                   echo "LINUX SCREENS: Settings' $(ls "$RUNNER_TEMP/sshots" | wc -l) sections pictured on one sheet (linux-settings.jpg)"
                 fi
-                # The thirty Personalization presets added in 4.0.14, each put on in turn with Now playing in front and the
+                # The thirty Personalization presets added in 4.0.14 (then Follows the cover and Glass cover), each put on in turn with Now playing in front and the
                 # test tone playing (so its visualizers move), all on one sheet (linux-presets.jpg)
                 mkdir -p "$RUNNER_TEMP/pshots"
-                for n in $(seq 31 60); do
+                for n in $(seq 31 60) cover glass; do
                   if [ $((n % 7)) = 3 ]; then DISPLAY=:99 timeout 20 "$exe" "$tone" >/dev/null 2>&1 || true; sleep 2; fi
                   DISPLAY=:99 timeout 20 "$exe" show preset "preset-$n" >/dev/null 2>&1 || true
                   sleep 3

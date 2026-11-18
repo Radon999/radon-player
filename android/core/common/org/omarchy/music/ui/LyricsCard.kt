@@ -59,8 +59,8 @@ fun lyricsCard(lines: List<String>, t: Track, style: MyCard? = LyricsCards.of(Ly
     // The cover's own bright colour (as the Now playing look makes its accent) when the look in use isn't the Now playing one
     val coverAccent = if (Music.look == Looks.NOW_PLAYING) LOOK_ACCENT else hsv.copyOf().let { c ->
         c[1] = (c[1] + 0.15f).coerceIn(0.25f, 0.9f); c[2] = 0.92f; androidx.compose.ui.graphics.Color(Rgb.fromHsv(c)) }
-    // The Now playing look's Lyrics screen is black (plain), its words in the cover's colour: the card is too
-    val plain = coverLook && Vis.plainNow()
+    // The Now playing look's Lyrics screen is in the cover's colours, its words white: the card is too
+    val plain = false
     val grad = C.gradient
     val top = if (plain) Rgb.rgb(0, 0, 0) else if (coverLook) coverTop else (grad?.firstOrNull() ?: C.bg).toArgb()
     val bottom = if (plain) Rgb.rgb(0, 0, 0) else if (coverLook) coverBottom else (grad?.lastOrNull() ?: C.bg).toArgb()

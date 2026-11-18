@@ -191,8 +191,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val askMic = rememberPermission { micOk = it }
     // (It is asked for as the app starts now, with the rest: StartupPermissions. Asking here too put two questions at once.)
     // Settings › Look: the background (the cover's colours and the cover blurred, or plain black) and the visualizer behind.
-    val plain = Vis.plainNow()
-    val cover = coverLook   // only the Now playing look takes the cover's colours and blurs it behind
+    val cover = coverLook   // the Now playing look: the cover's colours here as on every screen (words and buttons white)
     val visStyle = Vis.nowStyle()
     val visPane = ui.pane == "nowvis"   // the visualizer's settings in the cover's place: it runs there for the previews
     val vis = if ((micOk || Remote.active) && (visStyle != "off" || visPane)) rememberVis(on = true) else null
@@ -205,19 +204,14 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val fullOver = vis != null && coverShown && Vis.full(visStyle)
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
     Box(Modifier.fillMaxSize().onSizeChanged { npSize = it }.then(when {
-        plain && cover -> Modifier.background(Color.Black)   // the Now playing look, plain: black, the cover sharp
-        cover -> Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))
-        // Another look: its own background, which the app's window already draws (with its stars); the lock screen has
+        // Every look, the Now playing look too (the cover's colours, as on every other screen: it was black here): the
+        // look's own background, which the app's window already draws (with its stars and effects); the lock screen has
         // no window behind, so it's drawn here.
         lock == null -> Modifier
         else -> Modifier.background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)
     })) {
-        if (!cover && lock != null && C.stars) Stars()   // the look's stars on the lock screen too, as in the window
-        if (!cover && lock != null) LookEffects(LookFx.behind(C.fx))
-        // The cover in the colour, faintly and only a little blurred, so it's still clearly the cover: a mid-size copy
-        // softened with a light blur (a tiny copy drawn big came out blocky on the PC).
-        if (art != null && !plain && cover) AsyncImage(model = smallArt(art, 128), contentDescription = null,
-            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(8.dp).graphicsLayer(alpha = 0.32f))
+        if (lock != null && C.stars) Stars()   // the look's stars on the lock screen too, as in the window
+        if (lock != null) LookEffects(LookFx.behind(C.fx))
         // (a Dual one over the cover: its bottom style still along the bottom here)
         if (vis != null && visStyle != "off" && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle)) && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
             // A Dual one's bottom style (Full screen or not) stands right on the bottom edge, as a bottom style always does
@@ -225,7 +219,6 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         // Dual (picked on this screen): the bottom style along the bottom too, under the one in the middle
         val second = Vis.nowSecond()
         if (vis != null && second != null && (!visPane || strengthPeek)) NowVis(second, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
-        if (!plain && cover) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
         val lay = if (lock != null) UiLayouts.BUILT_IN.first() else UiLayouts.current
         // What takes the middle: the queue, the lyrics, Personalization, the visualizer's settings, or the cover and song
         // (arranged as the layout says).
@@ -236,7 +229,6 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                     "lyrics" -> Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).clip(R.big)
                         .background(when {
                             C.isLight -> C.light.copy(alpha = 0.94f)
-                            plain -> WHITE.copy(alpha = 0.07f)
                             !cover -> C.light.copy(alpha = 0.6f)
                             else -> Color.Black.copy(alpha = 0.25f)
                         })) { LyricsTab(ui) }
@@ -1177,7 +1169,6 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
     var cols by remember { mutableStateOf(GREY) }
     LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(art) ?: GREY }
     val cover = coverLook
-    val plain = Vis.plainNow()
     val visStyle = Vis.nowStyle()
     val vis = if (visStyle != "off") rememberVis(on = true) else null
     val visCol = if (cover) cols.bars else VIS_LOOK
@@ -1189,13 +1180,10 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
     var pane by remember { mutableStateOf("art") }   // "art", "queue" or "lyrics", in the cover's place
     var volumeShown by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().then(when {
-        plain && cover -> Modifier.background(Color.Black)
-        cover -> Modifier.background(Brush.verticalGradient(listOf(cols.top, cols.bottom)))
-        else -> Modifier.background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)
-    })) {
-        if (!cover && C.stars) Stars()
-        if (!cover) LookEffects(LookFx.behind(C.fx))
+    // The look's own background, the Now playing look's too (the cover's colours)
+    Box(Modifier.fillMaxSize().background(C.bg).then(C.gradient?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier)) {
+        if (C.stars) Stars()
+        LookEffects(LookFx.behind(C.fx))
         // Along the bottom (and a Dual one's bottom style), as on Now playing
         if (vis != null && pane == "art" && (!round || Vis.dual(visStyle)))
             NowVis(visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = round)

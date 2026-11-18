@@ -189,8 +189,6 @@ object Vis {
             Prefs.setText(NOW, MIDDLE_STYLES.firstOrNull { it.first == "ring" }?.first ?: MIDDLE_STYLES.firstOrNull()?.first ?: "slim")
         }
     }
-    /** Now playing's background: plain since 3.1 (Cover blur is gone): no blurred cover behind it. */
-    fun plainNow(): Boolean = true
     /** Now playing visualizer's strength (its opacity): 0.5 is how faint it always was. */
     fun nowStrength(): Float = Prefs.num(NOW_STRENGTH, 0.5f).coerceIn(0.1f, 1f)
 
