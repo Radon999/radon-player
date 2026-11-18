@@ -434,7 +434,7 @@ val SONG_VERSION = Regex("\\b(acoustic|remix|rmx|live|demo|stripped|orchestra|se
 
 /** A song's name with everything after it left out and no punctuation ("N.P.D" = "NPD"). The desktop's loose_title. */
 fun looseTitle(title: String): String {
-    var t = Normalizer.normalize(title.lowercase(), Normalizer.Form.NFKC)
+    var t = Censored.plain(Normalizer.normalize(title.lowercase(), Normalizer.Form.NFKC))
     t = Regex("[(\\[][^)\\]]*[)\\]]").replace(t, " ")
     t = Regex("\\s[-–—]\\s.*$").replace(t, " ")
     t = Regex("\\s(?:feat|ft|featuring)\\b.*$").replace(t, " ")

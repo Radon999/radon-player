@@ -44,7 +44,7 @@ private val FEATURING = Regex("\\b(?:feat|ft|with)\\b\\.?\\s*([^)\\]]+)", RegexO
 
 /** A title without what YouTube adds: (Official Video), feat. credits, remaster notes, punctuation. */
 fun cleanTitle(s: String): String {
-    var t = s.lowercase()
+    var t = Censored.plain(s.lowercase())   // "F**k" is "Fuck": a censored copy is the same song
     t = NOISE_BRACKETS.replace(t, " ")
     t = NOISE_DASH.replace(t, " ")
     t = VERSION_DASH.replace(t, " ")
