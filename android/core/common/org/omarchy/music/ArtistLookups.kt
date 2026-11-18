@@ -84,6 +84,9 @@ object ArtistLookups {
         return got
     }
 
+    /** A release's songs if they've been asked for already (nothing is fetched): for what a screen shows at once. */
+    fun knownReleaseSongs(source: String, id: String): List<Track>? = synchronized(releaseCache) { releaseCache["$source:$id"] }
+
     /** (blocking) The service's singles of an artist that are on one of their albums or EPs already (their ids):
      *  left out of the page, the song is on its release. See [ReleaseRules]. */
     fun foldedSingles(info: ArtistInfo): Set<String> =

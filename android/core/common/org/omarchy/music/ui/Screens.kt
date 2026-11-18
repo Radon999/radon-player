@@ -1251,7 +1251,14 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     }
     /** With Everything showing (yours and streaming together): which of the two a release is, marked under its year
      *  as a song's format is: LOCAL when you have it (your files or downloads), STREAMING when it plays from a service. */
-    fun whereBadge(a: ArtistAlbum): String? = if (onlyMine || onlyStream || a.genius) null else if (a.own != null) "LOCAL" else "STREAMING"
+    fun whereBadge(a: ArtistAlbum): String? {
+        if (onlyMine || onlyStream || a.genius) return null
+        // Some of it yours and some not: both, with how many of each (once the release's songs are known: they are
+        // asked for as the page loads, and the mark fills in then)
+        folded.size   // (read so the marks are drawn again once the releases have been gone through)
+        val all = if (a.streamed) org.omarchy.music.ArtistLookups.knownReleaseSongs(info?.source.orEmpty(), a.al.id)?.map { it.title } else null
+        return org.omarchy.music.ReleaseRules.whereMark(all, a.own?.second.orEmpty().map { it.title })
+    }
     // Picking releases (hold one, or Select): several albums, EPs and singles at once, to pin or hide them together,
     // or for Options on all their songs as anywhere else. A tap ticks one; the bar at the bottom has what to do.
     val picking = ui.pickingIn("artist-albums")
@@ -1417,7 +1424,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     checked = if (picking) a.al.id in pickedAlbums else null, badge = whereBadge(a)) { if (picking) pickAlbum(a) else openAlbum(a) }
             }) { j, mod, compact ->
                 val a = shown[j]
-                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, extra = whereBadge(a)?.let { if (it == "LOCAL") "Local" else "Streaming" }.orEmpty(),
+                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, extra = whereBadge(a)?.lowercase()?.replaceFirstChar { it.uppercase() }.orEmpty(),
                     ico = Ico.DISC, lit = picking && a.al.id in pickedAlbums,
                     onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) }) { if (picking) pickAlbum(a) else openAlbum(a) }
             }

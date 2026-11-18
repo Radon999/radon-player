@@ -19,6 +19,18 @@ object ReleaseRules {
         return releases.filter { (_, songs) -> songs.size == 1 && songKey(songs[0].title) in held }.mapTo(HashSet()) { it.first.id }
     }
 
+    /** What an artist's release says about where its songs are, with the release's songs on the service (null: not
+     *  known yet) and the ones of it you have: LOCAL when you have them all (or it isn't known how many there are),
+     *  STREAMING when you have none, and when you have some, both with how many of each. */
+    fun whereMark(release: List<String>?, yours: List<String>): String {
+        if (yours.isEmpty()) return "STREAMING"
+        if (release.isNullOrEmpty()) return "LOCAL"
+        val have = yours.mapTo(HashSet()) { songKey(it) }
+        val local = release.count { songKey(it) in have }
+        val streaming = release.size - local
+        return if (streaming <= 0) "LOCAL" else if (local == 0) "LOCAL" else "BOTH · $local LOCAL · $streaming STREAMING"
+    }
+
     private fun onARelease(t: Track) = t.album.isNotBlank() && !GeniusRules.isSingleOf(t.title, t.album)
 
     /** A service's search: of a song found in its single's version and in its album's or EP's, only the release's;

@@ -38,6 +38,15 @@ class ReleaseRulesTest {
         assertEquals("the single isn't listed; another artist's of that name is", listOf("2", "3", "4"), out.albums.map { it.id })
     }
 
+    @Test fun aReleaseSaysWhereItsSongsAre() {
+        val ep = listOf("into the blackhole", "clouds", "deleted scenes", "end credits")
+        assertEquals("STREAMING", ReleaseRules.whereMark(ep, emptyList()))
+        assertEquals("LOCAL", ReleaseRules.whereMark(ep, listOf("Into The Blackhole", "Clouds", "Deleted Scenes", "End Credits")))
+        assertEquals("BOTH · 2 LOCAL · 2 STREAMING", ReleaseRules.whereMark(ep, listOf("into the blackhole", "deleted scenes (Single Version)")))
+        assertEquals("not known yet how many it has: what you have is local", "LOCAL", ReleaseRules.whereMark(null, listOf("clouds")))
+        assertEquals("yours under other names than the service's: still yours", "LOCAL", ReleaseRules.whereMark(ep, listOf("Something Else")))
+    }
+
     @Test fun aSearchWithNoReleaseVersionsIsLeftAsItIs() {
         val found = Found(listOf(t("clouds", "clouds"), t("Grow", "")), albums = listOf(Album("1", "clouds", "HOAX")))
         assertEquals(found, ReleaseRules.search(found))
