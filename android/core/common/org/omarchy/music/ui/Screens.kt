@@ -471,7 +471,7 @@ fun MusicTab(ui: Ui) {
                                 "favorites" -> "${tracks.size} FAVORITES"
                                 "unfavorited" -> "${tracks.size} SONGS NOT FAVORITED"
                                 "later" -> "LISTEN LATER · ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}" +
-                                    (org.omarchy.music.ListenLater.playlist()?.let { " · " + org.omarchy.music.SyncPlaylists.mark(it.synced == true) } ?: "")
+                                    (org.omarchy.music.ListenLater.playlist()?.let { " · " + org.omarchy.music.Sync.mark(it) } ?: "")
                                 "theirs" -> org.omarchy.music.LibraryMatchRules.heading(tracks.size, org.omarchy.music.LibraryMatch.from.ifEmpty { "your other device" }).uppercase()
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
@@ -893,7 +893,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
             PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
                 onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null,
-                badge = org.omarchy.music.SyncPlaylists.mark(pl.synced == true), badgeOn = pl.synced == true) { tapList(pl) }
+                badge = org.omarchy.music.Sync.mark(pl), badgeOn = pl.synced == true) { tapList(pl) }
         }) { i, mod, compact ->
             val pl = some[i]
             val songs = pl.tracks
@@ -1914,7 +1914,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
                     " · ${pl.tracks.size}"), cover?.let { artModel(it) },
                     onLongClick = { if (picking) picked[pl.id] = pl.tracks else ui.startPick("discovery", pl.id, pl.tracks) },
                     checked = if (picking) pl.id in picked else null,
-                    badge = org.omarchy.music.SyncPlaylists.mark(pl.synced == true), badgeOn = pl.synced == true) {
+                    badge = org.omarchy.music.Sync.mark(pl), badgeOn = pl.synced == true) {
                     if (picking) { if (pl.id in picked) picked.remove(pl.id) else picked[pl.id] = pl.tracks } else ui.openMine = pl.id
                 }
             }

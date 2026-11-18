@@ -106,6 +106,12 @@ class SyncPlaylistsTest {
     @Test fun whatSettingsSays() {
         assertEquals("⇄ SYNCED", SyncPlaylists.mark(true))
         assertEquals("THIS DEVICE ONLY", SyncPlaylists.mark(false))
+        assertEquals("⇄ SYNCED · CHANGES WAITING", SyncPlaylists.mark(true, waiting = true))
+        assertEquals("a playlist that doesn't sync has nothing waiting", "THIS DEVICE ONLY", SyncPlaylists.mark(false, waiting = true))
+        assertFalse("as it was at the last sync", SyncPlaylists.waiting(true, 100.0, 100.0))
+        assertTrue("a song added since", SyncPlaylists.waiting(true, 130.0, 100.0))
+        assertTrue("set to sync, never yet synced", SyncPlaylists.waiting(true, 100.0, null))
+        assertFalse(SyncPlaylists.waiting(false, 130.0, 100.0))
         assertEquals("None yet: each device keeps its own playlists", SyncPlaylists.said(0))
         assertEquals("1 playlist syncs: the same on both devices", SyncPlaylists.said(1))
         assertEquals("4 playlists sync: the same on both devices", SyncPlaylists.said(4))

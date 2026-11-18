@@ -124,7 +124,7 @@ internal fun LazyListScope.smartPlaylists(ui: Ui) {
         val cover = songs?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
         PlaylistRow(Album(pl.id, pl.name, if (songs == null) "…" else "", "", songs?.size?.toString() ?: ""), cover?.let { artModel(it) },
             onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null,
-            badge = org.omarchy.music.SyncPlaylists.mark(pl.synced == true), badgeOn = pl.synced == true) { tapList(pl) }
+            badge = org.omarchy.music.Sync.mark(pl), badgeOn = pl.synced == true) { tapList(pl) }
     }) { i, mod, compact ->
         val pl = shown[i]
         val songs = SmartLists.songs(pl)

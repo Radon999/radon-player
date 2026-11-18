@@ -8,6 +8,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -135,6 +137,7 @@ object Sync {
             val got = d.downloads?.let { runCatching { DownloadSync.take(it, with) }.getOrDefault(0) } ?: 0
             if (d.tagged > 0) Music.rescan()   // your songs read again with their new tags
             TagMatch.refreshSoon()
+            markSynced()
             finished(d.summary, with, quiet = auto && d.nothing && got == 0)
             // The PC's songs this phone hasn't got: counted, and said (nothing is downloaded by itself)
             Music.bg({ LibraryMatch.take(d.songsThere, with) }) { n, _ ->
@@ -151,6 +154,30 @@ object Sync {
         // Sync only when you ask for it (Sync now, here or on the PC): meeting the PC no longer syncs by itself.
         // (Auto playlist sync does, for the playlists alone: [playlistsNow], asked from [tick])
         met = true
+    }
+
+    // ---- which synced playlists have changes the other device hasn't had ----
+
+    private val seenFile get() = File(dir, "playlists-synced.json")
+    private val seenSer = MapSerializer(String.serializer(), Double.serializer())
+    @Volatile private var seen: Map<String, Double>? = null
+    private var seenVersion by mutableStateOf(0)
+    private fun seenNow(): Map<String, Double> = seen ?: (readText(seenFile)?.let { runCatching { JSON.decodeFromString(seenSer, it) }.getOrNull() } ?: emptyMap()).also { seen = it }
+
+    /** A sync just finished: the synced playlists as they are now are what the other device has. */
+    private fun markSynced() = runCatching {
+        val now = Music.lists.all().filter { it.synced == true }.associate { it.id to it.updated }
+        seen = now
+        writeAtomic(seenFile, JSON.encodeToString(seenSer, now))
+        Music.scope.launch { seenVersion++ }
+    }
+
+    /** The mark a list of playlists shows on this one: ⇄ SYNCED, with CHANGES WAITING when you changed it since the
+     *  last sync (only said when there is a device to sync with), or THIS DEVICE ONLY. */
+    fun mark(pl: Playlist): String {
+        seenVersion
+        val paired = if (RemoteHost.supported) RemoteHost.phones.isNotEmpty() else Remote.paired
+        return SyncPlaylists.mark(pl.synced == true, paired && SyncPlaylists.waiting(pl.synced == true, pl.updated, seenNow()[pl.id]))
     }
 
     // ---- Auto playlist sync: the synced playlists alone, by themselves ----
@@ -183,6 +210,7 @@ object Sync {
             val before = playlistsAt()
             // (nothing differs: nothing is written or read again, so the check every 20 seconds costs next to nothing)
             if (d.second.isNotEmpty()) runCatching { putInPlace(d.first, d.second) }.onFailure { Crashes.caught(it, "Auto playlist sync") }
+            markSynced()
             seenMine = playlistsAt(); autoAt = secs()
             if (seenMine != before) Music.toast("Playlists synced with $with")
         }
@@ -299,6 +327,7 @@ object Sync {
             // The phone's songs this PC hasn't got (kept for Settings › Remote & sync › Other device's songs)
             if (!only) runCatching { LibraryMatch.take(theirs[SONGS_HERE], peerName) }
             runCatching { onMain { Music.musicVersion++ } }
+            markSynced()
             val back = head("pc", songs)
             if (only) {
                 // What the two agreed on for the playlists, into what they agreed on for the rest at the last Sync now

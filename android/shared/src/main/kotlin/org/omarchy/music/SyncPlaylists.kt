@@ -99,7 +99,13 @@ object SyncPlaylists {
     const val AUTO = "playlists_autosync"
 
     /** The mark every list of playlists shows on each one, so it is plain which sync and which don't. */
-    fun mark(synced: Boolean): String = if (synced) "⇄ SYNCED" else "THIS DEVICE ONLY"
+    fun mark(synced: Boolean, waiting: Boolean = false): String =
+        if (!synced) "THIS DEVICE ONLY" else if (waiting) "⇄ SYNCED · CHANGES WAITING" else "⇄ SYNCED"
+
+    /** Whether a synced playlist has changes the other device hasn't had yet. updated: when the playlist last
+     *  changed; seen: its "updated" as it was at the last sync here (null: it has never been through one). Each
+     *  device's own clock only, so two devices whose clocks disagree can't make it wrong. */
+    fun waiting(synced: Boolean, updated: Double, seen: Double?): Boolean = synced && seen != updated
 
     /** The switch "Auto playlist sync" (Settings › Remote & sync), off until you turn it on: the synced playlists are
      *  synced by themselves when the phone's app finds the PC's (the app opened, back on the same network), and again
