@@ -1226,14 +1226,28 @@ object Moods {
         return out
     }
 
-    /** Write the songs' moods into their files' MOOD tags, in the background (the playing song's waits till next time). */
-    fun writeFiles() {
+    /** (blocking) The scanned songs whose moods aren't in their files yet, each with the moods to write: what
+     *  [toWrite] counts. */
+    private fun scannedToWrite(): List<Pair<String, String>> {
+        load()
+        return Music.mySongs().mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }.mapNotNull { (p, t) ->
+            val e = synchronized(lock) { known[p] } ?: return@mapNotNull null
+            if (e.picked.isNotEmpty() || !scanned(e) || !canWrite(p)) null
+            else moodsFor(t, e).takeIf { it.isNotEmpty() && it != e.inFile }?.let { p to it }
+        }
+    }
+
+    /** Write the songs' moods into their files' MOOD tags, in the background (the playing song's waits till next time).
+     *  scannedOnly: the Moods tab's own button, pressed by hand: just the scanned songs whose moods aren't in their
+     *  files yet, nothing scanned. It works with Prevent auto mood scans on too: that stops what the app does by
+     *  itself, not what you ask for. */
+    fun writeFiles(scannedOnly: Boolean = false) {
         if (writing || running) return   // not while songs are being heard (a file isn't rewritten while it's read)
         writing = true
         Music.bg({
             val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
             var done = 0; var failed = 0
-            val list = writable()
+            val list = if (scannedOnly) scannedToWrite() else writable()
             Music.scope.launch { writeProgress = 0 to list.size; writeLeft = null }
             val writeBegan = System.currentTimeMillis()
             for ((p, m) in list) {
