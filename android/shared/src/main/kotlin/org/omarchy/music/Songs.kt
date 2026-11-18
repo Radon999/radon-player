@@ -73,6 +73,17 @@ fun sortSongs(tracks: List<Track>, sort: String, plays: Map<Pair<String, String>
     }
 }
 
+/** tracks sorted by sort as [sortSongs] does, each song judged by what it is now (now gives a song as its tags stand
+ *  today). A playlist keeps each song as it was when you put it in; a song since moved from a single into its album,
+ *  or given a tidier artist name, was still sorted under the old one, apart from the album it now belongs to. The
+ *  list's own songs come back, in the new order. */
+fun sortSongsAsNow(tracks: List<Track>, sort: String, plays: Map<Pair<String, String>, Int> = emptyMap(), now: (Track) -> Track): List<Track> {
+    if (sort !in PLAYLIST_SORTS || sort == "order") return tracks
+    // (each of today's copies is marked with its song's place in the list, to find the list's own song again)
+    val today = tracks.mapIndexed { i, t -> now(t).copy(id = i.toString()) }
+    return sortSongs(today, sort, plays).map { tracks[it.id.toInt()] }
+}
+
 /** Shuffle: every order equally likely (Fisher-Yates), from the system's secure random source,
  *  so no order of even a long playlist is out of reach the way it can be with a seeded one. */
 val SHUFFLE_RANDOM: kotlin.random.Random = SecureRandom().asKotlinRandom()

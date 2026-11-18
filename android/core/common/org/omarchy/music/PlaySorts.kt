@@ -40,7 +40,18 @@ object PlaySorts {
 
     /** A playlist's songs as the sort chips say. */
     fun playlist(tracks: List<Track>): List<Track> =
-        sortSongs(tracks, Music.playlistSort, if (Music.playlistSort == "plays") counts() else emptyMap())
+        sortSongsAsNow(tracks, Music.playlistSort, if (Music.playlistSort == "plays") counts() else emptyMap()) { asNow(it) }
+
+    private var nowVer = -1
+    private var nowById: Map<String, Track> = emptyMap()
+
+    /** A song as its tags stand today: your own copy of it (the file's or the download's tags as they are now), else
+     *  itself. Your songs by their ids are gathered once per change to your music. */
+    fun asNow(t: Track): Track {
+        val v = Music.musicVersion
+        if (v != nowVer) { nowById = runCatching { Music.mySongs().associateBy { it.id } }.getOrDefault(emptyMap()); nowVer = v }
+        return nowById[t.id] ?: runCatching { Music.localOf(t) }.getOrDefault(t)
+    }
 
     /** Smart shuffle (Settings › Playback): each song's weight, more for the ones you love (play a lot) that you haven't
      *  heard in a while; null (plain chance) with it off. */

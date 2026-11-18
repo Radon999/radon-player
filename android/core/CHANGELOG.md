@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.10 · November 2026
+- **A playlist sorts by what its songs are now:** a playlist keeps each song as it was when you put it in. A song you later moved from a single into its album or EP (or gave a tidier artist name) was still sorted under the old one, so sorted by album it sat apart from the album it belongs to. Sorting now goes by each song's tags as they are today.
+- **Coming back to an artist's page is lighter still:** your songs and albums of theirs are kept with the rest of the page while your music hasn't changed, instead of being gathered from all your songs on every return.
+
 ## 4.0.9 · November 2026
 - **Back is smooth:** coming back from an album or a song to an artist's page or a search no longer stutters. A list that is in memory now opens straight at the place you were (it used to open at the top, then jump), and an artist's page keeps what it found for half an hour, so it shows at once on coming back and nothing is looked up again.
 - **Write moods into the files is always on the Moods tab:** the button used to show only when it had something to write, so it was often simply not there. It is always there now, with Prevent auto mood scans on or off. It writes the moods the app has worked out into the files that have none, and never touches a file that has moods already: those change only when you clear them with the buttons for that and scan again. With nothing to write, tapping it says why (not scanned yet, or files the app isn't allowed to change). Beside it, **Overwrite the moods that differ** counts the files that hold other moods than the app has worked out since, and replaces those when you ask (it asks first). The tab also says separately how many files are empty and how many hold other moods than the app worked out.

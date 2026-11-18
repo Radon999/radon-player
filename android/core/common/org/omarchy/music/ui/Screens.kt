@@ -1147,7 +1147,8 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     }
     val v = Music.artistsVersion
     val pics = remember(page, v) { org.omarchy.music.Pictures.known(page.name) }
-    val songs = remember(page, Music.musicVersion) { Music.artistSongs(page.name) }
+    // (kept with the page's snapshot while your music hasn't changed: gathering them goes through all your songs)
+    val songs = remember(page, Music.musicVersion) { snap?.takeIf { it.musicVer == Music.musicVersion }?.songs ?: Music.artistSongs(page.name) }
     // Songs that aren't yours and have no picture (ones only Last.fm or your history knows, demos): their covers looked
     // up one by one (each found shows at once; remembered, never looked up again), else the artist's picture.
     var coverTick by remember(page) { mutableStateOf(0) }
@@ -1190,7 +1191,8 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         }) { res, _ -> if (seq == everySeq) { every = res.orEmpty(); everyAt = null } }
     }
     fun yours(t: Track) = t.isFile || t.file != null || Music.lib.has(t.id)
-    val ownAlbums = remember(page, Music.musicVersion) { runCatching { Music.artistOwnAlbums(page.name) }.getOrDefault(emptyList()) }
+    val ownAlbums = remember(page, Music.musicVersion) {
+        snap?.takeIf { it.musicVer == Music.musicVersion }?.ownAlbums ?: runCatching { Music.artistOwnAlbums(page.name) }.getOrDefault(emptyList()) }
     // Your songs are yours: only what is on this device (your files and downloads). Songs of theirs the app knows from
     // your listening history or a service's library but that you don't have are not listed there (with Only streaming
     // picked, those are what the list shows instead, under their own heading).
@@ -1349,7 +1351,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         val i = info
         if (i != null) {
             if (artistSnaps.size > 12) artistSnaps.remove(artistSnaps.keys.first())
-            artistSnaps[snapKey] = ArtistSnap(snap?.takeIf { it.info === i }?.at ?: System.currentTimeMillis(), i, choices, every, everyFor, gChoices, gPick, gId, gSongs, sorted, gAlbums, feats, folded)
+            artistSnaps[snapKey] = ArtistSnap(snap?.takeIf { it.info === i }?.at ?: System.currentTimeMillis(), i, choices, every, everyFor, gChoices, gPick, gId, gSongs, sorted, gAlbums, feats, folded, Music.musicVersion, songs, ownAlbums)
         }
     }
     val links = androidx.compose.ui.platform.LocalUriHandler.current
@@ -1594,7 +1596,8 @@ private val ARTIST_ALBUM_SORTS = listOf("order", "created", "created-old", "name
 private class ArtistSnap(val at: Long, val info: ArtistInfo, val choices: List<org.omarchy.music.ArtistChoice>, val every: List<Track>?, val everyFor: String?,
                          val gChoices: List<org.omarchy.music.ArtistChoice>, val gPick: String?, val gId: String?,
                          val gSongs: List<org.omarchy.music.GeniusRules.Hit>?, val sorted: org.omarchy.music.GeniusArtists.Sorted?,
-                         val gAlbums: List<Album>, val feats: org.omarchy.music.FeatureRules.Featured?, val folded: Set<String>)
+                         val gAlbums: List<Album>, val feats: org.omarchy.music.FeatureRules.Featured?, val folded: Set<String>,
+                         val musicVer: Int, val songs: List<Track>, val ownAlbums: List<Pair<Album, List<Track>>>)
 private val artistSnaps = LinkedHashMap<String, ArtistSnap>()
 
 /** Which of each artist page's sections are open (by the page: [LocalPlace]). */
