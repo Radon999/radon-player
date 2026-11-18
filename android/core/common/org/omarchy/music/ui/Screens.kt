@@ -1981,11 +1981,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
         var nudge by remember { mutableStateOf(P.on(RL.NUDGE, true)) }
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Chip(if (RL.historyBusy) "Looking through your history…" else "Find repeats in my history", false) { if (!RL.historyBusy) Music.bg({ RL.fromHistory() }) }
+                Chip(if (RL.historyBusy) "Looking through your history…" else "Look through my history again", false) { if (!RL.historyBusy) Music.bg({ RL.fromHistory() }) }
                 Chip("Notes at milestones", notes) { notes = !notes; P.set(RL.NOTES, notes) }
                 Chip("DJ offers a change after a long run", nudge) { nudge = !nudge; P.set(RL.NUDGE, nudge) }
             }
-            Text(RL.historyText.ifEmpty { "Find repeats in my history looks through what you played here before, your Last.fm scrobbles and your imported history for a song played again the moment it ended. Nothing recorded that Repeat one was on, so these are a good guess" },
+            Text(RL.historyText.ifEmpty { "What you played here before, your Last.fm scrobbles and your imported history are looked through by themselves (after an import, or when Last.fm is connected) for a song played again the moment it ended, and what is found is kept. Nothing recorded that Repeat one was on, so those are a good guess; from now on every repeat is counted as it happens" },
                 style = T.sub, modifier = Modifier.padding(top = 4.dp))
         }
     }

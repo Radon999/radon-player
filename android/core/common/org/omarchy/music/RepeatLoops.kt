@@ -69,6 +69,28 @@ object RepeatLoops {
     var historyBusy by mutableStateOf(false)
         private set
 
+    /** How much history there is to look through, as one word: it changes when something is imported (Spotify, Deezer,
+     *  YouTube Music, Tidal) or Last.fm is connected (or another account is). What is played from now on doesn't change
+     *  it: those repeats are counted as they happen. */
+    private fun historyNow(): String = listOf(
+        runCatching { SpotifyHistory.plays.size }.getOrDefault(0), runCatching { DeezerHistory.plays.size }.getOrDefault(0),
+        runCatching { YouTubeHistory.plays.size }.getOrDefault(0), runCatching { TidalHistory.plays.size }.getOrDefault(0),
+        if (LastFm.connected) "fm:" + LastFm.user.lowercase() else "").joinToString("|")
+
+    private var triedAt = 0L
+    /** Every half minute: when there is history that hasn't been looked through (an import just made, Last.fm just
+     *  connected, or the first time after the update), it is looked through by itself, away from the screen. What it
+     *  finds is kept, so it isn't looked for again until the history changes. One that fails is tried again in an hour. */
+    fun tick() {
+        if (historyBusy) return
+        val now = System.currentTimeMillis()
+        if (now - triedAt < 3_600_000L) return
+        val has = runCatching { historyNow() }.getOrNull() ?: return
+        if (has == saved().looked) return
+        triedAt = now
+        Music.bg({ fromHistory() })
+    }
+
     /** (blocking) Works out the repeats your imported history and Last.fm scrobbles show ([RepeatFactsRules.inferred]),
      *  for the days before the app's own count began, and keeps them beside the counted ones. Done again, it replaces
      *  what it found before (never adds to it). */
@@ -76,6 +98,7 @@ object RepeatLoops {
         if (historyBusy) return
         historyBusy = true
         try {
+            val looking = historyNow()
             fun plays(l: List<SpotifyHistory.Play>) = l.filter { it.t > 0 }.sortedBy { it.t }.map { RepeatFactsRules.Play(it.title, it.artist, it.t, it.ms / 1000.0) }
             val sources = listOf(
                 runCatching { plays(SpotifyHistory.plays) }.getOrDefault(emptyList()),
@@ -97,7 +120,7 @@ object RepeatLoops {
             val s = saved()
             // the hours counted here (from the day counting began) stay; the history's are for the months before
             val mine = s.hours.filterKeys { it.take(7) >= before.take(7) }
-            keep(s.copy(imports = songs, hours = hours.filterKeys { it.take(7) < before.take(7) } + mine, since = before))
+            keep(s.copy(imports = songs, hours = hours.filterKeys { it.take(7) < before.take(7) } + mine, since = before, looked = looking))
             version++
             val n = songs.values.sumOf { it.n }
             historyText = if (sources.isEmpty()) "No imported history or scrobbles to look through yet"

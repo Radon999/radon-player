@@ -19,7 +19,8 @@ object RepeatLoopRules {
      *  hour of the day ("2026-11|21"). since: the day counting began here ("": not yet). */
     @Serializable
     data class Saved(val songs: Map<String, Loop> = emptyMap(), val lastKey: String = "", val run: Int = 0,
-                     val imports: Map<String, Loop> = emptyMap(), val hours: Map<String, Int> = emptyMap(), val since: String = "")
+                     val imports: Map<String, Loop> = emptyMap(), val hours: Map<String, Int> = emptyMap(), val since: String = "",
+                     val looked: String = "")   // the history that was last looked through (how much of each there was): looked again only when it changes
 
     fun key(t: Track): String = statsKey(t.title, t.artist).let { it.first + "|" + it.second }
 
