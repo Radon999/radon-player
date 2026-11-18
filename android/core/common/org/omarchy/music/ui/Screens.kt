@@ -527,6 +527,7 @@ fun MusicTab(ui: Ui) {
                                     if (Music.topKind != "moods") Chip("Share card…", false) { ui.cardFor = Music.topKind }
                                 }
                                 Milestones()
+                                OnThisDay()
                             }
                         }
                         if (ui.musicView == "top" && Music.topKind.startsWith("time")) timeItems(ui, Music.topKind.removePrefix("time_"))   // listening time
@@ -1958,6 +1959,29 @@ fun Milestones() {
         Text("✦  ${"%,d".format(m.plays)} plays of $what · ${java.time.Instant.ofEpochSecond(m.at).atZone(java.time.ZoneId.systemDefault()).toLocalDate()}",
             style = T.body.copy(color = C.accent), maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+    }
+}
+
+/** On this day (Most played, under Milestones): what you were listening to this week one, two, three… years ago, from
+ *  your listening history, each year with a Play button. The DJ's "On this day" set is made from the same songs. */
+@Composable
+fun OnThisDay() {
+    val years by androidx.compose.runtime.produceState<List<Pair<Int, List<Track>>>>(emptyList(), Music.musicVersion) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            runCatching { org.omarchy.music.TasteService.get().dayAgo.entries.sortedBy { it.key }.map { it.key to it.value.distinctBy { t -> t.id }.take(30) }
+                .filter { it.second.size >= 3 } }.getOrDefault(emptyList()) }
+    }
+    if (years.isEmpty()) return
+    Section("ON THIS DAY")
+    years.forEach { (ago, songs) ->
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(if (ago == 1) "A year ago this week" else "$ago years ago this week", style = T.body.copy(color = C.accent))
+                Text(songs.take(3).joinToString(" · ") { it.title } + (if (songs.size > 3) " · and %,d more".format(songs.size - 3) else ""), style = T.sub, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+            }
+            Pill("Play", quiet = true) { Music.playFrom(songs.map { Music.mineOf(it) }, 0, false) }
+        }
     }
 }
 

@@ -1104,6 +1104,23 @@ object MyPresets {
         if (System.currentTimeMillis() - at >= shuffleMinutes() * 60_000L) shuffleNext()
     }
 
+    // ---- Presets by time of day (TimeOfDayRules) ----
+    const val TOD = "preset_by_time"
+    private const val TOD_LAST = "preset_by_time_last"
+    fun todOn() = Prefs.on(TOD)
+    fun todPreset(part: String): String = Prefs.text("preset_time_$part")
+    fun setTodPreset(part: String, key: String) { Prefs.setText("preset_time_$part", key); Prefs.setText(TOD_LAST, ""); todTick() }
+    fun setTod(on: Boolean) { Prefs.set(TOD, on); Prefs.setText(TOD_LAST, ""); todTick() }
+    /** Called every so often while the app is open: this part of the day's preset put on when the part begins. */
+    fun todTick() {
+        if (editing != null) return
+        val now = java.time.LocalDateTime.now(); val part = org.omarchy.music.TimeOfDayRules.part(now.hour)
+        val key = todPreset(part)
+        if (!org.omarchy.music.TimeOfDayRules.due(todOn(), key, part, now.dayOfYear, Prefs.text(TOD_LAST))) return
+        Prefs.setText(TOD_LAST, "$part@${now.dayOfYear}")
+        if (of(key) != null) apply(key)
+    }
+
     /** One preset's short summary for its menu. */
     fun describe(key: String): String {
         val p = of(key) ?: return ""

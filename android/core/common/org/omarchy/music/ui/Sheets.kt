@@ -2783,6 +2783,22 @@ private fun SyncedRow(name: String, sub: String, on: Boolean, set: (Boolean) -> 
 /** Settings › Personalization, at the top: Personalization Preset Shuffle, a different favourite preset every 5, 10, 15 or 30 minutes. */
 @Composable
 private fun PresetShuffleLines() {
+    // Presets by time of day: one for the morning, the day, the evening and the night
+    var byTime by remember { mutableStateOf(MyPresets.todOn()) }
+    val applied = MyPresets.applied
+    Line("Presets by time of day", "On: a Personalization preset of your choosing is put on by itself when each part of the day begins (and when the " +
+        "app opens in it): a bright one for the morning, a dark one for the night. A part you leave on “No change” keeps whatever is on. If you change " +
+        "things by hand, they stay until the next part of the day begins", byTime) {
+        Switch(byTime, { byTime = it; MyPresets.setTod(it) }, colors = swColors())
+    }
+    if (byTime) org.omarchy.music.TimeOfDayRules.PARTS.forEach { (part, _, _) ->
+        var picked by remember(part, applied) { mutableStateOf(MyPresets.todPreset(part)) }
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(org.omarchy.music.TimeOfDayRules.label(part), style = T.body, modifier = Modifier.weight(1f))
+            ChoicePill(listOf("" to "No change") + MyPresets.all().map { it.key to MyPresets.label(it) }, picked, group = { MenuGroups.preset(it) },
+                preview = { k -> if (k.isNotEmpty()) PresetPreview(k) }) { picked = it; MyPresets.setTodPreset(part, it) }
+        }
+    }
     var on by remember { mutableStateOf(MyPresets.shuffleOn()) }
     var every by remember { mutableStateOf(MyPresets.shuffleMinutes()) }
     val favs = MyPresets.shufflePool().size
