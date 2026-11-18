@@ -68,6 +68,7 @@ class Ui {
     var lyricsSearch by mutableStateOf(false)          // the lyrics' search box is open
     var lyricsCard by mutableStateOf<Pair<org.omarchy.music.Track, org.omarchy.music.Lyrics.Got>?>(null)   // Card: making one of this song's
     var playlistCoverFor by mutableStateOf<String?>(null)       // a playlist's menu › Set a cover…: the playlist a picture is being picked for
+    var songClip by mutableStateOf<org.omarchy.music.Track?>(null)        // a song's Options › Share a clip with sound: the song
     var songCard by mutableStateOf<org.omarchy.music.Track?>(null)        // a song's Options › Share as a picture card: the song
     var makerEdit by mutableStateOf<String?>(null)    // the look, layout or visualizer of yours being changed (null: a new one)
     var pane by mutableStateOf("art")                  // what the player shows: art, lyrics, visualizer, queue

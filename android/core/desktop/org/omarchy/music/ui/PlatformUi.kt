@@ -446,3 +446,61 @@ fun rememberVoiceInput(onText: (String) -> Unit): (() -> Unit)? {
 /** The phone's buttons at the bottom of the screen: none on the PC. */
 @Composable
 fun navBarBottom(): androidx.compose.ui.unit.Dp = 0.dp
+
+/** (blocking) A song clip ([org.omarchy.music.ClipRules]) made by ffmpeg: the card as a video with the song's sound from
+ *  startSecs for secs, in the PC's temporary folder. Throws, with why in words. */
+fun makeClip(card: ImageBitmap, bar: org.omarchy.music.ClipRules.Bar?, source: String, startSecs: Double, secs: Double, name: String): File {
+    val R = org.omarchy.music.ClipRules
+    val dir = File(System.getProperty("java.io.tmpdir"), "radon-player-clip").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+    val png = File(dir, "card.png")
+    val bytes = runCatching { org.jetbrains.skia.Image.makeFromBitmap(card.asSkiaBitmap()).encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)?.bytes }.getOrNull()
+    if (bytes != null && bytes.isNotEmpty()) png.writeBytes(bytes) else javax.imageio.ImageIO.write(card.toAwtImage(), "png", png)
+    val out = File(dir, "$name.mp4")
+    val w = R.WIDTH; val h = R.height(card.width, card.height)
+    val audio = if (source.startsWith("file:")) java.net.URI(source).path else source
+    var why = ""
+    for (codec in R.CODECS) {
+        out.delete()
+        val args = R.ffmpegArgs(org.omarchy.music.Bins.ffmpeg, png.path, audio, out.path, startSecs, secs, bar?.scaled(card.width, w), w, h, codec)
+        val said = runCatching {
+            val p = ProcessBuilder(args).redirectErrorStream(true).start()
+            val text = p.inputStream.bufferedReader().readText()
+            if (!p.waitFor(180, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); "it took too long" } else text
+        }.getOrElse { "ffmpeg couldn't be started (${it.message})" }
+        if (out.isFile && out.length() > 1000) return out
+        why = said.lines().lastOrNull { it.isNotBlank() }?.take(160) ?: why
+    }
+    error("ffmpeg couldn't make the video" + if (why.isNotEmpty()) ": $why" else "")
+}
+
+/** A clip saved to the PC: Downloads › Radon Player (shown in its folder). */
+fun saveClip(f: File): Boolean = runCatching {
+    val dir = picturesDir
+    val base = f.nameWithoutExtension
+    var to = File(dir, "$base.mp4"); var n = 2
+    while (to.exists()) { to = File(dir, "$base ($n).mp4"); n++ }
+    f.copyTo(to)
+    lastSavedClip = to
+    runCatching { ProcessBuilder("explorer.exe", "/select,", to.absolutePath).start() }
+    true
+}.getOrDefault(false)
+
+@Volatile var lastSavedClip: File? = null
+fun savedClipNote(): String = lastSavedClip?.let { "Saved to Downloads › Radon Player › ${it.name}" } ?: "Saved to Downloads › Radon Player"
+
+/** A clip to another app, the PC's way: saved to Downloads › Radon Player and put on the clipboard as a file, to paste
+ *  into a message or a folder. */
+fun shareClip(f: File, name: String, pkg: String? = null): Boolean {
+    val saved = saveClip(f)
+    val file = lastSavedClip?.takeIf { saved } ?: f
+    val copied = runCatching {
+        val sel = object : java.awt.datatransfer.Transferable {
+            override fun getTransferDataFlavors() = arrayOf(java.awt.datatransfer.DataFlavor.javaFileListFlavor)
+            override fun isDataFlavorSupported(fl: java.awt.datatransfer.DataFlavor) = fl == java.awt.datatransfer.DataFlavor.javaFileListFlavor
+            override fun getTransferData(fl: java.awt.datatransfer.DataFlavor): Any = listOf(file)
+        }
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, null)
+    }.isSuccess
+    if (copied) Music.toast("Copied: paste it into a message" + if (saved) " (and saved to Downloads › Radon Player)" else "")
+    return copied || saved
+}

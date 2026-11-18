@@ -1538,6 +1538,25 @@ private fun NowPlayingLookLines() {
             preview = { k -> PresetCard(k) },
             menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { LyricsCards.pick(it); card = it }
     }
+    // Song clips (a song's Options › Share a clip with sound; the Lyrics card's With the song's sound)
+    val CR = org.omarchy.music.ClipRules; val P = org.omarchy.music.Prefs
+    Line("Song clip style", "How a song clip's card looks (Share a clip with sound, in a song's Options: a short video of the cover, the song and a " +
+        "seek bar, with the song playing). Every lyrics card style is here: Your look, Now playing, the 60 ready-made ones and the ones you make " +
+        "under Make your own › New lyrics card", false) {
+        var clip by remember { mutableStateOf(P.text(CR.STYLE)) }
+        ChoicePill(listOf("" to "Same as the lyrics card") + Favs.sorted(Favs.CARDS, LyricsCards.menu()), clip, group = { if (it.isEmpty()) "" else MenuGroups.card(it) },
+            describe = { if (it.isEmpty()) "Whatever style the lyrics card has" else LyricsCards.describe(it) }) { P.setText(CR.STYLE, it); clip = it }
+    }
+    Line("Song clip length", "How long a clip is when its box opens. There, Starts and Ends set it to anything from 3 seconds to a minute", false) {
+        var len by remember { mutableStateOf(SongClips.length()) }
+        ChoicePill(CR.LENGTHS.map { it.toString() to "$it seconds" }, len.toString()) { len = it.toInt(); P.setNum(CR.LENGTH, len.toFloat()) }
+    }
+    var cardSound by remember { mutableStateOf(P.on(CR.CARD_SOUND)) }
+    Line("Lyrics cards with sound", "On: a lyrics card is shared as a short video with the song playing, from the first line you tick to where the " +
+        "last one stops (no seek bar on it). It needs the song's timed lyrics and its file; without them the card is a picture as before. " +
+        "The Lyrics card box has the same switch", cardSound) {
+        Switch(cardSound, { cardSound = it; P.set(CR.CARD_SOUND, it) }, colors = swColors())
+    }
 }
 
 /** Auto mono (the phone's: it goes by the Bluetooth earbuds connected to it). */

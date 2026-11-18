@@ -404,3 +404,50 @@ fun navBarBottom(): androidx.compose.ui.unit.Dp {
     } ?: 0
     return with(d) { px.toDp() }
 }
+
+/** (blocking) A song clip ([org.omarchy.music.ClipRules]) made with the phone's own coders: the card as a video with the
+ *  song's sound from startSecs for secs, kept where sharing reads it from. Throws, with why in words. */
+fun makeClip(card: ImageBitmap, bar: org.omarchy.music.ClipRules.Bar?, source: String, startSecs: Double, secs: Double, name: String): java.io.File {
+    val dir = java.io.File(Music.ctx.cacheDir, "shared").apply { mkdirs(); listFiles()?.forEach { it.delete() } }   // only the latest one is kept
+    val out = java.io.File(dir, "$name.mp4")
+    org.omarchy.music.ClipMaker.make(plainBitmap(card), bar, source, startSecs, secs, out)
+    return out
+}
+
+/** A clip saved to the phone: Movies › Radon Player (in the Gallery and Photos). */
+fun saveClip(f: java.io.File): Boolean = runCatching {
+    val cr = Music.ctx.contentResolver
+    if (android.os.Build.VERSION.SDK_INT >= 29) {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, f.name)
+            put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, android.os.Environment.DIRECTORY_MOVIES + "/Radon Player")
+            put(android.provider.MediaStore.Video.Media.IS_PENDING, 1)
+        }
+        val uri = cr.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+        val ok = cr.openOutputStream(uri)?.use { o -> f.inputStream().use { it.copyTo(o) }; true } ?: false
+        if (!ok) { cr.delete(uri, null, null); return false }
+        cr.update(uri, android.content.ContentValues().apply { put(android.provider.MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
+    } else {
+        @Suppress("DEPRECATION")
+        val dir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES), "Radon Player").apply { mkdirs() }
+        val to = java.io.File(dir, f.name)
+        f.copyTo(to, overwrite = true)
+        android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(to.path), arrayOf("video/mp4"), null)
+    }
+    true
+}.getOrDefault(false)
+
+fun savedClipNote(): String = "Saved to your Gallery (Movies › Radon Player)"
+
+/** Send the clip to pkg (Instagram, Facebook), or to the app you pick in Android's share sheet. */
+fun shareClip(f: java.io.File, name: String, pkg: String? = null): Boolean = runCatching {
+    val ctx = Music.ctx
+    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("video/mp4").putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    send.clipData = android.content.ClipData.newRawUri(name, uri)
+    ctx.startActivity((if (pkg != null) send.setPackage(pkg) else android.content.Intent.createChooser(send, "Share"))
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    true
+}.getOrDefault(false)

@@ -299,6 +299,7 @@ fun App() {
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
             ui.songCard?.let { SongCardDialog(ui, it) }
+            ui.songClip?.let { SongClipDialog(ui, it) }
             // A playlist's Set a cover…: the picture picker, opened when a playlist asks for one
             val coverPick = rememberOpenFile { uri -> ui.playlistCoverFor?.let { id -> if (uri != null) PlaylistCovers.set(id, uri) }; ui.playlistCoverFor = null }
             LaunchedEffect(ui.playlistCoverFor) { if (ui.playlistCoverFor != null) coverPick.launch(arrayOf("image/*")) }

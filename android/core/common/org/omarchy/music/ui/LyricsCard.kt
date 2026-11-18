@@ -155,12 +155,23 @@ private fun styledCard(pt: Painter, w: Int, h: Int, pad: Float, lines: List<Stri
 /** Lyrics card…: tick up to 25 lines, see the card, then share or save it. */
 @Composable
 fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
-    val words = remember(got) {
-        (got.plain ?: Lyrics.parseLrc(got.synced).joinToString("\n") { it.second })
+    // With the song's sound: the card as a short video with the song playing, from the first line ticked to where the
+    // last one stops (ClipRules). It needs the song's timed lyrics (to know when each line is sung) and its file.
+    val timed = remember(got) { Lyrics.parseLrc(got.synced) }
+    val timedPlaces = remember(timed) { timed.indices.filter { timed[it].second.isNotBlank() } }   // the lines with words, by their place among the timed ones
+    val file = remember(t.id) { SongClips.fileOf(t) }
+    val canSound = timedPlaces.isNotEmpty() && file != null
+    var soundOn by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.ClipRules.CARD_SOUND)) }
+    val sound = soundOn && canSound
+    val words = remember(got, sound) {
+        if (sound) timedPlaces.map { timed[it].second } else
+        (got.plain ?: timed.joinToString("\n") { it.second })
             .lines().filter { it.isNotBlank() && !(it.startsWith("[") && it.endsWith("]")) }
     }
     // The lines ticked, by their place in the song: a line sung more than once (a chorus) is ticked on its own each time
-    val picked = remember(got) { mutableStateListOf<Int>() }
+    val picked = remember(got, sound) { mutableStateListOf<Int>() }
+    val (busy, make) = rememberClipMaker()
+    val clipName = org.omarchy.music.ClipRules.fileName(t.title + " lyrics")
     val lines = picked.map { words[it] }.ifEmpty { words.take(1) }
     // The card's style: Your look, a ready-made one or yours (the last one picked stays)
     var styleKey by remember { mutableStateOf(LyricsCards.picked()) }
@@ -172,6 +183,15 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
         text = {
             Column {
                 Image(bmp, "The card", Modifier.size(208.dp, (208f * bmp.height / bmp.width).dp).align(Alignment.CenterHorizontally))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(sound, { soundOn = it; org.omarchy.music.Prefs.set(org.omarchy.music.ClipRules.CARD_SOUND, it) }, enabled = canSound, colors = box)
+                    Text(when {
+                        file == null -> "With the song's sound: only for a song you have as a file (yours, or a download)"
+                        timedPlaces.isEmpty() -> "With the song's sound: this song has no timed lyrics, which say when each line is sung"
+                        busy -> "Making the clip… a few seconds"
+                        sound -> "With the song's sound: a short video, from the first line ticked to where the last one stops"
+                        else -> "With the song's sound (a short video)" }, style = T.sub.copy(color = if (busy) C.accent else C.muted))
+                }
                 Text("Tick the lines for the card (up to 25):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
                 LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(words.size) { i ->
@@ -198,16 +218,26 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                         styleKey = it; LyricsCards.pick(it)
                     }
                 }
+                // With the song's sound: the card made a video first (the lines ticked say where it starts and ends)
+                val clip: ((java.io.File) -> Unit) -> Unit = { then ->
+                    val places = picked.ifEmpty { listOf(0) }.map { timedPlaces[it] }
+                    val r = org.omarchy.music.ClipRules.fromLyrics(timed.map { it.first }, places, t.duration)
+                    if (r != null && file != null) make(bmp, null, file, r.first, r.second, clipName, then)
+                }
                 if (onPhone) Row {
-                    TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }) {
+                    TextButton({ if (sound) clip { f -> if (!shareClip(f, clipName, "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }
+                        else if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }, enabled = !busy) {
                         Text("Instagram", color = C.accent) }
-                    TextButton({ if (!sharePicture(bmp, "${t.title} lyrics", "com.facebook.katana")) Music.toast("Facebook isn't on this $DEVICE") }) {
+                    TextButton({ if (sound) clip { f -> if (!shareClip(f, clipName, "com.facebook.katana")) Music.toast("Facebook isn't on this $DEVICE") }
+                        else if (!sharePicture(bmp, "${t.title} lyrics", "com.facebook.katana")) Music.toast("Facebook isn't on this $DEVICE") }, enabled = !busy) {
                         Text("Facebook", color = C.accent) }
                 }
                 Row {
-                    TextButton({ Music.toast(if (savePicture(bmp, "${t.title} lyrics")) savedPictureNote() else "Couldn't save it") }) {
+                    TextButton({ if (sound) clip { f -> Music.toast(if (saveClip(f)) savedClipNote() else "Couldn't save it") }
+                        else Music.toast(if (savePicture(bmp, "${t.title} lyrics")) savedPictureNote() else "Couldn't save it") }, enabled = !busy) {
                         Text("Save", color = C.muted) }
-                    TextButton({ sharePicture(bmp, "${t.title} lyrics", null) }) { Text(if (onPhone) "Messages & more…" else SHARE_PICTURE, color = C.accent) }
+                    TextButton({ if (sound) clip { f -> if (!shareClip(f, clipName, null)) Music.toast("Couldn't share it") }
+                        else { sharePicture(bmp, "${t.title} lyrics", null) } }, enabled = !busy) { Text(if (onPhone) "Messages & more…" else SHARE_PICTURE, color = C.accent) }
                 }
             }
         },
