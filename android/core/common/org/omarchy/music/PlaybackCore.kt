@@ -651,7 +651,7 @@ object PlaybackCore {
      *  in the queue) nothing brought it back, and the song went on counting in silence. With nothing fading and the
      *  DJ not talking, a volume still down after four seconds is put back to full, and noted (Settings › Problems). */
     private fun volumeWatch(p: Engine) {
-        val busy = djSide.musicDucked || fadingOut != null || fadeIn != 0.0 || Remote.active || !p.isPlaying || System.currentTimeMillis() < risingUntil
+        val busy = djSide.musicDucked || fadingOut != null || fadeIn != 0.0 || Remote.active || Music.cast != null || !p.isPlaying || System.currentTimeMillis() < risingUntil
         if (busy || p.volume >= 0.98f) { quietSince = 0L; return }
         val now = System.currentTimeMillis()
         if (quietSince == 0L) { quietSince = now; return }
