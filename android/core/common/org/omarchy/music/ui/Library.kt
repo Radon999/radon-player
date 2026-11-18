@@ -93,7 +93,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         if (picking) { if (al.id in picked) picked.remove(al.id) else picked[al.id] = songs }
         else ui.pages += Ui.Page.AlbumPage(al, "local", songs)
     }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item {
             if (picking) PickBar(ui, if (eps) "EPs" else if (singles) "singles" else "albums")   // Select: tap albums, then Options for all their songs
             else {
@@ -200,7 +200,7 @@ fun GenresTab(ui: Ui) {
     val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.genres() }.getOrDefault(emptyList()) }
     if (all.isEmpty()) { Empty("No genres yet", "Your songs, by the genre their files give, show up here."); return }
     val genres = sortedGroups("genres", all.filter { fits(ui, it.first) }) { it }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item { Section("${genres.size} GENRES") }
         groups(ui, "genre", genres, { it }) { _, songs -> songs.take(3).joinToString { it.artist.split(",")[0] } }
     }
@@ -363,7 +363,7 @@ fun MoodsTab(ui: Ui) {
         if (picking) { picked[mood] = songs; ui.optionsFor(picked.values.flatten()); return }
         ui.choices = mood to listOf("Options…" to { ui.optionsFor(songs) }, "Select" to { ui.startPick("mood", mood, songs) })
     }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item {
             MoodsReading(ui, reading, counts)
             if (picking) PickBar(ui, "moods")
@@ -481,7 +481,7 @@ fun ArtistFoldersView(ui: Ui, viewMenu: @Composable () -> Unit) {
     }
     val name = { f: String -> f.substringAfterLast('/') }
     val folders = sortedGroups("artist-folders", all.filter { fits(ui, name(it.first)) }, name)
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item { Section("${folders.size} ARTIST FOLDERS") }
         groups(ui, "folder", folders, name, sortTab = "artist-folders", pinnable = false, head = viewMenu) { _, songs -> "%,d songs".format(songs.size) }
     }
@@ -502,7 +502,7 @@ fun FoldersTab(ui: Ui) {
     val all = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.folderSongs() }.getOrDefault(emptyList()) }
     if (all.isEmpty()) { Empty("No folders yet", "The folders your songs are in show up here."); return }
     val folders = sortedGroups("folders", all.filter { fits(ui, it.first) }) { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item { Section("${folders.size} FOLDERS") }
         groups(ui, "folder", folders, { f -> f.trimEnd('/').substringAfterLast('/').ifEmpty { f } }) { f, _ -> fullFolderPath(f.trimEnd('/')) }
     }
@@ -524,7 +524,7 @@ fun UnreleasedTab(ui: Ui) {
     } else {
         val folders = sortedGroups("unreleased", all.filter { fits(ui, name(it.first)) }, name)
         val songs = remember(folders) { folders.flatMap { it.second } }
-        LazyColumn(Modifier.fillMaxSize()) {
+        PlaceColumn(Modifier.fillMaxSize()) {
             item { ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "Unreleased", songs = songs)) }) }
             item { Section("%,d UNRELEASED SONG%s · %,d FOLDER%s".format(songs.size, if (songs.size != 1) "S" else "", folders.size, if (folders.size != 1) "S" else "")) }
             groups(ui, "folder", folders, name, sortTab = "unreleased", head = { Chip("Folders…", false) { choosing = true } }) { f, _ -> fullFolderPath(f.trimEnd('/')) }
@@ -586,7 +586,7 @@ fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
     val songs = rememberSorted(page.tracks, sort) { d ->
         org.omarchy.music.sortTracks(page.tracks, sort, if (periodPlays) org.omarchy.music.SortData(plays = { it.plays }, last = d.last) else d)
     }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item {
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = page.tracks)) },
                 pin = if (page.id.isNotEmpty() && page.kind in setOf("genre", "folder")) Pin(page.kind, page.id, page.title) else null)
@@ -824,7 +824,7 @@ fun FlacTab(ui: Ui, bits: Int) {
     val sort = sortNow("flac$bits", sorts)
     val plain = remember(all) { all.map { it.first } }
     val songs = rememberSorted(plain, sort) { d -> org.omarchy.music.sortTracks(plain, sort, d) { t -> formats[t.id]?.rate ?: 0 } }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item {
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "$bits-bit FLACs", songs = songs)) })
             Section("${all.size} $bits-BIT FLAC${if (all.size != 1) "S" else ""}" +
@@ -853,7 +853,7 @@ fun DownloadsTab(ui: Ui) {
     val sorts = org.omarchy.music.songSorts(true)
     val sort = sortNow("downloads", sorts)
     val songs = rememberSorted(got, sort) { d -> org.omarchy.music.sortTracks(got, sort, d) }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item {
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = "Downloads", songs = songs)) })
             Section("${songs.size} DOWNLOADED SONG${if (songs.size != 1) "S" else ""}")

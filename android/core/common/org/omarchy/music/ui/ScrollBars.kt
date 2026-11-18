@@ -49,6 +49,40 @@ fun LazyColumn(
     reverseLayout = reverseLayout, verticalArrangement = verticalArrangement, horizontalAlignment = horizontalAlignment,
     flingBehavior = flingBehavior, userScrollEnabled = userScrollEnabled, content = content)
 
+/** Which screen is in front (a tab and what's open in it, or a page and how deep it is): what a screen's list keeps
+ *  its place under. Main says; "" where nothing is kept. */
+val LocalPlace = androidx.compose.runtime.compositionLocalOf { "" }
+
+/** Where each screen's list was scrolled to when you left it (the row, how far into it). */
+private val placeScroll = HashMap<String, Pair<Int, Int>>()
+
+/** A screen's list that keeps its place: open something from far down it (an album from an artist's page, a song's
+ *  artist from a playlist) and Back returns you to where you were, not to the top. The place is kept per screen (see
+ *  [LocalPlace]): a page opened afresh starts at its top. A screen fills in again as it loads, so its place is gone
+ *  back to once the list is long enough to hold it, unless you've started scrolling yourself meanwhile. */
+@Composable
+fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
+    val place = LocalPlace.current
+    val state = androidx.compose.runtime.key(place) { rememberLazyListState() }
+    if (place.isNotEmpty()) {
+        val wasAt = remember(place) { placeScroll[place] }
+        var returned by remember(place) { mutableStateOf(wasAt == null) }
+        androidx.compose.runtime.DisposableEffect(place) {
+            onDispose {
+                if (placeScroll.size > 300) placeScroll.clear()
+                placeScroll[place] = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
+            }
+        }
+        val rows = state.layoutInfo.totalItemsCount
+        androidx.compose.runtime.LaunchedEffect(place, rows) {
+            if (returned || wasAt == null) return@LaunchedEffect
+            if (state.isScrollInProgress || state.firstVisibleItemIndex > 0) { returned = true; return@LaunchedEffect }
+            if (rows > wasAt.first) { returned = true; state.scrollToItem(wasAt.first, wasAt.second) }
+        }
+    }
+    LazyColumn(modifier, state = state, content = content)
+}
+
 /** Scrolling up and down, as Compose's verticalScroll, with a scroll bar on the PC. */
 fun Modifier.verticalScroll(state: ScrollState, enabled: Boolean = true, flingBehavior: FlingBehavior? = null,
                             reverseScrolling: Boolean = false): Modifier =

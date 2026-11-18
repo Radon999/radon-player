@@ -211,6 +211,11 @@ fun App() {
                 if (lay.mini == MiniKind.TOP && !ui.selecting && !(ui.pickingAlbums && page == null)) MiniPlayer(ui, lay.mini)
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 Box(Modifier.weight(1f).fillMaxWidth().onSizeChanged { ui.width = it.width / density.density }) {
+                    // The screen in front, for its list to keep its place under (PlaceColumn): a page is itself (the
+                    // very one, at its depth: opened afresh it starts at its top), a tab is the tab and what's open in it
+                    val placeKey = if (page != null) "page:${ui.pages.size}:${System.identityHashCode(page)}"
+                        else "tab:${ui.tab}:${ui.musicView}:${ui.openMine}:${ui.openFolder}:${ui.openList?.first?.id}"
+                    androidx.compose.runtime.CompositionLocalProvider(LocalPlace provides placeKey) {
                     if (page != null) PageScreen(ui, page)
                     else when (ui.tab) {
                         "search" -> SearchTab(ui)
@@ -230,6 +235,7 @@ fun App() {
                         "queue" -> QueueTab(ui)
                         "lyrics" -> LyricsTab(ui)
                         "visualizer" -> VisualizerTab()
+                    }
                     }
                 }
                 Box(Modifier.navigationBarsPadding()) {

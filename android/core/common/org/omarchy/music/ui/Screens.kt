@@ -91,7 +91,7 @@ private fun pickAll(ui: Ui, key: String, what: String, songs: () -> List<Track>)
 fun SearchTab(ui: Ui) {
     val res = ui.found
     val where = searchName(ui.foundIn.ifEmpty { Music.searchIn })
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         // A new search on its way while the last one's results show: said at the top, so they aren't taken for the new ones
         if (ui.searching && res != null && !res.isEmpty) item {
             Text("Searching $where for “${ui.searched}”…", style = T.sub.copy(color = C.accent), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
@@ -244,7 +244,7 @@ fun LibraryTab(ui: Ui) {
             }
         }
     }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         val open = ui.openList
         when {
             src == null -> item {
@@ -919,7 +919,7 @@ internal fun DjQueueNote(text: Color = C.fg, soft: Color = C.muted, accent: Colo
 fun QueueTab(ui: Ui) {
     val q = Music.shownQueue()
     val idx = Music.shownIndex()
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         if (!Remote.active) item { QueueHeader(ui) }
         if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@LazyColumn }
         if (djQueueOn()) item("djnote") { DjQueueNote(modifier = Modifier.padding(horizontal = 12.dp)) }
@@ -1031,7 +1031,7 @@ fun ArtistsTab(ui: Ui) {
         ui.pages += Ui.Page.Artist(name)
     }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item {
             Section((listOf("${top.size} ARTISTS" + if (sort == "plays") ", YOUR MOST PLAYED FIRST" else "") + org.omarchy.music.Stats.sources.joinToString(" + ").uppercase().ifEmpty { null })
                 .filterNotNull().joinToString(" · "))
@@ -1312,28 +1312,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val everySort = sortNow("artist-every", everySorts)
     val everyList = everyShown?.let { l -> rememberSorted(l, everySort) { d -> org.omarchy.music.sortTracks(l, everySort, d) } }
     val links = androidx.compose.ui.platform.LocalUriHandler.current
-    // Back from an album (or anything opened from this page) returns to where you had scrolled to, not to the top.
-    // The place is kept as you go deeper and forgotten when you leave the page itself; the page fills in again as it
-    // loads, so it is gone back to once the list is long enough to hold it (unless you've started scrolling yourself).
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val wasAt = remember(page) { artistScroll[norm(page.name)] }
-    var returned by remember(page) { mutableStateOf(wasAt == null) }
-    androidx.compose.runtime.DisposableEffect(page) {
-        onDispose {
-            // (kept too while you're on Now playing with this page to come back to)
-            if ((ui.pages.any { it === page } && ui.pages.lastOrNull() !== page) || ui.cameFrom?.pages?.any { it === page } == true)
-                artistScroll[norm(page.name)] = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-            else artistScroll.remove(norm(page.name))
-        }
-    }
-    val rows = listState.layoutInfo.totalItemsCount
-    LaunchedEffect(page, rows, info != null) {
-        val at = wasAt
-        if (returned || at == null) return@LaunchedEffect
-        if (listState.isScrollInProgress || listState.firstVisibleItemIndex > 0) { returned = true; return@LaunchedEffect }
-        if (info != null && rows > at.first) { returned = true; listState.scrollToItem(at.first, at.second) }
-    }
-    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item { BackRow(page.name) { ui.pages.removeAt(ui.pages.lastIndex) } }
         item { ArtistFromMenu(from) { from = it; org.omarchy.music.Prefs.setText(Music.ARTIST_PAGE_FROM, it) } }
         val i = info
@@ -1552,9 +1531,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
 /** An album on an artist's page: the service's (streamed) or one of yours, with your copy of it (album, songs) if you have one. */
 private val ARTIST_ALBUM_SORTS = listOf("order", "created", "created-old", "name", "name-desc")
 
-/** Where each artist's page was scrolled to when something was opened from it (the row, how far into it). */
-private val artistScroll = HashMap<String, Pair<Int, Int>>()
-
 /** (genius: one only Genius lists, added so the discography is whole.) */
 private data class ArtistAlbum(val al: Album, val own: Pair<Album, List<Track>>?, val streamed: Boolean, val genius: Boolean = false) {
     /** Your copy's cover (the one in its files), or null. */
@@ -1619,7 +1595,7 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
             done()
         }
     }
-    LazyColumn(Modifier.fillMaxSize()) {
+    PlaceColumn(Modifier.fillMaxSize()) {
         item { BackRow(shown.title) { ui.pages.removeAt(ui.pages.lastIndex) } }
         item {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
