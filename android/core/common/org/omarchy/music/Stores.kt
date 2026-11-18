@@ -295,7 +295,8 @@ class Playlists(ctx: Ctx) {
 
     @Synchronized
     fun createSmart(name: String, smart: Smart, tracks: List<Track> = emptyList()): Playlist {
-        val pl = Playlist(randomHex(6), name, now(), now(), tracks.map { it.slim() }, smart = smart)
+        // (its rules go across with it: the same smart playlist on the other device, filled from that device's music)
+        val pl = Playlist(randomHex(6), name, now(), now(), tracks.map { it.slim() }, smart = smart, synced = if (Prefs.on(SyncPlaylists.AUTO, true)) true else null)
         items += pl
         save()
         return pl
@@ -314,8 +315,9 @@ class Playlists(ctx: Ctx) {
     }
 
     @Synchronized
-    fun create(name: String, discovery: Discovery? = null, synced: Boolean = false): Playlist {
-        val pl = Playlist(randomHex(6), name, now(), now(), discovery = discovery, synced = if (synced) true else null)
+    /** synced null: as the switch New playlists sync says (on from the start). */
+    fun create(name: String, discovery: Discovery? = null, synced: Boolean? = null): Playlist {
+        val pl = Playlist(randomHex(6), name, now(), now(), discovery = discovery, synced = if (synced ?: Prefs.on(SyncPlaylists.AUTO, true)) true else null)
         items += pl
         save()
         return pl

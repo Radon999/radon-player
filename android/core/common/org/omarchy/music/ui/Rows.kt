@@ -408,7 +408,7 @@ fun TrackMenu(t: Track, place: RowPlace, ui: Ui, open: Boolean, dismiss: () -> U
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, checked: Boolean? = null, badge: String? = null, onClick: () -> Unit) {
+fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, checked: Boolean? = null, badge: String? = null, badgeOn: Boolean = true, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(R.card)
         .pressable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
@@ -419,7 +419,8 @@ fun PlaylistRow(p: Album, art: Any? = null, onLongClick: (() -> Unit)? = null, c
             val sub = listOf(p.sub, if (p.count.isNotEmpty()) "${p.count} songs" else "").filter { it.isNotEmpty() }.joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, style = T.sub, maxLines = 1)
             // A mark under it, as a song's "FLAC 24": an artist's release says whether it's yours or streams
-            if (badge != null) Box(Modifier.padding(top = 3.dp)) { Badge(badge) }
+            // (and a playlist of yours whether it syncs: lit when it does, dim when it is this device's only)
+            if (badge != null) Box(Modifier.padding(top = 3.dp)) { Badge(badge, badgeOn) }
         }
         if (checked == null) Icon(Ico.BACK, C.muted, 16.dp, Modifier.graphicsLayer(rotationZ = 180f))
     }

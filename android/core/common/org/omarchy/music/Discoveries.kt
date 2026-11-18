@@ -71,7 +71,7 @@ object Discoveries {
     fun keep(name: String, songs: List<Track>): Pair<Playlist, Int> {
         val pair = pairs().firstOrNull { norm(it.first) == norm(name) }
         val disc = pair?.second ?: lists.create("$name Discovery playlist", discovery = Discovery(name, "discover"))
-        if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"))
+        if (pair?.third == null) lists.create("$name discovered", discovery = Discovery(name, "discovered"), synced = disc.synced == true)   // (a synced pair stays a pair)
         return disc to lists.add(disc.id, songs)
     }
 

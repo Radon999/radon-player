@@ -11,8 +11,9 @@ object YourPlaylists {
     private fun changed() { Music.musicVersion++ }
 
     // ---- your playlists ----
-    fun create(name: String, synced: Boolean = false): String {
-        val id = lists.create(name, synced = synced).id
+    fun create(name: String, synced0: Boolean? = null): String {
+        val made = lists.create(name, synced = synced0)
+        val id = made.id; val synced = made.synced == true
         toast(if (synced) "Made the synced playlist “$name”: it's on the ${if (Remote.paired) "PC" else "other device"} too after the next sync" else "Made “$name”")
         changed()
         return id
@@ -40,9 +41,22 @@ object YourPlaylists {
 
     /** Settings a playlist to sync with the other device (Sync), or not. */
     fun setSynced(id: String, on: Boolean) {
-        lists.setSynced(id, on); changed()
+        // A discovery playlist and its discovered one go together: one without the other would be half a pair there
+        val artist = lists.get(id)?.discovery?.artist?.trim()
+        val ids = if (artist == null) listOf(id) else lists.all().filter { it.discovery?.artist?.trim().equals(artist, ignoreCase = true) }.map { it.id }
+        ids.forEach { lists.setSynced(it, on) }
+        changed()
         toast(if (on) "Synced: it's the same on your phone and PC after each sync" else "Not synced any more: each device keeps its own copy")
         if (on) Sync.soon()
+    }
+
+    /** Every playlist you have set to sync (Playlists that sync › Switch them all on): the ones made before new
+     *  playlists synced by themselves. */
+    fun syncAll() {
+        val todo = lists.all().filter { it.synced != true }
+        todo.forEach { lists.setSynced(it.id, true) }
+        changed()
+        toast(if (todo.isEmpty()) "All your playlists sync already" else "%,d more playlist%s set to sync: Sync now sends them".format(todo.size, if (todo.size != 1) "s" else ""))
     }
 
     /** A playlist of yours deleted: out of every folder too. */

@@ -477,7 +477,7 @@ object Music {
     }
 
     // Your playlists and their folders (making, filling, deleting them) are YourPlaylists' own: these hand on.
-    fun newPlaylist(name: String, synced: Boolean = false): String = YourPlaylists.create(name, synced)
+    fun newPlaylist(name: String, synced: Boolean? = null): String = YourPlaylists.create(name, synced)
     fun addToPlaylist(id: String, tracks: List<Track>) = YourPlaylists.add(id, tracks)
     fun removeFromPlaylist(id: String, ids: Set<String>) = YourPlaylists.remove(id, ids)
     fun renamePlaylist(id: String, name: String) = YourPlaylists.rename(id, name)

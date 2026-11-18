@@ -10,6 +10,15 @@ object ListenLater {
     fun playlist(): Playlist? =
         Prefs.text(ID).takeIf { it.isNotEmpty() }?.let { Music.lists.get(it) } ?: Music.lists.named(ListenLaterRules.NAME)
 
+    /** Synced with the other device (Settings › Remote & sync › Playlists that sync) or not. The two devices' lists
+     *  then become one with the songs of both ([SyncPlaylists.oneOfEach]). Turned on before anything was put aside, the
+     *  (empty) list is made, so there is something to sync. */
+    fun setSynced(on: Boolean) {
+        val pl = playlist() ?: if (on) Music.lists.create(ListenLaterRules.NAME) else return
+        Prefs.setText(ID, pl.id)
+        Music.setPlaylistSynced(pl.id, on)
+    }
+
     /** Its songs, the last added first. */
     fun tracks(): List<Track> = playlist()?.tracks.orEmpty().asReversed()
 

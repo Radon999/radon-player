@@ -470,7 +470,8 @@ fun MusicTab(ui: Ui) {
                                 "recent" -> "RECENTLY PLAYED · THE LAST ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}"
                                 "favorites" -> "${tracks.size} FAVORITES"
                                 "unfavorited" -> "${tracks.size} SONGS NOT FAVORITED"
-                                "later" -> "LISTEN LATER · ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}"
+                                "later" -> "LISTEN LATER · ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}" +
+                                    (org.omarchy.music.ListenLater.playlist()?.let { " · " + org.omarchy.music.SyncPlaylists.mark(it.synced == true) } ?: "")
                                 "theirs" -> org.omarchy.music.LibraryMatchRules.heading(tracks.size, org.omarchy.music.LibraryMatch.from.ifEmpty { "your other device" }).uppercase()
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
@@ -820,9 +821,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
     if (open != null) { minePlaylist(ui, open); return }
     if (open == null && folder != null) { folderView(ui, folder); return }
     if (open == null) {
+        // A new playlist syncs (⇄: the same on the phone and the PC) unless Settings › Your files › New playlists sync is
+        // off; the second row makes the other kind
         item { ActionRow("＋  New playlist") { ui.askName = Triple("New playlist", "") { n -> Music.newPlaylist(n) } } }
-        // A synced playlist (⇄): the same on the phone and the PC, songs added or taken out on either
-        item { ActionRow("⇄  New synced playlist") { ui.askName = Triple("New synced playlist", "") { n -> Music.newPlaylist(n, synced = true) } } }
+        item {
+            if (org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO, true))
+                ActionRow("＋  New playlist for this device only") { ui.askName = Triple("New playlist for this device only", "") { n -> Music.newPlaylist(n, synced = false) } }
+            else ActionRow("⇄  New synced playlist") { ui.askName = Triple("New synced playlist", "") { n -> Music.newPlaylist(n, synced = true) } }
+        }
         item { ActionRow("＋  New folder") { ui.askName = Triple("New folder", "") { n -> Music.newFolder(n) } } }
         item {
             val busy = Music.importing
@@ -884,8 +890,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            PlaylistRow(Album(pl.id, pl.shown, "", "", songs.size.toString()), cover?.let { artModel(it) },
-                onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null) { tapList(pl) }
+            PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), cover?.let { artModel(it) },
+                onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null,
+                badge = org.omarchy.music.SyncPlaylists.mark(pl.synced == true), badgeOn = pl.synced == true) { tapList(pl) }
         }) { i, mod, compact ->
             val pl = some[i]
             val songs = pl.tracks
@@ -1897,7 +1904,8 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
                 PlaylistRow(Album(pl.id, pl.name, (if (pl === disc) "Songs to hear" else "Heard to the end: open it to review them") +
                     " · ${pl.tracks.size}"), cover?.let { artModel(it) },
                     onLongClick = { if (picking) picked[pl.id] = pl.tracks else ui.startPick("discovery", pl.id, pl.tracks) },
-                    checked = if (picking) pl.id in picked else null) {
+                    checked = if (picking) pl.id in picked else null,
+                    badge = org.omarchy.music.SyncPlaylists.mark(pl.synced == true), badgeOn = pl.synced == true) {
                     if (picking) { if (pl.id in picked) picked.remove(pl.id) else picked[pl.id] = pl.tracks } else ui.openMine = pl.id
                 }
             }

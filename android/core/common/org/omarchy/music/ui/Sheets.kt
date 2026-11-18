@@ -216,6 +216,7 @@ private fun AccountsSheet(ui: Ui) {
                 Pill("Forget", quiet = true) { Remote.forget() }
             }
             SyncLines(ui)
+            SyncedPlaylistsLines()
             SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
             }
@@ -735,6 +736,14 @@ private fun ProtectLines() {
 /** Settings › Your music: the tools that fix your songs' files (on the phone, the app's own downloads). */
 @Composable
 private fun ToolLines(ui: Ui) {
+    // New playlists sync: on from the start (most people want every playlist on both devices)
+    val auto = org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO, true)
+    Line("New playlists sync", "On: every playlist you make from now on is set to sync with your phone or PC (⇄ SYNCED): normal and smart playlists " +
+        "(a smart playlist's rules go across with it), discovery playlists and Listen later. Off: a new playlist stays on this $DEVICE until you " +
+        "switch it on. Either way each playlist has its own switch in Remote & sync › Playlists that sync, and every list of playlists " +
+        "marks which sync and which are this device's only. Playlists you have already aren't changed by this switch", auto) {
+        Switch(auto, { org.omarchy.music.Prefs.set(org.omarchy.music.SyncPlaylists.AUTO, it); Music.musicVersion++ }, colors = swColors())
+    }
     // The file scans are the PC's only (they didn't work well on the phone); Songs without covers is on both.
     if (!onPhone) Line("Fix albums and artists", "Finds albums split up by featured artists (“Quinn XCII & Jeremy Zucker”), albums sitting " +
         "beside their own deluxe, extended or anniversary edition, and singles of songs that are on an album you have. They're " +
@@ -989,7 +998,7 @@ private fun SyncLines(ui: Ui) {
         "the listening diary (time listened, playlists, outputs, searches), each counted once however often you sync. Imports " +
         "and Last.fm aren't sent: import them on each device. Songs downloaded on one are downloaded on the other (each once), " +
         "and tag changes you make on one are made to the same songs on the other. " +
-        "Synced playlists (⇄) are kept exactly the same on both; other playlists stay on their device. It also swaps playlist folders, favorites, pins, moods, " +
+        "Synced playlists (⇄, chosen in Playlists that sync below) are kept exactly the same on both; other playlists stay on their device. It also swaps playlist folders, favorites, pins, moods, " +
         "Sound presets, headphone corrections and each Bluetooth, USB or car output's EQ, the lists of things you said never to " +
         "show again, sorts and tabs, the DJ's and your other settings with the $other's, both ways, keeping the newest change " +
         "of each. Your music folders, download folder, queue and the settings only this $DEVICE has stay as they are",
@@ -2033,7 +2042,7 @@ private fun PlaylistPicker(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                 val lists = Music.lists.all()
                 items(lists.size) { i ->
                     val pl = lists[i]
-                    Text("${pl.name}  ·  ${pl.tracks.size}", style = T.body, modifier = Modifier.fillMaxWidth().clickable {
+                    Text("${pl.shown}  ·  ${pl.tracks.size}", style = T.body, modifier = Modifier.fillMaxWidth().clickable {
                         ui.pickPlaylistFor = null; Music.addToPlaylist(pl.id, tracks)
                     }.padding(vertical = 10.dp))
                 }
@@ -2653,6 +2662,50 @@ private fun OtherDeviceSongsLine(ui: Ui) {
         }
     }
 }
+
+/** Settings › Remote & sync › Playlists that sync: every playlist with a switch. The ones switched on are kept the same
+ *  on the phone and the PC by Sync; the rest stay each device's own. Listen later and the discovery playlists are here
+ *  too (a discovery playlist with its discovered one, as the pair they are). */
+@Composable
+private fun SyncedPlaylistsLines() {
+    val v = Music.musicVersion
+    var open by remember { mutableStateOf(false) }
+    val later = remember(v) { org.omarchy.music.ListenLater.playlist() }
+    val plain = remember(v) { Music.lists.all().filter { it.discovery == null && it.id != later?.id }.sortedBy { it.name.lowercase() } }
+    val pairs = remember(v) { Music.discoveryLists() }
+    val n = plain.count { it.synced == true } + (if (later?.synced == true) 1 else 0) + pairs.count { it.second?.synced == true || it.third?.synced == true }
+    Line("Playlists that sync", "Switch on the playlists to keep the same on your phone and PC; the rest stay on the $DEVICE they are on. " +
+        "Nothing is sent when you flip a switch: tap Sync now (above) and they go across, both ways. " +
+        "Listen later becomes one list on both, with the songs of both. A discovery playlist syncs with its discovered list, and " +
+        "takes the place of the other device's own discovery playlist for that artist. A smart playlist's rules go across, and each " +
+        "$DEVICE fills it from its own music. New playlists start switched on (Your files › New playlists sync). Both devices need this version",
+        ok = n > 0, note = org.omarchy.music.SyncPlaylists.said(n)) {
+        Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }
+    }
+    if (!open) return
+    fun songs(k: Int) = "%,d song%s".format(k, if (k != 1) "s" else "")
+    Row(Modifier.padding(start = 8.dp, bottom = 4.dp)) { Pill("Switch them all on", quiet = true) { org.omarchy.music.YourPlaylists.syncAll() } }
+    SyncedRow("Listen later", if (later == null) "nothing on it yet" else songs(later.tracks.size), later?.synced == true) { org.omarchy.music.ListenLater.setSynced(it) }
+    plain.forEach { p ->
+        SyncedRow(p.name, if (p.smart != null) "smart playlist" else songs(p.tracks.size), p.synced == true) { Music.setPlaylistSynced(p.id, it) }
+    }
+    pairs.forEach { (artist, disc, done) ->
+        val id = (disc ?: done)?.id
+        if (id != null) SyncedRow("$artist: discovery", songs(disc?.tracks?.size ?: 0) + " to hear, " + songs(done?.tracks?.size ?: 0) + " discovered",
+            disc?.synced == true || done?.synced == true) { Music.setPlaylistSynced(id, it) }
+    }
+    if (plain.isEmpty() && pairs.isEmpty()) Text("You have no other playlists yet", style = T.sub, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+}
+
+@Composable
+private fun SyncedRow(name: String, sub: String, on: Boolean, set: (Boolean) -> Unit) =
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 10.dp)) {
+            Text(name, style = T.body, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if (sub.isNotEmpty()) Text(sub, style = T.sub)
+        }
+        Switch(on, set, colors = swColors())
+    }
 
 /** Settings › Personalization, at the top: Personalization Preset Shuffle, a different favourite preset every 5, 10, 15 or 30 minutes. */
 @Composable
