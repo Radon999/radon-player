@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Radon Player: a free, open source music player for Android, Windows and Linux, with looks, visualizers, lyrics, stats and a DJ.">
+<meta name="color-scheme" content="dark">
+<style>html, body { margin: 0; }</style>
+<title>Radon Player</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  /* Layout: a short opener, then Personalization as a wall of the app's own screens, then every other feature as a plain grid of short lists. */
+  /* One look, always dark (the owner's choice): every colour is set here, whatever the visitor's own theme. */
+  :root {
+    --bg: #0f141b; --surface: #171d27; --fg: #e8edf4; --muted: #97a2b4; --line: #262e3b;
+    --accent: #5fd0c4; --accent-fg: #06211f; --chip: #1d2733;
+    --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color-scheme: dark;
+  }
+
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+  .wrap { max-width: 1120px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.12; }
+  p { margin: 0; }
+  a { color: var(--accent); }
+  a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+  .top { padding-block: 44px 28px; display: flex; flex-direction: column; gap: 18px; }
+  .badge { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; color: var(--muted); background: var(--chip); border-radius: 6px; padding: 4px 8px; align-self: flex-start; }
+  h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); font-weight: 700; letter-spacing: -0.02em; }
+  .lead { font-size: 1.125rem; color: var(--muted); max-width: 62ch; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { display: inline-block; background: var(--accent); color: var(--accent-fg); font-weight: 600; text-decoration: none; padding: 12px 20px; border-radius: 10px; }
+  .btn.quiet { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .platforms { font-size: .9rem; color: var(--muted); }
+
+  section { padding-block: 28px; }
+  h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); max-width: 65ch; margin-top: 8px; }
+
+  .counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 20px; }
+  .count { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .count b { display: block; font-family: var(--display); font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .count span { color: var(--muted); font-size: .9rem; }
+
+  .wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-top: 20px; }
+  .film { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin-top: 26px; }
+  .film video { display: block; width: 260px; max-width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); background: var(--chip); }
+  .film p { flex: 1 1 260px; margin: 0; color: var(--muted); }
+  .film p b { color: var(--fg); }
+  figure { margin: 0; min-width: 0; }
+  figure img { display: block; width: 100%; aspect-ratio: 8 / 5; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); background: var(--chip); }
+  figcaption { font-size: .9rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--fg); font-weight: 600; }
+
+  .points { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px 28px; margin-top: 22px; padding: 0; list-style: none; }
+  .points li { min-width: 0; }
+  .points b { font-weight: 600; }
+  h3.own { font-size: 1.35rem; font-weight: 700; margin-top: 34px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; margin-top: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
+  .card h3 { font-size: 1.15rem; font-weight: 700; }
+  .card ul { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 7px; }
+  .card li { color: var(--muted); }
+  .card li b { color: var(--fg); font-weight: 600; }
+
+  .get { margin-block: 20px 48px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px 22px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+  .small { font-size: .9rem; color: var(--muted); }
+  /* a box with screenshots takes the full row: words on the left, the phone's screens beside them */
+  .card.has-shot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+  .card.has-shot .txt { flex: 1 1 320px; min-width: 0; }
+  .card.has-shot .shots { display: flex; flex-wrap: wrap; gap: 12px; }
+  .card.has-shot .shots img, .extras img { display: block; width: 210px; max-width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); }
+  .extras { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; }
+  .extras figure { width: 210px; max-width: 100%; }
+  .extras img { aspect-ratio: auto; }
+  .promise { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 6px; display: flex; flex-direction: column; gap: 10px; max-width: 65ch; }
+  .promise h3 { font-size: 1.2rem; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <span class="badge">ANDROID · WINDOWS · LINUX</span>
+    <h1>Radon Player</h1>
+    <p class="lead">A music player for your own files and your streaming, with a DJ that knows your listening, your stats any day of the year, and a look you can change down to the last detail.</p>
+    <div class="actions">
+      <a class="btn" href="https://github.com/Radon999/radon-player/releases/latest">Download from GitHub</a>
+      <a class="btn quiet" href="https://github.com/Radon999/radon-player">See the project</a>
+    </div>
+    <p class="platforms">Free and open source, always. The same features and the same look on the phone and the computer.</p>
+  </header>
+
+  <section aria-labelledby="looks">
+    <h2 id="looks">Make it look like yours</h2>
+    <p class="sub">Pick a ready-made preset and the whole app changes at once: colours, shapes, layout, effects and visualizers. Or change each one yourself. Every picture below is the same Now playing screen with a different preset on.</p>
+
+    <div class="wall">
+      <figure><img src="shots/p0.jpg" alt="Now playing with the Cathedral preset: stained-glass colours and a round visualizer" loading="lazy"><figcaption><b>Cathedral</b></figcaption></figure>
+      <figure><img src="shots/p2.jpg" alt="Now playing with the Drawing office preset: a blueprint look" loading="lazy"><figcaption><b>Drawing office</b></figcaption></figure>
+      <figure><img src="shots/p3.jpg" alt="Now playing with the Tile floor preset: a light pastel look" loading="lazy"><figcaption><b>Tile floor</b></figcaption></figure>
+      <figure><img src="shots/p5.jpg" alt="Now playing with the Design school preset: bold shapes on cream" loading="lazy"><figcaption><b>Design school</b></figcaption></figure>
+      <figure><img src="shots/p6.jpg" alt="Now playing with the Jade garden preset: deep green" loading="lazy"><figcaption><b>Jade garden</b></figcaption></figure>
+      <figure><img src="shots/p8.jpg" alt="Now playing with the Honey jar preset: warm amber" loading="lazy"><figcaption><b>Honey jar</b></figcaption></figure>
+      <figure><img src="shots/p11.jpg" alt="Now playing with the Opening night preset: a red stage curtain" loading="lazy"><figcaption><b>Opening night</b></figcaption></figure>
+      <figure><img src="shots/p12.jpg" alt="Now playing with the Ice cave preset: icicles in blue" loading="lazy"><figcaption><b>Ice cave</b></figcaption></figure>
+      <figure><img src="shots/p14.jpg" alt="Now playing with the Fruit stand preset: bright citrus on yellow" loading="lazy"><figcaption><b>Fruit stand</b></figcaption></figure>
+      <figure><img src="shots/p15.jpg" alt="Now playing with the Fairground preset: bunting over purple" loading="lazy"><figcaption><b>Fairground</b></figcaption></figure>
+      <figure><img src="shots/p23.jpg" alt="Now playing with the Lantern night preset: floating lanterns" loading="lazy"><figcaption><b>Lantern night</b></figcaption></figure>
+      <figure><img src="shots/p29.jpg" alt="Now playing with the Windy day preset: kites on pale blue" loading="lazy"><figcaption><b>Windy day</b></figcaption></figure>
+    </div>
+
+    <div class="film"><video src="shots/vis-blocks.mp4" autoplay loop muted playsinline preload="auto" aria-label="Now playing on the phone with the Blocks visualizer along the bottom, its columns rising and falling with the song"></video><p><b>It moves with the music.</b> This is Now playing with the <b>Blocks</b> visualizer along the bottom, one of the visualizers you can put behind the cover, in the middle, or both. Any of them can be switched off, and a preset can be told to leave your visualizers alone.</p></div>
+
+    <div class="counts" aria-label="What there is to choose from">
+      <div class="count"><b>60</b><span>presets</span></div>
+      <div class="count"><b>90+</b><span>looks (colours)</span></div>
+      <div class="count"><b>45</b><span>themes (shapes)</span></div>
+      <div class="count"><b>45</b><span>layouts</span></div>
+      <div class="count"><b>91</b><span>effects</span></div>
+      <div class="count"><b>90</b><span>visualizers</span></div>
+    </div>
+
+    <ul class="points">
+      <li><b>Follows the cover.</b> A preset that changes with every song: the cover's colours, and effects and visualizers to match.</li>
+      <li><b>Mix and match.</b> Any look goes with any theme, layout, effect and visualizer.</li>
+      <li><b>See it before you pick it.</b> Every choice shows live screens to swipe through.</li>
+      <li><b>Edit the ready-made ones.</b> Take an effect or a visualizer off a preset and keep the rest.</li>
+      <li><b>Hide what you don't use.</b> Shorten any menu; nothing is ever deleted.</li>
+      <li><b>Share it.</b> Copy a code for anything you made or picked, and someone else pastes it in.</li>
+      <li><b>Change by itself, if you like.</b> A different favourite preset every few minutes, or one for each part of the day. Both are off until you turn them on.</li>
+      <li><b>Keep your visualizers.</b> Two switches make presets leave your own visualizers alone, so a preset brings only its looks.</li>
+    </ul>
+
+    <h3 class="own">Or build your own</h3>
+    <p class="sub">Nothing ready-made has to be the last word. Each of these has its own maker in the app, and what you make sits in the same menus as the ready-made ones.</p>
+    <ul class="points">
+      <li><b>Your own look.</b> Pick the colours, a fade, a glow, stars and effects.</li>
+      <li><b>Your own layout.</b> Choose the bar's buttons, the mini player's style and how Now playing is arranged.</li>
+      <li><b>Your own visualizer.</b> Its shape, mirror, spin, glow and colours, or two at once: one round the cover and one along the bottom.</li>
+      <li><b>Your own colour blends</b> for any visualizer.</li>
+      <li><b>Your own Wrapped style</b> and <b>your own lyrics card.</b></li>
+      <li><b>Your own presets.</b> Set everything the way you like it, then save the whole setup under a name.</li>
+      <li><b>Yours on both devices.</b> What you make goes into backups and across to your other device.</li>
+      <li><b>Yours to give away.</b> Any of them can be copied as a code for someone else to paste in.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="rest">
+    <h2 id="rest">Everything else it does</h2>
+    <p class="sub">The short version. Each of these is in the app today, on Android, Windows and Linux unless it says otherwise. Almost all of it is a choice: where something can be switched off or changed, it says so.</p>
+
+    <div class="grid">
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Playing music</h3>
+        <ul>
+          <li><b>Now playing by touch:</b> swipe the cover for the next or previous song, swipe up for the queue, tap it for lyrics, double-tap to pause.</li>
+          <li><b>Quality badge:</b> says exactly what you're hearing, such as "FLAC 24-bit/96 kHz" or a stream's quality.</li>
+          <li><b>Your own copy first.</b> Wherever a song turns up, if you have the file, that is what plays, with its cover and tags.</li>
+          <li><b>Shuffle your way.</b> Smart shuffle favours songs you love but haven't heard in a while. Switch it off and shuffle is pure chance.</li>
+          <li><b>Repeat</b> a song or the whole list. <b>Autoplay</b> keeps similar songs coming when the queue ends; off, the music stops there.</li>
+          <li><b>Per song, if you want it:</b> its own volume, EQ and speed, remembered.</li>
+          <li><b>It remembers</b> the queue, your place in the song and every setting when you come back.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-options.jpg" alt="A song's options: play, shuffle play, song radio, play next, add to the queue, a playlist, Listen later or favorites" loading="lazy">
+          <img src="shots/s-playback.jpg" alt="Playback settings: Fetch the next song ahead, Wake-up timer, New releases by themselves, Swipe a song, Smart shuffle and Move, don't duplicate, each with its switch" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>The queue</h3>
+        <ul>
+          <li><b>Yours first.</b> What you add comes first, then the rest of what you started. Drag to reorder.</li>
+          <li><b>More than one queue.</b> Switch Queues on and every album, playlist and folder keeps its own queue, right where you left it. Tap Q on Now playing to see them all and jump between them at any time. Off, there is one queue, as usual.</li>
+          <li><b>Undo.</b> Take back a clear, a shuffle, a move, a removal or an addition, up to ten steps, without interrupting the song.</li>
+          <li><b>Add a song twice, or not.</b> Play next and Add to queue put it in again if it's already waiting; one switch makes them move it instead.</li>
+          <li><b>From the phone too.</b> As the computer's remote, the phone reorders, clears and undoes the computer's queue.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-queue.jpg" alt="The queue on Now playing: shuffle, repeat and autoplay buttons over the songs coming up, with a visualizer behind" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Your library</h3>
+        <ul>
+          <li><b>My music, Albums, EPs, Singles, Artists, Genres, Folders,</b> each as a list, a grid or a compact grid, with its own search and sort, remembered.</li>
+          <li><b>Artist pages:</b> their albums and singles, your songs, every song of theirs, and songs they feature on. Show everything, only your music or only streaming. Sort, pin or hide releases, change the picture, and merge an artist written two ways.</li>
+          <li><b>Playlists:</b> make, sort, fold into folders, give a cover, import and export. <b>Smart playlists</b> fill themselves by rules (genre, mood, plays, format, skips, length), with ready-made ones.</li>
+          <li><b>More lists:</b> Favorites, Recently played, 24-bit and 32-bit FLACs, Skips, Duplicates, Unreleased, and whatever you pin.</li>
+          <li><b>Pick several</b> songs, albums, playlists or folders, then play, queue, tag or delete them together.</li>
+          <li><b>Search</b> ignores symbols ("acdc" finds AC/DC) and takes voice.</li>
+          <li><b>Jump to a letter</b> down the side of any long A to Z list.</li>
+          <li><b>A menu that fits you.</b> Take screens you never use out of it.</li>
+          <li><b>Covers looked after:</b> found for songs without one, or taken from the folder's picture.</li>
+          <li><b>Moved files are followed,</b> and nothing is deleted without asking.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-menu.jpg" alt="The menu: the service to browse, then Pinned, Now playing, Search, queues, My music, Albums, EPs, Singles, Artists, Genres, Moods and Playlists" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>Streaming</h3>
+        <ul>
+          <li><b>Connect your own Tidal subscription</b> for lossless streaming. Its favorites, playlists and radios work as a library here.</li>
+          <li><b>You pick the quality:</b> FLAC 24-bit, FLAC 16-bit or 320 kbps, and clean or explicit versions where Tidal has both.</li>
+          <li><b>Tidal first.</b> A song only falls back to YouTube's audio when Tidal doesn't have it, and Tidal is tried again next time.</li>
+          <li><b>Bring your library over</b> from Spotify, Apple Music, Deezer or YouTube Music; their songs then play from Tidal or YouTube.</li>
+          <li><b>SoundCloud</b> with your own sign-in: search, likes, playlists, artists and radio.</li>
+          <li><b>Search any of them,</b> or paste a link from another app. Genius finds artists and releases no service lists.</li>
+          <li><b>No waiting between songs.</b> The next streamed song is fetched while this one plays. One switch turns that off if you're watching your data.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>The DJ</h3>
+        <ul>
+          <li><b>Short sets from your own listening,</b> each of one kind, with a line to introduce it.</li>
+          <li><b>Over twenty kinds:</b> on repeat, this time of day, most played, throwbacks, loved and forgotten, ten mood sets, a genre, deep cuts, an artist spotlight, an album moment, on this day years ago, a decade trip, one-hit wonders, second chances, streaks, and four built from the songs you repeat.</li>
+          <li><b>From everything, or from what you pick:</b> a playlist, a folder or an album. New songs like yours can be included or left out.</li>
+          <li><b>It takes turns.</b> Every kind gets its turn before one comes back, no song returns until 300 others have played, and no artist plays twice in a row.</li>
+          <li><b>A voice like a radio host's,</b> over the start of the song with the music turned down, never paused. The same natural voice on phone and computer, the phone's own voice if you prefer, or no voice at all.</li>
+          <li><b>It tells you things:</b> a song's 100th play, when you first heard it, your top artists, the hours you listen, how many times you've had a song on repeat.</li>
+          <li><b>Instant.</b> The first set is ready before you tap DJ. Switch it up jumps to another kind, from your headphones too.</li>
+          <li><b>Ask for something:</b> an artist, a genre, a decade, a mood, "workout".</li>
+        </ul>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Stats, Wrapped and Repeats</h3>
+        <ul>
+          <li><b>Wrapped any time:</b> a week, a month, a year or all time. Top 15 songs, artists, albums, singles, EPs, genres and moods, minutes, streaks, discoveries, your listener type and a summary card.</li>
+          <li><b>Every slide saves or shares</b> as a picture, in the style you pick or one you made.</li>
+          <li><b>Most played</b> songs, albums, artists and moods, by plays or by time, for any period, with charts of when you listen. Plus On repeat, Milestones, Skips and On this day.</li>
+          <li><b>Repeats:</b> every time a song starts over on Repeat one is counted, with its longest run, for all time, a year, 30 days or 7. Wrapped shows your biggest obsession, your repeat day and more.</li>
+          <li><b>Tidy stats:</b> merge an artist or a song counted under two names, and keep look-alike artists apart.</li>
+          <li><b>Collages</b> of your top covers, from 5×5 to 25×25, and share cards of your top 15.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-mostplayed.jpg" alt="Most played: milestones, On this day, and the top songs with their plays" loading="lazy">
+          <img src="shots/s-repeats.jpg" alt="The Repeats tab: songs ranked by how often they were repeated, each with its longest run" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Bring your history with you</h3>
+        <ul>
+          <li><b>Your plays from other apps:</b> Spotify, Apple Music, Deezer, YouTube Music and Tidal, from the data file each service gives you. The app shows where to get it.</li>
+          <li><b>Last.fm:</b> connect it and every scrobble you ever made counts, and what you play here is scrobbled too.</li>
+          <li><b>What the plays feed:</b> Most played, Artists, Wrapped, the DJ and smart shuffle, going back as far as your history does.</li>
+          <li><b>Your libraries and playlists too:</b> sign in to Spotify, Apple Music, Deezer or YouTube Music and import all of them as playlists here.</li>
+          <li><b>Repeats come along:</b> the app works out which songs you played again and again from that history. From Apple Music it can only do this from the Play Activity file, because Apple's other files have no exact times.</li>
+          <li><b>Never counted twice.</b> A song is one song across every source. If you used Last.fm with an app, connect Last.fm and skip that app's file; the app warns you, and Reset plays undoes a mistaken import.</li>
+          <li><b>Import again any time:</b> only plays you didn't have yet are added.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-imports.jpg" alt="The imports in Settings: the note about repeats, Spotify history and Apple Music history with their Import buttons" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Lyrics, cards and clips</h3>
+        <ul>
+          <li><b>Synced lyrics</b> light up line by line; tap a line to jump there. Or switch to the words as written, with annotations.</li>
+          <li><b>Lyrics cards:</b> tick up to 25 lines, pick one of 60 styles or your own, and share or save the picture.</li>
+          <li><b>Lyrics with sound:</b> the card as a short video with the song playing, timed to the lines you ticked, or to wherever you set it yourself. Untick it for a plain picture.</li>
+          <li><b>Clips with sound:</b> a short video of the song's cover and a seek bar that fills, with the song playing. You set where it starts and ends, from 3 seconds to a minute. Works for streamed songs too.</li>
+          <li><b>Picture cards:</b> share a song as a card with a line of your own.</li>
+          <li><b>Your play count</b> shows on cards and clips, unless you switch that off.</li>
+          <li><b>Lyrics scanner</b> finds lyrics for every song and writes them into the files. What it can't find you can type in, or mark instrumental.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-lyricsvis.jpg" alt="The lyrics screen on Now playing: the song's words over the look, with visualizers moving behind them" loading="lazy">
+          <img src="shots/s-lyricscard.jpg" alt="The lyrics card box: the card, With the song's sound ticked, Starts and Ends sliders, and the lines to tick" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Moods</h3>
+        <ul>
+          <li><b>Every song gets its moods,</b> up to four from twelve: Happy, Energetic, Party, Hype, Chill, Calm, Dreamy, Focus, Romantic, Sad, Dark and Intense.</li>
+          <li><b>It listens and reads:</b> the song's energy, tempo and key, and what its words mean.</li>
+          <li><b>Only when you ask.</b> A scan runs when you tap it, shows the time left and can be stopped. One switch freezes every mood as it is.</li>
+          <li><b>Optional AI reading</b> of the lyrics with your own key. Without one it works on its own.</li>
+          <li><b>Fix one</b> and songs that sound like it learn from your fix.</li>
+          <li><b>Used everywhere:</b> mood lists, smart playlists, the DJ, Most played and Wrapped.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-moods.jpg" alt="The Moods tab: scan status and the mood lists Happy, Energetic, Party and Hype with their song counts" loading="lazy">
+          <img src="shots/s-moodset.jpg" alt="Mood settings: Moods from lyrics, Reset mood and lyrics scans, and the optional AI reading of lyrics" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Sound</h3>
+        <ul>
+          <li><b>An equalizer for each output:</b> speaker, wired headphones, each Bluetooth device, a USB DAC, the car. It switches by itself. 3 to 31 bands, ready-made presets or your own.</li>
+          <li><b>Auto EQ</b> headphone correction by name.</li>
+          <li><b>Boost, Crossfeed and Crossfade.</b> Crossfade is off until you turn it on, as long as you set it, and never inside an album that flows.</li>
+          <li><b>Bit-perfect</b> to a USB DAC or the computer's sound card, as a switch. On, each song arrives untouched at its own sample rate and bit depth; off, the EQ and the rest are back. Bass and Treble can stay on with it.</li>
+          <li><b>Sound polish you control:</b> clip guard, smoothing of harsh masters, dither and resampling, each with its own switch, and loudness compensation if you want it.</li>
+          <li><b>A FiiO KA17's own EQ</b> switched from the app, on phone and Windows.</li>
+          <li><b>Bluetooth rules, all optional:</b> ignore a device, let the newest one win, or let the car always win.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-eq.jpg" alt="The equalizer for one pair of earbuds: Boost, Dual volume, sound presets and the band sliders" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>Visualizers</h3>
+        <ul>
+          <li><b>90 styles:</b> ones along the bottom (bars, blocks, waves, city lights, flames) and ones round the cover (rings, starfield, galaxy, tunnel, mandala).</li>
+          <li><b>On Now playing:</b> slim bars, any style, two at once (one round the cover and one along the bottom), full screen behind everything, or none.</li>
+          <li><b>Over eighty colours and blends,</b> or the look's own colour, or the cover's.</li>
+          <li><b>How strongly it shows</b> is yours to set.</li>
+          <li><b>It only hears the app's own sound.</b> Nothing is recorded.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Phone and computer together</h3>
+        <ul>
+          <li><b>Sync when you tap it:</b> plays, skips, favorites, EQs, tag changes and synced playlists come together, nothing counted twice, with Undo.</li>
+          <li><b>Playlists that sync:</b> a switch for each playlist, smart playlists and Listen later included. Two with the same name become one. Each is marked synced, changes waiting, or this device only.</li>
+          <li><b>By themselves, if you like:</b> one switch has synced playlists and favorites sync whenever both apps are open.</li>
+          <li><b>Send a playlist or a few songs</b> to the other device once, without syncing it.</li>
+          <li><b>Phone remote:</b> play, queue, skip and set the volume on the computer from the phone.</li>
+          <li><b>Tags match and Moods match:</b> pick a main device for each, and the other device's songs follow it.</li>
+          <li><b>Continue where you left off</b> on the other device.</li>
+          <li><b>Back up and restore</b> everything in one file.</li>
+        </ul>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Tags and tidying</h3>
+        <ul>
+          <li><b>Tagger:</b> a song's tags, cover, lyrics and mood, and which tab a release goes in. Find tags online shows every change before it's made. Change the artist or album and the file moves to match.</li>
+          <li><b>Scanner tools:</b> fix genre names, find duplicates, songs without covers, identify a song by its sound, similar artists.</li>
+          <li><b>Storage check:</b> how much room your music takes, and any damaged files.</li>
+          <li><b>On the computer:</b> fix albums and artists, clear empty folders, and name folders to leave alone.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-covers.jpg" alt="Scanner tools for covers: Songs without covers, Save covers into folders and Covers from folders" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Finding and keeping up</h3>
+        <ul>
+          <li><b>New releases</b> from the artists you already have: last week, month or year. It can check by itself once a day and tell you, if you switch that on.</li>
+          <li><b>Discovery playlists</b> of artists that are new to you.</li>
+          <li><b>Listen later:</b> put a song, album or EP aside to hear another time.</li>
+          <li><b>Concert dates</b> on an artist's page, with a free Ticketmaster key of your own. Add your city to see only shows near you.</li>
+          <li><b>Song radio</b> from any song.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-discovery.jpg" alt="The Discovery screen: discovery playlists by artist, each marked synced" loading="lazy">
+          <img src="shots/s-newreleases.jpg" alt="New releases: choosing the last week, month or year" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>Small things that add up</h3>
+        <ul>
+          <li><b>Favorite settings:</b> star the settings you use all the time and they sit together at the top.</li>
+          <li><b>Wake-up timer:</b> start a playlist at the time you set, while the app is open.</li>
+          <li><b>Automatic backups,</b> daily or weekly if you switch them on, keeping the newest five.</li>
+          <li><b>Updates built in:</b> the app says when there is a new version and installs it.</li>
+          <li><b>What's new:</b> after an update, a card says what it brought.</li>
+          <li><b>Details for support:</b> one button copies everything someone helping you would ask for. No sign-ins or song names are in it.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-favs.jpg" alt="Settings with Favorite settings as the first section and a star beside each setting's name" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card has-shot">
+        <div class="txt">
+        <h3>On the phone</h3>
+        <ul>
+          <li><b>Android Auto</b> with covers, Favorite and Shuffle, and the car's own EQ.</li>
+          <li><b>Lock screen player, notification and home screen widget</b> in the song's colours.</li>
+          <li><b>Picture-in-picture</b> mini player.</li>
+          <li><b>Swipe a song</b> to queue or favorite it; you choose what each side does.</li>
+          <li><b>Auto mono</b> for the earbuds you choose, and only those. Mono by hand any time.</li>
+          <li><b>Casting</b> to a Chromecast, a speaker or a TV.</li>
+        </ul>
+        </div>
+        <div class="shots">
+          <img src="shots/s-phone.jpg" alt="Phone settings: Lock screen player and Smoothest screen (120 Hz)" loading="lazy">
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>On the computer</h3>
+        <ul>
+          <li><b>Mini player</b> that stays on top: Now playing made small, with your look, effects, visualizer and queue.</li>
+          <li><b>Media keys</b> on the keyboard or a headset, and the system's own controls.</li>
+          <li><b>System tray,</b> and starting with Windows or Linux if you want it to.</li>
+          <li><b>Discord</b> shows what you're playing, if you switch it on.</li>
+          <li><b>Keyboard shortcuts</b> and right-click menus everywhere.</li>
+        </ul>
+      </article>
+    </div>
+
+    <h3 class="own">Extra screenshots</h3>
+    <div class="extras">
+      <figure><img src="shots/s-options2.jpg" alt="More of a song's options: Tagger, Volume, Custom EQ, Speed, go to its album, Discovery playlist, Identify by sound, share as a picture card or a clip with sound, send to the PC" loading="lazy"><figcaption><b>More of a song's options</b></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="get" aria-labelledby="get">
+    <h2 id="get">Get Radon Player</h2>
+    <p class="sub" style="margin-top:0">Downloads for Android (.apk), Windows (.msi) and Linux (.deb) are on GitHub, along with the full feature list and the changelog.</p>
+    <div class="actions">
+      <a class="btn" href="https://github.com/Radon999/radon-player/releases/latest">Download the latest version</a>
+      <a class="btn quiet" href="https://github.com/Radon999/radon-player">github.com/Radon999/radon-player</a>
+    </div>
+    <p class="small">Each update installs over the version you have and keeps your settings and stats.</p>
+    <div class="promise">
+      <h3>Free, and it stays free</h3>
+      <p>Radon Player is free and open source, and it always will be. There is no company behind it and no plan to make money from it.</p>
+      <p>I was going to build this for myself and keep improving it anyway. So why not share it? I want people to be able to listen conveniently, wherever they are, with the things other players are missing. I'll keep making it the best it can be, and nobody will ever be charged for it.</p>
+      <p class="small">The code is on GitHub under the MIT licence.</p>
+    </div>
+  </section>
+</div>
+</body>
+</html>
