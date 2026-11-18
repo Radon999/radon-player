@@ -11,13 +11,4 @@ object MoodPlays {
     /** Plays of each mood from fromEpoch (inclusive) to toEpoch (exclusive), in seconds. */
     fun counts(fromEpoch: Long, toEpoch: Long): Map<String, Int> = MoodTally.counts(all(), fromEpoch, toEpoch)
 
-    /** Plays of each mood in the last days days. */
-    fun lastDays(days: Int): Map<String, Int> { val t = now().toLong(); return counts(t - days * 86_400L, t + 1) }
-
-    /** Your songs in mood, most played first (from fromEpoch to toEpoch), each with its plays. */
-    fun topSongs(mood: String, fromEpoch: Long = Long.MIN_VALUE, toEpoch: Long = Long.MAX_VALUE, n: Int = 50): List<Pair<Track, Int>> {
-        val c = HashMap<String, Int>()
-        for (p in all()) if (p.mood == mood && p.t >= fromEpoch && p.t < toEpoch) c.merge(p.song, 1, Int::plus)
-        return c.entries.sortedByDescending { it.value }.take(n).mapNotNull { (k, v) -> TasteService.moodSong(k)?.let { it to v } }
-    }
 }

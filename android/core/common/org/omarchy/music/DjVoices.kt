@@ -20,9 +20,6 @@ object DjVoices {
     val elevenOn: Boolean get() = false   // Kokoro only (the user's choice); the ElevenLabs code stays, unused
     val elevenVoice: String get() = Prefs.text(ELEVEN_VOICE).takeIf { v -> ELEVEN_VOICES.any { it.first == v } } ?: ELEVEN_VOICES[0].first
 
-    fun setElevenKey(key: String) = Prefs.setText(ELEVEN_KEY, key.trim())
-    fun setElevenVoice(id: String) = Prefs.setText(ELEVEN_VOICE, id)
-
     /** (blocking) text said by ElevenLabs, as audio in format ("mp3_44100_128", or "pcm_24000": 16-bit mono samples).
      *  Throws when it can't (no key, offline, out of credits); the error never holds the key. */
     fun eleven(text: String, format: String): ByteArray {

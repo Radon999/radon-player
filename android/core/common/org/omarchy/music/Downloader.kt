@@ -186,13 +186,6 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     /** Clean or explicit (Settings › Your music): true when downloads should be the explicit version. */
     fun explicitWanted() = Prefs.text(Prefs.DL_VERSION, "explicit") != "clean"
 
-    /** (blocking) Save Tidal's track c (a version Clean and explicit versions picked), as song t; returns its address. */
-    fun downloadTidal(t: Track, c: JsonElement): String {
-        if (!tidal.connected) error("connect Tidal in Settings first")
-        synchronized(active) { if (!active.add(t.id)) error("already downloading") }
-        try { return fromTidal(t, null, c) } finally { synchronized(active) { active.remove(t.id) } }
-    }
-
     private fun fromTidal(t: Track, root: String?, exact: JsonElement? = null): String {
         val q = quality
         val aac = q == "mp3" && !CAN_MP3   // the phone: Tidal's own 320 kbps (AAC) in place of MP3

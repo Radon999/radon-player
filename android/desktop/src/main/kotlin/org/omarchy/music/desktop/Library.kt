@@ -104,13 +104,6 @@ object Library {
         }
         .sortedBy { org.omarchy.music.norm(it.name) }
 
-    /** The groups whose name or line has every word of q in it. */
-    fun searchGroups(groups: List<Group>, q: String): List<Group> {
-        val words = org.omarchy.music.norm(q).split(' ').filter { it.isNotEmpty() }
-        if (words.isEmpty()) return groups
-        return groups.filter { g -> org.omarchy.music.norm("${g.name} ${g.sub}").let { h -> words.all { it in h } } }
-    }
-
     /** The songs whose title, artist or album has every word of q in it (tidied as norm does), in their order. */
     fun search(songs: List<Song>, q: String): List<Song> {
         val words = org.omarchy.music.norm(q).split(' ').filter { it.isNotEmpty() }

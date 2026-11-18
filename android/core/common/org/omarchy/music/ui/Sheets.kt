@@ -695,28 +695,6 @@ private fun ImportNote(kind: String) {
         style = T.sub.copy(color = if (ok) C.green else C.red), modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp))
 }
 
-/** Loudness check (the PC: ffmpeg looks at each song once). */
-@Composable
-private fun LoudnessCheckLine(ui: Ui) {
-    val P = org.omarchy.music.Prefs
-    val q = org.omarchy.music.QualityCheck
-    q.version
-    val on = P.on(P.LOUDNESS_CHECK)
-    val flagged = if (on) q.flagged() else emptyList()
-    val clipped = flagged.count { it.second.clipped > 0 }; val fake = flagged.count { it.second.fake.isNotEmpty() }
-    Line("Loudness check", when {
-        q.busy != null -> "Checking your songs · ${q.busy}"
-        on && q.checked > 0 -> "${"%,d".format(q.checked)} songs checked: $clipped clip (distort from being too loud) and $fake " +
-            "aren't the hi-res they claim to be. Show… lists the worst first"
-        else -> "Checks each of your songs once, quietly in the background, for clipping (distortion from " +
-            "being mastered too loud) and for files that aren't the hi-res they claim (upsampled from lower quality, or 16-bit " +
-            "inside a 24-bit file). Show… then lists the worst first, so you know which copies are worth replacing" + org.omarchy.music.AudioTools.WHEN
-    }, on) {
-        if (flagged.isNotEmpty()) { Pill("Show…", quiet = true) { ui.tool = "quality" }; Spacer(Modifier.width(6.dp)) }
-        Switch(on, { Music.setOpt(P.LOUDNESS_CHECK, it); if (it) q.scan() }, colors = swColors())
-    }
-}
-
 /** Settings › Scanner, at the top: Prevent auto mood scans and Prevent album cover changes. */
 @Composable
 private fun ProtectLines() {
@@ -1641,28 +1619,6 @@ private fun SoundQuality(ui: Ui) {
     }
 }
 
-/** The keys in API_KEYS: each one you fill in is kept with the rest of the app's state. */
-@Composable
-private fun SettingsLine() {
-    var open by remember { mutableStateOf(false) }
-    val keys = remember { androidx.compose.runtime.mutableStateMapOf<String, String>().apply { putAll(Music.apiKeys) } }
-    val have = org.omarchy.music.API_KEYS.filterKeys { Music.apiKeys[it] != null }.values.map { it.first }
-    Line("Settings", if (have.isNotEmpty()) "Using your own " + have.joinToString(", ")
-        else "Optional keys of your own for Google's pictures (covers and " +
-        "artist pictures) and an AutoEq server (headphone corrections). None is needed: everything works without them", have.isNotEmpty()) {
-        Pill(if (open) "Close" else "Edit", quiet = true) { open = !open }
-    }
-    if (open) {
-        org.omarchy.music.API_KEYS.forEach { (k, v) ->
-            Text(v.second, style = T.sub, modifier = Modifier.padding(top = 4.dp))
-            Field(keys[k] ?: "", v.first, password = k == "google_key" || k == "chartmetric") { keys[k] = it }
-        }
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.End) {
-            Pill("Save") { Music.saveApiKeys(keys.toMap()); open = false; Music.toast("Settings saved") }
-        }
-    }
-}
-
 @Composable
 private fun FolderPicker() {
     var open by remember { mutableStateOf(false) }
@@ -1730,9 +1686,6 @@ private fun Line(name: String, state: String, ok: Boolean, note: String = "", ac
         Row(verticalAlignment = Alignment.CenterVertically) { actions() }
     }
 }
-
-@Composable
-private fun Divider() = HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 6.dp))
 
 /** A screen over everything, with ‹ and a name: Settings, the Equalizer. */
 @Composable
@@ -2008,16 +1961,6 @@ private fun BoostFader(eq: org.omarchy.music.EqSettings) {
 
 private fun outIcon(kind: String) = when (kind) {
     "speaker" -> Ico.VIS; "wired" -> Ico.HEADPHONES; "usb" -> Ico.DOWNLOAD; "car" -> Ico.CAR; else -> Ico.BLUETOOTH
-}
-
-@Composable
-private fun VerticalSlider(value: Float, onChange: (Float) -> Unit) {
-    // A slider stood on its end: drawn and touched turned a quarter (the same on the phone and the PC)
-    Box(Modifier.width(48.dp).height(160.dp), contentAlignment = Alignment.Center) {
-        Slider(value, onChange, valueRange = -12f..12f,
-            colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
-            modifier = Modifier.requiredWidth(160.dp).graphicsLayer { rotationZ = -90f })
-    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

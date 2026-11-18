@@ -14,12 +14,6 @@ fun shuffleSongs(tracks: List<Track>, after: Track? = null, rng: kotlin.random.R
     return out
 }
 
-/** The artists known on their own (as soloKey keys them): in your songs, or among names played with a credit of their own. */
-fun soloArtists(extra: Collection<String> = emptyList()): Set<String> {
-    val mine = runCatching { Music.mySongs().flatMap { ownArtists(it.artist) } }.getOrDefault(emptyList())
-    return (mine + extra).filter { it.isNotBlank() && !Regex(" & | x | X | and |,|;").containsMatchIn(it) }.map(::soloKey).toSet()
-}
-
 /** A song in Most played that may be another counted twice: [to] (title, artist, plays) is the one it'd count as. */
 data class DuplicateSong(val title: String, val artist: String, val plays: Int, val to: Triple<String, String, Int>,
                          val others: List<String>, val version: Boolean)

@@ -151,8 +151,6 @@ object Music {
 
     fun chooseBitPerfect(on: Boolean) = SoundSwitches.chooseBitPerfect(on)
 
-    fun chooseReplayGain(mode: String) { replayGain = mode; saveState(); toast(if (mode == "off") "ReplayGain off" else "ReplayGain: by $mode, from the next song") }
-
 
     var downloadDir by mutableStateOf("")      // a folder of yours downloads go to ("Music/Mine/"); "": Music/Artists/
     /** Where downloads go: the folder you picked, else the first folder the Music tab reads. */
@@ -359,7 +357,6 @@ object Music {
 
     // What is an artist's among your music, and Create artist playlist, are ArtistSongs' own: these hand on.
     fun creditsArtist(t: Track, name: String): Boolean = ArtistSongs.credits(t, name)
-    fun artistOwnSongs(name: String): List<Track> = ArtistSongs.ownSongs(name)
     fun artistOwnAlbums(name: String): List<Pair<Album, List<Track>>> = ArtistSongs.ownAlbums(name)
     fun makeArtistPlaylist(name0: String) = ArtistSongs.makePlaylist(name0)
 
@@ -520,8 +517,6 @@ object Music {
         private set
     fun chooseStreamQuality(q: String) { streamQuality = q; Prefs.setText("stream_quality", q); dl.forgetStreams() }
 
-    fun downloadQualityNote(): String = Downloads.qualityNote()
-
     // ---- copies of a song ----
     // Copies of a song (a download you have already, your copy put away for it) and Duplicates are Copies' own.
     fun copiesOf(t: Track): List<Track> = Copies.copiesOf(t)
@@ -605,9 +600,6 @@ object Music {
     fun deleteDownloads(tracks: List<Track>) = DeletingSongs.downloads(tracks)
     fun phoneFilesDeleted(tracks: List<Track>) = DeletingSongs.filesDeleted(tracks)
     fun removeDownload(id: String) = DeletingSongs.download(id)
-
-    @JvmName("chooseKeepPlayed")
-    fun setKeepPlayed(on: Boolean) { keepPlayed = on; saveState() }
 
     // ---- services ----
     @JvmName("chooseSource")
@@ -794,12 +786,8 @@ object Music {
     fun bpTonesNow() = EqControl.bpTonesNow()
     fun setEqTone(name: String, gain: Double) = EqControl.setTone(name, gain)
 
-    @JvmName("chooseArtColors")
-    fun setArtColors(on: Boolean) { artColors = on; saveState() }
     @JvmName("chooseLyricsMode")
     fun setLyricsMode(mode: String) { lyricsMode = mode; saveState() }
-    @JvmName("chooseMusicSort")
-    fun setMusicSort(sort: String) { musicSort = sort; saveState() }
     fun pickPlaylistSort(sort: String) { playlistSort = sort; saveState() }
 
     // Sorting by how you listen (each tab's sort, play counts, Smart shuffle's weights) is PlaySorts' own: these hand on.

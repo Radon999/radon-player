@@ -28,6 +28,4 @@ object Bins {
     val mpv: String by lazy { find("mpv", "RADON_MPV") }
     val ffmpeg: String by lazy { find("ffmpeg", "RADON_FFMPEG") }
 
-    /** Whether the app brought its own (false: it's using the Python app's or the PATH's). */
-    val bundled: Boolean get() = System.getProperty("compose.application.resources.dir")?.let { mpv.startsWith(it) } ?: false
 }

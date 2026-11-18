@@ -1617,30 +1617,6 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
     }
 }
 
-/** Holding a finger on it (the phone): onLong, seen before the item's own tap (which would otherwise take the press),
- *  and that press then doesn't tap it. Moving the finger (scrolling) or lifting it early is an ordinary touch. */
-fun Modifier.holdForMenu(onLong: () -> Unit): Modifier = pointerInput(onLong) {
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-        val ended = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-            while (true) {
-                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                val c = e.changes.firstOrNull { it.id == down.id } ?: break
-                if (!c.pressed || (c.position - down.position).getDistance() > viewConfiguration.touchSlop) break
-            }
-            true
-        }
-        if (ended == null) {   // held long enough without moving: the menu, and the rest of this press is swallowed
-            onLong()
-            while (true) {
-                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                e.changes.forEach { it.consume() }
-                if (e.changes.none { it.pressed }) break
-            }
-        }
-    }
-}
-
 /** A chip with a little menu on right-click (the PC) or a long press (the phone). */
 @Composable
 fun MenuChip(label: String, on: Boolean, menu: () -> List<Pair<String, () -> Unit>>, pick: () -> Unit) {

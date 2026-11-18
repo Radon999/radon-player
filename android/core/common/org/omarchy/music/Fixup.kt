@@ -803,27 +803,5 @@ fun fixupMoves(
     return out
 }
 
-/** The albums you could pick with Other album for a change of an album only, and the list to pick from: (its key, the
- *  names offered first — where it's planned to go, the artist's own albums, where it is — and every album of yours).
- *  Never a single. As the desktop's Fix albums and artists dialog offers them. */
-fun fixupAlbumChoices(c: FixupChange, songs: List<FixupSong>): Triple<String, List<String>, List<String>> {
-    val onIt = HashMap<String, MutableSet<String>>()
-    for (t in songs) if (t.album.isNotEmpty()) onIt.getOrPut(t.album) { LinkedHashSet() } += t.title
-
-    fun notSingle(name: String): Boolean {   // albums and EPs only to pick from: never a single
-        val on = onIt[name] ?: emptySet<String>()
-        return !FIXUP_SINGLE_WORD.containsMatchIn(name) && !(on.size == 1 && isSingle(name, on.first()))
-    }
-    val albumNames = songs.map { it.album }.filter { it.isNotEmpty() && notSingle(it) }.distinct().sortedBy { norm(it) }
-    val byArtist = HashMap<String, MutableSet<String>>()
-    for (t in songs) if (t.album.isNotEmpty() && notSingle(t.album))
-        byArtist.getOrPut(artistKey(t.albumartist.ifEmpty { t.artist })) { LinkedHashSet() } += t.album
-    val old = c.old.album
-    val planned = c.new["album"].orEmpty().ifEmpty { old }
-    val theirs = (byArtist[artistKey(c.old.albumartist.ifEmpty { c.old.artist })] ?: emptySet<String>()).sortedBy { norm(it) }
-    val names = (listOf(planned) + theirs + (if (old.isNotEmpty() && notSingle(old)) listOf(old) else emptyList())).distinct()
-    return Triple("al:" + norm(planned), names, albumNames)
-}
-
 /** Which changes start ticked (Change): all but the unsure ones and the singles with nothing found. */
 fun fixupDefaults(changes: List<FixupChange>): List<Boolean> = changes.map { !it.unsure && !it.unfound }

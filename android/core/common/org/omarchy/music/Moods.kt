@@ -90,11 +90,6 @@ object Moods {
         "write" -> (n * rateOf(RATE_WRITE, 0.4f)).toLong()
         else -> (n * rateOf(RATE_MIN, if (org.omarchy.music.platformName == "android") 6f else 3f)).toLong()
     }
-    /** Seconds of music in your songs that Full scan hasn't heard whole (for its estimate). */
-    fun fullMusicLeft(): Double = runCatching {
-        val list = Music.mySongs()
-        synchronized(lock) { list.sumOf { t -> val p = pathOf(t); if (p != null && known[p]?.full == true) 0.0 else t.duration.takeIf { it > 0 } ?: 200.0 } }
-    }.getOrDefault(0.0)
 
     private val lock = Any()
     private val known = HashMap<String, MoodEntry>()
@@ -543,10 +538,6 @@ object Moods {
     /** Scan moods (the Moods tab): a minute from the middle of every song not read yet, now. */
     fun find() = scan()
 
-    /** Full scan (the Moods tab): every song heard whole, start to end, that isn't yet. Stopped, it carries on from the
-     *  song it stopped at (each song's result is kept as soon as it's done). */
-    fun findFull() = scan()
-
     /** Scan moods (the Moods tab), the one scan: each song not scanned yet is heard whole (its sound) and its words are
      *  read (by the AI when it's on, else on this device), and only once both are done are its moods (and the words'
      *  reading) written into its file, so the sound always has its say. A song scanned once is never scanned again
@@ -932,7 +923,6 @@ object Moods {
     @Volatile private var wordsRunning = false
     @Volatile private var wordsStop = false
     val wordsBusy get() = wordsRunning
-    fun stopWords() { wordsStop = true }
 
     /** Settings: the Anthropic key for the AI reading (ends in _token: never in backups or sync), and the switch. */
     const val AI_KEY = "anthropic_token"
@@ -1192,12 +1182,6 @@ object Moods {
     /** Whether moods are written into the files: as you set it, else on once a Full scan has gone through every song. */
     fun writeOn(): Boolean = false   // only Scan moods writes moods into the files now
 
-    /** Turn writing moods into files on or off (the Moods tab then counts the files waiting, see [recount]). */
-    fun setWriteOn(on: Boolean) {
-        Prefs.setText(WRITE_KEY, if (on) "on" else "off")
-        if (!on) toWrite = 0
-    }
-
     /** Count the files waiting for their mood, in the background (0 when writing is off). */
     fun recount() {
         if (!writeOn()) { toWrite = 0; return }
@@ -1225,10 +1209,6 @@ object Moods {
         }
         return out
     }
-
-    /** (blocking) The scanned songs whose files have no moods in them at all, each with the moods to write. A file
-     *  that has moods already is left as it is, whatever they are: this only fills in the empty ones. */
-    private fun scannedToWrite(): List<Pair<String, String>> = fillCheck().ready
 
     /** What Write moods into the files (the Moods tab's button) has to go on. Of your songs whose files have no moods
      *  in them: ready, the ones the app has moods for (it heard them, or you picked their moods) and may write, each
@@ -1369,9 +1349,6 @@ object Moods {
         writeAtomic(restoreFile, text)
     }
 
-    /** Songs whose moods came from a backup or the other device rather than being heard here (and aren't yours). */
-    fun fromElsewhere(): Int { load(); return synchronized(lock) { known.values.count { it.kept.isNotEmpty() && it.picked.isEmpty() } } }
-
     /** (blocking) Those songs heard again here, from scratch: their moods from elsewhere dropped (the MOOD the app wrote
      *  into their files is worked out again and rewritten). For moods a sync spoilt. How many. */
     fun hearAgainFromElsewhere(): Int {
@@ -1382,25 +1359,6 @@ object Moods {
                 known[p] = e.copy(kept = emptyList(), keptSure = 0.0, heard = false, full = false, sound = null,
                     wrote = e.inFile.ifEmpty { e.wrote })
                 n++
-            }
-        }
-        if (n > 0) { save(); Music.scope.launch { version++ } }
-        return n
-    }
-
-    /** Songs whose file's MOOD tag (one mood, put there by another app, another device or an older version of this
-     *  one) settles their moods, so what the scans found for them isn't shown (and they aren't scanned). Not yours. */
-    fun fileOnly(): Int { load(); return synchronized(lock) { known.values.count { it.picked.isEmpty() && it.inFile.isNotEmpty() && it.inFile != it.wrote } } }
-
-    /** (blocking) The moods in those files treated as the app's own, not as settled: every song then gets all the moods
-     *  its sound, words and tags give (from what the scans already heard, kept in moods.json, so nothing is heard again
-     *  that was heard), songs never heard are left for Scan moods, and the files get all their moods written in. How many. */
-    fun useScans(): Int {
-        load()
-        var n = 0
-        synchronized(lock) {
-            for ((p, e) in known.entries.toList()) if (e.picked.isEmpty() && e.inFile.isNotEmpty() && e.inFile != e.wrote) {
-                known[p] = e.copy(wrote = e.inFile); n++
             }
         }
         if (n > 0) { save(); Music.scope.launch { version++ } }

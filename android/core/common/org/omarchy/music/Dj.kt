@@ -555,15 +555,6 @@ object Dj {
             "This time of day belongs to ${q(s)}. Here it is.")
     }
 
-    /** The moods you've been in: what you've played lately, and what you play around this hour counted double; a
-     *  mood picked from the top three, the bigger likelier. Null when none of your plays has a mood yet. */
-    private fun pickMood(taste: Taste): Pair<String, Boolean>? {
-        val top = KindRules.moodsToPick(taste.moods, taste.moodHour)
-        if (top.isEmpty()) return null
-        val mood = KindRules.weighted(top, Random.nextInt(top.sumOf { it.second }))
-        return mood to KindRules.moodByHour(mood, taste.moods, taste.moodHour)
-    }
-
     // ---- Mood mix: one mood at a time, a different one each time ----
     private const val MOODMIX_HISTORY = "dj_moodmix_history"
     private val artistMoodCache = ConcurrentHashMap<String, List<String>>()
@@ -712,22 +703,6 @@ object Dj {
             "The songs you keep coming back to, starting with ${q(s)}.",
             "${names(songs, 3)}, all from your most played.",
             "A run through your most played, with ${q(s)} by ${by(s)} to open.")
-    }
-
-    /** Your starred songs, the ones you play most likelier. */
-    private fun setFavorites(taste: Taste): Pair<List<Track>, String>? {
-        val favs = Music.favorites.tracks().sortedByDescending { playsOf(taste, it) }
-        val songs = pick(ok(taste, favs), SET, used)
-        if (songs.size < 3) return null
-        val s = songs[0]
-        return songs to say("favorites",
-            "Some of your favourites, like ${q(s)} by ${by(s)}.",
-            "From your starred songs: ${names(songs, 3)}.",
-            "Your starred songs now, starting with ${q(s)}.",
-            "You starred these. ${q(s)} first.",
-            "A favourites set. ${q(s)} leads off.",
-            "The ones you saved. ${q(s)} by ${by(s)} first.",
-            "Nothing but favourites now, starting with ${q(s)}.")
     }
 
     private fun setFresh(taste: Taste): Pair<List<Track>, String>? {
