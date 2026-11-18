@@ -1,11 +1,11 @@
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
-LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:13 of 0:40)
 LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
 LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
 LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
-LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:13 of 0:40)
 LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
 LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
 LINUX START: a picture of its window was taken (linux-start.jpg)
@@ -14,31 +14,28 @@ LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
 LINUX SCREENS: the 30 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- what the app wrote as it started
-radon-player: A song change took 77.5 s: 7 the player said ENDED: dj=false song=1/1 at=39.3/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 10 next: END | 937 next: NEXT_SONG | 937 load “Monitor” play=true | 1221 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2723 next: NEXT_SONG | 2723 load “Waiting Room” play=true | 2971 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4471 next: NEXT_SONG | 4471 load “Spinning Out” play=true | 4711 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6211 next: NEXT_SONG | 6212 load “october” play=true | 6425 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20416 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 77352 load “Linux test tone” play=true | 77353 got it | 77354 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 77.5 s: 7 the player said ENDED: dj=false song=1/1 at=39.3/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 10 next: END | 937 next: NEXT_SONG | 937 load “Monitor” play=true | 1221 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2723 next: NEXT_SONG | 2723 load “Waiting Room” play=true | 2971 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4471 next: NEXT_SONG | 4471 load “Spinning Out” play=true | 4711 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6211 next: NEXT_SONG | 6212 load “october” play=true | 6425 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20416 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 77352 load “Linux test tone” play=true | 77353 got it | 77354 into the player (at 0 s, play=true, state before 1)
-Nov 18, 2026 10:00:15 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 18, 2026 10:00:15 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:92 isLastBlock:false
-Nov 18, 2026 10:00:15 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:138 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 18, 2026 10:00:41 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 18, 2026 10:00:41 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:92 isLastBlock:false
-Nov 18, 2026 10:00:41 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:138 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 18, 2026 10:01:07 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 18, 2026 10:01:07 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:92 isLastBlock:false
-Nov 18, 2026 10:01:07 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:138 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 18, 2026 10:01:33 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 18, 2026 10:01:33 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:92 isLastBlock:false
-Nov 18, 2026 10:01:33 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Linux test tone.flac StartByte:138 BlockType:PADDING DataLength:8192 isLastBlock:true
+Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
+[SKIKO] warn: Fallback to next API
+org.jetbrains.skiko.RenderException: Cannot create Linux GL context
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: A song change took 75.3 s: 5 the player said ENDED: dj=false song=1/1 at=39.2/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 7 next: END | 920 next: NEXT_SONG | 920 load “40 Hz Test Tone” play=true | 1238 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2739 next: NEXT_SONG | 2739 load “10Hz Bass Test” play=true | 2920 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4420 next: NEXT_SONG | 4420 load “100-20Hz Sine Sweep” play=true | 4606 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6107 next: NEXT_SONG | 6107 load “100000 Hertz Exteme Bass Sound” play=true | 6315 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20231 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 74927 load “Linux test tone” play=true | 74929 got it | 74929 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 75.3 s: 5 the player said ENDED: dj=false song=1/1 at=39.2/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 7 next: END | 920 next: NEXT_SONG | 920 load “40 Hz Test Tone” play=true | 1238 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2739 next: NEXT_SONG | 2739 load “10Hz Bass Test” play=true | 2920 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4420 next: NEXT_SONG | 4420 load “100-20Hz Sine Sweep” play=true | 4606 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6107 next: NEXT_SONG | 6107 load “100000 Hertz Exteme Bass Sound” play=true | 6315 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20231 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 74927 load “Linux test tone” play=true | 74929 got it | 74929 into the player (at 0 s, play=true, state before 1)
 --- its Problems
 	at java.desktop/java.awt.event.InvocationEvent.dispatch(Unknown Source)
 	at java.desktop/java.awt.EventQueue.dispatchEventImpl(Unknown Source)
