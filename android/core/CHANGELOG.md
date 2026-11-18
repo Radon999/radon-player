@@ -3,6 +3,7 @@
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
 ## 4.0.9 · November 2026
+- **Album cover's colour, for the visualizer:** a new colour in every visualizer colour menu (the Visualizer's, Now playing's, a style of your own). It follows the cover of what's playing, whatever look you have on: any look with a visualizer in the cover's colour. A cover too dark to see is lifted, its hue kept. The other way round was there already: the Now playing look puts the whole app in the cover's colours, and the visualizer can then take any colour you pick.
 - **Leave things out of Personalization Preset Shuffle:** under the shuffle's switch, each kind of choice a preset holds (the look, the theme, the layout, the effects, the Now playing visual, the visualizer, its colour, the Wrapped style, the lyrics card) can be left out. What you leave out stays as you set it while the shuffle changes the rest: shuffle the visualizers and keep your look, say. Picking a preset yourself still puts on all of it.
 
 ## 4.0.8 · November 2026

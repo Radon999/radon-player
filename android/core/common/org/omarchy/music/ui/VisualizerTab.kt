@@ -107,7 +107,7 @@ internal fun numbered(items: List<Pair<String, String>>): List<Pair<String, Stri
 
 /** The colours, for any style: the look's own (its accent; on Now playing the cover's), the blends, then plain ones
  *  (the colours that used to be styles of their own). The blends' keys never clash with the plain ones (Looks.NEON). */
-private val BUILT_VIS_COLORS: List<Pair<String, String>> = listOf("auto" to "Look's colour", "rainbow" to "Rainbow", "twilight" to "Twilight",
+private val BUILT_VIS_COLORS: List<Pair<String, String>> = listOf("auto" to "Look's colour", "cover" to "Album cover's colour", "rainbow" to "Rainbow", "twilight" to "Twilight",
     "fire" to "Fire", "ice" to "Ice", "ocean" to "Ocean", "sunset" to "Sunset", "aurora" to "Aurora", "neonpop" to "Neon pop",
     "forest" to "Forest", "magma" to "Magma", "candy" to "Candy", "goldleaf" to "Gold leaf", "synthwave" to "Synthwave",
     "mint" to "Mint", "galaxy" to "Galaxy", "pastel" to "Pastel", "bloodmoon" to "Blood moon", "acid" to "Acid",
@@ -125,6 +125,15 @@ private val NEON_LOOK_GRADS: Map<String, VisGrad> by lazy {
         k to VisGrad(VisGrad.LOUD, second.toArgb().toLong() and 0xFFFFFFFFL, neon.toArgb().toLong() and 0xFFFFFFFFL,
             lerp(neon, Color.White, 0.55f).toArgb().toLong() and 0xFFFFFFFFL)
     }
+}
+
+/** The colour of the cover of what's playing, for anything drawn in "Album cover's colour" whatever the look is (a
+ *  visualizer in the cover's colour under any look; the look in the cover's colours is the Now playing look). Kept
+ *  up to date by Main as songs change; null when there's no cover (then the look's colour stands in). */
+object CoverColour {
+    var rgb by mutableStateOf<Int?>(null)
+    /** As it's drawn: bright enough to see ([org.omarchy.music.CoverColourRules]). */
+    val color: Color? get() = rgb?.let { Color(org.omarchy.music.CoverColourRules.shown(it)) }
 }
 
 /** Now playing's own visualizer, behind the cover: the slim bars it always had, none, or any of the styles. */
@@ -230,7 +239,7 @@ class VisPalette(val key: String, private val base: Color, private val shift: Fl
     private val neon = Looks.NEON[key]?.second
     private val grad = VIS_GRADS[key] ?: NEON_LOOK_GRADS[key] ?: myGrad(key)
     /** One colour all over (the look's own or a plain one), not a blend. */
-    val single = neon != null || (grad == null && key !in setOf("rainbow", "twilight", "fire", "ice", "pastel", "lookglow"))
+    val single = neon != null || (grad == null && key !in setOf("rainbow", "twilight", "fire", "ice", "pastel", "lookglow", "cover"))
 
     fun at(t: Float, lv: Float): Color = when (key) {
         "rainbow" -> { val f = ((t * 0.85f + shift) % 1f + 1f) % 1f; RAINBOW[(f * RAINBOW.size).toInt().coerceIn(0, RAINBOW.size - 1)] }
@@ -238,6 +247,9 @@ class VisPalette(val key: String, private val base: Color, private val shift: Fl
         "twilight" -> lerp(TW_A, TW_B, t.coerceIn(0f, 1f))
         // Glow on the look's colour: the look's accent, from a deeper shade of it to a bright one
         "lookglow" -> lerp(lerp(base, Color.Black, 0.2f), lerp(base, Color.White, 0.5f), (t * 0.7f + lv * 0.3f).coerceIn(0f, 1f))
+        // The album cover's colour, whatever the look: from a deeper shade of it to a bright one (the look's colour
+        // while there's no cover to take it from)
+        "cover" -> (CoverColour.color ?: base).let { c -> lerp(lerp(c, Color.Black, 0.2f), lerp(c, Color.White, 0.5f), (t * 0.7f + lv * 0.3f).coerceIn(0f, 1f)) }
         "fire" -> lerp(FIRE_LOW, FIRE_HIGH, (lv * 0.8f + (1f - t) * 0.2f).coerceIn(0f, 1f))
         "ice" -> lerp(ICE_LOW, ICE_HIGH, (lv * 0.7f + t * 0.3f).coerceIn(0f, 1f))
         else -> grad?.at(t, lv) ?: neon ?: base

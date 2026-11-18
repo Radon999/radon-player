@@ -123,6 +123,10 @@ fun App() {
             kotlin.math.abs(Rgb.blue(rgb) - Rgb.blue(old)) < 18
         if (!same || rgb == null) { Music.coverRgb = rgb; Music.applyLook() }
     }
+    // The playing song's cover colour, for "Album cover's colour" (a visualizer in it under any look)
+    LaunchedEffect(cur?.id, Music.savedVersion) {
+        CoverColour.rgb = if (cur == null) null else runCatching { Tint.rgbOf(if (Remote.active) Remote.artModel(cur) else artModel(cur)) }.getOrNull()
+    }
     // A link shared from another app: search it on the service it's from.
     LaunchedEffect(Music.shared) {
         val text = Music.shared ?: return@LaunchedEffect
