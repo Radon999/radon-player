@@ -1,8 +1,8 @@
-commit c33f9ec47e2ab6a95d737eba3134cc4f0174ee7f · run 44282036966 · Wed Nov 18 10:18:59 UTC 2026
-SHARED TESTS: 99 suites, 497 tests, 0 failed
+commit f4ac1c416a9e32cddb2c68e7dcbd7a2a181285e5 · run 44284302396 · Wed Nov 18 10:36:44 UTC 2026
+SHARED TESTS: 100 suites, 499 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 40 suites, 159 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.0 s of speech in 1.2 s (with loading the voice); then 5.2 s of speech in 1.1 s (4.6x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.4 s of speech in 1.4 s (with loading the voice); then 4.3 s of speech in 0.9 s (4.9x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_4.0.13_amd64.deb, 90M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -12,7 +12,7 @@ LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Ra
 LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
 LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
 LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
-LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:13 of 0:40)
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:14 of 0:40)
 LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
 LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
 LINUX START: a picture of its window was taken (linux-start.jpg)
@@ -22,10 +22,10 @@ LINUX SCREENS: the 30 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 --- the end of the log
-> Task :desktop:classes
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
 > Task :app:bundleDebugClassesToCompileJar
 > Task :app:bundleDebugClassesToRuntimeJar
-> Task :desktop:jar
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 34s
+BUILD SUCCESSFUL in 4m 10s
 59 actionable tasks: 59 executed
