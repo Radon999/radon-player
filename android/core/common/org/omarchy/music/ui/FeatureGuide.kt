@@ -170,6 +170,7 @@ val CHANGELOG: String = listOf(
     "- **Only streaming, on an artist's page:** a third choice in the menu at the top, beside Everything and Only my music: what the services have, without your own files.",
     "- **Sort an artist's page as the other tabs:** a Sort menu for their releases (newest, oldest, by name), for your songs (title, album, added, most and least played, last played, length, shuffled) and for Every song. Each is kept.",
     "- **Genius search finds artists and releases too:** it used to list only songs. It now shows artists, then albums, EPs and singles, and a song by itself only when it was released by itself: a song on an album or EP shows as that release, which opens with all its songs. Tapping one of several same-named artists opens that name's page sorted with the one you tapped.",
+    "- **A song that went silent partway (phone):** the sound could stop a little way into a song while the song went on counting. If the equalizer's numbers ever run away (a band at or over half the song's sample rate could make them), they are set back at once and the music goes on, and a band can no longer be built that high. If it happens again, Settings › Problems now says exactly what turned the sound down.",
     "- **Picking a song in the queue picks that one only:** with the same song waiting in the queue more than once, holding one of them picked every one. Each row of the queue is now its own: pick one and only it is ticked, and Remove from the queue takes out just the rows you picked.",
     "",
     "## 4.0.6 · November 2026",

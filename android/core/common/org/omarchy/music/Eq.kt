@@ -163,9 +163,11 @@ object Eq {
     /** RBJ cookbook coefficients (b0, b1, b2, a0, a1, a2), as libavfilter builds them. */
     fun coeffs(f: Filter, rate: Double): DoubleArray {
         val a = 10.0.pow(f.gain / 40)
-        val w0 = 2 * PI * f.hz / rate
+        // A filter at or over half the sample rate (a 22 kHz band on 44.1 kHz music) isn't a filter any more: its
+        // numbers grow without end until the sound is gone. Kept under it, and its width kept a real width.
+        val w0 = 2 * PI * EqRules.safeHz(f.hz, rate) / rate
         val cw = cos(w0)
-        val alpha = sin(w0) / (2 * f.q)
+        val alpha = sin(w0) / (2 * EqRules.safeQ(f.q))
         return if (f.kind == "pk") doubleArrayOf(1 + alpha * a, -2 * cw, 1 - alpha * a, 1 + alpha / a, -2 * cw, 1 - alpha / a)
         else {
             val sa = 2 * sqrt(a) * alpha

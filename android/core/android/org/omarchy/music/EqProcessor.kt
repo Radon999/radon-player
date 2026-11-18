@@ -119,6 +119,20 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile var detail = false
         set(v) { if (v != field) { field = v; rebuild() } }
     private var env = 0.0   // the limiter's envelope
+    // Watching for the sound going dead: numbers that ran away (not a number, or without end), and music coming in
+    // while nothing goes out. Either is set right at once and noted in Settings › Problems (at most once a minute).
+    private var deadFrames = 0L
+    private var notedAt = 0L
+    private fun note(what: String) {
+        val now = System.currentTimeMillis()
+        if (now - notedAt < 60_000) return
+        notedAt = now
+        runCatching { Crashes.note(what) }
+    }
+    private fun heal() {
+        stages.forEach { s -> s.state.forEach { it.fill(0.0) } }
+        lpL = 0.0; lpR = 0.0; env = 0.0
+    }
     private val rnd = java.util.Random()
     private var lpL = 0.0
     private var lpR = 0.0
@@ -216,8 +230,13 @@ class EqProcessor : BaseAudioProcessor() {
         val th = 0.97
         val dith = dither && !float
         var ch = 0
+        var ran = false      // a sample that isn't a number any more
+        var inPeak = 0.0     // the loudest sample that came in, and that went out
+        var outPeak = 0.0
         while (input.hasRemaining()) {
-            var x = (if (float) input.float.toDouble() else input.short / 32768.0) * g
+            val raw = if (float) input.float.toDouble() else input.short / 32768.0
+            if (kotlin.math.abs(raw) > inPeak) inPeak = kotlin.math.abs(raw)
+            var x = raw * g
             for (s in st) {
                 val z = s.state[ch]
                 val c = s.c
@@ -232,6 +251,8 @@ class EqProcessor : BaseAudioProcessor() {
                 env = if (a > env) a else env * rel
                 if (env > th) x *= th / env
             } else if (soft) x = SoftClip.apply(x)
+            if (x.isNaN() || x.isInfinite()) { x = 0.0; ran = true }
+            else if (kotlin.math.abs(x) > outPeak) outPeak = kotlin.math.abs(x)
             if (float) out.putFloat(x.toFloat())
             else {
                 val d = if (dith) (rnd.nextDouble() - rnd.nextDouble()) else 0.0   // TPDF: ±1 LSB, triangular
@@ -239,6 +260,24 @@ class EqProcessor : BaseAudioProcessor() {
             }
             ch = (ch + 1) % channels
         }
+        // Numbers that ran away would leave the music silent until the next song: everything is set back, so the
+        // sound returns within the same moment.
+        if (ran || env.isNaN() || env.isInfinite() || lpL.isNaN() || lpR.isNaN()) {
+            heal()
+            note("The equalizer's numbers ran away mid-song and were set back (gain %.3f: song %.3f, ReplayGain %.3f, boost %.3f; %d filters; EQ %s)"
+                .format(g, songGain, rgGain, boostGain, st.size, if (settings.on) "on" else "off"))
+        }
+        // Music coming in and nothing going out for three seconds: said, with what turned it down
+        val frames = n / (if (float) 4 else 2) / maxOf(1, channels)
+        if (inPeak > 0.02 && outPeak < 0.0005) {
+            deadFrames += frames
+            if (deadFrames > 3 * rate) {
+                deadFrames = 0
+                heal()
+                note("Music was coming in but silence going out (gain %.5f: song %.3f, ReplayGain %.3f, boost %.3f; balance %.2f; limiter %.3f; %d filters)"
+                    .format(g, songGain, rgGain, boostGain, balance, env, st.size))
+            }
+        } else deadFrames = 0
         if (detail && channels == 2) widthPass(out, n, float)
         if (crossfeed && channels == 2) crossfeedPass(out, n, float)
         if (mono && channels == 2) monoPass(out, n, float)
