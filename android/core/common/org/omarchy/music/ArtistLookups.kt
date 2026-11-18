@@ -102,7 +102,25 @@ object ArtistLookups {
         }
         progress(releases.size, releases.size)
         val who = info.name.ifEmpty { name }
-        return Music.yourCopies(ArtistLookupRules.everySong(got) { t -> Music.creditsArtist(t, who) || Music.creditsArtist(t, name) })
+        // Their own songs: the ones they lead. Someone else's song that features them is under Featured on.
+        return Music.yourCopies(ArtistLookupRules.everySong(got) { t -> (Music.creditsArtist(t, who) || Music.creditsArtist(t, name)) &&
+            (FeatureRules.leads(t.artist, who) || FeatureRules.leads(t.artist, name)) })
+    }
+
+    /** (blocking) Featured on: the songs of other artists that credit this one, from the releases they appear on
+     *  (their own and the service's "appears on"), the service's search for their name, their top songs, and (with a
+     *  Genius artist known) the songs Genius lists them on. Songs; a release only when all of it features them. Your
+     *  own copy in place of each one you have. See [FeatureRules]. */
+    fun features(info: ArtistInfo, name: String, geniusId: String?): FeatureRules.Featured {
+        val who = info.name.ifEmpty { name }
+        val credits = { t: Track -> Music.creditsArtist(t, who) || Music.creditsArtist(t, name) }
+        val releases = (info.albums + info.also).take(120).mapNotNull { al -> releaseSongs(info.source, al.id)?.let { al to it } }
+        val found = runCatching { Music.sources[info.source]?.search(who) }.getOrNull().orEmpty()
+        val mine = Music.songIndex()
+        val genius = geniusId?.let { id -> runCatching { GeniusArtists.featuredOn(id) }.getOrNull() }.orEmpty()
+            .map { h -> Music.fmSong(h.title, if (credits(Track("", title = h.title, artist = h.artist))) h.artist else "${h.artist}, $who", h.art, mine) }
+        val f = FeatureRules.featured(who, releases, info.top + found + genius, credits)
+        return FeatureRules.Featured(f.albums, Music.yourCopies(f.songs))
     }
 
     /** (blocking) The artist's page from the first service that knows them. */

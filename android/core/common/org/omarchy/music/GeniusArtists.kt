@@ -35,29 +35,34 @@ object GeniusArtists {
         }
     }
 
-    private fun file
-(id: String) = File(Music.ctx.filesDir, "genius-artist-${id.filter { it.isLetterOrDigit() }}.json")
+    private fun file(id: String) = File(Music.ctx.filesDir, "genius-artist2-${id.filter { it.isLetterOrDigit() }}.json")
 
-    /** (blocking) Every song Genius lists for the artist, each once (Genius has a page for the album's, the single's
-     *  and the EP's version of a song: one is enough), without the songs they only feature on. Kept on this device for a day. */
-    fun songs(id: String): List<GeniusRules.Hit> {
+    /** (blocking) Every song Genius lists under the artist, each with whether they are only featured on it (someone
+     *  else's song). Kept on this device for a day. */
+    private fun listed(id: String): List<Pair<GeniusRules.Hit, Boolean>> {
         val f = file(id)
         if (f.isFile && System.currentTimeMillis() - f.lastModified() < 24 * 3600_000L) runCatching {
-            JSON.decodeFromString(listSer, f.readText()).mapNotNull { r -> if (r.size == 3) GeniusRules.Hit(r[0], r[1], r[2]) else null }
+            JSON.decodeFromString(listSer, f.readText()).mapNotNull { r -> if (r.size == 4) GeniusRules.Hit(r[0], r[1], r[2]) to (r[3] == "f") else null }
         }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
-        val all = ArrayList<GeniusRules.Hit>()
+        val all = ArrayList<Pair<GeniusRules.Hit, Boolean>>()
         var page: Long? = 1
         var pages = 0
         while (page != null && pages++ < 30) {
             val res = httpJson("https://genius.com/api/artists/$id/songs?per_page=50&page=$page&sort=popularity")["response"]
-            for (s in res["songs"].list) if (s.path("primary_artist", "id").long?.toString() == id) all += GeniusRules.Hit(s["title"].str ?: "", s.path("primary_artist", "name").str ?: s["artist_names"].str ?: "",
-                s["song_art_image_thumbnail_url"].str ?: "")
+            for (s in res["songs"].list) all += GeniusRules.Hit(s["title"].str ?: "", s.path("primary_artist", "name").str ?: s["artist_names"].str ?: "",
+                s["song_art_image_thumbnail_url"].str ?: "") to (s.path("primary_artist", "id").long?.toString() != id)
             page = res["next_page"].long
         }
-        val out = GeniusRules.artistSongs(all)
-        if (out.isNotEmpty()) runCatching { writeAtomic(f, JSON.encodeToString(listSer, out.map { listOf(it.title, it.artist, it.art) })) }
-        return out
+        if (all.isNotEmpty()) runCatching { writeAtomic(f, JSON.encodeToString(listSer, all.map { (h, feat) -> listOf(h.title, h.artist, h.art, if (feat) "f" else "") })) }
+        return all
     }
+
+    /** (blocking) Every song of the artist's own on Genius, each once (Genius has a page for the album's, the single's
+     *  and the EP's version of a song: one is enough), without the songs they only feature on. */
+    fun songs(id: String): List<GeniusRules.Hit> = GeniusRules.artistSongs(listed(id).filter { !it.second }.map { it.first })
+
+    /** (blocking) The songs of others that Genius lists them on (their features), each once. */
+    fun featuredOn(id: String): List<GeniusRules.Hit> = GeniusRules.songs(listed(id).filter { it.second }.map { it.first })
 
     private val albumLists = HashMap<String, List<Album>>()
 
@@ -105,7 +110,9 @@ object GeniusArtists {
         }
         progress(releases.size, releases.size)
         val who = info.name.ifEmpty { name }
-        val songs = ArtistLookupRules.everySong(got) { t -> (Music.creditsArtist(t, who) || Music.creditsArtist(t, name)) && theirs(t.title) }
+        // (a song of someone else's that only features them is not their discography: it is under Featured on)
+        val songs = ArtistLookupRules.everySong(got) { t -> (Music.creditsArtist(t, who) || Music.creditsArtist(t, name)) && theirs(t.title) &&
+            (FeatureRules.leads(t.artist, who) || FeatureRules.leads(t.artist, name)) }
         return Sorted(out, songs).also { synchronized(sorted) { sorted[key] = it } }
     }
 

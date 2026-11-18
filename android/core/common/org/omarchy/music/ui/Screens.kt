@@ -1115,6 +1115,13 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }) { res, _ -> sorted = res; sortAt = null }
         }
     }
+    // Featured on: other artists' songs that credit this one (found once the page knows them; a moment, as their
+    // releases are asked for)
+    var feats by remember(page, reload) { mutableStateOf<org.omarchy.music.FeatureRules.Featured?>(null) }
+    LaunchedEffect(info, gPick) {   // (Genius's list of features only from the Genius artist you picked: a name alone can be someone else)
+        val i = info ?: return@LaunchedEffect
+        Music.bg({ org.omarchy.music.ArtistLookups.features(i, page.name, gPick) }) { f, _ -> if (f != null) feats = f }
+    }
     // The service's singles that are on an album or an EP of theirs already: left out (the song is on its release).
     // Their releases' songs are asked for one by one, so they go a moment after the page shows.
     var folded by remember(page, reload) { mutableStateOf<Set<String>>(emptySet()) }
@@ -1194,6 +1201,11 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val top = topRaw.filter { songShown(it) }
     val albums = albumsRaw.filter { albumShown(it) }
     val everyShown = every?.filter { songShown(it) }
+    // Features: only what you hid yourself is left out (Genius's list of their own songs has no say on these)
+    fun featShown(t: Track) = marks[org.omarchy.music.ArtistShownRules.songKey(t.title)] != org.omarchy.music.ArtistShownRules.HIDE
+    val featSongs = if (onlyMine) emptyList() else feats?.songs.orEmpty().filter { featShown(it) && (!onlyStream || !yours(it)) }
+    val featAlbums = if (onlyMine) emptyList() else feats?.albums.orEmpty().filter {
+        marks[org.omarchy.music.ArtistShownRules.albumKey(it.first.title)] != org.omarchy.music.ArtistShownRules.HIDE }
     val leftSongs = (allRaw + topRaw + every.orEmpty()).filter { !songShown(it) }.distinctBy { it.id }
     val leftAlbums = albumsRaw.filter { !albumShown(it) }
     var opening by remember(page) { mutableStateOf(false) }
@@ -1390,6 +1402,23 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) }) { if (picking) pickAlbum(a) else openAlbum(a) }
             }
         }
+        // Featured on: songs by others that credit them, between their releases and every song of their own. A list
+        // of songs; a release only when all of it features them (rare).
+        if (featAlbums.isNotEmpty() || featSongs.isNotEmpty()) {
+            item { Section("FEATURED ON · ${featAlbums.size + featSongs.size}") }
+            val src = i?.source.orEmpty()
+            laidOutItems(featAlbums, ui, key = { "af-" + featAlbums[it].first.id + "#" + it }, row = { j ->
+                val (al, songs) = featAlbums[j]
+                PlaylistRow(al, null, onLongClick = { ui.choices = al.title to listOf("Hide from ${page.name}'s page" to { org.omarchy.music.ArtistShown.album(page.name, al.title, hide = true) }) }) {
+                    ui.pages += Ui.Page.AlbumPage(al, src, Music.yourCopies(songs)) }
+            }) { j, mod, compact ->
+                val (al, songs) = featAlbums[j]
+                Tile(al.thumb.ifEmpty { null }, al.title, al.sub, mod, compact, ico = Ico.DISC,
+                    onLongClick = { ui.choices = al.title to listOf("Hide from ${page.name}'s page" to { org.omarchy.music.ArtistShown.album(page.name, al.title, hide = true) }) }) {
+                    ui.pages += Ui.Page.AlbumPage(al, src, Music.yourCopies(songs)) }
+            }
+            tracks(featSongs, ui, "artist", section = "artist-feat") { t -> t.album }
+        }
         // Every song they have, always (no button to ask for it): the songs of all their releases, and of the
         // compilations they're on, each once; with a Genius artist picked, the ones only Genius lists too. It fills
         // in a moment after the page opens (each release is asked for).
@@ -1423,7 +1452,9 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }
         }
         // What's left out of the page: hidden by you, or not on Genius's list. Nothing is gone; any of it can be put back.
-        val left = leftSongs.size + leftAlbums.size
+        // (features hidden by you are among them, to put back)
+        val leftFeats = feats?.songs.orEmpty().filter { !featShown(it) }
+        val left = leftSongs.size + leftAlbums.size + leftFeats.size
         if (left > 0) {
             item {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -1443,7 +1474,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC, lit = picking && a.al.id in pickedAlbums,
                         onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) }) { if (picking) pickAlbum(a) else openAlbum(a) }
                 }
-                tracks(leftSongs, ui, "artist-left", section = "artist-left") { t -> t.album }
+                tracks((leftSongs + leftFeats).distinctBy { it.id }, ui, "artist-left", section = "artist-left") { t -> t.album }
             }
         }
     }
