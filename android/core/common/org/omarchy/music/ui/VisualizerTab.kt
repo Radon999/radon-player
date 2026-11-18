@@ -1659,6 +1659,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                             else "$n hidden: they're under Hidden at the end of this list" + if (n < pickedMany.size) " (not the one in use)" else "")
                         pickedMany.clear(); if (n > 0) selecting = false
                     }
+                    Pill("Copy codes", quiet = true) { ShareCodes.copy(kind, pickedMany.toList()) }
                     if (kind == Favs.PRESETS) Pill("Edit") {
                         val ready = pickedMany.filter { MyPresets.raw(it) != null }
                         if (ready.isEmpty()) Music.toast("Tick ready-made presets to edit their effects and visualizers (one of yours has Edit of its own)")

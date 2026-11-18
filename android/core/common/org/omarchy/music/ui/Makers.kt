@@ -917,22 +917,23 @@ fun MakerLines(ui: Ui) {
         Pill("New Wrapped") { ui.makerEdit = null; ui.sheet = "wrapmaker" }
         Pill("New lyrics card") { ui.makerEdit = null; ui.sheet = "cardmaker" }
     }
-    // A look of yours as a code: copy one to give to someone, paste one to get theirs
-    val shareLooks = MyLooks.all()
-    var pastedLook by remember { mutableStateOf("") }
-    Text("Share a look", style = T.body.copy(fontSize = 16.sp), modifier = Modifier.padding(top = 12.dp))
-    Text("A look you made, as a short code: copy it to send to someone (or to your other device), and paste a code here to get a look someone made. " +
-        "The code is only the look's colours and effects", style = T.sub)
-    if (shareLooks.isNotEmpty()) Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Copy the code of", style = T.sub, modifier = Modifier.padding(end = 8.dp))
-        ChoicePill(listOf("" to "Pick a look of yours") + shareLooks.map { it.key to it.name }, "") { k ->
-            MyLooks.code(k)?.let { copyText("A Radon Player look", it); Music.toast("Copied the code of “${shareLooks.firstOrNull { l -> l.key == k }?.name}”: paste it into a message") } }
+    // Share: anything from these menus as a code (ShareCodes), and a code pasted here
+    var pasted by remember { mutableStateOf("") }
+    Text("Share", style = T.body.copy(fontSize = 16.sp), modifier = Modifier.padding(top = 12.dp))
+    Text("Anything in these menus can go to someone (or to your other device) as a code, one line of text. To get a code: open a menu " +
+        "(Look, Theme, Layout, Effects, a visualizer menu, Wrapped style, Lyrics card style, Presets), hold a choice or tap its ⋯ (right-click on " +
+        "the PC) and tap Copy code. For several at once: Select several, tick them, Copy codes. A preset goes whole, with the look, layout, " +
+        "visualizers and the rest it uses. To use a code someone sent: paste it below and tap Add. A code holds only those choices, nothing about you",
+        style = T.sub)
+    FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Pill("Copy everything on now", quiet = true) { ShareCodes.copySetup() }
+        Pill("Copy my effects", quiet = true) { ShareCodes.copyEffects() }
     }
-    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.weight(1f)) { Field(pastedLook, "Paste a look's code (RadonLook:…)") { pastedLook = it } }
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { Field(pasted, "Paste a code (RadonShare:…)") { pasted = it } }
         Pill("Add") {
-            val got = MyLooks.add(pastedLook)
-            if (got == null) Music.toast("That isn't a look's code: it starts with RadonLook:") else { pastedLook = ""; Music.toast("Added “${got.name}” to your looks: it is in the Look menu, under Yours") }
+            val did = ShareCodes.add(pasted)
+            if (did == null) Music.toast("That isn't a share code: one starts with RadonShare: (copy all of it)") else { pasted = ""; Music.toast(did) }
         }
     }
     Text("What you make is in its own menu (Look, Layout, the visualizer menus, Wrapped's Style, the Lyrics card's Style): hold it or tap its \u22EF " +
@@ -1042,6 +1043,8 @@ object MyPresets {
     private fun encode(p: Preset) = listOf(p.key, clean(p.name), p.look, p.theme, p.layout, if (p.own) "1" else "0",
         clean(p.fx), p.npFallback, p.npVis, if (p.dual) "1" else "0", p.npBottom, p.wrapped, p.card, p.visColor).joinToString("|")
 
+    /** A preset as the line it is kept in (a share code carries it). */
+    fun line(p: Preset): String = encode(p)
     /** Yours, kept with the app's settings. */
     fun mine(): List<Preset> = Prefs.text(PREF).lines().mapNotNull { l -> runCatching { val f = l.split("|")
         Preset(f[0], f[1], f[2], f[3], f[4], f[5] == "1", f[6], f[7], f[8], f.getOrNull(9) == "1", f.getOrElse(10) { "" },
@@ -1259,7 +1262,8 @@ object Favs {
             CARDS -> key.startsWith("mycard-")
             else -> false
         }
-        if (!mine) return editBuilt + listOf(fav) + hide
+        val share: List<Pair<String, () -> Unit>> = if (kind !in Hidden.KINDS) emptyList() else listOf("Copy code" to { ShareCodes.copy(kind, listOf(key)) })
+        if (!mine) return editBuilt + listOf(fav) + share + hide
         // Edit: straight to its maker, with every setting it has (and its name) to change
         val edit = "Edit" to {
             if (kind == PRESETS) { MyPresets.apply(key); MyPresets.editing = key; Music.toast("Change anything on the tab, then Save changes") }
@@ -1267,7 +1271,7 @@ object Favs {
                 ui.sheet = when (kind) { LOOKS -> "lookmaker"; LAYOUTS -> "layoutmaker"; WRAPPED -> "wrapmaker"; CARDS -> "cardmaker"; else -> "vismaker" } }
             Unit
         }
-        return listOf(edit, fav) + hide + listOf("Delete" to {
+        return listOf(edit, fav) + share + hide + listOf("Delete" to {
             val gone = {
                 when (kind) { LOOKS -> MyLooks.delete(key); LAYOUTS -> UiLayouts.delete(key); VIS -> MyVis.deleteStyle(key); WRAPPED -> MyWraps.delete(key)
                     VIS_COLOURS -> MyVis.deleteColor(key); PRESETS -> MyPresets.delete(key); CARDS -> LyricsCards.delete(key) }
