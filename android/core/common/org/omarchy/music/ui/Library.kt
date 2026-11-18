@@ -739,7 +739,13 @@ fun OptionsSheet(ui: Ui) {
                 if (one == null || (!one.isFile && !Music.lib.has(one.id))) add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
                 if (one != null && Music.lib.has(one.id)) add(Triple(Ico.TRASH, "Remove download") {
                     ui.confirm = "Delete the downloaded copy of “${one.title}”?" to { Music.removeDownload(one.id) } })
-                add(Triple(Ico.EDIT, "Tagger…") { ui.taggerFor = picked })   // tags, cover, the files' details, lyrics
+                // Tags, cover, the files' details, lyrics: of your own songs only (the Tagger works on files). Streaming
+                // songs in what's picked (an album you have part of) are skipped, and it says so.
+                add(Triple(Ico.EDIT, "Tagger…") {
+                    val (local, streaming) = picked.partition { it.isFile || it.file != null || Music.lib.has(it.id) }
+                    org.omarchy.music.TaggerPickRules.skipped(streaming.size, local.size).takeIf { it.isNotEmpty() }?.let { Music.toast(it) }
+                    if (local.isNotEmpty()) ui.taggerFor = local
+                })
                 add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
                 add(Triple(Ico.EQ, "Custom EQ…") { ui.songEqFor = picked })
                 add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
