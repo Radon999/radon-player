@@ -86,6 +86,7 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 
 - **How it works:** The DJ adds up everything you've played (Last.fm and your imports; the plays in the app when there are none) and makes one set after another, each of one kind, with a line to introduce it. It always plays from your whole library: your files, downloads, saved songs and every song in your playlists. With **Include new songs**, new songs like the ones you listen to come in too.
 - **The kinds of set:** on repeat, this time of day, your most played, throwbacks, songs you loved and forgot, ten mood sets, a genre, new music like yours, deep cuts, an artist spotlight, an album moment (three in a row, in order), on this day years ago, a decade trip, one-hit wonders, not skipped this month, second chances, your unreleased songs and this week's streaks.
+- **Your repeats:** four sets come from the songs you let play again with Repeat one: Can't let go (the most repeated), This month's obsessions, Old obsessions (about a year ago) and Like your repeats (songs close to them). With a song on Repeat one the DJ says so as it starts over: three and five in a row, its 10th, 25th, 50th… repeat, a new longest run, and after a long run an offer to carry on with something else. Before a song it may say how often you've had it on repeat.
 - **Taking turns:** every kind gets its turn before any comes back, remembered across restarts. No song the DJ played comes back until it's played 300 others. Each set flows by mood, and no artist plays twice in a row. Skips never keep a song out; they're only counted.
 - **The voice:** She says what's coming over the start of the song, the music turned down under her, never paused (bit-perfect to a USB DAC too): a hello for the time and day, milestones (a song's 100th play), and now and then a word before a song. The natural voice is the same on the phone and the computer; it's fetched once (about 95 MB) from DJ › Voice settings.
 - **Facts about your listening:** between sets, now and then: time spent with a song, when you first played it, your top artists and moods, the hours you listen at, your biggest year, your collection's size, what you skip. The subjects take turns, and nothing is said twice until the rest has been.
@@ -96,14 +97,19 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 
 - **How plays are counted:** from Last.fm and the histories you import (Spotify, Apple Music, Deezer, YouTube Music, Tidal), added together and never twice. A song is the same song across all of them, featurings and punctuation aside (K.Flay = KFlay). Imports are a one-time picture; Last.fm brings the new plays. Without Last.fm, the plays in the app count.
 - **Most played:** Top songs, albums, artists and moods for a week, month, year or all time, by plays or by time, with charts of when you listen. Plus Repeat, Milestones and Skips.
+- **Repeats:** each time a song plays to its end and starts over by itself with Repeat one on is one repeat of it. The Repeats tab lists your songs by repeats, with each one's longest run, for all time, a year, 30 days or 7. Repeats from before the app counted them, and from other services, are worked out from what you played here, your Last.fm scrobbles and your imports (a song played again the moment it ended): found by themselves after an import and kept; a good guess, not a record. Apple Music's daily counts and library exports have no exact times, so only its Play Activity file can show them. The chart of what you played most lately is **On repeat**.
 - **Tidy stats:** Merge an artist or a song counted under two names, say whose plays a joint credit's are, and keep look-alike artists apart.
 - **Wrapped:** Any period as full-screen slides: top 15s (songs, artists, albums, singles, EPs, genres, moods), minutes, streaks, discoveries, your listener type and a summary card. Every slide saves or shares as a picture.
+- **Repeats in Wrapped:** how many and how long, your biggest obsession, your most repeated songs and artists (full lists), your longest run, your repeat day, when you repeat most, each month's most repeated song, and the kind of repeater you are.
 - **Wrapped styles:** Pick how the slides look, including **Your look** (the app's look in use) and the ones you made.
 
 ## Lyrics
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
 - **Lyrics card:** Tick up to 25 lines for a picture to share or save, in Your look, Now playing's colours, 60 ready-made styles, or your own.
+- **With the song's sound:** tick it in the Lyrics card box and the card is shared as a short video with the song playing, from the first line ticked to where the last one stops. It needs timed lyrics and the song's file.
+- **Share a clip with sound:** a song's Options makes a short video of its cover, name and a seek bar that fills, with the song playing from where you say to where you say (3 seconds to a minute), in any lyrics card style. Only for a song you have as a file.
+- **Plays on cards:** lyrics cards, picture cards and clips say how often you've played the song beside the artist (Personalization switches it off).
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
 ## Sound
@@ -126,6 +132,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Presets:** 60 ready-made setups that go together (Midnight drive, Northern lights, Cherry blossom, Code rain, Vaporwave, Cathedral, Drawing office, Tea ceremony, Windy day…), each with its own look, theme, layout, effects, visualizer, Wrapped style and lyrics card style. **Save as a preset** keeps yours. **Preset Shuffle** puts on a different favourite every 5 to 30 minutes.
 - **Follows the cover:** a preset that changes with every song: the cover's own colours blurred out behind see-through cards, and a scene to match (effects and two visualizers in the cover's colour) out of 17, one for any colour a cover can be.
 - **Glass cover:** a preset with the playing song's cover blurred behind the whole app and everything over it see-through.
+- **Presets and your visualizers:** two switches under Preset Shuffle make presets leave Now playing's middle visualizer, its bottom one, or both as you set them, so a preset can bring only its looks.
 - **Menus in sections:** each Personalization menu is folded into a few sections (Looks: Basics, Light, Dark, Neon, Materials and places; Effects: Sky, Nature, Patterns, Light, Things…), your favourites first, so a long list is a short one to start with.
 - **Favorite, Edit, Delete:** Hold down on any choice (or its ⋯, or right-click). ★ Favorite moves it to the top.
 - **Make your own:** a **look** (colours, fade, glow, stars and effects), a **layout** (the bar's buttons, the mini player, Now playing's arrangement), a **visualizer** (shape, mirror, spin, glow, colour blend, **Dual**), a **lyrics card** and a **Wrapped** style, each shown live as you change it. **Randomize** and **Saved colours** give you a start.
