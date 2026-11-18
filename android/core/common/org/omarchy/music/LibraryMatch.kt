@@ -6,8 +6,8 @@ import kotlinx.serialization.builtins.serializer
 import java.io.File
 
 /** The songs your other device has that this one hasn't ([LibraryMatchRules]). At each Sync the phone and the PC send
- *  each other every song they have (names only: no files cross). What the other sent is kept here; ☰ › Other device's
- *  songs lists the ones this device lacks, to tick and download (from the streaming service, as any download: tagged,
+ *  each other every song they have (names only: no files cross). What the other sent is kept here; Settings › Remote & sync › Other
+ *  device's songs lists the ones this device lacks, to tick and download (from the streaming service, as any download: tagged,
  *  with its cover, into My music) or to leave out. Nothing is downloaded by itself. */
 object LibraryMatch {
     @Serializable

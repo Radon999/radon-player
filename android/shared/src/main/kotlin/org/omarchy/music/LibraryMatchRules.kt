@@ -32,5 +32,5 @@ object LibraryMatchRules {
 
     /** What a Sync says when the other device has songs this one lacks ("" when it has none). */
     fun afterSync(n: Int, device: String): String =
-        if (n <= 0) "" else "%,d song%s on %s %s on this device: ☰ › Other device's songs".format(n, if (n != 1) "s" else "", device, if (n != 1) "aren't" else "isn't")
+        if (n <= 0) "" else "%,d song%s on %s %s on this device: Settings › Remote & sync › Other device's songs".format(n, if (n != 1) "s" else "", device, if (n != 1) "aren't" else "isn't")
 }

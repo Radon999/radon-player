@@ -200,6 +200,7 @@ private fun AccountsSheet(ui: Ui) {
             BackupLines(activity)
             }
             Group("Remote & sync", ui) {
+            OtherDeviceSongsLine(ui)
             if (org.omarchy.music.RemoteHost.supported) PhoneRemoteLines()
             // ---- play on ----
             else Line("Play on", if (Remote.active) "Music plays on the desktop (${Remote.name}), and this phone is its remote" +
@@ -2629,6 +2630,28 @@ private fun NameDialog(title: String, start: String, dismiss: () -> Unit, done: 
         text = { Field(name, "Name") { name = it } },
         confirmButton = { TextButton({ if (name.isNotBlank()) done(name.trim()) }) { Text("OK", color = C.accent) } },
         dismissButton = { TextButton(dismiss) { Text("Cancel", color = C.muted) } })
+}
+
+/** Settings › Remote & sync: the songs your other device has that this one hasn't (counted at the last Sync), and the
+ *  way to the checklist of them. */
+@Composable
+private fun OtherDeviceSongsLine(ui: Ui) {
+    val dev = org.omarchy.music.LibraryMatch.from
+    val n by androidx.compose.runtime.produceState<Int?>(null, Music.musicVersion, Music.savedVersion, org.omarchy.music.LibraryMatch.at) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { org.omarchy.music.LibraryMatch.missing().size }.getOrNull() }
+    }
+    val count = n
+    Line("Other device's songs", when {
+        dev.isEmpty() -> "Keeps your phone's and your PC's music the same. At each Sync the two tell each other every song they have (names only); " +
+            "the ones the other has that this $DEVICE hasn't are listed for you to tick and download, or leave out. Sync once to start (both need this version)"
+        count == null -> "Counting what $dev has that this $DEVICE hasn't…"
+        else -> org.omarchy.music.LibraryMatchRules.heading(count, dev) + ", as of the last Sync. Review them to tick the ones to download here; nothing is downloaded by itself"
+    }, ok = dev.isNotEmpty() && count == 0) {
+        if (dev.isNotEmpty()) Pill(if ((count ?: 0) > 0) "Review %,d…".format(count) else "Review…", quiet = (count ?: 0) == 0) {
+            ui.sheet = null
+            goTo(ui, "music", "theirs")
+        }
+    }
 }
 
 /** Settings › Personalization, at the top: Personalization Preset Shuffle, a different favourite preset every 5, 10, 15 or 30 minutes. */

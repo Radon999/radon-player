@@ -355,7 +355,6 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
         add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
         add(Entry("Listen later", Ico.CLOCK, "music", "later"))   // what you put aside to hear another time
-        add(Entry("Other device's songs", Ico.CLOUD, "music", "theirs"))   // what your phone or PC has that this one hasn't
     }),
     Triple("stats", "Statistics and favorites", listOf(Entry("Most played", Ico.CHART, "music", "top"),
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
@@ -553,7 +552,9 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "queue" -> "Up next"
         "lyrics" -> "Lyrics"
         "visualizer" -> "Visualizer"
-        "music" -> (topEntries() + sections().flatMap { it.third }).firstOrNull { it.tab == "music" && it.view == ui.musicView }?.label ?: "My music"
+        // (Other device's songs is opened from Settings › Remote & sync, not from the menu)
+        "music" -> if (ui.musicView == "theirs") "Other device's songs"
+            else (topEntries() + sections().flatMap { it.third }).firstOrNull { it.tab == "music" && it.view == ui.musicView }?.label ?: "My music"
         else -> "Library"
     }
 }

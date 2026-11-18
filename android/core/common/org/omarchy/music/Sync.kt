@@ -249,7 +249,7 @@ object Sync {
                 theirs[DOWNLOADS]?.let { runCatching { DownloadSync.take(it, peerName) } }
                 if (tagged > 0) Music.rescan()
             }
-            // The phone's songs this PC hasn't got (kept for ☰ › Other device's songs)
+            // The phone's songs this PC hasn't got (kept for Settings › Remote & sync › Other device's songs)
             runCatching { LibraryMatch.take(theirs[SONGS_HERE], peerName) }
             runCatching { onMain { Music.musicVersion++ } }
             val back = head("pc", songs)

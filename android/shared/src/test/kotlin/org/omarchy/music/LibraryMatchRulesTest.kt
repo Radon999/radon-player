@@ -39,7 +39,7 @@ class LibraryMatchRulesTest {
         assertEquals("42 songs on the PC that this device doesn't have", LibraryMatchRules.heading(42, "the PC"))
         assertEquals("1 song on the PC that this device doesn't have", LibraryMatchRules.heading(1, "the PC"))
         assertEquals("", LibraryMatchRules.afterSync(0, "the PC"))
-        assertEquals("42 songs on the PC aren't on this device: ☰ › Other device's songs", LibraryMatchRules.afterSync(42, "the PC"))
-        assertEquals("1 song on the PC isn't on this device: ☰ › Other device's songs", LibraryMatchRules.afterSync(1, "the PC"))
+        assertEquals("42 songs on the PC aren't on this device: Settings › Remote & sync › Other device's songs", LibraryMatchRules.afterSync(42, "the PC"))
+        assertEquals("1 song on the PC isn't on this device: Settings › Remote & sync › Other device's songs", LibraryMatchRules.afterSync(1, "the PC"))
     }
 }
