@@ -387,3 +387,48 @@ turn, and within a subject the same thing is not said again until the rest of it
 | fact:album-have | (removed 15 November 2026 at the owner's word: how many songs of an album you have says little) |
 | fact:genre-song | "S" is one of N G songs you have. |
 | fact:favorite | "S" is one of the songs you've starred. |
+
+## Repeats (added November 2026, with the Repeats tab)
+
+The lines about songs let play again with Repeat one. In `Dj.kt`: the four sets (`setLoops`, `setLoopsMonth`,
+`setLoopsThen`, `setLikeLoops`), what is said as a song starts over (`loopLine`), and what may be said before a song
+(`songComment`).
+
+| Key | Line |
+| --- | --- |
+| loops | The songs you can't let go of. ${q(s)} has gone round ${num(n)} times on repeat. |
+| loops | Once was never enough for these. ${names(songs, 3)}, all of them played again and again. |
+| loops | You hit repeat on these more than anything else. ${q(s)} by ${by(s)} leads, with ${num(n)} repeats. |
+| loops | The repeat button's favourites, back to back. We start with ${q(songs[0])}. |
+| loops | These are the ones you let play again. And again. ${q(s)} most of all. |
+| loops | A set of songs you've kept on repeat, starting with ${q(songs[0])} by ${by(songs[0])}. |
+| loopsmonth | This month's obsessions: the songs you've had on repeat lately, starting with ${q(s)}. |
+| loopsmonth | You've been looping these this month. ${names(songs, 3)}. |
+| loopsmonth | The ones you couldn't play just once lately. ${q(s)} by ${by(s)} first. |
+| loopsmonth | Fresh obsessions. Every one of these has been on repeat in the last few weeks. |
+| loopsthen | About a year ago you had these on repeat. Starting with ${q(s)} by ${by(s)}. |
+| loopsthen | A year back, ${q(s)} was the song you couldn't stop playing. Here it is again, with the others from then. |
+| loopsthen | Last year's obsessions: ${names(songs, 3)}. |
+| loopsthen | The songs you looped this time last year. Let's see how they've held up. |
+| likeloops | You've had ${q(seed)} on repeat so often, so here are songs close to it that you haven't worn out yet. |
+| likeloops | If ${q(seed)} is worth playing again and again, these might be too. |
+| likeloops | Songs from the same place as ${q(seed)} by ${by(seed)}, the one you keep on repeat. |
+| likeloops | Next candidates for your repeat button, starting from ${q(seed)}. |
+| loop-run | That's $run times in a row for ${q(t)}. You really like this one. |
+| loop-run | ${q(t)} again. $run in a row, and counting. |
+| loop-run | Round $run for ${q(t)}. I get it, it's a good one. |
+| loop-run | $run times in a row. ${q(t)} has got hold of you. |
+| loop-milestone | That makes ${num(total)} times you've let ${q(t)} play again. It's clearly a keeper. |
+| loop-milestone | ${q(t)}, repeated ${num(total)} times now. You really like this one. |
+| loop-milestone | A milestone: ${num(total)} repeats of ${q(t)}. Here's the next one. |
+| loop-milestone | ${num(total)} times round for ${q(t)}, and it still isn't old. |
+| loop-record | New record. ${q(t)}, $run times in a row. The old one was ${run - 1}. |
+| loop-record | That's $run in a row for ${q(t)}, the longest you've ever kept it going. |
+| loop-record | You've just beaten your own record with ${q(t)}: $run times in a row. |
+| loop-nudge | $run times in a row now. Whenever you want a change, switch repeat off and I'll carry on from here. |
+| loop-nudge | Still ${q(t)}, $run times running. No complaints from me, but I've got more when you're ready. |
+| loop-nudge | That's $run in a row. I can keep this up as long as you can. Switch repeat off when you want something else. |
+| c-loop | You've had this one on repeat ${num(l.n)} times. |
+| c-looprun | Your record with this one is ${l.best} times in a row. |
+| c-loopback | You haven't had this one on repeat since ${month(l.last / 1000)}. |
+| c-loopartist | You put $a on repeat more than anyone else. ${num(times)} times so far. |

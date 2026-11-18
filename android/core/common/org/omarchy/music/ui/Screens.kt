@@ -1972,15 +1972,32 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
     }
     val days = periods.firstOrNull { it.first == Music.repeatsPeriod }?.second?.second ?: 0
     val since = org.omarchy.music.RepeatLoops.since(days)
-    val saved = org.omarchy.music.RepeatLoops.saved()
+    val saved = org.omarchy.music.RepeatLoops.all()
     val top = RR.top(saved, since, 200)
+    // The repeats your imported history and scrobbles show, and the two things said about repeats
+    item {
+        val RL = org.omarchy.music.RepeatLoops; val P = org.omarchy.music.Prefs
+        var notes by remember { mutableStateOf(P.on(RL.NOTES, true)) }
+        var nudge by remember { mutableStateOf(P.on(RL.NUDGE, true)) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Chip(if (RL.historyBusy) "Looking through your history…" else "Find repeats in my history", false) { if (!RL.historyBusy) Music.bg({ RL.fromHistory() }) }
+                Chip("Notes at milestones", notes) { notes = !notes; P.set(RL.NOTES, notes) }
+                Chip("DJ offers a change after a long run", nudge) { nudge = !nudge; P.set(RL.NUDGE, nudge) }
+            }
+            Text(RL.historyText.ifEmpty { "Find repeats in my history looks through your imported history and scrobbles for a song played again the moment it ended. No service says a song was on Repeat one, so these are a good guess" },
+                style = T.sub, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
     if (top.isEmpty()) item { Empty(if (days == 0) "No repeats yet" else "No repeats in this time",
         "Put Repeat one on (the repeat button, twice) and let a song play again: each time it starts over by itself is counted here. " +
         "Only Repeat one counts, and they are counted from this version on.") }
     else {
         item { Section(RR.summary(top.size, RR.total(saved, since)).uppercase()) }
-        val lines = top.withIndex().associate { (i, p) -> p.first.track.id to RR.line(i + 1, p.second, p.first.best) }
-        tracks(top.map { it.first.track }, ui, "repeats") { t -> lines[t.id] ?: "" }
+        // your own copy of a song the history named
+        val rows = top.mapIndexed { i, p -> (if (p.first.track.id.startsWith("repeat:")) Music.mineOf(p.first.track) else p.first.track) to RR.line(i + 1, p.second, p.first.best) }
+        val lines = rows.associate { it.first.id to it.second }
+        tracks(rows.map { it.first }, ui, "repeats") { t -> lines[t.id] ?: "" }
     }
 }
 

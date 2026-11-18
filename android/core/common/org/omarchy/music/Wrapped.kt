@@ -189,6 +189,7 @@ object Wrapped {
         val log: LogStats = LogStats(),                           // from the listening diary (ListenLog)
         val type: Listening.Kind? = null,                         // the listener type
         val library: LibraryStats? = null,                        // your music as it is now
+        val loops: RepeatFactsRules.Summary? = null,              // your repeats in it (Repeat one), if any
     )
 
     /** A song played n times in one day. */
@@ -583,6 +584,10 @@ object Wrapped {
         data = data.copy(type = runCatching { listenerType(dir, data, from, to) }.getOrNull())
         progress("Looking through your library…")
         data = data.copy(library = runCatching { library() }.getOrNull())
+        data = data.copy(loops = runCatching {
+            val all = period == Period.All
+            RepeatFactsRules.summary(RepeatLoops.all(), if (all) "" else period.start().toString(), if (all) "" else period.end().toString(), TOP)
+        }.getOrNull())
         data = data.copy(songs = localSongs(data.songs, local))
         progress("Getting the pictures…")
         // Every song and album row: the cover inside your own file of it first (read from the file as it is now, so a

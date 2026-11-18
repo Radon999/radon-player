@@ -492,6 +492,9 @@ object DjDirector {
         override fun songLoading(t: Track) { djAnnounce(t); if (index >= queue.size - 2) djMore() }
         override fun queueRanOut() { djWaiting = true; if (djBusy == null) djMore() }
         override fun songEnded() = djKeepGoing()
+        override fun loopRemark(t: Track, kind: String, run: Int, total: Int) {
+            if (dj.on) djSay(Spoken.humanize(Dj.loopLine(kind, t, run, total), filler = 0.0))
+        }
     }
 
     /** Play (the app's own, the headphones, the car, the lock screen, the notification), the DJ's part of it, so the DJ

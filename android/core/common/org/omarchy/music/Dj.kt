@@ -35,11 +35,12 @@ object Dj {
     /** A mood set's name: "Energetic, Party & Hype". */
     private fun groupName(g: List<String>) = if (g.size == 1) g[0] else g.dropLast(1).joinToString(", ") + " & " + g.last()
     val ORDER: List<String> get() = listOf("repeat", "fresh", "hour", "throwback", "discover", "spotlight", "deep", "rediscover", "yearago",
-        "mostplayed", "album", "genre", "decade", "like", "neverskip", "streak", "onehit", "second", "unreleased") + MOOD_KINDS
+        "mostplayed", "album", "genre", "decade", "like", "neverskip", "streak", "onehit", "second", "unreleased",
+        "loops", "loopsmonth", "loopsthen", "likeloops") + MOOD_KINDS
     /** The kinds made for songs you picked (a playlist, a folder, an album), from only those songs. */
     private val FROM_KINDS = listOf("mostplayed", "unplayed", "hour", "artist", "throwback", "mix")
     /** The kinds that bring songs new to you (not from what the DJ plays from). */
-    private val NEW_KINDS = setOf("fresh", "like", "discover", "deep")
+    private val NEW_KINDS = setOf("fresh", "like", "discover", "deep", "likeloops")
     /** Playing from songs you picked: every kind of set there is, of only those songs (the ones made for them, then
      *  every kind playing from everything has, kept to them), but for the kinds of new songs. */
     val FROM_ORDER: List<String> get() = FROM_KINDS + ORDER.filter { it !in FROM_KINDS && it !in NEW_KINDS }
@@ -54,7 +55,8 @@ object Dj {
         "rediscover" to "Rediscover", "favorites" to "Your favourites", "discover" to "Artists for you", "mood" to "Your mood",
         "moodmix" to "Mood mix", "spotlight" to "Artist spotlight", "album" to "Album moment", "yearago" to "On this day",
         "decade" to "Decade trip", "onehit" to "One-hit wonders", "neverskip" to "Not skipped this month", "second" to "Second chances",
-        "unreleased" to "Unreleased corner", "streak" to "Streaks")
+        "unreleased" to "Unreleased corner", "streak" to "Streaks", "loops" to "Can't let go", "loopsmonth" to "This month's obsessions",
+        "loopsthen" to "Old obsessions", "likeloops" to "Like your repeats")
     /** Words in a request and the Last.fm tags they mean. */
     val WORDS = mapOf(
         "chill" to listOf("chill", "chillout"), "chilled" to listOf("chill", "chillout"), "relax" to listOf("chill", "relaxing"),
@@ -155,8 +157,8 @@ object Dj {
     enum class SetType { TIME_AND_MOOD, NOSTALGIA_PULL, SONIC_BRIDGE, FRESH_DROP }
 
     fun typeOf(kind: String): SetType = when {
-        kind.startsWith("mood:") || kind in setOf("hour", "repeat", "streak", "mood", "moodmix") -> SetType.TIME_AND_MOOD
-        kind in setOf("like", "genre", "ask") -> SetType.SONIC_BRIDGE
+        kind.startsWith("mood:") || kind in setOf("hour", "repeat", "streak", "mood", "moodmix", "loops", "loopsmonth") -> SetType.TIME_AND_MOOD
+        kind in setOf("like", "genre", "ask", "likeloops") -> SetType.SONIC_BRIDGE
         kind in setOf("fresh", "deep", "discover", "unplayed") -> SetType.FRESH_DROP
         else -> SetType.NOSTALGIA_PULL
     }
@@ -1407,6 +1409,100 @@ object Dj {
             "Nearly every day this week: ${names(songs, 3)}.")
     }
 
+    // ---- Repeats (RepeatLoops): the songs you let play again with Repeat one ----
+    /** Your repeated songs on days from since up to until ("": open), the most repeated first, as your own copies of
+     *  them, each with its count. One the history shows that you have no copy of is left out (it can't be played). */
+    private fun loopTracks(since: String = "", until: String = ""): List<Pair<Track, Int>> =
+        RepeatLoops.all().songs.values.map { l -> l to l.days.filterKeys { (since.isEmpty() || it >= since) && (until.isEmpty() || it < until) }.values.sum() }
+            .filter { it.second > 0 }.sortedByDescending { it.second }
+            .map { (l, n) -> (if (l.track.id.startsWith("repeat:")) Music.mineOf(l.track) else l.track) to n }.filter { !it.first.id.startsWith("repeat:") }
+
+    /** The artist you put on repeat most (ten times or more), and how often. */
+    private fun loopArtist(): Pair<String, Int>? =
+        RepeatLoops.all().songs.values.groupBy { it.track.artist.split(",")[0].trim() }.map { (a, ls) -> a to ls.sumOf { it.n } }
+            .maxByOrNull { it.second }?.takeIf { it.second >= 10 }
+
+    /** Can't let go: the songs you've let play again most, ever. */
+    private fun setLoops(taste: Taste): Pair<List<Track>, String>? {
+        val counts = loopTracks().filter { it.second >= 2 }
+        val times = counts.associate { songKey(it.first) to it.second }
+        val songs = pick(ok(taste, counts.take(40).map { it.first }), SET, used)
+        if (songs.size < 3) return null
+        val s = songs.maxByOrNull { times[songKey(it)] ?: 0 } ?: songs[0]
+        val n = times[songKey(s)] ?: 2
+        return songs to say("loops",
+            "The songs you can't let go of. ${q(s)} has gone round ${num(n)} times on repeat.",
+            "Once was never enough for these. ${names(songs, 3)}, all of them played again and again.",
+            "You hit repeat on these more than anything else. ${q(s)} by ${by(s)} leads, with ${num(n)} repeats.",
+            "The repeat button's favourites, back to back. We start with ${q(songs[0])}.",
+            "These are the ones you let play again. And again. ${q(s)} most of all.",
+            "A set of songs you've kept on repeat, starting with ${q(songs[0])} by ${by(songs[0])}.")
+    }
+
+    /** This month's obsessions: what you've had on Repeat one in the last thirty days. */
+    private fun setLoopsMonth(taste: Taste): Pair<List<Track>, String>? {
+        val counts = loopTracks(since = RepeatLoops.since(30))
+        val songs = pick(ok(taste, counts.take(30).map { it.first }), SET, used)
+        if (songs.size < 3) return null
+        val s = songs[0]
+        return songs to say("loopsmonth",
+            "This month's obsessions: the songs you've had on repeat lately, starting with ${q(s)}.",
+            "You've been looping these this month. ${names(songs, 3)}.",
+            "The ones you couldn't play just once lately. ${q(s)} by ${by(s)} first.",
+            "Fresh obsessions. Every one of these has been on repeat in the last few weeks.")
+    }
+
+    /** Old obsessions: what you had on Repeat one about a year ago. */
+    private fun setLoopsThen(taste: Taste): Pair<List<Track>, String>? {
+        val counts = loopTracks(since = RepeatLoops.since(425), until = RepeatLoops.since(305))
+        val songs = pick(ok(taste, counts.take(30).map { it.first }), SET, used)
+        if (songs.size < 3) return null
+        val s = songs[0]
+        return songs to say("loopsthen",
+            "About a year ago you had these on repeat. Starting with ${q(s)} by ${by(s)}.",
+            "A year back, ${q(s)} was the song you couldn't stop playing. Here it is again, with the others from then.",
+            "Last year's obsessions: ${names(songs, 3)}.",
+            "The songs you looped this time last year. Let's see how they've held up.")
+    }
+
+    /** Like your repeats: songs close to the ones you repeat most, that you haven't let play again yet. */
+    private fun setLikeLoops(taste: Taste): Pair<List<Track>, String>? {
+        val looped = RepeatLoops.all().songs.keys
+        val seeds = loopTracks().filter { it.second >= 3 }.take(6).map { it.first }.shuffled()
+        for (seed in seeds.take(3)) for (key in services()) {
+            val songs = pick(radio(seed, key).take(25).filter { songKey(it) != songKey(seed) && RepeatLoopRules.key(it) !in looped }, SET, used)
+            if (songs.size >= 3) return songs to say("likeloops",
+                "You've had ${q(seed)} on repeat so often, so here are songs close to it that you haven't worn out yet.",
+                "If ${q(seed)} is worth playing again and again, these might be too.",
+                "Songs from the same place as ${q(seed)} by ${by(seed)}, the one you keep on repeat.",
+                "Next candidates for your repeat button, starting from ${q(seed)}.")
+        }
+        return null
+    }
+
+    /** What the DJ says as a song starts over with Repeat one (RepeatFactsRules.remark says when): three or five in a
+     *  row, a milestone, a new longest run, or, after a long run, an offer to move on. */
+    fun loopLine(kind: String, t: Track, run: Int, total: Int): String = when (kind) {
+        "milestone" -> say("loop-milestone",
+            "That makes ${num(total)} times you've let ${q(t)} play again. It's clearly a keeper.",
+            "${q(t)}, repeated ${num(total)} times now. You really like this one.",
+            "A milestone: ${num(total)} repeats of ${q(t)}. Here's the next one.",
+            "${num(total)} times round for ${q(t)}, and it still isn't old.")
+        "record" -> say("loop-record",
+            "New record. ${q(t)}, $run times in a row. The old one was ${run - 1}.",
+            "That's $run in a row for ${q(t)}, the longest you've ever kept it going.",
+            "You've just beaten your own record with ${q(t)}: $run times in a row.")
+        "nudge" -> say("loop-nudge",
+            "$run times in a row now. Whenever you want a change, switch repeat off and I'll carry on from here.",
+            "Still ${q(t)}, $run times running. No complaints from me, but I've got more when you're ready.",
+            "That's $run in a row. I can keep this up as long as you can. Switch repeat off when you want something else.")
+        else -> say("loop-run",
+            "That's $run times in a row for ${q(t)}. You really like this one.",
+            "${q(t)} again. $run in a row, and counting.",
+            "Round $run for ${q(t)}. I get it, it's a good one.",
+            "$run times in a row. ${q(t)} has got hold of you.")
+    }
+
     // ---- variety, and a mood arc, for every set ----
     /** Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row: SetRules has the rules. */
     private fun arc(songs: List<Track>): List<Track> = SetRules.arc(songs) { runCatching { Moods.of(it) }.getOrNull() }
@@ -1454,6 +1550,16 @@ object Dj {
             val days = ((now().toLong() - first) / 86_400L).toInt()
             if (KindRules.newObsession(days, n)) out["c-crush:$id"] = "You found this one $days days ago, and you've played it ${num(n)} times already."
             if (KindRules.oldFriend(days)) out["c-old:$id"] = "You first played this one back in ${month(first)}."
+        }
+        // Repeats: how often you let it play again with Repeat one, its longest run, how long since, and your most repeated artist
+        RepeatLoops.of(t)?.let { l ->
+            if (l.n >= 5) out["c-loop:$id"] = "You've had this one on repeat ${num(l.n)} times."
+            if (l.best >= 4) out["c-looprun:$id"] = "Your record with this one is ${l.best} times in a row."
+            val ago = ((System.currentTimeMillis() - l.last) / 86_400_000L).toInt()
+            if (l.n >= 3 && l.last > 0 && ago >= 60) out["c-loopback:$id"] = "You haven't had this one on repeat since ${month(l.last / 1000)}."
+        }
+        loopArtist()?.let { (a, times) ->
+            if (norm(a) == norm(t.artist.split(",")[0])) out["c-loopartist:${norm(a)}"] = "You put $a on repeat more than anyone else. ${num(times)} times so far."
         }
         val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return null
         remember(FACT_HISTORY, key)
@@ -1650,6 +1756,10 @@ object Dj {
         "second" -> setSecondChance(taste)
         "unreleased" -> setUnreleased(taste)
         "streak" -> setStreak(taste)
+        "loops" -> setLoops(taste)
+        "loopsmonth" -> setLoopsMonth(taste)
+        "loopsthen" -> setLoopsThen(taste)
+        "likeloops" -> setLikeLoops(taste)
         else -> null
     }
 

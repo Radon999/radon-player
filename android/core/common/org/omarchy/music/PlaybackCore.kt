@@ -50,6 +50,8 @@ object PlaybackCore {
         val duckVolume: Float
         /** It will talk as next begins (a new set's line, or a word about the song): t doesn't fade into it. */
         fun talksBefore(t: Track, next: Track): Boolean
+        /** A song has started over with Repeat one, and there is something to say about it (RepeatFactsRules.remark). */
+        fun loopRemark(t: Track, kind: String, run: Int, total: Int) {}
         /** Other songs were picked, or another queue: the DJ stops. */
         fun otherSongsPicked()
         /** It stops talking (Play, Pause, a skip): the music goes on. */
@@ -480,7 +482,15 @@ object PlaybackCore {
         current()?.let { t -> Music.bg({ Music.songStats.heardOut(t) }); Music.discovered(t) }
         finishing = true
         // Repeat one: from its very start, and counted as one repeat of the song (the Repeats tab)
-        if (repeat == "one") { current()?.let { RepeatLoops.again(it) }; resumeAt = 0.0; position = 0.0; loadCurrent() } else { RepeatLoops.moved(); next() }
+        if (repeat == "one") {
+            val again = current(); val said = again?.let { RepeatLoops.again(it) }
+            resumeAt = 0.0; position = 0.0; loadCurrent()
+            // a word about it: the DJ's when it is on (its run, a milestone, a new longest run), else a note at a milestone
+            if (again != null && said != null) {
+                if (djSide.on) djSide.loopRemark(again, said.kind, said.run, said.total)
+                else if (Prefs.on(RepeatLoops.NOTES, true)) RepeatLoops.note(again, said).takeIf { it.isNotEmpty() }?.let { Music.toast(it) }
+            }
+        } else { RepeatLoops.moved(); next() }
         if (ended && !(Music.autoplay && repeat == "off")) doneAdvancing()
     }
 

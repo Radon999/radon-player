@@ -20,6 +20,7 @@ object FactTopics {
         "favorites" to listOf("favorites-count", "favorite"),
         "playlists" to listOf("playlists"),
         "milestone" to listOf("milestone"),
+        "repeats" to listOf("c-loop", "c-looprun", "c-loopback", "c-loopartist"),
     ).flatMap { (topic, kinds) -> kinds.map { it to topic } }.toMap()
 
     /** A key's kind: what comes before its first colon ("hours:<song>" is "hours"). */

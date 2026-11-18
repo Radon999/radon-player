@@ -849,6 +849,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
             Text(big, style = W.big.copy(fontSize = 22.sp, lineHeight = 26.sp)); Text(small, style = W.sub)
         }
     }
+    out += loopSlides(d)
     out += diarySlides(d)
     out += typeSlide(d)
     out += milestoneSlides(d, "in ${p.of}")
@@ -914,6 +915,7 @@ private fun allTime(d: Wrapped.Data): List<Slide> {
                 height = 150.dp, top = best)
         }
     }
+    out += loopSlides(d)
     out += diarySlides(d)
     out += typeSlide(d)
     out += milestoneSlides(d, "so far")
@@ -1219,6 +1221,69 @@ private fun diarySlides(d: Wrapped.Data): List<Slide> {
 }
 
 /** The listener type: a fun name, a line, and what made it. */
+/** Repeats: the songs you let play again with Repeat one in this time (RepeatFactsRules.Summary). Nothing when there
+ *  were none. */
+private fun loopSlides(d: Wrapped.Data): List<Slide> {
+    val l = d.loops ?: return emptyList()
+    val out = ArrayList<Slide>()
+    fun pic(t: org.omarchy.music.Track): Any? = trackPic(org.omarchy.music.Music.mineOf(t))
+    val first = l.top.first()
+    out += Slide(2) {
+        Text("ON REPEAT ONE", style = W.kicker)
+        Text("${n(l.total)} repeat${if (l.total != 1) "s" else ""}", style = W.huge.copy(fontSize = 36.sp, lineHeight = 42.sp, color = WS.accent, shadow = WS.shadow))
+        val hours = l.secs / 3600.0
+        Text("You let ${n(l.songs)} song${if (l.songs != 1) "s" else ""} play again by ${if (l.songs != 1) "themselves" else "itself"}" +
+            (if (hours >= 1.0) ": about ${n(hours.toInt())} hour${if (hours.toInt() != 1) "s" else ""} of the same songs, again" else if (l.secs >= 120) ": about ${n((l.secs / 60).toInt())} minutes of the same songs, again" else "") + ".", style = W.sub)
+        l.type?.let { (name, why) ->
+            Rule()
+            Text(name, style = W.mid.copy(color = WS.accent, shadow = WS.shadow))
+            Text(why, style = W.small)
+        }
+    }
+    out += Slide(5) {
+        Text("YOUR BIGGEST OBSESSION", style = W.kicker)
+        Pic(pic(first.first.track), 220.dp)
+        Text(first.first.track.title, style = W.big)
+        Text(first.first.track.artist, style = W.sub)
+        Text(org.omarchy.music.RepeatLoopRules.times(first.second) + (if (first.first.best >= 3) " · ${first.first.best} times in a row at most" else ""), style = W.small)
+    }
+    if (l.top.size >= 2) out += Slide(6) {
+        Text("YOUR MOST REPEATED SONGS", style = W.kicker)
+        Ranked(l.top.map { Triple(it.first.track.title, it.first.track.artist, it.second) }, l.top.map { pic(it.first.track) }, meter = true)
+    }
+    if (l.artists.size >= 2) out += Slide(4) {
+        Text("YOUR MOST REPEATED ARTISTS", style = W.kicker)
+        Ranked(l.artists.map { Triple(it.first, "", it.second) }, meter = true)
+    }
+    val moments = ArrayList<Pair<String, String>>()
+    l.bestRun?.let { (loop, run) -> moments += "$run in a row" to "your longest run: “${loop.track.title}” by ${loop.track.artist}" +
+        (runCatching { " on " + DateTimeFormatter.ofPattern("MMMM d", Locale.ENGLISH).format(LocalDate.parse(loop.bestDay)) }.getOrDefault("")) }
+    l.topDay?.let { (day, count, song) -> runCatching { DateTimeFormatter.ofPattern("MMMM d", Locale.ENGLISH).format(LocalDate.parse(day)) }.getOrNull()?.let {
+        moments += it to "your repeat day: ${n(count)} repeat${if (count != 1) "s" else ""}" + if (song.isNotEmpty()) ", mostly “$song”" else "" } }
+    if (l.weekdays.sum() >= 5) { val wd = l.weekdays.indices.maxBy { l.weekdays[it] }
+        moments += listOf("Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays")[wd] to "the day of the week you repeat songs most" }
+    if (l.hours.sum() >= 5) { val h = l.hours.indices.maxBy { l.hours[it] }
+        moments += (when (h) { in 5..11 -> "Mornings"; in 12..16 -> "Afternoons"; in 17..21 -> "Evenings"; else -> "Late nights" }) to
+            "when you repeat songs most (around ${if (h % 12 == 0) 12 else h % 12} ${if (h < 12) "am" else "pm"})" }
+    if (moments.isNotEmpty()) out += Slide(7) {
+        Text("REPEAT MOMENTS", style = W.kicker)
+        moments.forEach { (big, small) -> Text(big, style = W.big.copy(fontSize = 22.sp, lineHeight = 26.sp)); Text(small, style = W.sub) }
+    }
+    if (l.months.size >= 2) out += Slide(1) {
+        Text("OBSESSION OF EACH MONTH", style = W.kicker)
+        Text("The song you repeated most", style = W.big)
+        Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            l.months.takeLast(12).forEach { (month, loop, _) ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(Wrapped.MONTHS.getOrElse((month.drop(5).toIntOrNull() ?: 1) - 1) { "" }, style = W.rank, modifier = Modifier.widthIn(min = 42.dp))
+                    Text(loop.track.title, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+    return out
+}
+
 private fun typeSlide(d: Wrapped.Data): List<Slide> {
     val k = d.type ?: return emptyList()
     return listOf(Slide(4) {
