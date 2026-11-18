@@ -1,12 +1,11 @@
-commit aaf0f8df488b015ec696b5a224363f54d26c5359 · run 44203315301 · Wed Nov 18 00:08:15 UTC 2026
+commit 905b5bebd0846fa62edcf97fb0e90cc2b4a025be · run 44205219551 · Wed Nov 18 00:16:21 UTC 2026
 PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
 THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
 WINDOWS INSTALLER: not built
 --- errors
+> Task :desktop:compileKotlin FAILED
 e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:52 Unsupported escape sequence.
 e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:54 Unsupported escape sequence.
-
-> Task :desktop:compileKotlin FAILED
 
 FAILURE: Build failed with an exception.
 
@@ -18,12 +17,12 @@ Execution failed for task ':desktop:compileKotlin'.
 * Try:
 > Run with --stacktrace option to get the stack trace.
 --
-BUILD FAILED in 3m 21s
+BUILD FAILED in 3m 14s
 17 actionable tasks: 17 executed
 --- the end of the log
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:54 Unsupported escape sequence.
-
 > Task :desktop:compileKotlin FAILED
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:52 Unsupported escape sequence.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1249:54 Unsupported escape sequence.
 
 FAILURE: Build failed with an exception.
 
@@ -44,5 +43,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 21s
+BUILD FAILED in 3m 14s
 17 actionable tasks: 17 executed
