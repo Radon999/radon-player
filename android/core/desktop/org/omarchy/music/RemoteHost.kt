@@ -247,6 +247,10 @@ object RemoteHost {
             "shuffle" -> m.shuffle()
             "like" -> m.toggleLike()
             "play_index" -> m.playIndex(b["index"].long?.toInt() ?: -1)
+            // the phone as the remote editing this PC's queue: a song dragged, the queued songs cleared, the last change undone
+            "move" -> m.moveInQueue(b["from"].long?.toInt() ?: -1, b["to"].long?.toInt() ?: -1)
+            "clear_queued" -> m.clearQueued()
+            "undo_queue" -> m.undoQueue()
             "unqueue" -> m.unqueueMany((b["indices"] as? JsonArray)?.mapNotNull { it.long?.toInt() } ?: emptyList())
             "play_from" -> { need(); m.playFrom(tracks, (b["index"].long?.toInt() ?: 0).coerceIn(0, tracks.size - 1), b["radio"].bool ?: false) }
             "enqueue" -> { need(); m.enqueue(tracks, if (b["how"].str == "next") "next" else "queue") }

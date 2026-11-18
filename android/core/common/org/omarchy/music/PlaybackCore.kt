@@ -187,7 +187,7 @@ object PlaybackCore {
 
     /** The queue put back as it was before your last change to it. The song playing goes on untouched. */
     fun undoQueue() {
-        if (Remote.active) { Music.toast("Undo the queue on the desktop"); return }
+        if (Remote.active) { Remote.cmd("undo_queue"); return }   // the phone as the remote: the PC's queue is put back
         val b = befores.lastOrNull() ?: return
         befores = befores.dropLast(1)
         undoLabel = befores.lastOrNull()?.let { QueueUndoRules.label(it.what, it.n) } ?: ""
@@ -236,7 +236,7 @@ object PlaybackCore {
 
     /** The queue's Clear: the songs you queued by hand go (what plays on from the list stays). */
     fun clearQueued() {
-        if (Remote.active) { Music.toast("Clear the queue on the desktop"); return }
+        if (Remote.active) { Remote.cmd("clear_queued"); return }
         keepForUndo("clear")
         queue = queue.take(index + 1) + queue.drop(index + 1).filter { !it.queued }
         afterQueueChange()
@@ -244,7 +244,8 @@ object PlaybackCore {
 
     /** The song at i, dragged to j (both after the one playing). */
     fun moveInQueue(i: Int, j: Int) {
-        if (Remote.active || i == j || i !in queue.indices || j !in queue.indices || i <= index || j <= index) return
+        if (Remote.active) { if (i != j) Remote.cmd("move", "from" to i, "to" to j); return }   // the PC's queue, by its own places
+        if (i == j || i !in queue.indices || j !in queue.indices || i <= index || j <= index) return
         keepForUndo("move")
         val q = queue.toMutableList()
         val t = q.removeAt(i)
