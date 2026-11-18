@@ -18,6 +18,8 @@ object ClipRules {
     val LENGTHS = listOf(15, 30, 45, 60)
     /** The song clip's style, a lyrics card style's key ("": the one the lyrics card uses). */
     const val STYLE = "clip_style"
+    /** Cards and clips say the song's plays beside the artist (on unless switched off). */
+    const val CARD_PLAYS = "card_plays"
     /** Lyrics card: With the song's sound. */
     const val CARD_SOUND = "card_sound"
 

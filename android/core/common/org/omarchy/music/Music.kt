@@ -437,6 +437,7 @@ object Music {
     fun genresHere(n: Int = 30): List<String> = mySongs().map { genreOf(it) }.filter { it.isNotEmpty() && it != "Unknown genre" }
         .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(n).map { it.key }
 
+    var repeatsPeriod by mutableStateOf("all")   // Repeats' list: all, year, month, week (not kept)
     var repeatPeriod by mutableStateOf("week")   // Repeat's chart: week, month, year (not kept)
 
     // ---- Discovery: an artist's songs you haven't got, heard one by one ----

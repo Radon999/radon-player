@@ -107,7 +107,7 @@ object SongClips {
         val side = 780f; val left = (W - side) / 2
         pt.picture(art, left, 110f, side, if (k.round) side / 2 else 30f, empty = argb(k.fg, 40))
         val th = pt.block(t.title, 54f, true, k.title, 110f, 936f, 860f, maxLines = 2)
-        pt.block(t.artist, 38f, false, k.soft, 110f, 946f + th, 860f, maxLines = 1)
+        pt.block(cardArtist(t), 38f, false, k.soft, 110f, 946f + th, 860f, maxLines = 1)
         val bar = ClipRules.Bar(BAR_X, BAR_Y, BAR_W, BAR_H, k.accent.toArgb() and 0xFFFFFF)
         pt.draw {
             drawRect(k.fg.copy(alpha = 0.22f), Offset(BAR_X.toFloat(), BAR_Y.toFloat()), Size(BAR_W.toFloat(), BAR_H.toFloat()))
@@ -119,6 +119,18 @@ object SongClips {
         return pt.img to bar
     }
 }
+
+/** A card's line under the song's name: the artist and, with Plays on cards on (Settings › Personalization), how often
+ *  you have played the song ("Saint Motel · 132 plays"): on lyrics cards, picture cards and song clips. */
+internal fun cardArtist(t: Track): String {
+    if (!Prefs.on(ClipRules.CARD_PLAYS, true)) return t.artist
+    val now = System.currentTimeMillis()
+    val counts = cardPlays?.takeIf { now - cardPlaysAt < 5_000 } ?: runCatching { Music.playCounts() }.getOrDefault(emptyMap()).also { cardPlays = it; cardPlaysAt = now }
+    val said = org.omarchy.music.RepeatLoopRules.plays(counts[org.omarchy.music.songKey(t)] ?: t.plays)
+    return if (said.isEmpty()) t.artist else t.artist + "  ·  " + said
+}
+@Volatile private var cardPlays: Map<Pair<String, String>, Int>? = null
+@Volatile private var cardPlaysAt = 0L
 
 /** Makes a clip away from the screen, then hands it on (to save, to share); says why if it couldn't be made. */
 @Composable

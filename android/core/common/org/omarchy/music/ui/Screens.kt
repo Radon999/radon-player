@@ -405,6 +405,7 @@ fun MusicTab(ui: Ui) {
                 "newreleases" -> newReleasesView(ui)
                 "discovery" -> discoveryView(ui)
                 "repeat" -> repeatView(ui)
+                "repeats" -> repeatsView(ui)
                 else -> {
                     // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())
@@ -1955,6 +1956,31 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
                 }
             }
         }
+    }
+}
+
+/** Repeats: the songs you let play again with Repeat one (RepeatLoopRules), the most repeated first. */
+fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
+    val RR = org.omarchy.music.RepeatLoopRules
+    org.omarchy.music.RepeatLoops.version   // read, so the list is made again when a song repeats
+    val periods = listOf("all" to ("All time" to 0), "year" to ("The last year" to 365), "month" to ("The last 30 days" to 30), "week" to ("The last 7 days" to 7))
+    item {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            periods.forEach { (k, l) -> Chip(l.first, Music.repeatsPeriod == k) { Music.repeatsPeriod = k } }
+        }
+    }
+    val days = periods.firstOrNull { it.first == Music.repeatsPeriod }?.second?.second ?: 0
+    val since = org.omarchy.music.RepeatLoops.since(days)
+    val saved = org.omarchy.music.RepeatLoops.saved()
+    val top = RR.top(saved, since, 200)
+    if (top.isEmpty()) item { Empty(if (days == 0) "No repeats yet" else "No repeats in this time",
+        "Put Repeat one on (the repeat button, twice) and let a song play again: each time it starts over by itself is counted here. " +
+        "Only Repeat one counts, and they are counted from this version on.") }
+    else {
+        item { Section(RR.summary(top.size, RR.total(saved, since)).uppercase()) }
+        val lines = top.withIndex().associate { (i, p) -> p.first.track.id to RR.line(i + 1, p.second, p.first.best) }
+        tracks(top.map { it.first.track }, ui, "repeats") { t -> lines[t.id] ?: "" }
     }
 }
 

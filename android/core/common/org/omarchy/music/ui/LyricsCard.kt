@@ -88,7 +88,7 @@ fun lyricsCard(lines: List<String>, t: Track, style: MyCard? = LyricsCards.of(Ly
     val titleInk = if (plain) ink(coverAccent, 255) else if (coverLook) white(255) else ink(C.accent, 255) // the song's name: its accent
     val soft = if (coverLook) white(190) else ink(C.muted, 230)
     val th = pt.block(t.title, 44f, true, titleInk, left, pad + 18f, w - left - pad, maxLines = 4)
-    pt.block(t.artist, 36f, false, soft, left, pad + 26f + th, w - left - pad, maxLines = 4)
+    pt.block(cardArtist(t), 36f, false, soft, left, pad + 26f + th, w - left - pad, maxLines = 4)
     // As the Lyrics screen looks: the words on a rounded card in the look's colours (over its background, stars and
     // effects), a small LYRICS heading at the card's top, and the song above it.
     val cardTop = pad + 132f + 56f; val cardBottom = h - 130f
@@ -132,7 +132,7 @@ private fun styledCard(pt: Painter, w: Int, h: Int, pad: Float, lines: List<Stri
         left = pad + 132f + 32f
     }
     val th = pt.block(t.title, 44f, true, ink(c.title, 255), left, pad + 18f, w - left - pad, maxLines = 4)
-    pt.block(t.artist, 36f, false, ink(c.soft, 255), left, pad + 26f + th, w - left - pad, maxLines = 4)
+    pt.block(cardArtist(t), 36f, false, ink(c.soft, 255), left, pad + 26f + th, w - left - pad, maxLines = 4)
     val cardTop = pad + 132f + 56f; val cardBottom = h - 130f
     val cardLeft = 48f; val cardRight = w - 48f
     if (c.panelAlpha > 0.01f) pt.draw { drawRoundRect(col(c.panel).copy(alpha = c.panelAlpha.coerceIn(0f, 1f)), androidx.compose.ui.geometry.Offset(cardLeft, cardTop),

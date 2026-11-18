@@ -479,7 +479,8 @@ object PlaybackCore {
         if (streaming && duration > 0 && position < duration - 5) { step("taken for a stream that broke"); streamBroke(); return }   // the network went away mid-song
         current()?.let { t -> Music.bg({ Music.songStats.heardOut(t) }); Music.discovered(t) }
         finishing = true
-        if (repeat == "one") { resumeAt = 0.0; position = 0.0; loadCurrent() } else next()   // Repeat one: from its very start
+        // Repeat one: from its very start, and counted as one repeat of the song (the Repeats tab)
+        if (repeat == "one") { current()?.let { RepeatLoops.again(it) }; resumeAt = 0.0; position = 0.0; loadCurrent() } else { RepeatLoops.moved(); next() }
         if (ended && !(Music.autoplay && repeat == "off")) doneAdvancing()
     }
 

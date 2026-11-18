@@ -1557,6 +1557,11 @@ private fun NowPlayingLookLines() {
         "The Lyrics card box has the same switch", cardSound) {
         Switch(cardSound, { cardSound = it; P.set(CR.CARD_SOUND, it) }, colors = swColors())
     }
+    var cardPlays by remember { mutableStateOf(P.on(CR.CARD_PLAYS, true)) }
+    Line("Plays on cards", "On: lyrics cards, picture cards and song clips say how often you have played the song, beside the artist " +
+        "(“Saint Motel · 132 plays”). Off: only the artist", cardPlays) {
+        Switch(cardPlays, { cardPlays = it; P.set(CR.CARD_PLAYS, it) }, colors = swColors())
+    }
 }
 
 /** Auto mono (the phone's: it goes by the Bluetooth earbuds connected to it). */
