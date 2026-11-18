@@ -1093,7 +1093,6 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     var gFailed by remember(page, gPick) { mutableStateOf(false) }
     var sorted by remember(page, gPick, reload) { mutableStateOf<org.omarchy.music.GeniusArtists.Sorted?>(null) }
     var sortAt by remember(page, gPick, reload) { mutableStateOf<Pair<Int, Int>?>(null) }
-    var showLeft by remember(page) { mutableStateOf(false) }
     LaunchedEffect(page) { Music.bg({ org.omarchy.music.GeniusArtists.choices(page.name) }) { c, _ -> gChoices = c.orEmpty() } }
     // Their whole discography: the releases Genius lists for them that the page doesn't have are added to it (a
     // service's artist page can leave some out). From the Genius artist you picked, or its only one of the name.
@@ -1334,6 +1333,17 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     val everySort = sortNow("artist-every", everySorts)
     val everyList = everyShown?.let { l -> rememberSorted(l, everySort) { d -> org.omarchy.music.sortTracks(l, everySort, d) } }
     val links = androidx.compose.ui.platform.LocalUriHandler.current
+    // The page's sections fold open and shut, as Settings' do, and are all shut when the page opens: a list of what
+    // there is to look through (their albums and singles, featured on, every song, your songs, top songs, what's
+    // left out), and you open the one you want. Which are open is kept for the page, so Back finds it as you left it.
+    val placeKey = LocalPlace.current
+    var open by remember(placeKey) { mutableStateOf(artistOpen[placeKey] ?: emptySet()) }
+    fun isOpen(k: String) = k in open
+    fun toggle(k: String) {
+        open = if (k in open) open - k else open + k
+        if (artistOpen.size > 300) artistOpen.clear()
+        artistOpen[placeKey] = open
+    }
     // Picking releases: what the bar at the bottom offers for the ones ticked (besides Options for all their songs).
     // Said from the page itself, not from a row of its list: a row is only there while it's on the screen, and far
     // down the list the bar was left with options made before anything was ticked (Hide did nothing). Each option
@@ -1431,7 +1441,8 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         }
         // Their albums and singles first, every one of them; then every song; then your songs and their top songs.
         if (albums.isNotEmpty()) {
-            item { Section(if (onlyMine) "YOUR ALBUMS AND SINGLES" else "ALBUMS AND SINGLES") }
+            item { ArtistFold(if (onlyMine) "Your albums and singles" else "Albums and singles", "%,d".format(albums.size), isOpen("albums") || picking) { toggle("albums") } }
+            if (isOpen("albums") || picking) {
             if (picking) item { Section(if (pickedAlbums.isEmpty()) "PICK RELEASES: A TAP TICKS ONE" else "${pickedAlbums.size} PICKED") }
             else item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("Select", false) { ui.startPick("artist-albums") }; SortMenu("artist-albums", ARTIST_ALBUM_SORTS) } }
@@ -1447,11 +1458,12 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     ico = Ico.DISC, lit = picking && a.al.id in pickedAlbums,
                     onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) }) { if (picking) pickAlbum(a) else openAlbum(a) }
             }
-        }
+        } }
         // Featured on: songs by others that credit them, between their releases and every song of their own. A list
         // of songs; a release only when all of it features them (rare).
         if (featAlbums.isNotEmpty() || featSongs.isNotEmpty()) {
-            item { Section("FEATURED ON · ${featAlbums.size + featSongs.size}") }
+            item { ArtistFold("Featured on", "%,d".format(featAlbums.size + featSongs.size), isOpen("feat")) { toggle("feat") } }
+            if (isOpen("feat")) {
             val src = i?.source.orEmpty()
             laidOutItems(featAlbums, ui, key = { "af-" + featAlbums[it].first.id + "#" + it }, row = { j ->
                 val (al, songs) = featAlbums[j]
@@ -1464,14 +1476,15 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     ui.pages += Ui.Page.AlbumPage(al, src, Music.yourCopies(songs)) }
             }
             tracks(featSongs, ui, "artist", section = "artist-feat") { t -> t.album }
-        }
+        } }
         // Every song they have, always (no button to ask for it): the songs of all their releases, and of the
         // compilations they're on, each once; with a Genius artist picked, the ones only Genius lists too. It fills
         // in a moment after the page opens (each release is asked for).
         if (i != null && !onlyMine && (i.albums.isNotEmpty() || i.also.isNotEmpty() || gSongs?.isNotEmpty() == true)) {
             val list = everyList
             val at = everyAt
-            item { Section(if (list != null) "EVERY SONG · ${list.size}" else "EVERY SONG") }
+            item { ArtistFold("Every song", if (list != null) "%,d".format(list.size) else "…", isOpen("every")) { toggle("every") } }
+            if (isOpen("every")) {
             if (list == null) item {
                 Text(if (at != null) "Going through their releases… ${at.first} of ${at.second}" else "Going through their releases…", style = T.sub,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
@@ -1482,9 +1495,10 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 val everyByPlays = everySort.startsWith("plays")
                 tracks(list, ui, "artist", section = "artist-every") { t -> if (everyByPlays) listOf(playsText(playsOf(t)), t.album).filter { it.isNotEmpty() }.joinToString(" · ") else t.album }
             }
-        }
+        } }
         if (mine.isNotEmpty()) {
-            item { Section(if (onlyStream) "STREAMING SONGS YOU'VE PLAYED" else "YOUR SONGS") }
+            item { ArtistFold(if (onlyStream) "Streaming songs you've played" else "Your songs", "%,d".format(mine.size), isOpen("mine")) { toggle("mine") } }
+            if (isOpen("mine")) {
             // As songs, or as your releases of theirs: with a big discography, tapping the album beats scrolling to it
             val asReleases = songsView == "releases" && !onlyStream && ownShown.isNotEmpty()
             item {
@@ -1517,16 +1531,16 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                         onLongClick = { albumMenu(a) }) { openAlbum(a) }
                 }
             } else tracks(mine, ui, "artist") { t -> playsText(playsOf(t)) }
-        }
+        } }
         if (onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("None of their music is yours yet",
             "You have no downloads or files of ${page.name}'s. Pick “Everything” at the top to see their songs on the streaming services.") }
         when {
             i == null && failed == null -> if (!onlyMine) item { Section("LOADING…") }
             i == null -> if (!onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("Couldn't find them", failed ?: "") }
             i != null && top.isNotEmpty() -> {
-                item { Section(if (onlyMine) "YOUR COPIES OF THEIR TOP SONGS"
-                    else "TOP SONGS" + if (i.topSource != i.source) " · ${SOURCES[i.topSource]?.uppercase()}" else "") }
-                tracks(top, ui, "artist", radio = true, section = "artist-top")
+                item { ArtistFold(if (onlyMine) "Your copies of their top songs"
+                    else "Top songs" + (if (i.topSource != i.source) " · ${SOURCES[i.topSource]}" else ""), "%,d".format(top.size), isOpen("top")) { toggle("top") } }
+                if (isOpen("top")) tracks(top, ui, "artist", radio = true, section = "artist-top")
             }
         }
         // What's left out of the page: hidden by you, or not on Genius's list. Nothing is gone; any of it can be put back.
@@ -1534,13 +1548,8 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         val leftFeats = feats?.songs.orEmpty().filter { !featShown(it) }
         val left = leftSongs.size + leftAlbums.size + leftFeats.size
         if (left > 0) {
-            item {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    Pill(if (showLeft) "Hide what's left out" else "Show what's left out · $left", quiet = true) { showLeft = !showLeft }
-                }
-            }
-            if (showLeft) {
-                item { Section("LEFT OUT OF THIS PAGE · $left") }
+            item { ArtistFold("Left out of this page", "%,d".format(left), isOpen("left")) { toggle("left") } }
+            if (isOpen("left")) {
                 item { Text("Hidden by you" + (if (theirs != null) ", not on Genius's list for them" else "") + ", or a single that is on an album or EP already. A song's Options (an album's menu) has “Show on ${page.name}'s page”.",
                     style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
                 laidOutItems(leftAlbums, ui, key = { "al-" + leftAlbums[it].al.id + "#" + it }, row = { j ->
@@ -1560,6 +1569,22 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
 
 /** An album on an artist's page: the service's (streamed) or one of yours, with your copy of it (album, songs) if you have one. */
 private val ARTIST_ALBUM_SORTS = listOf("order", "created", "created-old", "name", "name-desc")
+
+/** Which of each artist page's sections are open (by the page: [LocalPlace]). */
+private val artistOpen = HashMap<String, Set<String>>()
+
+/** A section of an artist's page: a row with its name, how many it holds, and an arrow that folds it open or shut,
+ *  as a section of Settings. */
+@Composable
+private fun ArtistFold(title: String, count: String, open: Boolean, onClick: () -> Unit) {
+    val bg = if (C.apple && C.isLight) androidx.compose.ui.graphics.Color(0xFFF2F2F7) else C.light
+    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).clip(R.card).background(bg).clickable(onClick = onClick)
+        .padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = T.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), modifier = Modifier.weight(1f))
+        if (count.isNotEmpty()) Text(count, style = T.sub, modifier = Modifier.padding(end = 10.dp))
+        Text(if (open) "▾" else "▸", style = T.sub)
+    }
+}
 
 /** (genius: one only Genius lists, added so the discography is whole.) */
 private data class ArtistAlbum(val al: Album, val own: Pair<Album, List<Track>>?, val streamed: Boolean, val genius: Boolean = false) {

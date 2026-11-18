@@ -21,7 +21,7 @@ object ArtistShown {
     /** Hide songs from the artist's page (they stay in your music and everywhere else), or put them on it. */
     fun songs(artist: String, songs: List<Track>, hide: Boolean) {
         mark(artist, songs.map { ArtistShownRules.songKey(it.title) }, if (hide) ArtistShownRules.HIDE else ArtistShownRules.KEEP)
-        Music.toast(if (hide) "Hidden from $artist's page · “Show what's left out” at its end brings ${if (songs.size == 1) "it" else "them"} back"
+        Music.toast(if (hide) "Hidden from $artist's page · “Left out of this page” there brings ${if (songs.size == 1) "it" else "them"} back"
             else "On $artist's page again")
     }
 
@@ -30,7 +30,7 @@ object ArtistShown {
         if (titles.isEmpty()) return
         mark(artist, titles.map { ArtistShownRules.albumKey(it) }, if (hide) ArtistShownRules.HIDE else ArtistShownRules.KEEP)
         val n = titles.size
-        Music.toast(if (hide) "%,d release%s hidden from %s's page · “Show what's left out” at its end brings %s back".format(n, if (n != 1) "s" else "", artist, if (n == 1) "it" else "them")
+        Music.toast(if (hide) "%,d release%s hidden from %s's page · “Left out of this page” there brings %s back".format(n, if (n != 1) "s" else "", artist, if (n == 1) "it" else "them")
             else "%,d release%s on %s's page again".format(n, if (n != 1) "s" else "", artist))
     }
 }
