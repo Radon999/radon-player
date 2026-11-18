@@ -1468,7 +1468,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }
         }
         if (mine.isNotEmpty()) {
-            item { Section(if (onlyStream) "SONGS YOU PLAYED THAT AREN'T YOURS" else "YOUR SONGS") }
+            item { Section(if (onlyStream) "STREAMING SONGS YOU'VE PLAYED" else "YOUR SONGS") }
             // As songs, or as your releases of theirs: with a big discography, tapping the album beats scrolling to it
             val asReleases = songsView == "releases" && !onlyStream && ownShown.isNotEmpty()
             item {
