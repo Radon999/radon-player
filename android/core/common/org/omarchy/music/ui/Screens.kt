@@ -1320,7 +1320,8 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     var returned by remember(page) { mutableStateOf(wasAt == null) }
     androidx.compose.runtime.DisposableEffect(page) {
         onDispose {
-            if (ui.pages.any { it === page } && ui.pages.lastOrNull() !== page)
+            // (kept too while you're on Now playing with this page to come back to)
+            if ((ui.pages.any { it === page } && ui.pages.lastOrNull() !== page) || ui.cameFrom?.pages?.any { it === page } == true)
                 artistScroll[norm(page.name)] = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
             else artistScroll.remove(norm(page.name))
         }
