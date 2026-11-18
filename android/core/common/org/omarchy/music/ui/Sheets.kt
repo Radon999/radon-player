@@ -2712,11 +2712,11 @@ private fun AutoPlaylistSyncLine() {
     val s = org.omarchy.music.Sync
     val on = org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO_SYNC)
     val v = Music.musicVersion
-    Line("Auto playlist sync", "On: your synced playlists (⇄) sync by themselves, so you needn't remember Sync now. It happens the moment the phone's app " +
+    Line("Auto playlist sync", "On: your synced playlists (⇄) and your favorites sync by themselves, so you needn't remember Sync now. It happens the moment the phone's app " +
         "finds the PC's (both open, on the same network), and again within about 20 seconds whenever you add or take out a song on either while both " +
-        "are open. Only the playlists go: plays, favorites, settings and the rest still wait for Sync now. It can't happen while one of the apps is " +
+        "are open. Only the synced playlists and your favorites go: plays, settings and the rest still wait for Sync now. It can't happen while one of the apps is " +
         "closed or the two aren't on the same network; they catch up when they next meet. The switch counts on either device. Both need this version",
-        on, note = if (s.autoAt > 0) "Playlists last synced by themselves ${s.ago(s.autoAt)}" else "") {
+        on, note = if (s.autoAt > 0) "Playlists and favorites last synced by themselves ${s.ago(s.autoAt)}" else "") {
         Switch(on, { org.omarchy.music.Prefs.set(org.omarchy.music.SyncPlaylists.AUTO_SYNC, it); Music.musicVersion++; if (it) s.soon() }, colors = swColors())
     }
 }

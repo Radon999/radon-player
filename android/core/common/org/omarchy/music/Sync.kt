@@ -183,9 +183,12 @@ object Sync {
     // ---- Auto playlist sync: the synced playlists alone, by themselves ----
 
     private val playlistsFile get() = File(dir, "playlists.json")
-    private fun playlistFiles() = linkedMapOf("playlists.json" to SyncPlaylists.shared(readText(playlistsFile)?.takeIf { it.isNotBlank() } ?: "[]"))
+    // (your favorites go with them: a song starred on one device is starred on the other the same way)
+    private val favoritesFile get() = File(dir, "favorites.json")
+    private fun playlistFiles() = linkedMapOf("playlists.json" to SyncPlaylists.shared(readText(playlistsFile)?.takeIf { it.isNotBlank() } ?: "[]"),
+        "favorites.json" to (readText(favoritesFile)?.takeIf { it.isNotBlank() } ?: SyncRules.empty("favorites.json")))
     /** When this device's playlists last changed (for GET /sync/wanted, and the phone's own). */
-    fun playlistsAt(): Long = runCatching { playlistsFile.lastModified() }.getOrDefault(0L)
+    fun playlistsAt(): Long = runCatching { maxOf(playlistsFile.lastModified(), favoritesFile.lastModified()) }.getOrDefault(0L)
     private var seenPc = -1L
     private var seenMine = -1L
     var autoAt by mutableStateOf(0L)   // when the playlists last synced by themselves (seconds; 0: not since the app opened)
@@ -202,7 +205,7 @@ object Sync {
             val mine = playlistFiles()
             val (_, theirs) = post(host, headers, head("phone", false, auto = true, only = true), mine)
             val sent = parse(mine); val here = parse(playlistFiles())
-            val result = SyncMerge.mergeAll(sent, here, parse(theirs.filterKeys { it == "playlists.json" }), preferLocal = false)
+            val result = SyncMerge.mergeAll(sent, here, parse(theirs.filterKeys { it == "playlists.json" || it == "favorites.json" }), preferLocal = false)
             result.mapValues { it.value.toString() } to result.filter { (n, v) -> here[n] != v }.keys
         }) { d, _ ->
             running.set(false)
@@ -212,7 +215,7 @@ object Sync {
             if (d.second.isNotEmpty()) runCatching { putInPlace(d.first, d.second) }.onFailure { Crashes.caught(it, "Auto playlist sync") }
             markSynced()
             seenMine = playlistsAt(); autoAt = secs()
-            if (seenMine != before) Music.toast("Playlists synced with $with")
+            if (seenMine != before) Music.toast("Playlists and favorites synced with $with")
         }
     }
 
@@ -334,7 +337,7 @@ object Sync {
                 val rest = if (baseFile.isFile) runCatching { FileInputStream(baseFile).use { readZip(it) }.second }.getOrDefault(emptyMap()) else emptyMap()
                 writeZipFile(baseFile, back, rest + out)
                 val changed = playlistsAt() != before
-                onMain { autoAt = secs(); if (changed) Music.toast("Playlists synced with $peerName") }
+                onMain { autoAt = secs(); if (changed) Music.toast("Playlists and favorites synced with $peerName") }
                 return { os -> writeZip(os, back, out) }
             }
             writeZipFile(baseFile, back, out)   // what these two agreed on: next time, what's gone from one side is deleted
