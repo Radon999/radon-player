@@ -1292,6 +1292,19 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             else -> albums
         }
     }
+    // Your songs, as a list of songs or as your albums, EPs and singles of theirs (the dropdown by its Sort; kept)
+    var songsView by remember { mutableStateOf(org.omarchy.music.Prefs.text("artist_songs_view").ifEmpty { "songs" }) }
+    val ownSort = sortNow("artist-own-albums", ARTIST_OWN_SORTS)
+    val ownShown = remember(ownAlbums, ownSort, marks) {
+        val l = ownAlbums.filter { marks[org.omarchy.music.ArtistShownRules.albumKey(it.first.title)] != org.omarchy.music.ArtistShownRules.HIDE }
+        when (ownSort) {
+            "name" -> l.sortedBy { norm(it.first.title) }
+            "name-desc" -> l.sortedByDescending { norm(it.first.title) }
+            "songs" -> l.sortedWith(compareByDescending<Pair<Album, List<Track>>> { it.second.size }.thenBy { norm(it.first.title) })
+            "songs-least" -> l.sortedWith(compareBy<Pair<Album, List<Track>>> { it.second.size }.thenBy { norm(it.first.title) })
+            else -> l
+        }
+    }
     val everySorts = org.omarchy.music.songSorts(true)
     val everySort = sortNow("artist-every", everySorts)
     val everyList = everyShown?.let { l -> rememberSorted(l, everySort) { d -> org.omarchy.music.sortTracks(l, everySort, d) } }
@@ -1437,8 +1450,36 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         }
         if (mine.isNotEmpty()) {
             item { Section(if (onlyStream) "SONGS YOU PLAYED THAT AREN'T YOURS" else "YOUR SONGS") }
-            item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { SortMenu("artist-songs", songSorts, "album") } }
-            tracks(mine, ui, "artist") { t -> "${t.plays} play${if (t.plays != 1) "s" else ""}" }
+            // As songs, or as your releases of theirs: with a big discography, tapping the album beats scrolling to it
+            val asReleases = songsView == "releases" && !onlyStream && ownShown.isNotEmpty()
+            item {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (!onlyStream && ownAlbums.isNotEmpty()) {
+                        var open by remember { mutableStateOf(false) }
+                        val names = linkedMapOf("songs" to "Songs", "releases" to "Albums, EPs and singles")
+                        Box {
+                            Chip("Show: ${names[if (asReleases) "releases" else "songs"]} ▾", false) { open = true }
+                            DropdownMenu(open, { open = false }, containerColor = C.light) {
+                                names.forEach { (k, l) ->
+                                    DropdownMenuItem({ Text((if (k == (if (asReleases) "releases" else "songs")) "✓  " else "     ") + l, style = T.body) }, {
+                                        open = false; songsView = k; org.omarchy.music.Prefs.setText("artist_songs_view", k) })
+                                }
+                            }
+                        }
+                    }
+                    if (asReleases) SortMenu("artist-own-albums", ARTIST_OWN_SORTS) else SortMenu("artist-songs", songSorts, "album")
+                }
+            }
+            if (asReleases) {
+                laidOutItems(ownShown, ui, key = { "ao-" + ownShown[it].first.id + "#" + it }, row = { j ->
+                    val a = ArtistAlbum(ownShown[j].first, ownShown[j], streamed = false)
+                    PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                }) { j, mod, compact ->
+                    val a = ArtistAlbum(ownShown[j].first, ownShown[j], streamed = false)
+                    Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
+                        onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                }
+            } else tracks(mine, ui, "artist") { t -> "${t.plays} play${if (t.plays != 1) "s" else ""}" }
         }
         if (onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("None of their music is yours yet",
             "You have no downloads or files of ${page.name}'s. Pick “Everything” at the top to see their songs on the streaming services.") }
@@ -1482,6 +1523,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
 
 /** An album on an artist's page: the service's (streamed) or one of yours, with your copy of it (album, songs) if you have one. */
 private val ARTIST_ALBUM_SORTS = listOf("order", "created", "created-old", "name", "name-desc")
+private val ARTIST_OWN_SORTS = listOf("order", "name", "name-desc", "songs", "songs-least")
 
 /** (genius: one only Genius lists, added so the discography is whole.) */
 private data class ArtistAlbum(val al: Album, val own: Pair<Album, List<Track>>?, val streamed: Boolean, val genius: Boolean = false) {
