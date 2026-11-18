@@ -644,12 +644,18 @@ object PlaybackCore {
         } else p.volume = 1f
     }
 
+    /** Settings › Playback › Fetch the next song ahead (on unless switched off). */
+    const val STREAM_AHEAD = "stream_ahead"
+
     /** The next two songs' streams looked up while this one plays, so they start straight away. */
     private fun prefetch() {
         for (k in 1..2) {
             val nxt = queue.getOrNull(index + k) ?: return
             if (Music.lib.has(nxt.id) || nxt.isFile) continue
-            if (Music.keepPlayed && Music.autoSaveOk(nxt)) Music.bg({ Music.dl.download(nxt, youtubeToo = false) }) { _, _ -> Music.savedVersion++ } else Music.bg({ Music.dl.stream(nxt) })
+            if (Music.keepPlayed && Music.autoSaveOk(nxt)) Music.bg({ Music.dl.download(nxt, youtubeToo = false) }) { _, _ -> Music.savedVersion++ }
+            // the very next one fetched whole (Fetch the next song ahead), so it starts at once; the one after it only looked up
+            else if (k == 1 && Prefs.on(STREAM_AHEAD, true) && !Remote.active) Music.bg({ Music.dl.fetchAhead(nxt) })
+            else Music.bg({ Music.dl.stream(nxt) })
         }
     }
 

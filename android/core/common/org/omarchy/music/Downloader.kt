@@ -47,9 +47,55 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     fun busyNow() = synchronized(active) { active.isNotEmpty() }
     fun streamQuality(id: String) = synchronized(streams) { streams[id]?.first?.quality ?: "" }
     fun streamLossy(id: String) = synchronized(streams) { streams[id]?.first?.lossyFrom }
-    fun forgetStream(id: String) = synchronized(streams) { streams.remove(id) }
+    fun forgetStream(id: String) = synchronized(streams) { dropAhead(id); streams.remove(id) }
     /** The streams looked up already, forgotten (the stream quality changed: the next play looks again). */
-    fun forgetStreams() = synchronized(streams) { streams.clear() }
+    fun forgetStreams() = synchronized(streams) { dropAhead(null); streams.clear() }
+
+    // ---- the next song fetched whole while this one plays (Settings › Playback › Fetch the next song ahead) ----
+    // A streamed song starts by asking the service for its first seconds, so there is a moment of nothing before it,
+    // longer on a slow connection. With this on, the song after the one playing is fetched whole into the app's cache
+    // while the one before it plays, and played from there: it starts at once, and can't stall halfway. Nothing is
+    // kept: only the last few are there, and they go when the app's cache is cleared or the app starts again.
+    private val ahead = LinkedHashMap<String, Ready>()   // song id -> its fetched copy, as something to play
+    private val aheadBusy = HashSet<String>()
+    @Volatile private var aheadCleaned = false
+    private fun aheadDir(): File = File(ctx.cacheDir, "ahead").apply { mkdirs() }
+    /** One fetched copy let go (null: all of them). */
+    private fun dropAhead(id: String?) = synchronized(ahead) {
+        val gone = if (id == null) ahead.keys.toList() else listOf(id)
+        gone.forEach { k -> ahead.remove(k)?.let { runCatching { File(it.uri).delete() } } }
+    }
+    private fun fetched(id: String): Ready? = synchronized(ahead) { ahead[id] }?.takeIf { File(it.uri).isFile && Music.cast == null }
+
+    /** (blocking) The song fetched whole, to play from there when its turn comes. A song you have, one already fetched
+     *  or being fetched, and a stream that only comes as a playlist of pieces (.m3u8) are left alone. Hi-res from Tidal,
+     *  which comes in pieces, is put together as one FLAC, as a download is. Anything going wrong leaves the song to
+     *  stream as it always did. */
+    fun fetchAhead(t: Track) {
+        if (!aheadCleaned) { aheadCleaned = true; runCatching { aheadDir().listFiles()?.forEach { it.delete() } } }
+        val r = runCatching { stream(t) }.getOrNull() ?: return
+        if (r.onDisk || r.uri.contains(".m3u8") || !(r.isDash || r.uri.startsWith("http"))) return
+        synchronized(ahead) { if (t.id in ahead || !aheadBusy.add(t.id)) return }
+        val dest = File(aheadDir(), safeName(t.id) + (if (!r.isDash) ".audio" else if (r.lossyFrom != null) ".mp4" else ".flac"))
+        val part = File(dest.path + ".part")
+        try {
+            if (r.isDash) {
+                val mpd = String(java.util.Base64.getDecoder().decode(r.uri.substringAfter("base64,")))
+                if (r.lossyFrom != null) fetchDashRaw(mpd, part) else fetchDash(mpd, part)
+            } else part.outputStream().use { o ->
+                HTTP.newCall(okhttp3.Request.Builder().url(r.uri).header("User-Agent", DESKTOP_UA).build()).execute().use { resp ->
+                    if (!resp.isSuccessful) throw HttpError(resp.code, "", r.uri)
+                    resp.body!!.byteStream().copyTo(o, 1 shl 16)
+                }
+            }
+            if (part.length() < 50_000 || !part.renameTo(dest)) return
+            synchronized(ahead) {
+                ahead[t.id] = r.copy(uri = dest.path, isDash = false)
+                while (ahead.size > 4) dropAhead(ahead.keys.first())   // only the last few are kept
+            }
+        } catch (_: Exception) {
+        } finally { runCatching { part.delete() }; synchronized(ahead) { aheadBusy.remove(t.id) } }
+    }
     /** The player couldn't play a hi-res (DASH) stream (the PC's, once): streams are asked for in CD quality since. */
     @Volatile var dashFailed = false
     /** Settings › Stream quality: "flac24", "flac16" or "aac" (320 kbps), for Tidal's streams. */
@@ -84,6 +130,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             return Ready(uri, quality = q, lossyFrom = "SoundCloud").also { r -> synchronized(streams) { streams[t.id] = r to now() } }
         }
         lib.items[t.id]?.let { return Ready(it.file, quality = it.quality, onDisk = true) }
+        fetched(t.id)?.let { return it }   // fetched whole while the song before it played: it starts at once
         synchronized(streams) { streams[t.id]?.takeIf { now() - it.second < StreamRules.keptFor(it.first.soon, STREAM_FOR) }?.let { return it.first } }
         val ready = find(t)
         synchronized(streams) { streams[t.id] = ready to now() }

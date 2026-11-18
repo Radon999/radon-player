@@ -1435,6 +1435,12 @@ private fun PlaybackLines(ui: Ui) {
     var wakeTime by remember { mutableStateOf(PR.text(W.TIME)) }
     var wakeWhat by remember { mutableStateOf(PR.text(W.WHAT)) }
     val wakeAt = org.omarchy.music.WakeUpRules.minutes(wakeTime)
+    var streamAhead by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.PlaybackCore.STREAM_AHEAD, true)) }
+    Line("Fetch the next song ahead", "For songs you stream: while a song plays, the one after it in the queue is fetched whole, so it starts at once " +
+        "with no wait and can't stall halfway. Nothing is kept: only the last few are in the app's cache. It uses the same data as playing the song " +
+        "would, plus a song's worth when you skip one that was fetched; switch it off on a small data plan. Songs you have as files never need it", streamAhead) {
+        Switch(streamAhead, { streamAhead = it; org.omarchy.music.Prefs.set(org.omarchy.music.PlaybackCore.STREAM_AHEAD, it) }, colors = swColors())
+    }
     Line("Wake-up timer", "At the time you set, the app starts playing the playlist you choose (or a hundred of your songs, shuffled). It is a timer inside " +
         "the app, not the $DEVICE's alarm clock: it goes off only while Radon Player is running" + (if (onPhone) ", so leave the app open (on its stand, charging); " +
         "if the phone has closed the app overnight it won't go off. Don't rely on it for something you can't be late for" else ""), wakeOn,
