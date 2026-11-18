@@ -1171,7 +1171,10 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
     }
     fun yours(t: Track) = t.isFile || t.file != null || Music.lib.has(t.id)
     val ownAlbums = remember(page, Music.musicVersion) { runCatching { Music.artistOwnAlbums(page.name) }.getOrDefault(emptyList()) }
-    val allRaw = remember(songs, coverTick, v, from) { songs.filter { (!onlyMine || yours(it)) && (!onlyStream || !yours(it)) }.map { withCover(it) } }
+    // Your songs are yours: only what is on this device (your files and downloads). Songs of theirs the app knows from
+    // your listening history or a service's library but that you don't have are not listed there (with Only streaming
+    // picked, those are what the list shows instead, under their own heading).
+    val allRaw = remember(songs, coverTick, v, from) { songs.filter { if (onlyStream) !yours(it) else yours(it) }.map { withCover(it) } }
     val topRaw = remember(info, coverTick, v, onlyMine) { info?.top.orEmpty().filter { !onlyMine || yours(it) }.map { withCover(it) } }
     // The albums: only yours; or the service's (yours in place of each one you have: its cover, your songs), then
     // yours the service doesn't list.
