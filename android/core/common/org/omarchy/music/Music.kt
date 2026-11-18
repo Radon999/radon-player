@@ -493,7 +493,36 @@ object Music {
 
     // ---- downloads ----
     // Download (which songs are new, the asking about copies, the songs waiting saved together) is Downloads' own.
-    fun download(tracks: List<Track>, checked: Boolean = false) = Downloads.start(tracks, checked)
+    fun download(tracks: List<Track>, checked: Boolean = false) { warnIfLowSpace(); Downloads.start(tracks, checked) }
+
+    /** Room left where downloads go (free, total; bytes). */
+    fun downloadSpace(): Pair<Long, Long> = diskSpace(downloadFolder())
+    private var warnedSpaceAt = 0L
+    /** A warning when the download folder is nearly full, said as downloads start (at most every half hour). */
+    private fun warnIfLowSpace() {
+        val t = System.currentTimeMillis()
+        if (t - warnedSpaceAt < 30 * 60_000L) return
+        val (free, total) = runCatching { downloadSpace() }.getOrDefault(-1L to 0L)
+        if (SupportRules.lowSpace(free, total)) { warnedSpaceAt = t; toast(SupportRules.lowSpaceText(free)) }
+    }
+
+    /** Copy everything for support (SupportRules): what the app is and how it is set up, and Settings › Problems. No
+     *  sign-ins, paths or song names. */
+    fun supportReport(): String {
+        val (free, total) = runCatching { downloadSpace() }.getOrDefault(-1L to 0L)
+        val paired = if (RemoteHost.supported) RemoteHost.phones.isNotEmpty() else Remote.paired
+        return SupportRules.report(listOf(
+            "Version" to appVersion, "Device" to "$platformName · $deviceName",
+            "Songs" to "%,d files found, %,d downloads".format(local.files.size, lib.items.size),
+            "Playlists" to "%,d (%,d set to sync)".format(lists.all().size, lists.all().count { it.synced == true }),
+            "Free space for downloads" to (if (free >= 0) SupportRules.size(free) + " of " + SupportRules.size(total) else ""),
+            "Look" to look, "Theme" to Prefs.text("ui_theme", "standard"), "Layout" to Prefs.text("ui_layout", "classic"),
+            "Paired with the other device" to (if (paired) "yes" else "no"),
+            "Last sync" to (if (Sync.lastAt > 0) Sync.ago(Sync.lastAt) + ": " + Sync.lastText else "never"),
+            "Auto playlist sync" to (if (Prefs.on(SyncPlaylists.AUTO_SYNC)) "on" else "off"),
+            "DJ" to (if (dj.on) "on" else "off"), "Autoplay" to (if (autoplay) "on" else "off"),
+            "Playing" to (if (current() == null) "nothing" else if (paused) "paused" else "playing")), Crashes.last)
+    }
 
     /** Your copies of a download, to put away once it's in (Copies: replace). Asked from other threads too. */
     internal fun replaceLater(id: String, copies: List<Track>) = Copies.replaceLater(id, copies)

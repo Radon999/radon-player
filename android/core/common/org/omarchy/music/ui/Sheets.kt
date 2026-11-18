@@ -175,6 +175,11 @@ private fun AccountsSheet(ui: Ui) {
                 else Updater.checkError.ifEmpty { "You have ${Updater.version}, the latest version. Tap Check to look again for a newer one" }.let { if (it.startsWith("couldn't")) "${Updater.version} · $it" else it }, false) {
                 if (!Updater.checking) Pill("Check", quiet = true) { Updater.check(quiet = false) }
             }
+            // Everything someone helping would ask for, in one go: the version, the device, how the app is set up and Problems
+            Line("Details for support", "One block of text to paste into a message when something is wrong: the version, this $DEVICE, how many " +
+                "songs and playlists, the look and layout, sync, free space, and what Problems says. No sign-ins, folders or song names are in it", false) {
+                Pill("Copy", quiet = true) { copyText("Radon Player details", Music.supportReport()); Music.toast("Copied: paste it into your message") }
+            }
             // What went wrong lately (the app closing, or errors it lived through): copy it to send it on.
             val problems = org.omarchy.music.Crashes.last
             if (problems.isNotEmpty()) {
@@ -318,9 +323,12 @@ private fun AccountsSheet(ui: Ui) {
             DownloadQualityLine()
             VersionLine()
             OtherServicesLine()
+            val space = remember(Music.downloadDir, Music.savedVersion) { runCatching { Music.downloadSpace() }.getOrDefault(-1L to 0L) }
             Line("Downloads", "Songs you download are saved to ${Music.downloadFolder()} with full tags, sorted " +
                 "into Artist / Albums, EPs or Singles / Album folders. Change picks one of your music folders or a new folder in Music/" +
-                if (onPhone) "" else ", or any other folder on this PC", true) {
+                if (onPhone) "" else ", or any other folder on this PC", true,
+                note = if (space.first < 0) "" else if (org.omarchy.music.SupportRules.lowSpace(space.first, space.second)) "Nearly full: only ${org.omarchy.music.SupportRules.size(space.first)} free. New downloads may fail"
+                    else "${org.omarchy.music.SupportRules.size(space.first)} free of ${org.omarchy.music.SupportRules.size(space.second)}") {
                 Box {
                     var open by remember { mutableStateOf(false) }
                     val other = rememberFolderPick { path -> if (path != null) Music.chooseDownloadDir(path) }

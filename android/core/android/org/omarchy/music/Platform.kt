@@ -50,6 +50,10 @@ const val platformName = "android"
 val deviceName: String get() = android.os.Build.MODEL
 fun sdkAtLeast(n: Int) = android.os.Build.VERSION.SDK_INT >= n
 
+/** How much room is left where music is kept (the phone's own storage), and how big it is, in bytes. (-1, 0): not known. */
+fun diskSpace(folder: String): Pair<Long, Long> =
+    runCatching { android.os.Environment.getExternalStorageDirectory().let { it.usableSpace to it.totalSpace } }.getOrDefault(-1L to 0L)
+
 /** Writing to an address: a path, or a content:// one (mode "wt": truncate). */
 fun Ctx.openOut(uri: String, mode: String = "wt"): java.io.OutputStream? =
     if (uri.startsWith("/")) java.io.File(uri).outputStream() else contentResolver.openOutputStream(android.net.Uri.parse(uri), mode)

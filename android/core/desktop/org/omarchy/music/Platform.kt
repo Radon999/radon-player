@@ -49,6 +49,14 @@ const val platformName = "pc"
 val deviceName: String get() = runCatching { java.net.InetAddress.getLocalHost().hostName }.getOrDefault("PC")
 fun sdkAtLeast(n: Int) = true
 
+/** How much room is left on the disk downloads go to, and how big it is, in bytes. folder: the download folder (one
+ *  that isn't a full path is in your home folder). (-1, 0): not known. */
+fun diskSpace(folder: String): Pair<Long, Long> = runCatching {
+    var f: File? = File(folder).takeIf { it.isAbsolute } ?: File(System.getProperty("user.home"))
+    while (f != null && !f.exists()) f = f.parentFile
+    (f ?: File(System.getProperty("user.home"))).let { it.usableSpace to it.totalSpace }
+}.getOrDefault(-1L to 0L)
+
 fun Ctx.openOut(uri: String, mode: String = "wt"): java.io.OutputStream? =
     File(pathOf(uri)).apply { parentFile?.mkdirs() }.outputStream()
 
