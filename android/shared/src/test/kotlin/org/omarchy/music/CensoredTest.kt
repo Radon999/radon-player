@@ -38,6 +38,9 @@ class CensoredTest {
     @Test fun aTitleIsReadWithItsCensoredWordsWrittenOut() {
         assertEquals("just don't give a fuck", Censored.plain("just don't give a f**k"))
         assertEquals("letters left out with a gap", "just don't give a fuck", Censored.plain("just don't give a f  k"))
+        assertEquals("with blanks of another kind (no-break spaces)", "just don't give a fuck", Censored.plain("just don't give a f\u00A0\u00A0k"))
+        assertEquals("three blanks", "what the fuck", Censored.plain("what the f   k"))
+        assertEquals("one space is just two words", "a f k", Censored.plain("a f k"))
         assertEquals("bad bitch (remix)", Censored.plain("bad b*tch (remix)"))
         assertEquals("holy shit!", Censored.plain("holy sh*t!"))
     }
@@ -45,6 +48,7 @@ class CensoredTest {
     @Test fun yourCensoredCopyIsTheSameSong() {
         assertEquals(statsKey("Just Don't Give A Fuck", "Eminem"), statsKey("Just Don't Give a F**k", "Eminem"))
         assertEquals(statsKey("Just Don't Give A Fuck", "Eminem"), statsKey("Just Don't Give a F  k", "Eminem"))
+        assertEquals(statsKey("Just Don't Give A Fuck", "Eminem"), statsKey("Just Don't Give a F\u00A0\u00A0k", "Eminem"))
         assertEquals(statsKey("Bad Bitch", "X"), statsKey("Bad B*tch (feat. Someone)", "X"))
         assertEquals(looseTitle("Still Don't Give A Fuck"), looseTitle("Still Don't Give a F*ck"))
         assertTrue(CopyRules.sameSong("Shit Show", "X", "Sh*t Show", "X"))

@@ -15,9 +15,12 @@ object Censored {
     // A word with signs standing in for letters: letters, then signs (and more letters) one or more times
     private const val SIGNS = "*#@\$!_•·✱∗×✕✖\\-"
     private val CANDIDATE = Regex("(?<![a-z0-9])[a-z]+(?:[$SIGNS]+[a-z]*)+(?![a-z0-9])")
-    // Letters left out with a gap instead of signs ("f  k"): two or three spaces between a word's first and last letters
-    private val GAP = Regex("(?<![a-z0-9])([a-z]{1,2})\\s{2,3}([a-z]{1,3})(?![a-z0-9])")
-    private val QUICK = Regex("[a-z][$SIGNS]|[a-z]\\s{2,3}[a-z]")
+    // Letters left out with a gap instead of signs ("f  k", just blanks where the letters were): two or three blanks
+    // between a word's first and last letters. Any kind of blank: plain spaces, and the no-break and other-width
+    // spaces a tagger can leave (which look the same).
+    private const val BLANK = "[ \\t\u00A0\u2000-\u200B\u202F\u205F\u3000]"
+    private val GAP = Regex("(?<![a-z0-9])([a-z]{1,2})$BLANK{2,3}([a-z]{1,3})(?![a-z0-9])")
+    private val QUICK = Regex("[a-z][$SIGNS]|[a-z]$BLANK{2,3}[a-z]")
 
     /** text (lowercase) with each censored word written out. */
     fun plain(text: String): String {
