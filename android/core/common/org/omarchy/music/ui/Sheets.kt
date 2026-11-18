@@ -584,6 +584,11 @@ private fun SpotifyHistoryLine(ui: Ui) {
             if (sp?.signedIn == true) ". As Spotify is connected, your latest plays also come in each time the app starts " +
                 "(Spotify only keeps the last 50), and Sync fetches them now"
             else ". Connect Spotify under Accounts and your latest plays come in on their own too"
+    // Repeats: every import is looked through for them too
+    Text("Repeats come with an import too: after any import here, and when Last.fm is connected, the app looks through the plays by itself for a song played " +
+        "again the moment it ended, and the Repeats tab, the DJ and Wrapped use what it finds. It works with Spotify, Deezer, YouTube Music, Tidal and Last.fm. " +
+        "Apple Music only in part: see its note below. No service says a song was on Repeat one, so these are a good guess",
+        style = T.sub, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp))
     Line("Spotify history", state, h.count > 0) {}
     ImportNote("spotify")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
@@ -627,6 +632,10 @@ private fun AppleHistoryLine() {
             "of your data › Apple Media Services), then Import the zip when it comes. Or import a library exported from the Music " +
             "app on a computer (File › Library › Export Library…)"
     Line("Apple Music history", state, h.count > 0) {}
+    Text("Repeats from Apple Music: only the plays in the zip's Play Activity file can show them, because that file says exactly when each play began. " +
+        "The rest of what Apple gives (a song's plays counted per day, and a library exported from the Music app, which has only all-time counts) has no " +
+        "exact times, so the app can't tell one play followed straight after another: no repeats can be found from those",
+        style = T.sub, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp))
     ImportNote("apple")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
         Pill("Get the zip", quiet = true) { Services.open("https://privacy.apple.com/") }

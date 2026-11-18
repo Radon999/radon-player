@@ -74,7 +74,7 @@ object RepeatLoops {
      *  it: those repeats are counted as they happen. */
     private fun historyNow(): String = listOf(
         runCatching { SpotifyHistory.plays.size }.getOrDefault(0), runCatching { DeezerHistory.plays.size }.getOrDefault(0),
-        runCatching { YouTubeHistory.plays.size }.getOrDefault(0), runCatching { TidalHistory.plays.size }.getOrDefault(0),
+        runCatching { YouTubeHistory.plays.size }.getOrDefault(0), runCatching { TidalHistory.plays.size }.getOrDefault(0), runCatching { AppleHistory.count }.getOrDefault(0),
         if (LastFm.connected) "fm:" + LastFm.user.lowercase() else "").joinToString("|")
 
     private var triedAt = 0L
@@ -105,6 +105,9 @@ object RepeatLoops {
                 runCatching { plays(DeezerHistory.plays) }.getOrDefault(emptyList()),
                 runCatching { plays(YouTubeHistory.plays) }.getOrDefault(emptyList()),
                 runCatching { plays(TidalHistory.plays) }.getOrDefault(emptyList()),
+                // Apple Music: only its Play Activity file says when each play began and how long it ran; its daily counts (a
+                // day's plays of a song as one row, a whole day long) and a library's all-time counts can't show a repeat
+                runCatching { plays(AppleHistory.timed().filter { it.ms in 1 until 86_400_000L }) }.getOrDefault(emptyList()),
                 // Last.fm: every scrobble (fetched year by year if Wrapped hasn't yet; the ones kept already if it can't be reached)
                 runCatching {
                     val rows = if (LastFm.connected) runCatching { Wrapped.allScrobbles(Music.ctx) }.getOrElse { Wrapped.keptScrobbles(Music.ctx) } else emptyList()
