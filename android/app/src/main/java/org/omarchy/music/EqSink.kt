@@ -20,6 +20,12 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     private var float = false       // bit-perfect: float as it is (the EQ is bypassed then anyway)
     private var toShort = 0         // the bytes of each hi-res sample being brought down to 16-bit (3, 4), else 0
     private var inEncoding = C.ENCODING_INVALID
+    // Watching what the decoder gives: music, then nothing but silence for seconds, is a decoder that has stopped
+    // (the song goes on counting with no sound until it is moved). Told to the app, which starts it again in place.
+    private var inRate = 44100
+    private var inChannels = 2
+    private var wasLoud = false       // this song has sounded since it was last (re)started
+    private var silentFrames = 0L
     private var out: ByteBuffer = ByteBuffer.allocateDirect(0)
     private var pending = false     // out holds a buffer the sink hasn't taken all of yet
     private val rng = java.util.Random()
@@ -43,6 +49,9 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         pending = false; eos = false; eq.sinkEos = false; eq.sinkEnded = false
         inEncoding = inputFormat.pcmEncoding
+        inRate = inputFormat.sampleRate.takeIf { it > 0 } ?: 44100
+        inChannels = inputFormat.channelCount.takeIf { it > 0 } ?: 2
+        wasLoud = false; silentFrames = 0
         val straight = asItIs()
         if (straight) eq.bypass = true   // every sample as it came (set again from the output once the stream runs)
         // Bit-perfect is on, yet a hi-res song is about to be brought down to 16 bits: said in Settings › Problems
@@ -96,6 +105,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
             if (out.capacity() < samples * 2) out = ByteBuffer.allocateDirect(samples * 2).order(ByteOrder.nativeOrder())
             out.clear()
             val b = buffer.duplicate().order(ByteOrder.nativeOrder())
+            var peak = 0f
             repeat(samples) {
                 val x: Float = when (inEncoding) {
                     C.ENCODING_PCM_24BIT -> {   // three bytes, low first
@@ -105,11 +115,17 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
                     C.ENCODING_PCM_32BIT -> b.int / 2147483648f
                     else -> b.float
                 }
+                if (x > peak) peak = x else if (-x > peak) peak = -x
                 val d = rng.nextFloat() - rng.nextFloat()   // TPDF dither, one 16-bit step
                 out.putShort(Math.round(x * 32767f + d).coerceIn(-32768, 32767).toShort())
             }
             out.flip()
             pending = true
+            if (peak > 0.02f) { wasLoud = true; silentFrames = 0; eq.decoderLoudAt = System.currentTimeMillis() }
+            else if (peak < 0.0002f && wasLoud && !eos) {
+                silentFrames += samples / inChannels
+                if (silentFrames > 4L * inRate) { silentFrames = 0; wasLoud = false; eq.onDead?.invoke("at the decoder (it gave four seconds of nothing after music)") }
+            } else silentFrames = 0
         }
         val done = super.handleBuffer(out, presentationTimeUs, encodedAccessUnitCount)
         buffer.position(buffer.limit() - out.remaining() / 2 * toShort)   // as much of the input taken as of out
@@ -130,6 +146,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     override fun flush() {
         eos = false; eq.sinkEos = false; eq.sinkEnded = false
         pending = false
+        wasLoud = false; silentFrames = 0
         if (float) eq.resetFloat()
         super.flush()
     }

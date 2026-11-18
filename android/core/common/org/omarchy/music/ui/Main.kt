@@ -232,7 +232,8 @@ fun App() {
                 Box(Modifier.navigationBarsPadding()) {
                     when {
                         ui.selecting -> SelectBar(ui)
-                        ui.pickingAlbums && page == null -> PickDock(ui)
+                        // (an artist's page picks its releases on the page itself; every other list picks with no page open)
+                        ui.pickingAlbums && (page == null) != (ui.pickWhere == "artist-albums") -> PickDock(ui)
                         lay.mini != MiniKind.TOP && lay.mini != MiniKind.NONE -> MiniPlayer(ui, lay.mini)
                     }
                 }

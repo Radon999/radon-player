@@ -122,7 +122,13 @@ class EqProcessor : BaseAudioProcessor() {
     // Watching for the sound going dead: numbers that ran away (not a number, or without end), and music coming in
     // while nothing goes out. Either is set right at once and noted in Settings › Problems (at most once a minute).
     private var deadFrames = 0L
+    private var lostFrames = 0L
     private var notedAt = 0L
+    /** When the decoder last gave real sound (the clock's milliseconds): set by EqSink for hi-res music, 0 otherwise. */
+    @Volatile var decoderLoudAt = 0L
+    /** Called (from the sound's own thread) when a song has gone silent though it should be sounding: where the sound
+     *  stopped. MusicService notes it and starts the song again from the same place, which brings the sound back. */
+    @Volatile var onDead: ((String) -> Unit)? = null
     private fun note(what: String) {
         val now = System.currentTimeMillis()
         if (now - notedAt < 60_000) return
@@ -278,6 +284,11 @@ class EqProcessor : BaseAudioProcessor() {
                     .format(g, songGain, rgGain, boostGain, balance, env, st.size))
             }
         } else deadFrames = 0
+        // The decoder is giving music, yet silence arrives here: lost on the way (peak repair, resampling)
+        if (inPeak < 0.0005 && decoderLoudAt > 0 && System.currentTimeMillis() - decoderLoudAt < 1500) {
+            lostFrames += frames
+            if (lostFrames > 3 * rate) { lostFrames = 0; onDead?.invoke("between the decoder and the equalizer (peak repair or resampling)") }
+        } else lostFrames = 0
         if (detail && channels == 2) widthPass(out, n, float)
         if (crossfeed && channels == 2) crossfeedPass(out, n, float)
         if (mono && channels == 2) monoPass(out, n, float)

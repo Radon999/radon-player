@@ -123,6 +123,26 @@ class MusicService : MediaLibraryService() {
                 }
             }
         })
+        // A song gone silent partway though it plays on (seen with one 24-bit FLAC: sound for twenty seconds, then none
+        // until the song was moved): moving it brings the sound back, so the app does that itself, in place, and notes
+        // where the sound stopped. At most twice a song (a song with real silence in it is left alone after that).
+        run {
+            val h = android.os.Handler(mainLooper)
+            var deadFor: String? = null
+            var heals = 0
+            Music.eqProcessor.onDead = { where ->
+                h.post {
+                    val t = Music.current()
+                    if (t?.id != deadFor) { deadFor = t?.id; heals = 0 }
+                    if (exo.playWhenReady && heals < 2) {
+                        heals++
+                        val at = exo.currentPosition
+                        Crashes.note("“${t?.title}” went silent at ${at / 1000}s though it was playing: the sound stopped $where. Started again from the same place.")
+                        exo.seekTo(at)
+                    }
+                }
+            }
+        }
         // Headphones unplugged (Android's "becoming noisy"): paused, as ExoPlayer did, except when it's bit-perfect taking
         // the USB DAC from Android or handing it back, which Android takes for the DAC being unplugged (that paused every
         // song a second in). Unplugging the DAC while the app has it: see UsbDirect.

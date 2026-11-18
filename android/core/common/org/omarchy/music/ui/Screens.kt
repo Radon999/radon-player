@@ -1231,12 +1231,37 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }
         }
     }
+    fun pinOf(a: ArtistAlbum): org.omarchy.music.Pin? {
+        val own = a.own
+        return if (a.genius) null
+            else if (a.streamed || own == null) org.omarchy.music.Pin("album", a.al.id, a.al.title, a.al.sub, a.al.thumb, info?.source.orEmpty())
+            else org.omarchy.music.Pin("album", own.first.id, own.first.title, own.first.sub, source = "local")
+    }
+    // Picking releases (hold one, or Select): several albums, EPs and singles at once, to pin or hide them together,
+    // or for Options on all their songs as anywhere else. A tap ticks one; the bar at the bottom has what to do.
+    val picking = ui.pickingIn("artist-albums")
+    val pickedAlbums = ui.albumsPicked
+    androidx.compose.runtime.DisposableEffect(page) {
+        onDispose { if (ui.pickWhere == "artist-albums" && ui.pickingAlbums) { ui.albumsPicked.clear(); ui.pickingAlbums = false } }
+    }
+    /** Tick a release (or untick it). Its songs are asked for, so Options has them: yours at once, a service's fetched. */
+    fun pickAlbum(a: ArtistAlbum) {
+        val id = a.al.id
+        if (!picking) ui.startPick("artist-albums")
+        else if (id in pickedAlbums) { pickedAlbums.remove(id); return }
+        pickedAlbums[id] = a.own?.second.orEmpty()
+        if (a.own != null) return
+        val src = info?.source.orEmpty()
+        Music.bg({
+            if (a.genius) org.omarchy.music.GeniusSearch.albumSongs(a.al)
+            else Music.yourCopies(org.omarchy.music.ArtistLookups.releaseSongs(src, id).orEmpty().map { if (it.album.isEmpty()) it.copy(album = a.al.title) else it })
+        }) { got, _ -> if (ui.pickingIn("artist-albums") && id in pickedAlbums && !got.isNullOrEmpty()) pickedAlbums[id] = got }
+    }
     fun albumMenu(a: ArtistAlbum) {
         val own = a.own
-        val pin = if (a.streamed || own == null) org.omarchy.music.Pin("album", a.al.id, a.al.title, a.al.sub, a.al.thumb, info?.source.orEmpty())
-            else org.omarchy.music.Pin("album", own.first.id, own.first.title, own.first.sub, source = "local")
+        val pin = pinOf(a) ?: org.omarchy.music.Pin("album", a.al.id, a.al.title, a.al.sub, a.al.thumb, info?.source.orEmpty())
         val hidden = !albumShown(a)
-        ui.choices = a.al.title to (if (a.genius) emptyList() else listOf(pinChoice(pin))) + listOf(
+        ui.choices = a.al.title to (if (a.genius) emptyList() else listOf(pinChoice(pin))) + listOf("Select" to { pickAlbum(a) },
             (if (hidden) "Show on ${page.name}'s page" else "Hide from ${page.name}'s page") to { org.omarchy.music.ArtistShown.album(page.name, a.al.title, hide = !hidden) })
     }
     // Sorting, as on the other tabs (each list's sort is kept): the songs by album unless you pick another; the
@@ -1337,15 +1362,32 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         // Their albums and singles first, every one of them; then every song; then your songs and their top songs.
         if (albums.isNotEmpty()) {
             item { Section(if (onlyMine) "YOUR ALBUMS AND SINGLES" else "ALBUMS AND SINGLES") }
-            item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { SortMenu("artist-albums", ARTIST_ALBUM_SORTS) } }
+            if (picking) item {
+                // What the bar at the bottom offers for the releases ticked, besides Options for all their songs
+                val all = albumsRaw.filter { it.al.id in pickedAlbums }
+                PickBar(ui, "releases", listOfNotNull(
+                    if (all.any { a -> pinOf(a)?.let { !Music.pinned(it) } == true }) "Pin" to {
+                        all.forEach { a -> pinOf(a)?.let { if (!Music.pinned(it)) Music.togglePin(it) } }
+                        Music.toast("Pinned"); pickedAlbums.clear(); ui.pickingAlbums = false } else null,
+                    if (all.any { albumShown(it) }) "Hide from ${page.name}'s page" to {
+                        all.forEach { org.omarchy.music.ArtistShown.album(page.name, it.al.title, hide = true) }
+                        Music.toast("Hidden from ${page.name}'s page · “Show what's left out” at its end brings them back"); pickedAlbums.clear(); ui.pickingAlbums = false } else null,
+                    if (all.any { !albumShown(it) }) "Show on ${page.name}'s page" to {
+                        all.forEach { org.omarchy.music.ArtistShown.album(page.name, it.al.title, hide = false) }
+                        pickedAlbums.clear(); ui.pickingAlbums = false } else null))
+            }
+            else item { Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Chip("Select", false) { ui.startPick("artist-albums") }; SortMenu("artist-albums", ARTIST_ALBUM_SORTS) } }
             val shown = albumsSorted.filter { fits(ui, it.al.title, it.al.sub) }
+            // Hold a release: picking starts with it ticked (its own menu is then the bar's); picking, a tap ticks
             laidOutItems(shown, ui, key = { "aa-" + shown[it].al.id + "#" + it }, row = { j ->
                 val a = shown[j]
-                PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                PlaylistRow(a.al, a.ownCover(), onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) },
+                    checked = if (picking) a.al.id in pickedAlbums else null) { if (picking) pickAlbum(a) else openAlbum(a) }
             }) { j, mod, compact ->
                 val a = shown[j]
-                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
-                    onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC, lit = picking && a.al.id in pickedAlbums,
+                    onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) }) { if (picking) pickAlbum(a) else openAlbum(a) }
             }
         }
         // Every song they have, always (no button to ask for it): the songs of all their releases, and of the
@@ -1394,11 +1436,12 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                     style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
                 laidOutItems(leftAlbums, ui, key = { "al-" + leftAlbums[it].al.id + "#" + it }, row = { j ->
                     val a = leftAlbums[j]
-                    PlaylistRow(a.al, a.ownCover(), onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                    PlaylistRow(a.al, a.ownCover(), onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) },
+                        checked = if (picking) a.al.id in pickedAlbums else null) { if (picking) pickAlbum(a) else openAlbum(a) }
                 }) { j, mod, compact ->
                     val a = leftAlbums[j]
-                    Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC,
-                        onLongClick = { albumMenu(a) }) { openAlbum(a) }
+                    Tile(a.ownCover() ?: a.al.thumb.ifEmpty { null }, a.al.title, a.al.sub, mod, compact, ico = Ico.DISC, lit = picking && a.al.id in pickedAlbums,
+                        onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) }) { if (picking) pickAlbum(a) else openAlbum(a) }
                 }
                 tracks(leftSongs, ui, "artist-left", section = "artist-left") { t -> t.album }
             }
