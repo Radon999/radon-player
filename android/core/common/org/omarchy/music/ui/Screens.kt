@@ -366,7 +366,7 @@ fun MusicTab(ui: Ui) {
     Music.musicVersion
     Music.savedVersion
     // My music, Favorites, Not favorited and Recently played: songs, as their Sort menu says.
-    val songView = ui.musicView in setOf("all", "favorites", "unfavorited", "recent")
+    val songView = ui.musicView in setOf("all", "favorites", "unfavorited", "recent", "later")
     val songTab = "music-" + ui.musicView
     val songOpts = org.omarchy.music.songSorts(withOrder = ui.musicView != "all")
     val songSort = sortNow(songTab, songOpts, if (ui.musicView == "all") Music.musicSort.takeIf { it in songOpts } ?: "title" else "order")
@@ -374,6 +374,7 @@ fun MusicTab(ui: Ui) {
         "all" -> Music.mySongs()
         "recent" -> Music.plays.recent().map { Music.mineOf(it) }   // your own files first
         "favorites" -> Music.favorites.tracks()
+        "later" -> org.omarchy.music.ListenLater.tracks().map { Music.mineOf(it) }   // (your own copy of each one you have since got)
         else -> Music.mySongs().filter { !Music.favorites.has(it) }.sortedBy { norm(it.title) }
     } }.getOrDefault(emptyList())
     val songSorted = rememberSorted(songBase, songSort) { d -> org.omarchy.music.sortTracks(songBase, songSort, d) }
@@ -405,7 +406,7 @@ fun MusicTab(ui: Ui) {
                         .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) } else emptyList()
                     val skipInfo = skipRows.associate { (t, k, f) -> org.omarchy.music.songKey(t) to (k to f) }
                     val tracks = when (ui.musicView) {
-                        "all", "recent", "favorites", "unfavorited" -> songSorted
+                        "all", "recent", "favorites", "unfavorited", "later" -> songSorted
                         "skips" -> {
                             val r = { a: Int, b: Int -> org.omarchy.music.SongStats.rate(a, b) }
                             when (Music.skipOrder) {
@@ -422,6 +423,7 @@ fun MusicTab(ui: Ui) {
                             "recent" -> "Nothing played yet" to "The songs you listen to show up here, the last one first."
                             "favorites" -> "No favorites yet" to "${LONG_PRESS.cap()} a song (or select a few) and pick Favorite, or $TAP the ☆ by the song playing."
                             "unfavorited" -> "Every song is a favorite" to "Your songs you haven't starred show up here."
+                            "later" -> "Nothing on Listen later yet" to "For music you want to hear but can't right now. Pick songs, albums or EPs (${LONG_PRESS} one), open Options and choose “Add to Listen later playlist”: they wait here until you have time for them."
                             "skips" -> "No skips counted yet" to "Go on to the next song with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left and it counts as a skip; hear it to the end and it counts as heard out. Last.fm keeps no skips, so this starts now."
                             else -> "Nothing played yet" to "The songs you play most show up here."
                         }
@@ -459,12 +461,19 @@ fun MusicTab(ui: Ui) {
                                 "recent" -> "RECENTLY PLAYED · THE LAST ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}"
                                 "favorites" -> "${tracks.size} FAVORITES"
                                 "unfavorited" -> "${tracks.size} SONGS NOT FAVORITED"
+                                "later" -> "LISTEN LATER · ${tracks.size} SONG${if (tracks.size != 1) "S" else ""}"
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
                             if (ui.musicView == "recent") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Pill("Refresh", quiet = true) { Music.musicVersion++; Music.toast("Recently played is up to date") }
                                 SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "Last played first"))
+                            }
+                            if (ui.musicView == "later") Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Pill("Play") { Music.playFrom(tracks, 0, false) }
+                                Pill("Shuffle") { Music.playFrom(org.omarchy.music.shuffleSongs(tracks), 0, false) }
+                                SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "Last added first"))
                             }
                             if (ui.musicView == "favorites" || ui.musicView == "unfavorited") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
                                 SortMenu(songTab, songOpts, songSort, names = mapOf("order" to if (ui.musicView == "favorites") "Newest favorite first" else "Title (A–Z)"))

@@ -354,6 +354,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
         add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
         add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
+        add(Entry("Listen later", Ico.CLOCK, "music", "later"))   // what you put aside to hear another time
     }),
     Triple("stats", "Statistics and favorites", listOf(Entry("Most played", Ico.CHART, "music", "top"),
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
