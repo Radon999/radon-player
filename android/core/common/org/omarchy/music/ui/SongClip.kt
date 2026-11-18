@@ -208,7 +208,7 @@ fun SongClipDialog(ui: Ui, t: Track) {
                     ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), styleKey, group = { MenuGroups.card(it) }, describe = { LyricsCards.describe(it) },
                         preview = { k -> val b = remember(k, t.id, mine) { SongClips.card(t, k, start, end, 0.4f).first }
                             Image(b, null, Modifier.size(144.dp, 180.dp)) },
-                        menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { styleKey = it; Prefs.setText(ClipRules.STYLE, it) }
+                        kind = Favs.CARDS, menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { styleKey = it; Prefs.setText(ClipRules.STYLE, it) }
                 }
                 if (file != null && !busy) {
                     if (onPhone) Row {

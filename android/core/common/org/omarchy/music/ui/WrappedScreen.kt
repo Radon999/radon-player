@@ -513,7 +513,7 @@ fun WrappedScreen(onClose: () -> Unit) {
                         .padding(horizontal = 12.dp, vertical = 8.dp))
                     // The styles: hold one down (or its ⋯, or right-click) to favourite it, or edit or delete one you made
                     ChoicePill(Favs.sorted(Favs.WRAPPED, WS.STYLES), Music.wrappedStyle, prefix = "Style: ", group = { MenuGroups.wrapped(it) },
-                        menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) }) { Music.chooseWrappedStyle(it) }
+                        kind = Favs.WRAPPED, menu = { k, l -> Favs.menu(Favs.WRAPPED, k, l) }) { Music.chooseWrappedStyle(it) }
                     Text("✕", style = T.title.copy(color = WS.fg), modifier = Modifier.clip(CircleShape).background(WS.bg.copy(alpha = 0.4f))
                         .pointerInput(Unit) { detectTapGestures { onClose() } }.padding(horizontal = 11.dp, vertical = 7.dp))
                 }

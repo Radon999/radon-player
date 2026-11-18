@@ -1047,7 +1047,18 @@ object MyPresets {
         Preset(f[0], f[1], f[2], f[3], f[4], f[5] == "1", f[6], f[7], f[8], f.getOrNull(9) == "1", f.getOrElse(10) { "" },
             f.getOrElse(11) { "" }, f.getOrElse(12) { "" }, f.getOrElse(13) { "" }) }.getOrNull() }
     /** The ready-made ones, then yours. */
-    fun all(): List<Preset> = BUILT + mine()
+    fun all(): List<Preset> = BUILT.map { edited(it) } + mine()
+    /** A ready-made preset as it came (null: not one of them). */
+    fun raw(key: String): Preset? = BUILT.firstOrNull { it.key == key }
+    /** A ready-made preset with your edit of it (PresetEdits): its effects and Now playing's two visualizers; the rest as
+     *  it came. The two that follow the cover take their effects and visualizers from each song, so they have none to edit. */
+    private fun edited(p: Preset): Preset {
+        val e = PresetEdits.of(p.key) ?: return p
+        if (p.key == CoverScene.PRESET || p.key == CoverScene.GLASS_PRESET) return p
+        val t = org.omarchy.music.PresetEditRules.vis(org.omarchy.music.PresetVisRules.Trio(p.npVis, p.dual, p.npBottom), e, Vis::isBottomStyle)
+        return Preset(p.key, p.name, p.look, p.theme, p.layout, p.own, org.omarchy.music.PresetEditRules.fx(p.fx, e) { LookFx.keyOf(it) }, p.npFallback,
+            t.now, t.dual, t.bottom, p.wrapped, p.card, p.visColor)
+    }
     /** A preset's name in the menu: yours marked (yours). */
     fun label(p: Preset) = if (p.mine) "${p.name} (yours)" else p.name
     fun of(key: String) = all().firstOrNull { it.key == key }
@@ -1233,6 +1244,11 @@ object Favs {
     fun menu(kind: String, key: String, label: String): List<Pair<String, () -> Unit>> {
         val name = label.removePrefix("★ ").removeSuffix(" (yours)")
         val fav = (if (isFav(kind, key)) "☆ Take off favourites" else "★ Favourite") to { toggle(kind, key) }
+        // Hide: out of its menu, kept under Hidden at the menu's end (a Personalization menu's choices only)
+        val hide: List<Pair<String, () -> Unit>> = if (kind !in Hidden.KINDS) emptyList() else listOf("Hide" to {
+            Music.toast(if (Hidden.hide(kind, listOf(key), emptySet()) > 0) "Hidden: it's under Hidden at the end of the list" else "Already hidden") })
+        // A ready-made preset: Edit changes its effects and visualizers (the look and the rest stay)
+        val editBuilt: List<Pair<String, () -> Unit>> = if (kind == PRESETS && MyPresets.raw(key) != null) listOf("Edit" to { Ui.current?.presetEdit = listOf(key); Unit }) else emptyList()
         val mine = when (kind) {
             LOOKS -> key.startsWith("mylook-") && key != "mylook-draft"
             LAYOUTS -> key.startsWith("mine-") && key != "mine-draft"
@@ -1243,7 +1259,7 @@ object Favs {
             CARDS -> key.startsWith("mycard-")
             else -> false
         }
-        if (!mine) return listOf(fav)
+        if (!mine) return editBuilt + listOf(fav) + hide
         // Edit: straight to its maker, with every setting it has (and its name) to change
         val edit = "Edit" to {
             if (kind == PRESETS) { MyPresets.apply(key); MyPresets.editing = key; Music.toast("Change anything on the tab, then Save changes") }
@@ -1251,7 +1267,7 @@ object Favs {
                 ui.sheet = when (kind) { LOOKS -> "lookmaker"; LAYOUTS -> "layoutmaker"; WRAPPED -> "wrapmaker"; CARDS -> "cardmaker"; else -> "vismaker" } }
             Unit
         }
-        return listOf(edit, fav, "Delete" to {
+        return listOf(edit, fav) + hide + listOf("Delete" to {
             val gone = {
                 when (kind) { LOOKS -> MyLooks.delete(key); LAYOUTS -> UiLayouts.delete(key); VIS -> MyVis.deleteStyle(key); WRAPPED -> MyWraps.delete(key)
                     VIS_COLOURS -> MyVis.deleteColor(key); PRESETS -> MyPresets.delete(key); CARDS -> LyricsCards.delete(key) }

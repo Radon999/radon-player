@@ -214,7 +214,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                     ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), styleKey, group = { MenuGroups.card(it) }, describe = { LyricsCards.describe(it) },
                         preview = { k -> val b = remember(k, t.id, mine) { lyricsCard(lines.toList().take(3), t, LyricsCards.of(k), k == LyricsCards.NOW) }
                             Image(b, null, Modifier.size(144.dp, 180.dp)) },
-                        menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) {
+                        kind = Favs.CARDS, menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) {
                         styleKey = it; LyricsCards.pick(it)
                     }
                 }
@@ -269,7 +269,7 @@ fun SongCardDialog(ui: Ui, t: Track) {
                     ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), styleKey, group = { MenuGroups.card(it) }, describe = { LyricsCards.describe(it) },
                         preview = { k -> val b = remember(k, t.id, mine) { lyricsCard(lines, t, LyricsCards.of(k), k == LyricsCards.NOW) }
                             Image(b, null, Modifier.size(144.dp, 180.dp)) },
-                        menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { styleKey = it; LyricsCards.pick(it) }
+                        kind = Favs.CARDS, menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { styleKey = it; LyricsCards.pick(it) }
                 }
                 Row {
                     TextButton({ Music.toast(if (savePicture(bmp, "${t.title} card")) savedPictureNote() else "Couldn't save it") }) { Text("Save", color = C.muted) }

@@ -26,11 +26,15 @@ object PresetVisRules {
         if (!keepMiddle && !keepBottom) return preset
         val m = middle(if (keepMiddle) yours else preset, isBottom)
         val b = bottom(if (keepBottom) yours else preset, isBottom)
-        return when {
-            m != null && b != null -> Trio(m, true, b)
-            m != null -> Trio(m, false, yours.bottom)
-            b != null -> Trio(b, false, b)
-            else -> Trio("off", false, yours.bottom)
-        }
+        return join(m, b, yours.bottom)
+    }
+
+    /** A middle one and a bottom one (either may be none) as the three things Now playing keeps. keptBottom: what
+     *  Dual's bottom style stays set to when there is no bottom one. */
+    fun join(m: String?, b: String?, keptBottom: String): Trio = when {
+        m != null && b != null -> Trio(m, true, b)
+        m != null -> Trio(m, false, keptBottom)
+        b != null -> Trio(b, false, b)
+        else -> Trio("off", false, keptBottom)
     }
 }

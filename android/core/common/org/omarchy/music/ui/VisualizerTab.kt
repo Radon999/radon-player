@@ -1501,6 +1501,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                twice: Boolean = false,        // a tap shows its picture (and stays open), a second tap on it puts it on
                menu: ((String, String) -> List<Pair<String, () -> Unit>>)? = null,   // right-click (or hold) on one: these
                group: ((String) -> String)? = null,   // a long menu in sections that fold: the section each choice is in (MenuGroups)
+               kind: String? = null,          // a Personalization menu (its favourites' kind): Select several, Hide, the hidden ones, Reset default preset edits
                pick: (String) -> Unit) {
     Box {
         var open by remember { mutableStateOf(false) }
@@ -1519,6 +1520,15 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
             else options.firstOrNull { it.first == current }?.second ?: options.firstOrNull()?.second.orEmpty()
         // The phone: the one last tapped in the menu, its picture shown under it
         var tapped by remember { mutableStateOf<String?>(null) }
+        // A Personalization menu: several picked at once (to hide them or, presets, to edit them), and the hidden ones left out
+        // of it (never the one in use), listed at its end to bring back
+        var selecting by remember(open) { mutableStateOf(false) }
+        val pickedMany = remember(open) { androidx.compose.runtime.mutableStateListOf<String>() }
+        var showHidden by remember(open) { mutableStateOf(false) }
+        val inUse = (chosen ?: emptySet()) + current
+        val hiddenNow = if (kind != null) { Hidden.version; Hidden.of(kind) } else emptySet()
+        val allOptions = options
+        @Suppress("NAME_SHADOWING") val options = org.omarchy.music.PresetEditRules.shown(allOptions, hiddenNow, inUse)
         val stays = (onPhone && preview != null) || twice
         Pill("$prefix$name \u25BE", quiet = true) { open = true; over = null; tapped = if (stays && chosen == null) current else null }
         val dismiss = {
@@ -1535,7 +1545,7 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                 val text: @Composable () -> Unit = {
                     Column {
                         val on = if (chosen != null) k in chosen else k == (tapped ?: current)
-                        Text((if (chosen != null) (if (on) "✓ " else "    ") else "") + label,
+                        Text((if (selecting) (if (k in pickedMany) "☑  " else "☐  ") else "") + (if (chosen != null) (if (on) "✓ " else "    ") else "") + label,
                             style = T.body.copy(color = if (on) C.accent else C.fg,
                             fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal))
                         // On a phone there's no pointer to hover with: each one's description under its name
@@ -1565,7 +1575,9 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                         spots[k] = r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() to
                             (r.size.width - r.localPositionOf(c, androidx.compose.ui.geometry.Offset.Zero).x.toInt() - c.size.width) } }) {
                     val tap = {
-                        if (skip == k) skip = null   // that was a right-click or a long press
+                        // Select several: a tap ticks it, nothing is put on
+                        if (selecting) { if (k in pickedMany) pickedMany.remove(k) else pickedMany.add(k); skip = null }
+                        else if (skip == k) skip = null   // that was a right-click or a long press
                         // Several at once (Effects) on the phone: the first tap only shows its picture, a tap on it again
                         // puts it on or off
                         else if (stays && chosen != null && tapped != k) tapped = k
@@ -1635,6 +1647,26 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                     }
                 }
             }
+            // A Personalization menu's first row: Select several, then what to do with the ones ticked
+            if (kind != null) Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!selecting) Pill("Select several", quiet = true) { selecting = true; pickedMany.clear(); ctx = null }
+                else {
+                    Text(if (pickedMany.isEmpty()) "Tap the ones you mean" else "${pickedMany.size} picked", style = T.sub)
+                    Pill("Hide") {
+                        val n = Hidden.hide(kind, pickedMany.toList(), inUse)
+                        Music.toast(if (n == 0) (if (pickedMany.isEmpty()) "Tap some first" else "The one in use can't be hidden while it is in use")
+                            else "$n hidden: they're under Hidden at the end of this list" + if (n < pickedMany.size) " (not the one in use)" else "")
+                        pickedMany.clear(); if (n > 0) selecting = false
+                    }
+                    if (kind == Favs.PRESETS) Pill("Edit") {
+                        val ready = pickedMany.filter { MyPresets.raw(it) != null }
+                        if (ready.isEmpty()) Music.toast("Tick ready-made presets to edit their effects and visualizers (one of yours has Edit of its own)")
+                        else { open = false; Ui.current?.presetEdit = ready }
+                    }
+                    Pill("Done", quiet = true) { selecting = false; pickedMany.clear() }
+                }
+            }
             val perCol = if (onPhone) options.size else ((screenHeightDp() - 72) / 48).coerceAtLeast(6)
             // A long menu in sections that fold open and shut, so it is a short list of sections first: your favourites,
             // then each kind. The section the one in use is in starts open; the rest are a tap away. (A short menu, or
@@ -1664,6 +1696,27 @@ fun ChoicePill(options: List<Pair<String, String>>, current: String, prefix: Str
                         }
                     }
                 }
+            }
+            // A Personalization menu's end: the ones hidden from it (a tap brings one back), and the ready-made presets put
+            // back as they came
+            if (kind != null) {
+                if (hiddenNow.isNotEmpty()) {
+                    DropdownMenuItem(text = { Text((if (showHidden) "▾  " else "▸  ") + "Hidden   ${hiddenNow.size}", style = T.body.copy(color = C.muted, fontWeight = FontWeight.SemiBold)) },
+                        onClick = { showHidden = !showHidden })
+                    if (showHidden) {
+                        allOptions.filter { it.first in hiddenNow }.forEach { (k, label) -> androidx.compose.runtime.key("hidden:$k") {
+                            DropdownMenuItem(text = { Text("$label   · show again", style = T.body.copy(color = C.muted)) }, onClick = { Hidden.show(kind, k) }) } }
+                        DropdownMenuItem(text = { Text("Show all of them again", style = T.body.copy(color = C.accent)) }, onClick = { Hidden.showAll(kind); showHidden = false })
+                    }
+                }
+                PresetEdits.version
+                val edits = PresetEdits.count()
+                DropdownMenuItem(text = { Text("Reset default preset edits" + (if (edits > 0) "   $edits" else ""), style = T.body.copy(color = if (edits > 0) C.accent else C.muted)) },
+                    onClick = {
+                        if (edits == 0) Music.toast("No ready-made preset has been edited: they are all as they came")
+                        else Ui.current?.let { ui -> open = false; ui.confirm = "Put ${if (edits == 1) "the edited preset" else "all $edits edited presets"} back as ${if (edits == 1) "it" else "they"} came? (Hidden ones stay hidden, and your own presets aren't touched)" to {
+                            PresetEdits.reset(); Music.toast("The ready-made presets are back as they came") } }
+                    })
             }
         }
         // The phone: the menu in a box of its own that always ends above the phone's buttons (Back, Home), so the last
@@ -1780,7 +1833,7 @@ fun VisualizerTab() {
             Spacer(Modifier.width(4.dp))
             val accent = C.accent
             ChoicePill(Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), colorKey, group = { MenuGroups.visColour(it) }, swatch = { visSwatch(it, accent) },
-                menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { Prefs.setText(Vis.COLOR, it) }
+                kind = Favs.VIS_COLOURS, menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { Prefs.setText(Vis.COLOR, it) }
         }
         val accent = C.accent
         val fg = C.fg
