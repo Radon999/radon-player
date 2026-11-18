@@ -1228,17 +1228,43 @@ object Moods {
 
     /** (blocking) The scanned songs whose files have no moods in them at all, each with the moods to write. A file
      *  that has moods already is left as it is, whatever they are: this only fills in the empty ones. */
-    private fun scannedToWrite(): List<Pair<String, String>> {
+    private fun scannedToWrite(): List<Pair<String, String>> = fillCheck().ready
+
+    /** What Write moods into the files (the Moods tab's button) has to go on. Of your songs whose files have no moods
+     *  in them: ready, the ones the app has moods for (it heard them, or you picked their moods) and may write, each
+     *  with its moods; locked, how many of those the app isn't allowed to change; unknown, how many have no moods
+     *  worked out yet (not scanned). A file that has moods already is never in any of these: it keeps them. */
+    class FillCheck(val ready: List<Pair<String, String>>, val locked: Int, val unknown: Int)
+
+    /** (blocking) */
+    fun fillCheck(): FillCheck {
         load()
-        return Music.mySongs().mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }.mapNotNull { (p, t) ->
-            val e = synchronized(lock) { known[p] } ?: return@mapNotNull null
-            if (e.picked.isNotEmpty() || e.inFile.isNotBlank() || !scanned(e) || !canWrite(p)) null
-            else moodsFor(t, e).takeIf { it.isNotEmpty() }?.let { p to it }
+        val ready = ArrayList<Pair<String, String>>()
+        var locked = 0; var unknown = 0
+        for ((p, t) in Music.mySongs().mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }) {
+            val e = synchronized(lock) { known[p] }
+            if (e != null && e.inFile.isNotBlank()) continue   // it has moods: kept as they are
+            val m = if (e == null || !(e.heard || e.full || e.picked.isNotEmpty() || e.kept.isNotEmpty())) "" else runCatching { moodsFor(t, e) }.getOrDefault("")
+            when {
+                m.isEmpty() -> unknown++
+                !canWrite(p) -> locked++
+                else -> ready += p to m
+            }
         }
+        return FillCheck(ready, locked, unknown)
     }
 
-    /** How many files the Moods tab's Write moods into the files would fill in (scanned songs with no moods in their files). */
-    fun toFill(): Int = runCatching { scannedToWrite().size }.getOrDefault(0)
+    /** What the button says when there is nothing it can write. */
+    fun nothingToFill(c: FillCheck): String = "Nothing to write: " + when {
+        c.locked > 0 -> "%,d file%s without moods can't be changed by the app (not allowed to write there)".format(c.locked, if (c.locked != 1) "s" else "") +
+            if (c.unknown > 0) ", and %,d song%s not scanned yet".format(c.unknown, if (c.unknown != 1) "s are" else " is") else ""
+        c.unknown > 0 -> "the %,d song%s without moods in %s file%s %s not scanned yet. Scan moods works them out".format(c.unknown,
+            if (c.unknown != 1) "s" else "", if (c.unknown != 1) "their" else "its", if (c.unknown != 1) "s" else "", if (c.unknown != 1) "are" else "is")
+        else -> "every file has its moods in it already"
+    }
+
+    /** How many files the Moods tab's Write moods into the files would fill in (songs with moods worked out and none in their files). */
+    fun toFill(): Int = runCatching { fillCheck().ready.size }.getOrDefault(0)
 
     /** Write the songs' moods into their files' MOOD tags, in the background (the playing song's waits till next time).
      *  scannedOnly: the Moods tab's own button, pressed by hand: just the scanned songs whose files have no moods in
@@ -1250,7 +1276,10 @@ object Moods {
         Music.bg({
             val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
             var done = 0; var failed = 0
-            val list = if (scannedOnly) scannedToWrite() else writable()
+            val check = if (scannedOnly) fillCheck() else null
+            val list = check?.ready ?: writable()
+            // (the button always answers: with nothing it can write, it says why)
+            if (check != null && list.isEmpty()) Music.scope.launch { Music.toast(nothingToFill(check)) }
             Music.scope.launch { writeProgress = 0 to list.size; writeLeft = null }
             val writeBegan = System.currentTimeMillis()
             for ((p, m) in list) {

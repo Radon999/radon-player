@@ -272,21 +272,22 @@ private fun MoodsReading(ui: Ui, reading: Pair<Int, Int>?, counts: org.omarchy.m
             Text("Scanning moods… " + "%,d of %,d".format(reading.first, reading.second) + " · " +
                 (moods.readingLeft?.let { moodsLeft(it) } ?: "working out the time left…"), style = T.sub.copy(color = C.accent))
         } else if (prevented) {
-            // Writing by hand is still yours to ask for: the switch stops what the app does by itself
-            if (toFill > 0 && !moods.writing && !moods.wordsBusy && moods.removing == null)
-                Chip("Write moods into the files (%,d song%s)".format(toFill, if (toFill != 1) "s" else ""), false) { moods.writeFiles(scannedOnly = true) }
+            // Writing by hand is still yours to ask for: the switch stops what the app does by itself. The button is
+            // always there; with nothing to write it says why when tapped.
+            if (!moods.writing && !moods.wordsBusy && moods.removing == null)
+                Chip("Write moods into the files" + (if (toFill > 0) " (%,d song%s)".format(toFill, if (toFill != 1) "s" else "") else ""), false) { moods.writeFiles(scannedOnly = true) }
             Text("Prevent auto mood scans is on (Settings › Scanner): the moods in your files stay as they are and no song is scanned",
                 style = T.sub.copy(color = C.accent))
         } else if (looking == null && !moods.wordsBusy && moods.removing == null) {
             // With about how long it will take (from how fast the last scan went on this device)
             if (left.first > 0) Chip("Scan moods (%,d song%s, %s)".format(left.first, if (left.first != 1) "s" else "", moodsTime(left.second)) +
                 (if (moods.aiOn()) " · AI" else ""), false) { moods.scan() }
-            // Songs scanned already whose moods aren't in their files: written by themselves, without scanning the rest first
-            if (left.first > 0 && toFill > 0 && !moods.writing)
-                Chip("Write moods into the files (%,d song%s)".format(toFill, if (toFill != 1) "s" else ""), false) { moods.writeFiles(scannedOnly = true) }
-            else if (left.first > 0) {}
-            else if (toWrite > 0) Chip("Write moods into the files (%,d song%s)".format(toWrite, if (toWrite != 1) "s" else ""), false) { moods.scan() }
             else if (counts.total > 0) Chip("Scan moods (moods into the files)", false) { moods.scan() }
+            // Write moods into the files: always there. It writes the moods the app has worked out into the files
+            // that have none, and never touches a file that has moods (those change only when you clear them with
+            // the buttons for that and scan again). With nothing to write, it says why.
+            if (!moods.writing) Chip("Write moods into the files" + (if (toFill > 0) " (%,d song%s)".format(toFill, if (toFill != 1) "s" else "") else ""), false) {
+                moods.writeFiles(scannedOnly = true) }
         }
     }
     Column(Modifier.padding(horizontal = 14.dp)) {
