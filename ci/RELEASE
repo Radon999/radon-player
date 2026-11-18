@@ -1,6 +1,0 @@
-v4.0.13
-Radon Player 4.0.13: moods into the files that kept refusing them
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.13.msi` (Windows), `radon-player_4.0.13_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
-
-**What is new**
-- **Moods into files that kept refusing them (phone):** writing moods could end with "48 couldn't be written: its tag is of a kind the app leaves alone" and no more. Three kinds of file were being turned away without a try: WAV files, MP3s whose tag the app's own writer can't read, and songs downloaded as Opus or M4A (from YouTube Music). They are now written through the tag library, in their own format, as your other files are. And when a file still can't take a mood, the message says what kind of file it is and what stood in the way (All files access not allowed, the file not where the phone says, the phone not letting the app change it), with the files' real names in Settings › Problems instead of numbers.
