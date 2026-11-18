@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -160,6 +161,9 @@ private fun AccountsSheet(ui: Ui) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 24.dp)) {
             LaunchedEffect(Unit) { Updater.checkSoon() }
             val activity = currentActivity()   // the sheet's context wraps the activity's
+            // Every section, as one piece: shown below as always, and gone through once more by Favorite settings (at the
+            // top), which shows only the lines you starred
+            val everything: @Composable () -> Unit = {
             Group("General", ui) {
             val v = Updater.latest
             if (v != null) Line("Update", when (Updater.state) {
@@ -454,6 +458,49 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             }
+            }
+            FavoriteSettings(ui, everything)
+            everything()
+        }
+    }
+}
+
+/** Your favourite settings (Settings › Favorite settings): the names of the lines you starred, kept with the settings. */
+object SettingFavs {
+    const val PREF = "fav_settings"
+    var version by mutableStateOf(0)
+        private set
+    fun of(): Set<String> = org.omarchy.music.SettingFavRules.read(org.omarchy.music.Prefs.text(PREF))
+    fun toggle(name: String) {
+        val now = of(); val on = name !in now
+        org.omarchy.music.Prefs.setText(PREF, org.omarchy.music.SettingFavRules.write(org.omarchy.music.SettingFavRules.toggled(now, name)))
+        version++
+        Music.toast(if (on) "“$name” is in Favorite settings, at the top of Settings (and stays here too)" else "“$name” taken out of Favorite settings")
+    }
+}
+
+/** Inside Favorite settings: every section is gone through, and only the starred lines are drawn. */
+private val LocalFavOnly = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** Settings › Favorite settings, the first section: the settings you starred (the ☆ beside a setting's name), together
+ *  in one place. Each stays in its own section too. Every section is gone through with only the starred lines drawn,
+ *  so a line here is the very line of its section: the same switch, the same buttons. */
+@Composable
+private fun FavoriteSettings(ui: Ui, everything: @Composable () -> Unit) {
+    SettingFavs.version
+    val favs = SettingFavs.of()
+    Group("Favorite settings", ui) {
+        if (favs.isEmpty()) Text("Nothing here yet. Tap the ☆ beside the name of any setting you use all the time (Auto mono, say): it shows here, at the " +
+            "top of Settings, and stays in its own section too", style = T.sub, modifier = Modifier.padding(vertical = 10.dp))
+        else {
+            androidx.compose.runtime.CompositionLocalProvider(LocalFavOnly provides true) {
+                androidx.compose.ui.layout.Layout(content = everything) { measurables, constraints ->
+                    val lines = measurables.filter { it.layoutId == "favline" }.map { it.measure(constraints.copy(minHeight = 0)) }
+                    layout(constraints.maxWidth, lines.sumOf { it.height }) { var y = 0; lines.forEach { it.placeRelative(0, y); y += it.height } }
+                }
+            }
+            Text("Tap a ★ to take that setting out of here. To add one, tap the ☆ beside its name in its own section",
+                style = T.sub, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
         }
     }
 }
@@ -1800,6 +1847,7 @@ internal fun swColors() = SwitchDefaults.colors(checkedThumbColor = C.darker, ch
 /** A section of Settings: a row with its name and an arrow that folds it open or shut (all shut when Settings opens). */
 @Composable
 private fun Group(title: String, ui: Ui, content: @Composable () -> Unit) {
+    if (LocalFavOnly.current) { content(); return }   // Favorite settings goes through every section, open or shut, for its starred lines
     val open = title in ui.settingsOpen
     val bg = if (C.apple && C.isLight) androidx.compose.ui.graphics.Color(0xFFF2F2F7) else C.light
     Row(Modifier.fillMaxWidth().padding(top = 10.dp).clip(R.card).background(bg)
@@ -1815,6 +1863,7 @@ private fun Group(title: String, ui: Ui, content: @Composable () -> Unit) {
 /** A fold inside a Settings group (Scanner › Your files…): opens and closes on its own. */
 @Composable
 private fun SubGroup(title: String, ui: Ui, content: @Composable () -> Unit) {
+    if (LocalFavOnly.current) { content(); return }
     val key = "sub:$title"
     val open = key in ui.settingsOpen
     Row(Modifier.fillMaxWidth().padding(top = 4.dp).clip(R.card).background(C.accent.copy(alpha = 0.08f))
@@ -1829,9 +1878,18 @@ private fun SubGroup(title: String, ui: Ui, content: @Composable () -> Unit) {
 /** A row of Settings: its name and what it is (or what it's doing) on the left, its switch or buttons on the right. */
 @Composable
 private fun Line(name: String, state: String, ok: Boolean, note: String = "", actions: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The ☆ beside its name puts it in Favorite settings (the first section); there, only the starred ones are drawn
+    SettingFavs.version
+    val fav = name in SettingFavs.of()
+    val favOnly = LocalFavOnly.current
+    if (favOnly && !fav) return
+    Row((if (favOnly) Modifier.layoutId("favline") else Modifier).fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 10.dp)) {
-            Text(name, style = T.body.copy(fontSize = 16.sp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = T.body.copy(fontSize = 16.sp), modifier = Modifier.weight(1f, fill = false))
+                Text(if (fav) "★" else "☆", style = T.body.copy(fontSize = 16.sp, color = if (fav) C.accent else C.muted.copy(alpha = 0.6f)),
+                    modifier = Modifier.padding(start = 4.dp).clip(R.pill).clickable { SettingFavs.toggle(name) }.padding(horizontal = 8.dp, vertical = 2.dp))
+            }
             if (note.isNotEmpty()) Text(note, style = T.sub.copy(color = C.fg), modifier = Modifier.padding(top = 2.dp))
             if (state.isNotEmpty()) Text(state, style = T.sub.copy(color = if (ok) C.accent else C.muted), modifier = Modifier.padding(top = 2.dp))
         }
