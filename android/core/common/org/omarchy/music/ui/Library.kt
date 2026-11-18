@@ -109,7 +109,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
             }
             Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else if (split && !bigAlbums) "LOW SONG COUNT ALBUM" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
         }
-        laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, row = { i ->
+        laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, names = { albums[it].first.title }, row = { i ->
             val (al, songs) = albums[i]
             PlaylistRow(Album(al.id, al.title, al.sub, "", songs.size.toString()), artModel(songs.first()),
                 onLongClick = { menu(al, songs) }, checked = if (picking) al.id in picked else null) { tap(al, songs) }
@@ -184,7 +184,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
     }
     item { if (picking) PickBar(ui, if (kind == "genre") "genres" else "folders") else Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)) { head(); Chip("Select", false) { ui.startPick(kind) }; SortMenu(sortTab, GROUPS_SORTS) } }
-    laidOutItems(list, ui, key = { "$kind-" + list[it].first }, row = { i ->
+    laidOutItems(list, ui, key = { "$kind-" + list[it].first }, names = { name(list[it].first) }, row = { i ->
         val (id, songs) = list[i]
         GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
     }) { i, mod, compact ->

@@ -27,6 +27,13 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.verticalScroll as composeVerticalScroll
 
 // The PC's scroll bars: every list and long screen that scrolls has one on its right edge, to drag like File
@@ -85,7 +92,61 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
             if (rows > wasAt.first) { returned = true; state.scrollToItem(wasAt.first, wasAt.second) }
         }
     }
-    LazyColumn(modifier, state = state, content = content)
+    // Jump to a letter: a list in alphabetical order says where each letter starts (JumpIndex), and a strip of letters
+    // down the side goes there
+    val jump = remember(place) { JumpIndex() }
+    androidx.compose.foundation.layout.Box(modifier) {
+        LazyColumn(Modifier.fillMaxWidth(), state = state) { jump.begin(); CountingScope(this, jump).content() }
+        androidx.compose.runtime.SideEffect { jump.publish() }
+        val letters = jump.shown
+        if (letters.isNotEmpty()) LetterStrip(letters, state, Modifier.align(Alignment.CenterEnd))
+    }
+}
+
+/** Where each letter starts in the list on screen (the letter, the row), as the list's own rows say while they are
+ *  laid out. Gathered in a plain list first: the rows are laid out inside a read-only step of drawing, where nothing
+ *  the screen watches may be changed, and handed on to [shown] straight after. */
+class JumpIndex {
+    private var found: List<Pair<String, Int>> = emptyList()
+    var shown by mutableStateOf<List<Pair<String, Int>>>(emptyList())
+        private set
+    fun begin() { found = emptyList() }
+    /** The first list in alphabetical order on the screen has the strip (a screen with two such lists keeps the first's). */
+    fun add(anchors: List<Pair<String, Int>>) { if (found.isEmpty()) found = anchors }
+    fun publish() { if (shown != found) shown = found }
+}
+
+/** The list's rows passed on as they are, counted: so a list can say which row each of its letters starts on. */
+class CountingScope(private val inner: LazyListScope, val jump: JumpIndex) : LazyListScope by inner {
+    var count = 0
+        private set
+    override fun item(key: Any?, contentType: Any?, content: @Composable androidx.compose.foundation.lazy.LazyItemScope.() -> Unit) {
+        count++; inner.item(key, contentType, content)
+    }
+    override fun items(count: Int, key: ((index: Int) -> Any)?, contentType: (index: Int) -> Any?, itemContent: @Composable androidx.compose.foundation.lazy.LazyItemScope.(index: Int) -> Unit) {
+        this.count += count; inner.items(count, key, contentType, itemContent)
+    }
+}
+
+/** The strip of letters down a list's right side: tap one, or run a finger (or the pointer, held) down them. */
+@Composable
+private fun LetterStrip(letters: List<Pair<String, Int>>, state: LazyListState, modifier: Modifier) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var height by remember { mutableStateOf(1) }
+    fun go(y: Float) {
+        val i = ((y / height) * letters.size).toInt().coerceIn(0, letters.size - 1)
+        scope.launch { state.scrollToItem(letters[i].second) }
+    }
+    androidx.compose.foundation.layout.Column(modifier.padding(end = if (onPhone) 2.dp else 14.dp)
+        .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(C.light.copy(alpha = 0.55f))
+        .onSizeChanged { height = it.height.coerceAtLeast(1) }
+        .pointerInput(letters) { awaitEachGesture {
+            val down = awaitFirstDown(); down.consume(); go(down.position.y)
+            while (true) { val e = awaitPointerEvent(); val ch = e.changes.firstOrNull() ?: break; if (!ch.pressed) break; ch.consume(); go(ch.position.y) }
+        } }
+        .padding(horizontal = 4.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        letters.forEach { (l, _) -> androidx.compose.material3.Text(l, style = T.sub.copy(fontSize = if (letters.size > 20) 9.sp else 10.sp, lineHeight = 12.sp, color = C.accent)) }
+    }
 }
 
 /** Scrolling up and down, as Compose's verticalScroll, with a scroll bar on the PC. */

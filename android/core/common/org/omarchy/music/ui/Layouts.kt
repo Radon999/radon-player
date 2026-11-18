@@ -102,11 +102,14 @@ fun fits(ui: Ui, vararg text: String): Boolean {
 fun trackFits(ui: Ui, t: Track) = fits(ui, t.title, t.artist, t.album)
 
 /** A list laid out as the page's layout: rows, or rows of covers. */
-fun <T> LazyListScope.laidOutItems(list: List<T>, ui: Ui, key: (Int) -> String,
+fun <T> LazyListScope.laidOutItems(list: List<T>, ui: Ui, key: (Int) -> String, names: ((Int) -> String)? = null,
                                    row: @Composable (Int) -> Unit, tile: @Composable (Int, Modifier, Boolean) -> Unit) {
     val layout = layoutNow(ui)
+    val k = if (layout == "list") 1 else columns(ui, layout)
+    // Jump to a letter: when these are in alphabetical order by name, where each letter starts (its row on the screen)
+    if (names != null) (this as? CountingScope)?.let { cs ->
+        org.omarchy.music.JumpRules.anchors(list.size, names)?.let { a -> cs.jump.add(a.map { (l, i) -> l to org.omarchy.music.JumpRules.row(cs.count, i, k) }) } }
     if (layout == "list") { items(list.size, key = key) { row(it) }; return }
-    val k = columns(ui, layout)
     val n = list.size
     items((n + k - 1) / k, key = { "$layout$k|" + key(it * k) }) { r ->
         Row(Modifier.fillMaxWidth().padding(horizontal = Themes.gap(8.dp))) {

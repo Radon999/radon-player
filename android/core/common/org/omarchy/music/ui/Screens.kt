@@ -1101,7 +1101,7 @@ fun ArtistsTab(ui: Ui) {
                 SortMenu("artists", ARTIST_SORTS)
             }
         }
-        laidOutItems(shown, ui, key = { "ar-" + shown[it].name }, row = { i ->
+        laidOutItems(shown, ui, key = { "ar-" + shown[it].name }, names = { shown[it].name }, row = { i ->
             val a = shown[i]
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(R.card)
                 .background(if (picking && a.name in picked) C.accent.copy(alpha = 0.22f) else androidx.compose.ui.graphics.Color.Transparent)
