@@ -1030,6 +1030,16 @@ private fun SyncLines(ui: Ui) {
             else -> Pill("Sync now") { if (pc) s.ask() else s.now() }
         }
     }
+    // What the last sync changed here, a line each: which playlists gained or lost songs, favorites, the rest
+    val changes = s.lastChanges
+    if (s.lastAt > 0) {
+        var showChanges by remember { mutableStateOf(false) }
+        Row(Modifier.padding(start = 8.dp, bottom = 4.dp)) {
+            Pill(if (changes.isEmpty()) "The last sync changed nothing here" else if (showChanges) "Hide what changed" else "What the last sync changed here (%,d)".format(changes.size), quiet = true) {
+                showChanges = !showChanges }
+        }
+        if (showChanges) Column(Modifier.padding(start = 8.dp, bottom = 8.dp)) { changes.forEach { Text("•  $it", style = T.sub.copy(color = C.fg)) } }
+    }
     Line("Songs' own volumes and EQs", "Syncs the volumes and Custom EQs you gave songs too. They're made for the headphones " +
         "you use with each device, so they stay on the device they were made on unless this is on, on both", s.songsOn) {
         Switch(s.songsOn, { s.setSongsOn(it) }, colors = swColors())

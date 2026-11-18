@@ -126,6 +126,7 @@ object Sync {
             val tagged = (theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0) +   // the PC's tag changes
                 runCatching { TagMatch.take(theirs[TagMatch.FILE]) }.getOrDefault(0)   // Tags & covers match: the PC's, when it's the main one
             val sum = SyncMerge.summary(result, here)
+            changesFound = runCatching { SyncChangesRules.lines(here, result) }.getOrDefault(emptyList())
             Done(result.mapValues { it.value.toString() }, result.filter { (n, v) -> here[n] != v }.keys,
                 sum.text() + (if (tagged > 0) " · tags changed on $tagged song${if (tagged != 1) "s" else ""}" else ""),
                 theirs[SyncRules.MOODS], sum.changed == 0 && tagged == 0, theirs[DOWNLOADS], tagged, theirs[SONGS_HERE])
@@ -317,6 +318,7 @@ object Sync {
             val base = if (baseFile.isFile && asked["fresh"].bool != true) runCatching { parse(FileInputStream(baseFile).use { readZip(it) }.second) }.getOrNull() else null
             val merged = SyncMerge.mergeAll(base, local, remote, preferLocal = asked["prefer"].str == "pc")
             val sum = SyncMerge.summary(merged, local); val summary = sum.text()
+            changesFound = runCatching { SyncChangesRules.lines(local, merged) }.getOrDefault(emptyList())
             val out = merged.mapValues { it.value.toString() }
             if (!only) saveUndo(mine, peerName)
             val before = playlistsAt()
@@ -378,7 +380,14 @@ object Sync {
     private fun saveUndo(mine: Map<String, String>, with: String) =
         writeZipFile(undoFile, buildJsonObject { put("app", "radon-player"); put("undo", true); put("with", with); put("made", secs()) }, mine)
 
+    // What the last Sync now changed on this device, a line each (SyncChangesRules): shown under Sync in Settings
+    private const val CHANGES = "sync_changes"
+    @Volatile private var changesFound: List<String> = emptyList()
+    private var changesVersion by mutableStateOf(0)
+    val lastChanges: List<String> get() = changesVersion.let { Prefs.text(CHANGES).lines().filter { it.isNotBlank() } }
+
     private fun finished(text: String, with: String, quiet: Boolean = false) {
+        Prefs.setText(CHANGES, changesFound.take(200).joinToString("\n")); changesFound = emptyList(); changesVersion++
         val t = secs()
         lastAt = t; lastWith = with; lastText = text; undoAt = t
         Prefs.set(FRESH, false)
