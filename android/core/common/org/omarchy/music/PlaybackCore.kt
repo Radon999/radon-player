@@ -578,6 +578,7 @@ object PlaybackCore {
         else if (fadeIn < 0) { fadeIn = 0.0; p.volume = 1f }   // another song than the one it was fading to (a skip)
         else if (fadeIn > 0) {   // crossfading: this one comes up as the last one fades away
             val n = fadeIn; fadeIn = 0.0
+            risingUntil = System.currentTimeMillis() + (n * 1000).toLong() + 1500
             p.volume = 0f
             fadeJob = Music.scope.launch {
                 val steps = (n * 20).toInt().coerceAtLeast(1)
@@ -633,6 +634,7 @@ object PlaybackCore {
                     maybeCrossfade(p)
                 }
                 if (p != null) endWatch(p)
+                if (p != null) volumeWatch(p)
                 changeWatch(p)
                 delay(500)
             }
@@ -640,6 +642,24 @@ object PlaybackCore {
     }
 
     private val endWatcher = EndWatch()
+
+    private var quietSince = 0L
+    private var risingUntil = 0L   // a song coming up from quiet at its start: its volume is on its way until then
+
+    /** A song playing on with no sound: the player's own volume left turned down. A crossfade and the DJ turn it down
+     *  and bring it back; if one of them is ever cut short (the song skipped at the wrong moment, the same song next
+     *  in the queue) nothing brought it back, and the song went on counting in silence. With nothing fading and the
+     *  DJ not talking, a volume still down after four seconds is put back to full, and noted (Settings › Problems). */
+    private fun volumeWatch(p: Engine) {
+        val busy = djSide.musicDucked || fadingOut != null || fadeIn != 0.0 || Remote.active || !p.isPlaying || System.currentTimeMillis() < risingUntil
+        if (busy || p.volume >= 0.98f) { quietSince = 0L; return }
+        val now = System.currentTimeMillis()
+        if (quietSince == 0L) { quietSince = now; return }
+        if (now - quietSince < 4000) return
+        quietSince = 0L
+        Crashes.note("The player's volume was left at ${"%.2f".format(p.volume)} with nothing fading: put back to full (“${current()?.title}” at ${p.positionMs / 1000}s)")
+        p.volume = 1f
+    }
 
     /** A song that reached its end but never said so (seen with some AAC/M4A files, and with some sound outputs that
      *  never report the last sound played): the player sits at -0:00 "playing" and nothing comes next, or its clock
