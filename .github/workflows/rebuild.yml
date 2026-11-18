@@ -43,7 +43,7 @@ jobs:
               echo "LINUX START: no package to start"
             else
               sudo apt-get update -qq >/dev/null 2>&1 || true
-              sudo apt-get install -y -qq xvfb imagemagick >/dev/null 2>&1 || true
+              sudo apt-get install -y -qq xvfb imagemagick xdotool >/dev/null 2>&1 || true
               # The package asks for mpv and ffmpeg (the app runs them and does not bring them on Linux), and installing
               # it the way a person would (apt, which fetches what a package asks for) must bring them in
               echo "LINUX PACKAGE NEEDS: $(bash ci/linux-deps.sh "$deb" 2>&1 | tail -1)"
@@ -174,8 +174,14 @@ jobs:
                   DISPLAY=:99 timeout 20 "$exe" "$demo" >/dev/null 2>&1 || true
                   sleep 3
                   DISPLAY=:99 timeout 20 "$exe" show vis blocks >/dev/null 2>&1 || true
+                  # The window made to fill the screen that is filmed (it opens a little bigger than this screen, so its
+                  # bottom, where the visualizer is, was off the edge), and the pointer moved out of the picture
+                  win=$(DISPLAY=:99 xdotool search --onlyvisible --name "Radon Player" 2>/dev/null | head -1)
+                  if [ -n "$win" ]; then DISPLAY=:99 xdotool windowmove "$win" 0 0 windowsize "$win" 1280 800 2>/dev/null || true; fi
+                  DISPLAY=:99 xdotool mousemove 1279 0 2>/dev/null || true
+                  echo "LINUX FILM: the window ${win:-not found}: $(DISPLAY=:99 xdotool getwindowgeometry "$win" 2>/dev/null | tr '\n' ' ')"
                   sleep 4
-                  if ffmpeg -loglevel error -y -f x11grab -framerate 30 -video_size 1280x800 -i :99 -t 12 -c:v libx264 -preset veryfast -crf 27 -pix_fmt yuv420p -movflags +faststart "$RUNNER_TEMP/linux-vis.mp4" 2>/dev/null; then
+                  if ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate 30 -video_size 1280x800 -i :99 -t 12 -c:v libx264 -preset veryfast -crf 27 -pix_fmt yuv420p -movflags +faststart "$RUNNER_TEMP/linux-vis.mp4" 2>/dev/null; then
                     echo "LINUX FILM: Now playing with the Blocks visualizer filmed for 12 s (linux-vis.mp4, $(du -k "$RUNNER_TEMP/linux-vis.mp4" | cut -f1) KB)"
                   else
                     echo "LINUX FILM: the film could not be made"
