@@ -1985,7 +1985,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
                 Chip("Notes at milestones", notes) { notes = !notes; P.set(RL.NOTES, notes) }
                 Chip("DJ offers a change after a long run", nudge) { nudge = !nudge; P.set(RL.NUDGE, nudge) }
             }
-            Text(RL.historyText.ifEmpty { "Find repeats in my history looks through your imported history and scrobbles for a song played again the moment it ended. No service says a song was on Repeat one, so these are a good guess" },
+            Text(RL.historyText.ifEmpty { "Find repeats in my history looks through what you played here before, your Last.fm scrobbles and your imported history for a song played again the moment it ended. Nothing recorded that Repeat one was on, so these are a good guess" },
                 style = T.sub, modifier = Modifier.padding(top = 4.dp))
         }
     }

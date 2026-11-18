@@ -82,7 +82,15 @@ object RepeatLoops {
                 runCatching { plays(DeezerHistory.plays) }.getOrDefault(emptyList()),
                 runCatching { plays(YouTubeHistory.plays) }.getOrDefault(emptyList()),
                 runCatching { plays(TidalHistory.plays) }.getOrDefault(emptyList()),
-                runCatching { Wrapped.keptScrobbles(Music.ctx).filter { it.t > 0 }.sortedBy { it.t }.map { RepeatFactsRules.Play(it.title, it.artist, it.t, it.ms / 1000.0) } }.getOrDefault(emptyList()),
+                // Last.fm: every scrobble (fetched year by year if Wrapped hasn't yet; the ones kept already if it can't be reached)
+                runCatching {
+                    val rows = if (LastFm.connected) runCatching { Wrapped.allScrobbles(Music.ctx) }.getOrElse { Wrapped.keptScrobbles(Music.ctx) } else emptyList()
+                    rows.filter { it.t > 0 }.distinctBy { it.t to it.title }.sortedBy { it.t }.map { RepeatFactsRules.Play(it.title, it.artist, it.t, it.ms / 1000.0) }
+                }.getOrDefault(emptyList()),
+                // What was played in this app before it counted repeats: its listening diary (when each play began and how
+                // long it was heard), and the times it keeps for each song's plays
+                runCatching { ListenLog.all().filter { it.t > 0 && it.title.isNotEmpty() }.sortedBy { it.t }.map { RepeatFactsRules.Play(it.title, it.artist, it.t, it.secs) } }.getOrDefault(emptyList()),
+                runCatching { Music.plays.items.values.toList().flatMap { e -> e.at.map { RepeatFactsRules.Play(e.track.title, e.track.artist, it) } }.sortedBy { it.t } }.getOrDefault(emptyList()),
             ).filter { it.isNotEmpty() }
             val before = saved().since.ifEmpty { day() }
             val (songs, hours) = RepeatLoopRules.fromHistory(sources, { day(it * 1000) }, { java.time.Instant.ofEpochSecond(it).atZone(zone).hour }, before)
