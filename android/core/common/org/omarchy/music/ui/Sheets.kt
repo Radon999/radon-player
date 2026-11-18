@@ -228,6 +228,7 @@ private fun AccountsSheet(ui: Ui) {
             SendPlaylistLines()
             SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
+            ConcertLines()
             }
             Group("Accounts", ui) {
             Text("Radon Player works best with a Tidal subscription and your own song files. Tidal is the only way to stream " +
@@ -2965,5 +2966,24 @@ private fun MenuEntriesLines() {
             Text(label, style = T.body, modifier = Modifier.weight(1f))
             Switch(key !in hidden, { MenuHidden.toggle(key) }, enabled = can.isNotEmpty(), colors = swColors())
         }
+    }
+}
+
+/** Settings › Remote & sync, at the end: Concert dates. A Ticketmaster key of your own (and, if you like, your city). */
+@Composable
+private fun ConcertLines() {
+    val P = org.omarchy.music.Prefs; val K = org.omarchy.music.Concerts
+    var key by remember { mutableStateOf(K.key()) }
+    var city by remember { mutableStateOf(K.city()) }
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
+    Line("Concert dates", "Puts a Concerts section on every artist's page: their coming shows from Ticketmaster's listings, each with a link to tickets. " +
+        "Ticketmaster asks for a key, which is free: make an account at developer.ticketmaster.com, copy the Consumer Key of the app it makes for you, " +
+        "and paste it here yourself. Add your city to see only shows there; leave it empty for all of them. Only shows Ticketmaster sells are listed",
+        key.isNotBlank(), note = if (key.isBlank()) "No key yet: artist pages have no Concerts section" else "On: open an artist's page and its Concerts section") {
+        Pill("Get a key…", quiet = true) { runCatching { links.openUri("https://developer.ticketmaster.com/products-and-docs/apis/getting-started/") } }
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1.4f)) { Field(key, "Ticketmaster key", password = true) { key = it.trim(); P.setText(K.KEY, key) } }
+        Box(Modifier.weight(1f)) { Field(city, "City (optional)") { city = it; P.setText(K.CITY, it.trim()) } }
     }
 }

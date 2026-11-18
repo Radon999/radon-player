@@ -1415,6 +1415,14 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         if (artistOpen.size > 300) artistOpen.clear()
         artistOpen[placeKey] = open
     }
+    // Concerts: their coming shows, asked for when the section is opened (only with a key of yours in Settings › Remote & sync)
+    val concertsOn = org.omarchy.music.Concerts.on
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
+    val concerts by androidx.compose.runtime.produceState<Pair<List<org.omarchy.music.ConcertRules.Concert>?, String>>(null to "", page.name, concertsOn, isOpen("concerts")) {
+        if (!concertsOn || !isOpen("concerts")) return@produceState
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { org.omarchy.music.Concerts.find(page.name) to "" }.getOrElse { null to (it.message ?: "Ticketmaster couldn't be reached") } }
+    }
     // Picking releases: what the bar at the bottom offers for the ones ticked (besides Options for all their songs).
     // Said from the page itself, not from a row of its list: a row is only there while it's on the screen, and far
     // down the list the bar was left with options made before anything was ticked (Hide did nothing). Each option
@@ -1615,6 +1623,28 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             }
         }
         // What's left out of the page: hidden by you, or not on Genius's list. Nothing is gone; any of it can be put back.
+        if (concertsOn) {
+            val (shows, why) = concerts
+            item { ArtistFold("Concerts", if (shows != null) "%,d".format(shows.size) else "", isOpen("concerts")) { toggle("concerts") } }
+            if (isOpen("concerts")) {
+                val city = org.omarchy.music.Concerts.city()
+                if (shows == null) item { Text(why.ifEmpty { "Looking at Ticketmaster's listings…" }, style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+                else if (shows.isEmpty()) item { Text("No shows listed" + (if (city.isNotEmpty()) " in $city (Settings › Remote & sync › Concert dates has the city)" else "") +
+                    ". Ticketmaster lists only the shows it sells", style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+                else items(shows.size, key = { "concert-" + shows[it].date + shows[it].venue }) { i ->
+                    val sh = shows[i]
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 1.dp).clip(R.card)
+                        .clickable(enabled = sh.url.isNotEmpty()) { runCatching { links.openUri(sh.url) } }.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(org.omarchy.music.ConcertRules.line(sh), style = T.body)
+                            Text(listOf(sh.name, sh.country).filter { it.isNotBlank() }.joinToString(" · "), style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (sh.url.isNotEmpty()) Text("Tickets ›", style = T.sub.copy(color = C.accent))
+                    }
+                }
+            }
+        }
         // (features hidden by you are among them, to put back)
         val leftFeats = feats?.songs.orEmpty().filter { !featShown(it) }
         val left = leftSongs.size + leftAlbums.size + leftFeats.size
