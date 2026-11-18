@@ -59,6 +59,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 
 ## Streaming & downloads
 
+- **Fetch the next song ahead:** while a streamed song plays, the one after it is fetched whole into the app's cache and played from there, so it starts with no wait and can't stall halfway. Nothing is kept. Settings › Playback switches it off.
 - **Tidal:** Streams and downloads in FLAC; its favorites, playlists and radios work as a library.
 - **Spotify, Apple Music, Deezer, YouTube Music:** Sign in to bring your library and playlists over (**Import all into my playlists**). Their songs play from Tidal, or YouTube when Tidal doesn't have one.
 - **Tidal first, always:** with Tidal connected a song streams from Tidal in the quality you picked. If Tidal doesn't answer it is asked again before YouTube's audio is used, and a song that fell to YouTube is looked up on Tidal again the next time. Settings › Problems says when it happened.
@@ -97,7 +98,7 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 
 - **How plays are counted:** from Last.fm and the histories you import (Spotify, Apple Music, Deezer, YouTube Music, Tidal), added together and never twice. A song is the same song across all of them, featurings and punctuation aside (K.Flay = KFlay). Imports are a one-time picture; Last.fm brings the new plays. Without Last.fm, the plays in the app count.
 - **Most played:** Top songs, albums, artists and moods for a week, month, year or all time, by plays or by time, with charts of when you listen. Plus Repeat, Milestones and Skips.
-- **Repeats:** each time a song plays to its end and starts over by itself with Repeat one on is one repeat of it. The Repeats tab lists your songs by repeats, with each one's longest run, for all time, a year, 30 days or 7. Repeats from before the app counted them, and from other services, are worked out from what you played here, your Last.fm scrobbles and your imports (a song played again the moment it ended): found by themselves after an import and kept; a good guess, not a record. Apple Music's daily counts and library exports have no exact times, so only its Play Activity file can show them. The chart of what you played most lately is **On repeat**.
+- **Repeats:** each time a song plays to its end and starts over by itself with Repeat one on is one repeat of it. The Repeats tab lists your songs by repeats, with each one's longest run, for all time, a year, 30 days or 7, and makes a collage of them. Repeats from before the app counted them, and from other services, are worked out from what you played here, your Last.fm scrobbles and your imports (a song played again the moment it ended): found by themselves after an import and kept; a good guess, not a record. Apple Music's daily counts and library exports have no exact times, so only its Play Activity file can show them. The chart of what you played most lately is **On repeat**.
 - **Tidy stats:** Merge an artist or a song counted under two names, say whose plays a joint credit's are, and keep look-alike artists apart.
 - **Wrapped:** Any period as full-screen slides: top 15s (songs, artists, albums, singles, EPs, genres, moods), minutes, streaks, discoveries, your listener type and a summary card. Every slide saves or shares as a picture.
 - **Repeats in Wrapped:** how many and how long, your biggest obsession, your most repeated songs and artists (full lists), your longest run, your repeat day, when you repeat most, each month's most repeated song, and the kind of repeater you are.
@@ -107,8 +108,8 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
 - **Lyrics card:** Tick up to 25 lines for a picture to share or save, in Your look, Now playing's colours, 60 ready-made styles, or your own.
-- **With the song's sound:** tick it in the Lyrics card box and the card is shared as a short video with the song playing, from the first line ticked to where the last one stops. It needs timed lyrics and the song's file.
-- **Share a clip with sound:** a song's Options makes a short video of its cover, name and a seek bar that fills, with the song playing from where you say to where you say (3 seconds to a minute), in any lyrics card style. Only for a song you have as a file.
+- **With the song's sound:** tick it in the Lyrics card box and the card is shared as a short video with the song playing, from the first line ticked to where the last one stops; Starts and Ends set it yourself, and are how it is set for a song nobody has timed lyrics for.
+- **Share a clip with sound:** a song's Options makes a short video of its cover, name and a seek bar that fills, with the song playing from where you say to where you say (3 seconds to a minute), in any lyrics card style. For a song you only stream the sound is taken from its stream.
 - **Plays on cards:** lyrics cards, picture cards and clips say how often you've played the song beside the artist (Personalization switches it off).
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 
@@ -133,6 +134,9 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Follows the cover:** a preset that changes with every song: the cover's own colours blurred out behind see-through cards, and a scene to match (effects and two visualizers in the cover's colour) out of 17, one for any colour a cover can be.
 - **Glass cover:** a preset with the playing song's cover blurred behind the whole app and everything over it see-through.
 - **Presets and your visualizers:** two switches under Preset Shuffle make presets leave Now playing's middle visualizer, its bottom one, or both as you set them, so a preset can bring only its looks.
+- **Select several, Hide:** every Personalization menu starts with Select several: tick as many as you like, then Hide them (they go under Hidden at the menu's end, a tap brings one back), Copy codes, or, for presets, Edit. The one in use is never hidden.
+- **Edit the ready-made presets:** take effects off or add them, and set the middle and bottom visualizers each to as it came, None or another style; the look and the rest stay. Reset default preset edits, at the end of every menu, puts them all back. Nothing ready-made is ever deleted.
+- **Share codes:** Copy code on any choice of any menu gives one line of text for someone else (or your other device) to paste under Share. A preset goes whole, with what it uses; also everything on now, and your effects.
 - **Menus in sections:** each Personalization menu is folded into a few sections (Looks: Basics, Light, Dark, Neon, Materials and places; Effects: Sky, Nature, Patterns, Light, Things…), your favourites first, so a long list is a short one to start with.
 - **Favorite, Edit, Delete:** Hold down on any choice (or its ⋯, or right-click). ★ Favorite moves it to the top.
 - **Make your own:** a **look** (colours, fade, glow, stars and effects), a **layout** (the bar's buttons, the mini player, Now playing's arrangement), a **visualizer** (shape, mirror, spin, glow, colour blend, **Dual**), a **lyrics card** and a **Wrapped** style, each shown live as you change it. **Randomize** and **Saved colours** give you a start.
@@ -178,6 +182,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 ## Help
 
+- **Favorite settings:** the first section of Settings holds the settings you starred (the ☆ beside a setting's name), for the ones you use all the time. Each stays in its own section too.
 - **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it (on Linux it downloads the package and opens it with your system's installer).
 - **Changelog and Features** are in the ☰ menu.
 - **Problems:** Settings shows anything that went wrong recently, with a Copy button.
