@@ -738,7 +738,7 @@ private fun ProtectLines() {
 private fun ToolLines(ui: Ui) {
     // New playlists sync: on from the start (most people want every playlist on both devices)
     val auto = org.omarchy.music.Prefs.on(org.omarchy.music.SyncPlaylists.AUTO, true)
-    Line("New playlists sync", "On: every playlist you make from now on is set to sync with your phone or PC (⇄ SYNCED): normal and smart playlists " +
+    Line("New playlists sync", "On: every playlist you make from now on is set to sync with your phone or PC (⇄ SYNCED) at each Sync now, never by itself: normal and smart playlists " +
         "(a smart playlist's rules go across with it), discovery playlists and Listen later. Off: a new playlist stays on this $DEVICE until you " +
         "switch it on. Either way each playlist has its own switch in Remote & sync › Playlists that sync, and every list of playlists " +
         "marks which sync and which are this device's only. Playlists you have already aren't changed by this switch", auto) {
@@ -2683,6 +2683,9 @@ private fun SyncedPlaylistsLines() {
         ok = n > 0, note = org.omarchy.music.SyncPlaylists.said(n)) {
         Pill(if (open) "Hide" else "Choose…", quiet = open) { open = !open }
     }
+    // Said in full view, switches open or not: "synced" must not be taken for "sent as I go"
+    Text(org.omarchy.music.SyncPlaylists.NOTICE + ". Until the first Sync after a playlist is switched on, nothing of it has crossed at all.",
+        style = T.sub.copy(color = C.accent), modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
     if (!open) return
     fun songs(k: Int) = "%,d song%s".format(k, if (k != 1) "s" else "")
     Row(Modifier.padding(start = 8.dp, bottom = 4.dp)) { Pill("Switch them all on", quiet = true) { org.omarchy.music.YourPlaylists.syncAll() } }

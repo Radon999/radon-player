@@ -101,6 +101,9 @@ object SyncPlaylists {
     /** The mark every list of playlists shows on each one, so it is plain which sync and which don't. */
     fun mark(synced: Boolean): String = if (synced) "⇄ SYNCED" else "THIS DEVICE ONLY"
 
+    /** Said wherever a playlist is set to sync, so nobody takes "synced" for "sent as I go": nothing crosses by itself. */
+    const val NOTICE = "Nothing crosses by itself: songs you add or take out reach the other device only when you tap Sync now (Settings › Remote & sync)"
+
     /** What Settings says under Playlists that sync. */
     fun said(n: Int): String = if (n == 0) "None yet: each device keeps its own playlists"
         else "%,d playlist%s: the same on both devices".format(n, if (n != 1) "s sync" else " syncs")
