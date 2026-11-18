@@ -1,154 +1,48 @@
-commit f92799739c7427173ff890a01f771fc9b01674ce · run 44289985240 · Wed Nov 18 11:04:42 UTC 2026
+commit 4f159ccc554c8ffba69d2b7d675631e8a095071d · run 44291435248 · Wed Nov 18 11:20:56 UTC 2026
 SHARED TESTS: 104 suites, 509 tests, 0 failed
-APP TESTS: no results (it didn't get that far)
-PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
-THE DJ'S VOICE (Pocket TTS, made for real): 
+APP TESTS: 20 suites, 56 tests, 0 failed
+PC TESTS (the app's logic, started without a window): 40 suites, 159 tests, 0 failed
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.5 s (with loading the voice); then 5.2 s of speech in 1.5 s (3.5x real time)
 PC COMPILES: yes
-LINUX PACKAGE: not built
-LINUX START: no package to start
+LINUX PACKAGE: radon-player_4.0.13_amd64.deb, 90M
+LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
+LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+LINUX START: the installed app started and was still running after 45 s
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:08 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
+LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
+LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
+LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
+LINUX START: a picture of its window was taken (linux-start.jpg)
+LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
+LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
+LINUX SCREENS: the 30 new presets pictured on one sheet (linux-presets.jpg)
+LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-
---
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:58 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:68 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-@InlineOnly() fun <T, R> T.let(block: (T) -> R): R
-    [R|Contract description]
---
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:74 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:131 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:304:31 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:304:50 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Rows.kt:70:9 Conflicting declarations:
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Rows.kt:122:9 Conflicting declarations:
-var coverFor: String?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Rows.kt:163:9 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:863:40 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:933:36 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:8 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:18 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-@InlineOnly() fun <T, R> T.let(block: (T) -> R): R
-    [R|Contract description]
---
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:24 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:34 @Composable invocations can only happen from the context of a @Composable function
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:2249:21 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:2252:84 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:2268:41 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/ToolsScreens.kt:391:22 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/ToolsScreens.kt:422:62 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/ToolsScreens.kt:430:68 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
---
-> Task :desktop:compileKotlin FAILED
-
-> Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:58 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:68 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-@InlineOnly() fun <T, R> T.let(block: (T) -> R): R
-    [R|Contract description]
---
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:74 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:303:131 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:304:31 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Main.kt:304:50 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Rows.kt:70:9 Conflicting declarations:
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Rows.kt:122:9 Conflicting declarations:
-var coverFor: String?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Rows.kt:163:9 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:863:40 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:933:36 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:8 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:18 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-@InlineOnly() fun <T, R> T.let(block: (T) -> R): R
-    [R|Contract description]
---
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:24 Cannot infer type for this parameter. Please specify it explicitly.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:134:34 @Composable invocations can only happen from the context of a @Composable function
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:2249:21 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:2252:84 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Sheets.kt:2268:41 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/ToolsScreens.kt:391:22 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/ToolsScreens.kt:422:62 Overload resolution ambiguity between candidates:
-var coverFor: String?
-var coverFor: List<List<Track>>?
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/ToolsScreens.kt:430:68 Overload resolution ambiguity between candidates:
 --- the end of the log
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :app:compileDebugUnitTestKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':app:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :desktop:compileTestKotlin
+> Task :desktop:packageDeb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.13_amd64.deb
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
+> Task :desktop:test
+
+/home/runner/work/sherpa-onnx/sherpa-onnx/sherpa-onnx/jni/offline-tts.cc:operator():550 config:
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx", lm_main="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx", encoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx", decoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx", text_conditioner="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx", vocab_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json", token_scores_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -156,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m
-48 actionable tasks: 48 executed
+BUILD SUCCESSFUL in 5m 6s
+59 actionable tasks: 59 executed
