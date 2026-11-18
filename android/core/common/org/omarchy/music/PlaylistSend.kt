@@ -47,10 +47,19 @@ object PlaylistSend {
         }
         // A song that streams (or was downloaded from a service) goes by its address there; one of your files by its
         // name, to be found among the other device's own songs
-        val songs = (if (pl.smart != null) SmartLists.songs(pl) ?: pl.tracks else pl.tracks).map { t ->
-            if (t.source != "file" && !t.isFile) t.slim() else Track("", "file", t.title, t.artist, t.album, t.duration)
-        }
-        return Parcel(pl.name, kind, pl.discovery?.artist ?: "", songs)
+        return Parcel(pl.name, kind, pl.discovery?.artist ?: "", asSent(if (pl.smart != null) SmartLists.songs(pl) ?: pl.tracks else pl.tracks))
+    }
+
+    private fun asSent(tracks: List<Track>): List<Track> = tracks.map { t ->
+        if (t.source != "file" && !t.isFile) t.slim() else Track("", "file", t.title, t.artist, t.album, t.duration) }
+
+    /** Songs you picked (an album, a few songs) sent to the other device as a playlist there: named after the album
+     *  when they are all from one, else "Sent from …". As Send a playlist: a copy, once; what it can't play is named. */
+    fun sendSongs(tracks: List<Track>) {
+        val songs = tracks.distinctBy { it.id }
+        if (songs.isEmpty()) return
+        val album = songs.map { it.album.trim() }.distinct().singleOrNull()?.takeIf { it.isNotEmpty() }
+        send(Parcel(album ?: ("Sent from " + (if (pc) "the PC" else "the phone")), "list", "", asSent(songs)))
     }
 
     private fun note(text: String, missing: List<String>) {
@@ -60,9 +69,11 @@ object PlaylistSend {
     }
 
     /** Send this playlist to the other device. */
-    fun send(pl: Playlist) {
+    fun send(pl: Playlist) = send(parcel(pl))
+
+    private fun send(p: Parcel) {
+        val pl = p   // (named as before below: its name is all that is said)
         if (!canSend) { Music.toast(if (pc) "Pair a phone first (Settings › Remote & sync)" else "Pair with the PC first (Settings › Remote & sync)"); return }
-        val p = parcel(pl)
         if (p.tracks.isEmpty()) { Music.toast("“${pl.name}” has no songs to send"); return }
         if (pc) {
             synchronized(outbox) { outbox += p }

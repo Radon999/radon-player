@@ -213,3 +213,39 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
         },
         dismissButton = { TextButton({ ui.lyricsCard = null }) { Text("Close", color = C.muted) } })
 }
+
+/** A song as a picture card (its Options › Share as a picture card): the song's cover, name and artist on a card in any
+ *  lyrics card style, with a line of your own on it if you like, to save or share as a picture. No link is made. */
+@Composable
+fun SongCardDialog(ui: Ui, t: Track) {
+    var line by remember(t.id) { mutableStateOf("") }
+    var styleKey by remember { mutableStateOf(LyricsCards.picked()) }
+    val mine = LyricsCards.mine()
+    val lines = listOf(line.trim().ifEmpty { "Listening to" })
+    val bmp = remember(lines, t.id, Music.look, C.bg, C.fg, C.accent, styleKey, mine) { lyricsCard(lines, t, LyricsCards.of(styleKey), styleKey == LyricsCards.NOW) }
+    AlertDialog(onDismissRequest = { ui.songCard = null }, containerColor = C.light,
+        title = { Text("Picture card", style = T.head) },
+        text = {
+            Column {
+                Image(bmp, "The card", Modifier.size(208.dp, (208f * bmp.height / bmp.width).dp).align(Alignment.CenterHorizontally))
+                Text("A line of your own on it (leave it empty for “Listening to”):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+                Field(line, "Listening to") { line = it.take(80) }
+            }
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                    Text("Style", style = T.sub, modifier = Modifier.padding(end = 8.dp))
+                    ChoicePill(Favs.sorted(Favs.CARDS, LyricsCards.menu()), styleKey, group = { MenuGroups.card(it) }, describe = { LyricsCards.describe(it) },
+                        preview = { k -> val b = remember(k, t.id, mine) { lyricsCard(lines, t, LyricsCards.of(k), k == LyricsCards.NOW) }
+                            Image(b, null, Modifier.size(144.dp, 180.dp)) },
+                        menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { styleKey = it; LyricsCards.pick(it) }
+                }
+                Row {
+                    TextButton({ Music.toast(if (savePicture(bmp, "${t.title} card")) savedPictureNote() else "Couldn't save it") }) { Text("Save", color = C.muted) }
+                    TextButton({ sharePicture(bmp, "${t.title} card", null) }) { Text(if (onPhone) "Share…" else SHARE_PICTURE, color = C.accent) }
+                }
+            }
+        },
+        dismissButton = { TextButton({ ui.songCard = null }) { Text("Close", color = C.muted) } })
+}

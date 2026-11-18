@@ -841,6 +841,9 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.COPY, "Copy the names") {   // "Title — Artist", a line each
                     copyText("Songs", picked.joinToString("\n") { "${it.title} — ${it.artist}" }); Music.toast("Copied ${picked.size} name${if (picked.size != 1) "s" else ""}")
                 })
+                if (one != null) add(Triple(Ico.SHARE, "Share as a picture card…") { ui.songCard = one })
+                if (org.omarchy.music.PlaylistSend.canSend) add(Triple(Ico.CLOUD, "Send to the ${if (onPhone) "PC" else "phone"} (as a playlist there)") {
+                    org.omarchy.music.PlaylistSend.sendSongs(picked) })
                 if (files.isNotEmpty()) add(Triple(Ico.SHARE, "Share") {
                     shareFiles(files, "Share ${files.size} songs")
                 })

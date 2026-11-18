@@ -298,6 +298,7 @@ fun App() {
             if (ui.castPick) CastPicker(ui)
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
+            ui.songCard?.let { SongCardDialog(ui, it) }
         }
         }
     }
