@@ -639,16 +639,12 @@ fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
     // Most played › Moods: each song carries its plays in the period (most played first, as it came), shown on its
     // row; sorting by plays goes by those, not by all-time plays.
     val periodPlays = page.kind == "mood-plays"
-    // All music (the playlist at the top of My music): every song you have, as it is now. It isn't a list kept from
-    // when the page opened: a song that comes in (a download, a new file) is in it at once, one deleted is gone.
-    val list = if (page.kind == ALL_MUSIC) remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.mySongs() }.getOrDefault(emptyList()) }
-        else page.tracks
+    val list = page.tracks
     val songs = rememberSorted(list, sort) { d ->
         org.omarchy.music.sortTracks(list, sort, if (periodPlays) org.omarchy.music.SortData(plays = { it.plays }, last = d.last) else d)
     }
     PlaceColumn(Modifier.fillMaxSize()) {
         item {
-            if (page.kind == ALL_MUSIC) Section("%,d SONG%s · EVERY SONG YOU HAVE, KEPT UP TO DATE".format(list.size, if (list.size != 1) "S" else ""))
             ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = page.title, songs = list)) },
                 pin = if (page.id.isNotEmpty() && page.kind in setOf("genre", "folder")) Pin(page.kind, page.id, page.title) else null)
             Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
@@ -659,9 +655,6 @@ fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
         else tracks(songs, ui, page.kind)
     }
 }
-
-/** The page of All music: every song you have, always as your music is now. */
-const val ALL_MUSIC = "allmusic"
 
 /** Above Up next: which queue this is, and the way to your others. */
 @Composable

@@ -429,17 +429,6 @@ fun MusicTab(ui: Ui) {
                         }
                         Empty(t, b)
                     } else {
-                        if (ui.musicView == "all") run {
-                        // All music, at the top of My music, above everything else: a playlist the app keeps itself, of every song you have (your files and
-                        // your downloads). Nothing to set up and nothing to refresh: a song that comes in is in it at once.
-                        item {
-                            val n = remember(Music.musicVersion, Music.savedVersion) { runCatching { Music.mySongs().size }.getOrDefault(0) }
-                            PlaylistRow(Album(ALL_MUSIC, "All music", "Every song you have · %,d song%s · always up to date".format(n, if (n != 1) "s" else "")),
-                                onLongClick = { ui.choices = "All music" to listOf("Play" to { Music.playList(Music.mySongs()) },
-                                    "Shuffle play" to { Music.playList(Music.mySongs(), shuffled = true) }) }) {
-                                ui.pages += Ui.Page.Songs("All music", emptyList(), ALL_MUSIC, ALL_MUSIC) }
-                        }
-                        }
                         item {
                             if (ui.musicView == "all") {
                                 // My music: play it all, shuffled, or as a DJ set
