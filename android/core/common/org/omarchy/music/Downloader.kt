@@ -72,6 +72,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
      *  which comes in pieces, is put together as one FLAC, as a download is. Anything going wrong leaves the song to
      *  stream as it always did. */
     fun fetchAhead(t: Track) {
+        if (standIn != null) { runCatching { stream(t) }; return }   // the tests: looked up only, nothing fetched
         if (!aheadCleaned) { aheadCleaned = true; runCatching { aheadDir().listFiles()?.forEach { it.delete() } } }
         val r = runCatching { stream(t) }.getOrNull() ?: return
         if (r.onDisk || r.uri.contains(".m3u8") || !(r.isDash || r.uri.startsWith("http"))) return
