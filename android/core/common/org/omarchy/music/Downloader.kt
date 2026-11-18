@@ -60,6 +60,20 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
      *  error getting it. With it, nothing is looked up anywhere. */
     @Volatile var standIn: ((Track) -> Ready)? = null
 
+    /** Set on the thread making a clip: Tidal is asked for CD quality (one FLAC file) rather than hi-res, which comes in
+     *  pieces a clip can't be cut from. */
+    private val oneFile = ThreadLocal<Boolean>()
+
+    /** (blocking) Where a song clip takes the song's sound from: its file if you have it, else its stream, as one
+     *  address that can be read from any point (never hi-res in pieces). Throws, with why in words, when there is none. */
+    fun clipSource(t: Track): String {
+        (t.file ?: lib.items[t.id]?.file)?.takeIf { it.isNotEmpty() }?.let { return it }
+        var r = stream(t)
+        if (r.isDash) { oneFile.set(true); try { r = find(t) } finally { oneFile.set(false) } }
+        if (r.isDash || r.uri.contains(".m3u8")) error("this song's stream comes in pieces a clip can't be cut from; download the song and it can be clipped")
+        return r.uri
+    }
+
     fun stream(t: Track): Ready {
         if (t.isFile) return Ready(t.file!!, onDisk = true)
         standIn?.let { return it(t) }
@@ -86,7 +100,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             trouble = null
             var match: kotlinx.serialization.json.JsonElement? = null
             try {
-                val q = streamQuality().let { if (it == "flac24" && dashFailed) "flac16" else it }
+                val q = streamQuality().let { if (it == "flac24" && (dashFailed || oneFile.get() == true)) "flac16" else it }
                 if (q == "aac") {   // 320 kbps picked: Tidal's AAC (its "high"), else on to YouTube
                     val m = tidal.resolve(known(t), lossy = true)
                     if (m != null) {

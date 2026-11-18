@@ -3,8 +3,9 @@ package org.omarchy.music
 /** A song clip to share (a song's Options › Share a clip with sound, and the Lyrics card's "With the song's sound"): a
  *  short video, a card that stands still with the song itself playing under it, from where you say to where you say.
  *  The song clip's card has the cover, the song and a seek bar that fills as it plays; the lyrics clip is the lyrics
- *  card, with no bar, and runs from the first line ticked to the end of the last. It is an .mp4 any app plays. Only a
- *  song you have as a file (yours, or a download) can be clipped: a stream has no file to take the sound from. */
+ *  card, with no bar, and runs from the first line ticked to the end of the last. It is an .mp4 any app plays. The sound
+ *  comes from the song's file when you have it, else from its stream (one that comes as a single address: Tidal in CD
+ *  quality, YouTube's audio; a stream that only comes in pieces can't be cut from). */
 object ClipRules {
     /** The shortest and longest clip, in seconds; a lyrics clip may be longer (it has to hold its lines). */
     const val MIN = 3.0

@@ -50,7 +50,20 @@ object SongClips {
     /** A song's file, if you have it as one (yours, or a download). */
     fun fileOf(t: Track): String? = (t.file ?: Music.lib.items[t.id]?.file)?.takeIf { it.isNotEmpty() }
 
-    private fun art(t: Track): ImageBitmap? {
+    /** (blocking) Where the clip's sound comes from: the song's file, else its stream (Downloader.clipSource). */
+    fun source(t: Track): String = Music.dl.clipSource(t)
+
+    /** A streamed song's cover, fetched for its card (a song with no file has no cover of its own to read). */
+    val thumbs = androidx.compose.runtime.mutableStateMapOf<String, ImageBitmap>()
+    /** (blocking) Fetches it once. */
+    fun fetchThumb(t: Track) {
+        if (t.id in thumbs || !t.thumb.startsWith("http")) return
+        runCatching { java.net.URL(t.thumb).openConnection().apply { connectTimeout = 8000; readTimeout = 8000 }.getInputStream().use { it.readBytes() } }
+            .getOrNull()?.let { decodeImage(it) }?.let { thumbs[t.id] = it }
+    }
+
+    private fun art(t: Track): ImageBitmap? = ownArt(t) ?: thumbs[t.id]
+    private fun ownArt(t: Track): ImageBitmap? {
         val artPath = Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() }
         return artPath?.let { runCatching { decodeImage(java.io.File(it).readBytes()) }.getOrNull() }
             ?: t.file?.let { f -> runCatching { org.omarchy.music.FileTags.cover(Music.ctx, f)?.let { decodeImage(it) } }.getOrNull() }
@@ -134,14 +147,15 @@ internal fun cardArtist(t: Track): String {
 
 /** Makes a clip away from the screen, then hands it on (to save, to share); says why if it couldn't be made. */
 @Composable
-internal fun rememberClipMaker(): Pair<Boolean, (ImageBitmap, ClipRules.Bar?, String, Double, Double, String, (java.io.File) -> Unit) -> Unit> {
+internal fun rememberClipMaker(): Pair<Boolean, (ImageBitmap, ClipRules.Bar?, () -> String, Double, Double, String, (java.io.File) -> Unit) -> Unit> {
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     return busy to { card, bar, file, start, end, name, then ->
         if (!busy) {
             busy = true
             scope.launch {
-                val made = withContext(Dispatchers.IO) { runCatching { makeClip(card, bar, file, start, end - start, name) } }
+                // file: the song's file or, for a streamed song, its stream's address, looked up here (away from the screen)
+                val made = withContext(Dispatchers.IO) { runCatching { makeClip(card, bar, file(), start, end - start, name) } }
                 busy = false
                 made.onSuccess(then).onFailure { Music.toast("Couldn't make the clip: " + (it.message ?: "something went wrong")) }
             }
@@ -162,13 +176,15 @@ fun SongClipDialog(ui: Ui, t: Track) {
     val (start, end) = range
     var styleKey by remember { mutableStateOf(SongClips.style()) }
     val mine = LyricsCards.mine()
-    val shown = remember(t.id, start.toInt(), end.toInt(), Music.look, C.bg, C.fg, C.accent, styleKey, mine) { SongClips.card(t, styleKey, start, end, 0.4f).first }
+    // A streamed song: its cover is fetched for the card
+    androidx.compose.runtime.LaunchedEffect(t.id) { if (file == null) withContext(Dispatchers.IO) { SongClips.fetchThumb(t) } }
+    val thumb = SongClips.thumbs[t.id]
+    val shown = remember(t.id, start.toInt(), end.toInt(), Music.look, C.bg, C.fg, C.accent, styleKey, mine, thumb) { SongClips.card(t, styleKey, start, end, 0.4f).first }
     val (busy, make) = rememberClipMaker()
     val name = ClipRules.fileName(t.title)
     fun go(then: (java.io.File) -> Unit) {
-        val f = file ?: return
         val (base, bar) = SongClips.card(t, styleKey, start, end, 0f)
-        make(base, bar, f, start, end, name, then)
+        make(base, bar, { SongClips.source(t) }, start, end, name, then)
     }
     val sliders = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.15f))
     val top = if (song > 0) song.toFloat() else 600f
@@ -177,8 +193,9 @@ fun SongClipDialog(ui: Ui, t: Track) {
         text = {
             Column {
                 Image(shown, "The clip's card", Modifier.size(192.dp, 240.dp).align(Alignment.CenterHorizontally))
-                if (file == null) Text(ClipRules.whyNot(false), style = T.sub, modifier = Modifier.padding(top = 8.dp))
-                else {
+                run {
+                    if (file == null) Text("This song plays as a stream: its sound is taken from the stream when you save or share, so that needs the internet and takes a little longer",
+                        style = T.sub.copy(color = C.accent), modifier = Modifier.padding(top = 6.dp))
                     Text("A short video of this card with the song playing, its bar filling as it goes. ${ClipRules.clock(start)} to ${ClipRules.clock(end)}: " +
                         "${(end - start).toInt()} seconds (up to ${ClipRules.MAX.toInt()})", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -210,7 +227,7 @@ fun SongClipDialog(ui: Ui, t: Track) {
                             Image(b, null, Modifier.size(144.dp, 180.dp)) },
                         kind = Favs.CARDS, menu = { k, l -> Favs.menu(Favs.CARDS, k, l) }) { styleKey = it; Prefs.setText(ClipRules.STYLE, it) }
                 }
-                if (file != null && !busy) {
+                if (!busy) {
                     if (onPhone) Row {
                         TextButton({ go { f -> if (!shareClip(f, name, "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") } }) { Text("Instagram", color = C.accent) }
                         TextButton({ go { f -> if (!shareClip(f, name, "com.facebook.katana")) Music.toast("Facebook isn't on this $DEVICE") } }) { Text("Facebook", color = C.accent) }

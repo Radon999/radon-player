@@ -160,7 +160,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
     val timed = remember(got) { Lyrics.parseLrc(got.synced) }
     val timedPlaces = remember(timed) { timed.indices.filter { timed[it].second.isNotBlank() } }   // the lines with words, by their place among the timed ones
     val file = remember(t.id) { SongClips.fileOf(t) }
-    val canSound = timedPlaces.isNotEmpty() && file != null
+    val canSound = timedPlaces.isNotEmpty()   // a streamed song too: its sound is taken from the stream
     var soundOn by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.ClipRules.CARD_SOUND)) }
     val sound = soundOn && canSound
     val words = remember(got, sound) {
@@ -186,10 +186,9 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(sound, { soundOn = it; org.omarchy.music.Prefs.set(org.omarchy.music.ClipRules.CARD_SOUND, it) }, enabled = canSound, colors = box)
                     Text(when {
-                        file == null -> "With the song's sound: only for a song you have as a file (yours, or a download)"
                         timedPlaces.isEmpty() -> "With the song's sound: this song has no timed lyrics, which say when each line is sung"
                         busy -> "Making the clip… a few seconds"
-                        sound -> "With the song's sound: a short video, from the first line ticked to where the last one stops"
+                        sound -> "With the song's sound: a short video, from the first line ticked to where the last one stops" + if (file == null) " (taken from the stream: it needs the internet)" else ""
                         else -> "With the song's sound (a short video)" }, style = T.sub.copy(color = if (busy) C.accent else C.muted))
                 }
                 Text("Tick the lines for the card (up to 25):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
@@ -222,7 +221,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                 val clip: ((java.io.File) -> Unit) -> Unit = { then ->
                     val places = picked.ifEmpty { listOf(0) }.map { timedPlaces[it] }
                     val r = org.omarchy.music.ClipRules.fromLyrics(timed.map { it.first }, places, t.duration)
-                    if (r != null && file != null) make(bmp, null, file, r.first, r.second, clipName, then)
+                    if (r != null) make(bmp, null, { SongClips.source(t) }, r.first, r.second, clipName, then)
                 }
                 if (onPhone) Row {
                     TextButton({ if (sound) clip { f -> if (!shareClip(f, clipName, "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }
