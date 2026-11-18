@@ -79,6 +79,21 @@ object MyLooks {
         }
         return cache
     }
+    // ---- a look you made, as a code to give someone (or to move it by hand): a line of text, nothing else ----
+    const val CODE = "RadonLook:"
+    /** The code for one of your looks (null: not one of yours). Its colours, fade, glow, stars and effects; no key. */
+    fun code(key: String): String? = all().firstOrNull { it.key == key }?.let { CODE + encode(it).substringAfter('|') }
+    /** The look a code holds, added to yours under a key of its own, or null: that isn't a look's code. A look of the
+     *  same name gets "(2)" after it, so the one you have stays. */
+    fun add(code: String): Looks.CustomLook? {
+        val body = code.trim().substringAfter(CODE, "").takeIf { it.isNotEmpty() } ?: return null
+        val p = body.split("|")
+        val got = runCatching { Looks.CustomLook("", p[0].take(40).ifBlank { "A look" }, p[1].toLong(16), p[2].toLong(16), p[3].toLong(16), p[4].toLong(16), p[5].toLong(16),
+            p[6].toBoolean(), p[7].toBoolean(), p.getOrNull(8).orEmpty().split(",").filter { it.isNotBlank() }.toSet()) }.getOrNull() ?: return null
+        val name = if (all().any { it.name == got.name }) got.name + " (2)" else got.name
+        return save(Looks.CustomLook("", name, got.accent, got.bg, got.card, got.text, got.grad, got.glow, got.stars, got.fx))
+    }
+
     /** Hands the Look menu where to find them. Called once at start, before the saved look is checked. */
     fun hook() { Looks.customSource = { all() } }
 
@@ -901,6 +916,24 @@ fun MakerLines(ui: Ui) {
         Pill("New visualizer") { ui.makerEdit = null; ui.sheet = "vismaker" }
         Pill("New Wrapped") { ui.makerEdit = null; ui.sheet = "wrapmaker" }
         Pill("New lyrics card") { ui.makerEdit = null; ui.sheet = "cardmaker" }
+    }
+    // A look of yours as a code: copy one to give to someone, paste one to get theirs
+    val shareLooks = MyLooks.all()
+    var pastedLook by remember { mutableStateOf("") }
+    Text("Share a look", style = T.body.copy(fontSize = 16.sp), modifier = Modifier.padding(top = 12.dp))
+    Text("A look you made, as a short code: copy it to send to someone (or to your other device), and paste a code here to get a look someone made. " +
+        "The code is only the look's colours and effects", style = T.sub)
+    if (shareLooks.isNotEmpty()) Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Copy the code of", style = T.sub, modifier = Modifier.padding(end = 8.dp))
+        ChoicePill(listOf("" to "Pick a look of yours") + shareLooks.map { it.key to it.name }, "") { k ->
+            MyLooks.code(k)?.let { copyText("A Radon Player look", it); Music.toast("Copied the code of “${shareLooks.firstOrNull { l -> l.key == k }?.name}”: paste it into a message") } }
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { Field(pastedLook, "Paste a look's code (RadonLook:…)") { pastedLook = it } }
+        Pill("Add") {
+            val got = MyLooks.add(pastedLook)
+            if (got == null) Music.toast("That isn't a look's code: it starts with RadonLook:") else { pastedLook = ""; Music.toast("Added “${got.name}” to your looks: it is in the Look menu, under Yours") }
+        }
     }
     Text("What you make is in its own menu (Look, Layout, the visualizer menus, Wrapped's Style, the Lyrics card's Style): hold it or tap its \u22EF " +
         "(right-click on the PC) to edit, favourite or delete it", style = T.sub, modifier = Modifier.padding(top = 10.dp))
