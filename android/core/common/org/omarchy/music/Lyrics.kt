@@ -243,6 +243,20 @@ object Lyrics {
         return got.takeIf { it.has }
     }
 
+    /** (blocking) A song's timed lyrics, when the lyrics shown came without them: a song whose words are in its own file
+     *  (or were found by the lyrics scanner) is shown those and nothing more is looked up, though Tidal or LRCLIB may have
+     *  them timed. Looked up as for a song with none and kept in the same place (not asked again for a while when there
+     *  are none). Null: nobody has them timed. */
+    fun timed(ctx: Ctx, t: Track): String? {
+        val m = songMeta(ctx, Music.lib, t)
+        val file = File(File(ctx.cacheDir, "lyrics").apply { mkdirs() }, "${safeName(t.id)}.json")
+        val cached = readText(file)?.let { runCatching { JSON.decodeFromString(Got.serializer(), it) }.getOrNull() }
+        if (cached != null && (cached.synced != null || now() - cached.time < RETRY)) return cached.synced
+        val (got, reached) = fetch(m)
+        if (reached) writeAtomic(file, JSON.encodeToString(Got.serializer(), got.copy(time = now())))
+        return got.synced
+    }
+
     /** Look for track's lyrics under another artist and title (a search by hand); found ones are kept for it, offline too. */
     fun search(ctx: Ctx, t: Track, artist: String, title: String): Got? {
         val m = songMeta(ctx, Music.lib, t).copy(artist = artist.trim(), title = title.trim(), tidal = null)

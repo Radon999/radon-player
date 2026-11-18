@@ -8,6 +8,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.omarchy.music.ClipRules
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -157,19 +164,37 @@ private fun styledCard(pt: Painter, w: Int, h: Int, pad: Float, lines: List<Stri
 fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
     // With the song's sound: the card as a short video with the song playing, from the first line ticked to where the
     // last one stops (ClipRules). It needs the song's timed lyrics (to know when each line is sung) and its file.
-    val timed = remember(got) { Lyrics.parseLrc(got.synced) }
+    var soundOn by remember { mutableStateOf(org.omarchy.music.Prefs.on(ClipRules.CARD_SOUND)) }
+    // The timed lyrics: the ones that came with the lyrics shown, else looked up when the sound is ticked (a song whose
+    // words are in its file is shown those, with no times)
+    var found by remember(got) { mutableStateOf<String?>(null) }
+    var looking by remember(got) { mutableStateOf(false) }
+    LaunchedEffect(got, soundOn) {
+        if (soundOn && got.synced == null && found == null) {
+            looking = true
+            found = withContext(Dispatchers.IO) { runCatching { Lyrics.timed(Music.ctx, t) }.getOrNull() }
+            looking = false
+        }
+    }
+    val timed = remember(got, found) { Lyrics.parseLrc(got.synced ?: found) }
     val timedPlaces = remember(timed) { timed.indices.filter { timed[it].second.isNotBlank() } }   // the lines with words, by their place among the timed ones
     val file = remember(t.id) { SongClips.fileOf(t) }
-    val canSound = timedPlaces.isNotEmpty()   // a streamed song too: its sound is taken from the stream
-    var soundOn by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.ClipRules.CARD_SOUND)) }
-    val sound = soundOn && canSound
-    val words = remember(got, sound) {
-        if (sound) timedPlaces.map { timed[it].second } else
+    val sound = soundOn                       // any song: with timed lyrics the sound follows the lines ticked, without them you set it
+    val timedOn = sound && timedPlaces.isNotEmpty()
+    val words = remember(got, timedOn, timed) {
+        if (timedOn) timedPlaces.map { timed[it].second } else
         (got.plain ?: timed.joinToString("\n") { it.second })
             .lines().filter { it.isNotBlank() && !(it.startsWith("[") && it.endsWith("]")) }
     }
     // The lines ticked, by their place in the song: a line sung more than once (a chorus) is ticked on its own each time
-    val picked = remember(got, sound) { mutableStateListOf<Int>() }
+    val picked = remember(got, timedOn, timed) { mutableStateListOf<Int>() }
+    // Where the sound starts and ends: by the lines ticked when the lyrics are timed, else (or once you move a slider) as you set it
+    val playingIt = Music.current()?.id == t.id
+    val song = if (t.duration > 0) t.duration else if (playingIt) Music.duration else 0.0
+    var manual by remember(got, timedOn) { mutableStateOf<Pair<Double, Double>?>(null) }
+    val byHand = remember(t.id) { val from = if (playingIt) Music.position else 0.0; ClipRules.bounds(from, from + SongClips.length(), song, ClipRules.MAX_LYRICS) }
+    val byLines = if (timedOn) ClipRules.fromLyrics(timed.map { it.first }, picked.ifEmpty { listOf(0) }.filter { it in timedPlaces.indices }.map { timedPlaces[it] }, song) else null
+    val range = manual ?: byLines ?: byHand
     val (busy, make) = rememberClipMaker()
     val clipName = org.omarchy.music.ClipRules.fileName(t.title + " lyrics")
     val lines = picked.map { words[it] }.ifEmpty { words.take(1) }
@@ -184,12 +209,38 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
             Column {
                 Image(bmp, "The card", Modifier.size(208.dp, (208f * bmp.height / bmp.width).dp).align(Alignment.CenterHorizontally))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(sound, { soundOn = it; org.omarchy.music.Prefs.set(org.omarchy.music.ClipRules.CARD_SOUND, it) }, enabled = canSound, colors = box)
+                    Checkbox(sound, { soundOn = it; org.omarchy.music.Prefs.set(ClipRules.CARD_SOUND, it) }, colors = box)
                     Text(when {
-                        timedPlaces.isEmpty() -> "With the song's sound: this song has no timed lyrics, which say when each line is sung"
                         busy -> "Making the clip… a few seconds"
-                        sound -> "With the song's sound: a short video, from the first line ticked to where the last one stops" + if (file == null) " (taken from the stream: it needs the internet)" else ""
-                        else -> "With the song's sound (a short video)" }, style = T.sub.copy(color = if (busy) C.accent else C.muted))
+                        !sound -> "With the song's sound (a short video)"
+                        looking -> "With the song's sound: looking for this song's timed lyrics…"
+                        timedOn && manual == null -> "With the song's sound: from the first line ticked to where the last one stops. Move a slider to set it yourself"
+                        timedOn -> "With the song's sound: as you set it below"
+                        else -> "With the song's sound: nobody has this song's lyrics timed, so set where the sound starts and ends below" } +
+                        (if (sound && file == null && !busy) " (taken from the stream: it needs the internet)" else ""),
+                        style = T.sub.copy(color = if (busy || looking) C.accent else C.muted))
+                }
+                if (sound) {
+                    val sliders = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.15f))
+                    val top = if (song > 0) song.toFloat() else 600f
+                    val (start, end) = range
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Starts", style = T.sub, modifier = Modifier.width(48.dp))
+                        Slider(start.toFloat(), { v -> manual = ClipRules.bounds(v.toDouble(), v + (end - start), song, ClipRules.MAX_LYRICS) }, valueRange = 0f..top,
+                            modifier = Modifier.weight(1f), colors = sliders)
+                        Text(ClipRules.clock(start), style = T.sub, modifier = Modifier.width(40.dp).padding(start = 6.dp))
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Ends", style = T.sub, modifier = Modifier.width(48.dp))
+                        Slider(end.toFloat(), { v -> manual = ClipRules.bounds(start, v.toDouble(), song, ClipRules.MAX_LYRICS) }, valueRange = 0f..top,
+                            modifier = Modifier.weight(1f), colors = sliders)
+                        Text(ClipRules.clock(end), style = T.sub, modifier = Modifier.width(40.dp).padding(start = 6.dp))
+                    }
+                    Row {
+                        if (playingIt) TextButton({ val at = Music.position; manual = ClipRules.bounds(at, at + (end - start), song, ClipRules.MAX_LYRICS) }) { Text("Start where it's playing", color = C.accent) }
+                        if (playingIt) TextButton({ Music.seek(start) }) { Text("Hear it", color = C.accent) }
+                        if (timedOn && manual != null) TextButton({ manual = null }) { Text("Back to the lines", color = C.accent) }
+                    }
                 }
                 Text("Tick the lines for the card (up to 25):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
                 LazyColumn(Modifier.heightIn(max = 240.dp)) {
@@ -218,11 +269,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                     }
                 }
                 // With the song's sound: the card made a video first (the lines ticked say where it starts and ends)
-                val clip: ((java.io.File) -> Unit) -> Unit = { then ->
-                    val places = picked.ifEmpty { listOf(0) }.map { timedPlaces[it] }
-                    val r = org.omarchy.music.ClipRules.fromLyrics(timed.map { it.first }, places, t.duration)
-                    if (r != null) make(bmp, null, { SongClips.source(t) }, r.first, r.second, clipName, then)
-                }
+                val clip: ((java.io.File) -> Unit) -> Unit = { then -> make(bmp, null, { SongClips.source(t) }, range.first, range.second, clipName, then) }
                 if (onPhone) Row {
                     TextButton({ if (sound) clip { f -> if (!shareClip(f, clipName, "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }
                         else if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }, enabled = !busy) {

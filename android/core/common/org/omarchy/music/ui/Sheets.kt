@@ -1609,7 +1609,7 @@ private fun NowPlayingLookLines() {
     }
     var cardSound by remember { mutableStateOf(P.on(CR.CARD_SOUND)) }
     Line("Lyrics cards with sound", "On: a lyrics card is shared as a short video with the song playing, from the first line you tick to where the " +
-        "last one stops (no seek bar on it). It needs the song's timed lyrics and its file; without them the card is a picture as before. " +
+        "last one stops (no seek bar on it). A song nobody has timed lyrics for still gets its sound: you set where it starts and ends. " +
         "The Lyrics card box has the same switch", cardSound) {
         Switch(cardSound, { cardSound = it; P.set(CR.CARD_SOUND, it) }, colors = swColors())
     }
