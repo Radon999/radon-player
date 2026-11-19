@@ -440,6 +440,10 @@ fun saveClip(f: java.io.File): Boolean = runCatching {
 
 fun savedClipNote(): String = "Saved to your Gallery (Movies › Radon Player)"
 
+/** Size of everything changed: the phone's screen is made again at the new size (MainActivity says how). */
+var remakeScreen: (() -> Unit)? = null
+fun uiSizeChanged() { remakeScreen?.invoke() }
+
 /** Send the clip to pkg (Instagram, Facebook), or to the app you pick in Android's share sheet. */
 fun shareClip(f: java.io.File, name: String, pkg: String? = null): Boolean = runCatching {
     val ctx = Music.ctx

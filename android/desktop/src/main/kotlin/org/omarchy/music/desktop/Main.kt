@@ -144,7 +144,7 @@ private fun app(args: Array<String>) = application {
             if (M.folders == listOf("Music/") && Library.folders().isNotEmpty())   // the Python app's folders, at the first start
                 M.setFolders(Library.folders().map { it.path })
         }
-        OmarchyTheme { App() }
+        org.omarchy.music.ui.UiSized { OmarchyTheme { App() } }
     }
     if (PcWindows.mini) Window(onCloseRequest = { PcWindows.mini = false }, title = "Radon Player", icon = AppIcon, alwaysOnTop = true,
         resizable = true, state = rememberWindowState(size = DpSize(380.dp, 600.dp), position = WindowPosition(Alignment.BottomEnd))) {

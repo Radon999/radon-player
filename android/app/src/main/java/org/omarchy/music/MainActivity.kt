@@ -21,9 +21,22 @@ import org.omarchy.music.ui.OmarchyTheme
 class MainActivity : ComponentActivity() {
     private var controller: ListenableFuture<MediaController>? = null
 
+    /** Size of everything (Settings › General): this screen is given a density that much bigger or smaller, so the
+     *  app's text and everything else, its boxes and menus too, come out at that size. */
+    override fun attachBaseContext(base: android.content.Context) {
+        val f = runCatching { org.omarchy.music.UiSizeRules.factor(Prefs.text(org.omarchy.music.UiSizeRules.PREF)) }.getOrDefault(1f)
+        val sized = if (f == 1f) base else runCatching {
+            val c = android.content.res.Configuration(base.resources.configuration)
+            c.densityDpi = (c.densityDpi * f).toInt()
+            base.createConfigurationContext(c)
+        }.getOrDefault(base)
+        super.attachBaseContext(sized)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (MusicApp.safeMode) { showCrash(); return }
+        org.omarchy.music.ui.remakeScreen = { runCatching { recreate() } }
         // The volume buttons are the music's here, always: with bit-perfect streaming straight to a USB DAC Android hears
         // nothing playing, and they changed the ringer instead of the music (and the DAC)
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC

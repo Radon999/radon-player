@@ -443,6 +443,9 @@ fun rememberVoiceInput(onText: (String) -> Unit): (() -> Unit)? {
     }
 }
 
+/** Size of everything changed: nothing to do on the PC (its window follows the setting by itself, [UiSized]). */
+fun uiSizeChanged() {}
+
 /** The phone's buttons at the bottom of the screen: none on the PC. */
 @Composable
 fun navBarBottom(): androidx.compose.ui.unit.Dp = 0.dp

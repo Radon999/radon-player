@@ -1,0 +1,22 @@
+package org.omarchy.music
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/** Size of everything: what is kept, and what it comes to. */
+class UiSizeRulesTest {
+    @Test fun theUsualSizeUnlessOneIsKept() {
+        assertEquals(100, UiSizeRules.percent("")); assertEquals(100, UiSizeRules.percent("big"))
+        assertEquals(150, UiSizeRules.percent("150")); assertEquals(1.5f, UiSizeRules.factor("150"), 0.0001f)
+        assertEquals(1f, UiSizeRules.factor(""), 0.0001f)
+    }
+
+    @Test fun neverTooSmallToReadOrTooBigToUse() {
+        assertEquals(80, UiSizeRules.percent("5")); assertEquals(250, UiSizeRules.percent("900"))
+    }
+
+    @Test fun theMenu() {
+        assertEquals("100% (usual)", UiSizeRules.label(100)); assertEquals("125%", UiSizeRules.label(125))
+        assertEquals("150" to "150%", UiSizeRules.OPTIONS.first { it.first == "150" })
+    }
+}
