@@ -52,17 +52,23 @@ object YourCopies {
             mineOfKey = byKey
             mineOfLoose = byLoose
             mineOfCredit = byCredit
+            mineOfId = all.associateBy { it.id }
             mineOfVer = v
         }
         val byKey = mineOfKey
         if (byKey.isEmpty()) return t   // no songs of your own (yet)
+        // The very song (a download or a file of yours, by what it is, whatever a list kept of its names): as it is now
+        mineOfId[t.id]?.let { same -> return asKept(same, t) }
         val (k, loose) = mineKeys(t)
         // By its name and lead artist; else by its name and any other artist it is credited to (a history says
         // "hard life & BENEE", your file says "BENEE": the same song), either way round
         val copies = byKey[k] ?: mineOfLoose[loose to k.second]
             ?: creditKeys(t.title, t.artist).drop(1).firstNotNullOfOrNull { byKey[it] }
             ?: mineOfCredit[k] ?: return t
-        if (!t.file.isNullOrEmpty() && copies.any { it.file == t.file }) return t   // already your file (as it is now)
+        // Already your file: as it is now. A list may have kept it pared down (Repeats keeps a song without its cover,
+        // length or format) or from before its tags changed: the file's own record is what is shown, with the marks
+        // the list gave it. (Handing back the kept one left a WAV, whose cover isn't inside the file, with no cover.)
+        if (!t.file.isNullOrEmpty()) copies.firstOrNull { it.file == t.file }?.let { same -> return asKept(same, t) }
         return bestCopy(copies, t.album)
     }
 
@@ -98,6 +104,11 @@ object YourCopies {
     @Volatile private var mineOfKey: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfLoose: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfCredit: Map<Pair<String, String>, List<Track>> = emptyMap()
+    @Volatile private var mineOfId: Map<String, Track> = emptyMap()
+
+    /** Your song as it is now, with the marks a list gave the one it kept (t itself when nothing differs). */
+    private fun asKept(now: Track, t: Track): Track =
+        if (now === t) t else now.copy(queued = t.queued, dj = t.dj, plays = if (t.plays != 0) t.plays else now.plays).let { if (it == t) t else it }
     @Volatile private var localByTitle: Map<String, List<Track>> = emptyMap()
 
     private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")
