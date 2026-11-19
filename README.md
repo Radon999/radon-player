@@ -163,6 +163,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Sync now:** Tap it on either device: plays, skips, favorites, EQs, downloads, tag changes and synced playlists (⇄) come together, nothing counted twice, with **Undo last sync**.
 - **Playlists that sync:** A list of all your playlists with a switch each, smart playlists, Listen later and the discovery playlists among them. New playlists sync by themselves (Settings › Your files › New playlists sync turns that off), and every list of playlists marks each one ⇄ SYNCED (with CHANGES WAITING when you changed it since the last sync) or THIS DEVICE ONLY. The ones switched on are the same on both devices after each Sync (two of the same name become one with the songs of both, as do Listen later and an artist's discovery playlists); the rest stay where they are.
 - **Send a playlist:** Copies one playlist (or Listen later, or a discovery playlist) to the other device once, without syncing it, and names any songs the other device hasn't got.
+- **Other device's songs (Settings › Remote & sync):** at each Sync the phone and the PC tell each other every song they have (names only). Each lists the ones it lacks, the first few right under the setting and all of them under Review, to tick and download or leave out; nothing is downloaded by itself. A song counts as the same on both however each device names it: a file with no tags that one calls "Artist - Title" and the other "Title", underscores in a name, a missing artist.
 - **Auto playlist sync:** A switch: the synced playlists sync by themselves when the phone's app finds the PC's, and when one changes while both are open. Everything else waits for Sync now.
 - **Tags match:** Pick a main device and the songs on the other get the tags theirs are missing (title, artist, album, genre, year, track), except folders you tell sync to leave alone. It never touches moods.
 - **Moods match:** The same for moods only, with its own main device: at each sync the other device's songs get the main one's moods, written into their files, with nothing scanned again. So the tags can follow the phone and the moods the PC. Off, each device keeps its own moods.
@@ -181,7 +182,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 - **Start with Windows / Start with Linux** (Settings › General): in the tray when you sign in.
 - **Discord** shows what you're playing on your profile.
 - **Keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the Equalizer, / to search) and right-click menus everywhere.
-- **Linux:** new in 4.0, as a .deb package that brings mpv and ffmpeg with it. Where a desktop has no tray, closing the window minimizes it. **Software drawing** (Settings › General) is for a PC or virtual machine where the window flickers. Not on Linux yet: the DAC's own EQ and dictation.
+- **Linux:** new in 4.0, as a .deb package that brings mpv and ffmpeg with it. Where a desktop has no tray, closing the window minimizes it; on a desktop with no minimized windows either (Hyprland, Sway and the like) closing hides the window while music plays (opening the app again shows it) and closes the app when nothing is playing. If the window flickers or stays black, start it once with RADON_RENDER=software. Not on Linux yet: the DAC's own EQ and dictation.
 
 ## Help
 

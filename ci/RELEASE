@@ -1,0 +1,11 @@
+v4.0.20
+Radon Player 4.0.20: the same song on both devices however it is named, the close button on Linux, and fixes
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.20.msi` (Windows), `radon-player_4.0.20_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Other device's songs: the same song however each device names it:** songs both devices have were listed as missing when one of them was a file with no tags, because each device names such a file in its own way. They are now matched when one calls it "Artist - Title" and the other "Title" (or "Title - Artist"), with underscores in a name or without, with a track number in front ("11 Ruby") or not, with no artist on one side, and with a $ for an s ("$uicideboy$", "Suicideboys"). A song the other device really has and this one lacks is still listed.
+- **A file with no artist, or named with its track number, is your song:** such a file ("11 Ruby", no artist) was not taken as your copy of a song named anywhere else (Repeats, Most played, your history), so it showed with no cover and as not on the device. It is now found without the number and, with no artist in its tags, by its name alone.
+- **Linux: the close button on desktops with no tray and no minimized windows** (Hyprland, Sway and the like): the app answered Close by asking to be minimized, which those desktops don't do, so the button did nothing. There the window is now hidden while music plays (it goes on, the desktop's media controls still work, and opening the app again shows it) and the app closes when nothing is playing. A note says so the first time.
+- **Size of everything is each device's own:** it went across at Sync, so the phone's size landed on the PC. It is no longer sent or taken by Sync, and a backup put on the other device leaves its size alone, so a device is at 100% until you change it there. Favorite settings, hidden choices and preset edits go across as before.
+- **The DJ on a song you used to repeat:** "You used to have this one on repeat, a long time ago. You haven't in a while." (it named the month it was last on repeat).
+- **Software drawing is gone from Settings:** it wasn't used. Where a window flickers or stays black, starting the app once with RADON_RENDER=software still draws it without the graphics card.
