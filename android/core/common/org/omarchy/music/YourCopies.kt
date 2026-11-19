@@ -41,11 +41,17 @@ object YourCopies {
             val byKey = HashMap<Pair<String, String>, MutableList<Track>>()
             val byLoose = HashMap<Pair<String, String>, MutableList<Track>>()
             val byCredit = HashMap<Pair<String, String>, MutableList<Track>>()
+            val byName = HashMap<String, MutableList<Track>>()
             for (s in all) {
                 val (k, loose) = mineKeys(s)
                 byKey.getOrPut(k) { ArrayList() } += s
                 byLoose.getOrPut(loose to k.second) { ArrayList() } += s
                 // …and under each other artist your file credits ("A & B": B too), for a song named by B alone
+                // …a file named with its track number ("11 Ruby"): under its name without it too; and one with no artist
+                // in its tags: under its name alone, for a song named by its artist anywhere else
+                val bare = withoutTrackNumber(s.title)
+                if (bare != s.title) byKey.getOrPut(Stats.statsKey(bare, s.artist)) { ArrayList() } += s
+                if (noArtistNamed(s.artist)) for (n in listOf(s.title, bare).distinct()) byName.getOrPut(norm(cleanTitle(n))) { ArrayList() } += s
                 if (s.artist.any { it == '&' || it == ',' || it == ';' } || " x " in s.artist || "feat" in s.artist.lowercase() || " ft" in s.artist.lowercase() || " with " in s.artist.lowercase())
                     for (c in creditKeys(s.title, s.artist).drop(1)) byCredit.getOrPut(c) { ArrayList() } += s
             }
@@ -53,6 +59,7 @@ object YourCopies {
             mineOfLoose = byLoose
             mineOfCredit = byCredit
             mineOfId = all.associateBy { it.id }
+            mineOfName = byName
             mineOfVer = v
         }
         val byKey = mineOfKey
@@ -64,7 +71,9 @@ object YourCopies {
         // "hard life & BENEE", your file says "BENEE": the same song), either way round
         val copies = byKey[k] ?: mineOfLoose[loose to k.second]
             ?: creditKeys(t.title, t.artist).drop(1).firstNotNullOfOrNull { byKey[it] }
-            ?: mineOfCredit[k] ?: return t
+            ?: mineOfCredit[k]
+            ?: mineOfName[k.first]   // your file of that name that has no artist in its tags
+            ?: return t
         // Already your file: as it is now. A list may have kept it pared down (Repeats keeps a song without its cover,
         // length or format) or from before its tags changed: the file's own record is what is shown, with the marks
         // the list gave it. (Handing back the kept one left a WAV, whose cover isn't inside the file, with no cover.)
@@ -105,6 +114,7 @@ object YourCopies {
     @Volatile private var mineOfLoose: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfCredit: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfId: Map<String, Track> = emptyMap()
+    @Volatile private var mineOfName: Map<String, List<Track>> = emptyMap()
 
     /** Your song as it is now, with the marks a list gave the one it kept (t itself when nothing differs). */
     private fun asKept(now: Track, t: Track): Track =

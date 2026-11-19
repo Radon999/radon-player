@@ -452,6 +452,17 @@ fun looseTitle(title: String): String {
     return Regex("[\\W_]+").replace(t, "")
 }
 
+/** A title without the track number a file's name starts with ("11 Ruby", "03 - Intro", "13. unconditional"): what a
+ *  file with no tags is called by its name alone. The title as it is when nothing but a number would be left, or when
+ *  no number leads it. ("24 Hours" loses its 24 too, so this is only ever tried beside the title as it is.) */
+fun withoutTrackNumber(title: String): String {
+    val m = Regex("^\\s*\\d{1,3}\\s*[-._)]?\\s+(\\S.*)$").find(title) ?: return title
+    return m.groupValues[1].trim().takeIf { r -> r.any { it.isLetter() } } ?: title
+}
+
+/** No artist in its tags: nothing, or what a device puts in its place. */
+fun noArtistNamed(artist: String?): Boolean = (artist ?: "").replace('_', ' ').trim().lowercase().let { it.isEmpty() || it == "unknown" || it == "unknown artist" || it == "<unknown>" }
+
 /** A song's [statsKey] under each artist it is credited to, the lead first: "OTT" by "hard life & BENEE" is OTT by
  *  hard life and OTT by BENEE. A history names a song by everyone on it; your own file of it may be tagged with just one
  *  of them, and not the first, so it is looked for under each. */

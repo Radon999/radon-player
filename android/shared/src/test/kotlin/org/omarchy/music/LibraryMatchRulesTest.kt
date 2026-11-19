@@ -32,6 +32,15 @@ class LibraryMatchRulesTest {
         assertEquals(emptyList<String>(), missing(phone, pc))
     }
 
+    @Test fun aFileNamedWithItsTrackNumberAndADollarForAnS() {
+        val phone = listOf(t("11 Ruby", "Unknown artist"), t("13 unconditional", "HOAX"), t("1000 Blunts", "Suicideboys"), t("24 Hours", "Juice WRLD"))
+        val pc = listOf(t("Ruby", "twenty one pilots"), t("unconditional", "HOAX"), t("1000 Blunts", "\$uicideboy\$"), t("24 Hours", "Juice WRLD"))
+        assertEquals(emptyList<String>(), missing(pc, phone))
+        assertEquals(emptyList<String>(), missing(phone, pc))
+        assertEquals("a number that is part of a long number stays", "1000 Blunts", withoutTrackNumber("1000 Blunts"))
+        assertEquals("Ruby", withoutTrackNumber("11 Ruby")); assertEquals("Intro", withoutTrackNumber("03 - Intro")); assertEquals("1999", withoutTrackNumber("1999"))
+    }
+
     @Test fun aSongTheOtherReallyHasIsStillFound() {
         val phone = listOf(t("Everybody's Changing", "Keane"), t("Die To Live", ""))
         val pc = listOf(t("Everybody Talks", "Neon Trees"), t("Die To Live", "Juice WRLD"), t("Changing", "Someone Else"))

@@ -9,12 +9,13 @@ object LibraryMatchRules {
     /** A song as the two libraries are compared: its name and lead artist, and the kind of version ("Song (Live)" is
      *  not "Song"; the single's, the album's and the EP's version are one). */
     fun key(title: String, artist: String): String {
-        val plain = GeniusRules.plainTitle(title.replace('_', ' '))
-        val k = statsKey(plain, artist.replace('_', ' '))
+        // ("$uicideboy$" on one device is "Suicideboys" on the other: a $ is an s)
+        val plain = GeniusRules.plainTitle(title.replace('_', ' ').replace('$', 's'))
+        val k = statsKey(plain, artist.replace('_', ' ').replace('$', 's'))
         return k.first + "|" + k.second + "|" + CopyRules.versionWords(plain).sorted().joinToString(",")
     }
 
-    private fun noArtist(artist: String): Boolean = artist.replace('_', ' ').trim().lowercase().let { it.isEmpty() || it == "unknown" || it == "unknown artist" || it == "<unknown>" }
+    private fun noArtist(artist: String): Boolean = noArtistNamed(artist)
 
     /** A song by its name alone (and its kind of version): for a file with no artist in its tags. */
     private fun nameKey(title: String): String = key(title, "").let { k -> k.substringBefore('|') + "||" + k.substringAfterLast('|') }
@@ -37,7 +38,17 @@ object LibraryMatchRules {
             val left = t.substring(0, dash).trim(); val right = t.substring(dash + 3).trim()
             out += key(right, left); out += key(left, right)
         }
+        // …and without the track number a file's name starts with ("11 Ruby")
+        val bare = withoutTrackNumber(t)
+        if (bare != t) out += keys(bare, a)
         return out
+    }
+
+    /** A song's name alone, each way it may be: as it is, without a leading track number, and each side of a dash. */
+    private fun names(title: String): List<String> {
+        val t = title.replace('_', ' ').trim()
+        val whole = listOf(t, withoutTrackNumber(t)).distinct()
+        return (whole + whole.flatMap { w -> w.split(" - ").map { it.trim() }.filter { it.isNotEmpty() } }).distinct().map { nameKey(it) }
     }
 
     /** Of the other device's songs, the ones this device hasn't got and you haven't left out: each once, in the other
@@ -48,16 +59,15 @@ object LibraryMatchRules {
         for (m in mine) {
             val t = title(m); val a = artist(m)
             have += keys(t, a)
-            // its name alone, as it is and without what stands before or after a dash in it
-            val names = listOf(t) + t.replace('_', ' ').split(" - ").map { it.trim() }.filter { it.isNotEmpty() }
-            for (n in names) { val nk = nameKey(n); haveNames += nk; if (noArtist(a)) haveNamesNoArtist += nk }
+            // its name alone, each way it may be
+            for (nk in names(t)) { haveNames += nk; if (noArtist(a)) haveNamesNoArtist += nk }
         }
         val seen = HashSet<String>()
         return theirs.filter { t ->
             val ti = title(t); val ar = artist(t)
             if (ti.isBlank()) return@filter false
             val k = key(ti, ar)
-            val names = (listOf(ti) + ti.replace('_', ' ').split(" - ").map { it.trim() }.filter { it.isNotEmpty() }).map { nameKey(it) }
+            val names = names(ti)
             val here = keys(ti, ar).any { it in have } || names.any { it in haveNamesNoArtist } || (noArtist(ar) && names.any { it in haveNames })
             !here && k !in leftOut && seen.add(k)
         }
