@@ -1,25 +1,145 @@
-commit c4ac563b45ded40487f8933d81400a4d397c3974 · run 44467521494 · Thu Nov 19 06:18:21 UTC 2026
-PC TESTS ON WINDOWS: 40 suites, tests 159, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.0 s (with loading the voice); then 4.5 s of speech in 1.4 s (3.2x real time)
-WINDOWS INSTALLER: Radon Player-4.0.17.msi, 96M
+commit 8f6573b0aa05003d059d55a292aeec1a3848c738 · run 44471163975 · Thu Nov 19 06:27:28 UTC 2026
+PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
+THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
+WINDOWS INSTALLER: not built
 --- errors
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Visualizer2.kt:204:53 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Visualizer2.kt:205:78 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Visualizer2.kt:206:66 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:331:9 Conflicting declarations:
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:354:9 Conflicting declarations:
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:421:9 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:422:13 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:422:18 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:422:37 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:422:42 Overload resolution ambiguity between candidates:
+@InlineOnly() fun <T> MutableCollection<in T>.minusAssign(element: T): Unit
+@SinceKotlin(...) @InlineOnly() fun <K, V> MutableMap<K, V>.minusAssign(key: K): Unit
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:530:9 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:530:17 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:530:22 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:530:51 None of the following candidates is applicable:
+@InlineOnly() fun BigDecimal.rem(other: BigDecimal): BigDecimal
+@SinceKotlin(...) @InlineOnly() fun BigInteger.rem(other: BigInteger): BigInteger
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:858:25 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:858:30 None of the following candidates is applicable:
+@InlineOnly() fun BigDecimal.times(other: BigDecimal): BigDecimal
+@InlineOnly() fun BigInteger.times(other: BigInteger): BigInteger
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:863:33 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:863:46 Overload resolution ambiguity between candidates:
+fun <T> Iterable<T>.minus(element: T): List<T>
+@SinceKotlin(...) fun <K, V> Map<out K, V>.minus(key: K): Map<K, V>
+fun <T> Set<T>.minus(element: T): Set<T>
+fun <T> Sequence<T>.minus(element: T): Sequence<T>
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:863:52 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:889:29 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:889:34 None of the following candidates is applicable:
+@InlineOnly() fun BigDecimal.times(other: BigDecimal): BigDecimal
+@InlineOnly() fun BigInteger.times(other: BigInteger): BigInteger
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:889:41 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:889:62 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:889:74 Overload resolution ambiguity between candidates:
+fun String?.plus(other: Any?): String
+fun <T> Array<T>.plus(element: T): Array<T>
+fun FloatArray.plus(element: Float): FloatArray
+fun <T> Collection<T>.plus(element: T): List<T>
+fun <T> Iterable<T>.plus(element: T): List<T>
+fun <T> Set<T>.plus(element: T): Set<T>
+--
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:892:21 Cannot access 'constructor(packedValue: Long): Offset': it is internal in 'androidx/compose/ui/geometry/Offset'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:903:45 Overload resolution ambiguity between candidates:
+var spin: Float
+var spin: Float
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:903:50 None of the following candidates is applicable:
+@InlineOnly() fun BigDecimal.times(other: BigDecimal): BigDecimal
+@InlineOnly() fun BigInteger.times(other: BigInteger): BigInteger
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:903:62 Overload resolution ambiguity between candidates:
+@InlineOnly() fun BigDecimal.unaryMinus(): BigDecimal
+@InlineOnly() fun BigInteger.unaryMinus(): BigInteger
 --- the end of the log
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1377:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:113:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1163:65 Cannot access 'constructor(packedValue: Long): Offset': it is internal in 'androidx/compose/ui/geometry/Offset'.
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:compileTestKotlin
-> Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.0.17.msi
+> Task :desktop:compileKotlin FAILED
 
-> Task :desktop:compileTestJava NO-SOURCE
-> Task :desktop:testClasses
-> Task :desktop:test
+FAILURE: Build failed with an exception.
 
-D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
-OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+* What went wrong:
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -27,5 +147,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 41s
-21 actionable tasks: 21 executed
+BUILD FAILED in 3m 18s
+17 actionable tasks: 17 executed
