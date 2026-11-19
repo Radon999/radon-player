@@ -56,7 +56,7 @@ object PlaySorts {
     /** Smart shuffle (Settings › Playback): each song's weight, more for the ones you love (play a lot) that you haven't
      *  heard in a while; null (plain chance) with it off. */
     fun shuffleWeight(): ((Track) -> Double)? {
-        if (!Prefs.on(Prefs.SMART_SHUFFLE)) return null
+        if (Neglected.mode() != RestedRules.SMART) return null
         val plays = HashMap<Pair<String, String>, Int>()
         for (st in Stats.songs.take(20000)) plays[Stats.statsKey(st.title, st.artist)] = st.plays
         val last = HashMap<Pair<String, String>, Double>()

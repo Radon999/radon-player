@@ -746,6 +746,8 @@ object Music {
     var advancing: Boolean get() = PlaybackCore.advancing; private set(v) { PlaybackCore.advancing = v }
 
     fun shuffleWeight(): ((Track) -> Double)? = PlaySorts.shuffleWeight()
+    /** Shuffle set to Unheard and neglected: its order (songs heard in their round left out), else null. */
+    fun restedOrder(): ((List<Track>, kotlin.random.Random) -> List<Track>)? = runCatching { Neglected.orderer() }.getOrNull()
 
     /** Settings › Sound's switches and numbers into the EQ processor. */
     fun applySound() = SoundSwitches.apply()

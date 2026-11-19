@@ -1475,10 +1475,15 @@ private fun PlaybackLines(ui: Ui) {
             }
         }
     }
-    Line("Smart shuffle", "On: shuffle favors songs you love (ones you play a lot) that you haven't heard in a " +
-        "while, so they come up more often. Off: shuffle is pure chance, every song as likely as the next",
-        P.on(P.SMART_SHUFFLE)) {
-        Switch(P.on(P.SMART_SHUFFLE), { P.set(P.SMART_SHUFFLE, it) }, colors = swColors())
+    // How Shuffle picks: three ways (until 4.0.17 a Smart shuffle switch: on is Smart, off is Random)
+    var shuffleWay by remember { mutableStateOf(org.omarchy.music.Neglected.mode()) }
+    Line("Shuffle", "How Shuffle picks, everywhere it is used. Random: pure chance, every song as likely as the next. Smart: favors songs you love (ones you " +
+        "play a lot) that you haven't heard in a while, so they come up more often. Unheard and neglected: only songs you haven't heard in a long time or at all, " +
+        "the never played first, then the ones heard longest ago, loosely shuffled. A song you have heard is left out of every shuffle, of any list, until all the " +
+        "others of that list have been heard too, then it goes round again, so a shuffled list can be shorter than the list it came from. It remembers across " +
+        "queues and restarts, and goes by your stats (Last.fm, your imports) and the plays here; a song you skip isn't counted as heard",
+        shuffleWay != org.omarchy.music.RestedRules.RANDOM) {
+        ChoicePill(org.omarchy.music.RestedRules.MODES, shuffleWay) { shuffleWay = it; org.omarchy.music.Neglected.setMode(it) }
     }
     Line("Move, don't duplicate", "What Play next and Add to queue do with a song that's already waiting in the queue. " +
         "Off: it is put in again, so it plays where you put it and again where it was. On: it is moved to where you put " +

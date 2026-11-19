@@ -1,11 +1,14 @@
 package org.omarchy.music
 
 
-/** tracks in a new random order; after (the song that just played) isn't first. */
+/** tracks in a new random order; after (the song that just played) isn't first.
+ *  Shuffle set to Unheard and neglected (rested): fewer songs may come back than went in, as the ones heard in their
+ *  round are left out until the others have been heard (never none: then the round begins again with all of them). */
 fun shuffleSongs(tracks: List<Track>, after: Track? = null, rng: kotlin.random.Random = SHUFFLE_RANDOM,
-                 weight: ((Track) -> Double)? = Music.shuffleWeight()): List<Track> {
-    // Smart shuffle: a weighted draw, each song's chance by its weight; else plain chance.
-    val out = (if (weight != null) tracks.sortedByDescending { Math.pow(rng.nextDouble(), 1.0 / maxOf(0.01, weight(it))) }
+                 weight: ((Track) -> Double)? = Music.shuffleWeight(),
+                 rested: ((List<Track>, kotlin.random.Random) -> List<Track>)? = if (weight == null) Music.restedOrder() else null): List<Track> {
+    // Unheard and neglected: its own order. Smart shuffle: a weighted draw, each song's chance by its weight; else plain chance.
+    val out = (if (rested != null) rested(tracks, rng) else if (weight != null) tracks.sortedByDescending { Math.pow(rng.nextDouble(), 1.0 / maxOf(0.01, weight(it))) }
         else tracks.shuffled(rng)).toMutableList()
     if (after != null && out.size > 1 && songKey(out[0]) == songKey(after)) {
         val j = rng.nextInt(1, out.size)

@@ -407,6 +407,7 @@ fun MusicTab(ui: Ui) {
                 "discovery" -> discoveryView(ui)
                 "repeat" -> repeatView(ui)
                 "repeats" -> repeatsView(ui)
+                "neglected" -> neglectedView(ui)
                 else -> {
                     // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())
@@ -2027,6 +2028,40 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
         val lines = rows.associate { it.first.id to it.second }
         tracks(rows.map { it.first }, ui, "repeats") { t -> lines[t.id] ?: "" }
     }
+}
+
+/** Unplayed and neglected: the songs of yours you have never played, and the ones you haven't played in a long time
+ *  (RestedRules; the counts and times are your stats' and the plays here). */
+fun androidx.compose.foundation.lazy.LazyListScope.neglectedView(ui: Ui) {
+    val N = org.omarchy.music.Neglected; val RR = org.omarchy.music.RestedRules
+    item {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Chip("Never played", N.show == "unplayed") { N.show = "unplayed" }
+            RR.SPANS.forEach { (k, l, _) -> Chip("Not in ${l.replaceFirstChar { it.lowercase() }}", N.show == k) { N.show = k } }
+        }
+    }
+    val all = N.rowsNow()
+    if (all == null) { item { Section("ADDING UP YOUR PLAYS…") }; return }
+    val nowS = System.currentTimeMillis() / 1000
+    val rows = N.shown(all, N.show, nowS)
+    val never = N.show == "unplayed"
+    item {
+        Text("Counted from your stats (Last.fm and your imported history) and the plays here: a song you played somewhere else that your stats know of isn't unplayed. " +
+            "A song with plays but no date (an all-time count from an import) is in neither list. Settings › Playback › Shuffle › Unheard and neglected makes every shuffle out of these.",
+            style = T.sub, modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp))
+        if (rows.isNotEmpty()) Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill("Play") { Music.playList(rows.map { it.track }) }
+            Pill("Shuffle", quiet = true) { Music.playList(rows.map { it.track }, shuffled = true) }
+        }
+    }
+    if (rows.isEmpty()) { item { Empty(if (never) "Nothing unplayed" else "Nothing neglected that long",
+        if (never) "Every song of yours has been played at least once." else "No song of yours has gone that long without a play. Try a shorter time.") }; return }
+    val span = RR.SPANS.firstOrNull { it.first == N.show }?.second?.uppercase().orEmpty()
+    item { Section(if (never) "%,d OF YOUR %,d SONGS NEVER PLAYED".format(rows.size, all.size)
+        else "%,d OF YOUR %,d SONGS NOT PLAYED IN $span · LONGEST AGO FIRST".format(rows.size, all.size)) }
+    val lines = rows.associate { it.track.id to RR.line(it.plays, it.last, nowS) }
+    tracks(rows.map { it.track }, ui, "neglected") { t -> lines[t.id] ?: "" }
 }
 
 /** Repeat: your top 50 of the last week, 100 of the month, 200 of the year. */

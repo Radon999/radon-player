@@ -53,7 +53,7 @@ import org.omarchy.music.norm
 
 /** The pages that can be a list, a grid or a compact grid (and searched on their own). */
 private val LAID_OUT = setOf("all", "recent", "favorites", "unfavorited", "top", "skips", "playlists", "smartlists", "moodlists", "playlist", "pinned",
-    "library", "albums", "eps", "singles", "artists", "genres", "moods", "folders", "unreleased", "downloads", "flac24", "flac32", "artist-page", "album-page", "songs-page", "repeat", "repeats", "newreleases")
+    "library", "albums", "eps", "singles", "artists", "genres", "moods", "folders", "unreleased", "downloads", "flac24", "flac32", "artist-page", "album-page", "songs-page", "repeat", "repeats", "neglected", "newreleases")
 
 /** Which page is in front, for its layout. */
 fun layoutKey(ui: Ui): String = when (ui.pages.lastOrNull()) {
