@@ -1,7 +1,13 @@
 package org.omarchy.music.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +27,6 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -187,7 +192,9 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
             .lines().filter { it.isNotBlank() && !(it.startsWith("[") && it.endsWith("]")) }
     }
     // The lines ticked, by their place in the song: a line sung more than once (a chorus) is ticked on its own each time
-    val picked = remember(got, timedOn, timed) { mutableStateListOf<Int>() }
+    // Two taps at a time (LineRangeRules): the first line ticked is marked 1, the next 2, and the lines between are ticked too
+    var ticks by remember(got, timedOn, timed) { mutableStateOf(org.omarchy.music.LineRangeRules.State()) }
+    val picked = ticks.picked
     // Where the sound starts and ends: by the lines ticked when the lyrics are timed, else (or once you move a slider) as you set it
     val playingIt = Music.current()?.id == t.id
     val song = if (t.duration > 0) t.duration else if (playingIt) Music.duration else 0.0
@@ -206,7 +213,8 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
     AlertDialog(onDismissRequest = { ui.lyricsCard = null }, containerColor = C.light,
         title = { Text("Lyrics card", style = T.head) },
         text = {
-            Column {
+            // The whole box scrolls, so the lines keep their full height under the card and the sliders on a small screen
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Image(bmp, "The card", Modifier.size(208.dp, (208f * bmp.height / bmp.width).dp).align(Alignment.CenterHorizontally))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(sound, { soundOn = it; org.omarchy.music.Prefs.set(ClipRules.CARD_SOUND, it) }, colors = box)
@@ -242,14 +250,22 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                         if (timedOn && manual != null) TextButton({ manual = null }) { Text("Back to the lines", color = C.accent) }
                     }
                 }
-                Text("Tick the lines for the card (up to 25):", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tick the first line and the last: the lines between are ticked too (up to 25)", style = T.sub, modifier = Modifier.weight(1f).padding(vertical = 6.dp))
+                    if (picked.isNotEmpty()) TextButton({ ticks = org.omarchy.music.LineRangeRules.State() }) { Text("Clear", color = C.muted) }
+                }
                 LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(words.size) { i ->
                         val wd = words[i]
                         val on = i in picked
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(on, { if (it) { if (picked.size < 25) picked += i } else picked.remove(i) },
-                                enabled = on || picked.size < 25, colors = box)
+                            Box {
+                                Checkbox(on, { ticks = org.omarchy.music.LineRangeRules.tap(ticks, i, 25) }, enabled = on || picked.size < 25, colors = box)
+                                // The 1 and the 2: a small number on the box's corner
+                                val mark = org.omarchy.music.LineRangeRules.mark(ticks, i)
+                                if (mark.isNotEmpty()) Text(mark, style = T.sub.copy(color = C.darker, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp).size(16.dp).background(C.fg, CircleShape))
+                            }
                             Text(wd, style = T.body)
                         }
                     }
