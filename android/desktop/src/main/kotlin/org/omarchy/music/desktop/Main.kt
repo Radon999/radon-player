@@ -63,9 +63,25 @@ private object AppIcon : Painter() {
 fun main(args: Array<String>) {
     // Already running: hand it what was asked (a song file, next, show…) and end here, as the Python app does
     if (org.omarchy.music.Instance.handOff(args.ifEmpty { arrayOf("show") })) return
+    if (startedAgainForItsDesktop(args)) return
     org.omarchy.music.SoftwareDrawing.applyAtStart()   // Linux: drawn without the graphics card, if that's switched on
     app(args)
 }
+
+/** Linux on a desktop that places windows itself (Hyprland, Sway…, [org.omarchy.music.WindowSystemRules]): the app is
+ *  started again, the same way, with the one setting that makes Java follow its window's size there, and this start
+ *  ends. Before any window is made. True: it was started again. Anything going wrong: it carries on as it is. */
+private fun startedAgainForItsDesktop(args: Array<String>): Boolean = runCatching {
+    val R = org.omarchy.music.WindowSystemRules
+    if (!R.startAgain(System.getProperty("os.name").orEmpty(), System.getenv())) return@runCatching false
+    val me = ProcessHandle.current().info()
+    val exe = me.command().orElse(null) ?: return@runCatching false
+    val asked: List<String> = me.arguments().map { it.toList() }.orElse(args.toList())
+    val again = ProcessBuilder(listOf(exe) + asked).inheritIO()
+    again.environment()[R.SETTING] = "1"
+    again.start()
+    true
+}.getOrDefault(false)
 
 private fun app(args: Array<String>) = application {
     remember { org.omarchy.music.PcApp.start() }
