@@ -16,31 +16,28 @@ LINUX FILM: the window 2097159: Window 2097159   Position: 0,0 (screen: 0)   Geo
 LINUX FILM: Now playing with the Blocks visualizer filmed for 12 s (linux-vis.mp4, 152 KB)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- what the app wrote as it started
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
-Nov 19, 2026 7:26:27 AM org.jaudiotagger.audio.flac.FlacInfoReader read
-INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
+Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
+[SKIKO] warn: Fallback to next API
+org.jetbrains.skiko.RenderException: Cannot create Linux GL context
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: A song change took 80.8 s: 9 the player said ENDED: dj=false song=1/1 at=39.2/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 13 next: END | 867 next: NEXT_SONG | 867 load “Radon Test (feat. Cory James)” play=true | 1210 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2727 next: NEXT_SONG | 2727 load “Flesh Wounds (feat. Robert Man” play=true | 2873 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4388 next: NEXT_SONG | 4389 load “Dark ’97” play=true | 4563 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6063 next: NEXT_SONG | 6063 load “Photek - Breath Control” play=true | 6265 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20495 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 80497 load “Linux test tone” play=true | 80536 got it | 80536 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 80.8 s: 9 the player said ENDED: dj=false song=1/1 at=39.2/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 13 next: END | 867 next: NEXT_SONG | 867 load “Radon Test (feat. Cory James)” play=true | 1210 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2727 next: NEXT_SONG | 2727 load “Flesh Wounds (feat. Robert Man” play=true | 2873 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4388 next: NEXT_SONG | 4389 load “Dark ’97” play=true | 4563 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6063 next: NEXT_SONG | 6063 load “Photek - Breath Control” play=true | 6265 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20495 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 80497 load “Linux test tone” play=true | 80536 got it | 80536 into the player (at 0 s, play=true, state before 1)
 --- its Problems
 	at java.desktop/java.awt.event.InvocationEvent.dispatch(Unknown Source)
 	at java.desktop/java.awt.EventQueue.dispatchEventImpl(Unknown Source)
@@ -57,4 +54,4 @@ INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING Da
 	at java.desktop/java.awt.EventDispatchThread.run(Unknown Source)
 
 
---- the files it made: 37
+--- the files it made: 35
