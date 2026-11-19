@@ -159,7 +159,8 @@ object EqControl {
         set { e -> moved(e, was, o) }
         if (isNew && o.key == Music.CAR) setPreset("colorado")   // the Chevy starts on the Colorado's tuning
         if (isNew) SoundPresets.addDevicePreset(o)   // its own Sound preset to start from
-        if (was.isNotEmpty()) toast("${o.label}: its own equalizer" + if (Music.eq.on) "" else " (off)")
+        // (a pop-up said "its own equalizer" each time the sound moved to another output: taken out; the Equalizer shows it)
+        SoundLog.note("sound on ${o.label}")
     }
 
     // ---- Bass and Treble with bit-perfect ----

@@ -69,3 +69,9 @@ are how it was done before 4.0 (the `android-work` patches); the rules in them a
 - **New releases** only use the streaming services (Tidal, YouTube Music), never local files.
 - Discovery playlists come in pairs (`discovery: {artist, role: discover|discovered}`); New releases makes one
   named "New releases". In Playlists they fold under one row.
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+## Learned rules
+- Make 100% the default size setting for newly installed app users.
+- Do not sync font size between phone and PC; keep font size settings local to each device.
+<!-- end claude-reflect -->

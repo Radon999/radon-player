@@ -92,6 +92,9 @@ object BtRoute {
         val am = Music.ctx.getSystemService(AudioManager::class.java) ?: return
         val outs = runCatching { am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList() }.getOrDefault(emptyList())
             .filter { (it.type in BT || it.type in WIRED) && key(it) != null }
+            // Earbuds can be listed twice under one name (their classic connection and their low-energy one): the classic
+            // one first, as that is the one music plays on; asking for the other can leave the music playing into nothing
+            .sortedBy { if (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) 0 else 1 }
         val bt = outs.filter { it.type in BT }.mapNotNull { key(it) }.distinct()
         // Bluetooth devices connected for calls only (a car on Android Auto often is): there to pick, and to know the car's here
         val calls = runCatching { am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList() }.getOrDefault(emptyList())
@@ -183,6 +186,7 @@ object BtRoute {
         if (d?.id == device?.id) return   // the same one (or none, as before)
         device = d
         routed = d?.let { out(it) }
+        SoundLog.note(if (d == null) "music left where Android puts it" else "music kept on ${routed?.label} (type ${d.type})")
         players.keys.toList().forEach { p -> runCatching { p.setPreferredAudioDevice(d) } }
     }
 }

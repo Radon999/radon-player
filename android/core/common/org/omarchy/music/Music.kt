@@ -175,7 +175,7 @@ object Music {
     var downloads by mutableStateOf(listOf<Track>())
     var syncing by mutableStateOf(false)
     var syncTracks by mutableStateOf(listOf<Track>())
-    val toasts = Channel<String>(Channel.BUFFERED)
+    val toasts = Channel<String>(Channel.CONFLATED)   // only the newest waits to be shown
     /** Notes with a button: (what it says, the button, what the button does). */
     val offers = Channel<Triple<String, String, () -> Unit>>(Channel.BUFFERED)
     var shared by mutableStateOf<String?>(null)   // a link shared to the app, for Search
@@ -247,7 +247,11 @@ object Music {
     fun trace(what: String) = step(what)
     private fun step(what: String) = PlaybackCore.step(what)
 
-    fun toast(text: String) { toasts.trySend(text) }
+    fun toast(text: String) { toastAt = System.currentTimeMillis(); toasts.trySend(text) }
+    /** When the newest message was made. One made a while ago (the app was not on screen, so nothing showed it) is not
+     *  shown late: opening the app after an hour used to play back every message since, one after another. */
+    @Volatile var toastAt = 0L
+        private set
 
     /** Run work off the main thread; hand (result, error) to done on it. */
     fun <T> bg(work: () -> T, done: (T?, Throwable?) -> Unit = { _, _ -> }) {
@@ -522,7 +526,11 @@ object Music {
             "Last sync" to (if (Sync.lastAt > 0) Sync.ago(Sync.lastAt) + ": " + Sync.lastText else "never"),
             "Auto playlist sync" to (if (Prefs.on(SyncPlaylists.AUTO_SYNC)) "on" else "off"),
             "DJ" to (if (dj.on) "on" else "off"), "Autoplay" to (if (autoplay) "on" else "off"),
-            "Playing" to (if (current() == null) "nothing" else if (paused) "paused" else "playing")), Crashes.last)
+            "Playing" to (if (current() == null) "nothing" else if (paused) "paused" else "playing"),
+            // where and how loud the music sounds now, and what changed lately (for music that plays on in silence)
+            "Sound" to runCatching { "on ${outputNow.label}, the player's volume ${((player?.volume ?: 1f) * 100).toInt()}%" +
+                (if (djTalking) ", the DJ is talking" else "") + (if (bitPerfect) ", bit-perfect" else "") }.getOrDefault(""),
+            "Sound lately" to SoundLog.text()), Crashes.last)
     }
 
     /** Your copies of a download, to put away once it's in (Copies: replace). Asked from other threads too. */

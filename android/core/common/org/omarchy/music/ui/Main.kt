@@ -99,7 +99,9 @@ fun App() {
     val snack = remember { SnackbarHostState() }
     // Shuffle presets: a different Personalization preset every 15 minutes
     LaunchedEffect(Unit) { while (true) { org.omarchy.music.Backup.tick(); org.omarchy.music.NewReleases.tick(); org.omarchy.music.WakeUp.tick(); MyPresets.todTick(); MyPresets.shuffleTick(); org.omarchy.music.RepeatLoops.tick(); kotlinx.coroutines.delay(30_000) } }
-    LaunchedEffect(Unit) { for (t in Music.toasts) { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
+    LaunchedEffect(Unit) { for (t in Music.toasts) {
+        if (System.currentTimeMillis() - Music.toastAt > 6_000) continue   // made while the app was away: not shown late
+        snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }
     LaunchedEffect(Unit) {   // a note with a button (Continue where you left off's Play)
         for ((text, label, act) in Music.offers) {
             snack.currentSnackbarData?.dismiss()

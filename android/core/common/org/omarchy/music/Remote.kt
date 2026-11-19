@@ -142,7 +142,6 @@ object Remote {
             val d = s["dj"]
             val dj = Dj.Shown(d["on"].bool ?: false, d["busy"].str ?: "", d["kind"].str ?: "", d["line"].str ?: "",
                 (d["kinds"] as? kotlinx.serialization.json.JsonObject)?.mapValues { it.value.str ?: "" } ?: emptyMap(), d["from"].str ?: "")
-            if (dj.on && dj.line.isNotEmpty() && dj.line != status.dj.line && status.track != null) Music.toast("DJ · ${dj.line}")
             // A volume just set here wins over an answer that may predate it.
             val fresh = System.nanoTime() - volumeAt > 2_000_000_000L
             status = Status(q.getOrNull(i), s["paused"].bool ?: true, s["position"].dbl ?: 0.0, s["duration"].dbl ?: 0.0,

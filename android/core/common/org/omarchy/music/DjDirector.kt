@@ -372,7 +372,7 @@ object DjDirector {
         }
         dj = dj.copy(shown = n)
         Dj.announced(t.dj ?: 0)
-        toast("DJ · ${set.line}")
+        // (the line used to pop up at the bottom of the screen as well: taken out, it is heard, and it is on the DJ's screen)
         djCommentAhead()
         // Said the way a person talks (numbers in words, no symbols, contractions): Spoken, whatever the voice
         djSay(djLine(n) ?: return)
@@ -435,6 +435,7 @@ object DjDirector {
         val p = player ?: return
         if (on == ducked) return
         ducked = on
+        SoundLog.note(if (on) "the DJ talks: music down" else "the DJ is done: music up")
         duckJob?.cancel()
         if (bitPerfectNow()) { if (!on) p.volume = 1f; return }
         val from = p.volume; val to = if (on) DUCK else 1f
