@@ -259,14 +259,33 @@ class MusicService : MediaLibraryService() {
             Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) || super.isCommandAvailable(command)
 
         // A song picked on the car's screen (its id names the list and the place): played through Music.
+        // The phone's own player holds one song, put there by the app. Anything outside the app that talks to the session
+        // (the earbuds, a watch, the lock screen, the system) could until 4.0.22 also tell that player to Stop, or empty
+        // or replace what it holds: the song then went silent partway while the app still took it for playing, and Play
+        // started it from its beginning. From outside, Stop is now a Pause, and the song in the player is left alone.
+        private val own get() = p is androidx.media3.exoplayer.ExoPlayer
+        private fun outside(what: String) {
+            org.omarchy.music.SoundLog.note("from outside the app: $what")
+            Crashes.note("Something outside the app (the earbuds, a watch, the lock screen or the system) told the player: $what")
+        }
+
+        override fun stop() { if (own) { outside("Stop (taken as Pause)"); pause() } else super.stop() }
+        override fun clearMediaItems() { if (own) outside("empty the player (left alone)") else super.clearMediaItems() }
+        override fun removeMediaItem(index: Int) { if (own) outside("take the song out (left alone)") else super.removeMediaItem(index) }
+        override fun removeMediaItems(fromIndex: Int, toIndex: Int) { if (own) outside("take the songs out (left alone)") else super.removeMediaItems(fromIndex, toIndex) }
+
         override fun setMediaItems(items: MutableList<androidx.media3.common.MediaItem>, startIndex: Int, startPositionMs: Long) {
             val id = items.getOrNull(maxOf(0, startIndex))?.mediaId
-            if (id != null && Car.isCarItem(id)) Car.play(id) else super.setMediaItems(items, startIndex, startPositionMs)
+            if (id != null && Car.isCarItem(id)) Car.play(id)
+            else if (own) outside("play something else (${items.size} items; left alone)")
+            else super.setMediaItems(items, startIndex, startPositionMs)
         }
 
         override fun setMediaItems(items: MutableList<androidx.media3.common.MediaItem>, resetPosition: Boolean) {
             val id = items.firstOrNull()?.mediaId
-            if (id != null && Car.isCarItem(id)) Car.play(id) else super.setMediaItems(items, resetPosition)
+            if (id != null && Car.isCarItem(id)) Car.play(id)
+            else if (own) outside("play something else (${items.size} items; left alone)")
+            else super.setMediaItems(items, resetPosition)
         }
 
         override fun seekToNext() = Music.sessionNext()
