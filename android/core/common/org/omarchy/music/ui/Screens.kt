@@ -2030,7 +2030,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
     else {
         item { Section(RR.summary(top.size, RR.total(saved, since)).uppercase()) }
         // your own copy of a song the history named
-        val rows = top.mapIndexed { i, p -> (if (p.first.track.id.startsWith("repeat:")) Music.mineOf(p.first.track) else p.first.track) to RR.line(i + 1, p.second, p.first.best) }
+        // Your copy of each song as it is today. A song counted here is kept as it was on the day (the stream it was
+        // then, or a file where it was then); once it is downloaded, moved or tagged again that is no longer a song of
+        // yours, and it showed with no cover and as not on this device though its name matched your file exactly.
+        val rows = top.mapIndexed { i, p -> Music.mineOf(p.first.track) to RR.line(i + 1, p.second, p.first.best) }
         val lines = rows.associate { it.first.id to it.second }
         tracks(rows.map { it.first }, ui, "repeats") { t -> lines[t.id] ?: "" }
     }

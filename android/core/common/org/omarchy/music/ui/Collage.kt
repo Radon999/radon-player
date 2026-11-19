@@ -39,7 +39,7 @@ object Collage {
     private fun repeats(): List<Item> {
         val days = mapOf("year" to 365, "month" to 30, "week" to 7)[Music.repeatsPeriod] ?: 0
         return org.omarchy.music.RepeatLoopRules.top(org.omarchy.music.RepeatLoops.all(), org.omarchy.music.RepeatLoops.since(days)).map { (l, n) ->
-            val t = if (l.track.id.startsWith("repeat:")) Music.mineOf(l.track) else l.track
+            val t = Music.mineOf(l.track)   // your copy of it as it is today (see repeatsView)
             Item(l.track.title, l.track.artist, n, artModel(t, 600), "repeat") }
     }
 

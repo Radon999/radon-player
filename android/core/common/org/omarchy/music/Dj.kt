@@ -1415,7 +1415,7 @@ object Dj {
     private fun loopTracks(since: String = "", until: String = ""): List<Pair<Track, Int>> =
         RepeatLoops.all().songs.values.map { l -> l to l.days.filterKeys { (since.isEmpty() || it >= since) && (until.isEmpty() || it < until) }.values.sum() }
             .filter { it.second > 0 }.sortedByDescending { it.second }
-            .map { (l, n) -> (if (l.track.id.startsWith("repeat:")) Music.mineOf(l.track) else l.track) to n }.filter { !it.first.id.startsWith("repeat:") }
+            .map { (l, n) -> Music.mineOf(l.track) to n }.filter { !it.first.id.startsWith("repeat:") }
 
     /** The artist you put on repeat most (ten times or more), and how often. */
     private fun loopArtist(): Pair<String, Int>? =
