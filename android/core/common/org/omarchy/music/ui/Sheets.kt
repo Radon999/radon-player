@@ -681,7 +681,10 @@ private fun AppleHistoryLine() {
     Line("Apple Music history", state, h.count > 0) {}
     Text("Repeats from Apple Music: only the plays in the zip's Play Activity file can show them, because that file says exactly when each play began. " +
         "The rest of what Apple gives (a song's plays counted per day, and a library exported from the Music app, which has only all-time counts) has no " +
-        "exact times, so the app can't tell one play followed straight after another: no repeats can be found from those",
+        "exact times, so the app can't tell one play followed straight after another: no repeats can be found from those. " +
+        (if (h.exactCount > 0) "${"%,d".format(h.exactCount)} plays with their own time are kept from your Play Activity file for Repeats"
+         else if (h.count > 0) "None are kept from a Play Activity file yet: import the zip again and they are read for Repeats (your plays are not counted twice)"
+         else ""),
         style = T.sub, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp))
     ImportNote("apple")
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {

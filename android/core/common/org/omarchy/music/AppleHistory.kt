@@ -41,7 +41,33 @@ object AppleHistory {
 
     fun init(c: Ctx) {
         file = File(c.filesDir, "apple-history.json")
-        Music.bg({ stored() })
+        exactFile = File(c.filesDir, "apple-plays-exact.json")
+        Music.bg({ stored(); exactStored() })
+    }
+
+    // ---- each play with its own time, for Repeats ----
+    // The Play Activity file's plays: when each began and how long it ran. Many downloads leave the artist out of that
+    // file, so its rows were skipped and Most played fell back to the per-day file, which can't show a repeat. They are
+    // kept here on their own (the artist found by the song's title, AppleArtistRules) and only Repeats reads them: Most
+    // played, Artists and Wrapped go on counting the rows above, so nothing is counted twice.
+    private lateinit var exactFile: File
+    private var exactKept: Saved? = null
+    @Synchronized private fun exactStored(): Saved = exactKept ?: (readText(exactFile)?.let {
+        runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } ?: Saved()).also { exactKept = it; exactCount = it.rows.size }
+    var exactCount by mutableStateOf(0)        // plays with their own time, for Settings
+        private set
+
+    /** The plays Repeats can look through: the Play Activity file's when there are any, else the rows above that have
+     *  a play's own time and length (not a day's count, not an all-time count). */
+    fun forRepeats(): List<SpotifyHistory.Play> =
+        exactStored().rows.ifEmpty { rows.filter { it.t > 0 && it.count == 1 && it.ms in 1 until 86_400_000L } }
+            .map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album, it.ms) }
+
+    @Synchronized private fun keepExact(plays: List<Row>) {
+        val s = Saved(plays.distinctBy { Triple(it.t, norm(it.artist), norm(cleanTitle(it.title))) }.sortedBy { it.t })
+        exactKept = s
+        writeAtomic(exactFile, JSON.encodeToString(Saved.serializer(), s))
+        exactCount = s.rows.size
     }
 
     /** Each play with its time, as Spotify's are (a day's plays: that many, over the day). */
@@ -71,6 +97,9 @@ object AppleHistory {
         saved = Saved()
         file.delete()
         count = 0
+        exactKept = Saved()
+        exactFile.delete()
+        exactCount = 0
     }
 
     // ---- reading Apple's files ----
@@ -150,7 +179,8 @@ object AppleHistory {
                 val title = r.col("Song Name", "Content Name"); val artist = r.col("Artist Name", "Container Artist Name")
                 val played = r.col("Play Duration Milliseconds").toDoubleOrNull()?.toLong() ?: 0
                 val length = r.col("Media Duration In Milliseconds").toDoubleOrNull()?.toLong() ?: 0
-                if (title.isEmpty() || artist.isEmpty() || played <= 0) return@csvRows
+                // A row without its artist is kept (artist ""): many downloads leave it out of this file, and it is found by the title afterwards
+                if (title.isEmpty() || played <= 0) return@csvRows
                 if (if (length > 0) played < length / 2 else played < 30_000) return@csvRows   // a play counts from half the song
                 val t = stamp(r.col("Event Start Timestamp", "Event Received Timestamp", "Event End Timestamp"))
                 if (t > 0) out += Row(t, artist, title, r.col("Album Name", "Container Album Name"), played, 1)
@@ -234,10 +264,21 @@ object AppleHistory {
                     else -> found[name] = parseCsv(name, java.io.InputStreamReader(s, Charsets.UTF_8))
                 }
             }
-            // The most detailed file wins: each play over each day's over the list.
+            // The most detailed file wins: each play over each day's over the list. (A play that came without its artist
+            // can't be counted here: it is only kept for Repeats, below.)
             val rows = listOf("play activity", "daily tracks", "track play history")
-                .firstNotNullOfOrNull { k -> found.filterKeys { k in it.lowercase() }.values.flatten().ifEmpty { null } }
-                ?: found.values.flatten()
+                .firstNotNullOfOrNull { k -> found.filterKeys { k in it.lowercase() }.values.flatten().filter { it.artist.isNotEmpty() }.ifEmpty { null } }
+                ?: found.values.flatten().filter { it.artist.isNotEmpty() }
+            // For Repeats: every play of the Play Activity file, its artist found by the title where the file left it out
+            // (from this download's other files, and from what was imported before)
+            val activity = found.filterKeys { "play activity" in it.lowercase() }.values.flatten()
+            if (activity.isNotEmpty()) {
+                busy = "Reading when each play began…"
+                val named = found.filterKeys { "play activity" !in it.lowercase() }.values.flatten() + activity.filter { it.artist.isNotEmpty() } + stored().rows
+                val by = AppleArtistRules.byTitle(named.map { Triple(it.title, it.artist, it.count) })
+                val exact = activity.mapNotNull { r -> if (r.artist.isNotEmpty()) r else AppleArtistRules.artist(by, r.title).takeIf { it.isNotEmpty() }?.let { r.copy(artist = it) } }
+                if (exact.isNotEmpty()) keepExact(exact)
+            }
             if (rows.isEmpty()) error("no plays in it. Apple's download has Apple Music Play Activity.csv (or Play History Daily " +
                 "Tracks.csv); or export your library from the Music app (File › Library › Export Library…)")
             busy = "Adding ${"%,d".format(rows.sumOf { it.count })} plays…"
