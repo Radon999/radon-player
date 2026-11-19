@@ -4,6 +4,10 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.21: The DJ says the same thing in more than one way (Android, Windows and Linux)
+- **The DJ has more than one way to say each thing:** the things it tells you between songs (about a song, an artist, your listening, your collection, your repeats) had one sentence each, so a set that came round again brought the same words. 74 of those lines now take turns with one or two others that say the same: 90 new wordings in all. None is said again until the others have had their turn, and it carries on from where it was after the app is closed. Introducing a set already had several wordings.
+- **A song you used to repeat:** one of "You used to have this one on repeat, a long time ago. You haven't in a while.", "You wore this one out once. Not lately." and "This one used to be on repeat for you. It's been a while."
+
 ## 4.0.20: The same song on both devices however it is named, the close button on Linux, and fixes (Android, Windows and Linux)
 - **Other device's songs: the same song however each device names it:** songs both devices have were listed as missing when one of them was a file with no tags, because each device names such a file in its own way. They are now matched when one calls it "Artist - Title" and the other "Title" (or "Title - Artist"), with underscores in a name or without, with a track number in front ("11 Ruby") or not, with no artist on one side, and with a $ for an s ("$uicideboy$", "Suicideboys"). A song the other device really has and this one lacks is still listed.
 - **A file with no artist, or named with its track number, is your song:** such a file ("11 Ruby", no artist) was not taken as your copy of a song named anywhere else (Repeats, Most played, your history), so it showed with no cover and as not on the device. It is now found without the number and, with no artist in its tags, by its name alone.

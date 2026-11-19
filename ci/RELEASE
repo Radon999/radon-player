@@ -1,0 +1,7 @@
+v4.0.21
+Radon Player 4.0.21: the DJ says the same thing in more than one way
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.21.msi` (Windows), `radon-player_4.0.21_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **The DJ has more than one way to say each thing:** the things it tells you between songs (about a song, an artist, your listening, your collection, your repeats) had one sentence each, so a set that came round again brought the same words. 74 of those lines now take turns with one or two others that say the same: 90 new wordings in all. None is said again until the others have had their turn, and it carries on from where it was after the app is closed. Introducing a set already had several wordings.
+- **A song you used to repeat:** one of "You used to have this one on repeat, a long time ago. You haven't in a while.", "You wore this one out once. Not lately." and "This one used to be on repeat for you. It's been a while."
