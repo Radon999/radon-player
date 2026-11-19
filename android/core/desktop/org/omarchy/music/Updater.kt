@@ -125,6 +125,10 @@ object Updater {
     /** Linux: the release's .deb is downloaded to your Downloads folder and opened with the system's own installer
      *  (it asks for your password; the app can't install over itself there). If nothing opens it, its folder is shown. */
     private fun installOnLinux(url: String) {
+        // A copy of the app in your own folders (unpacked from the .deb, as on a Linux with no .deb installer) is
+        // updated by the app itself: the new version unpacked beside it, swapped in as the app closes, and started.
+        val root = UpdateRules.ownCopyRoot(runCatching { ProcessHandle.current().info().command().orElse(null) }.getOrNull()) { runCatching { java.io.File(it).canWrite() }.getOrDefault(false) }
+        if (root != null) { updateOwnCopy(url, root); return }
         state = "Downloading the update…"
         Music.bg({
             val dir = java.io.File(System.getProperty("user.home"), "Downloads").takeIf { it.isDirectory } ?: java.io.File(System.getProperty("java.io.tmpdir"))
@@ -137,6 +141,42 @@ object Updater {
             val opened = Opening.path(f)
             if (!opened) Opening.path(f.parentFile)
             Music.toast("The update is in ${f.parentFile.name}: install ${f.name} (close Radon Player first)")
+        }
+    }
+
+    /** (Linux, a copy in your own folders) Download the .deb, unpack it beside the app, and hand over to a small script
+     *  that swaps it in once the app has closed and starts it again. The version in use is kept once, as <folder>.old.
+     *  Nothing is touched until the new version is unpacked whole. */
+    private fun updateOwnCopy(url: String, root: String) {
+        state = "Downloading the update…"
+        Music.bg({
+            val work = java.io.File("$root.update-work").apply { deleteRecursively(); mkdirs() }
+            val fresh = java.io.File("$root.update").apply { deleteRecursively() }
+            val deb = java.io.File(work, "update.deb")
+            java.net.URI(url).toURL().openStream().use { inp -> deb.outputStream().use { inp.copyTo(it) } }
+            fun run(vararg cmd: String): Boolean = runCatching {
+                val p = ProcessBuilder(*cmd).directory(work).redirectErrorStream(true).start()
+                p.inputStream.readBytes()
+                p.waitFor(180, java.util.concurrent.TimeUnit.SECONDS) && p.exitValue() == 0
+            }.getOrDefault(false)
+            // A .deb is an archive holding data.tar.*: with bsdtar (libarchive), else with ar and tar
+            val opened = run("bsdtar", "-xf", "update.deb") || run("ar", "x", "update.deb")
+            val data = work.listFiles()?.firstOrNull { it.name.startsWith("data.tar") }
+            if (!opened || data == null) error("this system can't unpack the update (it needs bsdtar, or ar and tar)")
+            java.io.File(work, "data").mkdirs()
+            if (!(run("bsdtar", "-xf", data.name, "-C", "data") || run("tar", "-xf", data.name, "-C", "data"))) error("the update couldn't be unpacked")
+            val got = java.io.File(work, "data/opt/radon-player")
+            if (!java.io.File(got, "bin/Radon Player").isFile) error("the update isn't what was expected")
+            if (!got.renameTo(fresh)) error("the update couldn't be put beside the app")
+            val script = java.io.File(work, "swap.sh")
+            script.writeText(UpdateRules.swapScript(ProcessHandle.current().pid(), root, fresh.path))
+            script
+        }) { script, err ->
+            if (script == null) { state = ""; Music.toast("Couldn't update: ${err?.message?.take(120)}"); return@bg }
+            state = "Installing…"
+            runCatching { ProcessBuilder("sh", script.path).redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start() }
+                .onFailure { state = ""; Music.toast("Couldn't start the update: ${it.message?.take(80)}"); return@bg }
+            closeApp(null)
         }
     }
 

@@ -167,6 +167,6 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 
 - **Favorite settings:** the first section of Settings holds the settings you starred (the ☆ beside a setting's name), for the ones you use all the time. Each stays in its own section too.
 - **Size of everything (Settings › General):** makes the app's text and everything else bigger or smaller together, from 80% to 250%, for a screen where it all comes out too small or too big. On the PC it changes at once; on the phone the screen is drawn again.
-- **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it (on Linux it downloads the package and opens it with your system's installer).
+- **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it (on Linux it downloads the package and opens it with your system's installer; a copy of the app unpacked into your own folders, as on a Linux with no .deb installer, updates itself: the new version is unpacked beside it, swapped in and started, and the one before is kept once).
 - **Changelog and Features** are in the ☰ menu.
 - **Problems:** Settings shows anything that went wrong recently, with a Copy button.

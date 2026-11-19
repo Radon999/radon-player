@@ -22,6 +22,35 @@ object UpdateRules {
         return if (os.contains("win")) "Radon-Player-$v.msi" else if (os.contains("linux")) "radon-player_${v}_amd64.deb" else null
     }
 
+    // ---- Linux: a copy that can update itself ----
+    /** Where the app is installed, from its launcher's own path (".../radon-player/bin/Radon Player" gives
+     *  ".../radon-player"), when the app can replace it itself: a copy in your own folders (unpacked from the .deb,
+     *  as on a Linux that has no .deb installer: Arch, Fedora and the like). null: installed by the system's package
+     *  manager (under /opt or /usr), which must do the update, or not a packaged app at all. */
+    fun ownCopyRoot(launcher: String?, canWrite: (String) -> Boolean): String? {
+        val p = launcher?.trim().orEmpty()
+        if (!p.startsWith("/") || !p.endsWith("/bin/Radon Player")) return null
+        val root = p.removeSuffix("/bin/Radon Player")
+        if (root.isEmpty() || root.startsWith("/opt/") || root.startsWith("/usr/")) return null
+        val parent = root.substringBeforeLast('/').ifEmpty { "/" }
+        return root.takeIf { canWrite(parent) && canWrite(root) }
+    }
+
+    private fun q(s: String) = "'" + s.replace("'", "'\\''") + "'"
+
+    /** The script that puts an update in place once the app has closed: it waits for the app (pid) to end, moves the
+     *  version in use aside (kept once, as <root>.old), moves the new one (fresh) in, and starts it. If the new one
+     *  can't be moved in, the old one is put back and started. */
+    fun swapScript(pid: Long, root: String, fresh: String): String = """#!/bin/sh
+i=0
+while kill -0 $pid 2>/dev/null && [ ${'$'}i -lt 150 ]; do sleep 0.2; i=${'$'}((i+1)); done
+rm -rf ${q("$root.old")}
+if mv ${q(root)} ${q("$root.old")} && mv ${q(fresh)} ${q(root)}; then :
+else [ -d ${q(root)} ] || mv ${q("$root.old")} ${q(root)}
+fi
+exec ${q("$root/bin/Radon Player")}
+"""
+
     private fun parts(v: String) = Regex("\\d+").findAll(v).take(3).map { it.value.toInt() }.toList() + listOf(0, 0, 0)
 
     /** Whether version a is newer than b ("4.0.4" than "4.0.3"); a b with no number in it is never older. */
