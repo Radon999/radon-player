@@ -1,41 +1,25 @@
-commit c1894e92a9af1ae5a4e4a59209fc39c3f9a416f9 · run 44463201004 · Thu Nov 19 05:17:24 UTC 2026
-PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
-THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
-WINDOWS INSTALLER: not built
+commit e355318f750acff0cc2ea268002bc20fe9a413d9 · run 44463629322 · Thu Nov 19 05:36:37 UTC 2026
+PC TESTS ON WINDOWS: 40 suites, tests 159, failed 0
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 1.8 s (with loading the voice); then 4.9 s of speech in 0.9 s (5.7x real time)
+WINDOWS INSTALLER: Radon Player-4.0.16.msi, 96M
 --- errors
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Library.kt:113:52 Unresolved reference 'artist'.
-
-> Task :desktop:compileKotlin FAILED
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
---
-BUILD FAILED in 3m 34s
-17 actionable tasks: 17 executed
 --- the end of the log
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Library.kt:113:52 Unresolved reference 'artist'.
+w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:113:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
-> Task :desktop:compileKotlin FAILED
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:compileTestKotlin
 
-FAILURE: Build failed with an exception.
+> Task :desktop:packageMsi
+The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.0.16.msi
 
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
+> Task :desktop:test
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
+D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -43,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 34s
-17 actionable tasks: 17 executed
+BUILD SUCCESSFUL in 4m 37s
+21 actionable tasks: 21 executed
