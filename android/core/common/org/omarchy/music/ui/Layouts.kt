@@ -111,7 +111,8 @@ fun <T> LazyListScope.laidOutItems(list: List<T>, ui: Ui, key: (Int) -> String, 
     // otherNames: what else the list may be in order of (songs sorted by artist or by album: the strip is then the
     // artists' or the albums' letters). The first one the list really is in order of gives the strip.
     if (names != null) (this as? CountingScope)?.let { cs ->
-        (listOf(names) + otherNames).firstNotNullOfOrNull { org.omarchy.music.JumpRules.anchorsEitherWay(list.size, it) }
+        ((listOf(names) + otherNames).firstNotNullOfOrNull { org.omarchy.music.JumpRules.anchorsEitherWay(list.size, it) }
+            ?: org.omarchy.music.JumpRules.firstOfEach(list.size, names))   // in no order by name: the first name of each letter
             ?.let { a -> cs.jump.add(a.map { (l, i) -> l to org.omarchy.music.JumpRules.row(cs.count, i, k) }) } }
     if (layout == "list") { items(list.size, key = key) { row(it) }; return }
     val n = list.size
@@ -300,7 +301,7 @@ fun LazyListScope.pinnedView(ui: Ui) {
         ui.choices = p.title to listOfNotNull(pinChoice(p),
             if (Music.pins.firstOrNull()?.key != p.key) "Move to the top" to { Music.pins.removeAll { it.key == p.key }; Music.pins.add(0, p); Music.saveState() } else null)
     }
-    laidOutItems(pins, ui, key = { "pin-" + pins[it].key }, row = { i ->
+    laidOutItems(pins, ui, key = { "pin-" + pins[it].key }, names = { pins[it].title }, row = { i ->
         val p = pins[i]
         val label = listOf(PIN_KINDS[p.kind] ?: "", p.sub).filter { it.isNotEmpty() }.joinToString(" · ")
         PlaylistRow(Album(p.id, p.title, label, ""), pinArt(p), onLongClick = { menu(p) }) { openPin(ui, p) }

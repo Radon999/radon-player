@@ -85,7 +85,7 @@ internal fun LazyListScope.moodLists(ui: Ui) {
         if (!picking) Text("A playlist for each mood, with your songs in that mood. They stay as they are until you refresh " +
             "them: Refresh picks up the songs that got that mood since.", style = T.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
     }
-    laidOutItems(shown, ui, key = { "ml-" + shown[it].first }, row = { i ->
+    laidOutItems(shown, ui, key = { "ml-" + shown[it].first }, names = { shown[it].first }, row = { i ->
         val (mood, songs) = shown[i]
         MoodListRow(mood, countWords(mood, songs) + if (MoodLists.list(mood) != null) " · " + refreshedWords(mood).replaceFirstChar { it.lowercase() } else "",
             checked = if (picking) mood in picked else null, onLongClick = { menu(mood, songs) }) { tapList(mood, songs) }

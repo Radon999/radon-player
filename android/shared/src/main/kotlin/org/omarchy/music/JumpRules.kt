@@ -5,7 +5,7 @@ package org.omarchy.music
  *  A list in any other order (by date, by plays) has no strip: letters would mean nothing there. */
 object JumpRules {
     /** A list shorter than this needs no strip. */
-    const val LEAST = 40
+    const val LEAST = 20
 
     /** A name's letter: its first letter (accents dropped, upper case), "#" for a digit or sign. A leading "The ", "A "
      *  or "An " is skipped only if [skipArticle], as some lists sort that way. */
@@ -66,6 +66,21 @@ object JumpRules {
         val up = anchors(n) { name(n - 1 - it) } ?: return null
         return up.indices.map { k -> up[k].first to if (k + 1 < up.size) n - up[k + 1].second else 0 }.sortedBy { it.second }
     }
+
+    /** A list in no alphabetical order (by plays, by date, your own order): the strip still helps to find something by
+     *  its name. Each letter goes to the first name in the list that starts with it, the letters in A to Z order ("#"
+     *  first). Null for a short list, or one whose names share one or two letters. */
+    fun firstOfEach(n: Int, name: (Int) -> String): List<Pair<String, Int>>? {
+        if (n < LEAST) return null
+        val first = HashMap<String, Int>()
+        for (i in 0 until n) first.putIfAbsent(letter(name(i)), i)
+        if (first.size < 3) return null
+        return first.entries.sortedBy { if (it.key == "#") "" else it.key }.map { it.key to it.value }
+    }
+
+    /** The strip for any list: where each letter starts when the list is in order by name (either way), else the
+     *  first name of each letter. */
+    fun lettersFor(n: Int, name: (Int) -> String): List<Pair<String, Int>>? = anchorsEitherWay(n, name) ?: firstOfEach(n, name)
 
     /** The row a place in the list is on: itself in a plain list, its row of tiles in a grid of [columns]. base: how
      *  many rows the screen has above the list. */

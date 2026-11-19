@@ -42,6 +42,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Moved files are followed,** so playlists still find them, and a song you have under another name of its artist isn't called missing.",
     "- **Asked for at the start (phone):** your music, the microphone (for the visualizer; nothing is recorded), notifications and All files access, until each is allowed; and a music folder, until one is chosen.",
     "- **Nothing is deleted without asking.**",
+    "- **Jump to a letter:** every long list (20 or more: songs, albums, artists, playlists, Most played, moods, Discovery and the rest) has a strip of letters down its right side, as tall as the list and wide enough for a thumb: tap a letter or run a finger down it. In a list sorted by name (A to Z or Z to A, or songs sorted by artist or album) a letter goes to where it begins; in any other order (by plays, by date, your own) it goes to the first name that starts with it.",
     "",
     "## Streaming & downloads",
     "",

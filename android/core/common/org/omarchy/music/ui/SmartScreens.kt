@@ -118,7 +118,7 @@ internal fun LazyListScope.smartPlaylists(ui: Ui) {
             SortMenu("smartlists", PLAYLISTS_SORTS, names = mapOf("order" to "Last changed first"))
         }
     }
-    laidOutItems(shown, ui, key = { "spl-" + shown[it].id }, row = { i ->
+    laidOutItems(shown, ui, key = { "spl-" + shown[it].id }, names = { shown[it].name }, row = { i ->
         val pl = shown[i]
         val songs = SmartLists.songs(pl)
         val cover = songs?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }

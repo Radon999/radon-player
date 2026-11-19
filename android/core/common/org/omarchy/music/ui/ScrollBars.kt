@@ -29,7 +29,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
@@ -96,7 +98,9 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
     // down the side goes there
     val jump = remember(place) { JumpIndex() }
     androidx.compose.foundation.layout.Box(modifier) {
-        LazyColumn(Modifier.fillMaxWidth(), state = state) { jump.begin(); CountingScope(this, jump).content(); jump.told.trySend(Unit) }
+        // (the rows keep clear of the strip, so a row's own buttons at its right end can still be reached)
+        LazyColumn(Modifier.fillMaxWidth(), state = state, contentPadding = PaddingValues(end = if (jump.shown.isNotEmpty()) STRIP_WIDTH - 6.dp else 0.dp)) {
+            jump.begin(); CountingScope(this, jump).content(); jump.told.trySend(Unit) }
         // The list's rows are worked out as it is measured, which is after this is drawn: so the letters are handed on
         // when the list says it has them (4.0.14 looked once, before there were any, and the strip never showed)
         androidx.compose.runtime.LaunchedEffect(jump) { for (x in jump.told) jump.publish() }
@@ -141,17 +145,26 @@ private fun LetterStrip(letters: List<Pair<String, Int>>, state: LazyListState, 
         val i = ((y / height) * letters.size).toInt().coerceIn(0, letters.size - 1)
         scope.launch { state.scrollToItem(letters[i].second) }
     }
+    // As tall as the list lets it be and wide enough for a thumb; the letters are as big as fit (4.0.17's were 9 to 10
+    // points in a strip 16 wide: too small to read or hit on a phone)
+    val per = with(androidx.compose.ui.platform.LocalDensity.current) { (height / letters.size.toFloat()).toSp().value }
+    val size = (per * 0.74f).coerceIn(9f, 17f).sp
     androidx.compose.foundation.layout.Column(modifier.padding(end = if (onPhone) 2.dp else 14.dp)
-        .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(C.light.copy(alpha = 0.55f))
+        .fillMaxHeight(0.94f).width(STRIP_WIDTH)
+        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(C.light.copy(alpha = 0.7f))
         .onSizeChanged { height = it.height.coerceAtLeast(1) }
         .pointerInput(letters) { awaitEachGesture {
             val down = awaitFirstDown(); down.consume(); go(down.position.y)
             while (true) { val e = awaitPointerEvent(); val ch = e.changes.firstOrNull() ?: break; if (!ch.pressed) break; ch.consume(); go(ch.position.y) }
         } }
-        .padding(horizontal = 4.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        letters.forEach { (l, _) -> androidx.compose.material3.Text(l, style = T.sub.copy(fontSize = if (letters.size > 20) 9.sp else 10.sp, lineHeight = 12.sp, color = C.accent)) }
+        .padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
+        letters.forEach { (l, _) -> androidx.compose.material3.Text(l, style = T.sub.copy(fontSize = size, lineHeight = size,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = C.accent)) }
     }
 }
+
+/** How wide the strip of letters is. */
+private val STRIP_WIDTH = 30.dp
 
 /** Scrolling up and down, as Compose's verticalScroll, with a scroll bar on the PC. */
 fun Modifier.verticalScroll(state: ScrollState, enabled: Boolean = true, flingBehavior: FlingBehavior? = null,

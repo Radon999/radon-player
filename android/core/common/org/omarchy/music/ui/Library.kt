@@ -438,7 +438,7 @@ fun MoodsTab(ui: Ui) {
             if (!picking) MoodsCheck(ui, check)
             Section("${moods.size} MOOD${if (moods.size != 1) "S" else ""}")
         }
-        laidOutItems(moods, ui, key = { "mood-" + moods[it].first }, row = { i ->
+        laidOutItems(moods, ui, key = { "mood-" + moods[it].first }, names = { moods[it].first }, row = { i ->
             val (mood, songs) = moods[i]
             val lit = picking && mood in picked
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card)

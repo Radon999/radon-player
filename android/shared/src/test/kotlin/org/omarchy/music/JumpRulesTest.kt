@@ -51,6 +51,19 @@ class JumpRulesTest {
         assertEquals(JumpRules.anchors(up.size) { up[it] }, JumpRules.anchorsEitherWay(up.size) { up[it] })
     }
 
+    @Test fun aListInAnotherOrderGoesToTheFirstNameOfEachLetter() {
+        // by plays, say: Zed, Apple, Mango, Banana, Kiwi, five of each in turn
+        val names = List(25) { listOf("Zed", "Apple", "Mango", "Banana", "Kiwi")[it % 5] + " " + it }
+        assertNull(JumpRules.anchorsEitherWay(names.size) { names[it] })
+        assertEquals(listOf("A" to 1, "B" to 3, "K" to 4, "M" to 2, "Z" to 0), JumpRules.firstOfEach(names.size) { names[it] })
+        assertEquals(JumpRules.firstOfEach(names.size) { names[it] }, JumpRules.lettersFor(names.size) { names[it] })
+        // in order by name, the strip is where each letter starts, as before
+        val sorted = names.sorted()
+        assertEquals(JumpRules.anchors(sorted.size) { sorted[it] }, JumpRules.lettersFor(sorted.size) { sorted[it] })
+        assertNull("too short", JumpRules.firstOfEach(8) { names[it] })
+        assertNull("all one letter", JumpRules.firstOfEach(30) { "Song $it" })
+    }
+
     @Test fun theRowOfAPlaceInAListOrAGrid() {
         assertEquals(12, JumpRules.row(2, 10, 1))
         assertEquals("the fourth row of a grid three across, under two rows of header", 5, JumpRules.row(2, 10, 3))

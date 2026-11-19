@@ -303,7 +303,7 @@ fun LibraryTab(ui: Ui) {
                         "Import to my playlists" to { Music.importServicePlaylist(key, pl) },
                         "Put in a folder…" to { ui.folderFor = FolderItem.service(pl, key) }))
                 }
-                laidOutItems(shown, ui, key = { "sp-" + shown[it].id + "#" + it }, row = { i ->
+                laidOutItems(shown, ui, key = { "sp-" + shown[it].id + "#" + it }, names = { shown[it].title }, row = { i ->
                     PlaylistRow(shown[i], onLongClick = { menu(shown[i]) }) { openPl(shown[i]) }
                 }) { i, mod, compact ->
                     val pl = shown[i]
@@ -1529,7 +1529,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 Chip("Select", false) { ui.startPick("artist-albums") }; SortMenu("artist-albums", ARTIST_ALBUM_SORTS) } }
             val shown = albumsSorted.filter { fits(ui, it.al.title, it.al.sub) }
             // Hold a release: picking starts with it ticked (its own menu is then the bar's); picking, a tap ticks
-            laidOutItems(shown, ui, key = { "aa-" + shown[it].al.id + "#" + it }, row = { j ->
+            laidOutItems(shown, ui, key = { "aa-" + shown[it].al.id + "#" + it }, names = { shown[it].al.title }, row = { j ->
                 val a = shown[j]
                 PlaylistRow(a.al, a.ownCover(), onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) },
                     checked = if (picking) a.al.id in pickedAlbums else null, badge = whereBadge(a)) { if (picking) pickAlbum(a) else openAlbum(a) }
@@ -1546,7 +1546,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             item { ArtistFold("Featured on", "%,d".format(featAlbums.size + featSongs.size), isOpen("feat")) { toggle("feat") } }
             if (isOpen("feat")) {
             val src = i?.source.orEmpty()
-            laidOutItems(featAlbums, ui, key = { "af-" + featAlbums[it].first.id + "#" + it }, row = { j ->
+            laidOutItems(featAlbums, ui, key = { "af-" + featAlbums[it].first.id + "#" + it }, names = { featAlbums[it].first.title }, row = { j ->
                 val (al, songs) = featAlbums[j]
                 PlaylistRow(al, null, onLongClick = { ui.choices = al.title to listOf("Hide from ${page.name}'s page" to { org.omarchy.music.ArtistShown.albums(page.name, listOf(al.title), hide = true) }) }) {
                     ui.pages += Ui.Page.AlbumPage(al, src, Music.yourCopies(songs)) }
@@ -1601,7 +1601,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 }
             }
             if (asReleases) {
-                laidOutItems(ownShown, ui, key = { "ao-" + ownShown[it].first.id + "#" + it }, row = { j ->
+                laidOutItems(ownShown, ui, key = { "ao-" + ownShown[it].first.id + "#" + it }, names = { ownShown[it].first.title }, row = { j ->
                     val a = ArtistAlbum(ownShown[j].first, ownShown[j], streamed = false)
                     // Sorted by plays: how often you played its songs, by its name
                     val al = if (sort.startsWith("plays")) a.al.copy(sub = listOf(a.al.sub, playsText(a.own!!.second.sumOf { playsOf(it) })).filter { it.isNotEmpty() }.joinToString(" · ")) else a.al
@@ -1655,7 +1655,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             if (isOpen("left")) {
                 item { Text("Hidden by you" + (if (theirs != null) ", not on Genius's list for them" else "") + ", or a single that is on an album or EP already. A song's Options (an album's menu) has “Show on ${page.name}'s page”.",
                     style = T.sub, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
-                laidOutItems(leftAlbums, ui, key = { "al-" + leftAlbums[it].al.id + "#" + it }, row = { j ->
+                laidOutItems(leftAlbums, ui, key = { "al-" + leftAlbums[it].al.id + "#" + it }, names = { leftAlbums[it].al.title }, row = { j ->
                     val a = leftAlbums[j]
                     PlaylistRow(a.al, a.ownCover(), onLongClick = { if (picking) albumMenu(a) else pickAlbum(a) },
                         checked = if (picking) a.al.id in pickedAlbums else null) { if (picking) pickAlbum(a) else openAlbum(a) }
@@ -1927,7 +1927,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     val name = mapOf("album" to "ALBUMS", "single" to "SINGLES", "ep" to "EPS")[nr.kind] ?: ""
     item { Section("${rows.size} ${if (rows.size == 1) name.dropLast(1) else name} · $whenText · NEWEST FIRST") }
     if (rows.isEmpty()) item { Empty("None in this time", "Refresh… a longer time, or look at the other tabs.") }
-    laidOutItems(rows, ui, key = { "nr-${rows[it].link}-${rows[it].title}-$it" }, row = { i ->
+    laidOutItems(rows, ui, key = { "nr-${rows[it].link}-${rows[it].title}-$it" }, names = { rows[it].title }, otherNames = listOf({ rows[it].artist }), row = { i ->
         val r = rows[i]
         PlaylistRow(Album(r.link, r.title, "${r.artist} · ${r.date}", r.cover), onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
             checked = if (nr.selecting) nr.key(r) in nr.picked else null) { find(r) }
@@ -1969,6 +1969,12 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
             "Select all" to { pairs.forEach { (_, d, f) -> listOfNotNull(d, f).forEach { picked[it.id] = it.tracks } } },
         ))
         else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick("discovery") } }
+    }
+    // Jump to a letter: each artist's rows start at its heading (a heading, then its one or two playlists)
+    (this as? CountingScope)?.let { cs ->
+        val starts = ArrayList<Int>(); var at = cs.count
+        for ((_, d, f) in pairs) { starts += at; at += 1 + listOfNotNull(d, f).size }
+        org.omarchy.music.JumpRules.lettersFor(pairs.size) { pairs[it].first }?.let { a -> cs.jump.add(a.map { (l, i) -> l to starts[i] }) }
     }
     for ((artist, disc, found) in pairs) {
         item(key = "dh-$artist") { Section(artist.uppercase()) }
@@ -2265,7 +2271,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
             Section("${artists.size} ARTISTS · LISTENED TO LONGEST FIRST")
             LaunchedEffect(artists.size, Music.topPeriod) { Music.lookUpArtists(artists.take(400).map { it.first }) }
         }
-        laidOutItems(artists, ui, key = { "tta-" + artists[it].first }, row = { i ->
+        laidOutItems(artists, ui, key = { "tta-" + artists[it].first }, names = { artists[it].first }, row = { i ->
             val (n, v) = artists[i]
             PlaylistRow(Album(n, n, fmtHours(v)), artistArt(n, ""), onLongClick = { artistMenu(ui, n, "") }) { ui.pages += Ui.Page.Artist(n) }
         }) { i, mod, compact ->
@@ -2286,7 +2292,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
         if (what == "songs") Music.playFrom(list.map { it.tracks.first() }, i, false)
         else ui.pages += Ui.Page.AlbumPage(Album("time-" + x.key, x.title, x.artist, x.tracks.first().thumb), "local", x.tracks)
     }
-    laidOutItems(list, ui, key = { "tt-$what-" + list[it].key }, row = { i ->
+    laidOutItems(list, ui, key = { "tt-$what-" + list[it].key }, names = { list[it].title }, row = { i ->
         val x = list[i]
         PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), topArt(cover(x))) { open(i) }
     }) { i, mod, compact ->
@@ -2338,7 +2344,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodPlaysItems(ui: Ui) {
         val time = mapOf("week" to "this week", "month" to "this month", "year" to "this year")[period] ?: "all time"
         ui.pages += Ui.Page.Songs("${r.mood} · most played $time", r.songs.map { (t, n) -> t.copy(plays = n) }, "mood-plays", r.mood)
     }
-    laidOutItems(list, ui, key = { "mpl-" + list[it].mood }, row = { i ->
+    laidOutItems(list, ui, key = { "mpl-" + list[it].mood }, names = { list[it].mood }, row = { i ->
         val r = list[i]
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(R.card).background(C.light.copy(alpha = 0.6f))
             .clickable { open(r) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2368,7 +2374,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.topAlbumsItems(ui: Ui) {
         ui.pages += Ui.Page.AlbumPage(Album("top-" + al.key, al.title, al.artist, al.tracks.first().thumb), "local", al.tracks)
     }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
-    laidOutItems(albums, ui, key = { "tal-" + albums[it].key }, row = { i ->
+    laidOutItems(albums, ui, key = { "tal-" + albums[it].key }, names = { albums[it].title }, row = { i ->
         val al = albums[i]
         PlaylistRow(Album(al.key, al.title, "${al.artist} · ${plays(al.plays)}"), topArt(TopArt.album(al.title, al.artist, al.tracks))) { open(al) }
     }) { i, mod, compact ->
@@ -2386,7 +2392,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.topArtistsItems(ui: Ui) {
         LaunchedEffect(artists.size, Music.topPeriod) { Music.lookUpArtists(artists.take(400).map { it.name }) }
     }
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
-    laidOutItems(artists, ui, key = { "tar-" + artists[it].name }, row = { i ->
+    laidOutItems(artists, ui, key = { "tar-" + artists[it].name }, names = { artists[it].name }, row = { i ->
         val a = artists[i]
         PlaylistRow(Album(a.name, a.name, plays(a.plays)), artistArt(a.name, a.thumb), onLongClick = { artistMenu(ui, a.name, a.thumb) }) { ui.pages += Ui.Page.Artist(a.name) }
     }) { i, mod, compact ->
