@@ -11,6 +11,13 @@ class UiSizeRulesTest {
         assertEquals(1f, UiSizeRules.factor(""), 0.0001f)
     }
 
+    @Test fun aNewInstallIsAtTheUsualSizeAndABackupFromTheOtherDeviceLeavesItThere() {
+        assertEquals("nothing kept yet: 100%", 100, UiSizeRules.percent(""))
+        val backup = """{"ui_size":"150","crossfade":true}"""
+        assertEquals("on the other device the size isn't taken", setOf("crossfade"), BackupMerge.switchesToRestore(backup, crossDevice = true).keys)
+        assertEquals("on the same device it comes back", "150", BackupMerge.switchesToRestore(backup, crossDevice = false)["ui_size"])
+    }
+
     @Test fun neverTooSmallToReadOrTooBigToUse() {
         assertEquals(80, UiSizeRules.percent("5")); assertEquals(250, UiSizeRules.percent("900"))
     }
