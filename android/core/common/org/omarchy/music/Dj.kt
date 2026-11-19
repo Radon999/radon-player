@@ -925,13 +925,13 @@ object Dj {
                 }
             }
             allRank[songKey(s)]?.takeIf { KindRules.topTen(it, n) }?.let { i ->
-                out["top-ten:$id"] = if (i == 0) "${q(s)} is your most played song of all time."
-                    else "${q(s)} is in your all time top ten. Number ${ordinal(i + 1)}."
+                out["top-ten:$id"] = if (i == 0) say("v-top-ten-first", "${q(s)} is your most played song of all time.", "Nothing has more plays from you than ${q(s)}.", "${q(s)} sits at number one for you, all time.")
+                    else say("v-top-ten", "${q(s)} is in your all time top ten. Number ${ordinal(i + 1)}.", "${q(s)} is number ${ordinal(i + 1)} among your most played songs of all time.")
             }
             val lead = s.artist.split(",")[0].trim()
             artistRank[lead.lowercase()]?.takeIf { FactRules.rankTold(it.second) }?.let { (r, plays) ->
-                out["artist-rank:$lead"] = if (r == 1) "$lead is your most played artist of all time, with ${num(plays)} plays."
-                    else "$lead is number ${ordinal(r)} among your most played artists, with ${num(plays)} plays."
+                out["artist-rank:$lead"] = if (r == 1) say("v-artist-rank-first", "$lead is your most played artist of all time, with ${num(plays)} plays.", "Nobody has more plays from you than $lead. ${num(plays)} in all.")
+                    else say("v-artist-rank", "$lead is number ${ordinal(r)} among your most played artists, with ${num(plays)} plays.", "With ${num(plays)} plays, $lead is your number ${ordinal(r)} artist of all time.")
             }
         }
         // Your moods
@@ -975,10 +975,10 @@ object Dj {
         // Your years
         val thisYear = java.time.LocalDate.now().year
         for ((y, top) in f.yearTop) if (y < thisYear && top.second >= 10)
-            out["year-top:$y"] = "Your number one song of $y was “${top.first.title}” by ${top.first.artist.split(",")[0].trim()}, with ${num(top.second)} plays."
+            out["year-top:$y"] = say("v-year-top", "Your number one song of $y was “${top.first.title}” by ${top.first.artist.split(",")[0].trim()}, with ${num(top.second)} plays.", "In $y, “${top.first.title}” by ${top.first.artist.split(",")[0].trim()} had more plays from you than any other song. ${num(top.second)} of them.")
         FactRules.busiestYear(f.yearPlays)?.let { (y, n) ->
-            out["busiest-year"] = if (y == thisYear) "This is already your biggest year for music, with ${num(n)} plays so far."
-                else "Your biggest year for music was $y, with ${num(n)} plays."
+            out["busiest-year"] = if (y == thisYear) say("v-busiest-year-now", "This is already your biggest year for music, with ${num(n)} plays so far.", "${num(n)} plays so far, and this is already your biggest year for music.")
+                else say("v-busiest-year", "Your biggest year for music was $y, with ${num(n)} plays.", "$y is still your biggest year for music. ${num(n)} plays.")
         }
         // Skips
         rows.filter { it.second >= 5 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
@@ -1039,8 +1039,8 @@ object Dj {
         if (starred >= 5) out["favorites-count"] = say("v-favorites-count", "You've starred ${num(starred)} songs in your collection.", "${num(starred)} songs in your collection carry a star.")
         runCatching { Music.lists.all().filter { it.discovery == null } }.getOrNull()?.takeIf { it.size >= 3 }?.let { lists ->
             val big = lists.maxByOrNull { it.tracks.size }
-            out["playlists"] = if (big != null && big.tracks.size >= 10) "You keep ${num(lists.size)} playlists. The biggest is ${big.name}, with ${num(big.tracks.size)} songs."
-                else "You keep ${num(lists.size)} playlists."
+            out["playlists"] = if (big != null && big.tracks.size >= 10) say("v-playlists-biggest", "You keep ${num(lists.size)} playlists. The biggest is ${big.name}, with ${num(big.tracks.size)} songs.", "Of your ${num(lists.size)} playlists, ${big.name} is the biggest, with ${num(big.tracks.size)} songs.")
+                else say("v-playlists", "You keep ${num(lists.size)} playlists.", "You've built ${num(lists.size)} playlists.")
         }
         val thisYear = java.time.LocalDate.now().year
         f.yearPlays[thisYear - 1]?.takeIf { it >= 100 }?.let { n -> out["year-plays:${thisYear - 1}"] = say("v-year-plays", "Last year you played ${num(n)} songs.", "Last year came to ${num(n)} plays.") }
@@ -1112,16 +1112,16 @@ object Dj {
             .maxByOrNull { it.value.second }?.let { (m, lean) ->
                 val part = lean.first
                 out["mood-time:$m"] = when (part) {
-                    "late night" -> "Late at night you turn to ${adj(m)} songs. Your $m plays climb after ten."
-                    "morning" -> "Mornings are for $m. That's when you play the most ${adj(m)} songs."
-                    "afternoon" -> "Your afternoons lean $m. That's when the ${adj(m)} songs come out."
-                    else -> "Evenings are when you play the most ${adj(m)} music."
+                    "late night" -> say("v-mood-time-night", "Late at night you turn to ${adj(m)} songs. Your $m plays climb after ten.", "After ten at night is when your ${adj(m)} songs get most of their plays.")
+                    "morning" -> say("v-mood-time-morning", "Mornings are for $m. That's when you play the most ${adj(m)} songs.", "Your ${adj(m)} songs get most of their plays in the morning.")
+                    "afternoon" -> say("v-mood-time-afternoon", "Your afternoons lean $m. That's when the ${adj(m)} songs come out.", "Afternoon is when your ${adj(m)} songs get most of their plays.")
+                    else -> say("v-mood-time-evening", "Evenings are when you play the most ${adj(m)} music.", "Your ${adj(m)} songs get most of their plays in the evening.")
                 }
             }
         // Hype's share
         val hype = MoodTally.percent(all, "Hype")
-        if (all.values.sum() >= 100 && hype >= 5) out["mood-hype"] = if (hype >= 25) "About $hype percent of your listening is Hype. You like it loud."
-            else "About $hype percent of your music is Hype."
+        if (all.values.sum() >= 100 && hype >= 5) out["mood-hype"] = if (hype >= 25) say("v-mood-hype-lots", "About $hype percent of your listening is Hype. You like it loud.", "Hype makes up about $hype percent of your listening. That's a lot of it.")
+            else say("v-mood-hype", "About $hype percent of your music is Hype.", "Hype accounts for about $hype percent of your music.")
         // A mood you've drifted away from
         MoodTally.neglected(all, month)?.let { m ->
             out["mood-neglected:$m"] = say("v-mood-neglected", "You used to play a lot of ${adj(m)} songs, but hardly any lately. One might turn up soon.", "Your ${adj(m)} songs got a lot of plays once. Not so much lately.")
@@ -1553,7 +1553,7 @@ object Dj {
         val out = LinkedHashMap<String, String>()
         val id = songKey(t).toString()
         taste.all.indexOfFirst { songKey(it) == songKey(t) }.takeIf { KindRules.topTen(it, n) }?.let { i ->
-            out["c-top:$id"] = if (i == 0) "Your most played song of all time, coming up." else "This one's in your all time top ten. Number ${ordinal(i + 1)}."
+            out["c-top:$id"] = if (i == 0) say("v-c-top-first", "Your most played song of all time, coming up.", "Coming up, the song you've played more than any other.") else say("v-c-top", "This one's in your all time top ten. Number ${ordinal(i + 1)}.", "This one is number ${ordinal(i + 1)} among your most played songs of all time.")
         }
         Music.songStats.rows().firstOrNull { songKey(it.first) == songKey(t) }?.let { (_, sk, full) ->
             if (KindRules.neverSkipped(sk, full)) out["c-never:$id"] = say("v-c-never", "You've never skipped this one. ${num(full)} times, start to finish.", "${num(full)} plays of this one, and never a skip.")

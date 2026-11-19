@@ -568,3 +568,38 @@ The owner asked for the same thing said in different ways, so a set that comes r
 | v-c-loopback | This one used to be on repeat for you. It's been a while. |
 | v-c-loopartist | You put $a on repeat more than anyone else. ${num(times)} times so far. |
 | v-c-loopartist | Nobody gets repeated by you more than $a. ${num(times)} times so far. |
+| v-top-ten-first | ${q(s)} is your most played song of all time. |
+| v-top-ten-first | Nothing has more plays from you than ${q(s)}. |
+| v-top-ten-first | ${q(s)} sits at number one for you, all time. |
+| v-top-ten | ${q(s)} is in your all time top ten. Number ${ordinal(i + 1)}. |
+| v-top-ten | ${q(s)} is number ${ordinal(i + 1)} among your most played songs of all time. |
+| v-artist-rank-first | $lead is your most played artist of all time, with ${num(plays)} plays. |
+| v-artist-rank-first | Nobody has more plays from you than $lead. ${num(plays)} in all. |
+| v-artist-rank | $lead is number ${ordinal(r)} among your most played artists, with ${num(plays)} plays. |
+| v-artist-rank | With ${num(plays)} plays, $lead is your number ${ordinal(r)} artist of all time. |
+| v-year-top | Your number one song of $y was “${top.first.title}” by ${top.first.artist.split(",")[0].trim()}, with ${num(top.second)} plays. |
+| v-year-top | In $y, “${top.first.title}” by ${top.first.artist.split(",")[0].trim()} had more plays from you than any other song. ${num(top.second)} of them. |
+| v-busiest-year-now | This is already your biggest year for music, with ${num(n)} plays so far. |
+| v-busiest-year-now | ${num(n)} plays so far, and this is already your biggest year for music. |
+| v-busiest-year | Your biggest year for music was $y, with ${num(n)} plays. |
+| v-busiest-year | $y is still your biggest year for music. ${num(n)} plays. |
+| v-playlists-biggest | You keep ${num(lists.size)} playlists. The biggest is ${big.name}, with ${num(big.tracks.size)} songs. |
+| v-playlists-biggest | Of your ${num(lists.size)} playlists, ${big.name} is the biggest, with ${num(big.tracks.size)} songs. |
+| v-playlists | You keep ${num(lists.size)} playlists. |
+| v-playlists | You've built ${num(lists.size)} playlists. |
+| v-mood-time-night | Late at night you turn to ${adj(m)} songs. Your $m plays climb after ten. |
+| v-mood-time-night | After ten at night is when your ${adj(m)} songs get most of their plays. |
+| v-mood-time-morning | Mornings are for $m. That's when you play the most ${adj(m)} songs. |
+| v-mood-time-morning | Your ${adj(m)} songs get most of their plays in the morning. |
+| v-mood-time-afternoon | Your afternoons lean $m. That's when the ${adj(m)} songs come out. |
+| v-mood-time-afternoon | Afternoon is when your ${adj(m)} songs get most of their plays. |
+| v-mood-time-evening | Evenings are when you play the most ${adj(m)} music. |
+| v-mood-time-evening | Your ${adj(m)} songs get most of their plays in the evening. |
+| v-mood-hype-lots | About $hype percent of your listening is Hype. You like it loud. |
+| v-mood-hype-lots | Hype makes up about $hype percent of your listening. That's a lot of it. |
+| v-mood-hype | About $hype percent of your music is Hype. |
+| v-mood-hype | Hype accounts for about $hype percent of your music. |
+| v-c-top-first | Your most played song of all time, coming up. |
+| v-c-top-first | Coming up, the song you've played more than any other. |
+| v-c-top | This one's in your all time top ten. Number ${ordinal(i + 1)}. |
+| v-c-top | This one is number ${ordinal(i + 1)} among your most played songs of all time. |
