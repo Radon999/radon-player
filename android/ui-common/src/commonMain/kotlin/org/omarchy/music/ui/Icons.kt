@@ -25,7 +25,7 @@ enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HE
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
     SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST, VOLUME_ALERT, MIC,
-    BLUETOOTH_OFF, PALETTE, REFRESH }
+    BLUETOOTH_OFF, PALETTE, REFRESH, BELL }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -92,6 +92,17 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
         Ico.REFRESH -> {
             drawArc(color, 300f, 300f, false, p(5f, 5f), Size(14f * u, 14f * u), style = stroke)
             line(5.35f, 5.4f, 8.5f, 5.95f, 7.4f, 8.95f)
+        }
+        // A bell: its body, the rim under it, the clapper and the knob on top
+        Ico.BELL -> {
+            val body = Path().apply {
+                moveTo(4.5f * u, 17f * u); lineTo(19.5f * u, 17f * u); lineTo(17.5f * u, 14.5f * u); lineTo(17.5f * u, 10.5f * u)
+                cubicTo(17.5f * u, 7.3f * u, 15f * u, 5f * u, 12f * u, 5f * u)
+                cubicTo(9f * u, 5f * u, 6.5f * u, 7.3f * u, 6.5f * u, 10.5f * u)
+                lineTo(6.5f * u, 14.5f * u); close()
+            }
+            drawPath(body, color, style = stroke)
+            line(10.4f, 20.3f, 13.6f, 20.3f); line(12f, 3f, 12f, 5f)
         }
         Ico.HEART -> drawPath(heart(), color)
         Ico.HEART_LINE -> drawPath(heart(), color, style = stroke)

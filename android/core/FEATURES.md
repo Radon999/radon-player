@@ -48,6 +48,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **Downloads:** Any song comes from Tidal with full tags, cover and genre, from the artist's own album first, into Music › Artists › the artist › the release. Whole playlists download too, skipping songs you have. A song you have already (the same title and artist, whatever its album) isn't downloaded again; a near match asks whether to keep both or replace.
 - **Quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately for streaming and downloads. **Clean or explicit** versions, wherever Tidal has both.
 - **New releases:** Checks every artist you have for albums, EPs and singles from the last week, month or year.
+- **The bell on New releases:** with New releases by themselves on (Settings › Playback), the app looks once a day while it is open and lists what is new under the bell on the New releases screen, with a count of how many came since you last opened it. No notification is sent. It looks at the artists of the songs you have as files or downloads and of the songs in your Radon Player playlists; a playlist that is only on a streaming service doesn't count.
 
 ## Moods
 

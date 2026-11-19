@@ -1456,9 +1456,10 @@ private fun PlaybackLines(ui: Ui) {
     }
     // New releases looked for by the app itself, once a day
     var relAuto by remember { mutableStateOf(PR.on(org.omarchy.music.NewReleases.AUTO)) }
-    Line("New releases by themselves", "On: once a day while the app is open it looks at what the artists you have music by put out in the last week, and tells you " +
-        "when there is something new" + (if (onPhone) " with a notification" else "") + ". Each release is told once. The look takes a few minutes in the background " +
-        "with a big library; what it finds is on the New releases screen", relAuto) {
+    Line("New releases by themselves", "On: once a day while the app is open it looks at what your artists put out in the last week (the artists of the songs you have as " +
+        "files or downloads, and of the songs in your Radon Player playlists; a playlist that is only on a streaming service doesn't count). What is new goes under the " +
+        "bell on the New releases screen, which shows how many there are; no notification is sent. Each release is listed once. The look takes a few minutes in the " +
+        "background with a big library", relAuto) {
         Switch(relAuto, { relAuto = it; PR.set(org.omarchy.music.NewReleases.AUTO, it) }, colors = swColors())
     }
     // Swipe a song (the phone): what a swipe to each side of a song's row does

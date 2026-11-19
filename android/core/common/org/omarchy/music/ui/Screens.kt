@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.omarchy.music.Album
 import org.omarchy.music.ArtistInfo
 import org.omarchy.music.Dj
@@ -1832,7 +1833,16 @@ private fun MissingPicker(album: String, missing: List<org.omarchy.music.Missing
 fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     val nr = org.omarchy.music.NewReleases
     item {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The bell: what the app's own daily look found (Settings › Playback › New releases by themselves), with how
+            // many are new since it was last opened. Tap it again to go back to the tabs
+            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.TopEnd) {
+                IconButton(Ico.BELL, color = if (nr.bell || nr.unseen > 0) C.accent else C.fg, pad = 6.dp,
+                    desc = if (nr.unseen > 0) "${nr.unseen} new releases found for you" else "New releases found for you") { nr.openBell(!nr.bell) }
+                if (nr.unseen > 0) Text(if (nr.unseen > 99) "99+" else "${nr.unseen}",
+                    style = T.sub.copy(color = C.darker, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                    modifier = Modifier.background(C.accent, androidx.compose.foundation.shape.CircleShape).padding(horizontal = 4.dp))
+            }
             if (nr.status == null) Pill("Refresh…") {
                 ui.choices = "New releases: what the artists with songs on your $DEVICE put out in…" to listOf(
                     "The last week" to { nr.scan("week") }, "The last month" to { nr.scan("month") }, "The last year" to { nr.scan("year") })
@@ -1852,12 +1862,12 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         }
         nr.status?.let { Section(it.uppercase()) }
     }
-    if (nr.scanned <= 0) {
+    if (nr.scanned <= 0 && !nr.bell) {
         item { Empty("New releases", "${TAP.cap()} Refresh… to look at every artist with songs on your $DEVICE for what they've put out in the last " +
             "week, month or year. Nothing is checked on its own.") }
         return
     }
-    item {
+    if (!nr.bell) item {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("album" to "Albums", "single" to "Singles", "ep" to "EPs", "artists" to "Artists").forEach { (k, l) -> Chip(l, nr.kind == k) { nr.kind = k } }
@@ -1879,6 +1889,23 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     fun menu(title: String, rs: List<org.omarchy.music.NewReleases.Release>, key: String, pick: Pair<org.omarchy.music.NewReleases.Release?, String>) {
         ui.choices = title to listOfNotNull("Discovery playlist…" to { ui.releasePick = rs },
             if (!nr.selecting) "Select" to { nr.selecting = true; nr.toggle(key, pick) } else null)
+    }
+    if (nr.bell) {
+        val told = nr.told.filter { fits(ui, it.artist, it.title) }
+        val kinds = mapOf("album" to "Album", "single" to "Single", "ep" to "EP")
+        item {
+            Section(if (told.isEmpty()) "THE BELL · NOTHING NEW FOUND YET" else "THE BELL · ${told.size} FOUND FOR YOU · NEWEST FIRST")
+            if (told.isEmpty()) Empty("Nothing under the bell yet", "With New releases by themselves switched on (Settings › Playback), the app looks once a day, " +
+                "while it is open, at what your artists put out in the last week: the artists of the songs you have as files or downloads, and of the songs in " +
+                "your Radon Player playlists. What it finds is listed here, each release once, and the bell shows how many are new. ${TAP.cap()} the bell again for the tabs.")
+            else Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) { Pill("Clear the bell", quiet = true) { nr.clearBell() } }
+        }
+        items(told.size, key = { "nrb-${nr.key(told[it])}-$it" }) { i ->
+            val r = told[i]
+            PlaylistRow(Album(r.link, r.title, "${r.artist} · ${kinds[r.type] ?: "Album"} · ${r.date}", r.cover), onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
+                checked = if (nr.selecting) nr.key(r) in nr.picked else null) { find(r) }
+        }
+        return
     }
     if (nr.kind == "artists") {
         val by = nr.found.filter { fits(ui, it.artist, it.title) }.groupBy { it.artist }.toList()

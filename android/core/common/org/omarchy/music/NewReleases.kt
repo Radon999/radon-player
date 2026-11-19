@@ -17,7 +17,8 @@ object NewReleases {
 
     @Serializable
     private data class Saved(val artists: List<String> = emptyList(), val ids: Map<String, Long> = emptyMap(),
-                             val found: List<Release> = emptyList(), val scanned: Double = 0.0, val range: String = "month")
+                             val found: List<Release> = emptyList(), val scanned: Double = 0.0, val range: String = "month",
+                             val told: List<Release> = emptyList(), val unseen: Int = 0)
 
     val RANGES = linkedMapOf("week" to 7L, "month" to 30L, "year" to 365L)
     var artists by mutableStateOf(listOf<String>()); private set
@@ -26,6 +27,14 @@ object NewReleases {
     var range by mutableStateOf("month"); private set
     var status by mutableStateOf<String?>(null); private set   // the scan's progress (null: not scanning)
     var kind by mutableStateOf("album")   // the tab: album, single, ep, artists
+    // The bell: what the app's own daily look found that it hadn't told you about, newest first (the last 300), and how
+    // many of them came since the bell was last opened. (Until 4.0.17 these were a notification on the phone.)
+    var told by mutableStateOf(listOf<Release>()); private set
+    var unseen by mutableStateOf(0); private set
+    var bell by mutableStateOf(false); private set
+    /** The bell opened (its count is then seen) or closed. */
+    fun openBell(on: Boolean) { bell = on; if (on && unseen > 0) { unseen = 0; Music.bg({ save() }) } }
+    fun clearBell() { told = emptyList(); unseen = 0; Music.bg({ save() }) }
     @Volatile var stop = false
     private val ids = HashMap<String, Long>()
     private lateinit var file: File
@@ -33,11 +42,11 @@ object NewReleases {
     fun init(c: Ctx) {
         file = File(c.filesDir, "new-releases.json")
         Music.bg({ readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
-            if (s != null) { artists = s.artists; found = s.found; scanned = s.scanned; range = s.range; ids.putAll(s.ids) }
+            if (s != null) { artists = s.artists; found = s.found; scanned = s.scanned; range = s.range; ids.putAll(s.ids); told = s.told; unseen = s.unseen }
         }
     }
 
-    private fun save() = writeAtomic(file, JSON.encodeToString(Saved.serializer(), Saved(artists, HashMap(ids), found, scanned, range)))
+    private fun save() = writeAtomic(file, JSON.encodeToString(Saved.serializer(), Saved(artists, HashMap(ids), found, scanned, range, told, unseen)))
 
     /** The artists to look for: the lead artist of every song of yours, the ones you have most songs of first. */
     fun readArtists(songs: List<Track>): Int {
@@ -101,19 +110,28 @@ object NewReleases {
         Prefs.setText(AUTO_AT, t.toString())
         scan("week", quiet = true)
     }
-    /** After a look by itself: the releases not told about before are said (a notification on the phone, a line in the app). */
+    /** After a look by itself: the releases not told about before go under the bell on the New releases screen, which
+     *  shows how many are new. No notification is sent. */
     private fun announce(res: List<Release>) {
         val seen = Prefs.text(SEEN).split('\n').filter { it.isNotBlank() }
         val new = NewReleaseRules.fresh(res.map { key(it) to (it.title to it.artist) }, seen.toSet())
         if (new.isEmpty()) return
         Prefs.setText(SEEN, (new.map { it.first } + seen).take(600).joinToString("\n"))
-        val text = NewReleaseRules.said(new.map { it.second })
-        if (!runCatching { notifyUser(Music.ctx, NewReleaseRules.title(new.size), text) }.getOrDefault(false)) Music.toast(NewReleaseRules.title(new.size) + ": " + text)
+        val keys = new.map { it.first }.toSet()
+        told = (res.filter { key(it) in keys } + told).distinctBy { key(it) }.sortedByDescending { it.date }.take(300)
+        unseen = if (bell) 0 else unseen + new.size
+        Music.bg({ save() })
     }
+
+    /** Whose releases are looked for: the artists of the songs you have as files (yours and downloads) and of the songs in
+     *  the playlists you keep in Radon Player (streamed ones too). A playlist that only exists on a streaming service, and
+     *  the playlists the app makes itself (discovery, New releases, smart ones), don't count. */
+    private fun yours(): List<Track> = Music.mySongs() +
+        runCatching { Music.lists.all().filter { it.smart == null && it.discovery == null }.flatMap { it.tracks } }.getOrDefault(emptyList())
 
     fun scan(period: String, quiet: Boolean = false) {
         if (status != null) return
-        readArtists(Music.mySongs())   // every artist with songs on the phone, read again each time
+        readArtists(yours())   // read again each time
         status = "Looking…"
         stop = false
         val since = LocalDate.now().minusDays(RANGES[period] ?: 30).toString()

@@ -125,7 +125,7 @@ val DESC = mapOf(Ico.MENU to "Menu", Ico.SEARCH to "Search", Ico.BACK to "Back",
     Ico.MORE to "More", Ico.PLAY to "Play", Ico.PAUSE to "Pause", Ico.NEXT to "Next", Ico.PREV to "Previous",
     Ico.SHUFFLE to "Shuffle", Ico.REPEAT to "Repeat", Ico.REPEAT_ONE to "Repeat one", Ico.CLOSE to "Close",
     Ico.SETTINGS to "Settings", Ico.EQ to "Equalizer", Ico.MIC to "Speak",
-    Ico.BLUETOOTH_OFF to "Ignore Bluetooth devices")
+    Ico.BLUETOOTH_OFF to "Ignore Bluetooth devices", Ico.BELL to "New for you")
 
 
 @Composable
