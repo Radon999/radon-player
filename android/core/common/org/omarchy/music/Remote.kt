@@ -70,8 +70,17 @@ object Remote {
 
     private fun save() = writeAtomic(file, JSON.encodeToString(Saved.serializer(), Saved(host, token, name, on)))
 
+    /** Becoming the PC's remote: whatever this phone was playing itself stops (the DJ's talk too). Without this the
+     *  phone's song went on playing under the PC's, with the PC's shown on Now playing and no button left that reached
+     *  the phone's own (every button goes to the PC from then on). */
+    private fun quietHere() = runCatching {
+        if (Music.djTalking) Music.djHush()
+        Music.player?.pause()
+    }
+
     @JvmName("switchOn")
     fun setOn(v: Boolean) {
+        if (v && paired && !on) quietHere()
         on = v && paired
         save()
         if (on) refresh()
@@ -97,6 +106,7 @@ object Remote {
         }) { res, err ->
             val tok = res["token"].str
             if (err == null && tok != null) {
+                quietHere()
                 host = h; token = tok; name = res["name"].str ?: "Desktop"; on = true
                 save()
                 Sync.paired()   // synced straight after pairing
