@@ -507,7 +507,10 @@ object PlaybackCore {
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
         if (!Remote.active) Copies.heal(c)   // a download whose file was moved (a tag change): your file of it is found again
-        val t0 = if (Remote.active) c else Music.localOf(c)
+        // …and as that copy is today: its file's tags and cover, not what a list kept of it from before it was tagged,
+        // moved or downloaded (such a song played from your file while Now playing showed the old names and no cover)
+        val t0 = if (Remote.active) c else runCatching { PlaySorts.asNow(c) }.getOrElse { Music.localOf(c) }
+            .let { n -> if (n === c) c else n.copy(queued = c.queued, dj = c.dj, plays = c.plays).let { m -> if (m == c) c else m } }
         if (t0 !== c) {
             queue = queue.toMutableList().also { it[index] = t0 }
             if (radioFrom == c.id) radioFrom = t0.id
