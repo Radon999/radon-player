@@ -57,6 +57,16 @@ object JumpRules {
         return best
     }
 
+    /** The same for a list in either direction: A to Z as [anchors] finds it, or Z to A (sorted by name, last first),
+     *  where the strip then runs from Z down to A and each letter is where its names begin on the screen. */
+    fun anchorsEitherWay(n: Int, name: (Int) -> String): List<Pair<String, Int>>? {
+        anchors(n, name)?.let { return it }
+        // Z to A: read from the bottom up it is A to Z. A letter that starts at j from the bottom ends at n-1-j from the
+        // top, so it begins on the screen right after where the next letter (from the bottom) starts
+        val up = anchors(n) { name(n - 1 - it) } ?: return null
+        return up.indices.map { k -> up[k].first to if (k + 1 < up.size) n - up[k + 1].second else 0 }.sortedBy { it.second }
+    }
+
     /** The row a place in the list is on: itself in a plain list, its row of tiles in a grid of [columns]. base: how
      *  many rows the screen has above the list. */
     fun row(base: Int, index: Int, columns: Int): Int = base + if (columns <= 1) index else index / columns

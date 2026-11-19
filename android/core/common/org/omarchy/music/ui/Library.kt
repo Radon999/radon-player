@@ -109,7 +109,8 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
             }
             Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else if (split && !bigAlbums) "LOW SONG COUNT ALBUM" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
         }
-        laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, names = { albums[it].first.title }, row = { i ->
+        laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, names = { albums[it].first.title },
+            otherNames = listOf({ albums[it].first.artist }), row = { i ->
             val (al, songs) = albums[i]
             PlaylistRow(Album(al.id, al.title, al.sub, "", songs.size.toString()), artModel(songs.first()),
                 onLongClick = { menu(al, songs) }, checked = if (picking) al.id in picked else null) { tap(al, songs) }

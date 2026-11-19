@@ -59,7 +59,7 @@ Every song gets the moods that fit it, from 12: Happy, Energetic, Party, Hype, C
 - **Fix one:** Tagger › Tags › Mood. Songs that sound like it learn from your fix. The Moods tab lists songs it's unsure of.
 - **Starting over** (Settings › Reset mood and lyrics scans, each asks first): **Reset moods** works them out again from what was already heard and read; **Reset sound scan** has every song heard again; **Clear my moods** forgets the ones you picked; **Remove all moods** starts from scratch.
 - **Prevent auto mood scans** (Settings › Scanner) freezes every mood as it is.
-- **Used in:** Mood lists, Smart playlists, the DJ, Most played and Wrapped. Backups carry them, and **Moods match** (Settings › Remote & sync) puts one device's moods on the other.
+- **Used in:** Smart playlists, the DJ, Most played and Wrapped. Backups carry them, and **Moods match** (Settings › Remote & sync) puts one device's moods on the other.
 
 ## The DJ
 

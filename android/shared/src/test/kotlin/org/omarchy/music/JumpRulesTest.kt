@@ -41,6 +41,16 @@ class JumpRulesTest {
         assertEquals(listOf("#" to 2, "A" to 3, "B" to 13, "C" to 23, "D" to 33, "E" to 43, "Z" to 53), JumpRules.anchors(list.size) { list[it] })
     }
 
+    @Test fun aListFromZToAHasItsStripTheOtherWayUp() {
+        // 60 names: 10 each of F, E, D, C, B, A, in that order down the screen
+        val names = "FEDCBA".flatMap { c -> List(10) { "$c song $it" } }
+        assertEquals(null, JumpRules.anchors(names.size) { names[it] })
+        assertEquals(listOf("F" to 0, "E" to 10, "D" to 20, "C" to 30, "B" to 40, "A" to 50), JumpRules.anchorsEitherWay(names.size) { names[it] })
+        // A to Z stays as it was
+        val up = names.reversed()
+        assertEquals(JumpRules.anchors(up.size) { up[it] }, JumpRules.anchorsEitherWay(up.size) { up[it] })
+    }
+
     @Test fun theRowOfAPlaceInAListOrAGrid() {
         assertEquals(12, JumpRules.row(2, 10, 1))
         assertEquals("the fourth row of a grid three across, under two rows of header", 5, JumpRules.row(2, 10, 3))

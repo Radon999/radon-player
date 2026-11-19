@@ -354,7 +354,6 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Moods", Ico.MOOD, "moods"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
         add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
-        add(Entry("Mood lists", Ico.MOOD, "music", "moodlists"))
         add(Entry("Folders", Ico.FOLDER, "folders"))
         add(Entry("Unreleased", Ico.FOLDER, "unreleased"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))

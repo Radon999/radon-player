@@ -103,12 +103,16 @@ fun trackFits(ui: Ui, t: Track) = fits(ui, t.title, t.artist, t.album)
 
 /** A list laid out as the page's layout: rows, or rows of covers. */
 fun <T> LazyListScope.laidOutItems(list: List<T>, ui: Ui, key: (Int) -> String, names: ((Int) -> String)? = null,
+                                   otherNames: List<(Int) -> String> = emptyList(),
                                    row: @Composable (Int) -> Unit, tile: @Composable (Int, Modifier, Boolean) -> Unit) {
     val layout = layoutNow(ui)
     val k = if (layout == "list") 1 else columns(ui, layout)
-    // Jump to a letter: when these are in alphabetical order by name, where each letter starts (its row on the screen)
+    // Jump to a letter: when these are in alphabetical order by name, where each letter starts (its row on the screen).
+    // otherNames: what else the list may be in order of (songs sorted by artist or by album: the strip is then the
+    // artists' or the albums' letters). The first one the list really is in order of gives the strip.
     if (names != null) (this as? CountingScope)?.let { cs ->
-        org.omarchy.music.JumpRules.anchors(list.size, names)?.let { a -> cs.jump.add(a.map { (l, i) -> l to org.omarchy.music.JumpRules.row(cs.count, i, k) }) } }
+        (listOf(names) + otherNames).firstNotNullOfOrNull { org.omarchy.music.JumpRules.anchorsEitherWay(list.size, it) }
+            ?.let { a -> cs.jump.add(a.map { (l, i) -> l to org.omarchy.music.JumpRules.row(cs.count, i, k) }) } }
     if (layout == "list") { items(list.size, key = key) { row(it) }; return }
     val n = list.size
     items((n + k - 1) / k, key = { "$layout$k|" + key(it * k) }) { r ->
