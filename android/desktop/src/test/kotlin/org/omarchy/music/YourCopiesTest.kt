@@ -24,6 +24,14 @@ class YourCopiesTest {
         assertEquals("an album you don't have it on: the FLAC", "copies-flac", Music.fmSong("Copy Song", "Copy Band", "", mine, album = "Some Other Record").id)
     }
 
+    @Test fun aSongNamedByEveryoneOnItIsYourFileTaggedWithOneOfThem() = withSaved(
+        saved("ott", "Credit Song", "Second Singer", "Credit Record", "flac"), saved("duo", "Duo Song", "First Half & Other Half", "Duo Record", "flac")) {
+        assertEquals("your file names only the second artist", "copies-ott", Music.mineOf(Track("repeat:x", title = "Credit Song", artist = "First Band & Second Singer")).id)
+        assertEquals("and with dots in the name", "copies-ott", Music.mineOf(Track("repeat:y", title = "Credit Song", artist = "First Band, Second.Singer")).id)
+        assertEquals("your file names both, the history only the second", "copies-duo", Music.mineOf(Track("repeat:z", title = "Duo Song", artist = "Other Half")).id)
+        assertEquals("another artist's song of the same name stays as it is", "repeat:w", Music.mineOf(Track("repeat:w", title = "Credit Song", artist = "Somebody Else & Another")).id)
+    }
+
     @Test fun aSongYouDontHaveIsLeftToBeFoundOnAService() {
         Harness.ctx
         val t = Music.fmSong("Nobody Has This One", "No One At All", "", Music.songIndex())

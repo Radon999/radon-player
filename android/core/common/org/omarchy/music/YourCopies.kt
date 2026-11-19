@@ -40,19 +40,28 @@ object YourCopies {
             val all = runCatching { mySongs() }.getOrDefault(emptyList())
             val byKey = HashMap<Pair<String, String>, MutableList<Track>>()
             val byLoose = HashMap<Pair<String, String>, MutableList<Track>>()
+            val byCredit = HashMap<Pair<String, String>, MutableList<Track>>()
             for (s in all) {
                 val (k, loose) = mineKeys(s)
                 byKey.getOrPut(k) { ArrayList() } += s
                 byLoose.getOrPut(loose to k.second) { ArrayList() } += s
+                // …and under each other artist your file credits ("A & B": B too), for a song named by B alone
+                if (s.artist.any { it == '&' || it == ',' || it == ';' } || " x " in s.artist || "feat" in s.artist.lowercase() || " ft" in s.artist.lowercase() || " with " in s.artist.lowercase())
+                    for (c in creditKeys(s.title, s.artist).drop(1)) byCredit.getOrPut(c) { ArrayList() } += s
             }
             mineOfKey = byKey
             mineOfLoose = byLoose
+            mineOfCredit = byCredit
             mineOfVer = v
         }
         val byKey = mineOfKey
         if (byKey.isEmpty()) return t   // no songs of your own (yet)
         val (k, loose) = mineKeys(t)
-        val copies = byKey[k] ?: mineOfLoose[loose to k.second] ?: return t
+        // By its name and lead artist; else by its name and any other artist it is credited to (a history says
+        // "hard life & BENEE", your file says "BENEE": the same song), either way round
+        val copies = byKey[k] ?: mineOfLoose[loose to k.second]
+            ?: creditKeys(t.title, t.artist).drop(1).firstNotNullOfOrNull { byKey[it] }
+            ?: mineOfCredit[k] ?: return t
         if (!t.file.isNullOrEmpty() && copies.any { it.file == t.file }) return t   // already your file (as it is now)
         return bestCopy(copies, t.album)
     }
@@ -88,6 +97,7 @@ object YourCopies {
     @Volatile private var mineOfVer = -1
     @Volatile private var mineOfKey: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfLoose: Map<Pair<String, String>, List<Track>> = emptyMap()
+    @Volatile private var mineOfCredit: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var localByTitle: Map<String, List<Track>> = emptyMap()
 
     private fun bare(a: String) = norm(a).replace(Regex("[\\W_]+"), "")

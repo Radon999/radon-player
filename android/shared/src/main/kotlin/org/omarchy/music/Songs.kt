@@ -452,6 +452,16 @@ fun looseTitle(title: String): String {
     return Regex("[\\W_]+").replace(t, "")
 }
 
+/** A song's [statsKey] under each artist it is credited to, the lead first: "OTT" by "hard life & BENEE" is OTT by
+ *  hard life and OTT by BENEE. A history names a song by everyone on it; your own file of it may be tagged with just one
+ *  of them, and not the first, so it is looked for under each. */
+fun creditKeys(title: String, artist: String): List<Pair<String, String>> {
+    val t = norm(cleanTitle(title))
+    return artist.lowercase().split(Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with "))
+        .map { p -> norm(p).let { n -> n.replace(Regex("[\\W_]+"), "").ifEmpty { n } } }
+        .filter { it.isNotEmpty() }.distinct().map { t to it }
+}
+
 fun songPickKey(title: String, artist: String): String = statsKey(title, artist).let { "${it.first}|${it.second}" }
 
 /** A song across Last.fm, Spotify, Apple Music and here: its name and lead artist, tidied
