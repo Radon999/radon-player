@@ -325,6 +325,11 @@ class VisState {
     private var histAcc = 0f
     var phase = 0f                              // seconds since it started, for things that drift
         private set
+    // An angle that turns steadily and faster with the bass, added up frame by frame (the Pinwheel). It has to be added
+    // up: the time so far times a speed that follows the bass throws the whole angle about each time the bass moves,
+    // and further the longer the visualizer has run (after five minutes, a small change in the bass was whole turns).
+    var spin = 0f
+        private set
     var bass = 0f                               // the bass's level now
         private set
     private var bassSlow = 0f
@@ -522,6 +527,7 @@ class VisState {
             peaks[b] = if (new >= peaks[b]) new else max(0f, peaks[b] - 0.45f * dt)
         }
         phase += dt
+        spin = (spin + dt * (0.5f + 1.2f * bass)) % (2f * Math.PI.toFloat())
         sinceLoud = if (loud > 0.01f) 0f else sinceLoud + dt
         histAcc += dt
         if (histAcc >= HIST_STEP) {

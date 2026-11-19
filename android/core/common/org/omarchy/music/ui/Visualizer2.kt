@@ -201,7 +201,7 @@ internal fun DrawScope.drawVis2(style: String, s: VisState, pal: VisPalette, fg:
                 drawPath(f, pal.at(i / (sides - 1f), v).copy(alpha = 0.1f + 0.75f * v)); drawPath(f, Color.White.copy(alpha = 0.35f), style = Stroke(1f * u))
                 val k = Path(); k.moveTo(ia.x, ia.y); k.lineTo(ib.x, ib.y); k.lineTo(c.x, c.y); k.close()
                 drawPath(k, pal.at(i / (sides - 1f), v).copy(alpha = 0.05f + 0.3f * lv[(i * 3) % n])); drawPath(k, Color.White.copy(alpha = 0.18f), style = Stroke(1f * u)) } }
-        "pinwheel" -> { val blades = 8; val rot = s.phase * (0.5f + 1.2f * s.bass)
+        "pinwheel" -> { val blades = 8; val rot = s.spin
             for (j in 0 until blades) { val v = part(j, blades); val a = rot + j * tau / blades; val len = half * (0.3f + 0.6f * v)
                 val tip = c + dir(a) * len; val side = c + dir(a + tau / blades) * (len * 0.55f)
                 val p = Path(); p.moveTo(c.x, c.y); p.lineTo(tip.x, tip.y); p.lineTo(side.x, side.y); p.close()
