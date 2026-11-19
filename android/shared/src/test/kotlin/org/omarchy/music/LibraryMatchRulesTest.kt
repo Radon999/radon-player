@@ -24,6 +24,21 @@ class LibraryMatchRulesTest {
         assertTrue(missing(phone, pc).isEmpty())
     }
 
+    @Test fun aFileWithNoTagsIsTheSameSongHoweverEachDeviceNamesIt() {
+        // the phone reads the whole file name as the title; the PC takes the artist out of it, or out of the folder
+        val phone = listOf(t("Jon Bellion - Graveyard [DEMO]", "Jon Bellion"), t("Die To Live", ""), t("High_Tide", "Unknown artist"), t("Brainwash - Cal Scruby", ""), t("lonely_road_(v2)", "Juice WRLD"))
+        val pc = listOf(t("Graveyard [DEMO]", "Jon Bellion"), t("Die To Live", "Juice WRLD"), t("High Tide", "Juice WRLD"), t("Brainwash", "Cal Scruby"), t("Lonely Road (v2)", "Juice WRLD"))
+        assertEquals(emptyList<String>(), missing(pc, phone))
+        assertEquals(emptyList<String>(), missing(phone, pc))
+    }
+
+    @Test fun aSongTheOtherReallyHasIsStillFound() {
+        val phone = listOf(t("Everybody's Changing", "Keane"), t("Die To Live", ""))
+        val pc = listOf(t("Everybody Talks", "Neon Trees"), t("Die To Live", "Juice WRLD"), t("Changing", "Someone Else"))
+        assertEquals(listOf("Everybody's Changing"), missing(phone, pc))
+        assertEquals("another artist's song of the same name is not yours", listOf("Drew"), missing(listOf(t("Drew", "Somebody")), listOf(t("Drew", "HOAX"))))
+    }
+
     @Test fun aLiveVersionIsAnotherSong() {
         assertEquals(listOf("Drew (Live)"), missing(listOf(t("Drew"), t("Drew (Live)")), listOf(t("Drew"))))
     }

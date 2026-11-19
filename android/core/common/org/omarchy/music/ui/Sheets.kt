@@ -210,7 +210,6 @@ private fun AccountsSheet(ui: Ui) {
             }
             if (onPhone) NotificationsLine(activity)
             if (org.omarchy.music.Startup.supported) StartupLine()
-            if (org.omarchy.music.SoftwareDrawing.supported) SoftwareDrawingLine()
             }
             Group("Personalization", ui) {
             PersonalizationLines(ui)
@@ -1024,18 +1023,6 @@ private fun StartupLine() {
         "without opening its window, ready for your keyboard's media keys and the phone remote", on) {
         Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
             else Music.toast("Couldn't: only the installed app can start with $sys") }, colors = swColors())
-    }
-}
-
-/** Software drawing (Linux): the window drawn without the graphics card, for where it flickers or stays black. */
-@Composable
-private fun SoftwareDrawingLine() {
-    var on by remember { mutableStateOf(org.omarchy.music.SoftwareDrawing.isOn()) }
-    Line("Software drawing", if (on) "On: the window is drawn without the graphics card (from the next start). Slower, but steady where the usual way flickers"
-        else "If the window flickers, flashes or stays black on this PC (or in a virtual machine), turn this on and start Radon Player again", on) {
-        Switch(on, { want -> if (org.omarchy.music.SoftwareDrawing.set(want)) { on = org.omarchy.music.SoftwareDrawing.isOn()
-                Music.toast("Software drawing ${if (on) "on" else "off"}: close Radon Player and start it again") }
-            else Music.toast("Couldn't change it") }, colors = swColors())
     }
 }
 

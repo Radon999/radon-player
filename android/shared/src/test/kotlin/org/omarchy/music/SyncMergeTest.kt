@@ -20,6 +20,9 @@ class SyncMergeTest {
         assertFalse(SyncRules.prefSyncs("auto_mono_device")); assertFalse(SyncRules.prefSyncs("pc_volume"))
         assertFalse(SyncRules.prefSyncs("discord")); assertFalse(SyncRules.prefSyncs("hq_resample"))
         assertFalse(SyncRules.prefSyncs("lock_screen_player")); assertFalse(SyncRules.prefSyncs("notif_asked"))
+        // Favorite settings, hidden choices and preset edits go across; the size of everything is each screen's own
+        assertTrue(SyncRules.prefSyncs("fav_settings")); assertTrue(SyncRules.prefSyncs("preset_edits")); assertTrue(SyncRules.prefSyncs("hidden_looks"))
+        assertTrue(SyncRules.prefSyncs("shuffle_mode")); assertFalse(SyncRules.prefSyncs("ui_size"))
         assertFalse(SyncRules.prefSyncs("ytm_cookie")); assertFalse(SyncRules.prefSyncs("sync_last"))
         assertFalse(SyncRules.prefSyncs("ignore_bt_devices")); assertFalse(SyncRules.prefSyncs("stream_quality"))
         assertTrue(SyncRules.prefSyncs("crossfade")); assertTrue(SyncRules.prefSyncs("dj_voice")); assertTrue(SyncRules.prefSyncs("dl_quality"))
