@@ -700,6 +700,7 @@ object PlaybackCore {
                 }
                 if (p != null) endWatch(p)
                 if (p != null) volumeWatch(p)
+                if (p != null) idleWatch(p)
                 changeWatch(p)
                 delay(500)
             }
@@ -709,6 +710,31 @@ object PlaybackCore {
     private val endWatcher = EndWatch()
 
     private var quietSince = 0L
+    private var lowSince = 0L
+    private var idleSince = 0L
+    private var idleHealedFor: String? = null
+    private var idleHeals = 0
+
+    /** A song that is meant to be playing while the player has let go of it (it sits idle with the song still loaded
+     *  for it, not paused, nothing moving on): heard as the music stopping partway with nothing said, and Play then
+     *  started the song from its beginning. After four seconds it is loaded again where it was, and noted (Settings ›
+     *  Problems). At most twice a song. */
+    private fun idleWatch(p: Engine) {
+        val t = current()
+        val stuck = t != null && !paused && !advancing && loadedFor == t.id && p.state == Engine.IDLE && !Remote.active && Music.cast == null
+        if (!stuck || t == null) { idleSince = 0L; return }
+        val now = System.currentTimeMillis()
+        if (idleSince == 0L) { idleSince = now; return }
+        if (now - idleSince < 4000) return
+        idleSince = 0L
+        if (idleHealedFor != t.id) { idleHealedFor = t.id; idleHeals = 0 }
+        if (idleHeals >= 2) return
+        idleHeals++
+        Crashes.note("“${t.title}” was meant to be playing but the player had stopped at ${position.toInt()}s: loaded again from there")
+        SoundLog.note("the player had stopped mid-song: loaded again at ${position.toInt()}s")
+        resumeAt = position
+        loadCurrent(autoplay = true)
+    }
     private var risingUntil = 0L   // a song coming up from quiet at its start: its volume is on its way until then
 
     /** A song playing on with no sound: the player's own volume left turned down. A crossfade and the DJ turn it down
@@ -716,6 +742,20 @@ object PlaybackCore {
      *  in the queue) nothing brought it back, and the song went on counting in silence. With nothing fading and the
      *  DJ not talking, a volume still down after four seconds is put back to full, and noted (Settings › Problems). */
     private fun volumeWatch(p: Engine) {
+        // Whatever says it is busy: no fade and no line of the DJ's keeps the music down for half a minute. A volume
+        // still down after that long with the DJ not talking is put back, and what was holding it is noted.
+        val nowMs = System.currentTimeMillis()
+        if (p.isPlaying && p.volume < 0.98f && !djSide.talking && !Remote.active && Music.cast == null) {
+            if (lowSince == 0L) lowSince = nowMs
+            else if (nowMs - lowSince > 30_000) {
+                lowSince = 0L
+                val why = "volume ${"%.2f".format(p.volume)} for half a minute (turned down for the DJ: ${djSide.musicDucked}, a crossfade's old song still there: ${fadingOut != null}, coming up: $fadeIn)"
+                Crashes.note("“${current()?.title}” was playing with its sound turned down at ${p.positionMs / 1000}s: $why. Put back to full")
+                SoundLog.note("$why: put back to full")
+                fadeIn = 0.0
+                p.volume = 1f
+            }
+        } else lowSince = 0L
         // (turned down for the DJ only counts while it is talking: a turn-down that outlived its line is put right too)
         val busy = (djSide.musicDucked && djSide.talking) || fadingOut != null || fadeIn != 0.0 || Remote.active || Music.cast != null || !p.isPlaying || System.currentTimeMillis() < risingUntil
         if (busy || p.volume >= 0.98f) { quietSince = 0L; return }

@@ -10,7 +10,11 @@ object PlayButtons {
         if (Remote.active) { Remote.cmd("play"); return }
         val p = Music.player ?: return
         if (DjDirector.djPlay(p)) return   // the DJ's part of Play: it is never left stuck
-        if (p.state == Engine.IDLE || !p.hasItem) Music.loadCurrent() else p.play()
+        if (p.state == Engine.IDLE || !p.hasItem) {
+            // The player let go of the song it was playing: it goes on from where it was, not from its beginning
+            if (PlaybackCore.loadedFor == Music.current()?.id && Music.position > 1.0) PlaybackCore.resumeAt = Music.position
+            Music.loadCurrent()
+        } else p.play()
     }
 
     /** Next from your headphones, the car, the lock screen or the PC's media keys. With the DJ on and the music paused
