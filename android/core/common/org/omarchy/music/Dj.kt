@@ -331,8 +331,20 @@ object Dj {
         }
         val bag = NoRepeat.bag(all[key].orEmpty(), lines.size)
         all[key] = bag
-        keep(LINE_BAGS, all.entries.joinToString("\n") { "${it.key}=${it.value.joinToString(",")}" })
+        keepBagsSoon()
         lines[bag.last()]
+    }
+
+    // Many lines ask for their wording each time the facts are gathered: their turns are written once, a moment later
+    private var bagsWaiting = false
+    private fun keepBagsSoon() {
+        if (bagsWaiting) return
+        bagsWaiting = true
+        runCatching { Music.scope.launch {
+            kotlinx.coroutines.delay(1_000)
+            val text = synchronized(lock) { bagsWaiting = false; bags.orEmpty().entries.joinToString("\n") { "${it.key}=${it.value.joinToString(",")}" } }
+            Prefs.setText(LINE_BAGS, text)
+        } }.onFailure { bagsWaiting = false }
     }
 
     /** A kind as the history keeps it: playing from a playlist, "Your favourites" is the same kind as from everything. */
@@ -878,37 +890,37 @@ object Dj {
             val k = Stats.statsKey(s.title, s.artist)
             val id = "${k.first}|${k.second}"
             val n = f.count[k] ?: 0
-            streakDays[songKey(s)]?.let { d -> out["streak:$id"] = "You've played ${q(s)} on $d of the last seven days. It's in this set too." }
-            if (songKey(s) in yearAgo) out["year-ago:$id"] = "A year ago this week you were playing ${q(s)} as well."
+            streakDays[songKey(s)]?.let { d -> out["streak:$id"] = say("v-streak", "You've played ${q(s)} on $d of the last seven days. It's in this set too.", "${q(s)} has been on $d of your last seven days. It's here again.", "$d days out of the last seven, you've played ${q(s)}. It's in this set.") }
+            if (songKey(s) in yearAgo) out["year-ago:$id"] = say("v-year-ago", "A year ago this week you were playing ${q(s)} as well.", "This week last year, ${q(s)} was in your rotation too.", "${q(s)} was on for you a year ago this week.")
             if (topMood != null && runCatching { Moods.of(s) }.getOrNull() == topMood)
-                out["mood-next:$id"] = "${q(s)} is ${withArticle(Moods.adjective(topMood))} one, the mood you've played most this month."
+                out["mood-next:$id"] = say("v-mood-next", "${q(s)} is ${withArticle(Moods.adjective(topMood))} one, the mood you've played most this month.", "The mood you've played most this month is ${Moods.adjective(topMood)}, and ${q(s)} fits it.")
             s.artist.split(",")[0].trim().takeIf { it.isNotEmpty() }?.let { a ->
                 f.artistFirst[a]?.let { t ->
                     val m = f.artistMonth[a] ?: 0
                     when (FactRules.artistSince(nowS, t, m)) {
-                        "since" -> out["artist-since:$a"] = "You've been listening to $a since ${month(t)}."
-                        "new" -> out["artist-new:$a"] = "You only found $a this month, and you've played them ${num(m)} times already."
+                        "since" -> out["artist-since:$a"] = say("v-artist-since", "You've been listening to $a since ${month(t)}.", "$a has been with you since ${month(t)}.", "Your first play of $a was back in ${month(t)}.")
+                        "new" -> out["artist-new:$a"] = say("v-artist-new", "You only found $a this month, and you've played them ${num(m)} times already.", "$a is new to you this month. ${num(m)} plays so far.", "${num(m)} plays of $a already, and you only found them this month.")
                         else -> {}
                     }
                 }
             }
             val dur = s.duration.takeIf { it > 0 } ?: taste.mine[songKey(s)]?.duration ?: 0.0
             FactRules.timeWith(n, dur)?.let { (unit, amount) ->
-                if (unit == "hours") out["hours:$id"] = "You've spent about ${hoursText(amount)} hours with ${q(s)}. That's ${num(n)} plays."
-                else out["minutes:$id"] = "You've played ${q(s)} ${num(n)} times, about ${amount.toInt()} minutes of it."
+                if (unit == "hours") out["hours:$id"] = say("v-hours", "You've spent about ${hoursText(amount)} hours with ${q(s)}. That's ${num(n)} plays.", "${num(n)} plays of ${q(s)} comes to about ${hoursText(amount)} hours.", "About ${hoursText(amount)} hours of your listening is ${q(s)} alone. ${num(n)} plays.")
+                else out["minutes:$id"] = say("v-minutes", "You've played ${q(s)} ${num(n)} times, about ${amount.toInt()} minutes of it.", "${num(n)} plays of ${q(s)}, about ${amount.toInt()} minutes in all.")
             }
             f.first[k]?.let { t ->
                 val days = ((nowS - t) / 86_400L).toInt()
                 when (FactRules.firstPlay(nowS, t, n)) {
-                    "first" -> out["first:$id"] = "You first played ${q(s)} back in ${month(t)}."
-                    "crush" -> out["crush:$id"] = "You found ${q(s)} $days days ago, and you've played it ${num(n)} times since."
+                    "first" -> out["first:$id"] = say("v-first", "You first played ${q(s)} back in ${month(t)}.", "${q(s)} goes back to ${month(t)} for you.", "Your first play of ${q(s)} was in ${month(t)}.")
+                    "crush" -> out["crush:$id"] = say("v-crush", "You found ${q(s)} $days days ago, and you've played it ${num(n)} times since.", "${q(s)} is only $days days old for you, and it's at ${num(n)} plays.", "${num(n)} plays of ${q(s)} in the $days days since you found it.")
                     else -> {}
                 }
             }
             heard[songKey(s)]?.let { (sk, full) ->
                 when (FactRules.skipsOf(sk, full)) {
-                    "never" -> out["never-skipped:$id"] = "You've heard ${q(s)} all the way through ${num(full)} times, and never skipped it."
-                    "skipped" -> out["skipped:$id"] = "You've skipped ${q(s)} ${num(sk)} times. Maybe today it lands."
+                    "never" -> out["never-skipped:$id"] = say("v-never-skipped-song", "You've heard ${q(s)} all the way through ${num(full)} times, and never skipped it.", "${num(full)} full plays of ${q(s)}, and not one skip.", "You've never skipped ${q(s)}. ${num(full)} times, start to finish.")
+                    "skipped" -> out["skipped:$id"] = say("v-skipped", "You've skipped ${q(s)} ${num(sk)} times. Maybe today it lands.", "${q(s)} has been skipped ${num(sk)} times. Here it is again.")
                     else -> {}
                 }
             }
@@ -924,42 +936,42 @@ object Dj {
         }
         // Your moods
         FactRules.moodShare(f.moodMonth)?.let { (m, percent) ->
-            out["mood-month"] = "Lately it's been mostly ${Moods.adjective(m)} songs, $percent percent of what you played from your collection this month."
+            out["mood-month"] = say("v-mood-month", "Lately it's been mostly ${Moods.adjective(m)} songs, $percent percent of what you played from your collection this month.", "$percent percent of what you played from your collection this month was ${Moods.adjective(m)}.")
         }
         taste.moodHour.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (m, _) ->
-            out["mood-hour"] = "Around this time of day, you usually go for something ${Moods.adjective(m)}."
+            out["mood-hour"] = say("v-mood-hour", "Around this time of day, you usually go for something ${Moods.adjective(m)}.", "At this hour you tend to play ${Moods.adjective(m)} songs.", "This time of day usually means something ${Moods.adjective(m)} for you.")
         }
         moodFacts(taste, nowS, out)
         // Your artists and songs
         val byMonth = f.artistMonth.entries.sortedByDescending { it.value }
-        byMonth.getOrNull(0)?.takeIf { it.value >= 10 }?.let { (a, n) -> out["top-artist-month"] = "Your most played artist this month is $a, with ${num(n)} plays." }
+        byMonth.getOrNull(0)?.takeIf { it.value >= 10 }?.let { (a, n) -> out["top-artist-month"] = say("v-top-artist-month", "Your most played artist this month is $a, with ${num(n)} plays.", "$a leads your month so far. ${num(n)} plays.", "Nobody has had more plays from you this month than $a. ${num(n)} of them.") }
         byMonth.getOrNull(1)?.takeIf { it.value >= 8 }?.let { (b, n) ->
-            out["second-artist-month"] = "Second most played this month: $b, with ${num(n)} plays, just behind ${byMonth[0].key}."
+            out["second-artist-month"] = say("v-second-artist-month", "Second most played this month: $b, with ${num(n)} plays, just behind ${byMonth[0].key}.", "$b is second for you this month with ${num(n)} plays, right behind ${byMonth[0].key}.")
         }
-        f.artistAll.maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { (a, n) -> out["top-artist-all"] = "All time, you've played $a ${num(n)} times. More than anyone else." }
-        if (f.artistAll.size >= 50) out["artists-count"] = "You've listened to ${num(f.artistAll.size)} different artists."
-        if (f.count.size >= 200) out["songs-count"] = "You've played ${num(f.count.size)} different songs. That's a deep collection."
+        f.artistAll.maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { (a, n) -> out["top-artist-all"] = say("v-top-artist-all", "All time, you've played $a ${num(n)} times. More than anyone else.", "$a is your most played artist of all. ${num(n)} plays.", "${num(n)} plays of $a over the years. That's your highest for any artist.") }
+        if (f.artistAll.size >= 50) out["artists-count"] = say("v-artists-count", "You've listened to ${num(f.artistAll.size)} different artists.", "${num(f.artistAll.size)} different artists have had a play from you.")
+        if (f.count.size >= 200) out["songs-count"] = say("v-songs-count", "You've played ${num(f.count.size)} different songs. That's a deep collection.", "${num(f.count.size)} different songs have come through your rotation.")
         taste.recent.firstOrNull()?.takeIf { it.plays >= 5 }?.let { s ->
-            out["top-song-month"] = "Your most played song this month is ${q(s)} by ${by(s)}, with ${num(s.plays)} plays."
+            out["top-song-month"] = say("v-top-song-month", "Your most played song this month is ${q(s)} by ${by(s)}, with ${num(s.plays)} plays.", "${q(s)} by ${by(s)} is your song of the month so far. ${num(s.plays)} plays.", "This month's most played is ${q(s)} by ${by(s)}, ${num(s.plays)} times.")
         }
         // Your genre lately, as your own files name it
         val genres = HashMap<String, Int>()
         for (t in taste.recent) for (g in genreParts(genreOf(t))) genres.merge(g.lowercase(), maxOf(1, t.plays), Int::plus)
         genres.maxByOrNull { it.value }?.takeIf { it.value >= 15 }?.let { (g, _) ->
-            out["top-genre-month"] = "Your top genre lately is $g. More of it than anything else this month."
+            out["top-genre-month"] = say("v-top-genre-month", "Your top genre lately is $g. More of it than anything else this month.", "It's been a $g month for you. More of that than anything else.")
         }
         // When you listen
-        FactRules.peakHour(f.hours)?.let { out["peak-hour"] = "You do most of your listening around ${hourName(it)}." }
-        FactRules.nightShare(f.hours, f.total)?.let { night -> out["night-share"] = "About $night percent of your listening happens after midnight." }
-        FactRules.morningShare(f.hours, f.total)?.let { early -> out["morning-share"] = "About $early percent of your listening happens before 10 AM." }
+        FactRules.peakHour(f.hours)?.let { out["peak-hour"] = say("v-peak-hour", "You do most of your listening around ${hourName(it)}.", "Your busiest hour for music is around ${hourName(it)}.") }
+        FactRules.nightShare(f.hours, f.total)?.let { night -> out["night-share"] = say("v-night-share", "About $night percent of your listening happens after midnight.", "After midnight accounts for about $night percent of your listening.") }
+        FactRules.morningShare(f.hours, f.total)?.let { early -> out["morning-share"] = say("v-morning-share", "About $early percent of your listening happens before 10 AM.", "Before 10 AM accounts for about $early percent of your listening.") }
         if (f.monthPlays >= 100) out["month-plays"] = say("fact-month-plays",
             "You've played ${num(f.monthPlays)} songs so far this month.",
             "${num(f.monthPlays)} plays this month, and it's not over.")
         f.artistFirst.entries.filter { nowS - it.value < 30 * 86_400L && (f.artistMonth[it.key] ?: 0) >= 15 }.maxByOrNull { f.artistMonth[it.key] ?: 0 }?.let { (a, _) ->
-            out["new-artist-month"] = "Your discovery of the month is $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them."
+            out["new-artist-month"] = say("v-new-artist-month", "Your discovery of the month is $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them.", "$a is this month's find. ${num(f.artistMonth[a] ?: 0)} plays already.")
         }
-        if (f.total >= 1000) out["total-plays"] = "That's ${num(f.total)} plays, all told."
-        FactRules.yearsBack(nowS, f.since)?.let { years -> out["since"] = "Your listening goes back to ${month(f.since)}, over ${num(years)} years of music." }
+        if (f.total >= 1000) out["total-plays"] = say("v-total-plays", "That's ${num(f.total)} plays, all told.", "All together, you're at ${num(f.total)} plays.")
+        FactRules.yearsBack(nowS, f.since)?.let { years -> out["since"] = say("v-since", "Your listening goes back to ${month(f.since)}, over ${num(years)} years of music.", "Over ${num(years)} years of your music are on record, back to ${month(f.since)}.") }
         // Your years
         val thisYear = java.time.LocalDate.now().year
         for ((y, top) in f.yearTop) if (y < thisYear && top.second >= 10)
@@ -970,21 +982,21 @@ object Dj {
         }
         // Skips
         rows.filter { it.second >= 5 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
-            out["most-skipped"] = "The song you skip most is ${q(t)}, with ${num(sk)} skips. It stays in rotation for when the mood is right."
+            out["most-skipped"] = say("v-most-skipped", "The song you skip most is ${q(t)}, with ${num(sk)} skips. It stays in rotation for when the mood is right.", "${q(t)} is your most skipped song, at ${num(sk)}. It stays in rotation all the same.")
         }
         rows.filter { it.second == 0 }.maxByOrNull { it.third }?.takeIf { it.third >= 15 }?.let { (t, _, full) ->
-            out["never-skipped"] = "You've never skipped ${q(t)}. ${num(full)} times, start to finish."
+            out["never-skipped"] = say("v-never-skipped", "You've never skipped ${q(t)}. ${num(full)} times, start to finish.", "${num(full)} plays of ${q(t)}, every one to the end.")
         }
         val skips = rows.sumOf { it.second }; val outs = rows.sumOf { it.third }
-        if (skips >= 25) out["skips-all"] = "You've skipped ${num(skips)} songs in all. A skip never takes a song out of rotation, it only means the mood wasn't right."
+        if (skips >= 25) out["skips-all"] = say("v-skips-all", "You've skipped ${num(skips)} songs in all. A skip never takes a song out of rotation, it only means the mood wasn't right.", "${num(skips)} skips in all. A skipped song stays in rotation, it only means the mood wasn't right.")
         runCatching { Music.songStats.rows(nowS - 7 * 86_400L) }.getOrNull()?.let { wk ->
             val n = wk.sumOf { it.second }
-            if (n >= 10) out["skips-week"] = "You've skipped ${num(n)} songs this week. I'll keep looking for the right ones."
+            if (n >= 10) out["skips-week"] = say("v-skips-week", "You've skipped ${num(n)} songs this week. I'll keep looking for the right ones.", "${num(n)} skips this week. I'll keep adjusting.")
             wk.filter { it.second >= 3 }.maxByOrNull { it.second }?.let { (t, sk, _) ->
-                out["skipped-week:${songKey(t)}"] = "This week you skipped ${q(t)} ${num(sk)} times. It'll come round again another day."
+                out["skipped-week:${songKey(t)}"] = say("v-skipped-week", "This week you skipped ${q(t)} ${num(sk)} times. It'll come round again another day.", "${q(t)} got skipped ${num(sk)} times this week. It'll be back another day.")
             }
         }
-        FactRules.heardOutPercent(skips, outs)?.let { percent -> out["heard-out"] = "You hear $percent percent of songs all the way through." }
+        FactRules.heardOutPercent(skips, outs)?.let { percent -> out["heard-out"] = say("v-heard-out", "You hear $percent percent of songs all the way through.", "$percent percent of the songs you start, you finish.") }
         collectionFacts(taste, nowS, next, out)
         // The subjects take turns (FactTopics): skips, moods, an artist, your collection… each waits for the others
         val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return@runCatching null
@@ -1007,45 +1019,45 @@ object Dj {
                 "Your collection holds ${num(mine.size)} songs by ${num(byArtist.size)} artists.",
                 "${num(mine.size)} songs in your collection, from ${num(byArtist.size)} artists.")
             val secs = mine.sumOf { it.duration }
-            FactRules.libraryHours(secs)?.let { hours -> out["library-hours"] = "Played end to end, your collection would run about ${num(hours)} hours." }
+            FactRules.libraryHours(secs)?.let { hours -> out["library-hours"] = say("v-library-hours", "Played end to end, your collection would run about ${num(hours)} hours.", "There are about ${num(hours)} hours of music in your collection.") }
             byArtist.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (a, n) ->
-                out["library-artist"] = "You have more songs by $a than by anyone else. ${num(n)} of them."
+                out["library-artist"] = say("v-library-artist", "You have more songs by $a than by anyone else. ${num(n)} of them.", "$a has the most songs in your collection. ${num(n)}.")
             }
             mine.filter { it.duration >= 420 }.maxByOrNull { it.duration }?.let { t ->
-                out["library-longest"] = "The longest song in your collection is ${q(t)} by ${by(t)}, at ${(t.duration / 60).toInt()} minutes."
+                out["library-longest"] = say("v-library-longest", "The longest song in your collection is ${q(t)} by ${by(t)}, at ${(t.duration / 60).toInt()} minutes.", "At ${(t.duration / 60).toInt()} minutes, ${q(t)} by ${by(t)} is the longest song you have.")
             }
             val albums = mine.filter { it.album.isNotBlank() }.map { norm(lead(it)) to albumBase(it.album) }.distinct().size
-            if (albums >= 20) out["library-albums"] = "There are ${num(albums)} albums and singles in your collection."
+            if (albums >= 20) out["library-albums"] = say("v-library-albums", "There are ${num(albums)} albums and singles in your collection.", "Your collection holds ${num(albums)} albums and singles.")
             val unplayed = mine.count { (f.count[Stats.statsKey(it.title, it.artist)] ?: 0) == 0 }
-            if (FactRules.unplayedTold(f.total, unplayed)) out["library-unplayed"] = "${num(unplayed)} songs in your collection are still waiting for a first play."
+            if (FactRules.unplayedTold(f.total, unplayed)) out["library-unplayed"] = say("v-library-unplayed", "${num(unplayed)} songs in your collection are still waiting for a first play.", "${num(unplayed)} songs you have haven't had their first play yet.")
             val added = FactRules.addedLately(mine.map { it.added }, nowS)
-            if (added >= 5) out["library-added"] = "You've added ${num(added)} songs to your collection in the last month."
-            genres.maxByOrNull { it.value }?.takeIf { it.value >= 20 }?.let { (g, n) -> out["library-genre"] = "The genre you own the most of is $g. ${num(n)} songs." }
-            if (genres.size >= 8) out["library-genres"] = "Your collection covers ${num(genres.size)} genres."
+            if (added >= 5) out["library-added"] = say("v-library-added", "You've added ${num(added)} songs to your collection in the last month.", "${num(added)} new songs have joined your collection in the last month.")
+            genres.maxByOrNull { it.value }?.takeIf { it.value >= 20 }?.let { (g, n) -> out["library-genre"] = say("v-library-genre", "The genre you own the most of is $g. ${num(n)} songs.", "$g makes up more of your collection than any other genre. ${num(n)} songs.") }
+            if (genres.size >= 8) out["library-genres"] = say("v-library-genres", "Your collection covers ${num(genres.size)} genres.", "There are ${num(genres.size)} genres in your collection.")
         }
         val starred = runCatching { mine.count { Music.favorites.has(it) } }.getOrDefault(0)
-        if (starred >= 5) out["favorites-count"] = "You've starred ${num(starred)} songs in your collection."
+        if (starred >= 5) out["favorites-count"] = say("v-favorites-count", "You've starred ${num(starred)} songs in your collection.", "${num(starred)} songs in your collection carry a star.")
         runCatching { Music.lists.all().filter { it.discovery == null } }.getOrNull()?.takeIf { it.size >= 3 }?.let { lists ->
             val big = lists.maxByOrNull { it.tracks.size }
             out["playlists"] = if (big != null && big.tracks.size >= 10) "You keep ${num(lists.size)} playlists. The biggest is ${big.name}, with ${num(big.tracks.size)} songs."
                 else "You keep ${num(lists.size)} playlists."
         }
         val thisYear = java.time.LocalDate.now().year
-        f.yearPlays[thisYear - 1]?.takeIf { it >= 100 }?.let { n -> out["year-plays:${thisYear - 1}"] = "Last year you played ${num(n)} songs." }
-        f.yearPlays[thisYear]?.takeIf { it >= 100 }?.let { n -> out["year-so-far"] = "${num(n)} plays so far this year." }
+        f.yearPlays[thisYear - 1]?.takeIf { it >= 100 }?.let { n -> out["year-plays:${thisYear - 1}"] = say("v-year-plays", "Last year you played ${num(n)} songs.", "Last year came to ${num(n)} plays.") }
+        f.yearPlays[thisYear]?.takeIf { it >= 100 }?.let { n -> out["year-so-far"] = say("v-year-so-far", "${num(n)} plays so far this year.", "This year you're at ${num(n)} plays.") }
         // The songs coming up
         for (s in next.take(4)) {
             val k = Stats.statsKey(s.title, s.artist)
             val id = "${k.first}|${k.second}"
             lastPlayed(taste, s).takeIf { FactRules.longUnheard(nowS, it) }?.let { t ->
-                out["last-played:$id"] = "You haven't played ${q(s)} since ${month(t)}. It's in this set."
+                out["last-played:$id"] = say("v-last-played", "You haven't played ${q(s)} since ${month(t)}. It's in this set.", "${q(s)} hasn't had a play since ${month(t)}. It's coming up.", "It's been since ${month(t)} for ${q(s)}. It's in this set.")
             }
             val a = lead(s)
-            byArtist[a]?.takeIf { it >= 8 }?.let { n -> out["artist-songs:$a"] = "You have ${num(n)} songs by $a in your collection." }
+            byArtist[a]?.takeIf { it >= 8 }?.let { n -> out["artist-songs:$a"] = say("v-artist-songs", "You have ${num(n)} songs by $a in your collection.", "There are ${num(n)} songs by $a in your collection.") }
             // (How many songs of its album you have was told here for a day: the owner found it said little. Taken out.)
             val g = genreOf(s)
-            genres[g]?.takeIf { it >= 10 }?.let { n -> out["genre-song:$id"] = "${q(s)} is one of ${num(n)} $g songs you have." }
-            if (runCatching { Music.favorites.has(s) }.getOrDefault(false)) out["favorite:$id"] = "${q(s)} is one of the songs you've starred."
+            genres[g]?.takeIf { it >= 10 }?.let { n -> out["genre-song:$id"] = say("v-genre-song", "${q(s)} is one of ${num(n)} $g songs you have.", "You have ${num(n)} $g songs. ${q(s)} is one of them.") }
+            if (runCatching { Music.favorites.has(s) }.getOrDefault(false)) out["favorite:$id"] = say("v-favorite", "${q(s)} is one of the songs you've starred.", "${q(s)} carries one of your stars.")
         }
     }
 
@@ -1079,7 +1091,7 @@ object Dj {
                 "This month you've played ${num(mo)} ${adj(m)} songs" + (if (month.values.sum() > 0) ", ${MoodTally.percent(month, m)} percent of the month." else "."))
         }
         MoodTally.top(all, minPlays = 100)?.let { (m, n) ->
-            out["mood-all"] = "All time, the mood you play most is $m. ${num(n)} plays, ${MoodTally.percent(all, m)} percent of your music."
+            out["mood-all"] = say("v-mood-all", "All time, the mood you play most is $m. ${num(n)} plays, ${MoodTally.percent(all, m)} percent of your music.", "$m is your most played mood of all. ${num(n)} plays, ${MoodTally.percent(all, m)} percent of your music.")
         }
         MoodTally.shift(month, before)?.let { (m, was, pct) ->
             out["mood-shift:$m"] = say("fact-mood-shift",
@@ -1091,7 +1103,7 @@ object Dj {
         val topMood = MoodTally.top(month, minPlays = 20)?.first ?: MoodTally.top(all, minPlays = 50)?.first
         if (topMood != null) MoodTally.topSong(plays, topMood, minPlays = 5)?.let { (song, n) ->
             moodSong(song)?.let { t ->
-                out["mood-song:$topMood"] = "Your most played ${adj(topMood)} song is ${q(t)} by ${by(t)}. ${num(n)} plays."
+                out["mood-song:$topMood"] = say("v-mood-song", "Your most played ${adj(topMood)} song is ${q(t)} by ${by(t)}. ${num(n)} plays.", "Of your ${adj(topMood)} songs, ${q(t)} by ${by(t)} has the most plays. ${num(n)}.")
             }
         }
         // The time of day you lean to a mood
@@ -1112,7 +1124,7 @@ object Dj {
             else "About $hype percent of your music is Hype."
         // A mood you've drifted away from
         MoodTally.neglected(all, month)?.let { m ->
-            out["mood-neglected:$m"] = "You used to play a lot of ${adj(m)} songs, but hardly any lately. One might turn up soon."
+            out["mood-neglected:$m"] = say("v-mood-neglected", "You used to play a lot of ${adj(m)} songs, but hardly any lately. One might turn up soon.", "Your ${adj(m)} songs got a lot of plays once. Not so much lately.")
         }
     }
 
@@ -1544,22 +1556,22 @@ object Dj {
             out["c-top:$id"] = if (i == 0) "Your most played song of all time, coming up." else "This one's in your all time top ten. Number ${ordinal(i + 1)}."
         }
         Music.songStats.rows().firstOrNull { songKey(it.first) == songKey(t) }?.let { (_, sk, full) ->
-            if (KindRules.neverSkipped(sk, full)) out["c-never:$id"] = "You've never skipped this one. ${num(full)} times, start to finish."
+            if (KindRules.neverSkipped(sk, full)) out["c-never:$id"] = say("v-c-never", "You've never skipped this one. ${num(full)} times, start to finish.", "${num(full)} plays of this one, and never a skip.")
         }
         f.first[k]?.let { first ->
             val days = ((now().toLong() - first) / 86_400L).toInt()
-            if (KindRules.newObsession(days, n)) out["c-crush:$id"] = "You found this one $days days ago, and you've played it ${num(n)} times already."
-            if (KindRules.oldFriend(days)) out["c-old:$id"] = "You first played this one back in ${month(first)}."
+            if (KindRules.newObsession(days, n)) out["c-crush:$id"] = say("v-c-crush", "You found this one $days days ago, and you've played it ${num(n)} times already.", "This one is $days days old for you, and already at ${num(n)} plays.")
+            if (KindRules.oldFriend(days)) out["c-old:$id"] = say("v-c-old", "You first played this one back in ${month(first)}.", "This one goes back to ${month(first)} for you.")
         }
         // Repeats: how often you let it play again with Repeat one, its longest run, how long since, and your most repeated artist
         RepeatLoops.of(t)?.let { l ->
-            if (l.n >= 5) out["c-loop:$id"] = "You've had this one on repeat ${num(l.n)} times."
-            if (l.best >= 4) out["c-looprun:$id"] = "Your record with this one is ${l.best} times in a row."
+            if (l.n >= 5) out["c-loop:$id"] = say("v-c-loop", "You've had this one on repeat ${num(l.n)} times.", "${num(l.n)} times, you've let this one play again.", "This one has gone round again for you ${num(l.n)} times.")
+            if (l.best >= 4) out["c-looprun:$id"] = say("v-c-looprun", "Your record with this one is ${l.best} times in a row.", "${l.best} times in a row is your longest run with this one.")
             val ago = ((System.currentTimeMillis() - l.last) / 86_400_000L).toInt()
-            if (l.n >= 3 && l.last > 0 && ago >= 60) out["c-loopback:$id"] = "You used to have this one on repeat, a long time ago. You haven't in a while."   // (it named the month it was last on repeat: the owner asked for it said plainly, 2026-11-19)
+            if (l.n >= 3 && l.last > 0 && ago >= 60) out["c-loopback:$id"] = say("v-c-loopback", "You used to have this one on repeat, a long time ago. You haven't in a while.", "You wore this one out once. Not lately.", "This one used to be on repeat for you. It's been a while.")   // (it named the month it was last on repeat: the owner asked for it said plainly, 2026-11-19)
         }
         loopArtist()?.let { (a, times) ->
-            if (norm(a) == norm(t.artist.split(",")[0])) out["c-loopartist:${norm(a)}"] = "You put $a on repeat more than anyone else. ${num(times)} times so far."
+            if (norm(a) == norm(t.artist.split(",")[0])) out["c-loopartist:${norm(a)}"] = say("v-c-loopartist", "You put $a on repeat more than anyone else. ${num(times)} times so far.", "Nobody gets repeated by you more than $a. ${num(times)} times so far.")
         }
         val key = NoRepeat.pickTurn(out.keys.toList(), said(FACT_HISTORY), FactTopics::of, NO_REPEAT) ?: return null
         remember(FACT_HISTORY, key)

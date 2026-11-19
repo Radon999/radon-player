@@ -432,3 +432,139 @@ The lines about songs let play again with Repeat one. In `Dj.kt`: the four sets 
 | c-looprun | Your record with this one is ${l.best} times in a row. |
 | c-loopback | You used to have this one on repeat, a long time ago. You haven't in a while. |
 | c-loopartist | You put $a on repeat more than anyone else. ${num(times)} times so far. |
+
+## More than one way to say it (added 19 November 2026)
+
+The owner asked for the same thing said in different ways, so a set that comes round again does not always bring the same sentence. Each line below had one wording; it now takes turns with the others listed (none is said again until the others have been). The first of each is the wording it had.
+
+| key | wording |
+|---|---|
+| v-streak | You've played ${q(s)} on $d of the last seven days. It's in this set too. |
+| v-streak | ${q(s)} has been on $d of your last seven days. It's here again. |
+| v-streak | $d days out of the last seven, you've played ${q(s)}. It's in this set. |
+| v-year-ago | A year ago this week you were playing ${q(s)} as well. |
+| v-year-ago | This week last year, ${q(s)} was in your rotation too. |
+| v-year-ago | ${q(s)} was on for you a year ago this week. |
+| v-mood-next | ${q(s)} is ${withArticle(Moods.adjective(topMood))} one, the mood you've played most this month. |
+| v-mood-next | The mood you've played most this month is ${Moods.adjective(topMood)}, and ${q(s)} fits it. |
+| v-artist-since | You've been listening to $a since ${month(t)}. |
+| v-artist-since | $a has been with you since ${month(t)}. |
+| v-artist-since | Your first play of $a was back in ${month(t)}. |
+| v-artist-new | You only found $a this month, and you've played them ${num(m)} times already. |
+| v-artist-new | $a is new to you this month. ${num(m)} plays so far. |
+| v-artist-new | ${num(m)} plays of $a already, and you only found them this month. |
+| v-hours | You've spent about ${hoursText(amount)} hours with ${q(s)}. That's ${num(n)} plays. |
+| v-hours | ${num(n)} plays of ${q(s)} comes to about ${hoursText(amount)} hours. |
+| v-hours | About ${hoursText(amount)} hours of your listening is ${q(s)} alone. ${num(n)} plays. |
+| v-minutes | You've played ${q(s)} ${num(n)} times, about ${amount.toInt()} minutes of it. |
+| v-minutes | ${num(n)} plays of ${q(s)}, about ${amount.toInt()} minutes in all. |
+| v-first | You first played ${q(s)} back in ${month(t)}. |
+| v-first | ${q(s)} goes back to ${month(t)} for you. |
+| v-first | Your first play of ${q(s)} was in ${month(t)}. |
+| v-crush | You found ${q(s)} $days days ago, and you've played it ${num(n)} times since. |
+| v-crush | ${q(s)} is only $days days old for you, and it's at ${num(n)} plays. |
+| v-crush | ${num(n)} plays of ${q(s)} in the $days days since you found it. |
+| v-never-skipped-song | You've heard ${q(s)} all the way through ${num(full)} times, and never skipped it. |
+| v-never-skipped-song | ${num(full)} full plays of ${q(s)}, and not one skip. |
+| v-never-skipped-song | You've never skipped ${q(s)}. ${num(full)} times, start to finish. |
+| v-skipped | You've skipped ${q(s)} ${num(sk)} times. Maybe today it lands. |
+| v-skipped | ${q(s)} has been skipped ${num(sk)} times. Here it is again. |
+| v-mood-month | Lately it's been mostly ${Moods.adjective(m)} songs, $percent percent of what you played from your collection this month. |
+| v-mood-month | $percent percent of what you played from your collection this month was ${Moods.adjective(m)}. |
+| v-mood-hour | Around this time of day, you usually go for something ${Moods.adjective(m)}. |
+| v-mood-hour | At this hour you tend to play ${Moods.adjective(m)} songs. |
+| v-mood-hour | This time of day usually means something ${Moods.adjective(m)} for you. |
+| v-top-artist-month | Your most played artist this month is $a, with ${num(n)} plays. |
+| v-top-artist-month | $a leads your month so far. ${num(n)} plays. |
+| v-top-artist-month | Nobody has had more plays from you this month than $a. ${num(n)} of them. |
+| v-second-artist-month | Second most played this month: $b, with ${num(n)} plays, just behind ${byMonth[0].key}. |
+| v-second-artist-month | $b is second for you this month with ${num(n)} plays, right behind ${byMonth[0].key}. |
+| v-top-artist-all | All time, you've played $a ${num(n)} times. More than anyone else. |
+| v-top-artist-all | $a is your most played artist of all. ${num(n)} plays. |
+| v-top-artist-all | ${num(n)} plays of $a over the years. That's your highest for any artist. |
+| v-artists-count | You've listened to ${num(f.artistAll.size)} different artists. |
+| v-artists-count | ${num(f.artistAll.size)} different artists have had a play from you. |
+| v-songs-count | You've played ${num(f.count.size)} different songs. That's a deep collection. |
+| v-songs-count | ${num(f.count.size)} different songs have come through your rotation. |
+| v-top-song-month | Your most played song this month is ${q(s)} by ${by(s)}, with ${num(s.plays)} plays. |
+| v-top-song-month | ${q(s)} by ${by(s)} is your song of the month so far. ${num(s.plays)} plays. |
+| v-top-song-month | This month's most played is ${q(s)} by ${by(s)}, ${num(s.plays)} times. |
+| v-top-genre-month | Your top genre lately is $g. More of it than anything else this month. |
+| v-top-genre-month | It's been a $g month for you. More of that than anything else. |
+| v-peak-hour | You do most of your listening around ${hourName(it)}. |
+| v-peak-hour | Your busiest hour for music is around ${hourName(it)}. |
+| v-night-share | About $night percent of your listening happens after midnight. |
+| v-night-share | After midnight accounts for about $night percent of your listening. |
+| v-morning-share | About $early percent of your listening happens before 10 AM. |
+| v-morning-share | Before 10 AM accounts for about $early percent of your listening. |
+| v-new-artist-month | Your discovery of the month is $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them. |
+| v-new-artist-month | $a is this month's find. ${num(f.artistMonth[a] ?: 0)} plays already. |
+| v-total-plays | That's ${num(f.total)} plays, all told. |
+| v-total-plays | All together, you're at ${num(f.total)} plays. |
+| v-since | Your listening goes back to ${month(f.since)}, over ${num(years)} years of music. |
+| v-since | Over ${num(years)} years of your music are on record, back to ${month(f.since)}. |
+| v-most-skipped | The song you skip most is ${q(t)}, with ${num(sk)} skips. It stays in rotation for when the mood is right. |
+| v-most-skipped | ${q(t)} is your most skipped song, at ${num(sk)}. It stays in rotation all the same. |
+| v-never-skipped | You've never skipped ${q(t)}. ${num(full)} times, start to finish. |
+| v-never-skipped | ${num(full)} plays of ${q(t)}, every one to the end. |
+| v-skips-all | You've skipped ${num(skips)} songs in all. A skip never takes a song out of rotation, it only means the mood wasn't right. |
+| v-skips-all | ${num(skips)} skips in all. A skipped song stays in rotation, it only means the mood wasn't right. |
+| v-skips-week | You've skipped ${num(n)} songs this week. I'll keep looking for the right ones. |
+| v-skips-week | ${num(n)} skips this week. I'll keep adjusting. |
+| v-skipped-week | This week you skipped ${q(t)} ${num(sk)} times. It'll come round again another day. |
+| v-skipped-week | ${q(t)} got skipped ${num(sk)} times this week. It'll be back another day. |
+| v-heard-out | You hear $percent percent of songs all the way through. |
+| v-heard-out | $percent percent of the songs you start, you finish. |
+| v-library-hours | Played end to end, your collection would run about ${num(hours)} hours. |
+| v-library-hours | There are about ${num(hours)} hours of music in your collection. |
+| v-library-artist | You have more songs by $a than by anyone else. ${num(n)} of them. |
+| v-library-artist | $a has the most songs in your collection. ${num(n)}. |
+| v-library-longest | The longest song in your collection is ${q(t)} by ${by(t)}, at ${(t.duration / 60).toInt()} minutes. |
+| v-library-longest | At ${(t.duration / 60).toInt()} minutes, ${q(t)} by ${by(t)} is the longest song you have. |
+| v-library-albums | There are ${num(albums)} albums and singles in your collection. |
+| v-library-albums | Your collection holds ${num(albums)} albums and singles. |
+| v-library-unplayed | ${num(unplayed)} songs in your collection are still waiting for a first play. |
+| v-library-unplayed | ${num(unplayed)} songs you have haven't had their first play yet. |
+| v-library-added | You've added ${num(added)} songs to your collection in the last month. |
+| v-library-added | ${num(added)} new songs have joined your collection in the last month. |
+| v-library-genre | The genre you own the most of is $g. ${num(n)} songs. |
+| v-library-genre | $g makes up more of your collection than any other genre. ${num(n)} songs. |
+| v-library-genres | Your collection covers ${num(genres.size)} genres. |
+| v-library-genres | There are ${num(genres.size)} genres in your collection. |
+| v-favorites-count | You've starred ${num(starred)} songs in your collection. |
+| v-favorites-count | ${num(starred)} songs in your collection carry a star. |
+| v-year-plays | Last year you played ${num(n)} songs. |
+| v-year-plays | Last year came to ${num(n)} plays. |
+| v-year-so-far | ${num(n)} plays so far this year. |
+| v-year-so-far | This year you're at ${num(n)} plays. |
+| v-last-played | You haven't played ${q(s)} since ${month(t)}. It's in this set. |
+| v-last-played | ${q(s)} hasn't had a play since ${month(t)}. It's coming up. |
+| v-last-played | It's been since ${month(t)} for ${q(s)}. It's in this set. |
+| v-artist-songs | You have ${num(n)} songs by $a in your collection. |
+| v-artist-songs | There are ${num(n)} songs by $a in your collection. |
+| v-genre-song | ${q(s)} is one of ${num(n)} $g songs you have. |
+| v-genre-song | You have ${num(n)} $g songs. ${q(s)} is one of them. |
+| v-favorite | ${q(s)} is one of the songs you've starred. |
+| v-favorite | ${q(s)} carries one of your stars. |
+| v-mood-all | All time, the mood you play most is $m. ${num(n)} plays, ${MoodTally.percent(all, m)} percent of your music. |
+| v-mood-all | $m is your most played mood of all. ${num(n)} plays, ${MoodTally.percent(all, m)} percent of your music. |
+| v-mood-song | Your most played ${adj(topMood)} song is ${q(t)} by ${by(t)}. ${num(n)} plays. |
+| v-mood-song | Of your ${adj(topMood)} songs, ${q(t)} by ${by(t)} has the most plays. ${num(n)}. |
+| v-mood-neglected | You used to play a lot of ${adj(m)} songs, but hardly any lately. One might turn up soon. |
+| v-mood-neglected | Your ${adj(m)} songs got a lot of plays once. Not so much lately. |
+| v-c-never | You've never skipped this one. ${num(full)} times, start to finish. |
+| v-c-never | ${num(full)} plays of this one, and never a skip. |
+| v-c-crush | You found this one $days days ago, and you've played it ${num(n)} times already. |
+| v-c-crush | This one is $days days old for you, and already at ${num(n)} plays. |
+| v-c-old | You first played this one back in ${month(first)}. |
+| v-c-old | This one goes back to ${month(first)} for you. |
+| v-c-loop | You've had this one on repeat ${num(l.n)} times. |
+| v-c-loop | ${num(l.n)} times, you've let this one play again. |
+| v-c-loop | This one has gone round again for you ${num(l.n)} times. |
+| v-c-looprun | Your record with this one is ${l.best} times in a row. |
+| v-c-looprun | ${l.best} times in a row is your longest run with this one. |
+| v-c-loopback | You used to have this one on repeat, a long time ago. You haven't in a while. |
+| v-c-loopback | You wore this one out once. Not lately. |
+| v-c-loopback | This one used to be on repeat for you. It's been a while. |
+| v-c-loopartist | You put $a on repeat more than anyone else. ${num(times)} times so far. |
+| v-c-loopartist | Nobody gets repeated by you more than $a. ${num(times)} times so far. |
