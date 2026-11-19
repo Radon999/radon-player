@@ -57,7 +57,7 @@ object Sync {
     /** Whether a file of this name is taken from a sync (any other is left out). Each device's list of its songs
      *  (SONGS_HERE) was sent but missing here until 4.0.19, so it was dropped on arrival by both sides and Other
      *  device's songs never had anything to show. */
-    internal fun takes(name: String): Boolean = name in KNOWN
+    fun takes(name: String): Boolean = name in KNOWN
 
     var busy by mutableStateOf<String?>(null)   // "Syncing with …" while it runs
         private set
