@@ -1,1 +1,57 @@
-LINUX START: no package to start
+LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
+LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+LINUX START: the installed app started and was still running after 45 s
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:13 of 0:40)
+LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
+LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
+LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:13 of 0:40)
+LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
+LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
+LINUX START: a picture of its window was taken (linux-start.jpg)
+LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
+LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
+LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
+LINUX FILM: the window 2097159: Window 2097159   Position: 0,0 (screen: 0)   Geometry: 1280x800 
+LINUX FILM: Now playing with the Blocks visualizer filmed for 12 s (linux-vis.mp4, 152 KB)
+LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
+--- what the app wrote as it started
+Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
+[SKIKO] warn: Fallback to next API
+org.jetbrains.skiko.RenderException: Cannot create Linux GL context
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content
+radon-player: A song change took 76.2 s: 7 the player said ENDED: dj=false song=1/1 at=39.2/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 10 next: END | 994 next: NEXT_SONG | 994 load “40 Hz Test Tone” play=true | 1286 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2787 next: NEXT_SONG | 2787 load “10 Hz - 200 Hz Slow Sweep” play=true | 2959 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4468 next: NEXT_SONG | 4468 load “Bass Sweep (feat. Techmaster P” play=true | 4636 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6137 next: NEXT_SONG | 6137 load “10Hz Bass Test” play=true | 6319 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20304 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 75920 load “Linux test tone” play=true | 75954 got it | 75954 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 76.2 s: 7 the player said ENDED: dj=false song=1/1 at=39.2/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 10 next: END | 994 next: NEXT_SONG | 994 load “40 Hz Test Tone” play=true | 1286 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2787 next: NEXT_SONG | 2787 load “10 Hz - 200 Hz Slow Sweep” play=true | 2959 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4468 next: NEXT_SONG | 4468 load “Bass Sweep (feat. Techmaster P” play=true | 4636 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6137 next: NEXT_SONG | 6137 load “10Hz Bass Test” play=true | 6319 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20304 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 75920 load “Linux test tone” play=true | 75954 got it | 75954 into the player (at 0 s, play=true, state before 1)
+--- its Problems
+	at java.desktop/java.awt.event.InvocationEvent.dispatch(Unknown Source)
+	at java.desktop/java.awt.EventQueue.dispatchEventImpl(Unknown Source)
+	at java.desktop/java.awt.EventQueue$4.run(Unknown Source)
+	at java.desktop/java.awt.EventQueue$4.run(Unknown Source)
+	at java.base/java.security.AccessController.doPrivileged(Unknown Source)
+	at java.base/java.security.ProtectionDomain$JavaSecurityAccessImpl.doIntersectionPrivilege(Unknown Source)
+	at java.desktop/java.awt.EventQueue.dispatchEvent(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.run(Unknown Source)
+
+
+--- the files it made: 38
