@@ -219,8 +219,8 @@ fun SongClipDialog(ui: Ui, t: Track) {
                         Text(ClipRules.clock(end), style = T.time, modifier = Modifier.width(44.dp).padding(start = 6.dp))
                     }
                     Row {
-                        if (playingIt) TextButton({ val at = Music.position; range = ClipRules.bounds(at, at + (end - start), song) }) { Text("Start where it's playing", color = C.accent) }
-                        if (playingIt) TextButton({ Music.seek(start) }) { Text("Hear it from there", color = C.accent) }
+                        if (playingIt) TextButton({ val at = Music.position; range = ClipRules.bounds(at, at + (end - start), song); if (Music.paused) Music.togglePause() }) { Text("Start where it's playing", color = C.accent) }
+                        if (playingIt) TextButton({ Music.seek(start); if (Music.paused) Music.togglePause() }) { Text("Hear it from there", color = C.accent) }
                     }
                     if (busy) Text("Making the clip… a few seconds", style = T.sub.copy(color = C.accent))
                 }

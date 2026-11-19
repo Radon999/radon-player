@@ -245,8 +245,8 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                         Text(ClipRules.clock(end), style = T.sub, modifier = Modifier.width(40.dp).padding(start = 6.dp))
                     }
                     Row {
-                        if (playingIt) TextButton({ val at = Music.position; manual = ClipRules.bounds(at, at + (end - start), song, ClipRules.MAX_LYRICS) }) { Text("Start where it's playing", color = C.accent) }
-                        if (playingIt) TextButton({ Music.seek(start) }) { Text("Hear it", color = C.accent) }
+                        if (playingIt) TextButton({ val at = Music.position; manual = ClipRules.bounds(at, at + (end - start), song, ClipRules.MAX_LYRICS); if (Music.paused) Music.togglePause() }) { Text("Start where it's playing", color = C.accent) }
+                        if (playingIt) TextButton({ Music.seek(start); if (Music.paused) Music.togglePause() }) { Text("Hear it", color = C.accent) }
                         if (timedOn && manual != null) TextButton({ manual = null }) { Text("Back to the lines", color = C.accent) }
                     }
                 }
