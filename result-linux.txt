@@ -1,10 +1,10 @@
-commit 04baf355fac4aa5a0ae4303d36cc035ffce733ac · run 44551316916 · Thu Nov 19 15:19:23 UTC 2026
+commit a7fed9459acaf7a95c12747395714885a9b646f9 · run 44553577953 · Thu Nov 19 15:39:09 UTC 2026
 SHARED TESTS: 119 suites, 568 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 41 suites, 161 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.3 s (with loading the voice); then 5.3 s of speech in 1.2 s (4.2x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.9 s (with loading the voice); then 4.8 s of speech in 1.7 s (2.9x real time)
 PC COMPILES: yes
-LINUX PACKAGE: radon-player_4.0.19_amd64.deb, 90M
+LINUX PACKAGE: radon-player_4.0.20_amd64.deb, 90M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
@@ -21,6 +21,9 @@ LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
 LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
 --- the end of the log
 > Task :app:compileDebugJavaWithJavac
 > Task :app:processDebugJavaRes
@@ -32,7 +35,7 @@ w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement ma
 
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.19_amd64.deb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.20_amd64.deb
 
 > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
 > Task :app:processDebugUnitTestJavaRes
@@ -50,5 +53,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 48s
+BUILD SUCCESSFUL in 5m 40s
 59 actionable tasks: 59 executed
