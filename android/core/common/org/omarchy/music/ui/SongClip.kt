@@ -145,18 +145,26 @@ internal fun cardArtist(t: Track): String {
 @Volatile private var cardPlays: Map<Pair<String, String>, Int>? = null
 @Volatile private var cardPlaysAt = 0L
 
-/** Makes a clip away from the screen, then hands it on (to save, to share); says why if it couldn't be made. */
+/** Makes a clip away from the screen, then hands it on (to save, to share); says why if it couldn't be made.
+ *  The clip made is kept while its box is open: asked again for the same clip (the same [key]: the card, where it starts
+ *  and ends), the one already made is handed on at once, so it can go to Instagram, then Facebook, then be saved without
+ *  being made each time. Changing anything makes a new one; leaving the box throws the kept one away (a saved copy stays). */
 @Composable
-internal fun rememberClipMaker(): Pair<Boolean, (ImageBitmap, ClipRules.Bar?, () -> String, Double, Double, String, (java.io.File) -> Unit) -> Unit> {
+internal fun rememberClipMaker(): Pair<Boolean, (Any, ImageBitmap, ClipRules.Bar?, () -> String, Double, Double, String, (java.io.File) -> Unit) -> Unit> {
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    return busy to { card, bar, file, start, end, name, then ->
-        if (!busy) {
+    val kept = remember { arrayOfNulls<Any>(2) }   // the key of the clip that was made, and its file
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { (kept[1] as? java.io.File)?.let { f -> runCatching { f.delete() } }; kept[0] = null; kept[1] = null } }
+    return busy to { key, card, bar, file, start, end, name, then ->
+        val have = (kept[1] as? java.io.File)?.takeIf { kept[0] == key && it.isFile && it.length() > 0 }
+        if (have != null) then(have)
+        else if (!busy) {
             busy = true
             scope.launch {
                 // file: the song's file or, for a streamed song, its stream's address, looked up here (away from the screen)
                 val made = withContext(Dispatchers.IO) { runCatching { makeClip(card, bar, file(), start, end - start, name) } }
                 busy = false
+                made.onSuccess { kept[0] = key; kept[1] = it }
                 made.onSuccess(then).onFailure { Music.toast("Couldn't make the clip: " + (it.message ?: "something went wrong")) }
             }
         }
@@ -184,7 +192,7 @@ fun SongClipDialog(ui: Ui, t: Track) {
     val name = ClipRules.fileName(t.title)
     fun go(then: (java.io.File) -> Unit) {
         val (base, bar) = SongClips.card(t, styleKey, start, end, 0f)
-        make(base, bar, { SongClips.source(t) }, start, end, name, then)
+        make(listOf(t.id, styleKey, start, end, mine, Music.look, C.bg, C.fg, C.accent, thumb != null), base, bar, { SongClips.source(t) }, start, end, name, then)
     }
     val sliders = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.15f))
     val top = if (song > 0) song.toFloat() else 600f

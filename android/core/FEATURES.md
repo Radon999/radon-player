@@ -89,7 +89,7 @@ Short sets built from *your* listening, with a voice like a radio host's, over t
 - **Synced** lyrics light up line by line (tap a line to jump there); **Genius** shows them as written, with annotations.
 - **Lyrics card:** Tick up to 25 lines for a picture to share or save, in Your look, Now playing's colours, 60 ready-made styles, or your own.
 - **With the song's sound:** tick it in the Lyrics card box and the card is shared as a short video with the song playing, from the first line ticked to where the last one stops; Starts and Ends set it yourself, and are how it is set for a song nobody has timed lyrics for.
-- **Share a clip with sound:** a song's Options makes a short video of its cover, name and a seek bar that fills, with the song playing from where you say to where you say (3 seconds to a minute), in any lyrics card style. For a song you only stream the sound is taken from its stream.
+- **Share a clip with sound:** a song's Options makes a short video of its cover, name and a seek bar that fills, with the song playing from where you say to where you say (3 seconds to a minute), in any lyrics card style. For a song you only stream the sound is taken from its stream. Once a clip is made it is kept while its box is open, so it can go to one app, then another, then be saved without being made again; changing the clip makes a new one, and closing the box throws the kept one away (a saved copy stays).
 - **Plays on cards:** lyrics cards, picture cards and clips say how often you've played the song beside the artist (Personalization switches it off).
 - **Lyrics scanner:** Finds lyrics for every song and writes them into the files; the ones it can't find you can type or mark instrumental.
 

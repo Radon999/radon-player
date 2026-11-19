@@ -269,7 +269,7 @@ fun LyricsCardDialog(ui: Ui, t: Track, got: Lyrics.Got) {
                     }
                 }
                 // With the song's sound: the card made a video first (the lines ticked say where it starts and ends)
-                val clip: ((java.io.File) -> Unit) -> Unit = { then -> make(bmp, null, { SongClips.source(t) }, range.first, range.second, clipName, then) }
+                val clip: ((java.io.File) -> Unit) -> Unit = { then -> make(listOf(bmp, t.id, range.first, range.second), bmp, null, { SongClips.source(t) }, range.first, range.second, clipName, then) }
                 if (onPhone) Row {
                     TextButton({ if (sound) clip { f -> if (!shareClip(f, clipName, "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }
                         else if (!sharePicture(bmp, "${t.title} lyrics", "com.instagram.android")) Music.toast("Instagram isn't on this $DEVICE") }, enabled = !busy) {
