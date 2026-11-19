@@ -1556,7 +1556,7 @@ object Dj {
             if (l.n >= 5) out["c-loop:$id"] = "You've had this one on repeat ${num(l.n)} times."
             if (l.best >= 4) out["c-looprun:$id"] = "Your record with this one is ${l.best} times in a row."
             val ago = ((System.currentTimeMillis() - l.last) / 86_400_000L).toInt()
-            if (l.n >= 3 && l.last > 0 && ago >= 60) out["c-loopback:$id"] = "You haven't had this one on repeat since ${month(l.last / 1000)}."
+            if (l.n >= 3 && l.last > 0 && ago >= 60) out["c-loopback:$id"] = "You used to have this one on repeat, a long time ago. You haven't in a while."   // (it named the month it was last on repeat: the owner asked for it said plainly, 2026-11-19)
         }
         loopArtist()?.let { (a, times) ->
             if (norm(a) == norm(t.artist.split(",")[0])) out["c-loopartist:${norm(a)}"] = "You put $a on repeat more than anyone else. ${num(times)} times so far."

@@ -430,5 +430,5 @@ The lines about songs let play again with Repeat one. In `Dj.kt`: the four sets 
 | loop-nudge | That's $run in a row. I can keep this up as long as you can. Switch repeat off when you want something else. |
 | c-loop | You've had this one on repeat ${num(l.n)} times. |
 | c-looprun | Your record with this one is ${l.best} times in a row. |
-| c-loopback | You haven't had this one on repeat since ${month(l.last / 1000)}. |
+| c-loopback | You used to have this one on repeat, a long time ago. You haven't in a while. |
 | c-loopartist | You put $a on repeat more than anyone else. ${num(times)} times so far. |
