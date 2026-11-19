@@ -56,6 +56,7 @@ Everything is in the ☰ menu. Each page can be a list, a grid or a compact grid
 - **Moved files are followed,** so playlists still find them, and a song you have under another name of its artist isn't called missing.
 - **Asked for at the start (phone):** your music, the microphone (for the visualizer; nothing is recorded), notifications and All files access, until each is allowed; and a music folder, until one is chosen.
 - **Nothing is deleted without asking.**
+- **Jump to a letter:** every long list (20 or more: songs, albums, artists, playlists, Most played, moods, Discovery and the rest) has a strip of letters down its right side, as tall as the list and wide enough for a thumb: tap a letter or run a finger down it. In a list sorted by name (A to Z or Z to A, or songs sorted by artist or album) a letter goes to where it begins; in any other order (by plays, by date, your own) it goes to the first name that starts with it.
 
 ## Streaming & downloads
 
@@ -185,6 +186,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 ## Help
 
 - **Favorite settings:** the first section of Settings holds the settings you starred (the ☆ beside a setting's name), for the ones you use all the time. Each stays in its own section too.
+- **Size of everything (Settings › General):** makes the app's text and everything else bigger or smaller together, from 80% to 250%, for a screen where it all comes out too small or too big. On the PC it changes at once; on the phone the screen is drawn again.
 - **Updates:** Checked each time the app starts (it says whether there's one); **Update** in Settings installs it (on Linux it downloads the package and opens it with your system's installer).
 - **Changelog and Features** are in the ☰ menu.
 - **Problems:** Settings shows anything that went wrong recently, with a Copy button.

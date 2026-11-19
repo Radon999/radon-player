@@ -4,6 +4,13 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.18: A bigger letter strip on every list, Size of everything, and fixes (Android, Windows and Linux)
+- **Jump to a letter, bigger and on every long list:** the strip of letters is as tall as the list, wide enough for a thumb, and its letters are as big as fit (it was too small to read or hit on a phone); the rows keep clear of it. Every list of 20 or more has one now: songs anywhere, albums, artists, playlists, smart playlists, moods, pins, Most played's tabs, an artist's albums, New releases and Discovery. In a list in no order by name (by plays, by date, your own order) a letter goes to the first name that starts with it.
+- **Size of everything (Settings › General):** makes the app's text and everything else bigger or smaller together, from 80% to 250%, for a screen where it all comes out too small or too big. On the PC it changes at once; on the phone the screen is drawn again. The PC's mini player keeps its usual size.
+- **Play on the PC stops the phone's own song:** switching Play on (or pairing) left the phone's song playing under the PC's, with every button going to the PC. The phone now pauses what it was playing; its song and queue are kept for when you switch back.
+- **Pinwheel visualizer:** it jumped about, more wildly the longer it had been running (the Fruit stand and Fairground presets use it). It now turns steadily, faster with the bass.
+- **Linux, on Hyprland, Sway, niri, i3 and the like:** the app was drawn at the size it asked for in a corner of a bigger window, with a line round it. On those desktops it now starts itself with the setting that makes it follow its window. Other desktops and Windows are unchanged.
+
 ## 4.0.17: The first and last line of a lyrics card, clips kept, a bell for new releases, Unplayed and neglected, and three ways to shuffle (Android, Windows and Linux)
 - **Lyrics card: tick the first line and the last:** the first line you tick is marked **1**; tick another and it is marked **2** and every line between them is ticked too (upward as well), so a verse is two taps. A ticked line unticks on its own, a third line starts another run, and **Clear** starts over. Still up to 25 lines; after a fill the card shows the lines in the song's order.
 - **The Lyrics card box scrolls:** the list of lines keeps its full height under the card and the sliders (it had shrunk to two lines on a phone with the sound ticked). Scroll down past the card to reach the lines.
