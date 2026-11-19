@@ -16,9 +16,12 @@ object WindowSystemRules {
 
     /** Whether to start again with the setting: Linux, one of those desktops, and the setting not made already (by the
      *  person, or by the start before this one). */
-    fun startAgain(os: String, env: Map<String, String>): Boolean {
+    fun startAgain(os: String, env: Map<String, String>): Boolean = env[SETTING].isNullOrEmpty() && placesWindowsItself(os, env)
+
+    /** Linux on one of those desktops. They have no minimized windows either: a window asked to minimize stays where
+     *  it is. */
+    fun placesWindowsItself(os: String, env: Map<String, String>): Boolean {
         if (!os.lowercase().contains("linux")) return false
-        if (!env[SETTING].isNullOrEmpty()) return false
         if (SIGNS.any { !env[it].isNullOrEmpty() }) return true
         val names = listOf("XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION").flatMap { (env[it] ?: "").lowercase().split(':', ';', ',', ' ', '/') }
         return names.any { n -> n in TILING }

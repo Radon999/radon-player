@@ -24,5 +24,9 @@ class OpeningRulesTest {
     @Test fun withNoTrayClosingMinimizes() {
         assertEquals("tray", OpeningRules.onClose(hasTray = true))
         assertEquals("minimize", OpeningRules.onClose(hasTray = false))
+        // no tray and no minimized windows (Hyprland…): hidden while music plays, closed when nothing does
+        assertEquals("hide", OpeningRules.onClose(hasTray = false, noMinimize = true, playing = true))
+        assertEquals("quit", OpeningRules.onClose(hasTray = false, noMinimize = true, playing = false))
+        assertEquals("tray", OpeningRules.onClose(hasTray = true, noMinimize = true, playing = false))
     }
 }

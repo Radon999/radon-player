@@ -13,7 +13,16 @@ object OpeningRules {
         else -> setting
     }
 
-    /** Closing the window: with a tray the app stays there and the music goes on ("tray"); with none (some Linux
-     *  desktops) there'd be no way back to it, so the app is minimized and the music goes on ("minimize"). */
-    fun onClose(hasTray: Boolean): String = if (hasTray) "tray" else "minimize"
+    /** Closing the window. With a tray the app stays there and the music goes on ("tray"). With none (some Linux
+     *  desktops) it is minimized and the music goes on ("minimize"). On a desktop that has no tray and no minimized
+     *  windows either (noMinimize: Hyprland, Sway and the like, where a window asked to minimize stays where it is, so
+     *  the close button did nothing at all): the window is hidden while music plays, which goes on and is still worked
+     *  by the desktop's media controls and keys, and opening the app again shows it ("hide"); with nothing playing the
+     *  app closes ("quit"). */
+    fun onClose(hasTray: Boolean, noMinimize: Boolean = false, playing: Boolean = false): String = when {
+        hasTray -> "tray"
+        !noMinimize -> "minimize"
+        playing -> "hide"
+        else -> "quit"
+    }
 }

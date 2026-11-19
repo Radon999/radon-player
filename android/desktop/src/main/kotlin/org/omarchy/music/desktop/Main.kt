@@ -119,9 +119,21 @@ private fun app(args: Array<String>) = application {
     // With no tray (some Linux desktops) a closed window would leave the app playing with no way back to it: there
     // closing minimizes it instead, and the music goes on
     val hasTray = remember { runCatching { java.awt.SystemTray.isSupported() }.getOrDefault(true) }
+    val noMinimize = remember { runCatching { org.omarchy.music.WindowSystemRules.placesWindowsItself(System.getProperty("os.name").orEmpty(), System.getenv()) }.getOrDefault(false) }
+    // The app goes on with no window and no tray (hidden on such a desktop) until it is told to quit
+    LaunchedEffect(Unit) { kotlinx.coroutines.awaitCancellation() }
     val mainWindow = rememberWindowState(width = 1100.dp, height = 800.dp)
     if (shown && !PcWindows.mini) Window(onCloseRequest = {
-            if (org.omarchy.music.OpeningRules.onClose(hasTray) == "minimize") { mainWindow.isMinimized = true; return@Window }
+            when (org.omarchy.music.OpeningRules.onClose(hasTray, noMinimize, playing = !Music.paused && Music.current() != null)) {
+                "minimize" -> { mainWindow.isMinimized = true; return@Window }
+                "quit" -> { quit(); return@Window }
+                // No tray and no minimized windows: hidden, the music goes on. Said once, by the desktop's own notes
+                "hide" -> { shown = false
+                    if (!org.omarchy.music.Prefs.on("hide_hint_shown")) { org.omarchy.music.Prefs.set("hide_hint_shown", true)
+                        runCatching { ProcessBuilder("notify-send", "-a", "Radon Player", "Radon Player is still playing",
+                            "Open it again to see its window. To close it for good, pause the music and close the window.").start() } }
+                    return@Window }
+            }
             shown = false
             if (bitPerfectOff()) tray.sendNotification(androidx.compose.ui.window.Notification("Bit-perfect turned off",
                 "So the PC's other sound is heard while Radon Player is in the tray. Turn it on again in Settings › Sound quality."))
@@ -136,7 +148,7 @@ private fun app(args: Array<String>) = application {
         onPreviewKeyEvent = { e ->
             org.omarchy.music.ui.HeldKeys.ctrl = e.isCtrlPressed; org.omarchy.music.ui.HeldKeys.shift = e.isShiftPressed
             e.type == KeyEventType.KeyDown && e.key == Key.Escape && !org.omarchy.music.ui.Typing.now &&
-                (Back.press() || (org.omarchy.music.ui.Ui.current?.tab == "player").also { if (it) { if (hasTray) shown = false else mainWindow.isMinimized = true } })
+                (Back.press() || (org.omarchy.music.ui.Ui.current?.tab == "player").also { if (it) { if (hasTray || noMinimize) shown = false else mainWindow.isMinimized = true } })
         },
         onKeyEvent = { e -> shortcut(e) { quit() } }) {
         LaunchedEffect(Unit) {

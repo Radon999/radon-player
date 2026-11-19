@@ -19,6 +19,12 @@ class WindowSystemRulesTest {
         assertFalse(R.startAgain("Windows 11", mapOf("XDG_CURRENT_DESKTOP" to "Hyprland")))
     }
 
+    @Test fun whetherTheDesktopPlacesWindowsItselfWhateverTheSetting() {
+        assertTrue(R.placesWindowsItself("Linux", mapOf("XDG_CURRENT_DESKTOP" to "Hyprland", R.SETTING to "1")))
+        assertFalse(R.placesWindowsItself("Linux", mapOf("XDG_CURRENT_DESKTOP" to "GNOME")))
+        assertFalse(R.placesWindowsItself("Windows 11", emptyMap()))
+    }
+
     @Test fun notTwiceAndNotOverThePersonsOwnSetting() {
         assertFalse(R.startAgain("Linux", mapOf("XDG_CURRENT_DESKTOP" to "Hyprland", R.SETTING to "1")))
         assertFalse(R.startAgain("Linux", mapOf("HYPRLAND_INSTANCE_SIGNATURE" to "abc", R.SETTING to "0")))
