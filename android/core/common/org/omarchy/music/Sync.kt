@@ -53,7 +53,11 @@ object Sync {
     private const val SONGS_HERE = "other-device-songs.json"
     private const val DOWNLOADS = "downloads.json" // the songs downloaded on this device: the other downloads the ones it hasn't
     private const val TAGS = "tag-changes.json"  // tag changes made on this device since the other took them (TagSync)
-    private val KNOWN = SyncRules.FILES + SyncRules.SONG_FILES + listOf(SyncRules.STATE, SyncRules.SWITCHES, SyncRules.MOODS, DIARY, DOWNLOADS, TAGS, TagMatch.FILE)
+    private val KNOWN = SyncRules.FILES + SyncRules.SONG_FILES + listOf(SyncRules.STATE, SyncRules.SWITCHES, SyncRules.MOODS, DIARY, DOWNLOADS, SONGS_HERE, TAGS, TagMatch.FILE)
+    /** Whether a file of this name is taken from a sync (any other is left out). Each device's list of its songs
+     *  (SONGS_HERE) was sent but missing here until 4.0.19, so it was dropped on arrival by both sides and Other
+     *  device's songs never had anything to show. */
+    internal fun takes(name: String): Boolean = name in KNOWN
 
     var busy by mutableStateOf<String?>(null)   // "Syncing with …" while it runs
         private set

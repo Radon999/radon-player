@@ -2822,10 +2822,10 @@ private fun NameDialog(title: String, start: String, dismiss: () -> Unit, done: 
 @Composable
 private fun OtherDeviceSongsLine(ui: Ui) {
     val dev = org.omarchy.music.LibraryMatch.from
-    val n by androidx.compose.runtime.produceState<Int?>(null, Music.musicVersion, Music.savedVersion, org.omarchy.music.LibraryMatch.at) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { org.omarchy.music.LibraryMatch.missing().size }.getOrNull() }
+    val lacking by androidx.compose.runtime.produceState<List<Track>?>(null, Music.musicVersion, Music.savedVersion, org.omarchy.music.LibraryMatch.at) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { org.omarchy.music.LibraryMatch.missing() }.getOrNull() }
     }
-    val count = n
+    val count = lacking?.size
     Line("Other device's songs", when {
         dev.isEmpty() -> "Keeps your phone's and your PC's music the same. At each Sync the two tell each other every song they have (names only); " +
             "the ones the other has that this $DEVICE hasn't are listed for you to tick and download, or leave out. Sync once to start (both need this version)"
@@ -2836,6 +2836,12 @@ private fun OtherDeviceSongsLine(ui: Ui) {
             ui.sheet = null
             goTo(ui, "music", "theirs")
         }
+    }
+    // The first few of them, right here (Review… has them all, to tick and download)
+    val some = lacking.orEmpty()
+    if (dev.isNotEmpty() && some.isNotEmpty()) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+        some.take(8).forEach { t -> Text("${t.title} · ${t.artist}", style = T.sub, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+        if (some.size > 8) Text("…and %,d more: tap Review".format(some.size - 8), style = T.sub.copy(color = C.accent))
     }
 }
 
