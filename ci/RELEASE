@@ -1,0 +1,9 @@
+v4.0.23
+Radon Player 4.0.23: unreleased songs under their real artist, WAV tags that stay, and covers in Repeats
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.23.msi` (Windows), `radon-player_4.0.23_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **A song your history has under somebody else's name is your file:** an unreleased song is often put up under an uploader's name, so your history had it under an artist who isn't on your file. Your only song of the same name and the same length (to the second) is now taken to be it: it shows with your file's artist, cover and tags, and its plays count for that artist in Most played, Artists and Wrapped. What plays from a service is never swapped this way.
+- **This is a song of mine…:** for a song whose name is different too. A song's Options lets you pick which of your files it is, once (your songs of the same length are listed first); it is then shown, played and counted as that file. Your file's Options undoes it. A file with no artist in its tags is not accepted: give it one first.
+- **WAVs keep their tags on the phone:** Android reads no tags from a WAV (its name came from the file, its album from the folder, its artist was unknown), so a WAV you tagged went back to Unknown artist at the next scan. The app now reads each WAV's own title, artist and album from the file.
+- **Covers in Repeats, Recently played and Listen later:** a song that isn't yours and came with no picture has its cover looked up, as Most played does; when nothing has its cover, its artist's picture stands in.
