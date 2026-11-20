@@ -1,8 +1,8 @@
-commit 2e63b3bf18110d9fa32b66d657cdaaa580efabd4 · run 44724767301 · Fri Nov 20 11:18:41 UTC 2026
+commit 6f5960ff1e209dd8ec9136bca75229ce27d7d845 · run 44726169738 · Fri Nov 20 12:11:56 UTC 2026
 SHARED TESTS: 121 suites, 573 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 41 suites, 166 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.4 s of speech in 2.2 s (with loading the voice); then 4.7 s of speech in 2.0 s (2.4x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.1 s of speech in 1.5 s (with loading the voice); then 5.0 s of speech in 1.3 s (4.0x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_4.0.25_amd64.deb, 90M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -22,27 +22,27 @@ LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 --- the end of the log
-> Task :app:compileDebugJavaWithJavac
 > Task :app:processDebugJavaRes
 > Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:bundleDebugClassesToCompileJar
-
-> Task :app:compileDebugUnitTestKotlin
-w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
-
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
 The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.25_amd64.deb
 
-> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
-> Task :app:processDebugUnitTestJavaRes
-> Task :app:testDebugUnitTest
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
+
+> Task :app:compileDebugUnitTestKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+
 > Task :desktop:test
 
 /home/runner/work/sherpa-onnx/sherpa-onnx/sherpa-onnx/jni/offline-tts.cc:operator():550 config:
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx", lm_main="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx", encoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx", decoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx", text_conditioner="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx", vocab_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json", token_scores_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 54s
+BUILD SUCCESSFUL in 5m
 59 actionable tasks: 59 executed
