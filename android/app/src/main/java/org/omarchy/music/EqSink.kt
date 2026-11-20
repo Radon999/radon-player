@@ -20,6 +20,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     private var float = false       // bit-perfect: float as it is (the EQ is bypassed then anyway)
     private var toShort = 0         // the bytes of each hi-res sample being brought down to 16-bit (3, 4), else 0
     private var inEncoding = C.ENCODING_INVALID
+    private var raw16 = false       // plain 16-bit samples from the decoder (not hi-res, not a format passed on unopened)
     // Watching what the decoder gives: music, then nothing but silence for seconds, is a decoder that has stopped
     // (the song goes on counting with no sound until it is moved). Told to the app, which starts it again in place.
     private var inRate = 44100
@@ -51,7 +52,9 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
         inEncoding = inputFormat.pcmEncoding
         inRate = inputFormat.sampleRate.takeIf { it > 0 } ?: 44100
         inChannels = inputFormat.channelCount.takeIf { it > 0 } ?: 2
-        wasLoud = false; silentFrames = 0
+        wasLoud = false; silentFrames = 0; seenBuf = null
+        eq.decoderLoudAt = 0L
+        raw16 = inputFormat.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && inEncoding == C.ENCODING_PCM_16BIT
         val straight = asItIs()
         if (straight) eq.bypass = true   // every sample as it came (set again from the output once the stream runs)
         // Bit-perfect is on, yet a hi-res song is about to be brought down to 16 bits: said in Settings › Problems
@@ -81,8 +84,34 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
         return done
     }
 
+    // The 16-bit music (MP3s, streams, CD-quality FLACs) is watched as the hi-res music is: before, a decoder that
+    // stopped giving sound on one of those went unnoticed, and the song played on silent until it was moved.
+    private var seenBuf: ByteBuffer? = null
+    private var seenLeft = -1
+    private fun watch16(buffer: ByteBuffer) {
+        if (!raw16 || (buffer === seenBuf && buffer.remaining() == seenLeft)) return   // (the same buffer handed in again)
+        seenBuf = buffer; seenLeft = buffer.remaining()
+        val b = buffer.duplicate().order(ByteOrder.nativeOrder())
+        var peak = 0
+        var i = b.position()
+        val hop = 2 * inChannels * 4
+        while (i + 2 <= b.limit()) { val v = b.getShort(i).toInt(); if (v > peak) peak = v else if (-v > peak) peak = -v; i += hop }
+        heard(peak / 32768f, buffer.remaining() / 2 / inChannels)
+    }
+
+    /** What the decoder just gave: music (noted, for the equalizer's own watch), or nothing after music for four
+     *  seconds with the song not at its end: the decoder has stopped, and the app starts the song again in place. */
+    private fun heard(peak: Float, frames: Int) {
+        if (peak > 0.02f) { wasLoud = true; silentFrames = 0; eq.decoderLoudAt = System.currentTimeMillis() }
+        else if (peak < 0.0002f && wasLoud && !eos) {
+            silentFrames += frames
+            if (silentFrames > 4L * inRate) { silentFrames = 0; wasLoud = false; eq.onDead?.invoke("at the decoder (it gave four seconds of nothing after music)") }
+        } else silentFrames = 0
+    }
+
     private fun feed(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
         if (toShort > 0) return handleShort(buffer, presentationTimeUs, encodedAccessUnitCount)
+        watch16(buffer)
         if (!float || (!pending && eq.idle())) return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
         if (!pending) {   // a new buffer: through the EQ once, into out
             val n = buffer.remaining()
@@ -121,11 +150,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
             }
             out.flip()
             pending = true
-            if (peak > 0.02f) { wasLoud = true; silentFrames = 0; eq.decoderLoudAt = System.currentTimeMillis() }
-            else if (peak < 0.0002f && wasLoud && !eos) {
-                silentFrames += samples / inChannels
-                if (silentFrames > 4L * inRate) { silentFrames = 0; wasLoud = false; eq.onDead?.invoke("at the decoder (it gave four seconds of nothing after music)") }
-            } else silentFrames = 0
+            heard(peak, samples / inChannels)
         }
         val done = super.handleBuffer(out, presentationTimeUs, encodedAccessUnitCount)
         buffer.position(buffer.limit() - out.remaining() / 2 * toShort)   // as much of the input taken as of out
@@ -146,7 +171,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     override fun flush() {
         eos = false; eq.sinkEos = false; eq.sinkEnded = false
         pending = false
-        wasLoud = false; silentFrames = 0
+        wasLoud = false; silentFrames = 0; seenBuf = null
         if (float) eq.resetFloat()
         super.flush()
     }

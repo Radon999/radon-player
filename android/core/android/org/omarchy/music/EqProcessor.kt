@@ -129,6 +129,21 @@ class EqProcessor : BaseAudioProcessor() {
     /** Called (from the sound's own thread) when a song has gone silent though it should be sounding: where the sound
      *  stopped. MusicService notes it and starts the song again from the same place, which brings the sound back. */
     @Volatile var onDead: ((String) -> Unit)? = null
+    /** When real sound last left the processors for the sound output (the clock's milliseconds; 0: not yet). If a song
+     *  is silent to you while this keeps moving, the music was handed to Android whole and went quiet after the app. */
+    @Volatile var outLoudAt = 0L
+
+    /** The end of the chain, every buffer: the decoder is giving music, yet silence arrives here: lost on the way
+     *  (peak repair, resampling). Three seconds of that and the app starts the song again in place. */
+    private fun watchEnd(inPeak: Double, outPeak: Double, frames: Int) {
+        val now = System.currentTimeMillis()
+        if (outPeak > 0.02) { outLoudAt = now; SoundLog.outLoudAt = now }
+        if (inPeak < 0.0005 && decoderLoudAt > 0 && now - decoderLoudAt < 1500) {
+            lostFrames += frames
+            if (lostFrames > 3 * rate) { lostFrames = 0; onDead?.invoke("between the decoder and the equalizer (peak repair or resampling)") }
+        } else lostFrames = 0
+    }
+
     private fun note(what: String) {
         val now = System.currentTimeMillis()
         if (now - notedAt < 60_000) return
@@ -223,6 +238,19 @@ class EqProcessor : BaseAudioProcessor() {
         input.order(ByteOrder.nativeOrder())
         out.order(ByteOrder.nativeOrder())
         if (idle()) {
+            // Nothing to do to the samples, but still watched: music the decoder gives that arrives here as silence
+            // (lost in peak repair or resampling) was never noticed with the EQ off, which is how most songs play.
+            val size = if (float) 4 else 2
+            var peak = 0.0
+            var i = input.position()
+            val end = input.limit()
+            val hop = size * maxOf(1, channels) * 4   // every fourth frame is plenty to tell music from nothing
+            while (i + size <= end) {
+                val v = kotlin.math.abs(if (float) input.getFloat(i).toDouble() else input.getShort(i) / 32768.0)
+                if (v > peak) peak = v
+                i += hop
+            }
+            watchEnd(peak, peak, n / size / maxOf(1, channels))
             out.put(input)
             return
         }
@@ -284,11 +312,7 @@ class EqProcessor : BaseAudioProcessor() {
                     .format(g, songGain, rgGain, boostGain, balance, env, st.size))
             }
         } else deadFrames = 0
-        // The decoder is giving music, yet silence arrives here: lost on the way (peak repair, resampling)
-        if (inPeak < 0.0005 && decoderLoudAt > 0 && System.currentTimeMillis() - decoderLoudAt < 1500) {
-            lostFrames += frames
-            if (lostFrames > 3 * rate) { lostFrames = 0; onDead?.invoke("between the decoder and the equalizer (peak repair or resampling)") }
-        } else lostFrames = 0
+        watchEnd(inPeak, outPeak, frames)
         if (detail && channels == 2) widthPass(out, n, float)
         if (crossfeed && channels == 2) crossfeedPass(out, n, float)
         if (mono && channels == 2) monoPass(out, n, float)

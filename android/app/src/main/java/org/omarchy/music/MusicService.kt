@@ -45,16 +45,41 @@ class MusicService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(false)   // its own, below: bit-perfect taking the DAC isn't an unplug
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        // What the sound output itself does (a new one made, one let go, it running dry, it failing): into Sound lately,
+        // so a song gone silent can be put beside what the output did just before.
+        exo.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onAudioUnderrun(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) {
+                SoundLog.note("the sound output ran dry (not fed for $elapsedSinceLastFeedMs ms)")
+            }
+            override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
+                SoundLog.note("the sound output failed: ${audioSinkError.message?.take(80)}")
+                Crashes.note("The sound output reported a fault while “${Music.current()?.title}” played: ${audioSinkError.message?.take(120)}")
+            }
+            override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, c: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
+                SoundLog.note("a sound output made (${c.sampleRate} Hz, encoding ${c.encoding}, offload ${c.offload}, tunneling ${c.tunneling})")
+            }
+            override fun onAudioTrackReleased(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, c: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
+                SoundLog.note("a sound output let go")
+            }
+            override fun onAudioSessionIdChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSessionId: Int) {
+                SoundLog.note("the sound's session changed ($audioSessionId)")
+            }
+        })
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 Music.trace("player: playing=$isPlaying (held back: ${exo.playbackSuppressionReason})")
                 Music.paused = !exo.playWhenReady
             }
 
-            override fun onPlaybackSuppressionReasonChanged(reason: Int) { Music.trace("player: held back, reason $reason") }
+            override fun onPlaybackSuppressionReasonChanged(reason: Int) {
+                Music.trace("player: held back, reason $reason")
+                SoundLog.note("player held back, reason $reason (0 none, 1 lost the sound to another app for a moment, 2 no output it may use)")
+            }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 Music.trace("player: play-when-ready=$playWhenReady (reason $reason)")
+                // (2 and 3 are Android taking the sound for another app, for good or for a moment; 1 is the app or you)
+                if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) SoundLog.note("play=$playWhenReady, reason $reason (2 another app took the sound, 3 the output went, 5 the song ended)")
                 // Bit-perfect taking the USB DAC over makes Android think the DAC was unplugged ("becoming noisy"), which
                 // paused the music; that pause is undone (a real unplug still pauses)
                 if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY && UsbDirect.tookOverLately() && UsbDirect.device() != null) {
@@ -138,6 +163,7 @@ class MusicService : MediaLibraryService() {
                         heals++
                         val at = exo.currentPosition
                         Crashes.note("“${t?.title}” went silent at ${at / 1000}s though it was playing: the sound stopped $where. Started again from the same place.")
+                        SoundLog.note("silent at ${at / 1000}s, the sound stopped $where: started again in place (time $heals)")
                         exo.seekTo(at)
                     }
                 }

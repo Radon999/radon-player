@@ -11,8 +11,13 @@ object SoundLog {
         val line = clock.format(java.util.Date()) + " " + what
         if (lines.lastOrNull()?.substringAfter(' ') == what) return   // the same thing again: once
         lines.addLast(line)
-        while (lines.size > 16) lines.removeFirst()
+        while (lines.size > 40) lines.removeFirst()
     }
+
+    /** When real sound last left the app for the phone's sound output (the clock's milliseconds; 0: not known, as on
+     *  the PC). A song silent to you while this is a moment ago went quiet after the app, inside Android. */
+    @Volatile var outLoudAt = 0L
+    fun leftApp(): String = outLoudAt.let { if (it == 0L) "not measured" else "${(System.currentTimeMillis() - it) / 1000} s ago" }
 
     @Synchronized fun text(): String = lines.joinToString("; ")
 }

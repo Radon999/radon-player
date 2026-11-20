@@ -529,7 +529,8 @@ object Music {
             "Playing" to (if (current() == null) "nothing" else if (paused) "paused" else "playing"),
             // where and how loud the music sounds now, and what changed lately (for music that plays on in silence)
             "Sound" to runCatching { "on ${outputNow.label}, the player's volume ${((player?.volume ?: 1f) * 100).toInt()}%" +
-                (if (djTalking) ", the DJ is talking" else "") + (if (bitPerfect) ", bit-perfect" else "") }.getOrDefault(""),
+                (if (djTalking) ", the DJ is talking" else "") + (if (bitPerfect) ", bit-perfect" else "") +
+                ", sound last left the app ${SoundLog.leftApp()}" }.getOrDefault(""),
             "Sound lately" to SoundLog.text()), Crashes.last)
     }
 
