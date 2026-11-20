@@ -169,12 +169,26 @@ object Copies {
         dupesBusy = true
         bg({
             val no = notDupes
+            fillLengths()
             groupsOf(mySongs().filter { it.isFile || lib.has(it.id) }, { lib.items[it.id]?.file ?: it.file }, ::copyRank) { dupeKey(it) in no }
         }) { res, err ->
             dupesBusy = false
             dupes = res ?: emptyList()
             if (err != null) toast("Couldn't look for duplicates: ${err.message?.take(80)}")
         }
+    }
+
+    /** (blocking) A download kept with no length (one downloaded from a list that had none: Repeats, a history) gets
+     *  its FLAC's own. Without it the song showed no time and could not be told to be another file of the same
+     *  recording by its length (Duplicates, your copy of a song). Returns how many were filled in. */
+    fun fillLengths(): Int {
+        var n = 0
+        for (e in lib.items.values.toList()) {
+            if (e.duration > 0 || e.file.isEmpty() || e.format != "flac") continue
+            val secs = runCatching { ctx.openIn(e.file)?.use { Flac.seconds(it) } }.getOrNull() ?: 0.0
+            if (secs > 0) { lib.update(e.id) { it.copy(duration = secs) }; n++ }
+        }
+        return n
     }
 
     /** The Duplicates list: your songs that are one song ([dupeClusters]: the same name by the same artist or by one

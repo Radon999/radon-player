@@ -243,6 +243,20 @@ object Flac {
         return format(listOf(Block(0, head.copyOfRange(8, 42))))
     }
 
+    /** How long a FLAC runs, in seconds, from its first bytes (its STREAMINFO: samples in all over samples a second);
+     *  0 if it isn't a FLAC or doesn't say (a stream written without its total). */
+    fun seconds(input: InputStream): Double {
+        val d = DataInputStream(input)
+        val head = ByteArray(42)
+        runCatching { d.readFully(head) }.getOrElse { return 0.0 }
+        if (String(head, 0, 4, Charsets.ISO_8859_1) != "fLaC" || (head[4].toInt() and 0x7f) != 0) return 0.0
+        val si = head.copyOfRange(8, 42)
+        val rate = format(listOf(Block(0, si))).second
+        var total = (si[13].toLong() and 0x0f)
+        for (i in 14..17) total = (total shl 8) or (si[i].toLong() and 0xff)
+        return if (rate > 0 && total > 0) total.toDouble() / rate else 0.0
+    }
+
     /** The sample format of a FLAC's STREAMINFO: (bits, sample rate). */
     fun format(blocks: List<Block>): Pair<Int, Int> {
         val si = blocks.first { it.type == 0 }.data

@@ -109,6 +109,7 @@ object FlacDepths {
             runCatching { writeAtomic(file, JSON.encodeToString(ser, known.mapValues { listOf(it.value.bits.toString(), it.value.rate.toString(), it.value.kind) })) }
             reading = null
             version++
+            runCatching { Copies.fillLengths() }   // (a new download kept with no length gets its file's)
         }
     }
 }
