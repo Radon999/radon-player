@@ -373,6 +373,7 @@ object SongCovers {
             ?: ask("service") { fromService(t) }?.takeIf { it.isNotEmpty() }
             ?: ask("last.fm") { lastFm(t) }?.takeIf { it.isNotEmpty() }
             ?: ask("itunes") { itunes(t) }?.takeIf { it.isNotEmpty() }
+            ?: ask("genius") { genius(t) }?.takeIf { it.isNotEmpty() }   // last: it has songs no shop sells (demos, unreleased)
             ?: ""
         val n = synchronized(this) {
             found[key(t.title, t.artist)] = Found(url, now(), failed = url.isEmpty() && failed, v = V)
@@ -413,6 +414,18 @@ object SongCovers {
         if (coverFit(t.title, t.artist, tr["name"].str, tr.path("artist", "name").str) == 0) return ""
         return tr.path("album", "image").list.mapNotNull { it["#text"].str }
             .lastOrNull { it.isNotEmpty() && LASTFM_BLANK !in it } ?: ""
+    }
+
+    /** Genius's song search (no key needed): the song's own picture there. Not its grey placeholder, and not one of
+     *  Genius's translation pages. */
+    internal fun genius(t: Track): String {
+        val res = fetch("https://genius.com/api/search/song?q=${enc("${lead(t.artist)} ${bareTitle(t.title)}")}&per_page=8", emptyMap())
+        return bestCover(t.title, t.artist, t.album, res.path("response", "sections", 0, "hits").list.mapNotNull { h ->
+            val r = h["result"]
+            val who = r.path("primary_artist", "name").str ?: return@mapNotNull null
+            val pic = r["song_art_image_url"].str?.takeIf { it.isNotEmpty() && "assets.genius.com/images/default_" !in it } ?: return@mapNotNull null
+            if (who.lowercase().startsWith("genius")) null else listOf(r["title"].str, who, "", pic)
+        })
     }
 
     /** Apple's iTunes search (no key needed): the song's cover, made 600×600. */
