@@ -298,12 +298,13 @@ object Pictures {
  *  stands in ([fallback]). Everything here but [known], [settled] and [fallback] blocks: call it off the main thread. */
 object SongCovers {
     @Serializable
-    private data class Found(val url: String = "", val t: Double = 0.0, val failed: Boolean = false)
+    private data class Found(val url: String = "", val t: Double = 0.0, val failed: Boolean = false, val v: Int = 0)
+    private const val V = 2   // 2: a song nothing was found for before is looked for again, once (the search asks plainly first now)
     @Serializable
     private data class Saved(val songs: Map<String, Found> = emptyMap())
 
-    private const val RETRY = 14 * 86400   // nothing found: looked for again after this long
-    private const val RETRY_FAILED = 3600   // …or after this long, when a service couldn't be reached
+    private const val RETRY = 3 * 86400   // nothing found: looked for again after this long
+    private const val RETRY_FAILED = 600   // …or after this long, when a service couldn't be reached
     private val found = HashMap<String, Found>()
     private var file: File? = null
     private var dirty = 0
@@ -340,7 +341,7 @@ object SongCovers {
     /** Whether the song needn't be looked up (again): found, or nothing found lately. */
     fun settled(title: String, artist: String): Boolean = synchronized(this) {
         val f = found[key(title, artist)] ?: return false
-        f.url.isNotEmpty() || now() - f.t < (if (f.failed) RETRY_FAILED else RETRY)
+        f.url.isNotEmpty() || (f.v >= V && now() - f.t < (if (f.failed) RETRY_FAILED else RETRY))
     }
 
     /** What stands in for a song nothing was found for (a demo, an unreleased song): its artist's picture, the
@@ -367,13 +368,14 @@ object SongCovers {
             runCatching { logWarn("song covers: $what: $e") }
             null
         }
-        val url = ask("service") { fromService(t) }?.takeIf { it.isNotEmpty() }
-            ?: ask("deezer") { deezer(t) }?.takeIf { it.isNotEmpty() }
+        // Deezer first: it needs no sign-in, answers quickly and has most songs; then the service the song is from
+        val url = ask("deezer") { deezer(t) }?.takeIf { it.isNotEmpty() }
+            ?: ask("service") { fromService(t) }?.takeIf { it.isNotEmpty() }
             ?: ask("last.fm") { lastFm(t) }?.takeIf { it.isNotEmpty() }
             ?: ask("itunes") { itunes(t) }?.takeIf { it.isNotEmpty() }
             ?: ""
         val n = synchronized(this) {
-            found[key(t.title, t.artist)] = Found(url, now(), failed = url.isEmpty() && failed)
+            found[key(t.title, t.artist)] = Found(url, now(), failed = url.isEmpty() && failed, v = V)
             ++dirty
         }
         // Saved when one's found, else every few (an artist's page looks up dozens at once), and by [flush].
@@ -389,7 +391,8 @@ object SongCovers {
     /** Deezer's search (no key needed): the song's album's cover. */
     internal fun deezer(t: Track): String {
         val who = lead(t.artist)
-        for (q in listOf("artist:\"$who\" track:\"${t.title}\"", "$who ${bareTitle(t.title)}")) {
+        // Asked plainly first ("artist song"): the exact form (artist:"…" track:"…") finds far fewer songs
+        for (q in listOf("$who ${bareTitle(t.title)}", "artist:\"$who\" track:\"${t.title}\"")) {
             Pictures.deezerPace()
             val res = fetch("https://api.deezer.com/search/track?q=${enc(q)}&limit=10", emptyMap())
             if (res["error"] is kotlinx.serialization.json.JsonObject && res["data"] == null)
