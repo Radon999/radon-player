@@ -296,6 +296,37 @@ fun AlbumPlaysScreen(ui: Ui) {
 }
 
 
+/** Settings › Hidden from stats…: everything you hid from the stats lists; tap one to show it again. */
+@Composable
+fun StatHidesScreen(ui: Ui) {
+    val H = org.omarchy.music.StatHides
+    val close = { ui.statHides = false }
+    H.version
+    val rows = H.all()
+    FullScreen("Hidden from stats", close) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
+            Text(if (rows.isEmpty()) "Nothing is hidden. In a stats list, $LONG_PRESS a song, an album or an artist and pick Hide from stats."
+                else "${org.omarchy.music.StatHideRules.count(rows.size)}. They aren't shown in the stats lists, but their plays still count. Show again puts one back.",
+                style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(rows, key = { it.first }) { (key, name) ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(name, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(org.omarchy.music.StatHideRules.kind(key), style = T.sub)
+                        }
+                        Pill("Show again", quiet = true) { H.show(key) }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                if (rows.isNotEmpty()) Pill("Show all again", quiet = true) { H.showAll() }
+                Pill("Done") { close() }
+            }
+        }
+    }
+}
+
 /** Settings › Duplicates in Most played…: songs that may be one song counted twice, and versions of one; each Merge
  *  (counted as the one shown), another of its group, one you type (theirs suggested), or Leave alone (not asked again). */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

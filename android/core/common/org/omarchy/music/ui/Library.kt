@@ -789,6 +789,10 @@ fun OptionsSheet(ui: Ui) {
                 // Listen later: what's picked (songs, or the songs of the albums and EPs picked) put aside for another time
                 // Other device's songs: the ones ticked that you don't want here, never offered again
                 if (place?.kind == "theirs") add(Triple(Ico.CLOSE, "Leave out (don't offer again)") { org.omarchy.music.LibraryMatch.leaveOut(picked) })
+                // A stats list (Most played, Repeats, Skips, Unplayed and neglected): hide what's picked from all of them
+                if (place?.kind in setOf("top", "repeats", "skips", "neglected")) add(Triple(Ico.CLOSE, "Hide from stats") {
+                    org.omarchy.music.StatHides.hideSongs(picked)
+                    Music.toast((if (picked.size == 1) "“${picked[0].title}” is" else "${picked.size} songs are") + " hidden from the stats lists. Settings › Hidden from stats brings " + (if (picked.size == 1) "it" else "them") + " back") })
                 if (place?.kind == "later") add(Triple(Ico.CLOSE, "Remove from Listen later") { org.omarchy.music.ListenLater.remove(picked) })
                 else add(Triple(Ico.CLOCK, "Add to Listen later playlist") { org.omarchy.music.ListenLater.add(picked) })
                 if (one != null) {

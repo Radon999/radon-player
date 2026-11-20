@@ -394,6 +394,7 @@ fun MusicTab(ui: Ui) {
         val state = rememberLazyListState()
         LazyColumn(Modifier.fillMaxSize(), state = state) {
             Music.musicVersion   // read here too: the list is built apart from the screen, and must follow a scan
+            org.omarchy.music.StatHides.version   // …and something hidden from the stats lists, or shown again
             Music.savedVersion
             if (!granted && ui.musicView == "all") item {
                 ActionRow("Allow access to the music on this $DEVICE  ›") { access.ask() }
@@ -416,7 +417,7 @@ fun MusicTab(ui: Ui) {
                 else -> {
                     // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())
-                        .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) } else emptyList()
+                        .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) }.filter { !org.omarchy.music.StatHides.song(it.first) } else emptyList()
                     val skipInfo = skipRows.associate { (t, k, f) -> org.omarchy.music.songKey(t) to (k to f) }
                     val tracks = when (ui.musicView) {
                         "all", "recent", "favorites", "unfavorited", "later", "theirs" -> songSorted
@@ -428,7 +429,7 @@ fun MusicTab(ui: Ui) {
                                 else -> skipRows.sortedWith(compareBy<Triple<Track, Int, Int>>({ -it.second }, { -r(it.second, it.third) }))
                             }.map { it.first }
                         }
-                        else -> Music.mostPlayed(Music.topPeriod)
+                        else -> Music.mostPlayed(Music.topPeriod).filter { !org.omarchy.music.StatHides.song(it) }
                     }
                     if (tracks.isEmpty() && !(ui.musicView == "skips" && Music.skipPeriod != "all") && !(ui.musicView == "top" && Music.topPeriod != "all")) item {   // (a period with none: its chips stay)
                         val (t, b) = when (ui.musicView) {
@@ -1024,7 +1025,15 @@ fun PageScreen(ui: Ui, page: Ui.Page) {
 /** A long-press on an artist (Most played, Artists): Pin, a picture of them to pick, or Merge into…. */
 fun artistMenu(ui: Ui, name: String, thumb: String) {
     ui.choices = name to listOf(pinChoice(org.omarchy.music.Pin("artist", name, name, thumb = thumb)),
-        "Change picture…" to { ui.artistPictureFor = name }, "Merge into…" to { ui.mergeArtist = name })
+        "Change picture…" to { ui.artistPictureFor = name }, "Merge into…" to { ui.mergeArtist = name },
+        if (org.omarchy.music.StatHides.artist(name)) "Show in stats again" to { org.omarchy.music.StatHides.show(org.omarchy.music.StatHideRules.artist(name)) }
+        else "Hide from stats" to { org.omarchy.music.StatHides.hideArtist(name); Music.toast("$name is hidden from the stats lists. Settings › Hidden from stats brings it back") })
+}
+
+/** A stats row's menu for an album (Most played's albums and their times): hide it from the stats lists. */
+fun albumStatMenu(ui: Ui, title: String, artist: String) {
+    ui.choices = title to listOf("Hide from stats" to {
+        org.omarchy.music.StatHides.hideAlbum(title, artist); Music.toast("$title is hidden from the stats lists. Settings › Hidden from stats brings it back") })
 }
 
 fun artistArt(name: String, fallback: String = ""): Any? =
@@ -2003,6 +2012,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
     val RR = org.omarchy.music.RepeatLoopRules
     org.omarchy.music.RepeatLoops.version   // read, so the list is made again when a song repeats
     TopArt.tick   // …and when a cover is found online
+    org.omarchy.music.StatHides.version
     val periods = listOf("all" to ("All time" to 0), "year" to ("The last year" to 365), "month" to ("The last 30 days" to 30), "week" to ("The last 7 days" to 7))
     item {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
@@ -2039,7 +2049,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
         // then, or a file where it was then); once it is downloaded, moved or tagged again that is no longer a song of
         // yours, and it showed with no cover and as not on this device though its name matched your file exactly.
         // A song that isn't yours has no picture here (a history gives none): its cover is looked up, as on Most played.
-        val rows = top.mapIndexed { i, p -> TopArt.withCover(Music.mineOf(p.first.track)) to RR.line(i + 1, p.second, p.first.best) }
+        // (one you hid from the stats lists isn't shown: by the name it has here, or the one your file of it has)
+        val rows = top.filter { !org.omarchy.music.StatHides.song(it.first.track) }
+            .mapIndexed { i, p -> TopArt.withCover(Music.mineOf(p.first.track)) to RR.line(i + 1, p.second, p.first.best) }
+            .filter { !org.omarchy.music.StatHides.song(it.first) }
         item {
             Section(RR.summary(top.size, RR.total(saved, since)).uppercase())
             LaunchedEffect(top.size, Music.repeatsPeriod, Music.musicVersion) { TopArt.lookUp { rows.map { it.first } } }
@@ -2053,6 +2066,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
  *  (RestedRules; the counts and times are your stats' and the plays here). */
 fun androidx.compose.foundation.lazy.LazyListScope.neglectedView(ui: Ui) {
     val N = org.omarchy.music.Neglected; val RR = org.omarchy.music.RestedRules
+    org.omarchy.music.StatHides.version
     item {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2063,7 +2077,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.neglectedView(ui: Ui) {
     val all = N.rowsNow()
     if (all == null) { item { Section("ADDING UP YOUR PLAYS…") }; return }
     val nowS = System.currentTimeMillis() / 1000
-    val rows = N.shown(all, N.show, nowS)
+    val rows = N.shown(all, N.show, nowS).filter { !org.omarchy.music.StatHides.song(it.track) }
     val never = N.show == "unplayed"
     item {
         Text("Counted from your stats (Last.fm and your imported history) and the plays here: a song you played somewhere else that your stats know of isn't unplayed. " +
@@ -2291,7 +2305,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
         Bars("By day of the week", t.days, listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
     }
     if (what == "artists") {
-        val artists = t.artists.filter { fits(ui, it.first) }
+        val artists = t.artists.filter { fits(ui, it.first) && !org.omarchy.music.StatHides.artist(it.first) }
         item {
             Section("${artists.size} ARTISTS · LISTENED TO LONGEST FIRST")
             LaunchedEffect(artists.size, Music.topPeriod) { Music.lookUpArtists(artists.take(400).map { it.first }) }
@@ -2305,7 +2319,13 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
         }
         return
     }
-    val list = timeItemsOf(what, t).filter { fits(ui, it.title, it.artist) }
+    val list = timeItemsOf(what, t).filter { fits(ui, it.title, it.artist) &&
+        !(if (what == "songs") org.omarchy.music.StatHides.song(it.tracks.first().copy(title = it.title, artist = it.artist)) else org.omarchy.music.StatHides.album(it.title, it.artist)) }
+    fun hide(x: TimeItem) {
+        if (what == "songs") ui.choices = x.title to listOf("Hide from stats" to {
+            org.omarchy.music.StatHides.hideSongs(listOf(x.tracks.first().copy(title = x.title, artist = x.artist))); Music.toast("${x.title} is hidden from the stats lists. Settings › Hidden from stats brings it back") })
+        else albumStatMenu(ui, x.title, x.artist)
+    }
     // Each cover from your own copy of the song or album first (see TopArt); only else the online one.
     fun cover(x: TimeItem): Track = if (what == "songs") TopArt.song(x.tracks.first()) else TopArt.album(x.title, x.artist, x.tracks)
     item {
@@ -2319,11 +2339,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
     }
     laidOutItems(list, ui, key = { "tt-$what-" + list[it].key }, names = { list[it].title }, row = { i ->
         val x = list[i]
-        PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), topArt(cover(x))) { open(i) }
+        PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), topArt(cover(x)), onLongClick = { hide(x) }) { open(i) }
     }) { i, mod, compact ->
         val x = list[i]
         Tile(topArt(cover(x), tilePx(compact)), x.title, x.artist, mod, compact, extra = fmtHours(x.secs),
-            ico = if (what == "songs") Ico.NOTE else Ico.DISC) { open(i) }
+            ico = if (what == "songs") Ico.NOTE else Ico.DISC, onLongClick = { hide(x) }) { open(i) }
     }
 }
 
@@ -2390,7 +2410,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodPlaysItems(ui: Ui) {
 
 /** Most played albums: Most played's songs added up by album; an album opens its songs. */
 fun androidx.compose.foundation.lazy.LazyListScope.topAlbumsItems(ui: Ui) {
-    val albums = runCatching { Music.topAlbums(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.title, it.artist) }
+    val albums = runCatching { Music.topAlbums(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.title, it.artist) && !org.omarchy.music.StatHides.album(it.title, it.artist) }
     item {
         Section(if (albums.isEmpty()) "NO ALBUMS PLAYED IN THIS TIME" else "${albums.size} ALBUMS · MOST PLAYED FIRST")
         LaunchedEffect(albums.size, Music.topPeriod) { TopArt.lookUp { albums.map { TopArt.album(it.title, it.artist, it.tracks) } } }
@@ -2401,17 +2421,19 @@ fun androidx.compose.foundation.lazy.LazyListScope.topAlbumsItems(ui: Ui) {
     fun plays(n: Int) = "%,d play%s".format(n, if (n != 1) "s" else "")
     laidOutItems(albums, ui, key = { "tal-" + albums[it].key }, names = { albums[it].title }, row = { i ->
         val al = albums[i]
-        PlaylistRow(Album(al.key, al.title, "${al.artist} · ${plays(al.plays)}"), topArt(TopArt.album(al.title, al.artist, al.tracks))) { open(al) }
+        PlaylistRow(Album(al.key, al.title, "${al.artist} · ${plays(al.plays)}"), topArt(TopArt.album(al.title, al.artist, al.tracks)),
+            onLongClick = { albumStatMenu(ui, al.title, al.artist) }) { open(al) }
     }) { i, mod, compact ->
         val al = albums[i]
-        Tile(topArt(TopArt.album(al.title, al.artist, al.tracks), tilePx(compact)), al.title, al.artist, mod, compact, extra = plays(al.plays), ico = Ico.DISC) { open(al) }
+        Tile(topArt(TopArt.album(al.title, al.artist, al.tracks), tilePx(compact)), al.title, al.artist, mod, compact, extra = plays(al.plays), ico = Ico.DISC,
+            onLongClick = { albumStatMenu(ui, al.title, al.artist) }) { open(al) }
     }
 }
 
 
 /** Most played artists: every play of theirs over the period; an artist opens their page. */
 fun androidx.compose.foundation.lazy.LazyListScope.topArtistsItems(ui: Ui) {
-    val artists = runCatching { Music.topArtists(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.name) }
+    val artists = runCatching { Music.topArtists(Music.topPeriod) }.getOrDefault(emptyList()).filter { fits(ui, it.name) && !org.omarchy.music.StatHides.artist(it.name) }
     item {
         Section(if (artists.isEmpty()) "NO ARTISTS PLAYED IN THIS TIME" else "${artists.size} ARTISTS · MOST PLAYED FIRST")
         LaunchedEffect(artists.size, Music.topPeriod) { Music.lookUpArtists(artists.take(400).map { it.name }) }

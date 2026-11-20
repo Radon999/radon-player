@@ -128,6 +128,7 @@ fun Sheets(ui: Ui) {
     if (ui.albumPlays) AlbumPlaysScreen(ui)
     if (ui.singleScan) SingleScanScreen(ui)
     if (ui.duplicates) DuplicatesScreen(ui)
+    if (ui.statHides) StatHidesScreen(ui)
     ui.collageFor?.let { kind -> CollageSheet(ui, kind) }
     ui.cardFor?.let { kind -> CardSheet(ui, kind) }
     DeleteDialog(ui)
@@ -398,6 +399,13 @@ private fun AccountsSheet(ui: Ui) {
                 Line("Duplicates in Most played", "Finds songs counted twice in your stats under different names (\"N.P.D\" and " +
                     "\"NPD\"), and versions of one song (acoustic, live, remix). You pick which to merge into one, their plays added " +
                     "together, and which to leave alone", false) { Pill("Scan…", quiet = true) { ui.duplicates = true } }
+                run {
+                    org.omarchy.music.StatHides.version
+                    val n = org.omarchy.music.StatHides.all().size
+                    Line("Hidden from stats", "Songs, albums and artists you hid from the stats lists (Most played and its times, Repeats, Skips, " +
+                        "Unplayed and neglected): $LONG_PRESS one there and pick Hide from stats. They are only not shown: their plays still count. " +
+                        org.omarchy.music.StatHideRules.count(n), n == 0) { Pill("Show…", quiet = true) { ui.statHides = true } }
+                }
                 Line("Joint artists", "A duet's plays go to its main artist (Quinn XCII & Jeremy Zucker counts for Quinn XCII), " +
                     "so your top artists aren't split up. " +
                     if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",

@@ -29,6 +29,7 @@ class MusicApp : Application(), ImageLoaderFactory {
         YouTubeHistory.init(this)
         TidalHistory.init(this)
         AppleHistory.init(this)
+        StatHides.init(this)
         NewReleases.init(this)
         Stats.init(this)
         Pictures.init(this)

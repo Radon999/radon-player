@@ -19,6 +19,7 @@ object PcApp {
         YouTubeHistory.init(c)
         TidalHistory.init(c)
         AppleHistory.init(c)
+        StatHides.init(c)
         NewReleases.init(c)
         Stats.init(c)
         Pictures.init(c)
