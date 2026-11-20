@@ -32,7 +32,7 @@ object YourCopies {
 
     /** Your own copy of a song (file or download) when you have one, else the song as it is: lists built from
      *  plays (Skips, Recently played, favorites) show and edit your file, with its cover and tags, not a streamed copy. */
-    fun mineOf(t: Track): Track {
+    fun mineOf(t: Track, byLength: Boolean = true): Track {
         val v = musicVersion
         if (v != mineOfVer) {
             // Built once per change to your music (each song's key worked out once), then one lookup per song;
@@ -42,9 +42,11 @@ object YourCopies {
             val byLoose = HashMap<Pair<String, String>, MutableList<Track>>()
             val byCredit = HashMap<Pair<String, String>, MutableList<Track>>()
             val byName = HashMap<String, MutableList<Track>>()
+            val byTitle = HashMap<String, MutableList<Track>>()
             for (s in all) {
                 val (k, loose) = mineKeys(s)
                 byKey.getOrPut(k) { ArrayList() } += s
+                byTitle.getOrPut(k.first) { ArrayList() } += s
                 byLoose.getOrPut(loose to k.second) { ArrayList() } += s
                 // …and under each other artist your file credits ("A & B": B too), for a song named by B alone
                 // …a file named with its track number ("11 Ruby"): under its name without it too; and one with no artist
@@ -60,6 +62,7 @@ object YourCopies {
             mineOfCredit = byCredit
             mineOfId = all.associateBy { it.id }
             mineOfName = byName
+            mineOfTitle = byTitle
             mineOfVer = v
         }
         val byKey = mineOfKey
@@ -73,6 +76,9 @@ object YourCopies {
             ?: creditKeys(t.title, t.artist).drop(1).firstNotNullOfOrNull { byKey[it] }
             ?: mineOfCredit[k]
             ?: mineOfName[k.first]   // your file of that name that has no artist in its tags
+            // …or named under someone who isn't on your file at all (an unreleased song a history has under an
+            // uploader's name): your only song of that name and of that very length
+            ?: (if (byLength) sameLength(t.title, t.artist, t.duration, mineOfTitle[k.first]) else null)?.let { listOf(it) }
             ?: return t
         // Already your file: as it is now. A list may have kept it pared down (Repeats keeps a song without its cover,
         // length or format) or from before its tags changed: the file's own record is what is shown, with the marks
@@ -87,7 +93,8 @@ object YourCopies {
      *  One lookup per song once [mineOf] has read your music. */
     fun localOf(t: Track): Track {
         if (t.isFile || lib.has(t.id)) return t
-        val m = runCatching { mineOf(t) }.getOrNull() ?: return t
+        // (not by its length alone: what plays must be the song asked for, and a service's song has its own artist right)
+        val m = runCatching { mineOf(t, byLength = false) }.getOrNull() ?: return t
         if (m === t || m.id == t.id || !(m.isFile || lib.has(m.id))) return t
         if (versionWords(m.title) != versionWords(t.title)) return t   // "Song (Live)" isn't your "Song"
         return m.copy(queued = t.queued, dj = t.dj, plays = t.plays)
@@ -115,6 +122,15 @@ object YourCopies {
     @Volatile private var mineOfCredit: Map<Pair<String, String>, List<Track>> = emptyMap()
     @Volatile private var mineOfId: Map<String, Track> = emptyMap()
     @Volatile private var mineOfName: Map<String, List<Track>> = emptyMap()
+    @Volatile private var mineOfTitle: Map<String, List<Track>> = emptyMap()
+
+    /** Of your songs of one name, the one that is this recording by its length ([SameLengthRules]); the length is the
+     *  song's own when it has one, else what your Apple Music history says its plays ran to. */
+    private fun sameLength(title: String, artist: String, secs: Double, named: List<Track>?): Track? {
+        if (named.isNullOrEmpty()) return null
+        val want = if (secs > 0) secs else AppleHistory.lengthOf(title, artist)
+        return named.getOrNull(SameLengthRules.pick(want, named.map { it.duration }))
+    }
 
     /** Your song as it is now, with the marks a list gave the one it kept (t itself when nothing differs). */
     private fun asKept(now: Track, t: Track): Track =
@@ -147,6 +163,8 @@ object YourCopies {
             val want = norm(cleanTitle(album))
             copies = localByTitle[k.first].orEmpty().filter { norm(cleanTitle(it.album)) == want && (!sameArtistOnly || sameArtist(it.artist, artist)) }
         }
+        // …or under someone who isn't on your file at all: your only song of that name and of that very length
+        if (copies.isEmpty()) sameLength(name, artist, 0.0, localByTitle[k.first])?.let { copies = listOf(it) }
         if (copies.isNotEmpty()) return bestCopy(copies, album)
         return mine[songKey(Track("", title = name, artist = artist))] ?: mine[k] ?: run {
             val sha = java.security.MessageDigest.getInstance("SHA-1").digest("${norm(artist)}|${norm(name)}".toByteArray())

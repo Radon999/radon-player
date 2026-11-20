@@ -42,7 +42,7 @@ object AppleHistory {
     fun init(c: Ctx) {
         file = File(c.filesDir, "apple-history.json")
         exactFile = File(c.filesDir, "apple-plays-exact.json")
-        Music.bg({ stored(); exactStored() })
+        Music.bg({ stored(); exactStored(); readLengths() })
     }
 
     // ---- each play with its own time, for Repeats ----
@@ -63,11 +63,24 @@ object AppleHistory {
         exactStored().rows.ifEmpty { rows.filter { it.t > 0 && it.count == 1 && it.ms in 1 until 86_400_000L } }
             .map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album, it.ms) }
 
+    /** How long a song is, in seconds, by the plays here that have their own length (0 if none do): tells your file of
+     *  a song named here under another artist ([SameLengthRules]). No reading: made when the history is read. */
+    fun lengthOf(title: String, artist: String): Double = lengths[statsKey(title, artist)] ?: 0.0
+    @Volatile private var lengths: Map<Pair<String, String>, Double> = emptyMap()
+    private fun readLengths() {
+        lengths = runCatching {
+            exactStored().rows.ifEmpty { rows.filter { it.t > 0 && it.count == 1 } }
+                .groupBy({ statsKey(it.title, it.artist) }, { it.ms })
+                .mapValues { SameLengthRules.usual(it.value) }.filterValues { it > 0 }
+        }.getOrDefault(emptyMap())
+    }
+
     @Synchronized private fun keepExact(plays: List<Row>) {
         val s = Saved(plays.distinctBy { Triple(it.t, norm(it.artist), norm(cleanTitle(it.title))) }.sortedBy { it.t })
         exactKept = s
         writeAtomic(exactFile, JSON.encodeToString(Saved.serializer(), s))
         exactCount = s.rows.size
+        readLengths()
     }
 
     /** Each play with its time, as Spotify's are (a day's plays: that many, over the day). */
@@ -100,6 +113,7 @@ object AppleHistory {
         exactKept = Saved()
         exactFile.delete()
         exactCount = 0
+        lengths = emptyMap()
     }
 
     // ---- reading Apple's files ----

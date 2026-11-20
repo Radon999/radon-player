@@ -377,12 +377,17 @@ fun MusicTab(ui: Ui) {
     val songSort = sortNow(songTab, songOpts, if (ui.musicView == "all") Music.musicSort.takeIf { it in songOpts } ?: "title" else "order")
     val songBase = if (!songView) emptyList() else runCatching { when (ui.musicView) {
         "all" -> Music.mySongs()
-        "recent" -> Music.plays.recent().map { Music.mineOf(it) }   // your own files first
+        "recent" -> Music.plays.recent().map { TopArt.withCover(Music.mineOf(it)) }   // your own files first
         "favorites" -> Music.favorites.tracks()
-        "later" -> org.omarchy.music.ListenLater.tracks().map { Music.mineOf(it) }   // (your own copy of each one you have since got)
+        "later" -> org.omarchy.music.ListenLater.tracks().map { TopArt.withCover(Music.mineOf(it)) }   // (your own copy of each one you have since got)
         "theirs" -> theirsList
         else -> Music.mySongs().filter { !Music.favorites.has(it) }.sortedBy { norm(it.title) }
     } }.getOrDefault(emptyList())
+    // Recently played and Listen later: the covers of songs that aren't yours and came with none, looked up online
+    if (ui.musicView == "recent" || ui.musicView == "later") {
+        TopArt.tick
+        LaunchedEffect(ui.musicView, songBase.size) { TopArt.lookUp { songBase } }
+    }
     val songSorted = rememberSorted(songBase, songSort) { d -> org.omarchy.music.sortTracks(songBase, songSort, d) }
     Column(Modifier.fillMaxSize()) {
         // Which of these is shown is picked from the library's list (Main.kt's categories).
@@ -1997,6 +2002,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
 fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
     val RR = org.omarchy.music.RepeatLoopRules
     org.omarchy.music.RepeatLoops.version   // read, so the list is made again when a song repeats
+    TopArt.tick   // …and when a cover is found online
     val periods = listOf("all" to ("All time" to 0), "year" to ("The last year" to 365), "month" to ("The last 30 days" to 30), "week" to ("The last 7 days" to 7))
     item {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
@@ -2028,12 +2034,16 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
         "Put Repeat one on (the repeat button, twice) and let a song play again: each time it starts over by itself is counted here. " +
         "Only Repeat one counts, and they are counted from this version on.") }
     else {
-        item { Section(RR.summary(top.size, RR.total(saved, since)).uppercase()) }
         // your own copy of a song the history named
         // Your copy of each song as it is today. A song counted here is kept as it was on the day (the stream it was
         // then, or a file where it was then); once it is downloaded, moved or tagged again that is no longer a song of
         // yours, and it showed with no cover and as not on this device though its name matched your file exactly.
-        val rows = top.mapIndexed { i, p -> Music.mineOf(p.first.track) to RR.line(i + 1, p.second, p.first.best) }
+        // A song that isn't yours has no picture here (a history gives none): its cover is looked up, as on Most played.
+        val rows = top.mapIndexed { i, p -> TopArt.withCover(Music.mineOf(p.first.track)) to RR.line(i + 1, p.second, p.first.best) }
+        item {
+            Section(RR.summary(top.size, RR.total(saved, since)).uppercase())
+            LaunchedEffect(top.size, Music.repeatsPeriod, Music.musicVersion) { TopArt.lookUp { rows.map { it.first } } }
+        }
         val lines = rows.associate { it.first.id to it.second }
         tracks(rows.map { it.first }, ui, "repeats") { t -> lines[t.id] ?: "" }
     }
@@ -2235,6 +2245,11 @@ object TopArt {
             ?: tracks.firstOrNull { it.thumb.isNotEmpty() }
             ?: tracks.firstOrNull() ?: Track("", "lastfm", title, artist, album = title)
 
+    /** A song that isn't yours and has no picture, with the cover looked up for it (else its artist's picture) once
+     *  there is one: the row is then drawn again with it. */
+    fun withCover(t: Track): Track = if (yours(t) || t.thumb.isNotEmpty()) t
+        else org.omarchy.music.SongCovers.shown(t.title, t.artist).let { if (it.isEmpty()) t else t.copy(thumb = it) }
+
     /** The covers of songs that aren't yours and have no picture, looked up online one by one (each shows as it's
      *  found and is remembered, so never looked up again). Run from a list's LaunchedEffect: leaving the list stops it. */
     suspend fun lookUp(make: () -> List<Track>) {
@@ -2244,7 +2259,14 @@ object TopArt {
                 .distinctBy { org.omarchy.music.songPickKey(it.title, it.artist) }.take(150)
         }
         for (t in todo) {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.look(t) } }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching {
+                // Nothing has the song's cover (a demo, a song no shop sells): its artist's picture stands in, so that
+                // is looked up too when it never was
+                if (org.omarchy.music.SongCovers.look(t).isEmpty()) {
+                    val who = org.omarchy.music.ownArtists(t.artist).firstOrNull() ?: t.artist
+                    if (who.isNotBlank() && !org.omarchy.music.Pictures.settled(org.omarchy.music.Pictures.known(who))) org.omarchy.music.Pictures.artist(who)
+                }
+            } }
             tick++
         }
         if (todo.isNotEmpty()) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.SongCovers.flush() } }

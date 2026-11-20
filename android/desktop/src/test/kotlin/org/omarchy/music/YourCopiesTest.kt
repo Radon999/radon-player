@@ -32,6 +32,16 @@ class YourCopiesTest {
         assertEquals("another artist's song of the same name stays as it is", "repeat:w", Music.mineOf(Track("repeat:w", title = "Credit Song", artist = "Somebody Else & Another")).id)
     }
 
+    @Test fun aSongNamedUnderSomeoneElseIsYourOnlyFileOfThatNameAndLength() = withSaved(
+        saved("unrel", "Vault Song", "Real Singer", "Sessions", "flac").copy(duration = 120.12),
+        saved("twin1", "Twin Song", "Twin One", "A", "flac").copy(duration = 200.0), saved("twin2", "Twin Song", "Twin Two", "B", "flac").copy(duration = 200.4)) {
+        assertEquals("the same name and length", "copies-unrel", Music.mineOf(Track("repeat:u", title = "Vault Song", artist = "Some Uploader", duration = 120.0)).id)
+        assertEquals("another length: another song of that name", "repeat:v", Music.mineOf(Track("repeat:v", title = "Vault Song", artist = "Some Uploader", duration = 187.0)).id)
+        assertEquals("no length known: left alone", "repeat:n", Music.mineOf(Track("repeat:n", title = "Vault Song", artist = "Some Uploader")).id)
+        assertEquals("two of yours fit: neither", "repeat:t", Music.mineOf(Track("repeat:t", title = "Twin Song", artist = "Some Uploader", duration = 200.2)).id)
+        assertEquals("what plays is never picked by length alone", "svc-u", Music.localOf(Track("svc-u", "ytm", "Vault Song", "Some Uploader", duration = 120.0)).id)
+    }
+
     @Test fun aSongYouDontHaveIsLeftToBeFoundOnAService() {
         Harness.ctx
         val t = Music.fmSong("Nobody Has This One", "No One At All", "", Music.songIndex())
