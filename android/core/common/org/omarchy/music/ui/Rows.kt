@@ -124,6 +124,7 @@ class Ui {
     var coverFor by mutableStateOf<List<List<Track>>?>(null)   // the albums still to pick a cover for
     var artistPictureFor by mutableStateOf<String?>(null)
     var mergeArtist by mutableStateOf<String?>(null)   // Merge into…: this artist
+    var mySongFor by mutableStateOf<Track?>(null)       // This is a song of mine…: this song
     var filter by mutableStateOf<String?>(null)        // the page's own search (null: closed)
     /** Each place's search, kept while you are further in: Back comes back to what you searched for there. */
     val filters = HashMap<String, String>()

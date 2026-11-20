@@ -135,6 +135,7 @@ fun Sheets(ui: Ui) {
     ui.coverFor?.let { albums -> CoverDialog(ui, albums) }
     ui.artistPictureFor?.let { name -> ArtistPictureDialog(ui, name) }
     ui.mergeArtist?.let { name -> MergeArtistDialog(ui, name) }
+    ui.mySongFor?.let { t -> MySongDialog(ui, t) }
     ui.speedFor?.let { tracks -> if (tracks.isNotEmpty()) SpeedDialog(ui, tracks) else ui.speedFor = null }
     ui.volumeFor?.let { tracks -> if (tracks.isNotEmpty()) VolumeDialog(ui, tracks) else ui.volumeFor = null }
     ui.songEqFor?.let { tracks -> if (tracks.isNotEmpty()) SongEqDialog(ui, tracks) else ui.songEqFor = null }

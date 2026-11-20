@@ -69,6 +69,8 @@ object YourCopies {
         if (byKey.isEmpty()) return t   // no songs of your own (yet)
         // The very song (a download or a file of yours, by what it is, whatever a list kept of its names): as it is now
         mineOfId[t.id]?.let { same -> return asKept(same, t) }
+        // The song of yours you said it is (This is a song of mine…; Duplicates in Most played)
+        if (byLength) saidToBe(t.title, t.artist)?.let { (pt, pa) -> byKey[Stats.statsKey(pt, pa)]?.let { return bestCopy(it, t.album) } }
         val (k, loose) = mineKeys(t)
         // By its name and lead artist; else by its name and any other artist it is credited to (a history says
         // "hard life & BENEE", your file says "BENEE": the same song), either way round
@@ -130,6 +132,51 @@ object YourCopies {
         val t = Track("", title = title, artist = artist)
         if (mineOf(t, byLength = false) !== t) return null
         return sameLength(title, artist, 0.0, mineOfTitle[mineKeys(t).first.first])
+    }
+
+    /** The song you said this one is (Music.songPicks: its name and artist), or null. */
+    private fun saidToBe(title: String, artist: String): Pair<String, String>? =
+        runCatching { Music.songPicks }.getOrNull()?.get(songPickKey(title, artist))?.takeIf { it.isNotEmpty() }
+            ?.split("\u0000")?.let { p -> p[0] to p.getOrElse(1) { artist } }
+
+    /** This is a song of mine…: a song that isn't yours is your file mine from now on: shown as it, played from it,
+     *  its plays counted as its artist's. False (and nothing kept) when your file names no artist: its plays would
+     *  have no one to count for. */
+    fun link(t: Track, mine: Track): Boolean {
+        if (noArtistNamed(mine.artist)) return false
+        Music.addSongPicks(mapOf(songPickKey(t.title, t.artist) to "${mine.title}\u0000${mine.artist}"))
+        Music.musicVersion++
+        return true
+    }
+
+    /** The songs counted as this one of yours (by [link] or Duplicates in Most played): their keys in Music.songPicks. */
+    fun linkedTo(mine: Track): List<String> {
+        val v = "${mine.title}\u0000${mine.artist}"
+        return runCatching { Music.songPicks }.getOrDefault(emptyMap()).filter { it.value == v && it.key != songPickKey(mine.title, mine.artist) }.keys.toList()
+    }
+
+    /** Undo [link] for every song counted as this one. */
+    fun unlink(mine: Track) {
+        val keys = linkedTo(mine)
+        if (keys.isEmpty()) return
+        Music.addSongPicks(keys.associateWith { "" })
+        Music.musicVersion++
+    }
+
+    /** Your songs that run as long as this one (within [SameLengthRules.WITHIN]): the likely ones to offer first. */
+    fun sameLengthAs(t: Track): List<Track> {
+        val secs = if (t.duration > 0) t.duration else AppleHistory.lengthOf(t.title, t.artist)
+        if (secs < SameLengthRules.SHORTEST) return emptyList()
+        return runCatching { mySongs() }.getOrDefault(emptyList()).filter { kotlin.math.abs(it.duration - secs) <= SameLengthRules.WITHIN }
+    }
+
+    /** For adding plays up (Most played, Artists, Wrapped): a history's song to your file's name and artist when it
+     *  has it under someone else ([namedOtherwise]), null for every other song. Each song worked out once. (blocking) */
+    fun renamer(): (String, String) -> Pair<String, String>? {
+        AppleHistory.ensureLengths()
+        val seen = HashMap<Pair<String, String>, Pair<String, String>?>()
+        return { t, a -> synchronized(seen) { seen.getOrPut(Stats.statsKey(t, a)) {
+            saidToBe(t, a) ?: runCatching { namedOtherwise(t, a) }.getOrNull()?.takeIf { !noArtistNamed(it.artist) }?.let { it.title to it.artist } } } }
     }
 
     /** Of your songs of one name, the one that is this recording by its length ([SameLengthRules]); the length is the

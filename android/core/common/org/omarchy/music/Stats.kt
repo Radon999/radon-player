@@ -113,10 +113,7 @@ object Stats {
         val spotify = SpotifyHistory.plays; val apple = AppleHistory.timed(); val deezer = OtherPlays.all
         // A song a history has under someone who isn't on your file of it (an unreleased song under an uploader's name):
         // its plays are your file's, under its own name and artist. Worked out once per song.
-        AppleHistory.ensureLengths()
-        val yours = HashMap<Pair<String, String>, Pair<String, String>?>()
-        val asYours: (String, String) -> Pair<String, String>? = { t, a ->
-            yours.getOrPut(statsKey(t, a)) { runCatching { YourCopies.namedOtherwise(t, a) }.getOrNull()?.let { it.title to it.artist } } }
+        val asYours = YourCopies.renamer()
         val (s, a) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 }, deezer, asYours)
         // This week's, month's and year's: the plays with a time (scrobbles, Spotify's, Apple Music's timed ones).
         val thumbs = s.associate { statsKey(it.title, it.artist) to it.thumb }

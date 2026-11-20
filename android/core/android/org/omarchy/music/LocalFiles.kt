@@ -18,7 +18,7 @@ class LocalFiles(private val ctx: Context) {
     private val ser = MapSerializer(String.serializer(), Seen.serializer())
 
     @Serializable
-    data class Seen(val modified: Long, val added: Double)
+    data class Seen(val modified: Long, val added: Double, val wav: List<String>? = null)   // wav: a WAV's own title, artist, album
 
     @Volatile var files: List<Track> = emptyList()
 
@@ -63,18 +63,36 @@ class LocalFiles(private val ctx: Context) {
             where[uri] = path.trimEnd('/') + "/"
             val old = seen[uri]
             val added = old?.added ?: if (first) modified.toDouble() else now()
-            keep[uri] = Seen(modified, added)
-            out += track(c, uri, added)
+            // A WAV: Android's library reads no tags from one (its name is the file's, its album the folder's, its artist
+            // unknown), so a WAV you tagged went back to "Unknown artist" at the next scan. Its tags are read from the
+            // file itself, once each time it changes.
+            val name = c.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME).takeIf { it >= 0 }?.let { c.getString(it) }.orEmpty()
+            val wav = if (!name.endsWith(".wav", true)) null
+                else old?.wav?.takeIf { old.modified == modified } ?: wavTags(c)
+            keep[uri] = Seen(modified, added, wav)
+            val t = track(c, uri, added)
+            out += if (wav == null) t else t.copy(title = wav.getOrNull(0).orEmpty().ifBlank { t.title },
+                artist = wav.getOrNull(1).orEmpty().ifBlank { t.artist }, album = wav.getOrNull(2).orEmpty().ifBlank { t.album })
         }
-        val changed = out.map { it.file } != files.map { it.file }
+        val changed = out != files   // (a song named anew counts: a WAV whose tags were just written)
         files = out
         paths = where
         genres = genre
         allPaths = everyPath
-        if (keep.keys != seen.keys) writeAtomic(index, JSON.encodeToString(ser, keep))
+        if (keep != seen) writeAtomic(index, JSON.encodeToString(ser, keep))
         scanned = now()
         return changed
     }
+
+    /** A WAV's title, artist and album as its own tags have them ("" for one it doesn't name); null if the file
+     *  can't be read here (then asked again at the next scan). */
+    private fun wavTags(c: android.database.Cursor): List<String>? = runCatching {
+        @Suppress("DEPRECATION") val i = c.getColumnIndex(MediaStore.MediaColumns.DATA)
+        val f = File(c.getString(i)?.takeIf { it.isNotBlank() } ?: return@runCatching null)
+        if (!f.canRead()) return@runCatching null
+        val tags = WavTags.read(f) ?: return@runCatching null
+        listOf(tags["title"].orEmpty().trim(), tags["artist"].orEmpty().trim(), tags["album"].orEmpty().trim())
+    }.getOrNull()
 
     private fun track(c: android.database.Cursor, uri: String, added: Double): Track {
         val title = c.getString(c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)) ?: "Unknown"
@@ -101,7 +119,7 @@ class LocalFiles(private val ctx: Context) {
     private fun query(each: (android.database.Cursor, String, String, Long) -> Unit) {
         val cols = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.RELATIVE_PATH,
-            MediaStore.Audio.Media.DATE_MODIFIED, MediaStore.Audio.Media.DISPLAY_NAME) +
+            MediaStore.Audio.Media.DATE_MODIFIED, MediaStore.Audio.Media.DISPLAY_NAME, @Suppress("DEPRECATION") MediaStore.MediaColumns.DATA) +
             (if (android.os.Build.VERSION.SDK_INT >= 30) arrayOf("genre") else emptyArray())
         ctx.contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cols,
             "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE")?.use { c ->

@@ -823,6 +823,11 @@ fun OptionsSheet(ui: Ui) {
                     org.omarchy.music.splitArtists(one.artist).firstOrNull()?.let { lead ->
                         add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
                     if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
+                    // A song a history has under a name your file doesn't have: you say which of yours it is
+                    if (!one.isFile && one.file == null && !Music.lib.has(one.id)) add(Triple(Ico.CHECK, "This is a song of mine…") { ui.mySongFor = one })
+                    else org.omarchy.music.YourCopies.linkedTo(one).takeIf { it.isNotEmpty() }?.let { keys ->
+                        add(Triple(Ico.CLOSE, "Undo: ${keys.size} other song${if (keys.size != 1) "s" else ""} counted as this one") {
+                            org.omarchy.music.YourCopies.unlink(one); Music.toast("Undone: counted on their own again") }) }
                 }
                 // On an artist's page: hide songs from it yourself (two bands under one name), or put left-out ones back
                 (ui.pages.lastOrNull() as? Ui.Page.Artist)?.let { ap ->

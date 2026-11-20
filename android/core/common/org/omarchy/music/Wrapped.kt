@@ -453,7 +453,12 @@ object Wrapped {
 
     /** Every play with a time from your imports (Spotify, Deezer, YouTube Music, Tidal, Apple Music), and without
      *  Last.fm the plays here. */
-    private fun imported(): List<SpotifyHistory.Play> = SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed() + herePlays()
+    private fun imported(): List<SpotifyHistory.Play> {
+        // A song a history has under someone who isn't on your file of it: counted as your file, as Most played does
+        val asYours = runCatching { YourCopies.renamer() }.getOrNull()
+        val all = SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed() + herePlays()
+        return if (asYours == null) all else all.map { p -> asYours(p.title, p.artist)?.let { p.copy(title = it.first, artist = it.second) } ?: p }
+    }
 
     /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {

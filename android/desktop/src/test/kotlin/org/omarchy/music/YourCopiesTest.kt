@@ -49,6 +49,22 @@ class YourCopiesTest {
         assertEquals("what plays is never picked by length alone", "svc-u", Music.localOf(Track("svc-u", "ytm", "Vault Song", "Some Uploader", duration = 120.0)).id)
     }
 
+    @Test fun aSongYouSayIsYoursIsYourFileUntilYouUndoIt() = withSaved(
+        saved("said", "Real Name", "Real Singer", "Sessions", "wav"), saved("bare", "No One's Song", "Unknown artist", "x", "wav")) {
+        val other = Track("repeat:s", title = "Another Name Entirely", artist = "Some Uploader")
+        val mine = Music.mySongs().first { it.id == "copies-said" }
+        try {
+            assertEquals(true, Harness.ui { YourCopies.link(other, mine) })
+            assertEquals("shown as your file", "copies-said", Music.mineOf(other).id)
+            assertEquals("its plays are your file's artist's", "Real Name" to "Real Singer", YourCopies.renamer()("Another Name Entirely", "Some Uploader"))
+            assertEquals(1, YourCopies.linkedTo(mine).size)
+            assertEquals("a service's song is never swapped by it", "svc-s", Music.localOf(Track("svc-s", "ytm", "Another Name Entirely", "Some Uploader")).id)
+            Harness.ui { YourCopies.unlink(mine) }
+            assertEquals("undone", "repeat:s", Music.mineOf(other).id)
+            assertEquals("a file with no artist can't take plays", false, Harness.ui { YourCopies.link(other, Music.mySongs().first { it.id == "copies-bare" }) })
+        } finally { Harness.ui { YourCopies.unlink(mine) } }
+    }
+
     @Test fun aSongYouDontHaveIsLeftToBeFoundOnAService() {
         Harness.ctx
         val t = Music.fmSong("Nobody Has This One", "No One At All", "", Music.songIndex())

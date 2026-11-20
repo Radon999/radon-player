@@ -72,6 +72,49 @@ fun JointArtistsScreen(ui: Ui) {
     }
 }
 
+/** This is a song of mine…: a song your history has under a name your file doesn't have (an unreleased song put up
+ *  under another title and artist). You pick your file once; the song is then shown and played as it and its plays
+ *  count for its artist. Your songs of the same length come first: the likely ones. */
+@Composable
+fun MySongDialog(ui: Ui, t: org.omarchy.music.Track) {
+    var typed by remember(t) { mutableStateOf("") }
+    val mine = remember { runCatching { Music.mySongs() }.getOrDefault(emptyList()) }
+    val likely = remember(t) { runCatching { org.omarchy.music.YourCopies.sameLengthAs(t) }.getOrDefault(emptyList()) }
+    val q = org.omarchy.music.norm(typed)
+    val shown = remember(q) {
+        if (q.isEmpty()) likely.take(40)
+        else mine.filter { q in org.omarchy.music.norm("${it.title} ${it.artist}") }
+            .sortedBy { !org.omarchy.music.norm(it.title).startsWith(q) }.take(40)
+    }
+    val close = { ui.mySongFor = null }
+    androidx.compose.material3.AlertDialog(onDismissRequest = close, containerColor = C.light,
+        title = { Text("Which song of yours is this?", style = T.head) },
+        text = {
+            Column {
+                Text("“${t.title}” by ${t.artist} will be shown and played as the song you pick, and its plays will count for " +
+                    "that song's artist in Most played, Artists and Wrapped. " +
+                    (if (likely.isNotEmpty()) "Listed first: your songs that run just as long." else "Type its name to find it."), style = T.sub)
+                androidx.compose.material3.OutlinedTextField(typed, { typed = it }, singleLine = true, placeholder = { Text("Type a song of yours") },
+                    trailingIcon = { MicButton { said -> typed = said } },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).typing())
+                LazyColumn(Modifier.padding(top = 2.dp).fillMaxWidth().heightIn(max = 300.dp)) {
+                    items(shown, key = { it.id }) { s ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            if (org.omarchy.music.YourCopies.link(t, s)) { close(); Music.toast("“${t.title}” is now your “${s.title}”") }
+                            else Music.toast("“${s.title}” has no artist in its tags: give it one in the Tagger first, so its plays have someone to count for")
+                        }.padding(vertical = 7.dp, horizontal = 4.dp)) {
+                            Text(s.title, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${s.artist} · ${org.omarchy.music.ClipRules.clock(s.duration)}" + if (s.album.isNotBlank()) " · ${s.album}" else "",
+                                style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { androidx.compose.material3.TextButton(close) { Text("Cancel", color = C.muted) } })
+}
+
 /** Merge into…: an artist's plays count as another's from now on (a Joint artists pick), and their songs the app
  *  downloaded get that artist in their tags (your own files are Android's to keep: the PC can change those). */
 @Composable
