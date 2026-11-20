@@ -30,6 +30,8 @@ class CopiesTest {
             song("s1", "Skit", "One", secs = 12.0), song("s2", "Skit", "Other", secs = 12.0))                           // too short to tell by length
         val groups = Copies.groupsOf(songs, { it.file }, { 0.0 }) { false }
         assertEquals(setOf(setOf("copy-n1", "copy-n2"), setOf("copy-y1", "copy-y2")), groups.map { g -> g.map { it.id }.toSet() }.toSet())
+        assertTrue("by their length alone: not sure enough to mark one Remove", !sameArtistCopies(songs.take(2)))
+        assertTrue("an artist they share: sure", sameArtistCopies(listOf(songs[3], songs[4])))
     }
 
     @Test fun oneFileListedTwiceIsOneCopyAndGroupsYouKeptAreLeftOut() {

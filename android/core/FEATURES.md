@@ -138,7 +138,7 @@ Settings › Personalization (or the palette on Now playing) changes how the app
 ## Tags & tidying
 
 - **Tagger:** A song's tags (with **Find tags online**, which shows every change first), cover, info, lyrics, mood, and which tab a release goes in. Changed artist or album? Its file moves to match. On the phone it works on any of your files once you allow All files access.
-- **Scanner tools** (Settings › Scanner): Fix genre names, Duplicates, Upgrade to FLAC, Songs without covers, Identify by sound and Similar artists. **Duplicates** lists a song you have in more than one file: the same name by the same artist or by one both files credit, or the same name and the very same length whoever each file names (a phone reads only the first artist of a file that credits two); Not a duplicate takes a pair off the list for good.
+- **Scanner tools** (Settings › Scanner): Fix genre names, Duplicates, Upgrade to FLAC, Songs without covers, Identify by sound and Similar artists. **Duplicates** lists a song you have in more than one file: the same name by the same artist or by one both files credit, or the same name and the very same length whoever each file names (a phone reads only the first artist of a file that credits two; those start as Keep on every copy, with a note to play both first, because two different songs of one name can be the same length); Not a duplicate takes a pair off the list for good.
 - **Computer only:** Fix albums and artists, Empty folders, and folders to leave alone.
 
 ## Phone + computer together

@@ -49,6 +49,15 @@ fun dupeClusters(songs: List<Track>): List<List<Track>> {
     return out
 }
 
+/** Whether the copies of a Duplicates group are one song by their artists too (each shares an artist with the first).
+ *  When not, they were put together by their name and length alone: likely one recording tagged two ways, but two
+ *  songs of one name can run to the same length, so none of them is marked to be removed until you say so. */
+fun sameArtistCopies(g: List<Track>): Boolean {
+    fun credits(t: Track) = looseArtists(t.copy(artist = t.artist.replace(';', ','))) + looseKey(t).second
+    val first = credits(g.firstOrNull() ?: return true)
+    return g.drop(1).all { t -> credits(t).any { it in first } }
+}
+
 /** Whether a and b are likely the same song, to ask about: the same or nearly the same title by an
  *  artist they share (or nearly the same name), or nearly the same title on the same album. Lengths
  *  and other tags aren't looked at: they differ between copies of one song. */

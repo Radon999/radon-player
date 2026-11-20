@@ -577,7 +577,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
             item {
                 Section("${groups.size} SONG${if (groups.size != 1) "S" else ""} · ${groups.sumOf { it.size - 1 }} EXTRA COPIES · THE BEST COPY FIRST")
                 ActionRow("Look again  ›") { Music.findDupes() }
-                val picks = groups.map { g -> g to g.filterIndexed { i, t -> ui.dupeRemove[t.id] ?: (i != 0) }.map { it.id }.toSet() }
+                // (copies put together by name and length alone, under different artists: none marked Remove until you say so)
+                val picks = groups.map { g -> val sure = org.omarchy.music.sameArtistCopies(g)
+                    g to g.filterIndexed { i, t -> ui.dupeRemove[t.id] ?: (sure && i != 0) }.map { it.id }.toSet() }
                 val n = picks.sumOf { (g, rm) -> if (rm.size >= g.size) g.size - 1 else rm.size }
                 if (n > 0) ActionRow("Remove the $n cop${if (n != 1) "ies" else "y"} marked Remove  ›") {
                     ui.confirm = ("Remove $n duplicate cop${if (n != 1) "ies" else "y"}? In each song the copies marked Keep stay, and your " +
@@ -586,12 +588,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
                 }
             }
             groups.forEach { g ->
+                val sure = org.omarchy.music.sameArtistCopies(g)
                 item(key = "dupe-head-${g[0].id}") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) { Section(g[0].title.uppercase() + " · " + g[0].artist.uppercase()) }
                         Pill("Not a duplicate", quiet = true) { Music.markNotDupe(g) }
                         Spacer(Modifier.width(10.dp))
                     }
+                    if (!sure) Text("The same name and the same length, under different artists: likely one song tagged two ways. " +
+                        "Play both (▶) before you remove one; nothing here is marked Remove until you do it.", style = T.sub,
+                        modifier = Modifier.padding(horizontal = 12.dp))
                 }
                 g.forEachIndexed { i, t ->
                     item(key = "dupe-${g[0].id}-${t.id}") {
@@ -604,7 +610,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
                                 Text(Music.whereIs(t), style = T.time, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             Text("▶", style = T.title.copy(color = C.accent), modifier = Modifier.clickable { Music.playFrom(listOf(t), 0, false) }.padding(8.dp))
-                            val rm = ui.dupeRemove[t.id] ?: (i != 0)
+                            val rm = ui.dupeRemove[t.id] ?: (sure && i != 0)
                             Chip("Keep", !rm) { ui.dupeRemove[t.id] = false }
                             Spacer(Modifier.width(4.dp))
                             Chip("Remove", rm) { ui.dupeRemove[t.id] = true }
