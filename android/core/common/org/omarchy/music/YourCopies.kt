@@ -124,6 +124,14 @@ object YourCopies {
     @Volatile private var mineOfName: Map<String, List<Track>> = emptyMap()
     @Volatile private var mineOfTitle: Map<String, List<Track>> = emptyMap()
 
+    /** Your file of a song a history names under someone who isn't on it at all (found by its length alone, see
+     *  [mineOf]); null when the song is yours under its own name, or isn't yours. Its plays are your file's artist's. */
+    fun namedOtherwise(title: String, artist: String): Track? {
+        val t = Track("", title = title, artist = artist)
+        if (mineOf(t, byLength = false) !== t) return null
+        return sameLength(title, artist, 0.0, mineOfTitle[mineKeys(t).first.first])
+    }
+
     /** Of your songs of one name, the one that is this recording by its length ([SameLengthRules]); the length is the
      *  song's own when it has one, else what your Apple Music history says its plays ran to. */
     private fun sameLength(title: String, artist: String, secs: Double, named: List<Track>?): Track? {

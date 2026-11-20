@@ -39,6 +39,13 @@ class YourCopiesTest {
         assertEquals("another length: another song of that name", "repeat:v", Music.mineOf(Track("repeat:v", title = "Vault Song", artist = "Some Uploader", duration = 187.0)).id)
         assertEquals("no length known: left alone", "repeat:n", Music.mineOf(Track("repeat:n", title = "Vault Song", artist = "Some Uploader")).id)
         assertEquals("two of yours fit: neither", "repeat:t", Music.mineOf(Track("repeat:t", title = "Twin Song", artist = "Some Uploader", duration = 200.2)).id)
+        assertEquals("under its own name already: nothing to move", null, YourCopies.namedOtherwise("Vault Song", "Real Singer"))
+        assertEquals("not yours: nothing to move", null, YourCopies.namedOtherwise("Vault Song", "Some Uploader"))   // (no length known for it)
+        val play = SpotifyHistory.Play(1, "Some Uploader", "Vault Song", "", 120_000)
+        val (songs, artists) = Stats.combine(emptyList(), emptyList(), emptyList(), apple = listOf(play, play),
+            asYours = { t, a -> if (a == "Some Uploader") "Vault Song" to "Real Singer" else null })
+        assertEquals("its plays are your file's artist's", listOf("Real Singer" to 2), songs.map { it.artist to it.plays })
+        assertEquals(listOf("Real Singer"), artists.map { it.name })
         assertEquals("what plays is never picked by length alone", "svc-u", Music.localOf(Track("svc-u", "ytm", "Vault Song", "Some Uploader", duration = 120.0)).id)
     }
 

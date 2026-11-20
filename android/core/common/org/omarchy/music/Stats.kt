@@ -71,7 +71,7 @@ object Stats {
         }
     }
 
-    private fun inputs() = listOf("v7", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
+    private fun inputs() = listOf("v8", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.albumPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.songPicks.toSortedMap().toString() }.getOrDefault(""), if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, OtherPlays.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")
@@ -111,13 +111,19 @@ object Stats {
         // Spotify's and Apple Music's imports: every play in them (from 30 seconds, as Spotify counts a
         // stream), added to Last.fm's, even where Spotify scrobbled to Last.fm too.
         val spotify = SpotifyHistory.plays; val apple = AppleHistory.timed(); val deezer = OtherPlays.all
-        val (s, a) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 }, deezer)
+        // A song a history has under someone who isn't on your file of it (an unreleased song under an uploader's name):
+        // its plays are your file's, under its own name and artist. Worked out once per song.
+        AppleHistory.ensureLengths()
+        val yours = HashMap<Pair<String, String>, Pair<String, String>?>()
+        val asYours: (String, String) -> Pair<String, String>? = { t, a ->
+            yours.getOrPut(statsKey(t, a)) { runCatching { YourCopies.namedOtherwise(t, a) }.getOrNull()?.let { it.title to it.artist } } }
+        val (s, a) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 }, deezer, asYours)
         // This week's, month's and year's: the plays with a time (scrobbles, Spotify's, Apple Music's timed ones).
         val thumbs = s.associate { statsKey(it.title, it.artist) to it.thumb }
         val periods = PERIODS.mapValues { (_, days) ->
             val start = (now() - days * 86400L).toLong()
             combine(scrobbles.filter { it.t >= start }, spotify.filter { it.t >= start }, emptyList(), apple.filter { it.t >= start },
-                deezer = deezer.filter { it.t >= start }).first
+                deezer = deezer.filter { it.t >= start }, asYours = asYours).first
                 .take(5000).map { if (it.thumb.isEmpty()) it.copy(thumb = thumbs[statsKey(it.title, it.artist)] ?: "") else it }
         }
         val lengths = runCatching { Music.mySongs().filter { it.duration > 0 }.associate { statsKey(it.title, it.artist) to it.duration } }.getOrDefault(emptyMap())
@@ -238,14 +244,15 @@ object Stats {
     internal fun combine(scrobbles: List<SpotifyHistory.Play>, spotify: List<SpotifyHistory.Play>, here: List<Pair<Track, Int>>,
                          apple: List<SpotifyHistory.Play> = emptyList(),
                          appleTotals: List<AppleHistory.Row> = emptyList(),
-                         deezer: List<SpotifyHistory.Play> = emptyList()): Pair<List<Song>, List<ArtistPlays>> {
+                         deezer: List<SpotifyHistory.Play> = emptyList(),
+                         asYours: (String, String) -> Pair<String, String>? = { _, _ -> null }): Pair<List<Song>, List<ArtistPlays>> {
         val songs = LinkedHashMap<Pair<String, String>, Counts>()
         // An artist you merged into another (Merge into…, Similar artists): their songs' plays go with them too.
         val picks = runCatching { Music.artistPicks }.getOrDefault(emptyMap())
         fun moved(a: String) = if (picks.isEmpty()) a else picks[pairKey(a)]?.ifEmpty { null } ?: a
         // A song you merged into another (Duplicates in Most played): counted as that one.
         fun add(title: String, artist: String, album: String, thumb: String, n: Int, source: String) {
-            val (t, a) = sameSong(title, artist)
+            val (t, a) = sameSong(title, artist).let { asYours(it.first, it.second) ?: it }
             songs.count(t, moved(a), onto(title, artist, album), thumb, n, source)
         }
         for (p in scrobbles) add(p.title, p.artist, p.album, "", 1, "lastfm")
@@ -254,7 +261,7 @@ object Stats {
         for (p in apple) add(p.title, p.artist, p.album, "", 1, "apple")
         for (p in deezer) add(p.title, p.artist, p.album, "", 1, "deezer")
         // A library's counts: Apple's all-time total for a song, past the Apple plays counted already.
-        for (r in appleTotals) { val (t, a) = sameSong(r.title, r.artist)
+        for (r in appleTotals) { val (t, a) = sameSong(r.title, r.artist).let { asYours(it.first, it.second) ?: it }
             add(r.title, r.artist, r.album, "", r.count - (songs[statsKey(t, moved(a))]?.apple ?: 0), "apple") }
         val artists = LinkedHashMap<Pair<String, String>, Counts>()
         val called = HashMap<Pair<String, String>, HashMap<String, Int>>()

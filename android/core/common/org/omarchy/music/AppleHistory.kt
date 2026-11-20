@@ -67,11 +67,14 @@ object AppleHistory {
      *  a song named here under another artist ([SameLengthRules]). No reading: made when the history is read. */
     fun lengthOf(title: String, artist: String): Double = lengths[statsKey(title, artist)] ?: 0.0
     @Volatile private var lengths: Map<Pair<String, String>, Double> = emptyMap()
+    @Volatile private var lengthsRead = false
+    /** (blocking, off the main thread) The lengths read, if they weren't yet: the stats are added up with them. */
+    fun ensureLengths() { if (!lengthsRead) readLengths() }
     private fun readLengths() {
         lengths = runCatching {
             exactStored().rows.ifEmpty { rows.filter { it.t > 0 && it.count == 1 } }
                 .groupBy({ statsKey(it.title, it.artist) }, { it.ms })
-                .mapValues { SameLengthRules.usual(it.value) }.filterValues { it > 0 }
+                .mapValues { SameLengthRules.usual(it.value) }.filterValues { it > 0 }.also { lengthsRead = true }
         }.getOrDefault(emptyMap())
     }
 
