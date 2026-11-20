@@ -29,6 +29,18 @@ class YourCopiesTest {
         assertTrue("a history's song you haven't got: a stream", !org.omarchy.music.ui.onThisDevice(Music.localOf(Track("repeat:s", title = "Nowhere Song", artist = "Here Band"))))
     }
 
+    @Test fun aSongAHistoryHasUnderAnotherArtistIsYourFileByTheLengthItsPlaysRanTo() = withSaved(
+        saved("len", "Console Song", "First Rapper", "Console Record", "flac").copy(duration = 165.8),
+        saved("len2", "Console Song", "Somebody Else", "Other Record", "mp3").copy(duration = 155.0)) {
+        val asked = Track("repeat:c", title = "Console Song", artist = "Second Rapper")   // (Repeats keeps no length)
+        assertEquals("no history tells its length: left alone", "repeat:c", Music.mineOf(asked).id)
+        HistoryLengths.standIn = mapOf(statsKey("Console Song", "Second Rapper") to 165.8)
+        try {
+            Harness.ui { Music.musicVersion++ }
+            assertEquals("its plays ran to your file's length", "copies-len", Music.mineOf(asked).id)
+        } finally { HistoryLengths.standIn = null }
+    }
+
     @Test fun aSongNamedByEveryoneOnItIsYourFileTaggedWithOneOfThem() = withSaved(
         saved("ott", "Credit Song", "Second Singer", "Credit Record", "flac"), saved("duo", "Duo Song", "First Half & Other Half", "Duo Record", "flac")) {
         assertEquals("your file names only the second artist", "copies-ott", Music.mineOf(Track("repeat:x", title = "Credit Song", artist = "First Band & Second Singer")).id)

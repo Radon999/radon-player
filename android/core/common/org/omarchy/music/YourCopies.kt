@@ -165,7 +165,7 @@ object YourCopies {
 
     /** Your songs that run as long as this one (within [SameLengthRules.WITHIN]): the likely ones to offer first. */
     fun sameLengthAs(t: Track): List<Track> {
-        val secs = if (t.duration > 0) t.duration else AppleHistory.lengthOf(t.title, t.artist)
+        val secs = if (t.duration > 0) t.duration else HistoryLengths.of(t.title, t.artist)
         if (secs < SameLengthRules.SHORTEST) return emptyList()
         return runCatching { mySongs() }.getOrDefault(emptyList()).filter { kotlin.math.abs(it.duration - secs) <= SameLengthRules.WITHIN }
     }
@@ -173,17 +173,17 @@ object YourCopies {
     /** For adding plays up (Most played, Artists, Wrapped): a history's song to your file's name and artist when it
      *  has it under someone else ([namedOtherwise]), null for every other song. Each song worked out once. (blocking) */
     fun renamer(): (String, String) -> Pair<String, String>? {
-        AppleHistory.ensureLengths()
+        HistoryLengths.ensure()
         val seen = HashMap<Pair<String, String>, Pair<String, String>?>()
         return { t, a -> synchronized(seen) { seen.getOrPut(Stats.statsKey(t, a)) {
             saidToBe(t, a) ?: runCatching { namedOtherwise(t, a) }.getOrNull()?.takeIf { !noArtistNamed(it.artist) }?.let { it.title to it.artist } } } }
     }
 
     /** Of your songs of one name, the one that is this recording by its length ([SameLengthRules]); the length is the
-     *  song's own when it has one, else what your Apple Music history says its plays ran to. */
+     *  song's own when it has one, else what your histories say its plays ran to ([HistoryLengths]). */
     private fun sameLength(title: String, artist: String, secs: Double, named: List<Track>?): Track? {
         if (named.isNullOrEmpty()) return null
-        val want = if (secs > 0) secs else AppleHistory.lengthOf(title, artist)
+        val want = if (secs > 0) secs else HistoryLengths.of(title, artist)
         return named.getOrNull(SameLengthRules.pick(want, named.map { it.duration }))
     }
 

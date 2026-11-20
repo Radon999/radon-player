@@ -13,12 +13,23 @@ class CopiesTest {
     @Test fun oneSongInTwoFilesIsADuplicateWithItsBestCopyFirst() {
         val songs = listOf(
             song("a1", "Salt and Stone", "The Copies Test Band", secs = 180.0), song("a2", "Salt And Stone (Remastered)", secs = 240.0),
-            song("b1", "Paper Boats"), song("b2", "Paper Boats", "Another Band"),      // another artist's: not a copy
+            song("b1", "Paper Boats"), song("b2", "Paper Boats", "Another Band", secs = 231.0),      // another artist's, another length: not a copy
             song("c1", "Zebra"), song("c2", "Zebra"),
             song("d1", "Alone"))
         val groups = Copies.groupsOf(songs, { it.file }, { it.duration }) { false }
         assertEquals("two groups, by name; in each the better copy (here: the longer) first",
             listOf(listOf("copy-a2", "copy-a1"), listOf("copy-c1", "copy-c2")), groups.map { g -> g.map { it.id } })
+    }
+
+    @Test fun oneSongTaggedUnderTwoOfItsArtistsIsADuplicate() {
+        // What a phone makes of one song in two files: it reads the first artist only of a file that credits two
+        val songs = listOf(
+            song("n1", "Console", "First Rapper", secs = 165.8), song("n2", "Console", "Second Rapper", secs = 165.8),   // the very same length
+            song("n3", "Console", "Somebody Else", secs = 155.0),                                                        // another song of that name
+            song("y1", "Get It", "KFlay", secs = 176.49), song("y2", "Get It", "Arkells;K.Flay", secs = 190.0),          // an artist they share
+            song("s1", "Skit", "One", secs = 12.0), song("s2", "Skit", "Other", secs = 12.0))                           // too short to tell by length
+        val groups = Copies.groupsOf(songs, { it.file }, { 0.0 }) { false }
+        assertEquals(setOf(setOf("copy-n1", "copy-n2"), setOf("copy-y1", "copy-y2")), groups.map { g -> g.map { it.id }.toSet() }.toSet())
     }
 
     @Test fun oneFileListedTwiceIsOneCopyAndGroupsYouKeptAreLeftOut() {

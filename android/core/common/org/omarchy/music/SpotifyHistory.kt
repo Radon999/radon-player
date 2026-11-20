@@ -50,6 +50,7 @@ object SpotifyHistory {
 
     private fun keep(s: Saved) {
         saved = s
+        HistoryLengths.forget()
         writeAtomic(file, JSON.encodeToString(Saved.serializer(), s))
         count = s.plays.size
     }

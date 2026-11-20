@@ -23,6 +23,32 @@ fun looseArtists(t: Track): Set<String> =
 fun looseKey(t: Track): Pair<String, String> =
     squashKey(cleanTitle(t.title)) to squashKey(t.artist.split(",")[0]).removePrefix("the")
 
+/** How close the lengths of two files of one name must be (seconds) for them to be one recording when their tags
+ *  name different artists (copies of one recording differ by a fraction of a second at most). */
+const val SAME_RECORDING_WITHIN = 0.5
+
+/** Your songs that are one song in more than one file, for Duplicates: the songs of one name ([looseKey]'s) that
+ *  have the same lead artist, or share any artist they credit ("Arkells; K.Flay" and "KFlay"), or run to the very
+ *  same length ([SAME_RECORDING_WITHIN]; nothing under [SameLengthRules.SHORTEST]) whoever each one names: a phone
+ *  reads only the first artist of a file that credits two, so one file says "Young Dolph" and the other "Key Glock".
+ *  Songs with no name are never grouped. */
+fun dupeClusters(songs: List<Track>): List<List<Track>> {
+    val out = ArrayList<List<Track>>()
+    for ((name, bucket) in songs.groupBy { looseKey(it).first }) {
+        if (name.isEmpty() || bucket.size < 2) continue
+        val lead = bucket.map { looseKey(it).second }
+        val credits = bucket.map { looseArtists(it.copy(artist = it.artist.replace(';', ','))) }
+        fun same(i: Int, j: Int): Boolean = lead[i] == lead[j] || credits[i].any { it in credits[j] } ||
+            (bucket[i].duration >= SameLengthRules.SHORTEST && bucket[j].duration >= SameLengthRules.SHORTEST &&
+                kotlin.math.abs(bucket[i].duration - bucket[j].duration) <= SAME_RECORDING_WITHIN)
+        val group = IntArray(bucket.size) { it }
+        fun top(i: Int): Int { var x = i; while (group[x] != x) x = group[x]; return x }
+        for (i in bucket.indices) for (j in i + 1 until bucket.size) if (top(i) != top(j) && same(i, j)) group[top(j)] = top(i)
+        bucket.indices.groupBy { top(it) }.values.filter { it.size > 1 }.forEach { g -> out += g.map { bucket[it] } }
+    }
+    return out
+}
+
 /** Whether a and b are likely the same song, to ask about: the same or nearly the same title by an
  *  artist they share (or nearly the same name), or nearly the same title on the same album. Lengths
  *  and other tags aren't looked at: they differ between copies of one song. */

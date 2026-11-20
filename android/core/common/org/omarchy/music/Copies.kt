@@ -177,12 +177,12 @@ object Copies {
         }
     }
 
-    /** The Duplicates list: your songs that are one song (the same name and artist, loosely: [looseKey]) in two or
+    /** The Duplicates list: your songs that are one song ([dupeClusters]: the same name by the same artist or by one
+     *  they share, or the same name and the very same length whoever each file names) in two or
      *  more files (fileOf: one file listed twice is one copy), each group's best copy first (rank), the groups by
      *  artist then name; the groups you marked "Not a duplicate" (kept) left out. */
     fun groupsOf(songs: List<Track>, fileOf: (Track) -> String?, rank: (Track) -> Double, kept: (List<Track>) -> Boolean): List<List<Track>> =
-        songs.groupBy { looseKey(it) }.filter { (k, v) -> v.size > 1 && k.first.isNotEmpty() }
-            .values.map { g -> g.distinctBy(fileOf).sortedByDescending(rank) }
+        dupeClusters(songs).map { g -> g.distinctBy(fileOf).sortedByDescending(rank) }
             .filter { it.size > 1 && !kept(it) }.sortedBy { norm(it[0].artist) + "|" + norm(it[0].title) }
 
     /** Which copy is best to keep: a FLAC first, a download (24-bit) over a file, then the longer one. */
