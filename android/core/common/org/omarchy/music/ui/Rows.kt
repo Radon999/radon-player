@@ -361,6 +361,9 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             org.omarchy.music.FlacDepths.version
             val fmt = if (saved != null) formatBadge(saved.format, saved.quality) else org.omarchy.music.FlacDepths.badge(own.file)
             if (fmt != null) Badge(fmt)
+            // ...and where it plays from when there is no format to show: a song that isn't on this device says so
+            // (not the other device's queue: its songs are that device's)
+            else if (!remoteQueue) { val here = onThisDevice(own); Badge(if (here) "Local" else STREAMING, here) }
             if (saved != null) Icon(Ico.DOWNLOAD, C.accent, 16.dp, Modifier.padding(start = 4.dp))
             else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)
             if (!ui.selecting) Box(Modifier.clip(R.pill).clickable { menu = true }.padding(6.dp)) { Icon(Ico.MORE, C.muted, 18.dp) }
@@ -370,6 +373,12 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
         TrackMenu(t, place, ui, menu) { menu = false }
     }
 }
+
+/** The mark of a song that isn't on this device, in every list: it plays as a stream until you download it. */
+const val STREAMING = "Streaming"
+
+/** Whether a song (as [Music.localOf] gives it) is on this device, a file of yours or a download; if not it plays as a stream. */
+fun onThisDevice(own: Track): Boolean = own.isFile || Music.lib.has(own.id)
 
 /** A download's mark: its kind and, for FLAC, its bit depth from its quality ("24-bit/96 kHz"): "FLAC 24", "M4A". */
 fun formatBadge(format: String, quality: String): String? {

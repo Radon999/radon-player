@@ -2339,11 +2339,17 @@ fun androidx.compose.foundation.lazy.LazyListScope.timeItems(ui: Ui, what: Strin
     }
     laidOutItems(list, ui, key = { "tt-$what-" + list[it].key }, names = { list[it].title }, row = { i ->
         val x = list[i]
-        PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), topArt(cover(x)), onLongClick = { hide(x) }) { open(i) }
+        Music.savedVersion   // (a song downloaded since loses its mark)
+        val streams = what == "songs" && !onThisDevice(Music.localOf(x.tracks.first()))   // a song that isn't on this device says so
+        PlaylistRow(Album(x.key, x.title, "${x.artist} · ${fmtHours(x.secs)}"), topArt(cover(x)), onLongClick = { hide(x) },
+            badge = if (streams) STREAMING else null, badgeOn = false) { open(i) }
     }) { i, mod, compact ->
         val x = list[i]
+        Music.savedVersion
+        val streams = what == "songs" && !onThisDevice(Music.localOf(x.tracks.first()))
         Tile(topArt(cover(x), tilePx(compact)), x.title, x.artist, mod, compact, extra = fmtHours(x.secs),
-            ico = if (what == "songs") Ico.NOTE else Ico.DISC, onLongClick = { hide(x) }) { open(i) }
+            ico = if (what == "songs") Ico.NOTE else Ico.DISC, onLongClick = { hide(x) },
+            over = { if (streams) StreamCorner(compact) }) { open(i) }
     }
 }
 

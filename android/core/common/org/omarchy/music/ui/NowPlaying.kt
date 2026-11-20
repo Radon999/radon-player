@@ -862,6 +862,8 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
         // This row of the queue, not the song: the same song waiting twice is two rows, each picked by itself
         val here = RowPlace(emptyList(), j, kind = "queue", queueIndex = j)
         val checked = ui.picked(t, here)
+        // A waiting song that isn't on this device says so (the other device's queue: its songs are that device's)
+        val streams = !remote && remember(t, Music.musicVersion, Music.savedVersion) { !onThisDevice(Music.localOf(t)) }
         if (ui.selecting) androidx.compose.runtime.SideEffect {
             val q = Music.shownQueue()
             if (ui.selectPool !== q) { ui.selectPool = q; ui.selectPlace = RowPlace(q, j, kind = "queue", queueIndex = j) }
@@ -883,6 +885,7 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
                 val kind = if (!remote && djQueueOn()) djKindOf(t) else ""
                 Text(if (kind.isNotEmpty()) "${t.artist}  ·  $kind" else t.artist, style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (streams) Text(STREAMING, style = T.time.copy(shadow = LIFT, color = SOFT, fontSize = 10.sp))
             if (!remote) Box(Modifier.size(44.dp).pointerInput(j) {
                 detectVerticalDragGestures(onDragStart = { dy = 0f },
                     onDragEnd = {

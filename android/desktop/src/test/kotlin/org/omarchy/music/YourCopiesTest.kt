@@ -24,6 +24,11 @@ class YourCopiesTest {
         assertEquals("an album you don't have it on: the FLAC", "copies-flac", Music.fmSong("Copy Song", "Copy Band", "", mine, album = "Some Other Record").id)
     }
 
+    @Test fun aSongSaysWhetherItIsOnThisDevice() = withSaved(saved("here", "Here Song", "Here Band", "Here Record", "flac")) {
+        assertTrue("a history's song you have: on this device", org.omarchy.music.ui.onThisDevice(Music.localOf(Track("repeat:h", title = "Here Song", artist = "Here Band"))))
+        assertTrue("a history's song you haven't got: a stream", !org.omarchy.music.ui.onThisDevice(Music.localOf(Track("repeat:s", title = "Nowhere Song", artist = "Here Band"))))
+    }
+
     @Test fun aSongNamedByEveryoneOnItIsYourFileTaggedWithOneOfThem() = withSaved(
         saved("ott", "Credit Song", "Second Singer", "Credit Record", "flac"), saved("duo", "Duo Song", "First Half & Other Half", "Duo Record", "flac")) {
         assertEquals("your file names only the second artist", "copies-ott", Music.mineOf(Track("repeat:x", title = "Credit Song", artist = "First Band & Second Singer")).id)

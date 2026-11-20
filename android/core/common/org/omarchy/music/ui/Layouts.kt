@@ -153,6 +153,15 @@ fun Tile(art: Any?, title: String, sub: String, modifier: Modifier, compact: Boo
     }
 }
 
+/** On a song's cover, in its top right corner: a small cloud when the song isn't on this device (it plays as a stream). */
+@Composable
+fun BoxScope.StreamCorner(compact: Boolean) {
+    Box(Modifier.align(Alignment.TopEnd).padding(if (compact) 3.dp else 5.dp).clip(CircleShape)
+        .background(Color.Black.copy(alpha = 0.6f)).padding(if (compact) 3.dp else 4.dp)) {
+        Icon(Ico.CLOUD, Color.White, if (compact) 11.dp else 14.dp)
+    }
+}
+
 /** A song as a cover: a tap plays it, a long-press has its options; the count (plays, skips) stays under it. */
 @Composable
 fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifier, compact: Boolean, onPlay: () -> Unit) {
@@ -170,6 +179,7 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                     Icon(if (Music.paused) Ico.PAUSE else Ico.PLAY, C.accent, if (compact) 20.dp else 26.dp)
                 }
+                if (!onThisDevice(own)) StreamCorner(compact)
                 if (ui.selecting) Checkbox(checked, { ui.toggle(t, place) }, Modifier.align(Alignment.TopStart),
                     colors = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = Color.White))
             }) {
