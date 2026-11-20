@@ -719,6 +719,11 @@ object PlaybackCore {
      *  for it, not paused, nothing moving on): heard as the music stopping partway with nothing said, and Play then
      *  started the song from its beginning. After four seconds it is loaded again where it was, and noted (Settings ›
      *  Problems). At most twice a song. */
+    /** The player has stopped on a song meant to be playing and [idleWatch] is about to load it again: the phone goes
+     *  on telling Android it is busy with music, so it stays the foreground player it must be to carry on in the
+     *  background (once let go there, Android said "startForegroundService() not allowed"). */
+    fun aboutToReload(): Boolean = current().let { t -> t != null && !paused && loadedFor == t.id && !(idleHealedFor == t.id && idleHeals >= 3) }
+
     private fun idleWatch(p: Engine) {
         val t = current()
         val stuck = t != null && !paused && !advancing && loadedFor == t.id && p.state == Engine.IDLE && !Remote.active && Music.cast == null
@@ -728,7 +733,20 @@ object PlaybackCore {
         if (now - idleSince < 4000) return
         idleSince = 0L
         if (idleHealedFor != t.id) { idleHealedFor = t.id; idleHeals = 0 }
-        if (idleHeals >= 2) return
+        if (idleHeals >= 2) {
+            // Loaded again twice and stopped again: this song can't be played right now. Sitting on it meant silence
+            // with the seek bar still counting until you skipped it yourself; the next song plays instead (or, with
+            // nothing after it, it shows as paused, which is what it is).
+            if (idleHeals == 2) {
+                idleHeals = 3
+                val more = queue.getOrNull(index + 1) != null
+                Crashes.note("“${t.title}” stopped again after being loaded twice: " + if (more) "on to the next song" else "nothing after it, so it is paused")
+                SoundLog.note("the player kept stopping on this song: " + if (more) "next song" else "paused")
+                Music.toast("Couldn't keep “${t.title}” playing" + if (more) ": on to the next song" else "")
+                if (more) next() else paused = true
+            }
+            return
+        }
         idleHeals++
         Crashes.note("“${t.title}” was meant to be playing but the player had stopped at ${position.toInt()}s: loaded again from there")
         SoundLog.note("the player had stopped mid-song: loaded again at ${position.toInt()}s")

@@ -330,7 +330,8 @@ class MusicService : MediaLibraryService() {
 
         // Between songs (one ran out, the next is loading) the session hears "buffering", not "ended":
         // see Music.advancing. The listeners the session adds get the same.
-        private fun masked(state: Int) = if (state == Player.STATE_ENDED && p !is RemotePlayer && Music.advancing) Player.STATE_BUFFERING else state
+        private fun masked(state: Int) = if (p !is RemotePlayer && ((state == Player.STATE_ENDED && Music.advancing) ||
+            (state == Player.STATE_IDLE && runCatching { Music.aboutToReload() }.getOrDefault(false)))) Player.STATE_BUFFERING else state
         override fun getPlaybackState(): Int = masked(super.getPlaybackState())
         private val wrapped = HashMap<Player.Listener, Player.Listener>()
         override fun addListener(listener: Player.Listener) {

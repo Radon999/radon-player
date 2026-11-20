@@ -1830,7 +1830,9 @@ object Dj {
             if (k in order) remember(KIND_HISTORY, canon(k), keep = 200)   // played: it waits until every other kind has had a turn
             // Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row (nor more
             // than twice in a set, but for an artist's own set); an album moment stays in the album's order
-            val songs = if (k == "album") got.first else spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover"))
+            // …and the song the line names first is the one that plays first ("leads", "gets us going", "we start with")
+            val songs = if (k == "album") got.first
+                else LeadRules.leadFirst(spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover")), got.second) { it.title }
             val opener0 = if (first) hello() else timeFlavor()
             val (opener, line) = ScriptRules.opened(opener0, got.second, first)
             // A break is MOST_WORDS words at most, as said: a word about the day goes first if it's over (a hello stays)

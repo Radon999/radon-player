@@ -742,6 +742,7 @@ object Music {
 
 
     fun next() = PlaybackCore.next()
+    fun aboutToReload(): Boolean = PlaybackCore.aboutToReload()
 
     /** The next of your other queues with songs still to play (the last one used first), or null. */
     fun nextQueue(): SavedQueue? = PlaybackCore.nextQueue()

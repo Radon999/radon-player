@@ -16,7 +16,7 @@ import java.nio.ByteOrder
  *  "AUDIO_TRACK_INIT_FAILED" while 16-bit songs (MP3s, CD-quality FLACs) played.
  *
  *  Bit-perfect with a USB DAC is the one exception: then the music goes to the DAC as it is (float, all its bits). */
-class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink(sink) {
+class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: AudioSink? = null) : ForwardingAudioSink(sink) {
     private var float = false       // bit-perfect: float as it is (the EQ is bypassed then anyway)
     private var toShort = 0         // the bytes of each hi-res sample being brought down to 16-bit (3, 4), else 0
     private var inEncoding = C.ENCODING_INVALID
@@ -56,6 +56,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
         eq.decoderLoudAt = 0L
         raw16 = inputFormat.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_RAW && inEncoding == C.ENCODING_PCM_16BIT
         val straight = asItIs()
+        SoundLog.note("the output set up for a song (samples $inEncoding, $inRate Hz${if (straight) ", as it is" else ""})")
         if (straight) eq.bypass = true   // every sample as it came (set again from the output once the stream runs)
         // Bit-perfect is on, yet a hi-res song is about to be brought down to 16 bits: said in Settings › Problems
         // (only with a DAC plugged in: without one, bit-perfect left on has nothing to send to, and that is no fault)
@@ -79,10 +80,40 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor) : ForwardingAudioSink
     // was over was waited on for a whole minute before the next one played.
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
         val before = buffer.remaining()
-        val done = feed(buffer, presentationTimeUs, encodedAccessUnitCount)
+        val done = try { feed(buffer, presentationTimeUs, encodedAccessUnitCount) }
+        catch (e: IllegalArgumentException) {
+            // Android's output was still holding a buffer from before and was handed another: it refuses that
+            // ("FAILED_RUNTIME_CHECK"), the player stops, and the song went on counting with no sound, again each time
+            // it was loaded (seen on “Summer”, 20 Nov 2026). What it holds is let go, and the buffer is handed in again.
+            val how = "hi-res to 16-bit: ${toShort > 0}, float: $float, a buffer waiting here: $pending, the song's samples: $inEncoding"
+            pending = false
+            val cleared = forget()
+            Crashes.note("The sound output was holding an old buffer while “${Music.current()?.title}” played ($how): " +
+                (if (cleared) "let go, and the song carried on" else "it couldn't be let go"))
+            SoundLog.note("the sound output held an old buffer ($how): ${if (cleared) "let go" else "not let go"}")
+            if (!cleared) throw e
+            feed(buffer, presentationTimeUs, encodedAccessUnitCount)
+        }
         if (done || buffer.remaining() != before) eq.sinkFedAt = System.currentTimeMillis()
         return done
     }
+
+    /** Android's output made to forget the buffer it was part-way through (and the one it was writing): its own flush
+     *  only does that while it has a sound track open, and it can be holding one with none. By its fields' names in
+     *  the player library (1.4.1; the app isn't shrunk, so they are as written); false if they can't be reached. */
+    private fun forget(): Boolean = runCatching {
+        runCatching { super.flush() }
+        val sink = core ?: return@runCatching false
+        var c: Class<*>? = sink.javaClass
+        var done = 0
+        while (c != null && done < 2) {
+            for (name in listOf("inputBuffer", "outputBuffer")) runCatching {
+                c!!.getDeclaredField(name).apply { isAccessible = true }.set(sink, null); done++
+            }
+            c = c.superclass
+        }
+        done >= 1
+    }.getOrDefault(false)
 
     // The 16-bit music (MP3s, streams, CD-quality FLACs) is watched as the hi-res music is: before, a decoder that
     // stopped giving sound on one of those went unnoticed, and the song played on silent until it was moved.
