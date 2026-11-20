@@ -1,0 +1,7 @@
+v4.0.25
+Radon Player 4.0.25: your file under another of its artists, and Duplicates that finds one song tagged two ways
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.25.msi` (Windows), `radon-player_4.0.25_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Your file under another of its artists:** a phone reads only the first artist of a file that credits two, so a song your history has under the other one showed as a stream in Repeats, and downloading it made a second copy. The song's length is now taken from your imported Spotify history as well as Apple Music's, and your only song of that name and that length is taken to be it.
+- **Duplicates finds one song tagged two ways:** your files of the same name by an artist both credit, or of the same name and the very same length whoever each names, are listed together. A group put together by name and length alone has no copy marked Remove until you mark one, with a note to play both first: two different songs of one name can run to the same length.

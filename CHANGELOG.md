@@ -4,6 +4,10 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.25: Your file under another of its artists, and Duplicates that finds one song tagged two ways (Android, Windows and Linux)
+- **Your file under another of its artists:** a phone reads only the first artist of a file that credits two, so a song your history has under the other one showed as a stream in Repeats, and downloading it made a second copy. The song's length is now taken from your imported Spotify history as well as Apple Music's, and your only song of that name and that length is taken to be it.
+- **Duplicates finds one song tagged two ways:** your files of the same name by an artist both credit, or of the same name and the very same length whoever each names, are listed together. A group put together by name and length alone has no copy marked Remove until you mark one, with a note to play both first: two different songs of one name can run to the same length.
+
 ## 4.0.24: Hide from stats, streaming or on this device, and covers found more often (Android, Windows and Linux)
 - **Hide from stats:** long-press (right-click on a computer) a song, an album or an artist in a stats list and pick Hide from stats. It is no longer shown in Most played (songs, albums, artists and their listening times), Repeats, Skips or Unplayed and neglected; its plays still count in those lists' totals. Wrapped leaves it out altogether. Settings › Scanner › Last.fm & your stats › Hidden from stats lists what is hidden, with Show again. The list goes to your other device at a Sync.
 - **Streaming or on this device:** every song in every list says where it plays from. A song of yours shows its format (or Local until the file has been read); a song that isn't on this device shows Streaming, with a small cloud on its cover where songs are shown as covers.
