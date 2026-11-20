@@ -433,6 +433,7 @@ object Sync {
             put("pins", JSON.encodeToJsonElement(ListSerializer(Pin.serializer()), m.pins.toList()))
             put("tab_sorts", strs(m.tabSorts.toMap())); put("tab_picks", strs(m.tabPicks.toMap()))
             put("artist_picks", strs(m.artistPicks)); put("album_picks", strs(m.albumPicks)); put("song_picks", strs(m.songPicks))
+            put("stat_hides", strs(StatHides.map()))
             put("similar_kept", list(m.similarKept)); put("singles_kept", list(m.singlesKept)); put("not_dupes", list(m.notDupes))
             put("lyrics_mode", m.lyricsMode); put("music_sort", m.musicSort); put("playlist_sort", m.playlistSort)
             put("skip_order", m.skipOrder); put("skip_period", m.skipPeriod); put("top_mine_only", m.topMineOnly)
@@ -520,6 +521,7 @@ object Sync {
         strs("artist_picks")?.let { m.artistPicks = it }
         strs("album_picks")?.let { m.albumPicks = it }
         strs("song_picks")?.let { m.songPicks = it }
+        strs("stat_hides")?.let { StatHides.take(it) }
         list("similar_kept")?.let { m.similarKept = it }
         list("singles_kept")?.let { m.singlesKept = it.toSet() }
         list("not_dupes")?.let { m.notDupes = it.toSet() }

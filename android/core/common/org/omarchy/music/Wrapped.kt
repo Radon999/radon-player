@@ -463,8 +463,9 @@ object Wrapped {
     /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
         val plays = imported().filter { it.t in start until end }
-        if (plays.isEmpty()) return rows
-        return (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
+        // What you hid from stats (a song, an album, an artist) is left out of Wrapped altogether: its plays aren't in it
+        val all = if (plays.isEmpty()) rows else (rows + plays.map { Row(it.t, it.artist, it.title, it.album, "", it.ms) }).sortedBy { it.t }
+        return if (!StatHides.any) all else all.filter { !StatHides.play(it.title, it.artist, it.album) }
     }
 
     /** Last.fm didn't answer while Wrapped was loading (it showed what's kept here). */

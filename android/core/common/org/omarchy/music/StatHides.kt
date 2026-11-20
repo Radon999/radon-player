@@ -36,6 +36,17 @@ object StatHides {
     fun artist(name: String): Boolean = hidden.isNotEmpty() && StatHideRules.artist(name) in hidden
     fun album(title: String, artist: String): Boolean = hidden.isNotEmpty() && StatHideRules.album(title, artist) in hidden
 
+    /** A play of something hidden: its song, its album or its (lead) artist. */
+    fun play(title: String, artist: String, album: String): Boolean {
+        val h = hidden
+        return StatHideRules.song(title, artist) in h || StatHideRules.artist(artist) in h ||
+            (album.isNotBlank() && StatHideRules.album(album, artist) in h)
+    }
+
+    /** For Sync: what is hidden here; and what Sync made of both devices' lists. */
+    fun map(): Map<String, String> = hidden
+    fun take(now: Map<String, String>) { if (now != hidden) keep(now) }
+
     fun hideSongs(tracks: List<Track>) = keep(hidden + tracks.associate { StatHideRules.song(it.title, it.artist) to "${it.title} · ${it.artist}" })
     fun hideArtist(name: String) = keep(hidden + (StatHideRules.artist(name) to name))
     fun hideAlbum(title: String, artist: String) = keep(hidden + (StatHideRules.album(title, artist) to "$title · $artist"))
