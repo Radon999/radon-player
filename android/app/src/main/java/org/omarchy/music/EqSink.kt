@@ -49,6 +49,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: Aud
 
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         pending = false; eos = false; eq.sinkEos = false; eq.sinkEnded = false
+        lastPts = C.TIME_UNSET; lastDone = true
         inEncoding = inputFormat.pcmEncoding
         inRate = inputFormat.sampleRate.takeIf { it > 0 } ?: 44100
         inChannels = inputFormat.channelCount.takeIf { it > 0 } ?: 2
@@ -78,7 +79,26 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: Aud
     // "Fed" only when the output really took some of it. The player hands the same buffer in again and again while the
     // output takes nothing (seen over Bluetooth with the DJ on): that counted as music still coming out, so a song that
     // was over was waited on for a whole minute before the next one played.
+    // The piece of music last handed in: its time in the song, whether the output finished it, and how much was left.
+    private var lastPts = C.TIME_UNSET
+    private var lastDone = true
+    private var lastLeft = 0
+
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
+        // The player has moved on to the next piece while the output was still part-way through the last one. That
+        // must never happen (the player is meant to hand the same piece in until it is taken whole), and it is what
+        // both faults on the owner's phone come down to (21 Nov 2026): when the new piece is another buffer the output
+        // refuses it and the player stops (“Wake Up Call”); when it is the same buffer used again the output takes it
+        // for the old one, loses count, and reports a jump in the song's clock (“Only Friend”). Caught here, before
+        // the output sees it: the output lets go of the old piece (a few thousandths of a second of music), and it is
+        // noted with how far the player jumped, to find what makes the player move on.
+        if (lastPts != C.TIME_UNSET && !lastDone && presentationTimeUs != lastPts) {
+            val jump = (presentationTimeUs - lastPts) / 1000
+            pending = false
+            val ok = forgetInput()
+            SoundLog.hiccup("the player moved on to the next piece of “${Music.current()?.title}” ($jump ms on) before the sound output had finished the last " +
+                "($lastLeft bytes of it left; hi-res to 16-bit: ${toShort > 0}): " + if (ok) "the old piece let go" else "it couldn't be let go")
+        }
         val before = buffer.remaining()
         val done = try { feed(buffer, presentationTimeUs, encodedAccessUnitCount) }
         catch (e: IllegalArgumentException) {
@@ -87,6 +107,7 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: Aud
             // it was loaded (seen on “Summer”, 20 Nov 2026). What it holds is let go, and the buffer is handed in again.
             val how = "hi-res to 16-bit: ${toShort > 0}, float: $float, a buffer waiting here: $pending, the song's samples: $inEncoding"
             pending = false
+            lastPts = C.TIME_UNSET; lastDone = true
             val cleared = forget()
             Crashes.note("The sound output was holding an old buffer while “${Music.current()?.title}” played ($how): " +
                 (if (cleared) "let go, and the song carried on" else "it couldn't be let go"))
@@ -98,8 +119,22 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: Aud
             feed(buffer, presentationTimeUs, encodedAccessUnitCount)
         }
         if (done || buffer.remaining() != before) eq.sinkFedAt = System.currentTimeMillis()
+        lastPts = presentationTimeUs; lastDone = done; lastLeft = buffer.remaining()
         return done
     }
+
+    /** Only the piece the output was part-way through is let go (not what it is already writing out, and its sound
+     *  track stays): the lightest way to put it right, with nothing to hear. */
+    private fun forgetInput(): Boolean = runCatching {
+        val sink = core ?: return@runCatching false
+        var c: Class<*>? = sink.javaClass
+        while (c != null) {
+            val f = runCatching { c!!.getDeclaredField("inputBuffer") }.getOrNull()
+            if (f != null) { f.isAccessible = true; f.set(sink, null); return@runCatching true }
+            c = c.superclass
+        }
+        false
+    }.getOrDefault(false)
 
     /** Android's output made to forget the buffer it was part-way through (and the one it was writing): its own flush
      *  only does that while it has a sound track open, and it can be holding one with none. By its fields' names in
@@ -200,11 +235,12 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: Aud
         eos = true; eq.sinkEos = true; super.playToEndOfStream()
     }
     override fun isEnded(): Boolean { val e = super.isEnded(); eq.sinkEnded = eos && e; return e }
-    override fun reset() { eos = false; eq.sinkEos = false; eq.sinkEnded = false; super.reset() }
+    override fun reset() { eos = false; eq.sinkEos = false; eq.sinkEnded = false; lastPts = C.TIME_UNSET; lastDone = true; super.reset() }
 
     override fun flush() {
         eos = false; eq.sinkEos = false; eq.sinkEnded = false
         pending = false
+        lastPts = C.TIME_UNSET; lastDone = true
         wasLoud = false; silentFrames = 0; seenBuf = null
         if (float) eq.resetFloat()
         super.flush()
