@@ -4,6 +4,17 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.28: Wrapped's summary shows everything whole, playlists and searches are counted, and skips come from Spotify (Android, Windows and Linux)
+- **Wrapped's summary card:** your top artists and top songs each show their plays, as your top obsessions show their repeats. On a phone held upright the three lists go one under another across the card's whole width, so every song, artist and count is shown whole.
+- **Most skipped and Never skipped are top 15s.**
+- **Your playlists are counted:** a play from one of your playlists was written down under the tab's name, so Wrapped said you had played none. It is the playlist's now, and the plays already written down are put right (a sitting is the playlist most of its songs are in).
+- **A song picked on an artist's or album's page is not radio:** those pages start a radio after their list, and the songs you picked yourself were counted as radio. Past plays are put right too.
+- **Searching and queueing counts as a search:** a song found by searching and put in the queue (or Play next) counts toward Most searched and toward Search in Where your music came from, as a song tapped does. From now on.
+- **Skips from your Spotify history:** the extended streaming history says which plays you skipped and which you heard out. Import the zip once more and they are added to the Skips tab, to Wrapped's Most skipped and Never skipped, and to what the DJ knows. Plays you have already are not doubled.
+- **An Apple Music library's undated counts in All-time Wrapped:** songs, artists, albums, plays and minutes. Nothing that needs a day can use them.
+- **Every source in every count:** Wrapped's compared-with-before now counts your imports on both sides; the week, month and year lists and the listening times take the plays in this app when Last.fm isn't connected.
+- **Another app taking the sound for a moment is not written to Problems:** voice typing, a call or a spoken direction makes the music wait and come back, as it should. It is kept in Details for support.
+
 ## 4.0.27: A stutter leaves a line in Problems, and Wrapped shows your top obsessions (Android, Windows and Linux)
 - **A stutter leaves a line in Settings › Problems (the phone):** the sound output running dry, being made again mid-song, the player jumping by itself, or another app taking the sound for a moment is noted there with the song, the place in it and what happened just before (once every 20 seconds at most). Before, these were only in Details for support, kept while the app ran.
 - **The fault behind the music cutting out, caught at its first step (the phone):** the player sometimes moves on to the next piece of a song while the phone's sound output is still part-way through the last. The output then either refuses the new piece (the player stopped: silence with the seek bar moving) or miscounts (a stutter, a jump in the song). The app now sees that moment, has the output let go of the leftover few thousandths of a second, and carries on, before the output sees anything wrong. Noted in Settings › Problems each time, with how far it jumped.
