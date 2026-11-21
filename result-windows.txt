@@ -1,7 +1,7 @@
-commit 6586b4ab2720595273918165bb00c7ce72d7f695 · run 44881671088 · Sat Nov 21 08:08:07 UTC 2026
-PC TESTS ON WINDOWS: 41 suites, tests 166, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 2.1 s (with loading the voice); then 4.5 s of speech in 1.5 s (3.0x real time)
-WINDOWS INSTALLER: Radon Player-4.0.27.msi, 96M
+commit 4d5d78395124ca8451eaa556b61ac240fed8d07f · run 44883228636 · Sat Nov 21 08:26:28 UTC 2026
+PC TESTS ON WINDOWS: 42 suites, tests 168, failed 0
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.1 s (with loading the voice); then 4.5 s of speech in 1.5 s (3.0x real time)
+WINDOWS INSTALLER: Radon Player-4.0.27.msi, 97M
 --- errors
 --- the end of the log
 w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1377:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
@@ -27,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 56s
+BUILD SUCCESSFUL in 6m 1s
 21 actionable tasks: 21 executed
