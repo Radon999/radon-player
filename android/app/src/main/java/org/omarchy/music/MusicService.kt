@@ -48,6 +48,7 @@ class MusicService : MediaLibraryService() {
         // What the sound output itself does (a new one made, one let go, it running dry, it failing): into Sound lately,
         // so a song gone silent can be put beside what the output did just before.
         var madeFor: String? = null
+        var decoderFor: String? = null
         var movedAt = 0L   // when the song was last moved (by you, or the app starting it again in place): that makes a new output too
         exo.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
             override fun onPositionDiscontinuity(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
@@ -56,6 +57,24 @@ class MusicService : MediaLibraryService() {
                 if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) movedAt = System.currentTimeMillis()
                 if (reason == Player.DISCONTINUITY_REASON_INTERNAL)
                     SoundLog.hiccup("the player jumped by itself from ${oldPosition.positionMs / 1000}s to ${newPosition.positionMs / 1000}s")
+            }
+            // The decoder (the part of the phone that turns the file into sound) made, let go or failing. One made
+            // again in the middle of a song is the phone having taken the first one away: what it had decoded and not
+            // yet played is lost (a jump of a second or two), and the sound output is left holding a buffer of the old
+            // one's (seen 21 Nov 2026 on “Wake Up Call”: held an old buffer, then a 2-second jump in the timestamps).
+            override fun onAudioDecoderInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String,
+                                                   initializedTimestampMs: Long, initializationDurationMs: Long) {
+                val id = Music.current()?.id
+                val again = id != null && id == decoderFor && exo.currentPosition > 3000 && System.currentTimeMillis() - movedAt > 3000
+                decoderFor = id
+                val what = "a decoder made ($decoderName, in $initializationDurationMs ms)"
+                if (again) SoundLog.hiccup("the decoder was made again mid-song: $what") else SoundLog.note(what)
+            }
+            override fun onAudioDecoderReleased(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, decoderName: String) {
+                SoundLog.note("a decoder let go ($decoderName)")
+            }
+            override fun onAudioCodecError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioCodecError: Exception) {
+                SoundLog.hiccup("the decoder failed: ${audioCodecError.javaClass.simpleName}: ${audioCodecError.message?.take(160)}")
             }
             override fun onAudioUnderrun(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) {
                 SoundLog.hiccup("the sound output ran dry (not fed for $elapsedSinceLastFeedMs ms, buffer $bufferSizeMs ms)")
