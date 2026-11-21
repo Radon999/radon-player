@@ -52,6 +52,7 @@ object Prefs {
     const val RG_TARGET = "rg_target"            // ReplayGain's levelling target, LUFS (a number: -23, -18, -16, -14)
     const val LOUDNESS = "loudness_comp"         // loudness compensation at low volume
     const val BP_TONES = "bp_tones"              // bit-perfect: the equalizer's Bass and Treble still heard (then not bit-perfect)
+    const val PLAIN_FLAC = "plain_flac_decoder"   // the phone: Android's own FLAC decoder, not the phone maker's (off at first)
     const val HQ_RESAMPLE = "hq_resample"        // the PC: a longer, sharper resampling filter when the rate has to change
     const val AUTO_MONO_DEVICE = "auto_mono_device"   // which earbuds (their Bluetooth name)
     const val CONTINUE = "continue_across"       // continue where you left off, across the PC and the phone

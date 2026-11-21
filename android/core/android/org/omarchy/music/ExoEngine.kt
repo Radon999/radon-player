@@ -118,6 +118,13 @@ class ExoEngine(val p: Player, private val ctx: Ctx, private val eq: EqProcessor
                     .build()
                 return EqSink(UsbAudioSink(inner), eq, inner)
             }
-        }.setEnableAudioFloatOutput(true)
+        }.setEnableAudioFloatOutput(true).setMediaCodecSelector { mime, secure, tunneling ->
+            // Settings › Sound quality › Android's own FLAC decoder: the phone maker's (c2.sec…, OMX.SEC…, and any other
+            // that isn't Android's) goes after Android's (c2.android…, OMX.google…), for FLAC only. Asked at each song.
+            val all = androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getDecoderInfos(mime, secure, tunneling)
+            if (mime == androidx.media3.common.MimeTypes.AUDIO_FLAC && Prefs.on(Prefs.PLAIN_FLAC))
+                all.sortedBy { if (it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.")) 0 else 1 }
+            else all
+        }
     }
 }

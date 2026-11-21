@@ -397,6 +397,7 @@ class PeakRepairProcessor(private val eq: EqProcessor) : BaseAudioProcessor() {
 
     /** The new format takes effect here (not in onConfigure: the last song may still be draining then). */
     override fun onFlush() {
+        tailDone = false
         val f = inputAudioFormat
         if (f == AudioProcessor.AudioFormat.NOT_SET) { dc = null; return }
         float = f.encoding == C.ENCODING_PCM_FLOAT
@@ -405,7 +406,7 @@ class PeakRepairProcessor(private val eq: EqProcessor) : BaseAudioProcessor() {
         glide = (1.0 - Smooth.HEADROOM) / (0.05 * f.sampleRate * f.channelCount)
     }
 
-    override fun onReset() { dc = null }
+    override fun onReset() { dc = null; tailDone = false }
 
     private fun on() = eq.smooth && !eq.bypass
 
@@ -420,8 +421,13 @@ class PeakRepairProcessor(private val eq: EqProcessor) : BaseAudioProcessor() {
         out.flip()
     }
 
-    /** The end of the music: out with the last 5 ms still held for the lookahead. */
+    /** The end of the music: out with the last 5 ms still held for the lookahead. Once a stream: the player library
+     *  says "ended" again on every pass while it drains, and a tail made each time never let the drain finish (see
+     *  ResampleProcessor.onQueueEndOfStream: the cause of music going silent while it played on). */
+    private var tailDone = false
     override fun onQueueEndOfStream() {
+        if (tailDone) return
+        tailDone = true
         val d = dc ?: return
         val samples = d.delay * d.channels
         val out = replaceOutputBuffer(samples * if (float) 4 else 2)

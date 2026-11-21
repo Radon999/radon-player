@@ -1827,6 +1827,14 @@ private fun SoundQuality(ui: Ui) {
         "music on a 48 kHz card), it's converted with a longer, sharper filter. You get cleaner highs for a little more work from the PC", P.on(P.HQ_RESAMPLE)) {
         Switch(P.on(P.HQ_RESAMPLE), { Music.setOpt(P.HQ_RESAMPLE, it) }, colors = swColors())
     }
+    // The phone only: the phone maker's FLAC decoder (Samsung's c2.sec.flac.decoder on the owner's) was seen dropping
+    // a block or two of a song now and then (a jump of a fifth to two fifths of a second). Android's own may not.
+    if (onPhone) Line("Android's own FLAC decoder", "Your phone has its maker's FLAC decoder and Android's own. The maker's " +
+        "is used at first; on some phones it drops a fraction of a second of a song now and then (a skip you can hear, " +
+        "noted in Settings › Problems as a fault of the sound output). Turn this on to have FLACs decoded by Android's own. " +
+        "From the next song. If songs sound wrong with it on, turn it off again", P.on(P.PLAIN_FLAC)) {
+        Switch(P.on(P.PLAIN_FLAC), { Music.setOpt(P.PLAIN_FLAC, it) }, colors = swColors())
+    }
     Line("Loudness compensation", "At low volume our ears lose bass and treble first, so music sounds thin. This lifts them " +
         "back by as much as the volume is turned down, and does nothing at full volume", P.on(P.LOUDNESS)) {
         Switch(P.on(P.LOUDNESS), { Music.setOpt(P.LOUDNESS, it) }, colors = swColors())

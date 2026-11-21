@@ -54,7 +54,7 @@ object SyncRules {
      *  network, Mono for the earbud in now, mood scans of its files, and the sync's own notes. */
     val PREFS_DENY = BackupMerge.DEVICE_SWITCHES + setOf("auto_mono", "auto_mono_device", "lock_screen_player", "hq_resample",
         "mono", "stream_quality", "discord_app_id", "moods_write", "moods_full_done", "ignore_bt", "ignore_bt_devices", "ignore_bt_seen",
-        "ui_size", "hide_hint_shown")   // Size of everything is for this screen; the note about a hidden window, this desktop's
+        "ui_size", "hide_hint_shown", "plain_flac_decoder")   // Size of everything is for this screen; the note about a hidden window, this desktop's
     val PREFS_DENY_PREFIX = listOf("sync_", "window", "startup", "tray", "notif", "discord", "bit_perfect", "pc_")
 
     fun prefSyncs(key: String) = !BackupMerge.isSignIn(key) && key !in PREFS_DENY && PREFS_DENY_PREFIX.none { key.startsWith(it) }

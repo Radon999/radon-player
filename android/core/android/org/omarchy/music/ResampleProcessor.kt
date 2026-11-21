@@ -115,7 +115,18 @@ class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioPro
         produce()
     }
 
+    // THE CAUSE OF MUSIC GOING SILENT WHILE THE SEEK BAR MOVED (found 21 Nov 2026). The player library tells a processor
+    // "the stream has ended" again and again while it drains (AudioProcessingPipeline.processData calls
+    // queueEndOfStream on the next processor every pass), and expects the second and later calls to do nothing. This one
+    // made 24 more frames of silence each time, so it never counted as ended, the drain never finished, and the sound
+    // output was fed silence without end while its clock ran on. The library drains like that at a song's end, and in
+    // the middle of a song whenever the music's timestamps jump (the phone's FLAC decoder dropping a block or two,
+    // as it does now and then): from there the song was silent until it was skipped. The tail is made once a stream.
+    private var tailDone = false
+
     override fun onQueueEndOfStream() {
+        if (tailDone) return
+        tailDone = true
         // the last half of the filter: silence after the music, so its end comes out too
         if ((frames + half) * ch > hist.size) hist = hist.copyOf((frames + half) * ch)
         java.util.Arrays.fill(hist, frames * ch, (frames + half) * ch, 0f)
@@ -123,7 +134,7 @@ class ResampleProcessor(private val ctx: android.content.Context) : BaseAudioPro
         produce()
     }
 
-    override fun onFlush() { if (table.isNotEmpty()) reset0() }
+    override fun onFlush() { tailDone = false; if (table.isNotEmpty()) reset0() }
 
-    override fun onReset() { table = Array(0) { FloatArray(0) }; hist = FloatArray(0); frames = 0 }
+    override fun onReset() { tailDone = false; table = Array(0) { FloatArray(0) }; hist = FloatArray(0); frames = 0 }
 }
