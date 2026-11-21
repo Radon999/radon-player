@@ -65,7 +65,7 @@ object TagProof {
             "a cover" to { p, _ -> CoverGuard.byHand { FileTags.writeCover(c, p, small) } },
             "a big cover (the tags grow by megabytes)" to { p, _ -> CoverGuard.byHand { FileTags.writeCover(c, p, big) } },
             "long lyrics" to { p, n -> LyricsTags.writeTags(c, p, (1..400).joinToString("\n") { "Line $it of take $n, sung again and again" }, emptyMap()) },
-            "moods taken out in place" to { p, _ -> SafeWrite.alone { MoodWipe.wipe(File(p), setOf("MOOD", "MOOD_LYRICS")) } },
+            "moods taken out in place" to { p, _ -> SafeWrite.alone(p) { MoodWipe.wipe(File(p), setOf("MOOD", "MOOD_LYRICS")) } },
             "mood again" to { p, _ -> LyricsTags.writeMood(c, p, "Energetic") },
         )
         // The app closed in the middle of a write. "run <copy>": the writers go round and round on the copy until this is

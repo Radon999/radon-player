@@ -511,10 +511,22 @@ object PlaybackCore {
     }
 
     // ---- loading a song ----
+    /** A song passed over because its file was being written. */
+    class BeingWritten(what: String) : RuntimeException(what)
+
+    /** (blocking) Up to five seconds for a write to this song's file to end; [BeingWritten] if it hasn't. */
+    private fun waitForWrite(file: String?, t: Track) {
+        if (file == null || !SafeWrite.isWriting(file)) return
+        repeat(50) { Thread.sleep(100); if (!SafeWrite.isWriting(file)) return }
+        throw BeingWritten("Skipped “${t.title}”: its file was being changed by a scan or the Tagger at that moment, so it couldn't be played.")
+    }
+
     fun loadCurrent(autoplay: Boolean = true) {
         val c = current() ?: return
         step("load “${c.title.take(30)}” play=$autoplay")
         Music.heldTagsSoon()   // the song that was playing: its tag changes, once its file is free
+        // …and any other change that waited for it to finish (SafeWrite), a moment after its file is let go
+        Music.scope.launch { delay(2500); Music.bg({ SafeWrite.writeWaiting(Music.ctx) }) }
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
         if (!Remote.active) Copies.heal(c)   // a download whose file was moved (a tag change): your file of it is found again
@@ -550,7 +562,11 @@ object PlaybackCore {
             else ({ try { Music.dl.download(t, youtubeToo = false) } catch (_: Exception) {}; Music.dl.stream(t) })   // no FLAC to keep (or saving failed): stream what there is
         // …and a streamed song's cover with it, kept on this device before it starts (the car can't show one that is
         // only an address on the web). Not for a test's stand-in songs.
-        val work: () -> Downloader.Ready = { get().also { if (!onDisk && Music.dl.standIn == null) runCatching { NowArt.warm(t) } } }
+        // A song whose file is being written at this very moment (a scan's or the Tagger's change being put in) isn't
+        // opened half-written: a few seconds are given for the write to end, and if it hasn't the song is passed over
+        // (said plainly, and without asking: you may be driving) and plays as ever the next time.
+        val file = t.file ?: Music.lib.items[t.id]?.file
+        val work: () -> Downloader.Ready = { waitForWrite(file, t); get().also { if (!onDisk && Music.dl.standIn == null) runCatching { NowArt.warm(t) } } }
         Music.bg(work) { ready, err ->
             if (seq != loadSeq) return@bg   // you moved on while it loaded
             step(if (err != null || ready == null) "couldn't get it: ${err?.message?.take(60)}" else "got it${if (Music.player == null) " (no player yet)" else ""}")
@@ -565,6 +581,10 @@ object PlaybackCore {
                     paused = true; doneAdvancing()
                     return@bg
                 }
+                if (err is BeingWritten) {
+                    Music.toast(err.message ?: "")
+                    runCatching { Crashes.note(err.message + " Nothing is wrong with the file: it plays as ever the next time.") }
+                } else
                 Music.toast(if (err is NoLosslessMatch) "Skipped “${t.title}”: ${err.message}" else "Couldn't get “${t.title}”: ${err?.message}")
                 if (autoplay) Music.scope.launch { delay(1500); if (seq == loadSeq) next() } else { paused = true; doneAdvancing() }
                 return@bg

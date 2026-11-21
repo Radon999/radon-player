@@ -20,6 +20,9 @@ class Ctx(val filesDir: File, val cacheDir: File) {
 
 private fun pathOf(uri: String) = if (uri.startsWith("file://")) java.net.URI(uri).path else uri
 
+/** One name for a song file however it is addressed (a path, a file:// address), to tell two addresses of the same file. */
+fun fileKey(uri: String): String = runCatching { pathOf(uri) }.getOrDefault(uri)
+
 fun Ctx.openIn(uri: String): java.io.InputStream? = File(pathOf(uri)).takeIf { it.isFile }?.inputStream()
 
 fun Ctx.uriExists(uri: String): Boolean = File(pathOf(uri)).exists()

@@ -226,7 +226,7 @@ object Music {
         speeds = SongSpeeds(File(ctx.filesDir, "song-speeds.json"))
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
         songStats = newSongStats(File(ctx.filesDir, "skips.json"))
-        bg({ SafeWrite.recover(ctx) })   // a tag write the app was closed in the middle of: finished from its copy
+        bg({ SafeWrite.recover(ctx); SafeWrite.writeWaiting(ctx) })   // a tag write the app was closed in the middle of: finished from its copy; and the ones that waited for a song to finish
         gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
         songEqs = SongEqs(File(ctx.filesDir, "song-eq.json"))
         local = LocalFiles(ctx)
@@ -759,7 +759,8 @@ object Music {
     fun inUse(uri: String): Boolean = runCatching {
         if (paused && PlaybackCore.loadedFor == null) return@runCatching false
         val q = queue; val i = index
-        listOfNotNull(q.getOrNull(i), q.getOrNull(i + 1)).any { t -> (t.file ?: lib.items[t.id]?.file) == uri }
+        val k = fileKey(uri)
+        listOfNotNull(q.getOrNull(i), q.getOrNull(i + 1)).any { t -> (t.file ?: lib.items[t.id]?.file)?.let { it == uri || fileKey(it) == k } == true }
     }.getOrDefault(false)
     fun aboutToReload(): Boolean = PlaybackCore.aboutToReload()
 

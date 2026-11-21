@@ -501,7 +501,7 @@ object Moods {
                 if (mood.isNotEmpty() || words.isNotEmpty()) {
                     if (inFile(p).isNotEmpty()) {
                         if (!p.startsWith("content:")) runCatching {
-                            SafeWrite.alone { MoodWipe.wipe(File(if (p.startsWith("file:")) java.net.URI(p).path else p), names) }
+                            SafeWrite.alone(p) { MoodWipe.wipe(File(if (p.startsWith("file:")) java.net.URI(p).path else p), names) }
                         }.onSuccess { if (it > 0) did = true }.onFailure { err = it }
                         if (inFile(p).isNotEmpty()) {
                             stuck++

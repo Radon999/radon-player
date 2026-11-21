@@ -25,8 +25,11 @@ object SafeWrite {
         recover(ctx)
         val copy = File(dir(ctx), "w-${System.nanoTime()}.$ext")
         val out: T
+        // (a change still waiting for this song to finish playing: this one is made on top of it)
+        val waiting = later(ctx)[fileKey(key)]?.takeIf { it.isFile }
         try {
-            (ctx.openIn(key) ?: error("couldn't open the file")).use { i -> copy.outputStream().use { o -> i.copyTo(o) } }
+            if (waiting != null) waiting.copyTo(copy, overwrite = true)
+            else (ctx.openIn(key) ?: error("couldn't open the file")).use { i -> copy.outputStream().use { o -> i.copyTo(o) } }
             if (!FileWhole.sound(copy)) error("the file is already damaged, so it is left alone (it needs replacing)")
             val before = FileWhole.soundBytes(copy)
             out = work(copy)
@@ -35,6 +38,19 @@ object SafeWrite {
             // The music itself must all still be there (a tag write changes the tags, never the sound)
             if (!FileWhole.kept(before, FileWhole.soundBytes(copy))) error("the change would have cut the music short: your file is untouched")
         } catch (e: Throwable) { copy.delete(); throw e }
+        // The song is playing (or is the next one): its file isn't touched under the player. The finished copy is kept,
+        // and put in its place once the song is free (when the next song starts, or the app does).
+        if (busy(key)) {
+            val keep = File(dir(ctx), "later-${System.nanoTime()}.$ext")
+            if (!copy.renameTo(keep)) { copy.copyTo(keep, overwrite = true); copy.delete() }
+            val all = later(ctx)
+            all.put(fileKey(key), keep)?.takeIf { it != keep }?.delete()
+            laterKeys[fileKey(key)] = key
+            saveLater(ctx)
+            runCatching { Music.toast("That song is playing: the change goes into its file when it has finished") }
+            return@synchronized out
+        }
+        later(ctx).remove(fileKey(key))?.also { it.delete(); laterKeys.remove(fileKey(key)); saveLater(ctx) }   // (this change holds that one's)
         // From here the copy is the truth: noted first, so an interruption while it is written over yours is put right
         writeAtomic(journal(ctx), copy.path + "\n" + key)
         put(ctx, key, copy)
@@ -42,16 +58,72 @@ object SafeWrite {
         out
     }
 
+    // ---- never under the player ----
+
+    /** A change to a song that is playing can't be made now. */
+    class Busy(what: String) : RuntimeException(what)
+
+    /** Whether the file is the song playing or the next one (Music.inUse): never written then. */
+    private fun busy(key: String): Boolean = runCatching { Music.inUse(key) }.getOrDefault(false)
+
+    /** The file being written over at this moment (as [fileKey] names it), for the player: a song isn't opened while
+     *  its file is half way through being put down. */
+    @Volatile private var writing: String? = null
+    fun isWriting(uri: String?): Boolean = uri != null && writing != null && writing == fileKey(uri)
+
+    // Changes waiting for their song to finish playing: the file's key -> the finished copy (and the address to write to)
+    private var laterMap: LinkedHashMap<String, File>? = null
+    private val laterKeys = HashMap<String, String>()
+    private fun laterFile(ctx: Ctx) = File(dir(ctx), "later.txt")
+    private fun later(ctx: Ctx): LinkedHashMap<String, File> = laterMap ?: LinkedHashMap<String, File>().also { m ->
+        readText(laterFile(ctx))?.lines()?.forEach { l ->
+            val p = l.split('\t'); if (p.size == 2 && File(p[0]).isFile) { m[fileKey(p[1])] = File(p[0]); laterKeys[fileKey(p[1])] = p[1] }
+        }
+        laterMap = m
+    }
+    private fun saveLater(ctx: Ctx) {
+        val m = later(ctx)
+        if (m.isEmpty()) laterFile(ctx).delete() else writeAtomic(laterFile(ctx), m.entries.joinToString("\n") { it.value.path + "\t" + (laterKeys[it.key] ?: it.key) })
+    }
+
+    /** (blocking, quick when nothing waits) The changes that waited for their songs to finish playing are put into
+     *  their files, each once its song is free. Asked when a song starts and when the app does. */
+    fun writeWaiting(ctx: Ctx) = synchronized(lock) {
+        val m = later(ctx)
+        if (m.isEmpty()) return@synchronized
+        for ((k, copy) in m.entries.toList()) {
+            val key = laterKeys[k] ?: k
+            if (busy(key)) continue
+            runCatching {
+                if (copy.isFile && FileWhole.sound(copy)) {
+                    writeAtomic(journal(ctx), copy.path + "\n" + key)
+                    put(ctx, key, copy)
+                    journal(ctx).delete()
+                }
+                copy.delete(); m.remove(k); laterKeys.remove(k)
+            }
+        }
+        saveLater(ctx)
+    }
+
     /** The copy written over your file, and your file then measured: it must be as long as the copy (once more if not). */
     /** A writer that changes a file where it is (a repair, a tag blanked in place, a WAV's own writer) takes its turn
      *  with every other: never while another write of the app's is under way. */
-    fun <T> alone(work: () -> T): T = synchronized(lock) { work() }
+    fun <T> alone(key: String? = null, work: () -> T): T = synchronized(lock) {
+        // (key: the file it changes; none for the player's own repair of the song it is opening)
+        if (key != null && busy(key)) throw Busy("the song is playing: its file is changed another time")
+        writing = key?.let { fileKey(it) }
+        try { work() } finally { writing = null }
+    }
 
     private fun put(ctx: Ctx, key: String, copy: File) {
-        repeat(2) {
-            (ctx.openOut(key) ?: error("couldn't write the file")).use { o -> copy.inputStream().use { it.copyTo(o) }; o.flush() }
-            if (sizeAt(ctx, key) == copy.length()) return
-        }
+        writing = fileKey(key)
+        try {
+            repeat(2) {
+                (ctx.openOut(key) ?: error("couldn't write the file")).use { o -> copy.inputStream().use { it.copyTo(o) }; o.flush() }
+                if (sizeAt(ctx, key) == copy.length()) return
+            }
+        } finally { writing = null }
         error("the file didn't take the whole of its new copy (it is kept, and written again at the next start)")
     }
 

@@ -70,6 +70,10 @@ fun notifyUser(ctx: Ctx, title: String, text: String): Boolean = runCatching {
 fun diskSpace(folder: String): Pair<Long, Long> =
     runCatching { android.os.Environment.getExternalStorageDirectory().let { it.usableSpace to it.totalSpace } }.getOrDefault(-1L to 0L)
 
+/** One name for a song file however it is addressed (its real path, or the phone's content:// address for it), to tell
+ *  two addresses of the same file. */
+fun fileKey(uri: String): String = runCatching { FileTags.pathOf(uri) }.getOrNull() ?: uri
+
 /** Writing to an address: a path, or a content:// one (mode "wt": truncate). */
 fun Ctx.openOut(uri: String, mode: String = "wt"): java.io.OutputStream? =
     if (uri.startsWith("/")) java.io.File(uri).outputStream() else contentResolver.openOutputStream(android.net.Uri.parse(uri), mode)
