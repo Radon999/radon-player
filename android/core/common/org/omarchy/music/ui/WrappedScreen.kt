@@ -905,7 +905,8 @@ private fun allTime(d: Wrapped.Data): List<Slide> {
     }
     out += releaseSlides(d)
     val counts = d.yearsCount
-    if (counts.isNotEmpty()) {
+    // (no page when no play has a date: a library's undated counts belong to no year, and it said "0 scrobbles")
+    if (counts.isNotEmpty() && counts.any { it.second > 0 }) {
         val best = counts.indices.maxBy { counts[it].second }
         out += Slide(1) {
             Text("YEAR BY YEAR", style = W.kicker)
