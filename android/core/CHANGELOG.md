@@ -2,6 +2,12 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.29 · November 2026
+- **The cause of music going silent while the seek bar moved (the phone):** found and fixed. When the sound output had to finish what it held (at a song's end, and in the middle of a song whenever a fraction of a second went missing from the decoder), two of the app's own sound steps, the resampler and the peak repair, gave it a little more silence every time they were asked, where they should have answered once. The output never finished, and was fed silence without end while its clock ran on, until the song was skipped. Both answer once now, so after such a gap the song carries on.
+- **Android's own FLAC decoder (the phone):** Settings › Sound quality has a switch to decode FLACs with Android's own decoder in place of the phone maker's. The maker's was seen dropping a fraction of a second of a song now and then (the stutter). Off at first: turn it on if you still hear short skips, and off again if songs sound wrong with it.
+- **Wrapped asks which one you want:** opening Wrapped shows This week, This month, This year and All time, and puts together only the one you tap. It used to start loading the year at once.
+- **The time you picked is the one shown:** All time (or any other) loaded, then was replaced a moment later by the year that had been loading behind it. A result is shown only for the time still asked for.
+
 ## 4.0.28 · November 2026
 - **Wrapped's summary card:** your top artists and top songs each show their plays, as your top obsessions show their repeats. On a phone held upright the three lists go one under another across the card's whole width, so every song, artist and count is shown whole.
 - **Most skipped and Never skipped are top 15s.**
