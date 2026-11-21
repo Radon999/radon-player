@@ -842,7 +842,7 @@ private fun ToolLines(ui: Ui) {
     Line("Storage and damaged files", "Looks at every song file once (its size and its first few bytes; nothing is played, changed or deleted) and says " +
         "what takes the space, by kind of file, artist and album, with the biggest songs. It also finds files that are damaged in a way that shows " +
         "without playing them: empty, not a music file, or far too small for the song's length (cut short in copying or downloading). A file that is " +
-        "whole but has a fault somewhere inside can only be found by playing it", false, note = fc.busy ?: res?.said ?: "") {
+        "whole but has a fault somewhere inside can only be found by playing it. Damaged files can be downloaded again from here", false, note = fc.busy ?: res?.said ?: "") {
         if (fc.busy == null) Pill(if (res == null) "Check…" else "Check again", quiet = true) { fc.run() }
         if (res != null && fc.busy == null) Pill("Copy", quiet = true) { copyText("Radon Player storage", fc.text()); Music.toast("Copied") }
     }
@@ -863,6 +863,20 @@ private fun ToolLines(ui: Ui) {
             Text("Damaged files", style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 6.dp))
             res.damaged.take(25).forEach { (name, why) -> Text("$name: $why", style = T.sub.copy(color = C.fg)) }
             if (res.damaged.size > 25) Text("…and %,d more: Copy has them all".format(res.damaged.size - 25), style = T.sub)
+            // New copies of the damaged ones: got from Tidal in FLAC beside your songs (as Upgrade gets them), each
+            // damaged file put in the bin once its new copy is here and you say yes; playlists, favorites and plays go
+            // over to the new copy. A song Tidal hasn't got (an unreleased one) is left as it is.
+            val again = res.tracks.filter { org.omarchy.music.upgradable(it) }
+            if (again.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                if (Music.upgrading != null) Text(Music.upgrading ?: "", style = T.sub)
+                else Pill("Download new copies (%,d)…".format(again.size)) {
+                    ui.confirm = ("Download %,d damaged song%s again from Tidal and put the new cop%s in place of the damaged file%s? ".format(
+                        again.size, if (again.size != 1) "s" else "", if (again.size != 1) "ies" else "y", if (again.size != 1) "s" else "") +
+                        "Each new copy is a FLAC saved beside your songs; your playlists, favorites and plays go over to it. The damaged files are put in the bin " +
+                        "only after their new copies are here, and only when you say yes. A song Tidal hasn't got is left as it is.") to
+                        { Music.upgradeSongs(again, force = true) }
+                }
+            }
         }
         part("By kind of file", res.summary.byKind); part("Artists taking the most", res.summary.artists)
         part("Albums taking the most", res.summary.albums); part("Biggest songs", res.summary.biggest)

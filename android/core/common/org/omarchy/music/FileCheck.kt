@@ -8,7 +8,9 @@ import kotlinx.coroutines.launch
 /** Storage and damaged files ([FileCheckRules]): one pass over your song files, in the background, on demand. Each
  *  file's size is read and its first few bytes looked at; nothing is played, changed or deleted. */
 object FileCheck {
-    class Result(val summary: FileCheckRules.Summary, val damaged: List<Pair<String, String>>, val unread: Int, val said: String)
+    /** tracks: the damaged files' songs, for getting new copies of them (Download new copies). */
+    class Result(val summary: FileCheckRules.Summary, val damaged: List<Pair<String, String>>, val unread: Int, val said: String,
+                 val tracks: List<Track> = emptyList())
 
     var busy by mutableStateOf<String?>(null)   // "Looking at 1,200 of 3,322…" while it runs
         private set
@@ -21,6 +23,7 @@ object FileCheck {
         Music.bg({
             val songs = Music.mySongs().filter { !it.file.isNullOrEmpty() }
             val out = ArrayList<FileCheckRules.Song>(songs.size); val bad = ArrayList<Pair<String, String>>(); var unread = 0
+            val badSongs = ArrayList<Track>()
             songs.forEachIndexed { i, t ->
                 if (i % 50 == 0) Music.scope.launch { busy = "Looking at %,d of %,d…".format(i, songs.size) }
                 val file = t.file!!
@@ -35,10 +38,11 @@ object FileCheck {
                     ?: if (String(head, 0, 4, Charsets.ISO_8859_1) == "fLaC" && runCatching { Music.ctx.openIn(file)?.use { !FileWhole.flacLeadsToSound(it) } }.getOrNull() == true)
                         "its tags and cover no longer lead to its music (a tag write that was cut short). Play it on the phone and the app puts it right; on the PC it plays as it is" else null
                 why?.let {
+                    badSongs += t
                     bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to it }
             }
             val sum = FileCheckRules.summary(out)
-            Result(sum, bad, unread, FileCheckRules.said(sum.songs, sum.total, bad.size, unread))
+            Result(sum, bad, unread, FileCheckRules.said(sum.songs, sum.total, bad.size, unread), badSongs)
         }) { r, err ->
             busy = null
             if (r == null) { Music.toast("Couldn't look at your files: ${err?.message?.take(80)}"); return@bg }
