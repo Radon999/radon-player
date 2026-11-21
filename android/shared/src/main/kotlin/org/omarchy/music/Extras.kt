@@ -142,11 +142,39 @@ class SongStats(private val file: File) {
     @Synchronized fun skipped(t: Track) = bump(t, true)
     @Synchronized fun heardOut(t: Track) = bump(t, false)
 
-    @Synchronized fun get(t: Track) = items[songId(t)]?.let { it.skips to it.full } ?: (0 to 0)
+    @Synchronized fun get(t: Track): Pair<Int, Int> {
+        val here = items[songId(t)]?.let { it.skips to it.full } ?: (0 to 0)
+        val more = runCatching { imported() }.getOrDefault(emptyList())
+        if (more.isEmpty()) return here
+        if (more !== indexOf) { index = more.mapNotNull { e -> e.track?.let { statsKey(it.title, it.artist) to e } }.toMap(); indexOf = more }
+        val e = index[statsKey(t.title, t.artist)] ?: return here
+        return (here.first + e.skips) to (here.second + e.full)
+    }
+    private var indexOf: List<SkipEntry>? = null
+    private var index: Map<Pair<String, String>, SkipEntry> = emptyMap()
 
     /** Every song's counts as they are this moment: read while no skip is being written (the DJ and Wrapped read
      *  them off the main thread, while a song that ends is counted on it). */
-    @Synchronized private fun all(): List<SkipEntry> = items.values.toList()
+    @Synchronized private fun all(): List<SkipEntry> = merged(items.values.toList(), runCatching { imported() }.getOrDefault(emptyList()))
+
+    /** What an imported history says of skips and songs heard out (Spotify's extended history), one entry a song:
+     *  added to what was counted here, so the Skips tab, Wrapped and the DJ know of the years before this app. */
+    @Volatile var imported: () -> List<SkipEntry> = { emptyList() }
+
+    /** Here's entries and an import's, a song once (by its name and lead artist): the counts and times of both, shown
+     *  as the song is known here. */
+    private fun merged(here: List<SkipEntry>, more: List<SkipEntry>): List<SkipEntry> {
+        if (more.isEmpty()) return here
+        val out = LinkedHashMap<Pair<String, String>, SkipEntry>()
+        for (e in here + more) {
+            val t = e.track ?: continue
+            val k = statsKey(t.title, t.artist)
+            val a = out[k]
+            out[k] = if (a == null) e else a.copy(skips = a.skips + e.skips, full = a.full + e.full, last_skip = maxOf(a.last_skip, e.last_skip),
+                skips_at = a.skips_at + e.skips_at, full_at = a.full_at + e.full_at)
+        }
+        return out.values.toList() + here.filter { it.track == null }
+    }
 
     /** (track, skips, heard out) of every song you've skipped or heard out. */
     fun rows(since: Long = 0): List<Triple<Track, Int, Int>> = all().mapNotNull { e ->

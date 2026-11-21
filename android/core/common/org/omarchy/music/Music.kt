@@ -218,6 +218,7 @@ object Music {
         speeds = SongSpeeds(File(ctx.filesDir, "song-speeds.json"))
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
         songStats = SongStats(File(ctx.filesDir, "skips.json"))
+        songStats.imported = { SpotifyHistory.skipEntries() }   // the skips your Spotify history tells of, with the ones here
         gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
         songEqs = SongEqs(File(ctx.filesDir, "song-eq.json"))
         local = LocalFiles(ctx)

@@ -633,11 +633,13 @@ private fun SpotifyHistoryLine(ui: Ui) {
         if (uri != null) Music.bg({ h.importFile(Music.ctx, uri) }) { n, err ->
             if (err != null) { org.omarchy.music.ImportNotes.failed("spotify", err)
                 Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
-            else ("Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + if (n == 0) " (you had them all)" else "").let { org.omarchy.music.ImportNotes.ok("spotify", it); Music.toast("Import worked: $it") }
+            else ("Added ${"%,d".format(n ?: 0)} Spotify plays to your Wrapped" + (if (n == 0) " (you had them all)" else "") +
+                (h.lastLearnt.takeIf { it > 0 }?.let { ", and how %,d plays ended (skipped, or heard out) to your skips".format(it) } ?: ""))
+                .let { org.omarchy.music.ImportNotes.ok("spotify", it); Music.toast("Import worked: $it") }
         }
     }
     val state = h.busy ?: if (h.count > 0) "${"%,d".format(h.count)} Spotify plays added alongside your Last.fm scrobbles in your stats " +
-        "and Wrapped. Importing the zip again only adds plays you didn't have yet"
+        "and Wrapped. Importing the zip again only adds plays you didn't have yet, and (the extended history) which songs you skipped and which you heard out, for the Skips tab and Wrapped"
         else "Bring back years of Spotify listening: its plays are added alongside your Last.fm scrobbles in " +
             "your stats and Wrapped. The zip is the data download Spotify gives you: tap Get the zip, ask " +
             "for your data on Spotify's privacy page (the extended streaming history goes furthest back), then Import zip when it " +
