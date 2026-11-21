@@ -1,17 +1,10 @@
-commit d36f3bc4b26506437f8864e3d7521454127b5f54 · run 44845637860 · Sat Nov 21 00:48:47 UTC 2026
-PHONE INSTALL-OVER: made, Radon Player Next 3.3.0, the test key: it installs over the app on the phone
-package: name='org.omarchy.music.next' versionCode='30300' versionName='3.3.0' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+commit c2e424e0d164d7a4f99b06bd34d7dad8e5dfda62 · run 44878663636 · Sat Nov 21 07:11:38 UTC 2026
+PHONE INSTALL-OVER: made, Radon Player Next 4.0.27, the test key: it installs over the app on the phone
+package: name='org.omarchy.music.next' versionCode='40027' versionName='4.0.27' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
 /home/runner/work/_temp/badging.txt:application-label:'Radon Player Next'
 /home/runner/work/_temp/certs.txt:V2 Signer: certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44845637860/artifacts/14683595088
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44878663636/artifacts/14696643082
 --- errors
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-
-> Task :app:checkReleaseAarMetadata
-> Task :ui-common:packageReleaseResources
-> Task :app:mapReleaseSourceSetPaths
-> Task :app:generateReleaseResources
 --- the end of the log
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
@@ -23,5 +16,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 29s
+BUILD SUCCESSFUL in 4m
 95 actionable tasks: 95 executed
