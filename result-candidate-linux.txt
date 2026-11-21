@@ -1,6 +1,6 @@
-commit 2f9f87f989f0b084aa05f0173bb4c82ec7b64987 · run 44843682907 · Sat Nov 21 00:29:31 UTC 2026
+commit 2f9f87f989f0b084aa05f0173bb4c82ec7b64987 · run 44843682907 · Sat Nov 21 00:37:52 UTC 2026
 LINUX INSTALL-OVER: made, radon-player_4.0.26_amd64.deb, 90M, needs: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44843682907/artifacts/14681174770
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44843682907/artifacts/14681898702
 --- errors
 --- the end of the log
 > Task :desktop:jar
@@ -13,5 +13,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 27s
+BUILD SUCCESSFUL in 4m 13s
 15 actionable tasks: 15 executed
