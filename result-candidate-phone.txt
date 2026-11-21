@@ -1,9 +1,9 @@
-commit 1b1c3e6474b36c58220a3de6effc0acbe6641773 · run 44935487601 · Sat Nov 21 18:32:12 UTC 2026
-PHONE INSTALL-OVER: made, Radon Player Next 3.3.0, the test key: it installs over the app on the phone
-package: name='org.omarchy.music.next' versionCode='30300' versionName='3.3.0' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+commit 2ffa80bcd73cbe92c135221663b3ffb10339f50b · run 44941296895 · Sat Nov 21 19:36:50 UTC 2026
+PHONE INSTALL-OVER: made, Radon Player Next 4.0.33, the test key: it installs over the app on the phone
+package: name='org.omarchy.music.next' versionCode='40033' versionName='4.0.33' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
 /home/runner/work/_temp/badging.txt:application-label:'Radon Player Next'
 /home/runner/work/_temp/certs.txt:V2 Signer: certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44935487601/artifacts/14718903858
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44941296895/artifacts/14721792940
 --- errors
 --- the end of the log
 > Task :app:lintVitalReportRelease
