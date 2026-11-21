@@ -4,7 +4,7 @@ import java.io.File
 import java.io.RandomAccessFile
 
 /** Whether a song file is whole enough to play, checked before a changed copy of it takes the place of yours. */
-object FileCheck {
+object FileWhole {
     /** A FLAC: "fLaC", its metadata blocks one after another to the one marked last, and right after them the first
      *  frame of sound (its sync code, 0xFFF8 or 0xFFF9). A player refuses a file where that isn't so ("First frame
      *  does not start with sync code"). Any other kind of file: only that it isn't empty. */

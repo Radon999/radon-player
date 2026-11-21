@@ -63,7 +63,7 @@ object FlacRepair {
     /** Put f right if it is a FLAC whose blocks don't lead to its sound. backup: where the bytes in front of the sound
      *  are saved first (as they were). Null when nothing was done: f is whole, isn't a FLAC, or its sound wasn't found. */
     fun repair(f: File, backup: File): Done? {
-        if (FileCheck.sound(f)) return null
+        if (FileWhole.sound(f)) return null
         val at = soundStart(f)
         if (at < 42 + 4 && at != 42L) return null
         RandomAccessFile(f, "rw").use { r ->
@@ -94,7 +94,7 @@ object FlacRepair {
                 r.write(byteArrayOf(0x81.toByte(), (pad shr 16).toByte(), (pad shr 8).toByte(), pad.toByte()))
             }
             r.fd.sync()
-            return if (FileCheck.sound(f)) Done(at, kept, tags) else { r.seek(0); r.write(front); null }
+            return if (FileWhole.sound(f)) Done(at, kept, tags) else { r.seek(0); r.write(front); null }
         }
     }
 

@@ -6,7 +6,7 @@ import java.io.File
  *  them by moving the music inside it; the app being closed in the middle (Android closes an app working in the
  *  background whenever it likes) left a file no player would open (“Hymn for the Weekend”, 21 Nov 2026: "First frame
  *  does not start with sync code"). Now the change is made to a copy in the app's own folder; the copy is checked
- *  ([FileCheck.sound]); only then is it written over your file, and until that is done it is noted, so a start after
+ *  ([FileWhole.sound]); only then is it written over your file, and until that is done it is noted, so a start after
  *  an interruption finishes the job from the copy. A copy that fails the check is thrown away: your file stays as it was. */
 object SafeWrite {
     private fun dir(ctx: Ctx) = File(appCtx(ctx).filesDir, "tag-work").apply { mkdirs() }
@@ -21,9 +21,9 @@ object SafeWrite {
         val out: T
         try {
             (ctx.openIn(key) ?: error("couldn't open the file")).use { i -> copy.outputStream().use { o -> i.copyTo(o) } }
-            if (!FileCheck.sound(copy)) error("the file is already damaged, so it is left alone (it needs replacing)")
+            if (!FileWhole.sound(copy)) error("the file is already damaged, so it is left alone (it needs replacing)")
             out = work(copy)
-            if (!FileCheck.sound(copy)) error("the change left the copy unreadable: your file is untouched")
+            if (!FileWhole.sound(copy)) error("the change left the copy unreadable: your file is untouched")
         } catch (e: Throwable) { copy.delete(); throw e }
         // From here the copy is the truth: noted first, so an interruption while it is written over yours is put right
         writeAtomic(journal(ctx), copy.path + "\n" + key)
@@ -42,7 +42,7 @@ object SafeWrite {
         val lines = readText(j)?.lines() ?: return@synchronized
         val copy = File(lines.getOrNull(0).orEmpty()); val key = lines.getOrNull(1).orEmpty()
         runCatching {
-            if (key.isNotEmpty() && copy.isFile && FileCheck.sound(copy)) {
+            if (key.isNotEmpty() && copy.isFile && FileWhole.sound(copy)) {
                 put(ctx, key, copy)
                 Crashes.note("A tag write that was interrupted was finished from its copy (${key.substringAfterLast('/')})")
             }

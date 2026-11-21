@@ -39,11 +39,11 @@ class FlacRepairTest {
         val cut = byteArrayOf(0x86.toByte(), 0x01, 0x5f, 0x90.toByte()) + ByteArray(5000) { 0x11 }
         val music = sound()
         val f = file(block(0, streamInfo()), block(4, comments("TITLE=Hymn", "ARTIST=A Band")), cut, music)
-        assertEquals("no player opens it", false, FileCheck.sound(f))
+        assertEquals("no player opens it", false, FileWhole.sound(f))
         val b = backup(); val was = f.readBytes()
         val done = FlacRepair.repair(f, b)
         assertNotNull(done)
-        assertEquals("it plays", true, FileCheck.sound(f))
+        assertEquals("it plays", true, FileWhole.sound(f))
         assertEquals("its tags were whole, and stay", true, done!!.tagsKept)
         assertEquals("the same length: nothing was moved", was.size.toLong(), f.length())
         assertTrue("the music is untouched", music.contentEquals(f.readBytes().copyOfRange(done.soundAt.toInt(), f.length().toInt())))
@@ -54,7 +54,7 @@ class FlacRepairTest {
         val bad = byteArrayOf(0x04, 0x00, 0x00, 0x40) + ByteArray(64) { 0x7f }   // a comment block of nonsense
         val f = file(block(0, streamInfo()), bad, ByteArray(300) { 0x22 }, sound())
         val done = FlacRepair.repair(f, backup())
-        assertNotNull(done); assertEquals(false, done!!.tagsKept); assertEquals(true, FileCheck.sound(f))
+        assertNotNull(done); assertEquals(false, done!!.tagsKept); assertEquals(true, FileWhole.sound(f))
     }
 
     @Test fun aSyncCodeInsideACoverIsNotTakenForTheSound() {
