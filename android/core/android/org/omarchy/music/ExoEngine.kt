@@ -118,6 +118,20 @@ class ExoEngine(val p: Player, private val ctx: Ctx, private val eq: EqProcessor
                     .build()
                 return EqSink(UsbAudioSink(inner), eq, inner)
             }
+
+            // The decoder's renderer, with room for any FLAC frame (DecoderRoom): the stock one gives the decoder what
+            // the file says its biggest frame is, or the decoder's own default when it doesn't say, and throws away
+            // every frame that doesn't fit.
+            override fun buildAudioRenderers(context: android.content.Context, extensionRendererMode: Int,
+                                             mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector, enableDecoderFallback: Boolean,
+                                             audioSink: AudioSink, eventHandler: android.os.Handler,
+                                             eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener,
+                                             out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>) {
+                val made = java.util.ArrayList<androidx.media3.exoplayer.Renderer>()
+                super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, audioSink, eventHandler, eventListener, made)
+                for (r in made) out.add(if (r is androidx.media3.exoplayer.audio.MediaCodecAudioRenderer)
+                    RoomyAudioRenderer(context, codecAdapterFactory, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, audioSink) else r)
+            }
         }.setEnableAudioFloatOutput(true).setMediaCodecSelector { mime, secure, tunneling ->
             // Settings › Sound quality › Android's own FLAC decoder: the phone maker's (c2.sec…, OMX.SEC…, and any other
             // that isn't Android's) goes after Android's (c2.android…, OMX.google…), for FLAC only. Asked at each song.
@@ -126,5 +140,17 @@ class ExoEngine(val p: Player, private val ctx: Ctx, private val eq: EqProcessor
                 all.sortedBy { if (it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.")) 0 else 1 }
             else all
         }
+    }
+}
+
+/** The stock audio renderer, giving the decoder room for any FLAC frame ([DecoderRoom]). */
+class RoomyAudioRenderer(context: android.content.Context, factory: androidx.media3.exoplayer.mediacodec.MediaCodecAdapter.Factory,
+                         selector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector, fallback: Boolean, handler: android.os.Handler?,
+                         listener: androidx.media3.exoplayer.audio.AudioRendererEventListener?, sink: AudioSink) :
+    androidx.media3.exoplayer.audio.MediaCodecAudioRenderer(context, factory, selector, fallback, handler, listener, sink) {
+    override fun getCodecMaxInputSize(codecInfo: androidx.media3.exoplayer.mediacodec.MediaCodecInfo, format: androidx.media3.common.Format,
+                                      streamFormats: Array<androidx.media3.common.Format>): Int {
+        val stock = super.getCodecMaxInputSize(codecInfo, format, streamFormats)
+        return if (format.sampleMimeType == androidx.media3.common.MimeTypes.AUDIO_FLAC) DecoderRoom.flac(format.channelCount, stock) else stock
     }
 }
