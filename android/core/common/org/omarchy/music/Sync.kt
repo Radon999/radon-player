@@ -106,11 +106,13 @@ object Sync {
     // ---- the phone: Sync now ----
 
     /** (the phone) Sync with the paired PC. fromPc: the PC's Sync now asked, so its changes win a tie. */
-    fun now(fromPc: Boolean = false, auto: Boolean = false) {
+    fun now(fromPc: Boolean = false, auto: Boolean = false, round: Int = 0) {
         if (!Remote.paired) { if (!auto) Music.toast("Pair with the PC first (Settings › Play on)"); return }
         if (!running.compareAndSet(false, true)) return
         val with = Remote.name.ifEmpty { "the PC" }
-        busy = "Syncing with $with…"
+        busy = if (round > 0) "Syncing covers with $with (part ${round + 1})…" else "Syncing with $with…"
+        // Tags match: covers left over that didn't fit in this sync (either way): it goes on by itself, round after round
+        var moreCovers = false
         val songs = songsOn
         val st = stateJson(); val sw = switchesJson()   // the screen's state, read on its thread
         val host = Remote.host; val headers = Remote.headers()
@@ -129,6 +131,7 @@ object Sync {
             theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the PC's stretches (each one once)
             val tagged = (theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0) +   // the PC's tag changes
                 runCatching { TagMatch.take(theirs[TagMatch.FILE]) }.getOrDefault(0)   // Tags & covers match: the PC's, when it's the main one
+            moreCovers = TagMatch.on && ((TagMatch.isMain && TagMatch.lastMore) || TagMatch.moreIn(theirs[TagMatch.FILE]))
             val sum = SyncMerge.summary(result, here)
             changesFound = runCatching { SyncChangesRules.lines(here, result) }.getOrDefault(emptyList())
             Done(result.mapValues { it.value.toString() }, result.filter { (n, v) -> here[n] != v }.keys,
@@ -143,7 +146,10 @@ object Sync {
             if (d.tagged > 0) Music.rescan()   // your songs read again with their new tags
             TagMatch.refreshSoon()
             markSynced()
-            finished(d.summary, with, quiet = auto && d.nothing && got == 0)
+            finished(d.summary, with, quiet = (auto && d.nothing && got == 0) || moreCovers)
+            // More covers to go across: the next round, by itself (a few hundred covers a round; stops when none are left)
+            if (moreCovers && round < 400) Music.scope.launch { kotlinx.coroutines.delay(1500); now(fromPc, auto = true, round = round + 1) }
+            else if (round > 0) Music.toast("Tags match: every cover has gone across")
             // The PC's songs this phone hasn't got: counted, and said (nothing is downloaded by itself)
             Music.bg({ LibraryMatch.take(d.songsThere, with) }) { n, _ ->
                 Music.musicVersion++

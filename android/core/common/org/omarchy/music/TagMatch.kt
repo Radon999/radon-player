@@ -58,7 +58,21 @@ object TagMatch {
      *  fingerprints of this device's covers (so the main device knows which to send). */
     @Serializable
     data class Sent(val main: String = "", val entries: List<Entry> = emptyList(), val art: Map<String, String> = emptyMap(),
-                    val have: Map<String, String> = emptyMap())
+                    val have: Map<String, String> = emptyMap(),
+                    /** The main device has covers left that didn't fit in this sync: the phone syncs again by itself. */
+                    val more: Boolean = false)
+
+    /** The main device's covers sent in this run of syncs (song and picture), so a round never sends one twice and
+     *  the rounds come to an end even when the other device can't take a picture (Prevent album cover changes). */
+    private val sentThisRun = HashSet<String>()
+    @Volatile private var sentAt = 0L
+    /** The main device's last outgoing had covers left over. */
+    @Volatile var lastMore = false
+        private set
+
+    /** Whether what the other device sent says it has covers left for here. */
+    fun moreIn(text: String?): Boolean = !text.isNullOrBlank() &&
+        runCatching { JSON.decodeFromString(Sent.serializer(), text).more }.getOrDefault(false)
 
     private val readSer = MapSerializer(String.serializer(), Read.serializer())
     private var cache: HashMap<String, Read>? = null
@@ -143,6 +157,7 @@ object TagMatch {
      *  this sync, if it came first. */
     fun outgoing(theirs: String?): String {
         if (!on) return ""
+        lastMore = false
         val c = cache()
         val list = songs().mapNotNull { (t, f) -> synchronized(lock) { c[f] }?.let { r -> Triple(t, f, r) } }
         if (!isMain) {
@@ -161,16 +176,23 @@ object TagMatch {
         // The covers the other device's copies haven't got (as it said, song by song): as many as fit, the rest next time
         val art = LinkedHashMap<String, String>()
         var size = 0
+        var more = false
+        synchronized(sentThisRun) { if (System.currentTimeMillis() - sentAt > 20 * 60_000L) sentThisRun.clear(); sentAt = System.currentTimeMillis() }
         for ((t, f, r) in list) {
             if (r.art.isEmpty() || r.art in art) continue
-            if (peer["${TagChanges.key(t.title, t.artist)}#${nameOf(f)}"] == r.art) continue
+            val songKey = "${TagChanges.key(t.title, t.artist)}#${nameOf(f)}"
+            if (peer[songKey] == r.art) continue
+            if (synchronized(sentThisRun) { "$songKey|${r.art}" in sentThisRun }) continue
+            if (size >= ART_BUDGET) { more = true; break }
             val b = runCatching { FileTags.cover(Music.ctx, f) }.getOrNull() ?: continue
             val jpeg = runCatching { Covers.jpeg(b) }.getOrNull() ?: continue
-            if (size + jpeg.size > ART_BUDGET) break
+            if (size > 0 && size + jpeg.size > ART_BUDGET) { more = true; break }
             size += jpeg.size
             art[r.art] = java.util.Base64.getEncoder().encodeToString(jpeg)
+            synchronized(sentThisRun) { sentThisRun += "$songKey|${r.art}" }
         }
-        return JSON.encodeToString(Sent.serializer(), Sent(main = main, entries = entries, art = art))
+        lastMore = more
+        return JSON.encodeToString(Sent.serializer(), Sent(main = main, entries = entries, art = art, more = more))
     }
 
     /** (blocking) The other device's songs made the same here, when it's the main device; what it says it has kept for

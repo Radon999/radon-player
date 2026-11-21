@@ -1207,7 +1207,7 @@ private fun TagMatchLine(other: String) {
         "and their moods follow $mainName's too. What differs is replaced and what $mainName's haven't got is taken off (never a title or an artist). " +
         "Tag edits and covers you pick by hand on either device still go to both. A song is matched by its ISRC, its title and artist, " +
         "or its file's name, when the lengths agree. Covers aren't changed while Prevent album cover changes is on. On the phone, songs are " +
-        "changed with All files access (Settings › Tagger). The first sync after turning it on can take a while: covers go across a few hundred at a time", on,
+        "changed with All files access (Settings › Tagger). The first sync after turning it on can take a while: one Sync carries on by itself, a few hundred covers at a time, until all have gone across", on,
         note = when {
             !on -> ""
             m.isMain -> "Main device: this $DEVICE. It sends, the $other takes"
