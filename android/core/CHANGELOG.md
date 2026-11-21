@@ -2,6 +2,14 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.34 · November 2026
+- **Full check finds every damaged place:** it carried on to the next file at the first fault; now it goes on through the file and notes each place ("damaged in 3 places (about 0:20, 1:31 and 3:28 in)"). FLACs and MP3s. Run Full check again to see them.
+- **Listen:** each song in the damaged list has a Listen button that plays it from a few seconds before where its damage is, to hear it for yourself. A song damaged in several places has one for each (A, B, C…, with its time). It plays as a queue of its own, as when you tap any song.
+- **File type (the ☰ menu):** a new section with a tab for each kind of file your songs are: FLACs, 24-bit FLACs and 32-bit FLACs (moved here from Music), MP3s, M4As and AACs, WAVs, Ogg and Opus, Other files. Each lists every song of that kind, with sorting and the list or grid layouts, for when one kind of file has a fault or needs tagging.
+- **Never show again goes over with Sync:** the damaged files you told the check to leave out are known by the song (title, artist and album) in place of where the file is, so they are left out on your other device too. What 4.0.33 kept is taken over at the next check.
+- **The strip of letters down the lists is taken out:** it made long lists slow to scroll, 24-bit FLACs most of all.
+- **Tag writes, proved on real files:** before this release every tag writer of the app's (lyrics, moods, the Tagger's fields, covers small and of megabytes, moods erased in place) was run on copies of 18 real songs (FLAC, MP3, WAV, M4A, some damaged on purpose), one after another and 240 at once from six threads. After each of 198 steps the copy's bytes of music were exactly what they had been.
+
 ## 4.0.33 · November 2026
 - **Choose what to do with damaged files:** Storage and damaged files (Settings › Scanner › Your files) now opens a list of every damaged song, each with a tick box, none ticked to start with. Nothing is downloaded or replaced unless you tick it.
 - **Show replacements:** looks each ticked song up and downloads nothing. Under each song it shows the very song it would be replaced with: title, artist, album, length, quality, and whether it is the explicit version. What is different from yours is in red (another title, artist or album, how many seconds longer or shorter). A song that can't be found says so and is left as it is.
