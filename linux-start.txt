@@ -16,28 +16,31 @@ LINUX FILM: the window 2097159: Window 2097159   Position: 0,0 (screen: 0)   Geo
 LINUX FILM: Now playing with the Blocks visualizer filmed for 12 s (linux-vis.mp4, 152 KB)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- what the app wrote as it started
-Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
-[SKIKO] warn: Fallback to next API
-org.jetbrains.skiko.RenderException: Cannot create Linux GL context
+radon-player: pictures: deezer: org.omarchy.music.HttpError: HTTP 403 from https://api.deezer.com/search/artist: <HTML><HEAD>
+<TITLE>Access Denied</TITLE>
+</HEAD><BODY>
+<H1>Access Denied</H1>
+ 
+You don't have permission to access "http&#58;&#47;&#47;api&#46;deezer&#46;com&
 radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content
+radon-player: pictures: deezer: org.omarchy.music.HttpError: HTTP 403 from https://api.deezer.com/search/artist: <HTML><HEAD>
+<TITLE>Access Denied</TITLE>
+</HEAD><BODY>
+<H1>Access Denied</H1>
+ 
+You don't have permission to access "http&#58;&#47;&#47;api&#46;deezer&#46;com&
 radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content
-radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content
-radon-player: A song change took 75.9 s: 9 the player said ENDED: dj=false song=1/1 at=39.0/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 13 next: END | 1012 next: NEXT_SONG | 1012 load “40 Hz Test Tone” play=true | 1317 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2824 next: NEXT_SONG | 2824 load “100-20Hz Sine Sweep” play=true | 2990 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4490 next: NEXT_SONG | 4490 load “Bass Sweep (feat. Techmaster P” play=true | 4678 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6179 next: NEXT_SONG | 6179 load “Bass Bounce” play=true | 6336 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20127 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 75801 load “Linux test tone” play=true | 75830 got it | 75830 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 75.9 s: 9 the player said ENDED: dj=false song=1/1 at=39.0/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 13 next: END | 1012 next: NEXT_SONG | 1012 load “40 Hz Test Tone” play=true | 1317 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2824 next: NEXT_SONG | 2824 load “100-20Hz Sine Sweep” play=true | 2990 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4490 next: NEXT_SONG | 4490 load “Bass Sweep (feat. Techmaster P” play=true | 4678 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6179 next: NEXT_SONG | 6179 load “Bass Bounce” play=true | 6336 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 20127 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 75801 load “Linux test tone” play=true | 75830 got it | 75830 into the player (at 0 s, play=true, state before 1)
+radon-player: A song change took 75.2 s: 6 the player said ENDED: dj=false song=1/1 at=39.1/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 8 next: END | 917 next: NEXT_SONG | 917 load “40 Hz Test Tone” play=true | 1223 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 2724 next: NEXT_SONG | 2724 load “☣️ JBL SUBWOOFER BASS TEST 🔊 ” play=true | 3022 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 4522 next: NEXT_SONG | 4522 load “100-20Hz Sine Sweep” play=true | 4699 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 6199 next: NEXT_SONG | 6200 load “Bass Sweep (feat. Techmaster P” play=true | 6354 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 20169 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 74969 load “Linux test tone” play=true | 75002 got it | 75002 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 75.2 s: 6 the player said ENDED: dj=false song=1/1 at=39.1/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 8 next: END | 917 next: NEXT_SONG | 917 load “40 Hz Test Tone” play=true | 1223 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 2724 next: NEXT_SONG | 2724 load “☣️ JBL SUBWOOFER BASS TEST 🔊 ” play=true | 3022 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 4522 next: NEXT_SONG | 4522 load “100-20Hz Sine Sweep” play=true | 4699 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 6199 next: NEXT_SONG | 6200 load “Bass Sweep (feat. Techmaster P” play=true | 6354 couldn't get it: YouTube: Got error UNPLAYABLE: "This content isn't available | 20169 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 74969 load “Linux test tone” play=true | 75002 got it | 75002 into the player (at 0 s, play=true, state before 1)
 --- its Problems
 	at java.desktop/java.awt.event.InvocationEvent.dispatch(Unknown Source)
 	at java.desktop/java.awt.EventQueue.dispatchEventImpl(Unknown Source)
@@ -54,4 +57,4 @@ radon-player: A song change took 75.9 s: 9 the player said ENDED: dj=false song=
 	at java.desktop/java.awt.EventDispatchThread.run(Unknown Source)
 
 
---- the files it made: 38
+--- the files it made: 35
