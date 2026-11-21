@@ -55,9 +55,7 @@ object TagProof {
         val c = Ctx.pc
         runCatching { Crashes.init(c) }
         runCatching { Music.init(c) }.onFailure { println("(the app's own start said: $it)") }
-        val work = File(args[0]).apply { mkdirs() }
         val small = jpeg(300, false); val big = jpeg(2200, true)
-        println("covers used: ${small.size / 1024} KB and ${big.size / 1024} KB")
         val writers: List<Pair<String, (String, Int) -> Any?>> = listOf(
             "lyrics and the words' mood" to { p, n -> LyricsTags.writeTags(c, p, "Line one $n\nLine two\nLine three", mapOf("MOOD_LYRICS" to "Happy")) },
             "mood" to { p, n -> LyricsTags.writeMood(c, p, if (n % 2 == 0) "Happy;Sad" else "Chill") },
@@ -70,6 +68,27 @@ object TagProof {
             "moods taken out in place" to { p, _ -> SafeWrite.alone { MoodWipe.wipe(File(p), setOf("MOOD", "MOOD_LYRICS")) } },
             "mood again" to { p, _ -> LyricsTags.writeMood(c, p, "Energetic") },
         )
+        // The app closed in the middle of a write. "run <copy>": the writers go round and round on the copy until this is
+        // killed from outside (it says "writing" once they have started). "verify <copy> <the song it was copied from>":
+        // what an app starting again does (a write that was interrupted is finished from its copy), then the copy's
+        // sound must be the song's.
+        if (args[0] == "run") {
+            val f = File(args[1])
+            println("writing"); System.out.flush()
+            var n = 0
+            while (true) { val (_, w) = writers[n % writers.size]; runCatching { w(f.path, n) }; n++ }
+        }
+        if (args[0] == "verify") {
+            val f = File(args[1]); val was = sound(File(args[2]))
+            val half = runCatching { sound(f) }.getOrNull() != was
+            SafeWrite.recover(c)
+            val now = runCatching { sound(f) }.getOrNull(); val said = runCatching { f.inputStream().use { FullCheck.check(it) } }.getOrElse { "unreadable: $it" }
+            println((if (now == was && said == null) "SAME" else "CHANGED (sound $now, was $was; full check: $said)") +
+                (if (half) "  [the app was killed while the file itself was being replaced: finished from the copy]" else ""))
+            kotlin.system.exitProcess(if (now == was && said == null) 0 else 1)
+        }
+        val work = File(args[0]).apply { mkdirs() }
+        println("covers used: ${small.size / 1024} KB and ${big.size / 1024} KB")
         var files = 0; var wrong = 0; var steps = 0
         for (src in args.drop(1).map { File(it) }.filter { it.isFile }) {
             files++
