@@ -1,19 +1,19 @@
-commit 8cbe69fa3c5ca4620ed56c3c6afa296ffc1cd657 · run 44938470427 · Sat Nov 21 19:29:36 UTC 2026
+commit 2ffa80bcd73cbe92c135221663b3ffb10339f50b · run 44941296794 · Sat Nov 21 19:47:25 UTC 2026
 SHARED TESTS: 129 suites, 609 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 42 suites, 169 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.5 s of speech in 1.7 s (with loading the voice); then 4.8 s of speech in 1.2 s (4.2x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 1.6 s (with loading the voice); then 5.1 s of speech in 1.2 s (4.1x real time)
 PC COMPILES: yes
-LINUX PACKAGE: radon-player_4.0.32_amd64.deb, 90M
+LINUX PACKAGE: radon-player_4.0.33_amd64.deb, 90M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
-LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:00 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:00 of 0:40)
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
 LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
 LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
 LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
-LINUX MEDIA KEYS: after the Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:00 of 0:40)
-LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:00 of 0:40)
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
 LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
 LINUX START: a picture of its window was taken (linux-start.jpg)
 LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
@@ -24,15 +24,15 @@ LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed:
 --- the end of the log
 > Task :app:compileDebugJavaWithJavac
 > Task :app:processDebugJavaRes
-> Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.32_amd64.deb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.33_amd64.deb
 
 > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
 > Task :app:processDebugUnitTestJavaRes
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 45s
+BUILD SUCCESSFUL in 4m 53s
 59 actionable tasks: 59 executed
