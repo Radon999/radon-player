@@ -353,13 +353,19 @@ private val SHARE_APPS = listOf("com.instagram.android" to "Instagram", "com.fac
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WrappedScreen(onClose: () -> Unit) {
-    var period by remember { mutableStateOf<Wrapped.Period>(WrappedAsk.take() ?: Wrapped.Period.Year(Wrapped.year())) }
+    // Nothing is loaded until you say which one you want: Wrapped opens asking (this week, this month, this year,
+    // all time) and loads only the one you tap. (It used to start on the year at once, which was time and data spent
+    // on a Wrapped you may not have wanted.) Asked for from outside (the PC's "wrapped month"): that one, at once.
+    val asked0 = remember { WrappedAsk.take() }
+    var chosen by remember { mutableStateOf(asked0 != null) }
+    var period by remember { mutableStateOf<Wrapped.Period>(asked0 ?: Wrapped.Period.Year(Wrapped.year())) }
     var data by remember { mutableStateOf<Wrapped.Data?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var progress by remember { mutableStateOf("") }
     var seq by remember { mutableIntStateOf(0) }
-    LaunchedEffect(period, seq) {
+    LaunchedEffect(period, seq, chosen) {
         data = null; error = null; progress = ""
+        if (!chosen) return@LaunchedEffect
         val mine = seq
         // What comes back is shown only if it is still the time asked for. Wrapped opens on the year and starts
         // loading it; pick All time before that is done and both are being loaded, and whichever came back last was
@@ -372,6 +378,17 @@ fun WrappedScreen(onClose: () -> Unit) {
     }
     val label = period.name.uppercase()
     val slides: List<Slide> = when {
+        !chosen -> listOf(Slide(0) {
+            Text("YOUR WRAPPED", style = W.kicker)
+            Text("Which one do you want to see?", style = W.big)
+            Text("It is put together when you pick it.", style = W.sub)
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf("week" to "This week", "month" to "This month", "year" to "This year", "all" to "All time").forEach { (kind, name) ->
+                    Pill(name) { period = Wrapped.Period.current(kind); chosen = true }
+                }
+            }
+        })
         error != null -> listOf(Slide(4) {
             Text("COULDN'T OPEN YOUR WRAPPED", style = W.kicker)
             Text(error!!, style = W.sub)
@@ -524,16 +541,16 @@ fun WrappedScreen(onClose: () -> Unit) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.clip(RoundedCornerShape(4.dp)).background(WS.bg.copy(alpha = 0.45f))) {
                         KINDS.forEach { (kind, name) ->
-                            val on = period.kind == kind
+                            val on = chosen && period.kind == kind
                             Text(name, style = T.tab.copy(color = if (on) WS.bg else WS.fg.copy(alpha = 0.75f), fontSize = 12.sp),
                                 modifier = Modifier.background(if (on) WS.accent else Color.Transparent)
-                                    .pointerInput(kind, period) { detectTapGestures { if (!on) period = Wrapped.Period.current(kind) } }
+                                    .pointerInput(kind, period, chosen) { detectTapGestures { if (!on) { period = Wrapped.Period.current(kind); chosen = true } } }
                                     .padding(horizontal = 11.dp, vertical = 6.dp))
                         }
                     }
                     Spacer(Modifier.weight(1f))
                     val choices = Wrapped.Period.choices(period.kind, data?.years ?: listOf(LocalDate.now().year))
-                    if (choices.isNotEmpty()) {
+                    if (choices.isNotEmpty() && chosen) {
                         var open by remember { mutableStateOf(false) }
                         Box {
                             Pill("${choices.firstOrNull { it.first == period }?.second ?: period.name} ▾", quiet = true) { open = true }
