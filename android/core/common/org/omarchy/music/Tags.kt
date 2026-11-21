@@ -115,12 +115,12 @@ object Covers {
         // A cover only goes into a FLAC: an MP3 or M4A rewritten as one is ruined
         val flac = runCatching { cr.openIn(uri)!!.use { val b = ByteArray(4); it.read(b) == 4 && String(b, Charsets.ISO_8859_1) == "fLaC" } }.getOrDefault(false)
         if (!flac) error("only FLAC files can take a cover here")
-        val tmp = File.createTempFile("cover", ".flac", ctx.cacheDir)
-        try {
-            cr.openIn(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-            cr.openOut(uri)!!.buffered().use { Flac.retag(tmp, it, emptyMap(), jpeg, keepOther = true) }
-        } finally {
-            tmp.delete()
+        SafeWrite.edit(ctx, uri, "flac") { copy ->   // on a checked copy, then put over the file: never half a file
+            val made = File(copy.path + ".new")
+            try {
+                made.outputStream().buffered().use { Flac.retag(copy, it, emptyMap(), jpeg, keepOther = true) }
+                made.copyTo(copy, overwrite = true)
+            } finally { made.delete() }
         }
     }
 }

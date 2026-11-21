@@ -9,7 +9,13 @@ import java.io.File
 object ExtraTags {
     /** Lyrics (null: leave them) and named tags ("" takes one off) into the file; true if it wrote. */
     fun write(ctx: Ctx, uri: String, lyrics: String?, named: Map<String, String>): Boolean = runCatching {
-        val af = AudioFileIO.read(File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri))
+        val real = File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri)
+        // On a checked copy, then put over the file (SafeWrite): one writer at a time, never half a file
+        SafeWrite.edit(ctx, real.path, real.extension.lowercase(), unchanged = { !it }) { f -> into(f, lyrics, named) }
+    }.getOrDefault(false)
+
+    private fun into(f: File, lyrics: String?, named: Map<String, String>): Boolean {
+        val af = AudioFileIO.read(f)
         val tag = af.tagOrCreateAndSetDefault
         if (lyrics != null) { if (lyrics.isEmpty()) tag.deleteField(FieldKey.LYRICS) else tag.setField(FieldKey.LYRICS, lyrics) }
         for ((k, v) in named) when (tag) {
@@ -22,9 +28,9 @@ object ExtraTags {
                 tag.deleteField(k)
                 if (v.isNotEmpty()) tag.setField(org.jaudiotagger.tag.vorbiscomment.VorbisCommentTagField(k, v))
             }
-            else -> return@runCatching false   // a kind of file we don't put named tags in
+            else -> return false   // a kind of file we don't put named tags in
         }
         af.commit()
-        true
-    }.getOrDefault(false)
+        return true
+    }
 }

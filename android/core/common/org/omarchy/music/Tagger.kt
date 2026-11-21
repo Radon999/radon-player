@@ -82,14 +82,12 @@ object Tagger {
     fun write(p: Plan) {
         if (p.fill.isNotEmpty()) {
             val cr = Music.ctx
-            val tmp = File.createTempFile("tagging", ".flac", Music.ctx.cacheDir)
-            try {
-                cr.openIn(p.uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-                cr.openOut(p.uri)!!.buffered().use {
-                    Flac.retag(tmp, it, p.fill.mapKeys { (k, _) -> k.uppercase() }, null, keepOther = true)
-                }
-            } finally {
-                tmp.delete()
+            SafeWrite.edit(cr, p.uri, "flac") { copy ->   // on a checked copy, then put over the file: never half a file
+                val made = File(copy.path + ".new")
+                try {
+                    made.outputStream().buffered().use { Flac.retag(copy, it, p.fill.mapKeys { (k, _) -> k.uppercase() }, null, keepOther = true) }
+                    made.copyTo(copy, overwrite = true)
+                } finally { made.delete() }
             }
         }
         val genre = (p.fill["genre"] ?: p.old["genre"])?.firstOrNull()

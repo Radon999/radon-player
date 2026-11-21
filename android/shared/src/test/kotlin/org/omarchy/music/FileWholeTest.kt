@@ -36,6 +36,33 @@ class FileWholeTest {
         assertEquals("not a FLAC: not judged", true, "ID3 something else".byteInputStream().use { FileWhole.flacLeadsToSound(it) })
     }
 
+    private fun mp3(tag: Int, sound: Int, v1: Boolean = false): File {
+        val f = File.createTempFile("check", ".mp3")
+        f.outputStream().use { o ->
+            if (tag >= 0) o.write(byteArrayOf(0x49, 0x44, 0x33, 3, 0, 0, (tag shr 21 and 0x7f).toByte(), (tag shr 14 and 0x7f).toByte(), (tag shr 7 and 0x7f).toByte(), (tag and 0x7f).toByte()) + ByteArray(tag))
+            o.write(byteArrayOf(0xff.toByte(), 0xfb.toByte(), 0xe0.toByte(), 0x40) + ByteArray(sound - 4))
+            if (v1) o.write("TAG".toByteArray() + ByteArray(125))
+        }
+        return f
+    }
+
+    @Test fun howMuchSoundAFileHolds() {
+        assertEquals("an MP3: what follows its tag", 500_000L, FileWhole.soundBytes(mp3(3_000_000, 500_000)))
+        assertEquals("the old tag at its end isn't sound", 500_000L, FileWhole.soundBytes(mp3(3_000_000, 500_000, v1 = true)))
+        assertEquals("an MP3 with no tag", 70_000L, FileWhole.soundBytes(mp3(-1, 70_000)))
+        assertEquals("a FLAC: what follows its blocks", 7L, FileWhole.soundBytes(flac(listOf(0 to 34, 4 to 2749), frame)))
+        assertEquals("another kind isn't told", null, FileWhole.soundBytes(File.createTempFile("check", ".m4a").apply { writeBytes(ByteArray(64) { 7 }) }))
+    }
+
+    @Test fun aChangeThatLosesSoundIsToldFromOneThatDoesNot() {
+        // “New Wave”: a 14 MB cover in its tag and 6.7 MB of sound, put back with 400 KB of sound (10 seconds)
+        assertEquals(false, FileWhole.kept(6_723_008, 400_000))
+        assertEquals("the same sound, a bigger tag", true, FileWhole.kept(6_723_008, 6_723_008))
+        assertEquals("a tag library's tidying", true, FileWhole.kept(6_723_008, 6_723_008 - 128))
+        assertEquals("not told: nothing said against it", true, FileWhole.kept(null, 5))
+        assertEquals(true, FileWhole.kept(5, null))
+    }
+
     @Test fun otherFilesAreOnlyAskedNotToBeEmpty() {
         val mp3 = File.createTempFile("check", ".mp3").apply { writeBytes(byteArrayOf(0x49, 0x44, 0x33, 4, 0, 0)) }
         assertEquals(true, FileWhole.sound(mp3))

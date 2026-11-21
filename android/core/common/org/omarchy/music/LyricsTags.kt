@@ -39,9 +39,7 @@ object LyricsTags {
                 Tags.write(ctx, uri, changes); true
             }
             magic.startsWith("ID3") || (head[0].toInt() and 0xFF == 0xFF && head[1].toInt() and 0xE0 == 0xE0 && head[1].toInt() and 0x06 != 0) -> {
-                val all = ctx.openIn(uri)!!.use { it.readBytes() }
-                val out = TagWrite.mp3(all, lyrics, named) ?: return false   // a tag we leave alone (ID3v2.2…)
-                replace(ctx, uri, all, out, ".mp3"); true
+                mp3Edit(ctx, uri) { TagWrite.mp3(it, lyrics, named) }   // (null: a tag we leave alone, ID3v2.2…)
             }
             magic == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "WAVE" ->
                 !uri.startsWith("content:") && TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), lyrics, named)
@@ -49,18 +47,15 @@ object LyricsTags {
         }
     }
 
-    /** The file's bytes swapped for out, through a copy in the cache: a write that fails half way puts the old ones back. */
-    private fun replace(ctx: Ctx, uri: String, old: ByteArray, out: ByteArray, ext: String) {
-        val tmp = File.createTempFile("retag", ext, ctx.cacheDir).apply { writeBytes(old) }
-        try {
-            ctx.openOut(uri)!!.use { it.write(out) }
-        } catch (e: Exception) {
-            runCatching { ctx.openOut(uri)!!.use { it.write(tmp.readBytes()) } }
-            throw e
-        } finally {
-            tmp.delete()
+    /** An MP3's tag changed on a checked copy that is then put over the file ([SafeWrite]: one writer at a time, never
+     *  half a file, never less music than before). change: the file's bytes to its new ones, null to leave it as it is.
+     *  Whether it wrote. (It read the file and wrote it straight back: read while another scan was half way through
+     *  writing it, that half was put back as the whole song.) */
+    private fun mp3Edit(ctx: Ctx, uri: String, change: (ByteArray) -> ByteArray?): Boolean =
+        SafeWrite.edit(ctx, uri, "mp3", unchanged = { !it }) { f ->
+            val out = change(f.readBytes()) ?: return@edit false
+            f.writeBytes(out); true
         }
-    }
 
     /** The lyrics to put in a file: the timed lines (LRC) when there are some, so players that follow along can, else
      *  the plain words. */
@@ -75,15 +70,12 @@ object LyricsTags {
 
     /** An MP3: lyrics added to its ID3v2 tag (a new one if it has none), unless it has some already. Through
      *  [TagWrite]: only the lyrics frame is added; every other frame (title, artist, album, album artist…) is kept. */
-    private fun mp3(ctx: Ctx, uri: String, text: String): Boolean {
-        val all = ctx.openIn(uri)!!.use { it.readBytes() }
+    private fun mp3(ctx: Ctx, uri: String, text: String): Boolean = mp3Edit(ctx, uri) { all ->
         if (all.size >= 3 && String(all, 0, 3, Charsets.ISO_8859_1) == "ID3") {
-            val (tag, _) = TagWrite.parseId3(all) ?: return false   // a tag we leave alone (ID3v2.2…)
-            if (tag.frames.any { it.first == "USLT" || it.first == "SYLT" }) return false   // it has lyrics already
+            val (tag, _) = TagWrite.parseId3(all) ?: return@mp3Edit null   // a tag we leave alone (ID3v2.2…)
+            if (tag.frames.any { it.first == "USLT" || it.first == "SYLT" }) return@mp3Edit null   // it has lyrics already
         }
-        val out = TagWrite.mp3(all, text, emptyMap()) ?: return false
-        replace(ctx, uri, all, out, ".mp3")
-        return true
+        TagWrite.mp3(all, text, emptyMap())
     }
 
     /** A song's mood (one, or several joined with ";"; "" takes it off) written into its file's MOOD tag, and nothing
@@ -105,10 +97,8 @@ object LyricsTags {
             magic == "fLaC" -> { Tags.write(ctx, uri, mapOf("mood" to mood)); true }
             magic.startsWith("ID3") && isFlacBehindId3(ctx, uri) -> byLibrary()
             magic.startsWith("ID3") || (head[0].toInt() and 0xFF == 0xFF && head[1].toInt() and 0xE0 == 0xE0 && head[1].toInt() and 0x06 != 0) -> {
-                val all = ctx.openIn(uri)!!.use { it.readBytes() }
                 // (a tag of a kind this writer leaves alone, ID3v2.2 or one it can't read: the tag library has a go)
-                val out = TagWrite.mp3(all, null, emptyMap(), mood) ?: return byLibrary()
-                replace(ctx, uri, all, out, ".mp3"); true
+                if (mp3Edit(ctx, uri) { TagWrite.mp3(it, null, emptyMap(), mood) }) true else byLibrary()
             }
             magic == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "WAVE" ->
                 // (on the phone a song's address is not a file's path: its WAVs never got a mood this way)

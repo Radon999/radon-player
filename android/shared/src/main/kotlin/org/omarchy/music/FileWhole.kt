@@ -29,6 +29,46 @@ object FileWhole {
         }
     }.getOrDefault(false)
 
+    /** How many bytes of sound the file holds, where that can be told: a FLAC's (what follows its blocks), an MP3's
+     *  (what follows its ID3v2 tag, less an ID3v1 "TAG" at its end). Null when it isn't told (another kind of file, a
+     *  FLAC behind an ID3 tag, one that can't be read). A tag write changes the tags and never this. */
+    fun soundBytes(f: File): Long? = runCatching {
+        RandomAccessFile(f, "r").use { r ->
+            val len = r.length()
+            if (len < 12) return@runCatching null
+            val h = ByteArray(10); r.readFully(h)
+            val magic = String(h, 0, 4, Charsets.ISO_8859_1)
+            if (magic == "fLaC") {
+                r.seek(4)
+                var blocks = 0
+                while (true) {
+                    val b = ByteArray(4); r.readFully(b)
+                    val size = ((b[1].toInt() and 0xff) shl 16) or ((b[2].toInt() and 0xff) shl 8) or (b[3].toInt() and 0xff)
+                    r.seek(r.filePointer + size)
+                    if (b[0].toInt() and 0x80 != 0) break
+                    if (++blocks > 4096) return@runCatching null
+                }
+                return@runCatching (len - r.filePointer).takeIf { it >= 0 }
+            }
+            var from = 0L
+            if (magic.startsWith("ID3")) {
+                from = 10L + (((h[6].toInt() and 0x7f) shl 21) or ((h[7].toInt() and 0x7f) shl 14) or ((h[8].toInt() and 0x7f) shl 7) or (h[9].toInt() and 0x7f)) +
+                    (if (h[5].toInt() and 0x10 != 0) 10 else 0)
+                if (from + 4 <= len) { r.seek(from); val m = ByteArray(4); r.readFully(m); if (String(m, Charsets.ISO_8859_1) == "fLaC") return@runCatching null }
+            } else if (!((h[0].toInt() and 0xff) == 0xff && (h[1].toInt() and 0xe0) == 0xe0 && (h[1].toInt() and 0x06) != 0)) return@runCatching null
+            var end = len
+            if (len >= from + 128) { r.seek(len - 128); val t = ByteArray(3); r.readFully(t); if (String(t, Charsets.ISO_8859_1) == "TAG") end -= 128 }
+            maxOf(0L, end - from)
+        }
+    }.getOrNull()
+
+    /** A tag library may tidy a few bytes around the sound (padding it took for sound, a second tag at the end). */
+    const val SLACK = 8192L
+
+    /** Whether a file that held [before] bytes of sound still holds them, now that it holds [after]: false when sound
+     *  has gone. (Where either isn't told, nothing is said against it.) */
+    fun kept(before: Long?, after: Long?): Boolean = before == null || after == null || after >= before - SLACK
+
     /** The same of a FLAC read from its start (a file the phone only gives as a stream): false only when it is a FLAC
      *  whose blocks don't lead to its sound. */
     fun flacLeadsToSound(input: java.io.InputStream): Boolean = runCatching {
