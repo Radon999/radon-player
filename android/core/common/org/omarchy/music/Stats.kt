@@ -71,7 +71,7 @@ object Stats {
         }
     }
 
-    private fun inputs() = listOf("v9", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
+    private fun inputs() = listOf("v10", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.albumPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.songPicks.toSortedMap().toString() }.getOrDefault(""), if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, OtherPlays.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")
@@ -108,6 +108,10 @@ object Stats {
         val fm = LastFm.connected
         val scrobbles = if (fm) Wrapped.allScrobbles(ctx).map { SpotifyHistory.Play(it.t, it.artist, it.title, it.album) } else emptyList()
         val here = if (fm) emptyList() else Music.plays.items.values.map { it.track to it.plays }
+        // (the plays here with their times, for the periods and the listening times: without Last.fm they are the only
+        // record of what you played in this app, and they were left out of both)
+        val hereEntries = if (fm) emptyList() else Music.plays.items.values.toList()
+        val hereTimed = hereEntries.flatMap { e -> e.at.map { SpotifyHistory.Play(it, e.track.artist, e.track.title, e.track.album) } }
         // Spotify's and Apple Music's imports: every play in them (from 30 seconds, as Spotify counts a
         // stream), added to Last.fm's, even where Spotify scrobbled to Last.fm too.
         val spotify = SpotifyHistory.plays; val apple = AppleHistory.timed(); val deezer = OtherPlays.all
@@ -119,14 +123,15 @@ object Stats {
         val thumbs = s.associate { statsKey(it.title, it.artist) to it.thumb }
         val periods = PERIODS.mapValues { (_, days) ->
             val start = (now() - days * 86400L).toLong()
-            combine(scrobbles.filter { it.t >= start }, spotify.filter { it.t >= start }, emptyList(), apple.filter { it.t >= start },
+            combine(scrobbles.filter { it.t >= start }, spotify.filter { it.t >= start },
+                hereEntries.mapNotNull { e -> e.at.count { it >= start }.takeIf { it > 0 }?.let { e.track to it } }, apple.filter { it.t >= start },
                 deezer = deezer.filter { it.t >= start }, asYours = asYours).first
                 .take(5000).map { if (it.thumb.isEmpty()) it.copy(thumb = thumbs[statsKey(it.title, it.artist)] ?: "") else it }
         }
         val lengths = runCatching { Music.mySongs().filter { it.duration > 0 }.associate { statsKey(it.title, it.artist) to it.duration } }.getOrDefault(emptyMap())
-        val time = listenTime(scrobbles + spotify + apple + deezer, lengths)
+        val time = listenTime(scrobbles + spotify + apple + deezer + hereTimed, lengths)
         // Each milestone dated by the play that got it there (Wrapped shows a year's).
-        val timedPlays = scrobbles + spotify + apple + deezer
+        val timedPlays = scrobbles + spotify + apple + deezer + hereTimed
         val songTimes = timedPlays.groupBy({ statsKey(it.title, it.artist) }, { it.t })
         val artistTimes = timedPlays.groupBy({ artistKey(leadArtist(it.artist)) }, { it.t })
         val out = Saved(s, a, now(), sig, periods, time, newMilestones(s, a, milestones, songTimes, artistTimes))

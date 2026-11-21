@@ -558,7 +558,12 @@ object Wrapped {
                 }
                 progress("Comparing with before…")
                 val length = naturalEnd - start   // as far into the period before as this one has gone
-                val prev = if (fm && !lastFmDown) runCatching { LastFm.count(start - length, start - length + (end - start)) }.getOrNull() else null
+                // (the time before counted as this one is: Last.fm's plays and your imports', so like is set beside like.
+                // It was Last.fm's alone, beside a count that had the imports in it.)
+                val prevFrom = start - length; val prevTo = start - length + (end - start)
+                val prevImported = imported().count { it.t in prevFrom until prevTo }
+                val prev = if (fm && !lastFmDown) runCatching { LastFm.count(prevFrom, prevTo) }.getOrNull()?.let { it + prevImported }
+                    else if (!fm && prevImported > 0) prevImported else null
                 data = data.copy(daily = daily, spanDays = maxOf(1, ((end - start + 86399) / 86400).toInt()),
                     partial = end < naturalEnd - 60, prevCount = prev)
             }
