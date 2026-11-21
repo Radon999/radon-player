@@ -42,7 +42,7 @@ object LyricsTags {
                 mp3Edit(ctx, uri) { TagWrite.mp3(it, lyrics, named) }   // (null: a tag we leave alone, ID3v2.2…)
             }
             magic == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "WAVE" ->
-                !uri.startsWith("content:") && TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), lyrics, named)
+                !uri.startsWith("content:") && SafeWrite.alone { TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), lyrics, named) }
             else -> ExtraTags.write(ctx, uri, lyrics, named)
         }
     }
@@ -103,7 +103,7 @@ object LyricsTags {
             magic == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "WAVE" ->
                 // (on the phone a song's address is not a file's path: its WAVs never got a mood this way)
                 if (uri.startsWith("content:")) byLibrary()
-                else TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), null, emptyMap(), mood) || error("WAV: its tags couldn't be written")
+                else SafeWrite.alone { TagWrite.wav(java.io.File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri), null, emptyMap(), mood) } || error("WAV: its tags couldn't be written")
             else -> byLibrary()
         }
     }

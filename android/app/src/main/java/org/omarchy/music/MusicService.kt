@@ -195,7 +195,7 @@ class MusicService : MediaLibraryService() {
                     Music.bg({
                         val path = t?.file?.let { FileTags.pathOf(it) } ?: Music.lib.items[id]?.file?.let { FileTags.pathOf(it) }
                         val f = path?.let { java.io.File(it) }?.takeIf { it.isFile && it.canWrite() && it.extension.equals("flac", true) }
-                        val done = f?.let { FlacRepair.repair(it, java.io.File(filesDir, "repaired/${it.name}.${System.currentTimeMillis()}.front")) }
+                        val done = f?.let { SafeWrite.alone { FlacRepair.repair(it, java.io.File(filesDir, "repaired/${it.name}.${System.currentTimeMillis()}.front")) } }
                         if (done != null && f != null && t != null) {
                             Crashes.note("“${t.title}” was a damaged file (its tags and cover no longer led to its music, as a tag write cut short leaves it): " +
                                 "put right in place, the music untouched" + (if (done.tagsKept) ", its tags kept" else ", its title and artist written back") +

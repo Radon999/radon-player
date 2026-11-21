@@ -43,6 +43,10 @@ object SafeWrite {
     }
 
     /** The copy written over your file, and your file then measured: it must be as long as the copy (once more if not). */
+    /** A writer that changes a file where it is (a repair, a tag blanked in place, a WAV's own writer) takes its turn
+     *  with every other: never while another write of the app's is under way. */
+    fun <T> alone(work: () -> T): T = synchronized(lock) { work() }
+
     private fun put(ctx: Ctx, key: String, copy: File) {
         repeat(2) {
             (ctx.openOut(key) ?: error("couldn't write the file")).use { o -> copy.inputStream().use { it.copyTo(o) }; o.flush() }
