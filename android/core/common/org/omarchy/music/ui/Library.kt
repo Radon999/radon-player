@@ -795,6 +795,9 @@ fun OptionsSheet(ui: Ui) {
                     Music.toast((if (picked.size == 1) "“${picked[0].title}” is" else "${picked.size} songs are") + " hidden from the stats lists. Settings › Hidden from stats brings " + (if (picked.size == 1) "it" else "them") + " back") })
                 if (place?.kind == "later") add(Triple(Ico.CLOSE, "Remove from Listen later") { org.omarchy.music.ListenLater.remove(picked) })
                 else add(Triple(Ico.CLOCK, "Add to Listen later playlist") { org.omarchy.music.ListenLater.add(picked) })
+                // …or only what you haven't got of the album (or EP) the picked songs are from: a small Discovery of one album
+                if (place?.kind != "later" && picked.any { it.album.isNotBlank() })
+                    add(Triple(Ico.CLOCK, "Listen later: the album's songs I don't have") { org.omarchy.music.AlbumMissing.laterRest(picked) })
                 if (one != null) {
                     if (Music.favorites.has(one)) add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
                     else add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })

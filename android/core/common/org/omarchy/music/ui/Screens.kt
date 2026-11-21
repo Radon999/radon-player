@@ -488,6 +488,10 @@ fun MusicTab(ui: Ui) {
                                 "theirs" -> org.omarchy.music.LibraryMatchRules.heading(tracks.size, org.omarchy.music.LibraryMatch.from.ifEmpty { "your other device" }).uppercase()
                                 else -> if (Music.mostPlayedFromStats) "MOST PLAYED · STATS" else "MOST PLAYED"
                             })
+                            // Listen later › Review: the songs on it you haven't got, each to download or leave streaming
+                            if (ui.musicView == "later" && tracks.isNotEmpty()) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                                Pill("Review…", quiet = true) { org.omarchy.music.ListenLater.playlist()?.let { ui.reviewFor = it } }
+                            }
                             if (ui.musicView == "recent") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Pill("Refresh", quiet = true) { Music.musicVersion++; Music.toast("Recently played is up to date") }
@@ -1749,7 +1753,14 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
     // Your own album: its songs you haven't got, at the very bottom (Download missing tracks…).
     var missing by remember(page) { mutableStateOf<List<org.omarchy.music.MissingSong>>(emptyList()) }
     var picking by remember(page) { mutableStateOf(false) }
+    // …each found on your streaming service, so it plays, queues and can be picked like any streamed song
+    var streams by remember(page) { mutableStateOf<List<Pair<org.omarchy.music.MissingSong, Track>>>(emptyList()) }
     val artist = page.tracks?.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: ""
+    LaunchedEffect(page, missing) {
+        streams = emptyList()
+        val want = missing
+        if (want.isNotEmpty()) Music.bg({ org.omarchy.music.AlbumMissing.streams(artist, page.album.title, want) }) { got, _ -> if (missing == want) streams = got.orEmpty() }
+    }
     // An EP of yours (as the EPs tab sorts it) says EP in its missing section, and is looked for as an EP
     val kind = remember(page) {
         page.tracks?.takeIf { page.source == "local" && it.isNotEmpty() }
@@ -1807,9 +1818,14 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
                 pin = if (page.source.isEmpty()) null else org.omarchy.music.Pin("album", shown.id, shown.title, shown.sub, shown.thumb, page.source)) }
             tracks(t, ui, "album")
             if (missing.isNotEmpty()) {
-                item { Section("MISSING FROM THIS ${if (kind == "ep") "EP" else "ALBUM"} · ${missing.size}") }
-                items(missing.size) { i ->
-                    val m = missing[i]
+                item { Section("MISSING FROM THIS ${if (kind == "ep") "EP" else "ALBUM"} · ${missing.size}" + if (streams.isNotEmpty()) " · TAP ONE TO STREAM IT" else "") }
+                // The ones found on your streaming service: rows like any streamed song's (play, queue, pick, playlists)
+                val found = streams.map { it.second }
+                if (found.isNotEmpty()) tracks(found, ui, "album", section = "missing")
+                // …and the ones not found there (or not looked up yet): named, as before
+                val rest = missing.filter { m -> streams.none { it.first == m } }
+                items(rest.size) { i ->
+                    val m = rest[i]
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).graphicsLayer(alpha = 0.55f),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("${m.n}", style = T.sub, modifier = Modifier.width(28.dp))
@@ -1817,7 +1833,11 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
                         if (m.secs > 0) Text(org.omarchy.music.fmtTime(m.secs.toDouble()), style = T.sub)
                     }
                 }
-                item { Row(Modifier.padding(12.dp)) { Pill("Download missing tracks…") { picking = true } } }
+                item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("Download missing tracks…") { picking = true }
+                    // To hear them first: on Listen later, where Review downloads the ones to keep
+                    if (found.isNotEmpty()) Pill("Listen later (%,d)".format(found.size), quiet = true) { org.omarchy.music.ListenLater.add(found) }
+                } }
             }
         }
     }

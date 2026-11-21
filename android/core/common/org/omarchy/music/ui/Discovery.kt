@@ -30,18 +30,23 @@ fun ReviewDialog(ui: Ui, pl: Playlist) {
     val get = remember(pl.id) { mutableStateMapOf<String, Boolean>() }
     val drop = remember(pl.id) { mutableStateMapOf<String, Boolean>() }
     val box = CheckboxDefaults.colors(checkedColor = C.accent, checkmarkColor = C.darker, uncheckedColor = C.muted)
+    // Listen later's Review: only the songs on it you haven't got (a song of yours has nothing to decide)
+    val later = pl.id == org.omarchy.music.ListenLater.playlist()?.id
+    val songs = remember(pl.id, pl.tracks, later) { if (later) pl.tracks.filter { !onThisDevice(Music.mineOf(it)) } else pl.tracks }
     AlertDialog(onDismissRequest = { ui.reviewFor = null }, containerColor = C.light,
         title = { Text(pl.name, style = T.head, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
             Column {
-                Text("Download the ones to keep, remove the ones to let go, then Apply.", style = T.sub)
+                Text(if (later) (if (songs.isEmpty()) "Every song on Listen later is on this device already." else
+                        "The songs on it you haven't got. Download the ones to keep; the others stay as streaming songs. Remove takes a song off Listen later. Then Apply.")
+                    else "Download the ones to keep, remove the ones to let go, then Apply.", style = T.sub)
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill("Download all", quiet = true) { pl.tracks.filter { !Music.lib.has(it.id) }.forEach { get[it.id] = true } }
-                    Pill("Remove all", quiet = true) { pl.tracks.forEach { drop[it.id] = true } }
+                    Pill("Download all", quiet = true) { songs.filter { !Music.lib.has(it.id) }.forEach { get[it.id] = true } }
+                    Pill("Remove all", quiet = true) { songs.forEach { drop[it.id] = true } }
                 }
                 LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                    items(pl.tracks.size) { i ->
-                        val t = pl.tracks[i]
+                    items(songs.size) { i ->
+                        val t = songs[i]
                         val have = Music.lib.has(t.id)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {

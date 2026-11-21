@@ -53,6 +53,49 @@ object AlbumMissing {
         return best(named(httpJson("https://api.deezer.com/artist/${who["id"].long}/albums?limit=200")["data"]))
     }
 
+    /** The missing songs found on a service already, to play as streams: by (artist, album, title). */
+    private val streamed = java.util.concurrent.ConcurrentHashMap<String, Track>()
+
+    /** (blocking) The missing songs as songs to stream: each found on Tidal (YouTube Music when Tidal isn't connected),
+     *  in the album's order; one that isn't found is left out. They play, queue and go on playlists like any streamed
+     *  song, so the rest of an album can be heard before any of it is downloaded. */
+    fun streams(artist: String, album: String, missing: List<MissingSong>): List<Pair<MissingSong, Track>> {
+        val src = Music.sources[if (Music.tidal.connected) "tidal" else "ytm"] ?: return emptyList()
+        return missing.mapNotNull { m ->
+            val k = norm(artist) + "|" + norm(album) + "|" + norm(m.title)
+            (streamed[k] ?: runCatching { Music.matchSong(src, artist, m.title, m.secs).first }.getOrNull()
+                ?.let { it.copy(album = it.album.ifEmpty { album }) }?.also { streamed[k] = it })?.let { m to it }
+        }
+    }
+
+    /** (blocking) The songs of t's album (or EP) you haven't got, to stream; [] when it has no album or nothing is missing. */
+    fun restOf(t: Track): List<Track> {
+        val album = t.album.trim()
+        if (album.isEmpty()) return emptyList()
+        val artist = splitArtists(t.artist).firstOrNull() ?: t.artist
+        val key = Covers.albumKey(t)
+        val yours = Music.mySongs().filter { Covers.albumKey(it) == key }
+        val kind = runCatching { if (yours.isEmpty()) "album" else Music.releaseKind(album, yours) }.getOrDefault("album")
+        return streams(artist, album, find(album, artist, yours, kind)).map { it.second }
+    }
+
+    /** Listen later, only the songs you haven't got: for each album (or EP) among the songs picked, its songs that
+     *  aren't yours go on Listen later, to hear and then download or leave (Listen later › Review). A small Discovery
+     *  of one album. */
+    fun laterRest(picked: List<Track>) {
+        val albums = picked.filter { it.album.isNotBlank() }.distinctBy { Covers.albumKey(it) }.take(20)
+        if (albums.isEmpty()) { Music.toast("That song has no album in its tags"); return }
+        Music.toast(if (albums.size == 1) "Looking for the songs of “${albums[0].album}” you haven't got…" else "Looking through ${albums.size} albums for songs you haven't got…")
+        Music.bg({ albums.flatMap { runCatching { restOf(it) }.getOrDefault(emptyList()) }.distinctBy { it.id } }) { got, err ->
+            val found = got.orEmpty()
+            when {
+                err != null -> Music.toast("Couldn't look them up: ${err.message?.take(100)}")
+                found.isEmpty() -> Music.toast(if (albums.size == 1) "You have every song of “${albums[0].album}” (or it wasn't found)" else "Nothing is missing from them (or they weren't found)")
+                else -> ListenLater.add(found)
+            }
+        }
+    }
+
     /** Download missing tracks…: the ones picked, found on Tidal (or YouTube Music) and saved. */
     fun download(artist: String, album: String, want: List<MissingSong>) {
         val key = if (Music.tidal.connected) "tidal" else "ytm"
