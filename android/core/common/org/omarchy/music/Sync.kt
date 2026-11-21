@@ -466,7 +466,7 @@ object Sync {
         swap("playlist-folders.json", m.playlistFolders) { m.playlistFolders = PlaylistFolders(f("playlist-folders.json")) }
         swap("favorites.json", m.favorites) { m.favorites = Favorites(f("favorites.json")) }
         swap("plays.json", m.plays) { m.plays = Plays(m.ctx) }
-        swap("skips.json", m.songStats) { m.songStats = SongStats(f("skips.json")) }
+        swap("skips.json", m.songStats) { m.songStats = m.newSongStats(f("skips.json")) }
         swap("song-speeds.json", m.speeds) { m.speeds = SongSpeeds(f("song-speeds.json")) }
         val vols = listOf("song-volume.json", "song-volume-outputs.json").filter { it in changed && it in files }
         if (vols.isNotEmpty()) synchronized(m.gains) {

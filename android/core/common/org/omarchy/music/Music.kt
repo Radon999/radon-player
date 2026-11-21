@@ -37,6 +37,14 @@ object Music {
     lateinit var speeds: SongSpeeds
     lateinit var favorites: Favorites   // the songs you starred
     lateinit var songStats: SongStats   // skips, and songs heard to the end
+    /** The skip counts read from file (at the start, and again after a Sync swaps the file): with the clean slate the
+     *  owner asked for when what counts as a skip was put right, and with the skips your Spotify history tells of. */
+    fun newSongStats(file: File) = SongStats(file).also {
+        it.skipsFrom = SKIPS_COUNTED_FROM
+        it.imported = { SpotifyHistory.skipEntries() }
+    }
+    /** The app's own skips are counted from here (21 November 2026): see SongStats.skipsFrom. */
+    const val SKIPS_COUNTED_FROM = 1795270178L
     lateinit var gains: SongGains       // songs' own volume boosts
     lateinit var songEqs: SongEqs       // songs' own EQ (Custom EQ…), by output
     lateinit var local: LocalFiles
@@ -217,8 +225,7 @@ object Music {
         playlistFolders = PlaylistFolders(File(ctx.filesDir, "playlist-folders.json"))
         speeds = SongSpeeds(File(ctx.filesDir, "song-speeds.json"))
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
-        songStats = SongStats(File(ctx.filesDir, "skips.json"))
-        songStats.imported = { SpotifyHistory.skipEntries() }   // the skips your Spotify history tells of, with the ones here
+        songStats = newSongStats(File(ctx.filesDir, "skips.json"))
         gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
         songEqs = SongEqs(File(ctx.filesDir, "song-eq.json"))
         local = LocalFiles(ctx)

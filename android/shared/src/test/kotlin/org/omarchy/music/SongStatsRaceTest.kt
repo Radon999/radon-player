@@ -44,4 +44,21 @@ class SongStatsRaceTest {
         val h = stats.habits(0.0, 100.0, null)
         org.junit.Assert.assertEquals(3 + 1, h.skips); org.junit.Assert.assertEquals(2, h.full)
     }
+
+    /** A clean slate for skips: the ones counted here before a moment aren't counted; songs heard out, and an import's
+     *  skips, are. */
+    @Test fun skipsCountedHereBeforeTheCleanSlateArentCounted() {
+        val dir = java.nio.file.Files.createTempDirectory("songstats-slate").toFile()
+        val stats = SongStats(java.io.File(dir, "skips.json"))
+        val t = Track("slate-1", "file", "Slate Song", "A Band")
+        stats.skipped(t); stats.skipped(t); stats.heardOut(t)
+        org.junit.Assert.assertEquals(2 to 1, stats.get(t))
+        stats.skipsFrom = System.currentTimeMillis() / 1000 + 3600   // a slate an hour from now: both skips are before it
+        org.junit.Assert.assertEquals("the skips go, the song heard out stays", 0 to 1, stats.get(t))
+        org.junit.Assert.assertEquals(listOf(0 to 1), stats.rows().map { it.second to it.third })
+        stats.imported = { listOf(SkipEntry(4, 0, 9.0, Track("sp", "lastfm", "Slate Song", "A Band"), listOf(1L, 2L, 3L, 9L), emptyList())) }
+        org.junit.Assert.assertEquals("an import's skips are its own", 4 to 1, stats.get(t))
+        stats.skipsFrom = 0
+        org.junit.Assert.assertEquals("nothing was taken out of the file", 6 to 1, stats.get(t))
+    }
 }

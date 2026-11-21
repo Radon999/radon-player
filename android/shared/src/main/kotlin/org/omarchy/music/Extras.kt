@@ -143,7 +143,7 @@ class SongStats(private val file: File) {
     @Synchronized fun heardOut(t: Track) = bump(t, false)
 
     @Synchronized fun get(t: Track): Pair<Int, Int> {
-        val here = items[songId(t)]?.let { it.skips to it.full } ?: (0 to 0)
+        val here = items[songId(t)]?.let { fresh(it) }?.let { it.skips to it.full } ?: (0 to 0)
         val more = runCatching { imported() }.getOrDefault(emptyList())
         if (more.isEmpty()) return here
         if (more !== indexOf) { index = more.mapNotNull { e -> e.track?.let { statsKey(it.title, it.artist) to e } }.toMap(); indexOf = more }
@@ -155,7 +155,20 @@ class SongStats(private val file: File) {
 
     /** Every song's counts as they are this moment: read while no skip is being written (the DJ and Wrapped read
      *  them off the main thread, while a song that ends is counted on it). */
-    @Synchronized private fun all(): List<SkipEntry> = merged(items.values.toList(), runCatching { imported() }.getOrDefault(emptyList()))
+    @Synchronized private fun all(): List<SkipEntry> = merged(items.values.map { fresh(it) }, runCatching { imported() }.getOrDefault(emptyList()))
+
+    /** Skips counted here before this moment (seconds) aren't counted any more: a clean slate. Until 4.0.30 leaving a
+     *  song for any reason but Previous was a skip (picking another song, the app moving on, skipping a song that had
+     *  gone silent), and which way a song was left was never written down, so the old ones can't be told apart. They
+     *  are left in the file and simply not counted, here or after a Sync brings them back from your other device.
+     *  Songs heard to the end are counted as ever; an import's skips are its own. */
+    @Volatile var skipsFrom: Long = 0
+
+    private fun fresh(e: SkipEntry): SkipEntry {
+        if (skipsFrom <= 0 || (e.skips == 0 && e.skips_at.isEmpty())) return e
+        val at = e.skips_at.filter { it >= skipsFrom }
+        return e.copy(skips = at.size, skips_at = at, last_skip = at.maxOrNull()?.toDouble() ?: 0.0)
+    }
 
     /** What an imported history says of skips and songs heard out (Spotify's extended history), one entry a song:
      *  added to what was counted here, so the Skips tab, Wrapped and the DJ know of the years before this app. */

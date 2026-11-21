@@ -873,7 +873,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
     out += loopSlides(d)
     out += diarySlides(d)
     out += typeSlide(d)
-    out += milestoneSlides(d, "in ${p.of}")
+    // (no Milestones in a week's, a month's or a year's: a milestone is about all your plays, and is in All time)
     out += habitSlides(p)
     out += summary(d, p.name.uppercase())
     out += librarySlides(d)
