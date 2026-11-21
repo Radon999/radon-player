@@ -14,6 +14,20 @@ object SoundLog {
         while (lines.size > 40) lines.removeFirst()
     }
 
+    private var hiccupAt = 0L
+    /** Something that can be heard as a stutter or a gap (the output ran dry, was made again mid-song, another app
+     *  took the sound for a moment): into the log, and into Settings › Problems too, with the song and where it was
+     *  (once every 20 seconds at most), so a stutter you hear leaves a line you can send. */
+    fun hiccup(what: String) {
+        note(what)
+        val now = System.currentTimeMillis()
+        synchronized(this) { if (now - hiccupAt < 20_000) return; hiccupAt = now }
+        runCatching {
+            val t = Music.current()
+            Crashes.note("A hiccup in the sound at ${Music.position.toInt()}s of “${t?.title}”: $what. Just before: ${text().takeLast(600)}")
+        }
+    }
+
     /** When real sound last left the app for the phone's sound output (the clock's milliseconds; 0: not known, as on
      *  the PC). A song silent to you while this is a moment ago went quiet after the app, inside Android. */
     @Volatile var outLoudAt = 0L

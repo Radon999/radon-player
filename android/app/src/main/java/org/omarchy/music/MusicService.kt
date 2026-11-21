@@ -47,16 +47,30 @@ class MusicService : MediaLibraryService() {
             .build()
         // What the sound output itself does (a new one made, one let go, it running dry, it failing): into Sound lately,
         // so a song gone silent can be put beside what the output did just before.
+        var madeFor: String? = null
+        var movedAt = 0L   // when the song was last moved (by you, or the app starting it again in place): that makes a new output too
         exo.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onPositionDiscontinuity(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                                                 oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                // 5: the player itself jumped (not a seek, not the next song): heard as a skip in the sound
+                if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) movedAt = System.currentTimeMillis()
+                if (reason == Player.DISCONTINUITY_REASON_INTERNAL)
+                    SoundLog.hiccup("the player jumped by itself from ${oldPosition.positionMs / 1000}s to ${newPosition.positionMs / 1000}s")
+            }
             override fun onAudioUnderrun(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) {
-                SoundLog.note("the sound output ran dry (not fed for $elapsedSinceLastFeedMs ms)")
+                SoundLog.hiccup("the sound output ran dry (not fed for $elapsedSinceLastFeedMs ms, buffer $bufferSizeMs ms)")
             }
             override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
                 SoundLog.note("the sound output failed: ${audioSinkError.message?.take(80)}")
                 Crashes.note("The sound output reported a fault while “${Music.current()?.title}” played: ${audioSinkError.message?.take(120)}")
             }
             override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, c: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
-                SoundLog.note("a sound output made (${c.sampleRate} Hz, encoding ${c.encoding}, offload ${c.offload}, tunneling ${c.tunneling})")
+                // (a second one for the same song is the output made again mid-song: a gap you can hear)
+                val id = Music.current()?.id
+                val again = id != null && id == madeFor && exo.currentPosition > 3000 && System.currentTimeMillis() - movedAt > 3000
+                madeFor = id
+                val what = "a sound output made (${c.sampleRate} Hz, encoding ${c.encoding}, offload ${c.offload}, tunneling ${c.tunneling})"
+                if (again) SoundLog.hiccup("the sound output was made again mid-song: $what") else SoundLog.note(what)
             }
             override fun onAudioTrackReleased(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, c: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
                 SoundLog.note("a sound output let go")
@@ -73,13 +87,16 @@ class MusicService : MediaLibraryService() {
 
             override fun onPlaybackSuppressionReasonChanged(reason: Int) {
                 Music.trace("player: held back, reason $reason")
-                SoundLog.note("player held back, reason $reason (0 none, 1 lost the sound to another app for a moment, 2 no output it may use)")
+                if (reason != 0) SoundLog.hiccup("the player was held back, reason $reason (1 another app took the sound for a moment, 2 no output it may use)")
+                else SoundLog.note("the player is no longer held back")
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 Music.trace("player: play-when-ready=$playWhenReady (reason $reason)")
                 // (2 and 3 are Android taking the sound for another app, for good or for a moment; 1 is the app or you)
-                if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) SoundLog.note("play=$playWhenReady, reason $reason (2 another app took the sound, 3 the output went, 5 the song ended)")
+                if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS || reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY)
+                    SoundLog.hiccup("play=$playWhenReady, reason $reason (2 another app took the sound, 3 the output went)")
+                else if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) SoundLog.note("play=$playWhenReady, reason $reason (5 the song ended)")
                 // Bit-perfect taking the USB DAC over makes Android think the DAC was unplugged ("becoming noisy"), which
                 // paused the music; that pause is undone (a real unplug still pauses)
                 if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY && UsbDirect.tookOverLately() && UsbDirect.device() != null) {
