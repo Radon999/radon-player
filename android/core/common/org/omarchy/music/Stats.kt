@@ -71,7 +71,7 @@ object Stats {
         }
     }
 
-    private fun inputs() = listOf("v8", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
+    private fun inputs() = listOf("v9", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.albumPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.songPicks.toSortedMap().toString() }.getOrDefault(""), if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, OtherPlays.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")

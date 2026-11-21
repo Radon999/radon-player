@@ -88,7 +88,10 @@ object AppleHistory {
 
     /** Each play with its time, as Spotify's are (a day's plays: that many, over the day). */
     fun timed(): List<SpotifyHistory.Play> = rows.filter { it.t > 0 }.flatMap { r ->
-        List(r.count) { SpotifyHistory.Play(r.t, r.artist, r.title, r.album, r.ms) }
+        // (a day's count has the whole day as its "length": that isn't how long the song played, so it carries none.
+        // Counted as a length, your Apple Music days made Wrapped's minutes and the listening times many times too big.)
+        val ms = if (r.count > 1 || r.ms >= 86_400_000L) 0L else r.ms
+        List(r.count) { SpotifyHistory.Play(r.t, r.artist, r.title, r.album, ms) }
     }
 
     /** Add rows; one you have already (the same song at the same time) keeps the higher count. How many plays were new. */

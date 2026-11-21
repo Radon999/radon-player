@@ -1020,7 +1020,9 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         Row(horizontalArrangement = Arrangement.spacedBy(((if (cols == 3) 10 else 16) * k).dp)) {
             // (an obsession's count goes first, so it is never the part cut off: "164×  Next Semester - twenty one pilots")
             (listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }) +
-                (if (obsessions.isEmpty()) emptyList() else listOf("TOP OBSESSIONS" to obsessions.map { (l, c) -> "${n(c)}×  ${l.track.title} - ${l.track.artist.split(",")[0].trim()}" }))).forEach { (head, items) ->
+                (if (obsessions.isEmpty()) emptyList() else listOf("TOP OBSESSIONS" to obsessions.map { (l, c) ->
+                    val t = runCatching { org.omarchy.music.Music.mineOf(l.track) }.getOrDefault(l.track)
+                    "${n(c)}×  ${t.title}" + (t.artist.split(",")[0].trim().takeIf { !org.omarchy.music.noArtistNamed(it) }?.let { " - $it" } ?: "") }))).forEach { (head, items) ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
                     Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
                     items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = line.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -1282,9 +1284,12 @@ private fun loopSlides(d: Wrapped.Data): List<Slide> {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Wrapped.MONTHS.getOrElse((month.drop(5).toIntOrNull() ?: 1) - 1) { "" }, style = W.rank, modifier = Modifier.widthIn(min = 42.dp))
                     // the song, then whose it is and how often it went round that month
+                    // (as your own file names it when you have it: a history may have it under someone else)
+                    val t = remember(loop.track) { runCatching { org.omarchy.music.Music.mineOf(loop.track) }.getOrDefault(loop.track) }
+                    val who = t.artist.split(",")[0].trim().takeIf { !org.omarchy.music.noArtistNamed(it) }
                     Column(Modifier.weight(1f)) {
-                        Text(loop.track.title, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(loop.track.artist.split(",")[0].trim() + " · " + org.omarchy.music.RepeatLoopRules.times(count), style = W.small,
+                        Text(t.title, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text((if (who != null) "$who · " else "") + org.omarchy.music.RepeatLoopRules.times(count), style = W.small,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
