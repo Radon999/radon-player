@@ -53,6 +53,22 @@ object FileCheck {
         }
     }
 
+    /** A damaged song played, from a few seconds before where the check found the damage, so you can hear it for
+     *  yourself. It plays as a queue of its own (what was playing is put aside, as when you tap any song). Returns where
+     *  it starts, in seconds. */
+    fun listen(t: Track, why: String): Double {
+        val from = FileCheckRules.listenFrom(why)
+        Music.playFrom(listOf(t), 0, false)
+        if (from > 0) Music.scope.launch {
+            repeat(80) {   // (once it is playing: a jump asked before the song is open is lost)
+                kotlinx.coroutines.delay(150)
+                if (Music.current()?.id != t.id) return@launch
+                if (Music.position > 0.3) { if (Music.position < from) Music.seek(from); return@launch }
+            }
+        }
+        return from
+    }
+
     /** Every song left out is looked at again by the next check. */
     fun bringBack() { readLeft(); keepLeft(emptyMap()); oldLeft = emptySet(); runCatching { oldLeftFile().delete() } }
 

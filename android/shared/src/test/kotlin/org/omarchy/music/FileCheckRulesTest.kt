@@ -57,4 +57,14 @@ class FileCheckRulesTest {
         assertTrue("another song", FileCheckRules.leftKey("Prime Time", "Juice WRLD", "Sessions") != FileCheckRules.leftKey("Macaroni Sound", "Juice WRLD", "Sessions"))
         assertTrue("the same title on another album", FileCheckRules.leftKey("Stars", "Imagine Dragons", "Night Visions") != FileCheckRules.leftKey("Stars", "Imagine Dragons", "Demos"))
     }
+
+    @Test fun listeningStartsJustBeforeTheDamage() {
+        assertEquals(62.0, FileCheckRules.spot("its sound is damaged about 1:02 in (a frame there doesn't check out)")!!, 0.0)
+        assertEquals(56.0, FileCheckRules.listenFrom("its sound is damaged about 1:02 in (a frame there doesn't check out)"), 0.0)
+        assertEquals(164.0, FileCheckRules.listenFrom("its sound is damaged or cut short at its end (about 2:50 in)"), 0.0)
+        assertEquals("damage in its first seconds: from the start", 0.0, FileCheckRules.listenFrom("its sound is damaged about 0:06 in (a frame there doesn't check out)"), 0.0)
+        assertEquals(10.0, FileCheckRules.spot("300 KB inside it isn't music (from about 0:10 in): the sound there was lost or overwritten")!!, 0.0)
+        assertNull(FileCheckRules.spot("its tags and cover no longer lead to its music"))
+        assertEquals(0.0, FileCheckRules.listenFrom("the file is empty"), 0.0)
+    }
 }

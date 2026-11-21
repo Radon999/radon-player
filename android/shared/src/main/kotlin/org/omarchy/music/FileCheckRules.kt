@@ -64,6 +64,14 @@ object FileCheckRules {
      *  where it is kept: its title and lead artist (tidied, as the stats know a song) and its album. */
     fun leftKey(title: String, artist: String, album: String): String = songPickKey(title, artist) + "|" + norm(albumBase(album))
 
+    /** Where in the song the damage is, in seconds, from what the check said of it ("…about 1:02 in…"); null when it
+     *  doesn't say. */
+    fun spot(why: String): Double? = Regex("about (\\d+):(\\d\\d) in").find(why)?.let { m -> m.groupValues[1].toInt() * 60.0 + m.groupValues[2].toInt() }
+
+    /** Where listening to a damaged song starts: a few seconds before the damage (the song's start when the damage is
+     *  in its first seconds, or isn't placed). */
+    fun listenFrom(why: String): Double = spot(why)?.let { if (it > 8.0) it - 6.0 else 0.0 } ?: 0.0
+
     /** What the check says when it is done. */
     fun said(songs: Int, total: Long, damaged: Int, unread: Int): String =
         "%,d songs take %s. ".format(songs, SupportRules.size(total)) +

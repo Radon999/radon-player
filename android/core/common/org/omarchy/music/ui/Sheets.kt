@@ -2713,7 +2713,7 @@ private fun DamagedDialog(ui: Ui) {
         title = { Text("%,d damaged file%s".format(rows.size, if (rows.size != 1) "s" else ""), style = T.title) },
         text = {
             Column {
-                Text("Tick songs, then choose. Show replacements looks each ticked song up and shows, under it, the very song it would be replaced with " +
+                Text("Listen plays a song from a few seconds before where its damage was found, so you can hear it for yourself. Tick songs, then choose. Show replacements looks each ticked song up and shows, under it, the very song it would be replaced with " +
                     "(its album, length and quality, and in red what is different from yours); nothing is downloaded yet. Download new copies then gets those, " +
                     "and puts each in the damaged file's place (a file of yours goes to $TRASH only after its new copy is here and you say yes). Never show again keeps " +
                     "the ticked files as they are and leaves them out of every later check: for a song that was never released, which can't be got again.",
@@ -2740,6 +2740,11 @@ private fun DamagedDialog(ui: Ui) {
                                         if (p.differs.isNotEmpty()) Text("Different from yours: " + p.differs.joinToString(", "), style = T.sub.copy(color = C.red))
                                     }
                                 }
+                            }
+                            // Hear it for yourself: played from a few seconds before where the damage was found
+                            Pill("Listen", quiet = true) {
+                                val from = fc.listen(t, d.second)
+                                Music.toast(if (from > 0) "Playing from ${org.omarchy.music.fmtTime(from)}: the damage is a few seconds on" else "Playing it from the start")
                             }
                         }
                     }
