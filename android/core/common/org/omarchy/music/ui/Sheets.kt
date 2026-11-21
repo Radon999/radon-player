@@ -141,6 +141,7 @@ fun Sheets(ui: Ui) {
     ui.volumeFor?.let { tracks -> if (tracks.isNotEmpty()) VolumeDialog(ui, tracks) else ui.volumeFor = null }
     ui.songEqFor?.let { tracks -> if (tracks.isNotEmpty()) SongEqDialog(ui, tracks) else ui.songEqFor = null }
     ui.upgradeFor?.let { tracks -> UpgradeDialog(ui, tracks) }
+    if (ui.damagedOpen) DamagedDialog(ui)
     Music.upgradeKept?.let { kept -> UpgradeKeptDialog(kept) }
     Music.dupePrompt?.let { (new, dupes) -> DupeDownloadDialog(new, dupes) }
     Trasher()
@@ -850,6 +851,11 @@ private fun ToolLines(ui: Ui) {
         if (fc.busy != null) Pill("Stop", quiet = true) { fc.stop() }
         if (res != null && fc.busy == null) Pill("Copy", quiet = true) { copyText("Radon Player storage", fc.text()); Music.toast("Copied") }
     }
+    val leftOut = remember(fc.leftOut) { fc.leftOutCount() }
+    if (leftOut > 0) Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("%,d file%s you told the check to leave out".format(leftOut, if (leftOut != 1) "s are ones" else " is one"), style = T.sub, modifier = Modifier.weight(1f))
+        Pill("Check them again", quiet = true) { fc.bringBack(); Music.toast("The next check looks at them again") }
+    }
     if (res != null) Column(Modifier.padding(start = 8.dp, bottom = 8.dp)) {
         @Composable fun part(name: String, rows: List<Pair<String, Long>>) {
             Text(name, style = T.sub.copy(color = C.accent), modifier = Modifier.padding(top = 6.dp))
@@ -867,21 +873,12 @@ private fun ToolLines(ui: Ui) {
             Text("Damaged files", style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 6.dp))
             res.damaged.take(25).forEach { (name, why) -> Text("$name: $why", style = T.sub.copy(color = C.fg)) }
             if (res.damaged.size > 25) Text("…and %,d more: Copy has them all".format(res.damaged.size - 25), style = T.sub)
-            // New copies of the damaged ones. A download of the app's is got again as it was first got and its damaged
-            // file deleted once the new one is in; a file of your own is got from Tidal in FLAC beside your songs (as
-            // Upgrade gets them) and put in the bin once its new copy is here and you say yes. Playlists, favorites
-            // and plays stay with the song. A song that can't be found (an unreleased one) is left as it is.
-            val again = res.tracks.filter { org.omarchy.music.Upgrades.canGetAgain(it) }
-            if (again.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            // What to do with them is chosen song by song (DamagedDialog): new copies of the ones you tick, or never
+            // listed again. Nothing is got again without being ticked: a search for a song that was never released
+            // can find another song of that name, and put it in your song's place.
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 if (Music.upgrading != null) Text(Music.upgrading ?: "", style = T.sub)
-                else Pill("Download new copies (%,d)…".format(again.size)) {
-                    ui.confirm = ("Download %,d damaged song%s again and put the new cop%s in place of the damaged file%s? ".format(
-                        again.size, if (again.size != 1) "s" else "", if (again.size != 1) "ies" else "y", if (again.size != 1) "s" else "") +
-                        "Your playlists, favorites and plays stay with each song. A damaged file is only removed after its new copy is here: " +
-                        "one the app downloaded is replaced straight away, one of your own files goes to the bin when you say yes. " +
-                        "A song that can't be found again is left as it is.") to
-                        { org.omarchy.music.Upgrades.damaged(again) }
-                }
+                else Pill("Choose what to do (%,d)…".format(res.damaged.size)) { ui.damagedOpen = true }
             }
         }
         part("By kind of file", res.summary.byKind); part("Artists taking the most", res.summary.artists)
@@ -2694,6 +2691,64 @@ private fun UpgradeDialog(ui: Ui, tracks: List<org.omarchy.music.Track>) {
         },
         confirmButton = { TextButton({ close(); Music.upgradeSongs(if (all) null else tracks, every); ui.afterOption() }) { Text("Upgrade", color = C.accent) } },
         dismissButton = { TextButton(close) { Text("Cancel", color = C.muted) } })
+}
+
+/** Storage and damaged files: every damaged song, to tick. The ticked ones are got again (new copies put in their
+ *  places) or never listed again. None is ticked to start with: a song that was never released can't be got again,
+ *  and a search for it can bring another song of that name. */
+@Composable
+private fun DamagedDialog(ui: Ui) {
+    val fc = org.omarchy.music.FileCheck
+    val res = fc.result
+    val close = { ui.damagedOpen = false }
+    if (res == null || res.damaged.isEmpty()) { androidx.compose.runtime.LaunchedEffect(Unit) { close() }; return }
+    var picked by remember { mutableStateOf(setOf<String>()) }
+    val rows = res.tracks.indices.map { res.tracks[it] to res.damaged[it] }
+    val chosen = rows.map { it.first }.filter { it.id in picked }
+    val again = chosen.filter { org.omarchy.music.Upgrades.canGetAgain(it) }
+    AlertDialog(onDismissRequest = close, containerColor = C.light,
+        title = { Text("%,d damaged file%s".format(rows.size, if (rows.size != 1) "s" else ""), style = T.title) },
+        text = {
+            Column {
+                Text("Tick songs, then choose. Download new copies gets each ticked song again and puts it in the damaged file's place " +
+                    "(a file of yours goes to $TRASH only after its new copy is here and you say yes). Never show again keeps the ticked files as they are and " +
+                    "leaves them out of every later check. A song that was never released: leave it unticked, or never show it. A search can bring a different song of that name.",
+                    style = T.sub)
+                Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Pill("Tick all", quiet = true) { picked = rows.map { it.first.id }.toSet() }
+                    Pill("Untick all", quiet = true) { picked = emptySet() }
+                    Text("%,d ticked".format(chosen.size), style = T.sub)
+                }
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f, fill = false)) {
+                    items(rows.size) { i ->
+                        val (t, d) = rows[i]
+                        val on = t.id in picked
+                        Row(Modifier.fillMaxWidth().clickable { picked = if (on) picked - t.id else picked + t.id }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(on, { picked = if (it) picked + t.id else picked - t.id })
+                            Column(Modifier.weight(1f)) {
+                                Text(t.title + " – " + t.artist, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(d.first.substringBefore("  (") + ": " + d.second, style = T.sub, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                    if (chosen.isNotEmpty()) Pill("Never show again (%,d)".format(chosen.size), quiet = true) {
+                        fc.leaveOut(chosen); picked = emptySet()
+                        Music.toast("%,d left as %s, and out of later checks".format(chosen.size, if (chosen.size != 1) "they are" else "it is"))
+                    }
+                    if (again.isNotEmpty() && Music.upgrading == null) Pill("Download new copies (%,d)…".format(again.size)) {
+                        ui.confirm = ("Download %,d damaged song%s again and put the new cop%s in place of the damaged file%s? ".format(
+                            again.size, if (again.size != 1) "s" else "", if (again.size != 1) "ies" else "y", if (again.size != 1) "s" else "") +
+                            "Only the songs you ticked. Your playlists, favorites and plays stay with each song. A damaged file is only removed after its new copy is here: " +
+                            "one the app downloaded is replaced straight away, one of your own files goes to the bin when you say yes. " +
+                            "A song that can't be found again is left as it is.") to
+                            { close(); org.omarchy.music.Upgrades.damaged(again) }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(close) { Text("Close", color = C.muted) } })
 }
 
 /** After Upgrade: the songs it left because yours are as good or better. Replace them anyway? */

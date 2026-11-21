@@ -10,7 +10,33 @@ import kotlinx.coroutines.launch
 object FileCheck {
     /** tracks: the damaged files' songs, for getting new copies of them (Download new copies). */
     class Result(val summary: FileCheckRules.Summary, val damaged: List<Pair<String, String>>, val unread: Int, val said: String,
-                 val tracks: List<Track> = emptyList())
+                 val tracks: List<Track> = emptyList(), val tell: (Int) -> String = { said })
+
+    // ---- files you told the check to leave out: never listed as damaged again (a song you can't get again, and
+    // keep as it is). Kept on this device, by the file's address. ----
+    private fun leftFile() = java.io.File(Music.ctx.filesDir, "damaged-left-out.txt")
+    var leftOut by mutableStateOf<Set<String>>(emptySet())
+        private set
+    private var leftRead = false
+    private fun readLeft() { if (!leftRead) { leftRead = true; leftOut = readText(leftFile())?.lines()?.filter { it.isNotBlank() }?.toSet() ?: emptySet() } }
+    /** How many are left out (read from where they are kept, the first time it's asked). */
+    fun leftOutCount(): Int { readLeft(); return leftOut.size }
+
+    /** These songs' files are never listed as damaged again; they go from the list now showing. */
+    fun leaveOut(tracks: List<Track>) {
+        readLeft()
+        val files = tracks.mapNotNull { it.file }.toSet()
+        if (files.isEmpty()) return
+        leftOut = leftOut + files
+        runCatching { writeAtomic(leftFile(), leftOut.joinToString("\n")) }
+        result?.let { r ->
+            val keep = r.tracks.indices.filter { r.tracks[it].file !in files }
+            result = Result(r.summary, keep.map { r.damaged[it] }, r.unread, r.tell(keep.size), keep.map { r.tracks[it] }, r.tell)
+        }
+    }
+
+    /** Every file left out is looked at again by the next check. */
+    fun bringBack() { readLeft(); leftOut = emptySet(); runCatching { leftFile().delete() } }
 
     var busy by mutableStateOf<String?>(null)   // "Looking at 1,200 of 3,322…" while it runs
         private set
@@ -26,6 +52,8 @@ object FileCheck {
     fun run(full: Boolean = false) {
         if (busy != null) return
         stopped = false
+        readLeft()
+        val left = leftOut
         busy = "Reading your songs…"
         Music.bg({
             val songs = Music.mySongs().filter { !it.file.isNullOrEmpty() }
@@ -42,6 +70,7 @@ object FileCheck {
                 if (bytes == null || head == null) { unread++; continue }
                 val kind = MoodWriteRules.kindOf(head)
                 out += FileCheckRules.Song(t.title, t.artist, t.album, kind, bytes)
+                if (file in left) continue   // one you told the check to leave out: counted above, not looked into
                 val why = FileCheckRules.damage(head, bytes, t.duration)
                     // …or a FLAC whose tags and cover no longer lead to its music: what a tag write cut short leaves. Its
                     // first bytes look right, so this is looked for too (the blocks are stepped over, not read).
@@ -58,12 +87,16 @@ object FileCheck {
                     bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to it }
             }
             val sum = FileCheckRules.summary(out)
-            val said = FileCheckRules.said(sum.songs, sum.total, bad.size, unread)
-            Result(sum, bad, unread, when {
-                stopped -> "Stopped after %,d of %,d songs. ".format(looked, songs.size) + said
-                full -> "$said. Every file was read in full"
-                else -> said
-            }, badSongs)
+            val wasStopped = stopped; val all = songs.size
+            val tell = { n: Int ->
+                val said = FileCheckRules.said(sum.songs, sum.total, n, unread)
+                when {
+                    wasStopped -> "Stopped after %,d of %,d songs. ".format(looked, all) + said
+                    full -> "$said. Every file was read in full"
+                    else -> said
+                }
+            }
+            Result(sum, bad, unread, tell(bad.size), badSongs, tell)
         }) { r, err ->
             busy = null
             if (r == null) { Music.toast("Couldn't look at your files: ${err?.message?.take(80)}"); return@bg }
