@@ -361,8 +361,12 @@ fun WrappedScreen(onClose: () -> Unit) {
     LaunchedEffect(period, seq) {
         data = null; error = null; progress = ""
         val mine = seq
-        Music.bg({ Wrapped.load(Music.ctx, period) { p -> Music.scope.launch { if (mine == seq) progress = p } } }) { d, err ->
-            if (mine != seq) return@bg
+        // What comes back is shown only if it is still the time asked for. Wrapped opens on the year and starts
+        // loading it; pick All time before that is done and both are being loaded, and whichever came back last was
+        // shown: All time, then a moment later the year in its place, under All time's name.
+        val asked = period
+        Music.bg({ Wrapped.load(Music.ctx, asked) { p -> Music.scope.launch { if (mine == seq && asked == period) progress = p } } }) { d, err ->
+            if (mine != seq || asked != period) return@bg
             data = d; error = err?.message?.take(200) ?: if (d == null) "nothing came back" else null
         }
     }
