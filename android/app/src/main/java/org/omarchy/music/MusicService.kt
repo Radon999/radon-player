@@ -121,7 +121,9 @@ class MusicService : MediaLibraryService() {
                 Music.trace("player: play-when-ready=$playWhenReady (reason $reason)")
                 // (2 and 3 are Android taking the sound for another app, for good or for a moment; 1 is the app or you)
                 if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS || reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY)
-                    SoundLog.hiccup("play=$playWhenReady, reason $reason (2 another app took the sound, 3 the output went)")
+                    // (the phone doing what it should: another app started playing, a call, the car or the headphones
+                    // switched off. Kept in Sound lately, not in Problems, where it read as a fault of the music's)
+                    SoundLog.note("play=$playWhenReady, reason $reason (2 another app took the sound, 3 the output went)")
                 else if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) SoundLog.note("play=$playWhenReady, reason $reason (5 the song ended)")
                 // Bit-perfect taking the USB DAC over makes Android think the DAC was unplugged ("becoming noisy"), which
                 // paused the music; that pause is undone (a real unplug still pauses)
