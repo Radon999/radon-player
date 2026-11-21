@@ -998,8 +998,11 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     val room = LocalSlideSize.current   // (in the slide's scaled dp: the top bar's 112dp is 112 / scale of them)
     val cardH = (room.height - 112.dp / LocalSlideScale.current - 40.dp - 70.dp).coerceAtLeast(420.dp)
     // a list line's font size: 16 lines fit the height, and about 34 letters a column fit the width
-    val colW = ((minOf(room.width, SLIDE_MAX_WIDTH + 56.dp) - 56.dp).value / 2f)
-    val line = minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / 34f / 0.55f).coerceIn(10f, 20f)
+    // (with repeats in this time there is a third list, your top obsessions: three narrower columns, a little smaller)
+    val obsessions = d.loops?.top.orEmpty().take(15)
+    val cols = if (obsessions.isEmpty()) 2 else 3
+    val colW = ((minOf(room.width, SLIDE_MAX_WIDTH + 56.dp) - 56.dp).value / cols)
+    val line = minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / (if (cols == 3) 26f else 34f) / 0.55f).coerceIn(if (cols == 3) 9f else 10f, 20f)
     val k = line / 11f
     Column(Modifier.fillMaxWidth().height(cardH)
         .background(WS.card).background(Brush.linearGradient(listOf(WS.accent.copy(alpha = 0.20f), Color.Transparent)))
@@ -1013,9 +1016,11 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
             }
         }
         Rule()
-        // Top 15 artists and top 15 songs side by side, then the top 5 genres, then the time in minutes and hours
-        Row(horizontalArrangement = Arrangement.spacedBy((16 * k).dp)) {
-            listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }).forEach { (head, items) ->
+        // Top 15 artists and top 15 songs side by side (and your 15 most repeated songs, each with its repeats), then the top 5 genres, then the time in minutes and hours
+        Row(horizontalArrangement = Arrangement.spacedBy(((if (cols == 3) 10 else 16) * k).dp)) {
+            // (an obsession's count goes first, so it is never the part cut off: "164×  Next Semester - twenty one pilots")
+            (listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }) +
+                (if (obsessions.isEmpty()) emptyList() else listOf("TOP OBSESSIONS" to obsessions.map { (l, c) -> "${n(c)}×  ${l.track.title} - ${l.track.artist.split(",")[0].trim()}" }))).forEach { (head, items) ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
                     Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
                     items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = line.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -1272,11 +1277,16 @@ private fun loopSlides(d: Wrapped.Data): List<Slide> {
     if (l.months.size >= 2) out += Slide(1) {
         Text("OBSESSION OF EACH MONTH", style = W.kicker)
         Text("The song you repeated most", style = W.big)
-        Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            l.months.takeLast(12).forEach { (month, loop, _) ->
+        Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            l.months.takeLast(12).forEach { (month, loop, count) ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Wrapped.MONTHS.getOrElse((month.drop(5).toIntOrNull() ?: 1) - 1) { "" }, style = W.rank, modifier = Modifier.widthIn(min = 42.dp))
-                    Text(loop.track.title, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // the song, then whose it is and how often it went round that month
+                    Column(Modifier.weight(1f)) {
+                        Text(loop.track.title, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(loop.track.artist.split(",")[0].trim() + " · " + org.omarchy.music.RepeatLoopRules.times(count), style = W.small,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
