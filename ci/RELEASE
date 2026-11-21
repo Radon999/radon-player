@@ -1,0 +1,9 @@
+v4.0.33
+Radon Player 4.0.33: damaged files are chosen one by one, and you see what each would be replaced with first
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.33.msi` (Windows), `radon-player_4.0.33_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Choose what to do with damaged files:** Storage and damaged files (Settings › Scanner › Your files) now opens a list of every damaged song, each with a tick box, none ticked to start with. Nothing is downloaded or replaced unless you tick it.
+- **Show replacements:** looks each ticked song up and downloads nothing. Under each song it shows the very song it would be replaced with: title, artist, album, length, quality, and whether it is the explicit version. What is different from yours is in red (another title, artist or album, how many seconds longer or shorter). A song that can't be found says so and is left as it is.
+- **Download new copies gets exactly what was shown:** only the ticked songs, each replaced with the song shown under it, with no second search. A file of your own still goes to the bin only after its new copy is here and you say yes.
+- **Never show again:** keeps the ticked files as they are and leaves them out of every later check, for a song you can't get again (one that was never released). Check them again, beside the check, undoes it. Kept on each device.
