@@ -62,7 +62,9 @@ object TagEdits {
             val album = lib.items.values.filter { (wholeAlbum && Covers.albumKey(it.track()) in keys) || it.id in ids }
             var written = 0
             val failed = ArrayList<String>()
+            val forSync = ArrayList<Pair<String, String>>()   // the songs it went into: the same picture for your other device's copies
             for (e in album.distinctBy { it.file }) {
+                forSync += e.title to e.artist
                 if (e.id == playing) { coverLater(e.file, jpeg); written++; continue }   // its file is playing: right after it
                 if (e.format == "flac" && Tags.writable(e.file)) {
                     try { CoverGuard.byHand { Covers.write(ctx, e.file, jpeg) }; written++ } catch (x: Exception) { failed += "${e.title}: ${x.message}" }
@@ -76,10 +78,12 @@ object TagEdits {
             for (x in runCatching { mySongs() }.getOrDefault(emptyList())) {
                 val f = x.file?.takeIf { x.isFile && !lib.has(x.id) } ?: continue
                 if (!((wholeAlbum && Covers.albumKey(x) in keys) || x.id in ids)) continue
+                forSync += x.title to x.artist
                 if (!FileTags.canWrite(f)) { failed += "${x.title}: the app can't change its file"; continue }
                 if (f == curFile) { coverLater(f, jpeg); written++; continue }   // playing: written as soon as it stops
                 if (CoverGuard.byHand { FileTags.writeCover(ctx, f, jpeg) }) { written++; TagMatch.touched(f) } else failed += "${x.title}: couldn't put the cover in"
             }
+            runCatching { TagSync.noteCover(forSync, jpeg) }   // goes to your other device at the next sync
             for (e in album) {   // a new file each time: the old picture stays in the image cache under the old name
                 val art = File(lib.artDir, "${safeName(e.id)}-${randomHex(4)}.jpg").apply { writeBytes(jpeg) }
                 val old = e.art

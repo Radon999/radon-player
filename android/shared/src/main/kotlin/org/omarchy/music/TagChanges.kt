@@ -5,12 +5,16 @@ import kotlinx.serialization.Serializable
 /** A change you made to a song's tags (title, artist, album, genre, year…), kept until it has gone to your other device
  *  by Sync: which song (its title and artist before the change), the fields and their new values ("" takes one off). */
 @Serializable
-data class TagChange(val id: String, val at: Double, val title: String, val artist: String, val changes: Map<String, String>)
+data class TagChange(val id: String, val at: Double, val title: String, val artist: String, val changes: Map<String, String>,
+                     /** A cover you picked for the song: the picture's mark (the picture itself goes across beside the changes). */
+                     val cover: String = "")
 
 /** What goes across in a sync: this device's changes not yet taken by the other, and the ones it took from the other
  *  (so the other can let them go). */
 @Serializable
-data class TagChangesSent(val pending: List<TagChange> = emptyList(), val applied: List<String> = emptyList())
+data class TagChangesSent(val pending: List<TagChange> = emptyList(), val applied: List<String> = emptyList(),
+                          /** The covers the pending changes name: mark -> the JPEG, as text. */
+                          val art: Map<String, String> = emptyMap())
 
 object TagChanges {
     /** Fields that sync their own way (moods by Sync's moods; lyrics are fetched on each device), never as tag changes. */
