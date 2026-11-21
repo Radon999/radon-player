@@ -170,8 +170,8 @@ class SongStats(private val file: File) {
         }
         val never = rows.filter { it.second == 0 && it.third >= 2 }.sortedByDescending { it.third }
         val most = rows.filter { it.second > 0 }.sortedWith(compareByDescending<Triple<Track, Int, Int>> { it.second }.thenBy { it.third })
-        return Habits(rows.sumOf { it.second }, rows.sumOf { it.third }, never.take(5).map { it.first to it.third }, never.size,
-            most.take(5).map { it.first to it.second }, favorites?.addedBetween(start, end) ?: emptyList(), favorites?.size ?: 0)
+        return Habits(rows.sumOf { it.second }, rows.sumOf { it.third }, never.take(15).map { it.first to it.third }, never.size,
+            most.take(15).map { it.first to it.second }, favorites?.addedBetween(start, end) ?: emptyList(), favorites?.size ?: 0)
     }
 
     companion object {

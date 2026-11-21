@@ -36,6 +36,17 @@ object ListenLog {
     private val file get() = File(dir, "listen-log.jsonl")
     private val openFile get() = File(dir, "listen-open.json")
 
+    // Songs you put in the queue (or Play next) from search results: they count as searched for when they play, as a
+    // song tapped there does. (Many people never tap a search result: it would end the queue they are listening to.)
+    private val searchQueued = HashSet<String>()
+    fun queued(tracks: List<Track>, listName: String) {
+        if (!listName.startsWith("Search: ")) return
+        synchronized(searchQueued) {
+            if (searchQueued.size > 500) searchQueued.clear()
+            for (t in tracks) { searchQueued += t.id; searchQueued += songKey(t).toString() }
+        }
+    }
+
     /** A list starts playing at song t (Music.playFrom), from the screen called listName: noted if it's a search. */
     fun picked(t: Track?, listName: String) {
         searchPick = if (t != null && listName.startsWith("Search: ")) t.id else null
@@ -50,19 +61,24 @@ object ListenLog {
         val from = Music.queueName.ifEmpty { "Up next" }
         var kind = "other"; var list = ""
         val p = runCatching { Music.lists.all().firstOrNull { it.name == from } }.getOrNull()
+        // (you found it by searching and put it in the queue: a search, whatever was playing around it)
+        val fromSearch = synchronized(searchQueued) { searchQueued.remove(songKey(t).toString()) or searchQueued.remove(t.id) }
         when {
+            fromSearch -> kind = "search"
             Music.dj.on -> kind = "dj"
             from.startsWith("Search: ") -> kind = "search"
             p != null -> {
                 val inIt = p.tracks.any { it.id == t.id || songKey(it) == songKey(t) }
                 if (inIt) { kind = "playlist"; list = p.id } else kind = "radio"   // ∞ played on past its end
             }
-            Music.isRadio() -> kind = "radio"
+            // (its album's or its artist's page before "radio": those pages start a radio after their list, and a
+            // song you picked on one was written down as radio)
             t.album.isNotBlank() && norm(t.album) == norm(from) -> kind = "album"
             splitArtists(t.artist).any { norm(it) == norm(from) } -> kind = "artist"
+            Music.isRadio() -> kind = "radio"
         }
         val o = Music.outputNow
-        val searched = searchPick == t.id
+        val searched = fromSearch || searchPick == t.id
         if (searched) searchPick = null
         open = Entry(now().toLong(), 0.0, t.title, t.artist, t.album, t.id, from, kind, list, Music.shuffled, o.label, o.kind, searched)
         savedAt = now()
@@ -132,7 +148,32 @@ object ListenLog {
             }
         }
         open?.takeIf { it.secs >= MIN_SECS }?.let { out += it }
-        out.sortedBy { it.t }
+        // Put right as read ([ListenKindRules]): plays written down before the diary told a playlist from the
+        // Playlists tab, and an artist's page from a radio
+        val inLists = HashMap<String, MutableSet<String>>()   // a song's key: the playlists of yours it is in
+        val sizes = HashMap<String, Int>()
+        runCatching {
+            for (p in Music.lists.all()) { sizes[p.id] = p.tracks.size; for (s in p.tracks) inLists.getOrPut(songKey(s).toString()) { HashSet() } += p.id }
+        }
+        fun lists(e: Entry): Set<String> = inLists[songKey(Track(e.id, title = e.title, artist = e.artist)).toString()] ?: emptySet()
+        val sorted = out.sortedBy { it.t }
+        // Each sitting from the Playlists tab (one song after another, under a quarter of an hour between): its playlist
+        val sitting = arrayOfNulls<String>(sorted.size)
+        var i = 0
+        while (i < sorted.size) {
+            if (!ListenKindRules.fromPlaylistsTab(sorted[i].kind, sorted[i].from)) { i++; continue }
+            var j = i
+            while (j + 1 < sorted.size && ListenKindRules.fromPlaylistsTab(sorted[j + 1].kind, sorted[j + 1].from) &&
+                sorted[j + 1].t - (sorted[j].t + sorted[j].secs) < 900) j++
+            val pick = ListenKindRules.sittingPlaylist((i..j).map { lists(sorted[it]) }) { sizes[it] ?: 0 }
+            for (x in i..j) sitting[x] = pick
+            i = j + 1
+        }
+        sorted.mapIndexed { x, e ->
+            val (kind, list) = ListenKindRules.fix(e.kind, e.list, e.from, splitArtists(e.artist), e.album,
+                sitting[x]?.takeIf { it in lists(e) })
+            if (kind == e.kind && list == e.list) e else e.copy(kind = kind, list = list)
+        }
     }
 
     /** (blocking) The entries from start to end (seconds). */

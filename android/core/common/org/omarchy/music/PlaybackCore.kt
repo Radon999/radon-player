@@ -214,6 +214,7 @@ object PlaybackCore {
         if (Remote.active) { Remote.enqueue(tracks, how); return }
         val ts = Music.localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
+        ListenLog.queued(ts, listName)   // (from search results: Wrapped counts them as searched for)
         if (current() == null) { playFrom(ts, 0, false); return }
         keepForUndo("add", ts.size)
         // Settings › Playback › Move, don't duplicate: a song already waiting further on is moved up, not put in twice

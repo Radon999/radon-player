@@ -969,17 +969,15 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
     if (h.never.isNotEmpty()) out += Slide(6) {
         val (t, f) = h.never[0]
         Text("NEVER SKIPPED", style = W.kicker)
-        Text(t.title, style = W.big)
-        Text("${t.artist} · heard to the end $f times, not skipped once", style = W.sub)
-        Rule()
+        // (a top 15 now: the first one's line is one short line, so the whole list fits)
+        Text("“${t.title}” by ${t.artist}: heard to the end $f times, not skipped once", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { trackPic(it.first) }, meter = true)
         Text("Times heard to the end", style = W.small)
     }
     if (h.mostSkipped.isNotEmpty()) out += Slide(4) {
         val (t, k) = h.mostSkipped[0]
         Text("MOST SKIPPED", style = W.kicker)
-        Text(t.title, style = W.big)
-        Text("${t.artist} · skipped $k time${if (k != 1) "s" else ""}", style = W.sub)
+        Text("“${t.title}” by ${t.artist}: skipped $k time${if (k != 1) "s" else ""}", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, h.mostSkipped.map { trackPic(it.first) }, meter = true)
         Text("Skips: gone with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left", style = W.small)
     }
@@ -1002,8 +1000,14 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     val obsessions = d.loops?.top.orEmpty().take(15)
     val cols = if (obsessions.isEmpty()) 2 else 3
     val colW = ((minOf(room.width, SLIDE_MAX_WIDTH + 56.dp) - 56.dp).value / cols)
-    val line = minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / (if (cols == 3) 26f else 34f) / 0.55f).coerceIn(if (cols == 3) 9f else 10f, 20f)
-    val k = line / 11f
+    // A tall, narrow card (a phone held upright): the lists go one under another, each the card's whole width, so a
+    // song's whole name, its artist and its repeats are always there (side by side they were cut off). Top artists,
+    // whose names are short, take five rows in three columns; songs and obsessions fifteen rows each.
+    val tall = room.width.value < 560f && cardH.value > room.width.value * 1.15f
+    val rows = 5 + 15 + (if (obsessions.isEmpty()) 0 else 15) + (if (obsessions.isEmpty()) 2 else 3) * 1.5f
+    val line = if (tall) (((cardH.value - 176f) / rows - 1f) / 1.22f).coerceIn(7f, 15f)
+        else minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / (if (cols == 3) 26f else 34f) / 0.55f).coerceIn(if (cols == 3) 9f else 10f, 20f)
+    val k = if (tall) (line / 11f).coerceAtLeast(0.8f) else line / 11f
     Column(Modifier.fillMaxWidth().height(cardH)
         .background(WS.card).background(Brush.linearGradient(listOf(WS.accent.copy(alpha = 0.20f), Color.Transparent)))
         .border(1.dp, WS.line, RoundedCornerShape(4.dp)).padding(horizontal = (16 * k).coerceAtMost(32f).dp, vertical = (16 * k).coerceAtMost(28f).dp),
@@ -1017,12 +1021,30 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         }
         Rule()
         // Top 15 artists and top 15 songs side by side (and your 15 most repeated songs, each with its repeats), then the top 5 genres, then the time in minutes and hours
+        val obsessionLines = obsessions.map { (l, c) ->
+            val t = runCatching { org.omarchy.music.Music.mineOf(l.track) }.getOrDefault(l.track)
+            "${n(c)}×  ${t.title}" + (t.artist.split(",")[0].trim().takeIf { !org.omarchy.music.noArtistNamed(it) }?.let { " - $it" } ?: "") }
+        if (tall) Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            val item = W.name.copy(fontSize = line.sp, lineHeight = (line * 1.22f).sp)
+            val head = W.small.copy(fontSize = (line * 0.95f).sp, lineHeight = (line * 1.4f).sp)
+            Text("TOP ARTISTS", style = head)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val names = d.artists.take(15).map { it.first }
+                for (c in 0 until 3) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    for (i in c * 5 until minOf(names.size, c * 5 + 5)) Text("${i + 1}  ${names[i]}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Text("TOP SONGS", style = head, modifier = Modifier.padding(top = (line * 0.5f).dp))
+            d.songs.take(15).forEachIndexed { i, it -> Text("${i + 1}  ${it.title} - ${it.artist.split(",")[0].trim()}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            if (obsessionLines.isNotEmpty()) {
+                Text("TOP OBSESSIONS", style = head, modifier = Modifier.padding(top = (line * 0.5f).dp))
+                obsessionLines.forEachIndexed { i, it -> Text("${i + 1}  $it", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        } else
         Row(horizontalArrangement = Arrangement.spacedBy(((if (cols == 3) 10 else 16) * k).dp)) {
             // (an obsession's count goes first, so it is never the part cut off: "164×  Next Semester - twenty one pilots")
             (listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }) +
-                (if (obsessions.isEmpty()) emptyList() else listOf("TOP OBSESSIONS" to obsessions.map { (l, c) ->
-                    val t = runCatching { org.omarchy.music.Music.mineOf(l.track) }.getOrDefault(l.track)
-                    "${n(c)}×  ${t.title}" + (t.artist.split(",")[0].trim().takeIf { !org.omarchy.music.noArtistNamed(it) }?.let { " - $it" } ?: "") }))).forEach { (head, items) ->
+                (if (obsessions.isEmpty()) emptyList() else listOf("TOP OBSESSIONS" to obsessionLines))).forEach { (head, items) ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
                     Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
                     items.forEachIndexed { i, it -> Text("${i + 1}  $it", style = W.name.copy(fontSize = line.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) }

@@ -166,7 +166,11 @@ fun App() {
     }
     // Picking albums, artists… ends as you go to another tab (it's for the list it started on).
     LaunchedEffect(ui.tab, ui.musicView) { if (ui.pickingAlbums) { ui.albumsPicked.clear(); ui.pickingAlbums = false } }
-    LaunchedEffect(title, ui.query) { Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else title }
+    // (one of your playlists open: its own name, not the tab's, so its plays are known to be that playlist's)
+    val openPlaylist = if (page == null && ui.tab == "music" && ui.musicView == "playlists") ui.openMine?.let { id ->
+        runCatching { Music.lists.all().firstOrNull { it.id == id }?.name }.getOrNull() } else null
+    LaunchedEffect(title, ui.query, openPlaylist) {
+        Music.listName = if (ui.tab == "search" && page == null) "Search: ${ui.query.trim()}" else openPlaylist ?: title }
 
     // The phone's Back on Now playing opens the ☰ menu; Back with that menu open (over Now playing) leaves the app.
     val atPlayer = ui.tab == "player" && page == null
