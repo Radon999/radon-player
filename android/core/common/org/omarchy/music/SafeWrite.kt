@@ -11,8 +11,8 @@ import java.io.File
  *
  *  One change at a time, for every writer: two that rewrote the same file at once (the lyrics scan and the moods scan,
  *  each reading the whole file, changing its tag and writing it all back) could read it while the other was half way
- *  through writing it, and put back that half as the song: MP3s with big covers in them came out 10 to 30 seconds
- *  long (“New Wave”, “Prime Time (v2)”, 21 Nov 2026). So every tag write of the app's goes through here, and a change
+ *  through writing it, and the two writes landed on top of each other: MP3s with big covers in them kept their size and
+ *  came out 10 to 30 seconds long in every player (“New Wave”, “Prime Time (v2)”, 21 Nov 2026). So every tag write of the app's goes through here, and a change
  *  that leaves less sound in the copy than it started with ([FileWhole.kept]) is thrown away. */
 object SafeWrite {
     private fun dir(ctx: Ctx) = File(appCtx(ctx).filesDir, "tag-work").apply { mkdirs() }

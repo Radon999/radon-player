@@ -32,6 +32,34 @@ object FileCheckRules {
         else -> null
     }
 
+    /** A file that plays for far less time than the music it holds: its sound is still in it but a player stops early
+     *  (“New Wave”, 21 Nov 2026: the size of a 2:48 song, 10 seconds long in every player). sound: its bytes of sound;
+     *  atMost: the most bytes a second of its kind can take (an MP3: 320 kbit/s; a WAV: what its header says), so
+     *  sound / atMost is the least it can last. Said only when it plays under half of that and holds over a minute.
+     *  seconds 0 (not known): nothing said. */
+    fun stopsEarly(sound: Long, atMost: Long, seconds: Double): String? {
+        if (seconds <= 0.0 || sound <= 0L || atMost <= 0L) return null
+        val least = sound.toDouble() / atMost
+        return if (least > 60.0 && seconds < least / 2)
+            "it plays for ${fmtTime(seconds)} but holds at least ${fmtTime(least)} of music: it was damaged inside (it needs replacing from a backup, or downloading again)"
+        else null
+    }
+
+    /** An MP3's bytes of sound from its first bytes and size (what follows its ID3 tag), and a WAV's with the bytes a
+     *  second takes from its header (first 32 bytes): (sound, the most a second takes), or null for another kind. */
+    fun soundOf(head: ByteArray, bytes: Long): Pair<Long, Long>? = when (MoodWriteRules.kindOf(head)) {
+        "MP3" -> {
+            val tag = if (head.size >= 10 && String(head, 0, 3, Charsets.ISO_8859_1) == "ID3")
+                10L + (((head[6].toInt() and 0x7f) shl 21) or ((head[7].toInt() and 0x7f) shl 14) or ((head[8].toInt() and 0x7f) shl 7) or (head[9].toInt() and 0x7f)) else 0L
+            (bytes - tag) to 40_000L   // 320 kbit/s: the most an MP3 has
+        }
+        "WAV" -> if (head.size >= 32 && String(head, 12, 4, Charsets.ISO_8859_1) == "fmt ") {
+            val rate = (head[28].toLong() and 0xff) or ((head[29].toLong() and 0xff) shl 8) or ((head[30].toLong() and 0xff) shl 16) or ((head[31].toLong() and 0xff) shl 24)
+            if (rate > 0) bytes to rate else null
+        } else null
+        else -> null
+    }
+
     /** What the check says when it is done. */
     fun said(songs: Int, total: Long, damaged: Int, unread: Int): String =
         "%,d songs take %s. ".format(songs, SupportRules.size(total)) +

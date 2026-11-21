@@ -28,7 +28,7 @@ object FileCheck {
                 if (i % 50 == 0) Music.scope.launch { busy = "Looking at %,d of %,d…".format(i, songs.size) }
                 val file = t.file!!
                 val bytes = runCatching { Music.ctx.typeAndSize(file)?.second }.getOrNull()
-                val head = runCatching { Music.ctx.openIn(file)?.use { s -> ByteArray(12).also { b -> var n = 0; while (n < 12) { val r = s.read(b, n, 12 - n); if (r < 0) break; n += r } } } }.getOrNull()
+                val head = runCatching { Music.ctx.openIn(file)?.use { s -> ByteArray(32).also { b -> var n = 0; while (n < 32) { val r = s.read(b, n, 32 - n); if (r < 0) break; n += r } } } }.getOrNull()
                 if (bytes == null || head == null) { unread++; return@forEachIndexed }
                 val kind = MoodWriteRules.kindOf(head)
                 out += FileCheckRules.Song(t.title, t.artist, t.album, kind, bytes)
@@ -37,6 +37,10 @@ object FileCheck {
                     // first bytes look right, so this is looked for too (the blocks are stepped over, not read).
                     ?: if (String(head, 0, 4, Charsets.ISO_8859_1) == "fLaC" && runCatching { Music.ctx.openIn(file)?.use { !FileWhole.flacLeadsToSound(it) } }.getOrNull() == true)
                         "its tags and cover no longer lead to its music (a tag write that was cut short). Play it on the phone and the app puts it right; on the PC it plays as it is" else null
+                    // …or an MP3 or WAV that plays for far less than the music in it (an MP3 only when sound does follow
+                    // its tag: a FLAC behind an ID3 tag isn't measured as an MP3)
+                    ?: FileCheckRules.soundOf(head, bytes)?.takeIf { kind != "MP3" || mp3Follows(file, bytes - it.first) }
+                        ?.let { (sound, atMost) -> FileCheckRules.stopsEarly(sound, atMost, t.duration) }
                 why?.let {
                     badSongs += t
                     bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to it }
@@ -51,6 +55,16 @@ object FileCheck {
             if (r.damaged.isNotEmpty()) runCatching { Crashes.note("Damaged files found: " + r.damaged.take(40).joinToString("; ") { "${it.first}: ${it.second}" }) }
         }
     }
+
+    /** Whether MP3 sound starts at byte [at] of the file (after its ID3 tag). */
+    private fun mp3Follows(file: String, at: Long): Boolean = runCatching {
+        Music.ctx.openIn(file)?.use { s ->
+            var left = at
+            while (left > 0) { val k = s.skip(left); if (k <= 0) return@use false; left -= k }
+            val a = s.read(); val b = s.read()
+            a == 0xff && (b and 0xe0) == 0xe0 && (b and 0x06) != 0
+        } ?: false
+    }.getOrDefault(false)
 
     /** The whole of it as text, to copy. */
     fun text(): String = result?.let { r -> buildString {
