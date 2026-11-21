@@ -226,6 +226,7 @@ object Music {
         speeds = SongSpeeds(File(ctx.filesDir, "song-speeds.json"))
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
         songStats = newSongStats(File(ctx.filesDir, "skips.json"))
+        bg({ SafeWrite.recover(ctx) })   // a tag write the app was closed in the middle of: finished from its copy
         gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
         songEqs = SongEqs(File(ctx.filesDir, "song-eq.json"))
         local = LocalFiles(ctx)

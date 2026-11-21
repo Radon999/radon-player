@@ -107,15 +107,22 @@ object FileTags {
 
     /** Your own file's tags written in its own format ("" clears a field); true if it worked. */
     fun writeOwn(uri: String, changes: Map<String, String>): Boolean = runCatching {
-        val f = fileOf(uri) ?: error("can't write it")
+        val real = fileOf(uri) ?: error("can't write it")
+        // On a copy, checked, then put over yours (SafeWrite): never half a file
+        SafeWrite.edit(Music.ctx, real.path, real.extension.lowercase()) { f -> writeInto(f, changes) }
+        // Android's list of songs reads the new tags
+        runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(real.path), null, null) }
+        lastError = ""
+        true
+    }.getOrElse { lastError = "the tag library said: " + (it.message?.take(90) ?: it.javaClass.simpleName); false }
+
+    /** The changes written into f (a copy of your file). */
+    private fun writeInto(f: java.io.File, changes: Map<String, String>) {
         if (isWav(f)) {
             val rest = changes.filterKeys { it != "lyrics" }
             val ok = (rest.isEmpty() || runCatching { WavTags.write(f, rest); true }.getOrDefault(false)) &&
                 (changes["lyrics"] == null || runCatching { TagWrite.wav(f, changes["lyrics"], emptyMap()) }.getOrDefault(false))
-            if (ok) {
-                runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
-                return@runCatching true
-            }
+            if (ok) return
         }
         setUp
         val af = org.jaudiotagger.audio.AudioFileIO.read(f)
@@ -128,11 +135,7 @@ object FileTags {
         }
         af.commit()
         if (pictures.isNotEmpty()) keepPictures(f, pictures)
-        // Android's list of songs reads the new tags
-        runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
-        lastError = ""
-        true
-    }.getOrElse { lastError = "the tag library said: " + (it.message?.take(70) ?: it.javaClass.simpleName); false }
+    }
 
     /** After a write: the file's pictures put back if the tag library dropped them (it has with some files), so a
      *  song's cover never goes when its other tags change. */
@@ -176,17 +179,16 @@ object FileTags {
         if (!CoverGuard.allowed()) false   // Prevent album cover changes
         else if (!isDownload(uri) && ownFile(uri) != null) runCatching {
             setUp
-            val f = ownFile(uri)!!
-            if (isWav(f) && runCatching { WavTags.write(f, emptyMap(), jpeg); true }.getOrDefault(false)) {
-                runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
-                return@runCatching true
+            val real = ownFile(uri)!!
+            SafeWrite.edit(Music.ctx, real.path, real.extension.lowercase()) { f ->   // on a copy, checked, then put over yours
+                if (isWav(f) && runCatching { WavTags.write(f, emptyMap(), jpeg); true }.getOrDefault(false)) return@edit
+                val af = org.jaudiotagger.audio.AudioFileIO.read(f)
+                val tag = af.tagOrCreateAndSetDefault
+                val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }
+                tag.deleteArtworkField(); tag.setField(art)
+                af.commit()
             }
-            val af = org.jaudiotagger.audio.AudioFileIO.read(f)
-            val tag = af.tagOrCreateAndSetDefault
-            val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }
-            tag.deleteArtworkField(); tag.setField(art)
-            af.commit()
-            runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(f.path), null, null) }
+            runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(real.path), null, null) }
             true
         }.getOrDefault(false)
         else runCatching { Covers.write(ctx, uri, jpeg); true }.getOrDefault(false)

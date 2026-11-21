@@ -60,15 +60,18 @@ object FileTags {
     /** Write changes ("" clears a field); true if it worked. */
     fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean {
         val before = runCatching { read(ctx, uri) }.getOrNull()
-        val ok = (isWav(uri) && runCatching { WavTags.write(file(uri), changes); true }.getOrDefault(false)) || runCatching {
-            val af = AudioFileIO.read(file(uri))
+        // On a copy, checked, then put over your file (SafeWrite): never half a file, as on the phone
+        val real = file(uri)
+        val ok = runCatching { SafeWrite.edit(ctx, real.path, real.extension.lowercase()) { f ->
+            if (isWav(uri) && runCatching { WavTags.write(f, changes); true }.getOrDefault(false)) return@edit
+            val af = AudioFileIO.read(f)
             val tag = af.tagOrCreateAndSetDefault
             for ((k, v) in changes) {
                 val key = KEYS[k] ?: continue
                 if (v.isEmpty()) tag.deleteField(key) else tag.setField(key, v)
             }
-            af.commit(); true
-        }.getOrDefault(false)
+            af.commit()
+        }; true }.getOrDefault(false)
         // Noted for your other device (Sync): the song as it was named before
         if (ok && before != null) TagSync.note(before["title"].orEmpty(), before["artist"].orEmpty(), changes)
         return ok
@@ -79,13 +82,14 @@ object FileTags {
     fun hasCover(ctx: Ctx, uri: String) = cover(ctx, uri) != null
 
     fun writeCover(ctx: Ctx, uri: String, jpeg: ByteArray): Boolean = CoverGuard.allowed() &&   // Prevent album cover changes
-        ((isWav(uri) && runCatching { WavTags.write(file(uri), emptyMap(), jpeg); true }.getOrDefault(false)) || runCatching {
-        val af = AudioFileIO.read(file(uri))
-        val tag = af.tagOrCreateAndSetDefault
-        val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }
-        tag.deleteArtworkField(); tag.setField(art)
-        af.commit(); true
-    }.getOrDefault(false))
+        runCatching { file(uri).let { real -> SafeWrite.edit(ctx, real.path, real.extension.lowercase()) { f ->
+            if (isWav(uri) && runCatching { WavTags.write(f, emptyMap(), jpeg); true }.getOrDefault(false)) return@edit
+            val af = AudioFileIO.read(f)
+            val tag = af.tagOrCreateAndSetDefault
+            val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }
+            tag.deleteArtworkField(); tag.setField(art)
+            af.commit()
+        } }; true }.getOrDefault(false)
 
     /** Move a song to dest (its folders made); the new path, or null. A lyrics file beside it goes with it. */
     fun move(ctx: Ctx, src: String, dest: String): String? = runCatching {

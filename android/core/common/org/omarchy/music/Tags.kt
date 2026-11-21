@@ -76,12 +76,14 @@ object Tags {
         // Only ever rewritten as a FLAC when it is one: anything else is left exactly as it is
         if (!isFlac(ctx, uri)) error("only FLAC files can have their tags changed here")
         val before = runCatching { cr.openIn(uri)!!.buffered().use { Flac.comments(Flac.readHeader(it)) } }.getOrNull()
-        val tmp = File.createTempFile("tags", ".flac", ctx.cacheDir)
-        try {
-            cr.openIn(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-            cr.openOut(uri)!!.buffered().use { Flac.retag(tmp, it, comments(changes), null, keepOther = true) }
-        } finally {
-            tmp.delete()
+        // Made from a copy, checked, then put over the file (SafeWrite): written straight over it, an interruption left
+        // half a file
+        SafeWrite.edit(ctx, uri, "flac") { copy ->
+            val made = File(copy.path + ".new")
+            try {
+                made.outputStream().buffered().use { Flac.retag(copy, it, comments(changes), null, keepOther = true) }
+                made.copyTo(copy, overwrite = true)
+            } finally { made.delete() }
         }
         // Noted for your other device (Sync): the song as it was named before
         before?.let { b -> TagSync.note(b["TITLE"]?.firstOrNull().orEmpty(), b["ARTIST"].orEmpty().joinToString(", "), changes) }
