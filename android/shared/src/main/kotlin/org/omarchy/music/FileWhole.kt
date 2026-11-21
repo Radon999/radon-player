@@ -28,4 +28,25 @@ object FileWhole {
             a == 0xff && (b and 0xfe) == 0xf8
         }
     }.getOrDefault(false)
+
+    /** The same of a FLAC read from its start (a file the phone only gives as a stream): false only when it is a FLAC
+     *  whose blocks don't lead to its sound. */
+    fun flacLeadsToSound(input: java.io.InputStream): Boolean = runCatching {
+        val d = java.io.DataInputStream(input.buffered())
+        val magic = ByteArray(4); d.readFully(magic)
+        if (String(magic, Charsets.ISO_8859_1) != "fLaC") return@runCatching true
+        var blocks = 0
+        while (true) {
+            val h = ByteArray(4); d.readFully(h)
+            val size = ((h[1].toInt() and 0xff) shl 16) or ((h[2].toInt() and 0xff) shl 8) or (h[3].toInt() and 0xff)
+            if (blocks == 0 && ((h[0].toInt() and 0x7f) != 0 || size != 34)) return@runCatching false
+            var left = size
+            while (left > 0) { val n = d.skipBytes(left); if (n <= 0) return@runCatching false; left -= n }
+            blocks++
+            if (h[0].toInt() and 0x80 != 0) break
+            if (blocks > 4096) return@runCatching false
+        }
+        val a = d.read(); val b = d.read()
+        a == 0xff && (b and 0xfe) == 0xf8
+    }.getOrDefault(false)
 }

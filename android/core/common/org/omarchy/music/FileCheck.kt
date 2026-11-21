@@ -29,8 +29,13 @@ object FileCheck {
                 if (bytes == null || head == null) { unread++; return@forEachIndexed }
                 val kind = MoodWriteRules.kindOf(head)
                 out += FileCheckRules.Song(t.title, t.artist, t.album, kind, bytes)
-                FileCheckRules.damage(head, bytes, t.duration)?.let { why ->
-                    bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to why }
+                val why = FileCheckRules.damage(head, bytes, t.duration)
+                    // …or a FLAC whose tags and cover no longer lead to its music: what a tag write cut short leaves. Its
+                    // first bytes look right, so this is looked for too (the blocks are stepped over, not read).
+                    ?: if (String(head, 0, 4, Charsets.ISO_8859_1) == "fLaC" && runCatching { Music.ctx.openIn(file)?.use { !FileWhole.flacLeadsToSound(it) } }.getOrNull() == true)
+                        "its tags and cover no longer lead to its music (a tag write that was cut short). Play it on the phone and the app puts it right; on the PC it plays as it is" else null
+                why?.let {
+                    bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to it }
             }
             val sum = FileCheckRules.summary(out)
             Result(sum, bad, unread, FileCheckRules.said(sum.songs, sum.total, bad.size, unread))
