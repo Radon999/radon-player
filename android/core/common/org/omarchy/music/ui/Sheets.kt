@@ -2722,6 +2722,8 @@ private fun DamagedDialog(ui: Ui) {
                 Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Pill("Tick all", quiet = true) { picked = rows.map { it.first.id }.toSet() }
                     Pill("Untick all", quiet = true) { picked = emptySet() }
+                    // Only these files looked at again: one you replaced yourself, or that has its new copy, leaves the list
+                    if (fc.busy == null) Pill("Check these again", quiet = true) { fc.again() } else Text(fc.busy ?: "", style = T.sub)
                     Text("%,d ticked".format(chosen.size), style = T.sub)
                 }
                 androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f, fill = false)) {

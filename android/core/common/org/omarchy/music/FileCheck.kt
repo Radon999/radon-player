@@ -114,17 +114,7 @@ object FileCheck {
                 out += FileCheckRules.Song(t.title, t.artist, t.album, kind, bytes)
                 if (keyOf(t) in left) continue   // one you told the check to leave out: counted above, not looked into
                 val found = ArrayList<Double>()   // (a full check: every place the damage is)
-                val why = FileCheckRules.damage(head, bytes, t.duration)
-                    // …or a FLAC whose tags and cover no longer lead to its music: what a tag write cut short leaves. Its
-                    // first bytes look right, so this is looked for too (the blocks are stepped over, not read).
-                    ?: if (String(head, 0, 4, Charsets.ISO_8859_1) == "fLaC" && runCatching { Music.ctx.openIn(file)?.use { !FileWhole.flacLeadsToSound(it) } }.getOrNull() == true)
-                        "its tags and cover no longer lead to its music (a tag write that was cut short). Play it on the phone and the app puts it right; on the PC it plays as it is" else null
-                    // …or an MP3 or WAV that plays for far less than the music in it (an MP3 only when sound does follow
-                    // its tag: a FLAC behind an ID3 tag isn't measured as an MP3)
-                    ?: FileCheckRules.soundOf(head, bytes)?.takeIf { kind != "MP3" || mp3Follows(file, bytes - it.first) }
-                        ?.let { (sound, atMost) -> FileCheckRules.stopsEarly(sound, atMost, t.duration) }
-                    // The full check: the whole file read and followed to its end
-                    ?: if (full) runCatching { Music.ctx.openIn(file)?.use { FullCheck.check(it, { stopped }, found) } }.getOrElse { "it couldn't be read to its end (${it.message?.take(60) ?: it.javaClass.simpleName})" } else null
+                val why = whyOf(t, file, head, bytes, kind, full, found)
                 why?.let {
                     badSongs += t
                     badSpots += found.ifEmpty { listOfNotNull(FileCheckRules.spot(it)) }
@@ -147,6 +137,61 @@ object FileCheck {
             result = r
             Music.toast(r.said)
             if (r.damaged.isNotEmpty()) runCatching { Crashes.note("Damaged files found: " + r.damaged.take(40).joinToString("; ") { "${it.first}: ${it.second}" }) }
+        }
+    }
+
+    /** What is wrong with one file (null: nothing found). full: read to its end too; found: every place the damage is. */
+    private fun whyOf(t: Track, file: String, head: ByteArray, bytes: Long, kind: String, full: Boolean, found: MutableList<Double>): String? {
+        return FileCheckRules.damage(head, bytes, t.duration)
+            // …or a FLAC whose tags and cover no longer lead to its music: what a tag write cut short leaves. Its
+            // first bytes look right, so this is looked for too (the blocks are stepped over, not read).
+            ?: if (String(head, 0, 4, Charsets.ISO_8859_1) == "fLaC" && runCatching { Music.ctx.openIn(file)?.use { !FileWhole.flacLeadsToSound(it) } }.getOrNull() == true)
+                "its tags and cover no longer lead to its music (a tag write that was cut short). Play it on the phone and the app puts it right; on the PC it plays as it is" else null
+            // …or an MP3 or WAV that plays for far less than the music in it (an MP3 only when sound does follow
+            // its tag: a FLAC behind an ID3 tag isn't measured as an MP3)
+            ?: FileCheckRules.soundOf(head, bytes)?.takeIf { kind != "MP3" || mp3Follows(file, bytes - it.first) }
+                ?.let { (sound, atMost) -> FileCheckRules.stopsEarly(sound, atMost, t.duration) }
+            // The full check: the whole file read and followed to its end
+            ?: if (full) runCatching { Music.ctx.openIn(file)?.use { FullCheck.check(it, { stopped }, found) } }.getOrElse { "it couldn't be read to its end (${it.message?.take(60) ?: it.javaClass.simpleName})" } else null
+    }
+
+    /** These songs have new copies (Download new copies): they go from the list showing, so what's left is what
+     *  still needs replacing. */
+    fun replaced(tracks: List<Track>) {
+        val ids = tracks.map { it.id }.toSet()
+        result?.let { r ->
+            val keep = r.tracks.indices.filter { r.tracks[it].id !in ids }
+            if (keep.size != r.tracks.size) result = Result(r.summary, keep.map { r.damaged[it] }, r.unread, r.tell(keep.size), keep.map { r.tracks[it] }, r.tell, keep.map { r.spots.getOrElse(it) { emptyList() } })
+        }
+    }
+
+    /** Only the files in the list are looked at again, each read in full: one that is whole now (you put a good copy in
+     *  its place yourself) or is gone (its new copy took its place) leaves the list. Quick: it reads those files only. */
+    fun again() {
+        val r = result ?: return
+        if (busy != null || r.tracks.isEmpty()) return
+        stopped = false
+        busy = "Looking at the %,d listed again…".format(r.tracks.size)
+        Music.bg({
+            val keep = ArrayList<Int>(); val why2 = HashMap<Int, String>(); val spots2 = HashMap<Int, List<Double>>()
+            for (i in r.tracks.indices) {
+                if (stopped) { keep += i; continue }   // (stopped: the ones not looked at stay as they were)
+                val t = r.tracks[i]; val file = t.file ?: continue
+                val bytes = runCatching { Music.ctx.typeAndSize(file)?.second }.getOrNull()
+                val head = runCatching { Music.ctx.openIn(file)?.use { s -> ByteArray(32).also { b -> var n = 0; while (n < 32) { val x = s.read(b, n, 32 - n); if (x < 0) break; n += x } } } }.getOrNull()
+                if (bytes == null || head == null) continue   // the file isn't there any more: replaced
+                val found = ArrayList<Double>()
+                val why = whyOf(t, file, head, bytes, MoodWriteRules.kindOf(head), true, found) ?: continue   // whole now
+                keep += i; why2[i] = why; spots2[i] = found.ifEmpty { listOfNotNull(FileCheckRules.spot(why)) }
+            }
+            Result(r.summary, keep.map { i -> why2[i]?.let { r.damaged[i].first to it } ?: r.damaged[i] }, r.unread, r.tell(keep.size), keep.map { r.tracks[it] }, r.tell,
+                keep.map { i -> spots2[i] ?: r.spots.getOrElse(i) { emptyList() } })
+        }) { res, err ->
+            busy = null
+            if (res == null) { Music.toast("Couldn't look at them again: ${err?.message?.take(80)}"); return@bg }
+            val gone = r.tracks.size - res.tracks.size
+            result = res
+            Music.toast(if (gone == 0) "All %,d are still damaged".format(res.tracks.size) else "%,d no longer damaged; %,d still %s".format(gone, res.tracks.size, if (res.tracks.size != 1) "are" else "is"))
         }
     }
 

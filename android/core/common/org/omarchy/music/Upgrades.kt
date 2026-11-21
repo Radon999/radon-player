@@ -52,6 +52,7 @@ object Upgrades {
             // The song playing carries on in its new file from the same moment; its old file goes with the rest.
             out.done.firstOrNull { (old, id) -> old.id == playing && lib.has(id) }?.let { (old, id) -> swapPlaying(old, id) }
             val done = out.done.filter { (_, id) -> lib.has(id) }
+            FileCheck.replaced(done.map { it.first })   // (a damaged file with its new copy here leaves the damaged list)
             if (done.isNotEmpty()) Music.queueTrash(Music.TrashJob(done.map { it.first }, done.associate { (old, id) -> old.id to lib.items[id]!!.track() }, "upgraded songs"))
             toast(doneText(done.size, out.missing.size, out.kept.size, out.failed.size))
             if (out.kept.isNotEmpty() && !force) Music.upgradeKept = out.kept
@@ -118,19 +119,21 @@ object Upgrades {
         val playing = Music.current()?.id
         Music.bg({
             var got = 0; var failed = 0
+            val fresh = java.util.Collections.synchronizedList(ArrayList<Track>())
             saved.forEachIndexed { i, (t, id) ->
                 if (Music.upgradeStop) return@forEachIndexed
                 val root = runCatching { Music.folderOf(t).let { f -> roots.firstOrNull { f.startsWith(it) } } }.getOrNull()
                 if (id == playing) failed++
-                else try { Music.dl.again(id, root, picks[t.id]); got++ } catch (e: Exception) {
+                else try { Music.dl.again(id, root, picks[t.id]); got++; fresh += t } catch (e: Exception) {
                     failed++
                     Crashes.caught(e, "Downloading ${t.artist} – ${t.title} again (its file is damaged)")
                 }
                 Music.scope.launch { if (Music.upgrading != null) Music.upgrading = "Downloading again · ${i + 1} of ${saved.size}" }
             }
-            got to failed
+            Triple(got, failed, fresh.toList())
         }) { out, err ->
             Music.upgrading = null
+            out?.third?.let { FileCheck.replaced(it) }
             Music.savedVersion++; Music.musicVersion++
             toast(out?.let { againText(it.first, it.second) } ?: "Couldn't download them again: ${err?.message?.take(90)}")
             if (mine.isNotEmpty()) songs(mine, force = true, picks = picks)
