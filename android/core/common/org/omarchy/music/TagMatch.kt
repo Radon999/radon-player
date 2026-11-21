@@ -5,10 +5,12 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import java.io.File
 
-/** Tags & covers match (Settings › Sync): your songs that are on both devices end up with the same tags and the same
- *  album art. You pick the main device (the PC or the phone): at each sync it sends what every song of its says (title,
- *  artist, album, album artist, genre, year, track), and the other device fills in what its copy of the song is
- *  missing: a tag that's filled in is never changed by it, and covers are never synced at all. The main device always sends, the other always takes; tag edits made on either still go both ways (TagSync).
+/** Tags match (Settings › Remote & sync): your songs that are on both devices end up the same. You pick the main device
+ *  (the PC or the phone): at each sync it sends what every song of its says (title, artist, album, album artist, genre,
+ *  year, track, the lyrics and their mood, and its cover), and the other device makes its copy of the song say exactly
+ *  that: what differs is replaced, what the main device's hasn't got is taken off (never the title or the artist). The
+ *  moods follow the same main device (MoodMatch). Changes you make by hand on the other device and haven't sent yet
+ *  win until they have gone across (TagSync). Covers obey Prevent album cover changes.
  *
  *  A song is found on the other device by its ISRC, else its title and artist, else its file's name, as long as the
  *  lengths agree. On the phone only the songs the app downloaded can be changed (Android lets an app write only its own
@@ -23,6 +25,18 @@ object TagMatch {
     private val dir get() = Music.ctx.filesDir
     private val cacheFile get() = File(dir, "tag-match-cache.json")
     private val peerFile get() = File(dir, "tag-match-peer.json")
+    /** The receiving device: the main device's cover (its mark) last put into each file, so a picture the main device
+     *  keeps as a PNG (its mark never the JPEG's here) isn't put in again at every sync. */
+    private val appliedFile get() = File(dir, "tag-match-art.json")
+    private val strMap = MapSerializer(String.serializer(), String.serializer())
+    private var appliedArt: HashMap<String, String>? = null
+    private fun applied(): HashMap<String, String> = synchronized(lock) {
+        appliedArt ?: (readText(appliedFile)?.let { runCatching { HashMap(JSON.decodeFromString(strMap, it)) }.getOrNull() } ?: HashMap()).also { appliedArt = it }
+    }
+    private fun keepApplied() = synchronized(lock) { appliedArt?.let { writeAtomic(appliedFile, JSON.encodeToString(strMap, it)) } }
+    /** The lyrics and their mood: read and written their own way (every kind of file), beside the tags. */
+    private const val LYRICS = "lyrics"
+    private const val LYRICS_MOOD = "mood_lyrics"
     /** How much album art goes across in one sync, at most (the rest next time). */
     private const val ART_BUDGET = 24_000_000
 
@@ -58,7 +72,7 @@ object TagMatch {
     private fun keepCache() = synchronized(lock) { cache?.let { writeAtomic(cacheFile, JSON.encodeToString(readSer, it)) } }
 
     /** A file the app has just changed (its tags or cover): read again next time. */
-    fun touched(uri: String) { synchronized(lock) { cache?.remove(uri) } }
+    fun touched(uri: String) { synchronized(lock) { cache?.remove(uri); appliedArt?.remove(uri) } }
 
     /** When a file last changed, for the ones that have a path; content:// files (the phone's downloads) are only
      *  changed by the app, which says so ([touched]). */
@@ -76,7 +90,9 @@ object TagMatch {
     }.distinctBy { it.second }
 
     private fun readFile(uri: String): Read? = runCatching {
-        val tags = Tags.read(Music.ctx, listOf(uri)).mapValues { it.value.orEmpty() }.filterKeys { it in FIELDS }
+        val tags = Tags.read(Music.ctx, listOf(uri)).mapValues { it.value.orEmpty() }.filterKeys { it in FIELDS } +
+            (runCatching { Music.ctx.openIn(uri)?.use { MoodTag.readTags(it, setOf(MoodTag.LYRICS, MoodTag.MOOD_LYRICS)) } }.getOrNull().orEmpty()
+                .let { m -> listOfNotNull(m[MoodTag.LYRICS]?.let { LYRICS to it }, m[MoodTag.MOOD_LYRICS]?.let { LYRICS_MOOD to it }).toMap() })
         val art = runCatching { FileTags.cover(Music.ctx, uri) }.getOrNull()?.let { hash(it) } ?: ""
         Read(stampOf(uri), tags, art)
     }.getOrNull()
@@ -130,21 +146,24 @@ object TagMatch {
         val c = cache()
         val list = songs().mapNotNull { (t, f) -> synchronized(lock) { c[f] }?.let { r -> Triple(t, f, r) } }
         if (!isMain) {
-            val have = list.associate { (t, f, r) -> "${TagChanges.key(t.title, t.artist)}#${nameOf(f)}" to r.art }
+            val ap = applied()
+            // (a cover the main device's was put in: said as the main device knows it, so it isn't sent again)
+            val have = list.associate { (t, f, r) -> "${TagChanges.key(t.title, t.artist)}#${nameOf(f)}" to (synchronized(lock) { ap[f] } ?: r.art) }
             return JSON.encodeToString(Sent.serializer(), Sent(main = main, have = have))
         }
         // Which covers the other device has: from what it sent now, else what it sent last time
         val peer = theirs?.let { runCatching { JSON.decodeFromString(Sent.serializer(), it) }.getOrNull() }?.have?.takeIf { it.isNotEmpty() }
             ?: readText(peerFile)?.let { runCatching { JSON.decodeFromString(MapSerializer(String.serializer(), String.serializer()), it) }.getOrNull() }
             ?: emptyMap()
-        val peerArt = peer.values.toHashSet()
         val entries = list.map { (t, f, r) ->
             Entry(t.isrc.orEmpty(), TagChanges.key(t.title, t.artist), nameOf(f), t.duration.toInt(), r.tags.filterValues { it.isNotBlank() }, r.art)
         }
+        // The covers the other device's copies haven't got (as it said, song by song): as many as fit, the rest next time
         val art = LinkedHashMap<String, String>()
         var size = 0
-        if (false) for ((_, f, r) in list) {   // covers never go across (see take)
-            if (r.art.isEmpty() || r.art in peerArt || r.art in art) continue
+        for ((t, f, r) in list) {
+            if (r.art.isEmpty() || r.art in art) continue
+            if (peer["${TagChanges.key(t.title, t.artist)}#${nameOf(f)}"] == r.art) continue
             val b = runCatching { FileTags.cover(Music.ctx, f) }.getOrNull() ?: continue
             val jpeg = runCatching { Covers.jpeg(b) }.getOrNull() ?: continue
             if (size + jpeg.size > ART_BUDGET) break
@@ -189,18 +208,55 @@ object TagMatch {
                 if (f == playing || f in done) continue
                 if (TagChanges.key(t.title, t.artist) in waiting) continue
                 val now = synchronized(lock) { c[f] }?.takeIf { it.stamp == stampOf(f) } ?: readFile(f) ?: continue
-                // Only what's missing here: a tag that's filled in is never changed by a sync (only by you, in the
-                // Tagger or Edit tags, or a scan you run to change it)
-                val changes = e.tags.filter { (k, v) -> k in FIELDS && v.isNotBlank() && now.tags[k].isNullOrBlank() }
-                var did = false
+                // Exactly as the main device's copy says: what differs is replaced, what it hasn't got is taken off. Never
+                // a title or an artist taken off, and nothing at all from a copy the main device couldn't read the title of.
+                if (e.tags["title"].isNullOrBlank()) continue
+                val changes = FIELDS.mapNotNull { k ->
+                    val want = e.tags[k].orEmpty(); val have = now.tags[k].orEmpty()
+                    when {
+                        want.isBlank() && (k == "title" || k == "artist") -> null
+                        want.isBlank() && have.isBlank() -> null
+                        want.isNotBlank() && have.isNotBlank() && (want.trim() == have.trim() || same(k, want, have) && k != "artist" && k != "albumartist") -> null
+                        else -> k to want
+                    }
+                }.toMap()
+                var did = false; var artPut = false
                 if (changes.isNotEmpty()) TagSync.quietly {
                     if (runCatching { Tags.write(Music.ctx, f, changes) }.isSuccess) did = true
                 }
-                // Covers are never synced: a sync never writes, replaces or takes off a song's cover (Songs without covers
-                // and Pick a cover are for that)
+                // The lyrics and their mood, the same way
+                val lyr = e.tags[LYRICS].orEmpty(); val lm = e.tags[LYRICS_MOOD].orEmpty()
+                fun plain(x: String) = x.replace("\r\n", "\n").replace('\r', '\n').trim()
+                val lyrDiffers = plain(lyr) != plain(now.tags[LYRICS].orEmpty())
+                val lmDiffers = plain(lm) != plain(now.tags[LYRICS_MOOD].orEmpty())
+                if (lyrDiffers || lmDiffers) TagSync.quietly {
+                    if (runCatching { LyricsTags.writeTags(Music.ctx, f, if (lyrDiffers) lyr else null, if (lmDiffers) mapOf(MoodTag.MOOD_LYRICS to lm) else emptyMap()) }.getOrDefault(false)) did = true
+                }
+                // The cover: the main device's picture when this copy's isn't it (Prevent album cover changes stops it)
+                if (e.art.isNotEmpty() && e.art != now.art && synchronized(lock) { applied()[f] } != e.art && CoverGuard.allowed()) {
+                    val jpeg = got.art[e.art]?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() }
+                    if (jpeg != null) {
+                        val wrote = runCatching {
+                            if (Music.lib.items.values.any { it.file == f && it.format == "flac" }) { Covers.write(Music.ctx, f, jpeg); true }
+                            else FileTags.writeCover(Music.ctx, f, jpeg)
+                        }.getOrDefault(false)
+                        if (wrote) {
+                            did = true; artPut = true
+                            Music.lib.items.values.filter { it.file == f }.forEach { le ->   // a download's picture in your music follows
+                                runCatching {
+                                    val pic = File(Music.lib.artDir, "${safeName(le.id)}-${randomHex(4)}.jpg").apply { writeBytes(jpeg) }
+                                    val old = le.art
+                                    Music.lib.update(le.id) { it.copy(art = pic.path) }
+                                    if (old.isNotEmpty() && Music.lib.items.values.none { it.art == old }) File(old).delete()
+                                }
+                            }
+                        }
+                    }
+                }
                 if (did) {
                     done += f; changed++
                     touched(f)
+                    if (artPut) synchronized(lock) { applied()[f] = e.art }   // (after touched, which lets the record go)
                     changes["title"]?.let { nt ->   // a download's name in your music follows (your own files: the scan)
                         Music.lib.items.values.filter { it.file == f }.forEach { le ->
                             Music.lib.update(le.id) { it.copy(title = nt, artist = changes["artist"] ?: it.artist,
@@ -210,6 +266,7 @@ object TagMatch {
                 }
             }
         }
+        keepApplied()
         return changed
     }
 }

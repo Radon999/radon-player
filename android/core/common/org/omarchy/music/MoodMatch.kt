@@ -9,8 +9,9 @@ object MoodMatch {
     const val ON = "mood_match_on"
     const val MAIN = "mood_match_main"   // "pc" or "phone"
 
-    val on: Boolean get() = Prefs.on(ON)
-    val main: String get() = Prefs.text(MAIN, "pc")
+    /** On with its own switch, or with Tags match's: one main device then gives everything, moods included. */
+    val on: Boolean get() = Prefs.on(ON) || TagMatch.on
+    val main: String get() = if (TagMatch.on) TagMatch.main else Prefs.text(MAIN, "pc")
     val here: String get() = if (platformName == "android") "phone" else "pc"
 
     /** This device takes the other's moods at a sync. */

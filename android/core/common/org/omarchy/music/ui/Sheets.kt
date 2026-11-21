@@ -1202,12 +1202,12 @@ private fun TagMatchLine(other: String) {
     val on = P.on(m.ON)
     val mainName = if (m.main == "pc") "the PC" else "the phone"
     val receiver = if (m.main == "pc") "the phone" else "the PC"
-    Line("Tags match", "Fills in what the songs on both devices are missing: their tags (title, artist, album, " +
-        "album artist, genre, year, track; never the moods: those are Moods match's, below). The main device sends, the other takes: at each sync $receiver's " +
-        "copies get what $mainName's have and they don't. A tag that's filled in is never changed by it, and covers are never " +
-        "synced: a song without one gets it from Songs without covers. Tag edits you make in the Tagger or Edit tags on either still go to both. A song is matched by its ISRC, " +
-        "its title and artist, or its file's name, when the lengths agree. On the phone only the songs the app downloaded can be " +
-        "changed (Android lets an app change only its own files)", on,
+    Line("Tags match", "Makes the songs on both devices the same as the main device's: at each sync $receiver's copies are made to " +
+        "say exactly what $mainName's say (title, artist, album, album artist, genre, year, track, the lyrics and their mood, and the cover), " +
+        "and their moods follow $mainName's too. What differs is replaced and what $mainName's haven't got is taken off (never a title or an artist). " +
+        "Tag edits and covers you pick by hand on either device still go to both. A song is matched by its ISRC, its title and artist, " +
+        "or its file's name, when the lengths agree. Covers aren't changed while Prevent album cover changes is on. On the phone, songs are " +
+        "changed with All files access (Settings › Tagger). The first sync after turning it on can take a while: covers go across a few hundred at a time", on,
         note = when {
             !on -> ""
             m.isMain -> "Main device: this $DEVICE. It sends, the $other takes"
@@ -1220,8 +1220,8 @@ private fun TagMatchLine(other: String) {
     }
     if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
         title = { Text("Which device leads?", style = T.title) },
-        text = { Text("The main device's tags and album art are put on the other's copies of the same songs at each sync. " +
-            "Pick the one where you edit your tags.", style = T.sub) },
+        text = { Text("At each sync the other device's copies of your songs are made the same as the main device's: their tags, lyrics, " +
+            "moods and covers are replaced with its. Pick the one whose songs are right.", style = T.sub) },
         confirmButton = { TextButton({ asking = false; P.setText(m.MAIN, "pc"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
             Text("The PC", color = C.accent) } },
         dismissButton = { TextButton({ asking = false; P.setText(m.MAIN, "phone"); P.set(m.ON, true); m.refreshSoon(); org.omarchy.music.Sync.soon() }) {
@@ -1242,10 +1242,13 @@ private fun MoodMatchLine(other: String) {
         "follow one device and the moods the other. Moods you picked yourself for a song stay. Off: a sync leaves each device's " +
         "moods as they are. A song is matched by its title and artist, its length and its album. On the phone, moods go into " +
         "the files the app may change (all of yours with All files access)", on,
-        note = org.omarchy.music.MoodMatchRules.note(on, m.main, m.here, DEVICE, other, org.omarchy.music.Moods.prevented)) {
+        note = if (org.omarchy.music.TagMatch.on) "Tags match is on: the moods follow its main device, the ${if (m.main == "pc") "PC" else "phone"}"
+            else org.omarchy.music.MoodMatchRules.note(on, m.main, m.here, DEVICE, other, org.omarchy.music.Moods.prevented)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (on) Pill("Main: ${if (m.main == "pc") "PC" else "phone"}", quiet = true) { asking = true }
-            Switch(on, { v -> if (v) asking = true else P.set(m.ON, false) }, colors = swColors())
+            if (!org.omarchy.music.TagMatch.on) {
+                if (on) Pill("Main: ${if (m.main == "pc") "PC" else "phone"}", quiet = true) { asking = true }
+                Switch(on, { v -> if (v) asking = true else P.set(m.ON, false) }, colors = swColors())
+            }
         }
     }
     if (asking) AlertDialog(onDismissRequest = { asking = false }, containerColor = C.light,
