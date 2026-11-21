@@ -98,6 +98,7 @@ class MusicService : MediaLibraryService() {
                 SoundLog.note("the sound's session changed ($audioSessionId)")
             }
         })
+        var heldAt = 0L   // when another app last took the sound for a moment
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 Music.trace("player: playing=$isPlaying (held back: ${exo.playbackSuppressionReason})")
@@ -106,8 +107,13 @@ class MusicService : MediaLibraryService() {
 
             override fun onPlaybackSuppressionReasonChanged(reason: Int) {
                 Music.trace("player: held back, reason $reason")
-                if (reason != 0) SoundLog.hiccup("the player was held back, reason $reason (1 another app took the sound for a moment, 2 no output it may use)")
-                else SoundLog.note("the player is no longer held back")
+                // Another app taking the sound for a moment (voice typing, a call, a spoken direction) is the phone doing
+                // what it should: the music waits and comes back. Kept in Sound lately, with how long it lasted, but not
+                // in Problems: on the owner's phone it filled Problems (each stretch of voice typing was one) and would
+                // have buried a real fault. No output it may use (2) is still one.
+                if (reason == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) { heldAt = System.currentTimeMillis(); SoundLog.note("another app took the sound for a moment: the music waits") }
+                else if (reason != 0) SoundLog.hiccup("the player was held back, reason $reason (2 no output it may use)")
+                else SoundLog.note("the sound is the music's again" + if (heldAt > 0) " (after ${(System.currentTimeMillis() - heldAt) / 1000} s)" else "").also { heldAt = 0L }
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
