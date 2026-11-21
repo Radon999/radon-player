@@ -82,7 +82,7 @@ object FolderCovers {
             val pic = runCatching { pictureIn(dir, release(t))?.readBytes() }.getOrNull() ?: pickedFor(t)
             if (pic == null) { none++; continue }
             if (!FileTags.canWrite(f)) { failed++; if (notes.size < 20) notes += "“${t.title}”: the app can't change its file"; continue }
-            val ok = runCatching { FileTags.writeCover(Music.ctx, f, Covers.jpeg(pic)) }.getOrDefault(false)
+            val ok = !Music.inUse(f) && runCatching { FileTags.writeCover(Music.ctx, f, Covers.jpeg(pic)) }.getOrDefault(false)
             // Read back: said to be in only when the file now holds it
             val there = ok && runCatching { FileTags.hasCover(Music.ctx, f) }.getOrDefault(false)
             if (there) { saved++; TagMatch.touched(f) } else { failed++; if (notes.size < 20) notes += "“${t.title}” (${f.substringAfterLast('/').substringAfterLast('\\')}): couldn't put the cover in" }

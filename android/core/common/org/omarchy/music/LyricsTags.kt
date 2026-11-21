@@ -28,6 +28,7 @@ object LyricsTags {
      *  chunk (the PC), others (M4A…) through the PC's tag library. Returns whether it wrote; throws if the write failed. */
     fun writeTags(ctx: Ctx, uri: String, lyrics: String?, named: Map<String, String>): Boolean {
         if (lyrics == null && named.isEmpty()) return false
+        if (Music.inUse(uri)) return false   // the song playing (or next): not rewritten under the player; another time
         val head = ctx.openIn(uri)!!.use { s -> ByteArray(12).also { b -> var n = 0; while (n < 12) { val r = s.read(b, n, 12 - n); if (r < 0) break; n += r } } }
         val magic = String(head, 0, 4, Charsets.ISO_8859_1)
         return when {
@@ -90,6 +91,7 @@ object LyricsTags {
      *  (M4A, Ogg… on the PC). Every other tag stays exactly as it was, so a mood write never changes a song's title,
      *  artist, album or album artist. Returns whether it wrote; throws if the write failed. */
     fun writeMood(ctx: Ctx, uri: String, mood: String): Boolean {
+        if (Music.inUse(uri)) return false   // (see Music.inUse)
         val head = ctx.openIn(uri)!!.use { s -> ByteArray(12).also { b -> var n = 0; while (n < 12) { val r = s.read(b, n, 12 - n); if (r < 0) break; n += r } } }
         val magic = String(head, 0, 4, Charsets.ISO_8859_1)
         val kind = MoodWriteRules.kindOf(head).ifEmpty { "A file of a kind the app doesn't know" }

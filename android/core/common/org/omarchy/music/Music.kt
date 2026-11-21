@@ -750,6 +750,16 @@ object Music {
 
 
     fun next() = PlaybackCore.next(byUser = true)
+
+    /** Whether this file is the song playing, or the one about to: its tags are not to be rewritten now. A tag write
+     *  writes the whole file again, and a player opening it at that moment reads half a file ("First frame does not
+     *  start with sync code": “Hymn for the Weekend”, 21 Nov 2026, as a scan was writing songs' moods). The scans that
+     *  write by themselves (lyrics, moods, covers from folders) leave such a song for their next round. */
+    fun inUse(uri: String): Boolean = runCatching {
+        if (paused && PlaybackCore.loadedFor == null) return@runCatching false
+        val q = queue; val i = index
+        listOfNotNull(q.getOrNull(i), q.getOrNull(i + 1)).any { t -> (t.file ?: lib.items[t.id]?.file) == uri }
+    }.getOrDefault(false)
     fun aboutToReload(): Boolean = PlaybackCore.aboutToReload()
 
     /** The next of your other queues with songs still to play (the last one used first), or null. */

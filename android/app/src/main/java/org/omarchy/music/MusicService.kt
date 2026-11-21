@@ -32,6 +32,7 @@ class MusicService : MediaLibraryService() {
     private var switching: Job? = null
     private var players = emptyList<Player>()
     private var retriedFor: String? = null   // the song played again once after an audio error
+    private var reparsedFor: String? = null   // the song read again once after its file read as broken
     private var noisyPause = 0L              // when Android's "becoming noisy" last paused the music (0: not waiting on one)
 
     override fun onCreate() {
@@ -178,6 +179,16 @@ class MusicService : MediaLibraryService() {
                     Crashes.caught(error, "The sound output refused “${Music.current()?.title}” (${error.errorCodeName}): played again without HQ resampling")
                     ResampleProcessor.plain = true
                     exo.prepare()
+                    return
+                }
+                // A file of yours read as broken ("malformed"): it may be being written this moment (its tags, by a scan
+                // or by you). Tried once more two seconds on, before anything is said; a file really broken says so then.
+                val parsing = error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+                    error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED
+                if (parsing && !Music.streaming && id != null && reparsedFor != id) {
+                    reparsedFor = id
+                    SoundLog.note("“${Music.current()?.title}” read as broken (${error.errorCodeName}): tried again in 2 s")
+                    android.os.Handler(mainLooper).postDelayed({ if (Music.current()?.id == id) { exo.prepare(); exo.play() } }, 2000)
                     return
                 }
                 if (Music.streaming) Music.streamBroke()
