@@ -1,9 +1,9 @@
-commit b25090e08195139a97b56fa9198d07c3ba83782c · run 44887049899 · Sat Nov 21 09:02:30 UTC 2026
-PHONE INSTALL-OVER: made, Radon Player Next 3.3.0, the test key: it installs over the app on the phone
-package: name='org.omarchy.music.next' versionCode='30300' versionName='3.3.0' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+commit 54a07761ec742e87c495b5a0e8852d07829e7bbd · run 44903925424 · Sat Nov 21 12:33:23 UTC 2026
+PHONE INSTALL-OVER: made, Radon Player Next 4.0.29, the test key: it installs over the app on the phone
+package: name='org.omarchy.music.next' versionCode='40029' versionName='4.0.29' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
 /home/runner/work/_temp/badging.txt:application-label:'Radon Player Next'
 /home/runner/work/_temp/certs.txt:V2 Signer: certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44887049899/artifacts/14700586801
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/44903925424/artifacts/14707755603
 --- errors
 --- the end of the log
 > Task :app:lintVitalReportRelease
@@ -16,5 +16,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m 7s
+BUILD SUCCESSFUL in 4m 48s
 95 actionable tasks: 95 executed
