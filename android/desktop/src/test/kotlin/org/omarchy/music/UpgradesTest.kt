@@ -13,6 +13,11 @@ class UpgradesTest {
         assertEquals("Upgraded 0 songs to FLAC · 4 as good already", Upgrades.doneText(0, 0, 4, 0))
     }
 
+    @Test fun whatDownloadNewCopiesSays() {
+        assertEquals("Downloaded 1 damaged song again", Upgrades.againText(1, 0))
+        assertEquals("Downloaded 3 damaged songs again · 2 couldn't (left as they are)", Upgrades.againText(3, 2))
+    }
+
     @Test fun whatDownloadsUpgradeAndRefreshSay() {
         assertEquals("5 upgraded (FLAC from Tidal, else AAC)", Upgrades.flacText(5, 0))
         assertEquals("2 upgraded (FLAC from Tidal, else AAC) · 3 left as they are", Upgrades.flacText(2, 3))

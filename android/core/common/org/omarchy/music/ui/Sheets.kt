@@ -863,18 +863,20 @@ private fun ToolLines(ui: Ui) {
             Text("Damaged files", style = T.sub.copy(color = C.red), modifier = Modifier.padding(top = 6.dp))
             res.damaged.take(25).forEach { (name, why) -> Text("$name: $why", style = T.sub.copy(color = C.fg)) }
             if (res.damaged.size > 25) Text("…and %,d more: Copy has them all".format(res.damaged.size - 25), style = T.sub)
-            // New copies of the damaged ones: got from Tidal in FLAC beside your songs (as Upgrade gets them), each
-            // damaged file put in the bin once its new copy is here and you say yes; playlists, favorites and plays go
-            // over to the new copy. A song Tidal hasn't got (an unreleased one) is left as it is.
-            val again = res.tracks.filter { org.omarchy.music.upgradable(it) }
+            // New copies of the damaged ones. A download of the app's is got again as it was first got and its damaged
+            // file deleted once the new one is in; a file of your own is got from Tidal in FLAC beside your songs (as
+            // Upgrade gets them) and put in the bin once its new copy is here and you say yes. Playlists, favorites
+            // and plays stay with the song. A song that can't be found (an unreleased one) is left as it is.
+            val again = res.tracks.filter { org.omarchy.music.Upgrades.canGetAgain(it) }
             if (again.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 if (Music.upgrading != null) Text(Music.upgrading ?: "", style = T.sub)
                 else Pill("Download new copies (%,d)…".format(again.size)) {
-                    ui.confirm = ("Download %,d damaged song%s again from Tidal and put the new cop%s in place of the damaged file%s? ".format(
+                    ui.confirm = ("Download %,d damaged song%s again and put the new cop%s in place of the damaged file%s? ".format(
                         again.size, if (again.size != 1) "s" else "", if (again.size != 1) "ies" else "y", if (again.size != 1) "s" else "") +
-                        "Each new copy is a FLAC saved beside your songs; your playlists, favorites and plays go over to it. The damaged files are put in the bin " +
-                        "only after their new copies are here, and only when you say yes. A song Tidal hasn't got is left as it is.") to
-                        { Music.upgradeSongs(again, force = true) }
+                        "Your playlists, favorites and plays stay with each song. A damaged file is only removed after its new copy is here: " +
+                        "one the app downloaded is replaced straight away, one of your own files goes to the bin when you say yes. " +
+                        "A song that can't be found again is left as it is.") to
+                        { org.omarchy.music.Upgrades.damaged(again) }
                 }
             }
         }

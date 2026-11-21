@@ -55,6 +55,48 @@ object Upgrades {
         }
     }
 
+    /** What Download new copies says of the app's own downloads. */
+    fun againText(got: Int, failed: Int): String = "Downloaded $got damaged song${if (got != 1) "s" else ""} again" +
+        if (failed > 0) " · $failed couldn't (left as they are)" else ""
+
+    /** Whether Download new copies can get t again: one of the app's downloads, or a file of yours Upgrade can swap. */
+    fun canGetAgain(t: Track) = Music.lib.has(t.id) || upgradable(t)
+
+    /** Storage and damaged files' Download new copies. The app's own downloads among them are got again under the same
+     *  song ([Downloader.again]); your own files go through Upgrade, forced (every one Tidal has), which bins the
+     *  damaged file once its new copy is here and you say yes. */
+    fun damaged(tracks: List<Track>) {
+        if (Music.upgrading != null) return
+        val lib = Music.lib
+        val saved = tracks.mapNotNull { t -> (lib.items[t.id] ?: lib.items.values.firstOrNull { it.file == t.file })?.let { t to it.id } }.distinctBy { it.second }
+        val savedIds = saved.map { it.first.id }.toSet()
+        val mine = tracks.filter { it.id !in savedIds && upgradable(it) }
+        if (saved.isEmpty()) { songs(mine, force = true); return }
+        Music.upgradeStop = false
+        Music.upgrading = "Downloading again · 0 of ${saved.size}"
+        val roots = Music.folders.sortedByDescending { it.length }
+        val playing = Music.current()?.id
+        Music.bg({
+            var got = 0; var failed = 0
+            saved.forEachIndexed { i, (t, id) ->
+                if (Music.upgradeStop) return@forEachIndexed
+                val root = runCatching { Music.folderOf(t).let { f -> roots.firstOrNull { f.startsWith(it) } } }.getOrNull()
+                if (id == playing) failed++
+                else try { Music.dl.again(id, root); got++ } catch (e: Exception) {
+                    failed++
+                    Crashes.caught(e, "Downloading ${t.artist} – ${t.title} again (its file is damaged)")
+                }
+                Music.scope.launch { if (Music.upgrading != null) Music.upgrading = "Downloading again · ${i + 1} of ${saved.size}" }
+            }
+            got to failed
+        }) { out, err ->
+            Music.upgrading = null
+            Music.savedVersion++; Music.musicVersion++
+            toast(out?.let { againText(it.first, it.second) } ?: "Couldn't download them again: ${err?.message?.take(90)}")
+            if (mine.isNotEmpty()) songs(mine, force = true)
+        }
+    }
+
     /** Downloads that came from YouTube (Opus), and the YouTube AAC ones not looked up on Tidal yet: Downloads' Upgrade. */
     fun youtubeDownloads() = Music.lib.items.values.filter { it.format == "opus" || (it.quality.startsWith("YouTube") && it.id !in tried) }
 

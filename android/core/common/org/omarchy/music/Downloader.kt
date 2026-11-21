@@ -230,6 +230,30 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         }
     }
 
+    /** (blocking) A download whose file is damaged got again, as it was first got (Tidal, else YouTube), under the same
+     *  song: playlists, favorites and plays stay on it. Its entry (and any other service's that shares the file) is put
+     *  aside so the fetch is a real one, and put back as it was if the fetch fails; the damaged file is deleted only
+     *  once the new one is in. */
+    fun again(id: String, root: String? = null) {
+        val old = lib.items[id] ?: error("not a download")
+        val sharing = synchronized(lib) { lib.items.filter { it.value.file == old.file }.also { it.keys.forEach { k -> lib.items.remove(k) } } }
+        val uri = try { download(old.track(), root) } catch (e: Exception) {
+            synchronized(lib) { sharing.forEach { (k, v) -> lib.items[k] = v }; lib.save() }
+            throw e
+        }
+        synchronized(lib) {
+            val now = lib.items[id]
+            sharing.forEach { (k, v) -> if (k != id) lib.items[k] = v.copy(file = uri, format = now?.format ?: v.format, quality = now?.quality ?: v.quality) }
+            now?.let { lib.items[id] = it.copy(plays = old.plays, last = old.last, added = old.added) }
+            lib.save()
+        }
+        if (uri != old.file) runCatching {
+            val folder = runCatching { FileTags.folderOf(ctx, old.file) }.getOrNull()
+            ctx.deleteUri(old.file)
+            FolderCleanup.after(listOf(folder))
+        }
+    }
+
     /** The quality picked for downloads (Settings › Downloads): "flac24", "flac16" or "mp3". */
     private val quality get() = Prefs.text(Prefs.DL_QUALITY, "flac24").ifEmpty { "flac24" }
 
