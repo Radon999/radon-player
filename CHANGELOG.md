@@ -4,6 +4,15 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.26: Music that stopped partway with the seek bar still moving, and the DJ's named song plays first (Android, Windows and Linux)
+- **Music that went silent partway while the seek bar kept moving (the phone):** the player itself was stopping: the phone's sound output refused a piece of the song it was handed (Settings › Problems showed FAILED_RUNTIME_CHECK), and the app's clock counted on with nothing playing, again each time the song was loaded. The app now makes the output let go of what it was holding and hands the music in again, so the song carries on. Each time is noted in Settings › Problems.
+- **A song that still won't keep playing moves on:** after being loaded again twice it goes on to the next song (or shows as paused, with nothing after it), not silence until you skip it.
+- **It stays the phone's music player while it recovers:** a stopped song about to be loaded again no longer makes Android let the app go, after which it was refused ("startForegroundService() not allowed") with the screen off.
+- **Every song is watched for going silent:** the watch for a song playing on with no sound only looked at hi-res music, and not at all with the equalizer doing nothing. MP3s, streams and CD-quality files are watched too, and started again in place.
+- **Details for support says more about the sound:** what the sound output did lately (set up, let go, ran dry, failed, another app taking the sound) and when real sound last left the app.
+- **The song the DJ names plays first:** a set's line was written before its songs were put in order, so a song said to lead could come second. The first song the line names is moved to the front.
+- **Duplicates finds a download saved with no length:** a song downloaded from a list without lengths (Repeats, your history) showed no time and could not be matched to your other file of it. Its length is read from the file.
+
 ## 4.0.25: Your file under another of its artists, and Duplicates that finds one song tagged two ways (Android, Windows and Linux)
 - **Your file under another of its artists:** a phone reads only the first artist of a file that credits two, so a song your history has under the other one showed as a stream in Repeats, and downloading it made a second copy. The song's length is now taken from your imported Spotify history as well as Apple Music's, and your only song of that name and that length is taken to be it.
 - **Duplicates finds one song tagged two ways:** your files of the same name by an artist both credit, or of the same name and the very same length whoever each names, are listed together. A group put together by name and length alone has no copy marked Remove until you mark one, with a note to play both first: two different songs of one name can run to the same length.
