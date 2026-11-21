@@ -142,7 +142,7 @@ object Instance {
                     "now", "player", "nowplaying" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art" }
                     "lyrics" -> { org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "lyrics" }
                     "queue" -> org.omarchy.music.ui.goTo(ui, "queue")
-                    "search", "library", "albums", "eps", "singles", "artists", "genres", "moods", "smartlists", "moodlists", "folders", "unreleased", "downloads", "flac24", "flac32", "visualizer" -> org.omarchy.music.ui.goTo(ui, rest.lowercase())
+                    "search", "library", "albums", "eps", "singles", "artists", "genres", "moods", "smartlists", "moodlists", "folders", "unreleased", "downloads", "flac24", "flac32", "type-flac", "type-mp3", "type-m4a", "type-wav", "type-ogg", "type-other", "visualizer" -> org.omarchy.music.ui.goTo(ui, rest.lowercase())
                     "music", "all", "mine" -> org.omarchy.music.ui.goTo(ui, "music", "all")
                     "playlists", "recent", "top", "skips", "favorites", "unfavorited", "repeat", "dj", "discovery", "newreleases", "dupes", "pinned" ->
                         org.omarchy.music.ui.goTo(ui, "music", rest.lowercase())

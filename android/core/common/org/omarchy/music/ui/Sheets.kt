@@ -2704,6 +2704,7 @@ private fun DamagedDialog(ui: Ui) {
     if (res == null || res.damaged.isEmpty()) { androidx.compose.runtime.LaunchedEffect(Unit) { close() }; return }
     var picked by remember { mutableStateOf(setOf<String>()) }
     val rows = res.tracks.indices.map { res.tracks[it] to res.damaged[it] }
+    val spots = res.spots
     val chosen = rows.map { it.first }.filter { it.id in picked }
     val up = org.omarchy.music.Upgrades
     val again = chosen.filter { up.canGetAgain(it) }
@@ -2713,7 +2714,7 @@ private fun DamagedDialog(ui: Ui) {
         title = { Text("%,d damaged file%s".format(rows.size, if (rows.size != 1) "s" else ""), style = T.title) },
         text = {
             Column {
-                Text("Listen plays a song from a few seconds before where its damage was found, so you can hear it for yourself. Tick songs, then choose. Show replacements looks each ticked song up and shows, under it, the very song it would be replaced with " +
+                Text("Listen plays a song from a few seconds before where its damage was found, so you can hear it for yourself; a song damaged in several places has one for each (A, B, C…). Tick songs, then choose. Show replacements looks each ticked song up and shows, under it, the very song it would be replaced with " +
                     "(its album, length and quality, and in red what is different from yours); nothing is downloaded yet. Download new copies then gets those, " +
                     "and puts each in the damaged file's place (a file of yours goes to $TRASH only after its new copy is here and you say yes). Never show again keeps " +
                     "the ticked files as they are and leaves them out of every later check: for a song that was never released, which can't be got again.",
@@ -2731,7 +2732,19 @@ private fun DamagedDialog(ui: Ui) {
                             androidx.compose.material3.Checkbox(on, { picked = if (it) picked + t.id else picked - t.id })
                             Column(Modifier.weight(1f)) {
                                 Text(t.title + " – " + t.artist, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(d.first.substringBefore("  (") + ": " + d.second, style = T.sub, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                Text(d.first.substringBefore("  (") + ": " + d.second, style = T.sub, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                // Damaged in several places: one to listen to each (A, B, C…), each from a few seconds before it
+                                val places = spots.getOrElse(i) { emptyList() }
+                                if (places.size > 1) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Listen:", style = T.sub)
+                                    places.forEachIndexed { k, s ->
+                                        Pill((if (k < 26) ('A' + k).toString() else (k + 1).toString()) + " · " + org.omarchy.music.fmtTime(s), quiet = true) {
+                                            val from = fc.listen(t, s)
+                                            Music.toast(if (from > 0) "Playing from ${org.omarchy.music.fmtTime(from)}: the damage is a few seconds on" else "Playing it from the start")
+                                        }
+                                    }
+                                }
                                 // What it would be replaced with, once looked up (Show replacements)
                                 if (t.id in up.plans) up.plans[t.id].let { p ->
                                     if (p == null) Text("→ Not found to download again: it is left as it is", style = T.sub.copy(color = C.red))
@@ -2742,8 +2755,9 @@ private fun DamagedDialog(ui: Ui) {
                                 }
                             }
                             // Hear it for yourself: played from a few seconds before where the damage was found
-                            Pill("Listen", quiet = true) {
-                                val from = fc.listen(t, d.second)
+                            val at = spots.getOrElse(i) { emptyList() }
+                            if (at.size <= 1) Pill("Listen", quiet = true) {
+                                val from = fc.listen(t, at.firstOrNull())
                                 Music.toast(if (from > 0) "Playing from ${org.omarchy.music.fmtTime(from)}: the damage is a few seconds on" else "Playing it from the start")
                             }
                         }

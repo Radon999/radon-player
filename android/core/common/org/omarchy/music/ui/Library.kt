@@ -918,6 +918,38 @@ fun FlacTab(ui: Ui, bits: Int) {
     }
 }
 
+/** A file type's tab (☰ menu › File type: FLACs, MP3s, M4As, WAVs, Ogg and Opus, Other files): every song of yours
+ *  whose file is of that kind, each with what is known of its format; as a list or a grid. For when one kind of file
+ *  needs looking at (its tags, a fault). Songs not read yet are read on opening. */
+@Composable
+fun FileTypeTab(ui: Ui, key: String) {
+    androidx.compose.runtime.LaunchedEffect(Music.musicVersion, Music.savedVersion) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.FlacDepths.scan() } }
+    }
+    val v = org.omarchy.music.FlacDepths.version
+    val name = org.omarchy.music.FlacDepths.typeName(key)
+    val all = remember(Music.musicVersion, Music.savedVersion, v, key) { runCatching { org.omarchy.music.FlacDepths.ofType(key) }.getOrDefault(emptyList()) }
+    val reading = org.omarchy.music.FlacDepths.reading
+    if (all.isEmpty()) {
+        Empty(if (reading != null) "Reading your song files… ${reading.first} of ${reading.second}" else "No ${name.replaceFirstChar { it.lowercase() }.let { if (key == "type-other") it else name }}",
+            "Your songs whose files are of this kind show up here.")
+        return
+    }
+    val formats = remember(all) { all.associate { it.first.id to it.second } }
+    val sorts = org.omarchy.music.songSorts(true, extra = listOf("rate", "rate-low"))
+    val sort = sortNow(key, sorts)
+    val plain = remember(all) { all.map { it.first } }
+    val songs = rememberSorted(plain, sort) { d -> org.omarchy.music.sortTracks(plain, sort, d) { t -> formats[t.id]?.rate ?: 0 } }
+    PlaceColumn(Modifier.fillMaxSize()) {
+        item {
+            ListActions(songs, onDj = { ui.djFrom(Dj.From("songs", name = name, songs = songs)) })
+            Section("${all.size} ${name.uppercase()}" + (reading?.let { " · READING ${it.first} OF ${it.second}" } ?: ""))
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { SortMenu(key, sorts) }
+        }
+        tracks(songs, ui, key) { t -> formats[t.id]?.let { org.omarchy.music.FlacDepths.mark(it) } ?: "" }
+    }
+}
+
 /** Downloads (☰ menu): the songs you downloaded from a service (Tidal, or YouTube where Tidal hasn't them), the newest
  *  first, each with its quality; as a list or a grid. */
 @Composable

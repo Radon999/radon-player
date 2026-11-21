@@ -15,7 +15,7 @@ object RefreshRules {
     /** A list the app keeps itself (playlists, pinned, discovery): drawn again from what is kept. */
     const val LISTS = "lists"
 
-    private val FILE_TABS = setOf("albums", "eps", "singles", "artists", "genres", "moods", "folders", "unreleased", "flac24", "flac32")
+    private val FILE_TABS = setOf("albums", "eps", "singles", "artists", "genres", "moods", "folders", "unreleased", "flac24", "flac32", "type-flac", "type-mp3", "type-m4a", "type-wav", "type-ogg", "type-other")
     private val STAT_VIEWS = setOf("top", "skips", "favorites", "unfavorited", "repeat", "recent", "dj")
 
     /** What Refresh does on the tab (and, in Music, its view), or null where there is nothing to read again (Now

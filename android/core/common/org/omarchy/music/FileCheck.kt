@@ -12,7 +12,9 @@ import kotlinx.serialization.builtins.serializer
 object FileCheck {
     /** tracks: the damaged files' songs, for getting new copies of them (Download new copies). */
     class Result(val summary: FileCheckRules.Summary, val damaged: List<Pair<String, String>>, val unread: Int, val said: String,
-                 val tracks: List<Track> = emptyList(), val tell: (Int) -> String = { said })
+                 val tracks: List<Track> = emptyList(), val tell: (Int) -> String = { said },
+                 /** For each damaged file, where in the song its damage is, in seconds (every place a full check found). */
+                 val spots: List<List<Double>> = emptyList())
 
     // ---- songs you told the check to leave out: never listed as damaged again (a song you can't get again, and
     // keep as it is). Known by the song (its title, artist and album: FileCheckRules.leftKey), so it holds on your
@@ -49,15 +51,15 @@ object FileCheck {
         keepLeft(leftOut + keys)
         result?.let { r ->
             val keep = r.tracks.indices.filter { keyOf(r.tracks[it]) !in keys }
-            result = Result(r.summary, keep.map { r.damaged[it] }, r.unread, r.tell(keep.size), keep.map { r.tracks[it] }, r.tell)
+            result = Result(r.summary, keep.map { r.damaged[it] }, r.unread, r.tell(keep.size), keep.map { r.tracks[it] }, r.tell, keep.map { r.spots.getOrElse(it) { emptyList() } })
         }
     }
 
     /** A damaged song played, from a few seconds before where the check found the damage, so you can hear it for
      *  yourself. It plays as a queue of its own (what was playing is put aside, as when you tap any song). Returns where
      *  it starts, in seconds. */
-    fun listen(t: Track, why: String): Double {
-        val from = FileCheckRules.listenFrom(why)
+    fun listen(t: Track, spot: Double?): Double {
+        val from = FileCheckRules.listenFrom(spot)
         Music.playFrom(listOf(t), 0, false)
         if (from > 0) Music.scope.launch {
             repeat(80) {   // (once it is playing: a jump asked before the song is open is lost)
@@ -98,7 +100,7 @@ object FileCheck {
             }
             val left = leftOut
             val out = ArrayList<FileCheckRules.Song>(songs.size); val bad = ArrayList<Pair<String, String>>(); var unread = 0
-            val badSongs = ArrayList<Track>()
+            val badSongs = ArrayList<Track>(); val badSpots = ArrayList<List<Double>>()
             var looked = 0
             for ((i, t) in songs.withIndex()) {
                 if (stopped) break
@@ -111,6 +113,7 @@ object FileCheck {
                 val kind = MoodWriteRules.kindOf(head)
                 out += FileCheckRules.Song(t.title, t.artist, t.album, kind, bytes)
                 if (keyOf(t) in left) continue   // one you told the check to leave out: counted above, not looked into
+                val found = ArrayList<Double>()   // (a full check: every place the damage is)
                 val why = FileCheckRules.damage(head, bytes, t.duration)
                     // …or a FLAC whose tags and cover no longer lead to its music: what a tag write cut short leaves. Its
                     // first bytes look right, so this is looked for too (the blocks are stepped over, not read).
@@ -121,9 +124,10 @@ object FileCheck {
                     ?: FileCheckRules.soundOf(head, bytes)?.takeIf { kind != "MP3" || mp3Follows(file, bytes - it.first) }
                         ?.let { (sound, atMost) -> FileCheckRules.stopsEarly(sound, atMost, t.duration) }
                     // The full check: the whole file read and followed to its end
-                    ?: if (full) runCatching { Music.ctx.openIn(file)?.use { FullCheck.check(it) { stopped } } }.getOrElse { "it couldn't be read to its end (${it.message?.take(60) ?: it.javaClass.simpleName})" } else null
+                    ?: if (full) runCatching { Music.ctx.openIn(file)?.use { FullCheck.check(it, { stopped }, found) } }.getOrElse { "it couldn't be read to its end (${it.message?.take(60) ?: it.javaClass.simpleName})" } else null
                 why?.let {
                     badSongs += t
+                    badSpots += found.ifEmpty { listOfNotNull(FileCheckRules.spot(it)) }
                     bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to it }
             }
             val sum = FileCheckRules.summary(out)
@@ -136,7 +140,7 @@ object FileCheck {
                     else -> said
                 }
             }
-            Result(sum, bad, unread, tell(bad.size), badSongs, tell)
+            Result(sum, bad, unread, tell(bad.size), badSongs, tell, badSpots)
         }) { r, err ->
             busy = null
             if (r == null) { Music.toast("Couldn't look at your files: ${err?.message?.take(80)}"); return@bg }

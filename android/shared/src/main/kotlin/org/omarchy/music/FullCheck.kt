@@ -35,7 +35,24 @@ object FullCheck {
     }
 
     /** stop: asked now and then; when it says yes the check ends with nothing said. */
-    fun check(input: InputStream, stop: () -> Boolean = { false }): String? {
+    fun check(input: InputStream, stop: () -> Boolean = { false }, spots: MutableList<Double>? = null): String? {
+        val all = ArrayList<Double>()
+        val said = look(input, stop, all)
+        if (said != null) spots?.addAll(all)
+        return said
+    }
+
+    /** "about 0:20 in", or of several: "in 3 places (about 0:20, 1:31 and 3:28 in)"; at most eight are named. */
+    internal fun places(spots: List<Double>): String = when {
+        spots.size <= 1 -> "about ${fmtTime(spots.firstOrNull() ?: 0.0)} in"
+        else -> spots.take(8).map { fmtTime(it) }.let { t ->
+            "in ${spots.size} places (about " + (if (spots.size > 8) t.joinToString(", ") + "…" else t.dropLast(1).joinToString(", ") + " and " + t.last()) + " in)" }
+    }
+
+    /** A damaged spot noted: one for each stretch (two within two seconds of each other are one). */
+    private fun note(spots: MutableList<Double>, at: Double) { if (spots.isEmpty() || at - spots.last() > 2.0) spots += at }
+
+    private fun look(input: InputStream, stop: () -> Boolean, spots: MutableList<Double>): String? {
         val w = Win(input)
         if (w.need(12) < 12) return "it is too small to be a song"
         // ID3 tags in front (an MP3's; some taggers put one in front of a FLAC)
@@ -47,12 +64,12 @@ object FullCheck {
         }
         if (w.need(12) < 4) return "it has tags and no music after them"
         return when {
-            w.str(0, 4) == "fLaC" -> flac(w, stop)
-            tagged -> mp3(w, stop)
+            w.str(0, 4) == "fLaC" -> flac(w, stop, spots)
+            tagged -> mp3(w, stop, spots)
             w.str(0, 4) == "RIFF" && w.need(12) >= 12 && w.str(8, 4) == "WAVE" -> wav(w)
             w.str(0, 4) == "OggS" -> ogg(w, stop)
             w.need(12) >= 8 && w.str(4, 4) == "ftyp" -> mp4(w)
-            w.u(0) == 0xff && (w.u(1) and 0xe0) == 0xe0 -> mp3(w, stop)
+            w.u(0) == 0xff && (w.u(1) and 0xe0) == 0xe0 -> mp3(w, stop, spots)
             else -> "it isn't a music file the app knows"
         }
     }
@@ -101,12 +118,13 @@ object FullCheck {
     }
 
     private const val MP3_MIDDLE = 2048L          // this much that isn't music, with music after it: damage
+    private const val MP3_STRETCH = 64L           // one stretch of it this long is a place to listen to
     private const val MP3_END = 2L shl 20         // a tag at the end (an APE one with a cover) can be big; more than this isn't one
 
-    private fun mp3(w: Win, stop: () -> Boolean): String? {
+    private fun mp3(w: Win, stop: () -> Boolean, spots: MutableList<Double>): String? {
         var frames = 0L; var kind = -1; var secs = 0.0
         var run = 0L        // bytes that aren't music since the last frame
-        var middle = 0L; var badAt = -1.0
+        var middle = 0L
         var n = 0
         while (true) {
             if (++n and 0xfff == 0 && stop()) return null
@@ -119,14 +137,14 @@ object FullCheck {
                 if (have >= cand[0] + 4 && mp3Frame(w.b, w.at + cand[0])?.takeIf { it[1] == cand[1] } == null) null else cand
             } else cand
             if (f == null) { w.at++; run++; continue }
-            if (run > 0) { if (frames > 0) { middle += run; if (badAt < 0) badAt = secs }; run = 0 }
+            if (run > 0) { if (frames > 0) { middle += run; if (run >= MP3_STRETCH) note(spots, secs) }; run = 0 }
             kind = f[1]; frames++; secs += f[2].toDouble() / f[3]
             w.skip(f[0].toLong())
         }
         return when {
             frames == 0L -> "no MP3 sound was found in it"
-            middle > MP3_MIDDLE -> "${SupportRules.size(middle)} inside it isn't music (from about ${fmtTime(badAt)} in): the sound there was lost or overwritten"
-            run > MP3_END -> "its last ${SupportRules.size(run)} isn't music (after ${fmtTime(secs)} of sound): the sound there was lost or overwritten"
+            middle > MP3_MIDDLE -> "${SupportRules.size(middle)} inside it isn't music" + (if (spots.isNotEmpty()) " (${places(spots)})" else "") + ": the sound there was lost or overwritten"
+            run > MP3_END -> { note(spots, secs); "its last ${SupportRules.size(run)} isn't music (after ${fmtTime(secs)} of sound): the sound there was lost or overwritten" }
             else -> null
         }
     }
@@ -165,9 +183,20 @@ object FullCheck {
         return if (crc == (b[n].toInt() and 0xff)) size else -1
     }
 
-    private fun flac(w: Win, stop: () -> Boolean): String? {
+    /** Where in the song the frame whose header is at b[i] starts, in samples: its number, counted in frames of
+     *  [block] samples in a file whose frames are all one size, in samples in one whose frames vary. */
+    private fun flacAt(b: ByteArray, i: Int, block: Int): Long {
+        val first = b[i + 4].toInt() and 0xff
+        val more = when { first < 0x80 -> 0; first < 0xe0 -> 1; first < 0xf0 -> 2; first < 0xf8 -> 3; first < 0xfc -> 4; first < 0xfe -> 5; else -> 6 }
+        var n = (if (more == 0) first else (first and (0x3f shr more))).toLong()
+        for (k in 1..more) n = (n shl 6) or (b[i + 4 + k].toLong() and 0x3f)
+        return if (b[i + 1].toInt() and 1 != 0) n else n * block
+    }
+
+    private fun flac(w: Win, stop: () -> Boolean, spots: MutableList<Double>): String? {
         if (w.need(42) < 42 || (w.u(4) and 0x7f) != 0 || w.be32(4) and 0xffffff != 34L) return "it is a FLAC without its first block (what says how its sound is stored)"
         val maxBlock = (w.u(10) shl 8) or w.u(11)
+        val fixed = (w.u(8) shl 8) or w.u(9)   // (the size of every frame, in a file whose frames are all one size)
         val maxFrame = (w.u(15) shl 16) or (w.u(16) shl 8) or w.u(17)
         val rate = (w.u(18) shl 12) or (w.u(19) shl 4) or (w.u(20) shr 4)
         val ch = ((w.u(20) shr 1) and 7) + 1
@@ -187,9 +216,14 @@ object FullCheck {
         // where the sum is 0 is where the last one ended; a frame that goes on past the biggest one can be is damaged.
         val limit = maxOf(maxFrame, maxOf(maxBlock, 4096) * ch * ((bits + 7) / 8)) + 16384L
         fun at(samples: Long) = if (rate > 0) fmtTime(samples.toDouble() / rate) else "?"
-        var samples = 0L; var size = flacFrame(w.b, w.at, w.end)
+        var good = 0L                                   // samples in the frames that checked out
+        var size = flacFrame(w.b, w.at, w.end)
+        var from = flacAt(w.b, w.at, fixed)             // where the frame being read starts, in samples
         var crc = 0; var len = 0L
         var zeroAt = -1L   // how far into the last frame its sum was last 0 (what follows a whole last frame is a tag)
+        var lost = false   // after a frame that didn't check out: looking for where the next one starts
+        var sound = true   // the frame before this one checked out (or this is the first): a fault here is a new place
+        var endBad = false
         var n = 0
         while (true) {
             if (++n and 0x3f == 0 && stop()) return null
@@ -200,24 +234,38 @@ object FullCheck {
             val b = w.b
             while (i < lim) {
                 val v = b[i].toInt() and 0xff
-                if (crc == 0 && len >= 10) {
+                if (lost) {
+                    val next = if (v == 0xff) flacFrame(b, i, w.end) else -1
+                    if (next < 0) { i++; continue }
+                    lost = false; size = next; from = flacAt(b, i, fixed); crc = 0; len = 0; zeroAt = -1
+                } else if (crc == 0 && len >= 10) {
                     zeroAt = len
                     if (v == 0xff) {
                         val next = flacFrame(b, i, w.end)
-                        if (next >= 0) { samples += size; size = next; len = 0; zeroAt = -1 }
+                        if (next >= 0) { good += size; sound = true; size = next; from = flacAt(b, i, fixed); len = 0; zeroAt = -1 }
                     }
                 }
                 crc = CRC16[((crc shr 8) xor v) and 0xff] xor ((crc shl 8) and 0xffff)
                 len++; i++
-                if (len > limit) return "its sound is damaged about ${at(samples)} in (a frame there doesn't check out)"
+                if (len > limit) {   // a frame that goes on past the biggest one can be: damaged
+                    if (sound && rate > 0) note(spots, from.toDouble() / rate)
+                    sound = false; lost = true; len = 0; crc = 0
+                }
             }
             w.at = i
         }
-        if (crc == 0 && len >= 10) samples += size                      // the last frame, whole
-        else if (zeroAt >= 10 && len - zeroAt <= 4096) samples += size   // …with a small tag after it
-        else return "its sound is damaged or cut short at its end (about ${at(samples)} in)"
-        if (total > 0 && samples < total) return "it holds ${at(samples)} of the ${at(total)} it says it has: the rest is missing"
-        return null
+        if (!lost) {
+            if (crc == 0 && len >= 10) good += size                      // the last frame, whole
+            else if (zeroAt >= 10 && len - zeroAt <= 4096) good += size   // …with a small tag after it
+            else { endBad = true; if (sound && rate > 0) note(spots, from.toDouble() / rate) }
+        }
+        return when {
+            endBad && spots.size <= 1 -> "its sound is damaged or cut short at its end (about ${at(good)} in)"
+            spots.isNotEmpty() -> "its sound is damaged ${places(spots)} (${if (spots.size == 1) "a frame there doesn't" else "frames there don't"} check out)"
+            lost || endBad -> "its sound is damaged (a frame doesn't check out)"
+            total > 0 && good < total -> "it holds ${at(good)} of the ${at(total)} it says it has: the rest is missing"
+            else -> null
+        }
     }
 
     // ---- WAV ----

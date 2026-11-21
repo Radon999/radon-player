@@ -66,11 +66,12 @@ object FileCheckRules {
 
     /** Where in the song the damage is, in seconds, from what the check said of it ("…about 1:02 in…"); null when it
      *  doesn't say. */
-    fun spot(why: String): Double? = Regex("about (\\d+):(\\d\\d) in").find(why)?.let { m -> m.groupValues[1].toInt() * 60.0 + m.groupValues[2].toInt() }
+    fun spot(why: String): Double? = Regex("about (\\d+):(\\d\\d)").find(why)?.let { m -> m.groupValues[1].toInt() * 60.0 + m.groupValues[2].toInt() }
 
     /** Where listening to a damaged song starts: a few seconds before the damage (the song's start when the damage is
      *  in its first seconds, or isn't placed). */
-    fun listenFrom(why: String): Double = spot(why)?.let { if (it > 8.0) it - 6.0 else 0.0 } ?: 0.0
+    fun listenFrom(why: String): Double = listenFrom(spot(why))
+    fun listenFrom(spot: Double?): Double = spot?.let { if (it > 8.0) it - 6.0 else 0.0 } ?: 0.0
 
     /** What the check says when it is done. */
     fun said(songs: Int, total: Long, damaged: Int, unread: Int): String =

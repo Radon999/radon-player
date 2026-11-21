@@ -246,6 +246,7 @@ fun App() {
                         "downloads" -> DownloadsTab(ui)
                         "flac24" -> FlacTab(ui, 24)
                         "flac32" -> FlacTab(ui, 32)
+                        "type-flac", "type-mp3", "type-m4a", "type-wav", "type-ogg", "type-other" -> FileTypeTab(ui, ui.tab)
                         "queue" -> QueueTab(ui)
                         "lyrics" -> LyricsTab(ui)
                         "visualizer" -> VisualizerTab()
@@ -363,13 +364,18 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Folders", Ico.FOLDER, "folders"))
         add(Entry("Unreleased", Ico.FOLDER, "unreleased"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
-        add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))
-        add(Entry("32-bit FLACs", Ico.NOTE, "flac32"))
         add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
         if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
         add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
         add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
         add(Entry("Listen later", Ico.CLOCK, "music", "later"))   // what you put aside to hear another time
+    }),
+    // Your songs by the kind of file they are: to look at one kind when it has a fault or needs tagging
+    Triple("filetypes", "File type", buildList {
+        add(Entry("FLACs", Ico.NOTE, "type-flac"))
+        add(Entry("24-bit FLACs", Ico.NOTE, "flac24"))
+        add(Entry("32-bit FLACs", Ico.NOTE, "flac32"))
+        org.omarchy.music.FlacDepths.TYPES.drop(1).forEach { add(Entry(it.second, Ico.NOTE, it.first)) }
     }),
     Triple("stats", "Statistics and favorites", listOf(Entry("Most played", Ico.CHART, "music", "top"),
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
@@ -583,6 +589,7 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "downloads" -> "Downloads"
         "flac24" -> "24-bit FLACs"
         "flac32" -> "32-bit FLACs"
+        "type-flac", "type-mp3", "type-m4a", "type-wav", "type-ogg", "type-other" -> org.omarchy.music.FlacDepths.typeName(ui.tab)
         "queue" -> "Up next"
         "lyrics" -> "Lyrics"
         "visualizer" -> "Visualizer"

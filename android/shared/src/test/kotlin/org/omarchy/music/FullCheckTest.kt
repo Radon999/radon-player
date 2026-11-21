@@ -28,7 +28,7 @@ class FullCheckTest {
     @Test fun anMp3WithAStretchThatIsNotMusicIsDamaged() {
         // “New Wave”: its size as it should be, ten seconds of sound, then nothing where sound was, then the rest
         val said = check(id3(50_000) + mp3Frames(383) + ByteArray(300_000) + mp3Frames(2000))
-        assertTrue(said, said!!.contains("inside it isn't music") && said.contains("from about 0:10 in"))
+        assertTrue(said, said!!.contains("inside it isn't music") && said.contains("(about 0:10 in)"))
         assertTrue("a picture's bytes where sound was", check(mp3Frames(383) + noise(300_000) + mp3Frames(2000))!!.contains("inside it isn't music"))
         assertTrue("nothing but zeros after ten seconds", check(mp3Frames(383) + ByteArray(3 shl 20))!!.startsWith("its last 3"))
         assertEquals("no MP3 sound was found in it", check(id3(1000) + noise(90_000).also { for (i in it.indices) if (it[i] == 0xff.toByte()) it[i] = 0 }))
@@ -110,5 +110,25 @@ class FullCheckTest {
         assertNull(check(m4a))
         assertTrue(check(m4a.copyOf(m4a.size - 20_000))!!.startsWith("it is cut short"))
         assertEquals("it isn't a music file the app knows", check("<!DOCTYPE html><html>".toByteArray()))
+    }
+
+    @Test fun everyDamagedPlaceIsFoundNotOnlyTheFirst() {
+        // a FLAC of 400 frames (93 ms each: 37 seconds) with something wrong at three places
+        val whole = flac(400)
+        val per = (whole.size - 3046) / 400
+        fun frameAt(k: Int) = 3046 + k * per + per / 2
+        val bad = whole.copyOf().also { for (k in listOf(50, 200, 350)) it[frameAt(k)] = (it[frameAt(k)].toInt() xor 0x20).toByte() }
+        val spots = ArrayList<Double>()
+        val said = FullCheck.check(bad.inputStream(), spots = spots)
+        assertTrue(said, said!!.startsWith("its sound is damaged in 3 places (about 0:04, 0:18 and 0:32 in)"))
+        assertEquals(listOf(4, 18, 32), spots.map { it.toInt() })
+        // an MP3 with two stretches that aren't music
+        val two = ArrayList<Double>()
+        val mp3 = FullCheck.check((mp3Frames(383) + ByteArray(100_000) + mp3Frames(766) + noise(50_000) + mp3Frames(500)).inputStream(), spots = two)
+        assertTrue(mp3, mp3!!.contains("in 2 places (about 0:10 and 0:30 in)"))
+        assertEquals(listOf(10, 30), two.map { it.toInt() })
+        // a whole file: no places
+        val none = ArrayList<Double>(); assertNull(FullCheck.check(whole.inputStream(), spots = none)); assertEquals(0, none.size)
+        assertEquals("in 9 places (about 0:01, 0:02, 0:03, 0:04, 0:05, 0:06, 0:07, 0:08… in)", FullCheck.places((1..9).map { it.toDouble() }))
     }
 }

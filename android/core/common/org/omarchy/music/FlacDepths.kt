@@ -52,6 +52,26 @@ object FlacDepths {
             .sortedWith(compareByDescending<Pair<Track, Format>> { it.second.rate }.thenBy { norm(it.first.artist) }.thenBy { norm(it.first.title) })
     }
 
+    /** The file-type tabs (☰ menu › File type): each one's key, its name, and the kinds of file in it (none named: every
+     *  kind the others don't take, and files whose kind isn't known). */
+    val TYPES: List<Triple<String, String, Set<String>>> = listOf(
+        Triple("type-flac", "FLACs", setOf("flac")), Triple("type-mp3", "MP3s", setOf("mp3")),
+        Triple("type-m4a", "M4As and AACs", setOf("m4a", "aac", "mp4", "alac")), Triple("type-wav", "WAVs", setOf("wav")),
+        Triple("type-ogg", "Ogg and Opus", setOf("ogg", "opus", "oga")), Triple("type-other", "Other files", emptySet()))
+    fun typeName(key: String): String = TYPES.firstOrNull { it.first == key }?.second ?: "Files"
+
+    /** Your songs of one file type, with their formats, by artist then title. */
+    fun ofType(key: String): List<Pair<Track, Format>> {
+        load()
+        val kinds = TYPES.firstOrNull { it.first == key }?.third ?: return emptyList()
+        val named = TYPES.flatMap { it.third }.toSet()
+        return Music.mySongs().mapNotNull { t -> known[t.file ?: return@mapNotNull null]?.takeIf { if (kinds.isEmpty()) it.kind !in named else it.kind in kinds }?.let { t to it } }
+            .sortedWith(compareBy<Pair<Track, Format>> { norm(it.first.artist) }.thenBy { norm(it.first.title) })
+    }
+
+    /** What a song's row says of its file in a file-type tab: "24-bit · 96 kHz" where that's known, else its kind ("MP3"). */
+    fun mark(f: Format): String = if (f.bits > 0 && f.rate > 0) label(f) else f.kind.uppercase()
+
     private val MIME = mapOf("flac" to "flac", "mpeg" to "mp3", "mp3" to "mp3", "mp4" to "m4a", "x-m4a" to "m4a", "aac" to "aac",
         "wav" to "wav", "x-wav" to "wav", "ogg" to "ogg", "opus" to "opus", "aiff" to "aiff", "x-aiff" to "aiff", "x-ms-wma" to "wma")
 
