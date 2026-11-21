@@ -187,8 +187,27 @@ class MusicService : MediaLibraryService() {
                     error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED
                 if (parsing && !Music.streaming && id != null && reparsedFor != id) {
                     reparsedFor = id
-                    SoundLog.note("“${Music.current()?.title}” read as broken (${error.errorCodeName}): tried again in 2 s")
-                    android.os.Handler(mainLooper).postDelayed({ if (Music.current()?.id == id) { exo.prepare(); exo.play() } }, 2000)
+                    val t = Music.current()
+                    SoundLog.note("“${t?.title}” read as broken (${error.errorCodeName}): looked at, and tried again")
+                    // A FLAC of yours left half-written by a tag write that was interrupted: its sound is all there but
+                    // its blocks don't lead to it. Put right in place (FlacRepair: four bytes, nothing moved, what was in
+                    // front of the sound saved first), its names written back if they were lost, and played.
+                    Music.bg({
+                        val path = t?.file?.let { FileTags.pathOf(it) } ?: Music.lib.items[id]?.file?.let { FileTags.pathOf(it) }
+                        val f = path?.let { java.io.File(it) }?.takeIf { it.isFile && it.canWrite() && it.extension.equals("flac", true) }
+                        val done = f?.let { FlacRepair.repair(it, java.io.File(filesDir, "repaired/${it.name}.${System.currentTimeMillis()}.front")) }
+                        if (done != null && f != null && t != null) {
+                            Crashes.note("“${t.title}” was a damaged file (its tags and cover no longer led to its music, as a tag write cut short leaves it): " +
+                                "put right in place, the music untouched" + (if (done.tagsKept) ", its tags kept" else ", its title and artist written back") +
+                                ". Its cover may be gone: Songs without covers, or a Sync, brings it back. What was in front of the music is saved in the app's folder (repaired/)")
+                            if (!done.tagsKept) runCatching { FileTags.writeOwn(f.path, mapOf("title" to t.title, "artist" to t.artist, "album" to t.album).filterValues { it.isNotBlank() }) }
+                            runCatching { android.media.MediaScannerConnection.scanFile(this@MusicService, arrayOf(f.path), null, null) }
+                        }
+                        done != null
+                    }) { repaired, _ ->
+                        // (repaired, or perhaps only being written this moment: either way read again, a little later)
+                        android.os.Handler(mainLooper).postDelayed({ if (Music.current()?.id == id) { exo.prepare(); exo.play() } }, if (repaired == true) 300 else 2000)
+                    }
                     return
                 }
                 if (Music.streaming) Music.streamBroke()
