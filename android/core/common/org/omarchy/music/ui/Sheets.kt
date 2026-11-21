@@ -842,8 +842,12 @@ private fun ToolLines(ui: Ui) {
     Line("Storage and damaged files", "Looks at every song file once (its size and its first few bytes; nothing is played, changed or deleted) and says " +
         "what takes the space, by kind of file, artist and album, with the biggest songs. It also finds files that are damaged in a way that shows " +
         "without playing them: empty, not a music file, or far too small for the song's length (cut short in copying or downloading). A file that is " +
-        "whole but has a fault somewhere inside can only be found by playing it. Damaged files can be downloaded again from here", false, note = fc.busy ?: res?.said ?: "") {
+        "whole but has a fault somewhere inside is found by Full check: that reads every file from start to end and checks the sound itself (a FLAC's and an " +
+        "Ogg's checksums, an MP3's frames one after another, a WAV's and an M4A's parts), so it takes a long time (it reads your whole library; you can " +
+        "stop it). Damaged files can be downloaded again from here", false, note = fc.busy ?: res?.said ?: "") {
         if (fc.busy == null) Pill(if (res == null) "Check…" else "Check again", quiet = true) { fc.run() }
+        if (fc.busy == null) Pill("Full check…", quiet = true) { fc.run(full = true) }
+        if (fc.busy != null) Pill("Stop", quiet = true) { fc.stop() }
         if (res != null && fc.busy == null) Pill("Copy", quiet = true) { copyText("Radon Player storage", fc.text()); Music.toast("Copied") }
     }
     if (res != null) Column(Modifier.padding(start = 8.dp, bottom = 8.dp)) {

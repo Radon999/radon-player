@@ -17,19 +17,29 @@ object FileCheck {
     var result by mutableStateOf<Result?>(null)
         private set
 
-    fun run() {
+    @Volatile private var stopped = false
+    /** A check that is running is asked to end: what it found so far is shown. */
+    fun stop() { stopped = true }
+
+    /** full: every file read from start to end and followed all the way through ([FullCheck]): slow (it reads your
+     *  whole library), and finds damage anywhere inside a file. */
+    fun run(full: Boolean = false) {
         if (busy != null) return
+        stopped = false
         busy = "Reading your songs…"
         Music.bg({
             val songs = Music.mySongs().filter { !it.file.isNullOrEmpty() }
             val out = ArrayList<FileCheckRules.Song>(songs.size); val bad = ArrayList<Pair<String, String>>(); var unread = 0
             val badSongs = ArrayList<Track>()
-            songs.forEachIndexed { i, t ->
-                if (i % 50 == 0) Music.scope.launch { busy = "Looking at %,d of %,d…".format(i, songs.size) }
+            var looked = 0
+            for ((i, t) in songs.withIndex()) {
+                if (stopped) break
+                looked = i + 1
+                if (full || i % 50 == 0) Music.scope.launch { if (busy != null) busy = (if (full) "Reading every file in full: %,d of %,d…" else "Looking at %,d of %,d…").format(i, songs.size) }
                 val file = t.file!!
                 val bytes = runCatching { Music.ctx.typeAndSize(file)?.second }.getOrNull()
                 val head = runCatching { Music.ctx.openIn(file)?.use { s -> ByteArray(32).also { b -> var n = 0; while (n < 32) { val r = s.read(b, n, 32 - n); if (r < 0) break; n += r } } } }.getOrNull()
-                if (bytes == null || head == null) { unread++; return@forEachIndexed }
+                if (bytes == null || head == null) { unread++; continue }
                 val kind = MoodWriteRules.kindOf(head)
                 out += FileCheckRules.Song(t.title, t.artist, t.album, kind, bytes)
                 val why = FileCheckRules.damage(head, bytes, t.duration)
@@ -41,12 +51,19 @@ object FileCheck {
                     // its tag: a FLAC behind an ID3 tag isn't measured as an MP3)
                     ?: FileCheckRules.soundOf(head, bytes)?.takeIf { kind != "MP3" || mp3Follows(file, bytes - it.first) }
                         ?.let { (sound, atMost) -> FileCheckRules.stopsEarly(sound, atMost, t.duration) }
+                    // The full check: the whole file read and followed to its end
+                    ?: if (full) runCatching { Music.ctx.openIn(file)?.use { FullCheck.check(it) { stopped } } }.getOrElse { "it couldn't be read to its end (${it.message?.take(60) ?: it.javaClass.simpleName})" } else null
                 why?.let {
                     badSongs += t
                     bad += ((runCatching { FileTags.nameOf(file) }.getOrNull() ?: MoodWriteRules.fileName(file)) + "  (" + PlaylistSendRules.songName(t.title, t.artist) + ")") to it }
             }
             val sum = FileCheckRules.summary(out)
-            Result(sum, bad, unread, FileCheckRules.said(sum.songs, sum.total, bad.size, unread), badSongs)
+            val said = FileCheckRules.said(sum.songs, sum.total, bad.size, unread)
+            Result(sum, bad, unread, when {
+                stopped -> "Stopped after %,d of %,d songs. ".format(looked, songs.size) + said
+                full -> "$said. Every file was read in full"
+                else -> said
+            }, badSongs)
         }) { r, err ->
             busy = null
             if (r == null) { Music.toast("Couldn't look at your files: ${err?.message?.take(80)}"); return@bg }
