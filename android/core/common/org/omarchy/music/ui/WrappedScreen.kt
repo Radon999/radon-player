@@ -1004,10 +1004,11 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     // song's whole name, its artist and its repeats are always there (side by side they were cut off). Top artists,
     // whose names are short, take five rows in three columns; songs and obsessions fifteen rows each.
     val tall = room.width.value < 560f && cardH.value > room.width.value * 1.15f
-    val rows = 5 + 15 + (if (obsessions.isEmpty()) 0 else 15) + (if (obsessions.isEmpty()) 2 else 3) * 1.5f
-    val line = if (tall) (((cardH.value - 176f) / rows - 1f) / 1.22f).coerceIn(7f, 15f)
+    // (each row is exactly 1.28 of its letters' size high, see below; the card's other parts take about 200)
+    val rows = 5 + 15 + (if (obsessions.isEmpty()) 0 else 15) + (if (obsessions.isEmpty()) 2 else 3) * 1.6f
+    val line = if (tall) ((cardH.value - 200f) / rows / 1.28f).coerceIn(7f, 15f)
         else minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / (if (cols == 3) 26f else 34f) / 0.55f).coerceIn(if (cols == 3) 9f else 10f, 20f)
-    val k = if (tall) (line / 11f).coerceAtLeast(0.8f) else line / 11f
+    val k = if (tall) 0.85f else line / 11f
     Column(Modifier.fillMaxWidth().height(cardH)
         .background(WS.card).background(Brush.linearGradient(listOf(WS.accent.copy(alpha = 0.20f), Color.Transparent)))
         .border(1.dp, WS.line, RoundedCornerShape(4.dp)).padding(horizontal = (16 * k).coerceAtMost(32f).dp, vertical = (16 * k).coerceAtMost(28f).dp),
@@ -1024,20 +1025,24 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         val obsessionLines = obsessions.map { (l, c) ->
             val t = runCatching { org.omarchy.music.Music.mineOf(l.track) }.getOrDefault(l.track)
             "${n(c)}×  ${t.title}" + (t.artist.split(",")[0].trim().takeIf { !org.omarchy.music.noArtistNamed(it) }?.let { " - $it" } ?: "") }
-        if (tall) Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            val item = W.name.copy(fontSize = line.sp, lineHeight = (line * 1.22f).sp)
-            val head = W.small.copy(fontSize = (line * 0.95f).sp, lineHeight = (line * 1.4f).sp)
+        if (tall) Column {
+            // A row as high as it is told to be (a line of text is otherwise as high as its font likes, a third more,
+            // and the lists ran off the card's end)
+            val exact = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                androidx.compose.ui.text.style.LineHeightStyle.Trim.None)
+            val item = W.name.copy(fontSize = line.sp, lineHeight = (line * 1.28f).sp, lineHeightStyle = exact)
+            val head = W.small.copy(fontSize = (line * 0.9f).sp, lineHeight = (line * 1.28f).sp, lineHeightStyle = exact)
             Text("TOP ARTISTS", style = head)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val names = d.artists.take(15).map { it.first }
-                for (c in 0 until 3) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                for (c in 0 until 3) Column(Modifier.weight(1f)) {
                     for (i in c * 5 until minOf(names.size, c * 5 + 5)) Text("${i + 1}  ${names[i]}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Text("TOP SONGS", style = head, modifier = Modifier.padding(top = (line * 0.5f).dp))
+            Text("TOP SONGS", style = head, modifier = Modifier.padding(top = (line * 0.75f).dp))
             d.songs.take(15).forEachIndexed { i, it -> Text("${i + 1}  ${it.title} - ${it.artist.split(",")[0].trim()}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             if (obsessionLines.isNotEmpty()) {
-                Text("TOP OBSESSIONS", style = head, modifier = Modifier.padding(top = (line * 0.5f).dp))
+                Text("TOP OBSESSIONS", style = head, modifier = Modifier.padding(top = (line * 0.75f).dp))
                 obsessionLines.forEachIndexed { i, it -> Text("${i + 1}  $it", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         } else
@@ -1054,7 +1059,7 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         val genres = d.fileGenres.map { it.first }.ifEmpty { d.genres }.take(5)
         if (genres.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("TOP GENRES", style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
-            Text(genres.mapIndexed { i, g -> "${i + 1}  $g" }.joinToString("   "), style = W.name.copy(fontSize = line.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(genres.mapIndexed { i, g -> "${i + 1}  $g" }.joinToString("   "), style = W.name.copy(fontSize = line.sp), maxLines = if (tall) 1 else 2, overflow = TextOverflow.Ellipsis)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             listOf("MINUTES" to n(d.minutes), "HOURS" to n(((d.minutes + 30) / 60).toInt()), "SCROBBLES" to n(d.scrobbles)).forEach { (head, value) ->
