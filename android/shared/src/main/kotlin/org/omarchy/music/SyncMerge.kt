@@ -31,7 +31,7 @@ object SyncRules {
     val STATE_VALUES = listOf("lyrics_mode", "music_sort", "playlist_sort", "skip_order", "skip_period", "top_mine_only",
         "top_period", "top_kind", "collage_size", "look", "np_fallback", "vis_preset", "wrapped_style", "autoplay",
         "multi_queue", "lyrics_to_files", "dupe_action", "dj_new")
-    val STATE_MAPS = listOf("tab_sorts", "tab_picks", "artist_picks", "album_picks", "song_picks", "stat_hides")
+    val STATE_MAPS = listOf("tab_sorts", "tab_picks", "artist_picks", "album_picks", "song_picks", "stat_hides", "damaged_left")
     val STATE_SETS = listOf("similar_kept", "singles_kept", "not_dupes")
     val STATE_KEYS = STATE_VALUES + STATE_MAPS + STATE_SETS + listOf("eq", "pins")
 

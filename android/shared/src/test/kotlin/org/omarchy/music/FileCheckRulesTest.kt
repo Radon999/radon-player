@@ -49,4 +49,12 @@ class FileCheckRulesTest {
         assertEquals(30_000_000L to 176_400L, FileCheckRules.soundOf(wav, 30_000_000))
         assertNull("a FLAC isn't measured this way", FileCheckRules.soundOf("fLaC".toByteArray() + ByteArray(8), 30_000_000))
     }
+
+    @Test fun aSongLeftOutIsKnownTheSameOnBothDevices() {
+        // the phone's file and the PC's are named and kept differently; the song is the same
+        assertEquals(FileCheckRules.leftKey("Prime Time (v2)", "Juice WRLD", "Goodbye & Good Riddance (Sessions)"),
+            FileCheckRules.leftKey("Prime Time (v2)", "Juice WRLD, Someone", "Goodbye & Good Riddance (Sessions)"))
+        assertTrue("another song", FileCheckRules.leftKey("Prime Time", "Juice WRLD", "Sessions") != FileCheckRules.leftKey("Macaroni Sound", "Juice WRLD", "Sessions"))
+        assertTrue("the same title on another album", FileCheckRules.leftKey("Stars", "Imagine Dragons", "Night Visions") != FileCheckRules.leftKey("Stars", "Imagine Dragons", "Demos"))
+    }
 }

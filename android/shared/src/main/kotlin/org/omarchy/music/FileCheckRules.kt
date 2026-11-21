@@ -60,6 +60,10 @@ object FileCheckRules {
         else -> null
     }
 
+    /** A song you told the check to leave out, known the same on the phone and the PC however its file is named or
+     *  where it is kept: its title and lead artist (tidied, as the stats know a song) and its album. */
+    fun leftKey(title: String, artist: String, album: String): String = songPickKey(title, artist) + "|" + norm(albumBase(album))
+
     /** What the check says when it is done. */
     fun said(songs: Int, total: Long, damaged: Int, unread: Int): String =
         "%,d songs take %s. ".format(songs, SupportRules.size(total)) +
