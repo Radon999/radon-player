@@ -4,6 +4,12 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.0.31: Damaged files can be downloaded again, and a tag write can no longer leave half a file (Android, Windows and Linux)
+- **Download new copies of damaged files:** Storage and damaged files (Settings › Scanner › Your files) has **Download new copies** under its list of damaged files. A song the app downloaded is got again the way it first was, and its damaged file removed only once the new one is saved. A file of your own is got from Tidal in FLAC (Tidal connected), and the damaged file goes to the bin only after its new copy is here and you say yes. Playlists, favorites and plays stay with each song; a song that can't be found again is left as it is.
+- **The check finds more:** a FLAC whose tags and cover no longer lead to its music (what a tag write that was cut short leaves) is listed as damaged. Its first bytes look right, so the check missed it before.
+- **A tag write can't leave half a file:** writing tags, lyrics, moods or a cover into a song now writes a whole copy first, checks that the copy still holds the music, and only then puts it in the song's place. A write that is interrupted (the app closed, the phone switched off) is finished the next time the app starts.
+- **A damaged FLAC is put right when it's played (the phone):** a FLAC that fails with "PARSING_CONTAINER_MALFORMED" is looked through for where its music starts and its tags rebuilt around it, then played. A copy of the file as it was is kept. A file too damaged for that is left as it is: Download new copies replaces it.
+
 ## 4.0.30: A skip is only the Next button, radio counts only what the radio queued, and milestones match your plays (Android, Windows and Linux)
 - **What counts as a skip:** pressing Next (the button, the headphones, the notification) with more than 15 seconds of the song left, and nothing else. Picking another song from a list, the app moving on by itself, and going back are not skips. Before, every change of song but Previous counted, so the songs you play most led Most skipped.
 - **A clean slate for the app's own skips:** they are counted from 21 November 2026. Skips counted before are left in place and not counted (so a Sync can't bring them back); songs heard to the end are counted as ever.

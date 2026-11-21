@@ -1,0 +1,9 @@
+v4.0.31
+Radon Player 4.0.31: damaged files can be downloaded again, and a tag write can no longer leave half a file
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.0.31.msi` (Windows), `radon-player_4.0.31_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Download new copies of damaged files:** Storage and damaged files (Settings › Scanner › Your files) has **Download new copies** under its list of damaged files. A song the app downloaded is got again the way it first was, and its damaged file removed only once the new one is saved. A file of your own is got from Tidal in FLAC (Tidal connected), and the damaged file goes to the bin only after its new copy is here and you say yes. Playlists, favorites and plays stay with each song; a song that can't be found again is left as it is.
+- **The check finds more:** a FLAC whose tags and cover no longer lead to its music (what a tag write that was cut short leaves) is listed as damaged. Its first bytes look right, so the check missed it before.
+- **A tag write can't leave half a file:** writing tags, lyrics, moods or a cover into a song now writes a whole copy first, checks that the copy still holds the music, and only then puts it in the song's place. A write that is interrupted (the app closed, the phone switched off) is finished the next time the app starts.
+- **A damaged FLAC is put right when it's played (the phone):** a FLAC that fails with "PARSING_CONTAINER_MALFORMED" is looked through for where its music starts and its tags rebuilt around it, then played. A copy of the file as it was is kept. A file too damaged for that is left as it is: Download new copies replaces it.
