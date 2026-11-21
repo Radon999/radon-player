@@ -287,7 +287,9 @@ object Wrapped {
         return out.values.sortedByDescending { it.plays }
     }
 
-    private fun yearStats(base: Data, rows: List<Row>): Data {
+    /** undated: plays known only as a count (a library's all-time totals, no dates): they count for the songs, artists
+     *  and albums and for how many plays there were, and for nothing that needs a day (months, hours, streaks…). */
+    private fun yearStats(base: Data, rows: List<Row>, undated: List<Row> = emptyList()): Data {
         val artists = LinkedHashMap<String, Int>(); val songs = LinkedHashMap<Pair<String, String>, Int>()
         val albums = LinkedHashMap<Pair<String, String>, Int>()
         val artistName = HashMap<String, String>(); val songName = HashMap<Pair<String, String>, Pair<String, String>>()
@@ -297,14 +299,15 @@ object Wrapped {
         val months = IntArray(12); val hours = IntArray(24); val weekdays = IntArray(7); val days = LinkedHashMap<LocalDate, Int>()
         val monthArtists = Array(12) { HashMap<String, Int>() }   // each month's artists, for its top one
         val daySongs = HashMap<Pair<LocalDate, Pair<String, String>>, Int>()   // a song's plays in one day
-        for (r in rows) {
+        for ((n, r) in (rows.asSequence().map { 0 to it } + undated.asSequence().map { 1 to it })) {
+            val dated = n == 0
             // The same song from Last.fm, Spotify and Apple Music counts as one (as in Most played).
             val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
             artists.merge(ka, 1, Int::plus); songs.merge(ks, 1, Int::plus)
             val lead = splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist
             val had = artistName[ka]   // named as they are on their own ("Quinn XCII", not "Quinn XCII & …")
             if (had == null || (soloName(mapOf(had to 0, lead to 0)) == lead && had != lead)) artistName[ka] = lead
-            songName.putIfAbsent(ks, r.title to r.artist); firstPlay.putIfAbsent(ks, r.t)
+            songName.putIfAbsent(ks, r.title to r.artist); if (dated) firstPlay.putIfAbsent(ks, r.t)
             val img = picture(r.image)
             if (img.isNotEmpty()) art[ks] = img
             if (r.album.isNotEmpty()) {
@@ -315,6 +318,7 @@ object Wrapped {
                 if (was == null || (edition.isNotEmpty() && albumEdition(was.first).second.isEmpty())) albumName[kb] = r.album to lead
                 if (img.isNotEmpty()) albumArt[kb] = img
             }
+            if (!dated) continue
             val d = local(r.t)
             months[d.monthValue - 1]++; hours[d.hour]++; weekdays[d.dayOfWeek.value - 1]++
             days.merge(d.toLocalDate(), 1, Int::plus)
@@ -328,23 +332,24 @@ object Wrapped {
         }
         // Most common first; ties keep the order first seen, like Python's Counter.
         fun <K> common(m: Map<K, Int>) = m.entries.sortedByDescending { it.value }
-        val busiest = common(days).first()
+        val busiest = common(days).firstOrNull()   // (none when every play is undated)
         val topArtist = common(artists).first().key
         val byTop = common(songs).firstOrNull { it.key.second == topArtist }
-        val t0 = rows.first()
+        val t0 = rows.firstOrNull()
         val rep = daySongs.entries.maxByOrNull { it.value }?.takeIf { it.value >= 3 }?.let { (k, n) ->
             val (title, artist) = songName[k.second]!!
             Repeat(Song(title, artist, n, art[k.second] ?: ""), k.first)
         }
         val monthTops = (0 until 12).mapNotNull { m -> common(monthArtists[m]).firstOrNull()?.let { m to artistName[it.key]!! } }
         return base.copy(dayRepeat = rep, monthTops = monthTops,
-            scrobbles = rows.size, artistCount = artists.size, songCount = songs.size,
+            scrobbles = rows.size + undated.size, artistCount = artists.size, songCount = songs.size,
             artists = common(artists).take(30).map { artistName[it.key]!! to it.value },
             songs = common(songs).take(TOP).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k]) },
             albums = common(albums).take(TOP).map { (k, n) -> AlbumPlays(albumName[k]!!.first, albumName[k]!!.second, n, albumArt[k] ?: "") },
             topArtistSong = byTop?.let { songName[it.key]!!.first to it.value },
             months = months.toList(), hours = hours.toList(), weekdays = weekdays.toList(), streak = streak, days = days.size,
-            busiest = busiest.key, busiestN = busiest.value, first = LastFm.Played(t0.t, t0.artist, t0.title, t0.album, t0.image),
+            busiest = busiest?.key ?: base.busiest, busiestN = busiest?.value ?: 0,
+            first = t0?.let { LastFm.Played(it.t, it.artist, it.title, it.album, it.image) },
         )
     }
 
@@ -460,6 +465,26 @@ object Wrapped {
         return if (asYours == null) all else all.map { p -> asYours(p.title, p.artist)?.let { p.copy(title = it.first, artist = it.second) } ?: p }
     }
 
+    /** The plays an Apple Music library export knows only as a song's all-time count: one row a play, no date. Only
+     *  what is past the dated Apple plays of the same song (the library's count has those in it), as Most played does;
+     *  named as your own file is, and without what you hid from stats. */
+    private fun undatedTotals(): List<Row> {
+        val totals = AppleHistory.rows.filter { it.t <= 0 && it.count > 0 }
+        if (totals.isEmpty()) return emptyList()
+        val asYours = runCatching { YourCopies.renamer() }.getOrNull()
+        val dated = AppleHistory.timed().groupingBy { Stats.statsKey(it.title, it.artist) }.eachCount()
+        val out = ArrayList<Row>()
+        for (r in totals) {
+            val extra = r.count - (dated[Stats.statsKey(r.title, r.artist)] ?: 0)
+            if (extra <= 0) continue
+            val (title, artist) = asYours?.invoke(r.title, r.artist) ?: (r.title to r.artist)
+            if (StatHides.any && StatHides.play(title, artist, r.album)) continue
+            val row = Row(0, artist, title, r.album, "", 0)
+            repeat(minOf(extra, 100_000)) { out += row }
+        }
+        return out
+    }
+
     /** rows with your Spotify and Apple Music plays from start to end, added up (every play in them counts). */
     private fun withSpotify(rows: List<Row>, start: Long, end: Long): List<Row> {
         val plays = imported().filter { it.t in start until end }
@@ -508,7 +533,9 @@ object Wrapped {
         val dir = File(ctx.filesDir, "wrapped").apply { mkdirs() }
         val fm = LastFm.connected
         val spotify = imported().sortedBy { it.t }   // Spotify's, Deezer's, YouTube Music's, Tidal's and Apple Music's plays (and here's)
-        if (!fm && spotify.isEmpty()) error("Connect Last.fm or import your Spotify, Apple Music, Deezer, YouTube Music or Tidal history in Settings (⚙), or play some music here first.")
+        // An Apple Music library's all-time counts (no dates): in All time's songs, artists, albums, plays and minutes
+        val undated = if (period == Period.All) runCatching { undatedTotals() }.getOrDefault(emptyList()) else emptyList()
+        if (!fm && spotify.isEmpty() && undated.isEmpty()) error("Connect Last.fm or import your Spotify, Apple Music, Deezer, YouTube Music or Tidal history in Settings (⚙), or play some music here first.")
         val me = if (fm) { progress("Opening your Last.fm…"); profile(dir) } else null
         val thisYear = LocalDate.now().year
         var firstYear = me?.registered?.takeIf { it > 0 }?.let { local(it).year } ?: thisYear
@@ -519,7 +546,7 @@ object Wrapped {
         var data: Data
         var rows: List<Row>
         val local = Local()
-        if (period == Period.All && spotify.isEmpty() && !lastFmDown) {   // Last.fm adds it all up: no need to read every scrobble
+        if (period == Period.All && spotify.isEmpty() && undated.isEmpty() && fm && !lastFmDown) {   // Last.fm adds it all up: no need to read every scrobble
             val counts = years.reversed().map { y ->
                 progress("Counting your scrobbles · $y")
                 y to LastFm.count(startOf(y), startOf(y + 1))
@@ -541,9 +568,9 @@ object Wrapped {
             rows = if (period == Period.All)
                 withSpotify(if (fm) years.reversed().flatMap { scrobbles(dir, Period.Year(it), progress) } else emptyList(), Long.MIN_VALUE, Long.MAX_VALUE)
             else withSpotify(if (fm) scrobbles(dir, period, progress) else emptyList(), epoch(period.start()), epoch(period.end()))
-            if (rows.isEmpty()) return base.copy(empty = true)
+            if (rows.isEmpty() && undated.isEmpty()) return base.copy(empty = true)
             rows = localRows(rows, local)
-            data = yearStats(base, rows)
+            data = yearStats(base, rows, undated)
             if (period != Period.All) {
                 val start = epoch(period.start()); val naturalEnd = epoch(period.end())
                 val end = minOf(naturalEnd, now().toLong())
@@ -572,7 +599,7 @@ object Wrapped {
                 data = data.copy(yearsCount = years.reversed().map { it to (perYear[it] ?: 0) })
             }
             progress("Adding up your minutes…")
-            data = data.copy(minutes = minutes(dir, rows))
+            data = data.copy(minutes = minutes(dir, rows + undated))
         }
         data = data.copy(milestones = runCatching {
             if (period == Period.All) Stats.periodMilestones(0, Long.MAX_VALUE)
