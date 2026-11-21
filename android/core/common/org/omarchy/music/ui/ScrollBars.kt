@@ -94,19 +94,10 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
             if (rows > wasAt.first) { returned = true; state.scrollToItem(wasAt.first, wasAt.second) }
         }
     }
-    // Jump to a letter: a list in alphabetical order says where each letter starts (JumpIndex), and a strip of letters
-    // down the side goes there
-    val jump = remember(place) { JumpIndex() }
-    androidx.compose.foundation.layout.Box(modifier) {
-        // (the rows keep clear of the strip, so a row's own buttons at its right end can still be reached)
-        LazyColumn(Modifier.fillMaxWidth(), state = state, contentPadding = PaddingValues(end = if (jump.shown.isNotEmpty()) STRIP_WIDTH - 6.dp else 0.dp)) {
-            jump.begin(); CountingScope(this, jump).content(); jump.told.trySend(Unit) }
-        // The list's rows are worked out as it is measured, which is after this is drawn: so the letters are handed on
-        // when the list says it has them (4.0.14 looked once, before there were any, and the strip never showed)
-        androidx.compose.runtime.LaunchedEffect(jump) { for (x in jump.told) jump.publish() }
-        val letters = jump.shown
-        if (letters.isNotEmpty()) LetterStrip(letters, state, Modifier.align(Alignment.CenterEnd))
-    }
+    // (4.0.14 to 4.0.33 had a strip of letters down the right side, to jump to a letter: taken out. It made long
+    // lists slow, the 24-bit FLACs most of all, and was hardly used. The lists hand their rows straight on, so nothing
+    // works out where the letters start any more.)
+    LazyColumn(modifier, state = state, content = content)
 }
 
 /** Where each letter starts in the list on screen (the letter, the row), as the list's own rows say while they are
