@@ -148,6 +148,29 @@ class Plays(ctx: Ctx) {
         writeAtomic(file, JSON.encodeToString(ser, items))
     }
 
+    /** Another device's plays (This app's own play history): each song's added to yours of the same name and artist
+     *  ([PlayExportRules.merge]), a song you never played here added as it is. (songs changed, plays added). */
+    @Synchronized
+    fun mergeIn(theirs: List<PlayEntry>): Pair<Int, Int> {
+        val mine = HashMap<Pair<String, String>, String>()
+        for ((id, e) in items) mine.putIfAbsent(songKey(e.track), id)
+        var songs = 0; var plays = 0
+        for (e in theirs) {
+            if (e.plays <= 0 && e.at.isEmpty()) continue
+            val key = songKey(e.track)
+            val id = mine[key]
+            val old = id?.let { items[it] }
+            val m = PlayExportRules.merge(PlayExportRules.Counted(old?.plays ?: 0, old?.at ?: emptyList()),
+                PlayExportRules.Counted(e.plays, e.at), 500)
+            if (old != null && m.count == old.plays && m.times == old.at) continue
+            songs++; plays += m.count - (old?.plays ?: 0)
+            val t = old?.track ?: e.track
+            items[id ?: e.track.id.also { mine[key] = it }] = PlayEntry(m.count, maxOf(old?.last ?: 0.0, e.last), t, m.times)
+        }
+        if (songs > 0) writeAtomic(file, JSON.encodeToString(ser, items))
+        return songs to plays
+    }
+
     /** Recently played: the last RECENT_SHOWN songs, a new one pushing the oldest off the bottom. */
     fun recent(n: Int = RECENT_SHOWN) = items.values.sortedByDescending { it.last }.take(n).map { it.track }
 

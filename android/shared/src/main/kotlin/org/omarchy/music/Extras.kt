@@ -139,6 +139,27 @@ class SongStats(private val file: File) {
         writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), SkipEntry.serializer()), items))
     }
 
+    /** What is counted here, as it is in the file (This app's own play history writes it out). */
+    @Synchronized fun kept(): List<SkipEntry> = items.values.toList()
+
+    /** Another device's skips and songs heard out: added to yours of the same song ([PlayExportRules.merge]). How many
+     *  were new. */
+    @Synchronized fun mergeIn(theirs: List<SkipEntry>): Int {
+        var added = 0
+        for (e in theirs) {
+            val t = e.track ?: continue
+            val old = items[songId(t)]
+            val sk = PlayExportRules.merge(PlayExportRules.Counted(old?.skips ?: 0, old?.skips_at ?: emptyList()), PlayExportRules.Counted(e.skips, e.skips_at), 300)
+            val fu = PlayExportRules.merge(PlayExportRules.Counted(old?.full ?: 0, old?.full_at ?: emptyList()), PlayExportRules.Counted(e.full, e.full_at), 300)
+            val was = (old?.skips ?: 0) + (old?.full ?: 0)
+            if (sk.count + fu.count == was && old != null && sk.times == old.skips_at && fu.times == old.full_at) continue
+            added += sk.count + fu.count - was
+            items[songId(t)] = SkipEntry(sk.count, fu.count, maxOf(old?.last_skip ?: 0.0, e.last_skip), old?.track ?: t, sk.times, fu.times)
+        }
+        if (added > 0) writeAtomic(file, JSON.encodeToString(MapSerializer(String.serializer(), SkipEntry.serializer()), items))
+        return added
+    }
+
     @Synchronized fun skipped(t: Track) = bump(t, true)
     @Synchronized fun heardOut(t: Track) = bump(t, false)
 

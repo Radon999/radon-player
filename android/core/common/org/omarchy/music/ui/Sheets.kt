@@ -446,6 +446,7 @@ private fun AccountsSheet(ui: Ui) {
             SpotifyHistoryLine(ui)
             AppleHistoryLine()
             DeezerHistoryLine()
+            OwnHistoryLine()
             ImportLine(org.omarchy.music.YouTubeHistory, "https://takeout.google.com",
                 "Bring your YouTube Music listening into Most played, Artists and Wrapped, added alongside your Last.fm scrobbles " +
                     "(importing it again never adds a play twice). To get the file: tap Get the file (takeout.google.com) and sign in, tap Deselect all, " +
@@ -775,6 +776,34 @@ private fun DeezerHistoryLine() {
         text = { Text("Its plays leave Most played, Artists and Wrapped. They come back if you import it again.", style = T.sub) },
         confirmButton = { TextButton({ asking = false; Music.bg({ h.clear(); org.omarchy.music.Stats.refresh(force = true) }) }) { Text("Clear", color = C.accent) } },
         dismissButton = { TextButton({ asking = false }) { Text("Cancel", color = C.muted) } })
+}
+
+/** This app's own play history: out to a file, and in from one made on another device (PlayExport). */
+@Composable
+private fun OwnHistoryLine() {
+    val save = rememberSaveFile("application/json") { uri ->
+        if (uri != null) Music.bg({ org.omarchy.music.PlayExport.export(Music.ctx, uri) }) { n, err ->
+            Music.toast(if (err != null) "Couldn't export: ${err.message?.take(120)}" else "Exported the plays of %,d songs, your skips and your listening diary".format(n ?: 0))
+        }
+    }
+    val pick = rememberOpenFile { uri ->
+        if (uri != null) Music.bg({ org.omarchy.music.PlayExport.import(Music.ctx, uri) }) { said, err ->
+            if (err != null) { org.omarchy.music.ImportNotes.failed("own", err)
+                Music.toast("Import failed: ${org.omarchy.music.ImportNotes.why(err).take(300)}") }
+            else { org.omarchy.music.ImportNotes.ok("own", said ?: ""); Music.toast("Import worked: $said")
+                org.omarchy.music.Stats.refresh(force = true); Music.musicVersion++ }
+        }
+    }
+    Line("This app's own play history", "What Radon Player counted itself: the plays it keeps as a fallback for when Last.fm isn't " +
+        "connected (and Recently played), the songs you skipped or heard to the end, and its listening diary (where your music came from, " +
+        "your devices, your playlists). Export writes them to one file; Import brings such a file in on another $DEVICE or another install " +
+        "of the app, adding what this one hasn't got. Importing the same file twice adds nothing. Your Spotify, Apple Music and other " +
+        "imported histories aren't in it: import those again where you want them", true) {}
+    ImportNote("own")
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+        Pill("Export…", quiet = true) { save.launch("Radon Player play history ${java.time.LocalDate.now()}.json") }
+        Pill("Import…") { pick.launch(arrayOf("*/*")) }
+    }
 }
 
 /** How the last import of this kind went: it worked and what it added, or it failed and why (kept till the next). */
