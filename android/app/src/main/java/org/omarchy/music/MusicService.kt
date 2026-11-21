@@ -191,6 +191,32 @@ class MusicService : MediaLibraryService() {
             val h = android.os.Handler(mainLooper)
             var deadFor: String? = null
             var heals = 0
+            // The same for a song whose music has stopped reaching the sound output at all while it "plays" (seen 21 Nov
+            // 2026 on “Wake Up Call”: after the output let go of an old buffer the song counted on for 40 seconds with
+            // nothing going out, and no watch saw it, because they all look at the music as it passes and none was
+            // passing). Four seconds with nothing taken by the output, the song not at its end: started again in place.
+            var stuckFor: String? = null
+            var stuckHeals = 0
+            val fedWatch = object : Runnable {
+                override fun run() {
+                    h.postDelayed(this, 2000)
+                    runCatching {
+                        val eq = Music.eqProcessor
+                        val t = Music.current() ?: return@runCatching
+                        if (!exo.isPlaying || eq.sinkEos || eq.sinkFedAt == 0L || Music.usbDirect || Music.cast != null) return@runCatching
+                        val quiet = System.currentTimeMillis() - eq.sinkFedAt
+                        if (quiet < 4000) return@runCatching
+                        if (t.id != stuckFor) { stuckFor = t.id; stuckHeals = 0 }
+                        if (stuckHeals >= 3) return@runCatching
+                        stuckHeals++
+                        val at = exo.currentPosition
+                        eq.sinkFedAt = System.currentTimeMillis()   // (counted afresh from this try)
+                        SoundLog.hiccup("no music reached the sound output for ${quiet / 1000} s while “${t.title}” played: started again at ${at / 1000}s (time $stuckHeals)")
+                        if (stuckHeals == 1) exo.seekTo(at) else { exo.stop(); exo.prepare(); exo.seekTo(at); exo.play() }
+                    }
+                }
+            }
+            h.postDelayed(fedWatch, 5000)
             Music.eqProcessor.onDead = { where ->
                 h.post {
                     val t = Music.current()
