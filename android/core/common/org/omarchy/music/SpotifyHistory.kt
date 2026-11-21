@@ -69,18 +69,23 @@ object SpotifyHistory {
         // A play you have already that is read again with how it ended (a history imported before the app kept
         // that): it learns it, so importing your Spotify zip once more brings the skips of plays long since counted.
         val learnt = HashMap<Play, Int>()
+        val reads = newSkips.isNotEmpty() || new.any { it.how != 0 }   // this import says how plays ended (the extended history)
         val fresh = new.filter { p ->
             val same = have.getOrPut(cleanTitle(p.title)) { ArrayList() }
             val twin = same.firstOrNull { Math.abs(it.t - p.t) < 120 || Math.abs(it.end - p.end) < 120 }
-            if (twin != null && twin.how == 0 && p.how != 0) learnt[twin] = p.how
+            if (twin != null && twin.how != p.how && reads) learnt[twin] = p.how   // (and puts right what an earlier import made of it)
             (twin == null).also { if (it) same += p }
         }
         val plays = (if (learnt.isEmpty()) old.plays else old.plays.map { p -> learnt[p]?.let { p.copy(how = it) } ?: p }) + fresh
-        val skips = if (newSkips.isEmpty()) old.skips else (old.skips + newSkips).distinctBy { it.t to cleanTitle(it.title) }.sortedBy { it.t }
+        // The short skips of the stretch of time this import covers are the import's (an earlier one kept more as skips)
+        val skips = if (!reads) old.skips else {
+            val from = new.minOfOrNull { it.t } ?: Long.MAX_VALUE; val to = new.maxOfOrNull { it.t } ?: Long.MIN_VALUE
+            (old.skips.filter { it.t < from || it.t > to } + newSkips).distinctBy { it.t to cleanTitle(it.title) }.sortedBy { it.t }
+        }
         val after = apiAfter ?: old.api_after
-        if (fresh.isNotEmpty() || learnt.isNotEmpty() || skips.size != old.skips.size || after != old.api_after)
+        if (fresh.isNotEmpty() || learnt.isNotEmpty() || skips != old.skips || after != old.api_after)
             keep(Saved(plays.sortedBy { it.t }, after, skips))
-        lastLearnt = learnt.size + (skips.size - old.skips.size)
+        lastLearnt = learnt.size + kotlin.math.abs(skips.size - old.skips.size)
         return fresh.size
     }
     /** How many skips and endings the last import brought for plays already here (for what it says when no play was new). */
@@ -122,8 +127,14 @@ object SpotifyHistory {
 
     /** How a play ended, as the extended history says: 2 skipped (its "skipped", or the forward button), 1 heard to the
      *  end ("trackdone"), 0 when it doesn't say (the past year's history never does). */
-    internal fun ending(skipped: Boolean?, reasonEnd: String?): Int =
-        if (skipped == true || reasonEnd == "fwdbtn") 2 else if (reasonEnd == "trackdone") 1 else 0
+    internal fun ending(skipped: Boolean?, reasonEnd: String?): Int = when {
+        // Only the forward button is a skip. Going back ("backbtn"), picking another song ("clickrow"), the app closing
+        // and the rest end a play too, and Spotify marks many of them "skipped": they aren't you turning a song down.
+        reasonEnd == "fwdbtn" -> 2
+        reasonEnd == "trackdone" -> 1
+        reasonEnd.isNullOrEmpty() && skipped == true -> 2   // (a history that says only "skipped")
+        else -> 0
+    }
 
     /** A local file's play keeps its names in its address when its name fields are empty:
      *  spotify:local:Artist:Album:Title:seconds (each part URL-encoded, + for a space). (artist, album, title), or null. */

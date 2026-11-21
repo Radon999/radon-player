@@ -465,6 +465,34 @@ object Wrapped {
         return if (asYours == null) all else all.map { p -> asYours(p.title, p.artist)?.let { p.copy(title = it.first, artist = it.second) } ?: p }
     }
 
+    private var allTimeMilestones: List<Stats.Milestone>? = null
+
+    /** The highest milestone (100, 250, 500, 1,000…) each song and artist has reached in these plays, biggest first,
+     *  artists before songs: counted the way [yearStats] counts its songs and artists, each dated by the play that got
+     *  it there (0 when plays without a date did). */
+    internal fun milestonesOf(rows: List<Row>, undated: List<Row> = emptyList(), n: Int = 6): List<Stats.Milestone> {
+        class Acc(var name: String, val artist: String) { var loose = 0; val times = ArrayList<Long>() }
+        val songs = LinkedHashMap<Pair<String, String>, Acc>(); val artists = LinkedHashMap<String, Acc>()
+        fun add(r: Row, dated: Boolean) {
+            val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
+            val lead = splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist
+            val s = songs.getOrPut(ks) { Acc(r.title, r.artist) }; val a = artists.getOrPut(ka) { Acc(lead, "") }
+            if (a.name != lead && soloName(mapOf(a.name to 0, lead to 0)) == lead) a.name = lead
+            if (dated) { s.times += r.t; a.times += r.t } else { s.loose++; a.loose++ }
+        }
+        rows.forEach { add(it, true) }; undated.forEach { add(it, false) }
+        val out = ArrayList<Stats.Milestone>()
+        fun top(what: String, key: String, a: Acc) {
+            val total = a.loose + a.times.size
+            val level = Stats.MILESTONES.lastOrNull { it <= total } ?: return
+            val at = if (level <= a.loose) 0L else a.times.sorted()[level - a.loose - 1]
+            out += Stats.Milestone(what, key, a.name, a.artist, level, at)
+        }
+        artists.forEach { (k, a) -> top("artist", k, a) }
+        songs.forEach { (k, a) -> top("song", "${k.first}|${k.second}", a) }
+        return out.sortedWith(compareBy({ -it.plays }, { it.what != "artist" }, { -it.at })).take(n)
+    }
+
     /** The plays an Apple Music library export knows only as a song's all-time count: one row a play, no date. Only
      *  what is past the dated Apple plays of the same song (the library's count has those in it), as Most played does;
      *  named as your own file is, and without what you hid from stats. */
@@ -600,9 +628,12 @@ object Wrapped {
             }
             progress("Adding up your minutes…")
             data = data.copy(minutes = minutes(dir, rows + undated))
+            if (period == Period.All) allTimeMilestones = runCatching { milestonesOf(rows, undated) }.getOrNull()
         }
         data = data.copy(milestones = runCatching {
-            if (period == Period.All) Stats.periodMilestones(0, Long.MAX_VALUE)
+            // All time: from the very plays this Wrapped counted, so a milestone is never behind the play counts shown
+            // beside it (the owner's phone said 1,000 plays of an artist its own pages gave 12,325)
+            if (period == Period.All) allTimeMilestones.also { allTimeMilestones = null } ?: Stats.periodMilestones(0, Long.MAX_VALUE)
             else Stats.periodMilestones(epoch(period.start()), epoch(period.end()))
         }.getOrDefault(emptyList()))
         progress("Finding your genres…")

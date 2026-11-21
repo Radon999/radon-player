@@ -417,7 +417,11 @@ fun MusicTab(ui: Ui) {
                 else -> {
                     // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())
-                        .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) }.filter { !org.omarchy.music.StatHides.song(it.first) } else emptyList()
+                        .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) }.filter { !org.omarchy.music.StatHides.song(it.first) }
+                        // (one row a song: two counted songs that are one file of yours are added up. Shown apart, both
+                        // rows carried the count of one of them, so a row sorted as 100 skips said 1.)
+                        .groupBy { org.omarchy.music.songKey(it.first) }.values.map { g -> Triple(g.first().first, g.sumOf { it.second }, g.sumOf { it.third }) }
+                        else emptyList()
                     val skipInfo = skipRows.associate { (t, k, f) -> org.omarchy.music.songKey(t) to (k to f) }
                     val tracks = when (ui.musicView) {
                         "all", "recent", "favorites", "unfavorited", "later", "theirs" -> songSorted

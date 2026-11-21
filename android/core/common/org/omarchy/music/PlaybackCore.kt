@@ -214,7 +214,7 @@ object PlaybackCore {
         if (Remote.active) { Remote.enqueue(tracks, how); return }
         val ts = Music.localsOf(tracks).map { it.copy(queued = true) }   // your own copies of the songs you have
         if (ts.isEmpty()) return
-        ListenLog.queued(ts, listName)   // (from search results: Wrapped counts them as searched for)
+        ListenLog.queued(ts, listName)   // (where you took them from: Wrapped counts them as from there)
         if (current() == null) { playFrom(ts, 0, false); return }
         keepForUndo("add", ts.size)
         // Settings › Playback › Move, don't duplicate: a song already waiting further on is moved up, not put in twice
@@ -299,6 +299,7 @@ object PlaybackCore {
     private var failedInARow = 0             // songs that couldn't be had, one after another (none played between)
     private var finishing = false            // the song playing ran out on its own (not a skip)
     var goingBack = false                    // Previous: going back isn't skipping
+    private var skippedOn = false            // Next, pressed by you: the only way a song is skipped (see noteLeaving)
 
     /** A song ran out and the next one is on its way: to the notification (and Android) it's still
      *  playing, so the app stays a foreground music player between songs. Were it "ended" for that
@@ -379,12 +380,16 @@ object PlaybackCore {
         }
     }
 
-    /** The song playing is about to change: count it as skipped, unless it ran out on its own or you went back. */
+    /** The song playing is about to change: a skip only when you pressed Next with more than a quarter of a minute of it
+     *  left. Not when it ran out, not Previous or going back to an earlier song, not picking another song from a list
+     *  (you wanted that one; you weren't turning this one down), and not the app moving on by itself. Before, every
+     *  change but Previous counted, so songs you play most (and leave for another you chose) led Most skipped, and so
+     *  did every song you had to skip because it had gone silent. */
     private fun noteLeaving() {
         val ls = listen
-        val fin = finishing; val back = goingBack
-        finishing = false; goingBack = false
-        if (ls == null || fin || back) return
+        val fin = finishing; val back = goingBack; val fwd = skippedOn
+        finishing = false; goingBack = false; skippedOn = false
+        if (ls == null || fin || back || !fwd) return
         val dur = duration.takeIf { it > 0 } ?: ls.track.duration
         if (PlayRules.isSkip(ls.played, dur, position, SongStats.SKIP_LEFT.toDouble())) {
             Music.bg({ Music.songStats.skipped(ls.track) }) { _, _ -> Music.musicVersion++ }
@@ -406,7 +411,9 @@ object PlaybackCore {
             }
             val ids = q.map { it.id }.toMutableSet()
             val songs = q.map { songKey(it) }.toMutableSet()
-            q = q + res.filter { ids.add(it.id) && songs.add(songKey(it)) }
+            val added = res.filter { ids.add(it.id) && songs.add(songKey(it)) }
+            ListenLog.radioAdded(added)   // (Wrapped: only these are "Radio and ∞")
+            q = q + added
             queue = q
             afterQueueChange()
             if (ended && index + 1 < queue.size) next()   // it had stopped at the end: on it goes
@@ -421,8 +428,11 @@ object PlaybackCore {
     }
 
     // ---- moving on ----
-    fun next() {
+    /** byUser: you pressed Next (the button, the headphones, the notification, a swipe). Only that can make a skip: the
+     *  app moving on by itself (a song that wouldn't load or kept stopping, the queue going on) is no opinion of yours. */
+    fun next(byUser: Boolean = false) {
         if (Remote.active) { Remote.cmd("next"); return }
+        skippedOn = byUser
         djSide.hush()
         val other = nextQueue()
         step("next: ${QueueRules.after(index, queue.size, djSide.on, repeat, other != null)}")

@@ -38,13 +38,23 @@ object ListenLog {
 
     // Songs you put in the queue (or Play next) from search results: they count as searched for when they play, as a
     // song tapped there does. (Many people never tap a search result: it would end the queue they are listening to.)
-    private val searchQueued = HashSet<String>()
+    // A song counts for the place you took it from. Put in the queue (or Play next) from a playlist, an album, an
+    // artist's page or search results, it is that place's when it plays, whatever queue it joined (the DJ's too).
+    private val queuedFrom = HashMap<String, String>()   // a song (its id, and its key): the list it was queued from
     fun queued(tracks: List<Track>, listName: String) {
-        if (!listName.startsWith("Search: ")) return
-        synchronized(searchQueued) {
-            if (searchQueued.size > 500) searchQueued.clear()
-            for (t in tracks) { searchQueued += t.id; searchQueued += songKey(t).toString() }
+        if (listName.isBlank()) return
+        synchronized(queuedFrom) {
+            if (queuedFrom.size > 2000) queuedFrom.clear()
+            for (t in tracks) { queuedFrom[t.id] = listName; queuedFrom[songKey(t).toString()] = listName }
         }
+    }
+
+    // Radio and ∞ (autoplay) count only for the songs they themselves put in the queue: not for the song you picked
+    // that the radio grew from, nor for anything you chose while a radio happened to be on.
+    private val byRadio = HashSet<String>()
+    fun radioAdded(tracks: List<Track>) = synchronized(byRadio) {
+        if (byRadio.size > 4000) byRadio.clear()
+        for (t in tracks) { byRadio += t.id; byRadio += songKey(t).toString() }
     }
 
     /** A list starts playing at song t (Music.playFrom), from the screen called listName: noted if it's a search. */
@@ -58,24 +68,22 @@ object ListenLog {
     private fun start(t: Track) {
         if (!recovered) Music.bg({ recover() })
         close()
-        val from = Music.queueName.ifEmpty { "Up next" }
+        // (you put it in the queue from somewhere: that place, whatever is playing around it)
+        val key = songKey(t).toString()
+        val took = synchronized(queuedFrom) { (queuedFrom.remove(key) ?: queuedFrom[t.id]).also { queuedFrom.remove(t.id) } }
+        val radio = synchronized(byRadio) { byRadio.remove(key) or byRadio.remove(t.id) }
+        val from = took ?: Music.queueName.ifEmpty { "Up next" }
         var kind = "other"; var list = ""
         val p = runCatching { Music.lists.all().firstOrNull { it.name == from } }.getOrNull()
-        // (you found it by searching and put it in the queue: a search, whatever was playing around it)
-        val fromSearch = synchronized(searchQueued) { searchQueued.remove(songKey(t).toString()) or searchQueued.remove(t.id) }
+        val fromSearch = took?.startsWith("Search: ") == true
         when {
+            radio -> kind = "radio"                    // the radio (or ∞) put it there
             fromSearch -> kind = "search"
-            Music.dj.on -> kind = "dj"
+            took == null && Music.dj.on -> kind = "dj"
             from.startsWith("Search: ") -> kind = "search"
-            p != null -> {
-                val inIt = p.tracks.any { it.id == t.id || songKey(it) == songKey(t) }
-                if (inIt) { kind = "playlist"; list = p.id } else kind = "radio"   // ∞ played on past its end
-            }
-            // (its album's or its artist's page before "radio": those pages start a radio after their list, and a
-            // song you picked on one was written down as radio)
+            p != null && p.tracks.any { it.id == t.id || songKey(it) == songKey(t) } -> { kind = "playlist"; list = p.id }
             t.album.isNotBlank() && norm(t.album) == norm(from) -> kind = "album"
             splitArtists(t.artist).any { norm(it) == norm(from) } -> kind = "artist"
-            Music.isRadio() -> kind = "radio"
         }
         val o = Music.outputNow
         val searched = fromSearch || searchPick == t.id

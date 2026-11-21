@@ -742,7 +742,7 @@ object Music {
     fun sessionNext() = PlayButtons.next()
 
 
-    fun next() = PlaybackCore.next()
+    fun next() = PlaybackCore.next(byUser = true)
     fun aboutToReload(): Boolean = PlaybackCore.aboutToReload()
 
     /** The next of your other queues with songs still to play (the last one used first), or null. */

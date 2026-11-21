@@ -990,17 +990,22 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
     }
     if (h.never.isNotEmpty()) out += Slide(6) {
         val (t, f) = h.never[0]
+        // (songs that aren't yours came with no picture: looked up as Most played's are, each shown as it is found)
+        LaunchedEffect(Unit) { TopArt.lookUp { h.never.map { it.first } } }
+        val found = TopArt.tick
         Text("NEVER SKIPPED", style = W.kicker)
         // (a top 15 now: the first one's line is one short line, so the whole list fits)
         Text("“${t.title}” by ${t.artist}: heard to the end $f times, not skipped once", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { trackPic(it.first) }, meter = true)
+        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true)
         Text("Times heard to the end", style = W.small)
     }
     if (h.mostSkipped.isNotEmpty()) out += Slide(4) {
         val (t, k) = h.mostSkipped[0]
+        LaunchedEffect(Unit) { TopArt.lookUp { h.mostSkipped.map { it.first } } }
+        val found = TopArt.tick
         Text("MOST SKIPPED", style = W.kicker)
         Text("“${t.title}” by ${t.artist}: skipped $k time${if (k != 1) "s" else ""}", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, h.mostSkipped.map { trackPic(it.first) }, meter = true)
+        Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, h.mostSkipped.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true)
         Text("Skips: gone with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left", style = W.small)
     }
     if (h.favsAdded.isNotEmpty()) out += Slide(7) {
