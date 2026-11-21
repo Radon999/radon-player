@@ -195,13 +195,13 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
 
     /** Save t (blocking) in the download quality picked (Settings): from Tidal, or from YouTube when Tidal hasn't got
      *  it or isn't connected (youtubeToo: Keep, which saves what you play, leaves those). Returns its address. */
-    fun download(t: Track, root: String? = null, youtubeToo: Boolean = true): String {
+    fun download(t: Track, root: String? = null, youtubeToo: Boolean = true, final: JsonElement? = null): String {
         lib.items[t.id]?.let { return it.file }
         if (t.source == SoundCloud.KEY) throw NoLosslessMatch("SoundCloud songs can't be downloaded: they only stream")
         synchronized(active) { if (!active.add(t.id)) error("already downloading") }
         try {
             if (tidal.connected) {
-                try { return fromTidal(t, root) } catch (e: NoLosslessMatch) { if (!youtubeToo) throw e }
+                try { return fromTidal(t, root, final = final) } catch (e: NoLosslessMatch) { if (!youtubeToo) throw e }
             } else if (!youtubeToo) error("connect Tidal in Settings first")
             return fromYouTube(t, root) ?: throw NoLosslessMatch(if (tidal.connected) "not on Tidal or YouTube Music" else "not on YouTube Music")
         } finally {
@@ -234,10 +234,10 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
      *  song: playlists, favorites and plays stay on it. Its entry (and any other service's that shares the file) is put
      *  aside so the fetch is a real one, and put back as it was if the fetch fails; the damaged file is deleted only
      *  once the new one is in. */
-    fun again(id: String, root: String? = null) {
+    fun again(id: String, root: String? = null, final: JsonElement? = null) {
         val old = lib.items[id] ?: error("not a download")
         val sharing = synchronized(lib) { lib.items.filter { it.value.file == old.file }.also { it.keys.forEach { k -> lib.items.remove(k) } } }
-        val uri = try { download(old.track(), root) } catch (e: Exception) {
+        val uri = try { download(old.track(), root, final = final) } catch (e: Exception) {
             synchronized(lib) { sharing.forEach { (k, v) -> lib.items[k] = v }; lib.save() }
             throw e
         }
@@ -272,10 +272,28 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     /** Clean or explicit (Settings › Your music): true when downloads should be the explicit version. */
     fun explicitWanted() = Prefs.text(Prefs.DL_VERSION, "explicit") != "clean"
 
-    private fun fromTidal(t: Track, root: String?, exact: JsonElement? = null): String {
+    /** (blocking) The very Tidal song that getting t again would save, found the way the download finds it, so it can
+     *  be shown before anything is downloaded; null when Tidal hasn't got it. own: a file of yours (looked up as
+     *  Upgrade looks it up); else one of the app's downloads. */
+    fun planAgain(t: Track, own: Boolean): JsonElement? {
+        val aac = quality == "mp3" && !CAN_MP3
+        return try {
+            if (own) tidal.resolve(t)?.let { c -> tidalPick(Tidal.trackFromTidal(c), aac, null, mark = false) }
+            else tidalPick(t, aac, null, mark = false)
+        } catch (_: NoLosslessMatch) { null }
+    }
+
+    /** final: the Tidal song to save, already chosen (and shown): saved as it is, nothing looked up again. */
+    private fun fromTidal(t: Track, root: String?, exact: JsonElement? = null, final: JsonElement? = null): String {
         val q = quality
         val aac = q == "mp3" && !CAN_MP3   // the phone: Tidal's own 320 kbps (AAC) in place of MP3
-        val found = exact ?: tidal.resolve(t, lossy = aac) ?: run { lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
+        val match = final ?: tidalPick(t, aac, exact)
+        return saveFromTidal(t, root, q, aac, match)
+    }
+
+    /** Which Tidal song is saved for t (the release and the clean or explicit version). */
+    private fun tidalPick(t: Track, aac: Boolean, exact: JsonElement?, mark: Boolean = true): JsonElement {
+        val found = exact ?: tidal.resolve(t, lossy = aac) ?: run { if (mark) lib.markMissing(t.id); throw NoLosslessMatch("not on Tidal" + if (aac) "" else " in lossless") }
         // Saved from the artist's own album (deluxe first), else EP, else single; a compilation only if nothing else has it
         var match = runCatching { tidal.bestRelease(found, aac, t.album) }.getOrDefault(found)
         // Clean or explicit (Settings › Your music): the other version of the song when this one isn't the one wanted
@@ -284,6 +302,10 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         if (exact == null && match["explicit"].bool == !want) runCatching {
             tidal.versionOf(Tidal.trackFromTidal(match).copy(album = t.album.ifEmpty { match.path("album", "title").str ?: "" }), want, aac)
         }.getOrNull()?.let { alt -> match = runCatching { tidal.bestRelease(alt, aac, t.album) }.getOrDefault(alt) }
+        return match
+    }
+
+    private fun saveFromTidal(t: Track, root: String?, q: String, aac: Boolean, match: JsonElement): String {
         val tid = match["id"].long ?: 0
         if (q != "mp3") lib.byTidal(tid)?.let { same ->
             // Already saved from another service: the same file serves both.
@@ -415,7 +437,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
     /** Your own files that Tidal has better (blocking): a lossy file (MP3, AAC…) for its FLAC, a
      *  16-bit one for its hi-res. force: every song Tidal has. The old files stay (the app puts them away). */
     fun upgrade(tracks: List<Track>, force: Boolean, stop: () -> Boolean, rootOf: (Track) -> String? = { null },
-                progress: (Int) -> Unit): Upgraded {
+                picks: Map<String, JsonElement> = emptyMap(), progress: (Int) -> Unit): Upgraded {
         val out = Upgraded()
         val next = AtomicInteger()
         val done = AtomicInteger()
@@ -423,8 +445,17 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             while (!stop()) {
                 val t = tracks.getOrNull(next.getAndIncrement()) ?: return
                 try {
-                    val (lossless, bits) = fileQuality(t.file!!)
-                    if (!force && lossless && bits >= 24) synchronized(out) { out.kept += t to "yours is $bits-bit lossless: as good as Tidal gets" }
+                    val pick = picks[t.id]   // chosen and shown already (a damaged file's new copy): that very song
+                    val (lossless, bits) = if (pick != null) false to 0 else fileQuality(t.file!!)
+                    if (pick != null) {
+                        val new = Tidal.trackFromTidal(pick)
+                        if (lib.isFlac(new.id) && lib.file(new.id) == t.file) synchronized(out) { out.kept += t to "it's Tidal's FLAC already" }
+                        else {
+                            if (!lib.isFlac(new.id)) download(new, rootOf(t), final = pick)
+                            synchronized(out) { out.done += t to new.id }
+                        }
+                    }
+                    else if (!force && lossless && bits >= 24) synchronized(out) { out.kept += t to "yours is $bits-bit lossless: as good as Tidal gets" }
                     else {
                         val c = tidal.resolve(t)
                         if (c == null) synchronized(out) { out.missing += t }

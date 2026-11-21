@@ -2705,14 +2705,18 @@ private fun DamagedDialog(ui: Ui) {
     var picked by remember { mutableStateOf(setOf<String>()) }
     val rows = res.tracks.indices.map { res.tracks[it] to res.damaged[it] }
     val chosen = rows.map { it.first }.filter { it.id in picked }
-    val again = chosen.filter { org.omarchy.music.Upgrades.canGetAgain(it) }
+    val up = org.omarchy.music.Upgrades
+    val again = chosen.filter { up.canGetAgain(it) }
+    val unseen = again.filter { it.id !in up.plans }           // ticked, and not looked up yet
+    val ready = again.filter { up.plans[it.id] != null }       // ticked, and what it'd be replaced with is shown
     AlertDialog(onDismissRequest = close, containerColor = C.light,
         title = { Text("%,d damaged file%s".format(rows.size, if (rows.size != 1) "s" else ""), style = T.title) },
         text = {
             Column {
-                Text("Tick songs, then choose. Download new copies gets each ticked song again and puts it in the damaged file's place " +
-                    "(a file of yours goes to $TRASH only after its new copy is here and you say yes). Never show again keeps the ticked files as they are and " +
-                    "leaves them out of every later check. A song that was never released: leave it unticked, or never show it. A search can bring a different song of that name.",
+                Text("Tick songs, then choose. Show replacements looks each ticked song up and shows, under it, the very song it would be replaced with " +
+                    "(its album, length and quality, and in red what is different from yours); nothing is downloaded yet. Download new copies then gets those, " +
+                    "and puts each in the damaged file's place (a file of yours goes to $TRASH only after its new copy is here and you say yes). Never show again keeps " +
+                    "the ticked files as they are and leaves them out of every later check: for a song that was never released, which can't be got again.",
                     style = T.sub)
                 Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Pill("Tick all", quiet = true) { picked = rows.map { it.first.id }.toSet() }
@@ -2728,6 +2732,14 @@ private fun DamagedDialog(ui: Ui) {
                             Column(Modifier.weight(1f)) {
                                 Text(t.title + " – " + t.artist, style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(d.first.substringBefore("  (") + ": " + d.second, style = T.sub, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                // What it would be replaced with, once looked up (Show replacements)
+                                if (t.id in up.plans) up.plans[t.id].let { p ->
+                                    if (p == null) Text("→ Not found to download again: it is left as it is", style = T.sub.copy(color = C.red))
+                                    else {
+                                        Text("→ " + p.track.title + " – " + p.track.artist + " · " + p.info, style = T.sub.copy(color = C.accent), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        if (p.differs.isNotEmpty()) Text("Different from yours: " + p.differs.joinToString(", "), style = T.sub.copy(color = C.red))
+                                    }
+                                }
                             }
                         }
                     }
@@ -2737,13 +2749,16 @@ private fun DamagedDialog(ui: Ui) {
                         fc.leaveOut(chosen); picked = emptySet()
                         Music.toast("%,d left as %s, and out of later checks".format(chosen.size, if (chosen.size != 1) "they are" else "it is"))
                     }
-                    if (again.isNotEmpty() && Music.upgrading == null) Pill("Download new copies (%,d)…".format(again.size)) {
+                    if (up.planning != null) Text(up.planning ?: "", style = T.sub)
+                    else if (unseen.isNotEmpty()) Pill("Show replacements (%,d)".format(unseen.size)) { up.plan(unseen) }
+                    else if (ready.isNotEmpty() && Music.upgrading == null) Pill("Download new copies (%,d)…".format(ready.size)) {
+                        val odd = ready.count { up.plans[it.id]?.differs?.isNotEmpty() == true }
                         ui.confirm = ("Download %,d damaged song%s again and put the new cop%s in place of the damaged file%s? ".format(
-                            again.size, if (again.size != 1) "s" else "", if (again.size != 1) "ies" else "y", if (again.size != 1) "s" else "") +
-                            "Only the songs you ticked. Your playlists, favorites and plays stay with each song. A damaged file is only removed after its new copy is here: " +
-                            "one the app downloaded is replaced straight away, one of your own files goes to the bin when you say yes. " +
-                            "A song that can't be found again is left as it is.") to
-                            { close(); org.omarchy.music.Upgrades.damaged(again) }
+                            ready.size, if (ready.size != 1) "s" else "", if (ready.size != 1) "ies" else "y", if (ready.size != 1) "s" else "") +
+                            (if (odd > 0) "%,d of them %s different from yours in some way (in red in the list): untick any you don't want. ".format(odd, if (odd != 1) "are" else "is") else "") +
+                            "Only the songs you ticked, each replaced with the song shown under it. Your playlists, favorites and plays stay with each song. " +
+                            "A damaged file is only removed after its new copy is here: one the app downloaded is replaced straight away, one of your own files goes to the bin when you say yes.") to
+                            { close(); up.damaged(ready, ready.mapNotNull { t -> up.plans[t.id]?.let { t.id to it.match } }.toMap()) }
                     }
                 }
             }
