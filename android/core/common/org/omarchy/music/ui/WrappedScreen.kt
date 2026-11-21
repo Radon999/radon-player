@@ -1003,10 +1003,10 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
     val colW = ((minOf(room.width, SLIDE_MAX_WIDTH + 56.dp) - 56.dp).value / cols)
     // A tall, narrow card (a phone held upright): the lists go one under another, each the card's whole width, so a
     // song's whole name, its artist and its repeats are always there (side by side they were cut off). Top artists,
-    // whose names are short, take five rows in three columns; songs and obsessions fifteen rows each.
+    // whose names are short, take eight rows in two columns (each with its plays); songs and obsessions fifteen rows each.
     val tall = room.width.value < 560f && cardH.value > room.width.value * 1.15f
     // (each row is exactly 1.28 of its letters' size high, see below; the card's other parts take about 200)
-    val rows = 5 + 15 + (if (obsessions.isEmpty()) 0 else 15) + (if (obsessions.isEmpty()) 2 else 3) * 1.6f
+    val rows = 8 + 15 + (if (obsessions.isEmpty()) 0 else 15) + (if (obsessions.isEmpty()) 2 else 3) * 1.6f
     val line = if (tall) ((cardH.value - 200f) / rows / 1.28f).coerceIn(7f, 15f)
         else minOf((cardH.value * 0.56f) / 16f * 0.55f, colW / (if (cols == 3) 26f else 34f) / 0.55f).coerceIn(if (cols == 3) 9f else 10f, 20f)
     val k = if (tall) 0.85f else line / 11f
@@ -1026,6 +1026,9 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         val obsessionLines = obsessions.map { (l, c) ->
             val t = runCatching { org.omarchy.music.Music.mineOf(l.track) }.getOrDefault(l.track)
             "${n(c)}×  ${t.title}" + (t.artist.split(",")[0].trim().takeIf { !org.omarchy.music.noArtistNamed(it) }?.let { " - $it" } ?: "") }
+        // Each with its count first, as the obsessions have theirs: an artist's plays, a song's plays
+        val artistLines = d.artists.take(15).map { (name, plays) -> "${n(plays)}×  $name" }
+        val songLines = d.songs.take(15).map { "${n(it.plays)}×  ${it.title} - ${it.artist.split(",")[0].trim()}" }
         if (tall) Column {
             // A row as high as it is told to be (a line of text is otherwise as high as its font likes, a third more,
             // and the lists ran off the card's end)
@@ -1035,13 +1038,12 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
             val head = W.small.copy(fontSize = (line * 0.9f).sp, lineHeight = (line * 1.28f).sp, lineHeightStyle = exact)
             Text("TOP ARTISTS", style = head)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val names = d.artists.take(15).map { it.first }
-                for (c in 0 until 3) Column(Modifier.weight(1f)) {
-                    for (i in c * 5 until minOf(names.size, c * 5 + 5)) Text("${i + 1}  ${names[i]}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                for (c in 0 until 2) Column(Modifier.weight(1f)) {
+                    for (i in c * 8 until minOf(artistLines.size, c * 8 + 8)) Text("${i + 1}  ${artistLines[i]}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Text("TOP SONGS", style = head, modifier = Modifier.padding(top = (line * 0.75f).dp))
-            d.songs.take(15).forEachIndexed { i, it -> Text("${i + 1}  ${it.title} - ${it.artist.split(",")[0].trim()}", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            songLines.forEachIndexed { i, it -> Text("${i + 1}  $it", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             if (obsessionLines.isNotEmpty()) {
                 Text("TOP OBSESSIONS", style = head, modifier = Modifier.padding(top = (line * 0.75f).dp))
                 obsessionLines.forEachIndexed { i, it -> Text("${i + 1}  $it", style = item, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -1049,7 +1051,7 @@ private fun summary(d: Wrapped.Data, title: String) = Slide(3) {
         } else
         Row(horizontalArrangement = Arrangement.spacedBy(((if (cols == 3) 10 else 16) * k).dp)) {
             // (an obsession's count goes first, so it is never the part cut off: "164×  Next Semester - twenty one pilots")
-            (listOf("TOP ARTISTS" to d.artists.take(15).map { it.first }, "TOP SONGS" to d.songs.take(15).map { "${it.title} - ${it.artist.split(",")[0].trim()}" }) +
+            (listOf("TOP ARTISTS" to artistLines, "TOP SONGS" to songLines) +
                 (if (obsessions.isEmpty()) emptyList() else listOf("TOP OBSESSIONS" to obsessionLines))).forEach { (head, items) ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy((3 * k).dp)) {
                     Text(head, style = W.small.copy(fontSize = W.small.fontSize * k.coerceAtMost(1.4f)))
