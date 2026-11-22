@@ -3,7 +3,9 @@ package org.omarchy.music
 /** Your songs' files, for the tools that fix them: on the phone, the FLACs the app downloaded (Android lets an app
  *  change only its own files without asking for each); moving files and folders is the PC's. */
 object FileTags {
-    const val canMove = false
+    /** Songs are moved through Android's own list of music (MediaStore): the song keeps its address, so playlists, the
+     *  queue, favorites, plays and sync never see it change. Your own files need All files access (Android 10 and up). */
+    val canMove: Boolean get() = android.os.Build.VERSION.SDK_INT >= 29 && runCatching { Music.canWriteOwnFiles() }.getOrDefault(false)
     const val canListFolders = false
     /** Your own files (not the app's downloads) are tagged through the tag library on their real path, with All files
      *  access: FLAC, MP3, M4A, Ogg, Opus, WAV and more, each in its own format. */
@@ -197,16 +199,24 @@ object FileTags {
      *  kept) or folder and name. Its address stays the same. Only the app's own files (Android 10 and up). */
     fun move(ctx: Ctx, src: String, dest: String): String? = runCatching {
         if (!src.startsWith("content:") || android.os.Build.VERSION.SDK_INT < 29) return null
+        // Never over a file that's there already: Android would name it "… (1)", or refuse
+        if (java.io.File(dest).exists()) return null
         val rel = dest.removePrefix("/storage/emulated/0/").substringBeforeLast('/').trim('/') + "/"
         val name = dest.substringAfterLast('/')
         val cv = android.content.ContentValues().apply {
             put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, rel)
             if (name.isNotBlank()) put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
         }
-        if (ctx.contentResolver.update(android.net.Uri.parse(src), cv, null, null) > 0) src else null
+        if (ctx.contentResolver.update(android.net.Uri.parse(src), cv, null, null) <= 0) return null
+        // Checked: the song is where it was asked to go (its address unchanged), else it's said to have failed
+        paths.remove(src)
+        val now = pathOf(src)
+        if (now != null && now.trimEnd('/') == dest.trimEnd('/')) src else null
     }.getOrNull()
-    fun exists(path: String) = false
-    fun subfolders(folder: String): List<String> = emptyList()
+    /** With All files access the folders can be looked in (for where a moved song goes, never over another file). */
+    fun exists(path: String) = runCatching { canMove && java.io.File(path).exists() }.getOrDefault(false)
+    fun subfolders(folder: String): List<String> = runCatching {
+        if (!canMove) emptyList() else java.io.File(folder).listFiles()?.filter { it.isDirectory }?.map { it.name }.orEmpty() }.getOrDefault(emptyList())
     fun listTree(roots: List<String>): Pair<Map<String, Long>, List<String>> = emptyMap<String, Long>() to emptyList()
     fun removeFolder(path: String) = false
 

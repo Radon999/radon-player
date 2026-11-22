@@ -149,8 +149,10 @@ object MusicTools {
     fun moveFiles(moves: List<Pair<String, String>>): Pair<Int, List<String>> {
         val moved = HashMap<String, String>(); val failed = ArrayList<String>()
         for ((src, dest) in moves) {
-            val to = FileTags.move(Music.ctx, src, dest)
-            if (to != null) moved[n(src)] = to else failed += "${src.substringAfterLast('/')}: couldn't move it"
+            // (the phone: moved through its own address, which a move keeps; the PC: by its path)
+            val addrOf = at(src)
+            val to = FileTags.move(Music.ctx, addrOf, dest)
+            if (to != null) moved[n(addrOf)] = to else failed += "${src.substringAfterLast('/')}: couldn't move it"
         }
         if (moved.isNotEmpty()) Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { Music.filesMoved(moved) }
         FolderCleanup.after(moved.keys.map { it.substringBeforeLast('/') })   // the folders they left, if no music is left there
