@@ -38,12 +38,20 @@ object MusicTools {
     fun roots(): List<String> = Music.folders.map { n(org.omarchy.music.ui.fullFolderPath(it.trimEnd('/'))) }
 
     /** (blocking) Your songs' files the tools may change, with their tags. */
+    /** A song's file as the scans name it (its real path, so Folders to leave alone works on the phone, where a song's
+     *  address isn't a path) -> the address it is written through. */
+    private val addr = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** The address to write a scan's file through. */
+    private fun at(file: String): String = addr[file] ?: file
+
     fun songs(progress: (String) -> Unit = {}): List<FixupSong> {
         val files = Music.mySongs().mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { FileTags.canWrite(it) }.distinct()
         return files.mapIndexedNotNull { i, f ->
             if (i % 50 == 0) progress("Reading your songs' tags… ${i + 1} of ${files.size}")
             val t = FileTags.read(Music.ctx, f) ?: return@mapIndexedNotNull null
-            FixupSong(n(f), t["title"].orEmpty().ifEmpty { f.substringAfterLast('/').substringAfterLast('\\').substringBeforeLast('.') },
+            val path = if (f.startsWith("content:")) runCatching { FileTags.pathOf(f) }.getOrNull() ?: f else f
+            addr[n(path)] = f
+            FixupSong(n(path), t["title"].orEmpty().ifEmpty { f.substringAfterLast('/').substringAfterLast('\\').substringBeforeLast('.') },
                 t["artist"].orEmpty().ifEmpty { "Unknown artist" }, t["albumartist"].orEmpty(), t["album"].orEmpty(),
                 t["tracknumber"].orEmpty(), t["date"].orEmpty())
         }
@@ -108,7 +116,7 @@ object MusicTools {
         val plan = fixupPlan(songs,
             tracklist = { a, al -> looked.getOrPut(norm(a) to norm(al)) { progress("Looking up “$al”…"); runCatching { deezerTracklist(a, al) }.getOrNull() } },
             findAlbum = { a, t -> found.getOrPut(norm(a) to norm(t)) { progress("Looking up “$t”…"); runCatching { deezerSongAlbums(a, t) }.getOrNull() } },
-            coverOf = { f -> FileTags.cover(Music.ctx, f)?.let { pictureHash(it) } })
+            coverOf = { f -> FileTags.cover(Music.ctx, at(f))?.let { pictureHash(it) } })
         val (kept, skipped) = fixupKept(plan, skip)
         return Triple(kept.filter { !ScanIgnore.has("fixup", ScanIgnore.fixupKey(it)) }, songs, skipped)
     }
@@ -117,17 +125,17 @@ object MusicTools {
     fun fixupApply(changes: List<FixupChange>): Pair<Int, List<String>> {
         var done = 0; val failed = ArrayList<String>()
         for (c in changes) {
-            if (FileTags.write(Music.ctx, c.file, c.new)) {
+            if (FileTags.write(Music.ctx, at(c.file), c.new)) {
                 done++
                 // A download of the app's shows what its library entry says (not its file's tags): the fix goes there
                 // too, so it shows, and stays after a rescan and a restart.
-                if ("artist" in c.new || "album" in c.new) Music.lib.items.values.filter { n(it.file) == c.file }.forEach { e ->
+                if ("artist" in c.new || "album" in c.new) Music.lib.items.values.filter { n(it.file) == n(at(c.file)) }.forEach { e ->
                     Music.lib.update(e.id) { it.copy(artist = c.new["artist"] ?: it.artist, album = c.new["album"] ?: it.album) }
                     Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { Music.savedVersion++ }
                 }
             } else failed += "${c.file.substringAfterLast('/')}: couldn't write its tags"
             c.cover?.let { from ->
-                if (!FileTags.hasCover(Music.ctx, c.file)) FileTags.cover(Music.ctx, from)?.let { FileTags.writeCover(Music.ctx, c.file, Covers.jpeg(it)) }
+                if (!FileTags.hasCover(Music.ctx, at(c.file))) FileTags.cover(Music.ctx, at(from))?.let { FileTags.writeCover(Music.ctx, at(c.file), Covers.jpeg(it)) }
             }
         }
         return done to failed
@@ -155,7 +163,7 @@ object MusicTools {
     fun liveApply(found: List<LiveName>, picked: List<FixupPick>): Int {
         val (renames, keep) = liveNamesApply(found, picked)
         var done = 0
-        for ((f, title) in renames) if (FileTags.write(Music.ctx, f, mapOf("title" to title))) done++
+        for ((f, title) in renames) if (FileTags.write(Music.ctx, at(f), mapOf("title" to title))) done++
         liveKept = liveKept + keep
         Prefs.setText("live_kept", liveKept.joinToString("\n"))
         return done
@@ -184,7 +192,7 @@ object MusicTools {
         var done = 0
         for ((g, name) in found.zip(picked)) {
             if (name.isNullOrBlank()) continue
-            for (n in g.names) if (n != name) for (f in g.songs[n].orEmpty()) if (FileTags.write(Music.ctx, f, mapOf("genre" to name))) done++
+            for (n in g.names) if (n != name) for (f in g.songs[n].orEmpty()) if (FileTags.write(Music.ctx, at(f), mapOf("genre" to name))) done++
         }
         return done
     }
@@ -195,7 +203,7 @@ object MusicTools {
     fun movieApply(found: List<LiveName>, picked: List<FixupPick>): Int {
         val (renames, keep) = liveNamesApply(found, picked)
         var done = 0
-        for ((f, title) in renames) if (FileTags.write(Music.ctx, f, mapOf("title" to title))) done++
+        for ((f, title) in renames) if (FileTags.write(Music.ctx, at(f), mapOf("title" to title))) done++
         movieKept = movieKept + keep
         Prefs.setText("movie_kept", movieKept.joinToString("\n"))
         return done
@@ -221,7 +229,7 @@ object MusicTools {
     fun loneApply(found: List<LiveName>, picked: List<FixupPick>): Int {
         val (renames, keep) = liveNamesApply(found, picked)
         var done = 0
-        for ((f, album) in renames) if (FileTags.write(Music.ctx, f, mapOf("album" to album))) done++
+        for ((f, album) in renames) if (FileTags.write(Music.ctx, at(f), mapOf("album" to album))) done++
         loneKept = loneKept + keep
         Prefs.setText("lone_kept", loneKept.joinToString("\n"))
         return done

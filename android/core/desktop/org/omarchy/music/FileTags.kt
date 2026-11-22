@@ -26,6 +26,8 @@ object FileTags {
         "mood" to FieldKey.MOOD)   // Moods: Vorbis MOOD, ID3 TMOO, MP4's iTunes MOOD
 
     private fun file(uri: String) = File(if (uri.startsWith("file:")) java.net.URI(uri).path else uri)
+    /** A song's file as a path (the PC's are paths already). */
+    fun pathOf(uri: String): String? = runCatching { file(uri).path }.getOrNull()
 
     fun canWrite(uri: String) = file(uri).let { it.isFile && it.canWrite() }
 

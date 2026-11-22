@@ -892,15 +892,18 @@ private fun ToolLines(ui: Ui) {
         "marks which sync and which are this device's only. Playlists you have already aren't changed by this switch", auto) {
         Switch(auto, { org.omarchy.music.Prefs.set(org.omarchy.music.SyncPlaylists.AUTO, it); Music.musicVersion++ }, colors = swColors())
     }
-    // The file scans are the PC's only (they didn't work well on the phone); Songs without covers is on both.
-    if (!onPhone) Line("Fix albums and artists", "Finds albums split up by featured artists (“Quinn XCII & Jeremy Zucker”), albums sitting " +
+    // The file scans are on both: on the phone your own files are changed with All files access (Settings › Tagger),
+    // through the same safe writes as everywhere (a copy, checked, one at a time). Files are only moved on the PC, and
+    // Empty folders is the PC's (a phone has no Recycle Bin: a folder's leftovers would be gone for good).
+    val ownNote = if (onPhone && !Music.canWriteOwnFiles()) ". Your own files need All files access (Settings › Tagger); without it, only the songs the app downloaded" else ""
+    Line("Fix albums and artists", "Finds albums split up by featured artists (“Quinn XCII & Jeremy Zucker”), albums sitting " +
         "beside their own deluxe, extended or anniversary edition, and singles of songs that are on an album you have. They're " +
         "fixed in the files' tags so they group properly (song titles are never changed)" + (if (org.omarchy.music.FileTags.canMove) ", and the files can then be moved to the right folders if you like" else "") +
-        ". You check each change before it's made" + (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
+        ". You check each change before it's made" + ownNote, false) {
         Pill("Scan…", quiet = true) { ui.tool = "fixup" }
     }
     val n = org.omarchy.music.MusicTools.skip.size
-    if (!onPhone) Line("Folders to leave alone", "Folders that no scan here ever touches or even looks in (Fix albums and artists, Soundtrack notes in names, " +
+    Line("Folders to leave alone", "Folders that no scan here ever touches or even looks in (Fix albums and artists, Soundtrack notes in names, " +
         "Empty folders, Live in song names): their songs are never retagged or moved, and no songs are moved into them. " +
         "Handy for unreleased songs, sessions and anything you've arranged by hand. " +
         if (n > 0) "$n folder${if (n != 1) "s" else ""} left alone now" else "None chosen yet", false) {
@@ -911,17 +914,17 @@ private fun ToolLines(ui: Ui) {
         "in it, and pick which to delete", false) {
         Pill("Clean up…", quiet = true) { ui.tool = "empty" }
     }
-    if (!onPhone) Line("Live in song names", "Finds songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather " +
-        "have under their plain name. It takes the live part off the name and keeps the rest, and you check each one first", false) {
+    Line("Live in song names", "Finds songs named as live recordings (“Song (Live)”, “Song - Live at…”) that you'd rather " +
+        "have under their plain name. It takes the live part off the name and keeps the rest, and you check each one first" + ownNote, false) {
         Pill("Scan…", quiet = true) { ui.tool = "live" }
     }
-    if (!onPhone) Line("Soundtrack notes in names", "Finds songs whose names carry a note like “(From the Original Motion Picture …)”, " +
-        "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one", false) {
+    Line("Soundtrack notes in names", "Finds songs whose names carry a note like “(From the Original Motion Picture …)”, " +
+        "“[From “Barbie”]” or “- From the Netflix Series …” and takes it off, keeping the rest. You choose each one" + ownNote, false) {
         Pill("Scan…", quiet = true) { ui.tool = "movie" }
     }
     Line("Fix genre names", "Finds genres spelt more than one way (“Hip-Hop/Rap” and “Hip-Hop-Rap”, “R&B” and “R and B”) " +
         "and puts their songs under one name, written into the files' tags. You pick the name for each, or type your own" +
-        (if (onPhone) ". On the phone it works on the songs the app downloaded" else ""), false) {
+        ownNote, false) {
         Pill("Scan…", quiet = true) { ui.tool = "genres" }
     }
     Line("Songs without covers", "Finds the albums whose songs show no cover anywhere, so you can pick one for each " +
