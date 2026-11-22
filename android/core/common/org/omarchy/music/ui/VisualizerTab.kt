@@ -314,12 +314,17 @@ class VisPalette(val key: String, private val base: Color, private val shift: Fl
     val main: Color get() = at(0.5f, 0.6f)
     /** The same, in another colour (a Dual one's bottom style in its own). */
     fun withKey(k: String) = VisPalette(k, base, shift)
+    /** A preview's colour (see [of]): a Dual one's bottom part takes it too, not the colour set for it. */
+    var forced = false
     /** Left to right across the spectrum's colours. */
     fun brush(alpha: Float): Brush = Brush.horizontalGradient(List(7) { at(it / 6f, 0.6f).copy(alpha = alpha) })
 
     companion object {
         /** Glow on the look's colour: shades of the look's accent (it used to be a fixed blue-to-violet). */
         fun of(style: String, key: String, base: Color, phase: Float): VisPalette {
+            // "!" in front: this colour, whatever is set for the style (Colours' previews show the colour looked at)
+            if (key.startsWith("!")) { val k = key.drop(1)
+                return VisPalette(if ((MyVis.style(style)?.base ?: style) == "glow" && k == "auto") "lookglow" else k, base, phase * 0.05f).also { it.forced = true } }
             // The colour you set for it (Settings › Colours) first; then a style you made keeps the colour it was made
             // with; one made from Glow keeps Glow's look on the look's colour
             val own = MyVis.style(style)
@@ -1973,7 +1978,7 @@ private fun DrawScope.drawMyVis(d: MyVisStyle, s: VisState, pal: VisPalette, fg:
     if (d.dual) {
         // Two at once, each shaped and coloured its own way: the bottom one (in its own colour, if it has one) and the middle one
         val b = d.bottom()
-        val c2 = Vis.colorFor(d.key + "#bottom") ?: d.color2   // the colour you set for its bottom part, else the one it was made with
+        val c2 = if (pal.forced) pal.key else Vis.colorFor(d.key + "#bottom") ?: d.color2   // the colour you set for its bottom part, else the one it was made with
         val pal2 = if (c2.isNotEmpty()) pal.withKey(c2) else pal
         val middle = d.copy(dual = false)
         when (MyVis.part) {

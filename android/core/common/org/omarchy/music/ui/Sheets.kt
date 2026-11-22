@@ -1640,7 +1640,10 @@ private fun ColoursLines(ui: Ui) = SubGroup("Colours", ui) {
     val accent = C.accent
     Line("Every visualizer", "The colour every visualizer is drawn in, unless it was made with one of its own or you set one for it below " +
         "(the Visualizer tab's colour)", false) {
+        // Each colour shown first on the visualizer in use (tap once to see it, again to pick it), as the other menus
+        val shown = Vis.nowStyle().takeIf { it != "slim" && it != "off" } ?: Vis.style()
         ChoicePill(Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), all.ifEmpty { Vis.color() }, group = { MenuGroups.visColour(it) }, swatch = { visSwatch(it, accent) },
+            preview = { VisColourPages(shown, it) },
             kind = Favs.VIS_COLOURS, menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.COLOR, it); all = it }
     }
     // Each visualizer in use, once (one may be in two places)
@@ -1676,7 +1679,10 @@ private fun VisColourLine(title: String, key: String, made: String) {
     val comes = "As it comes (" + (VIS_COLORS.firstOrNull { it.first == made }?.second ?: "every visualizer's colour") + ")"
     Line(title, "Its own colour, without making it again or changing it. As it comes is the colour it was made with" +
         (if (made.isEmpty()) ", here every visualizer's" else ""), false) {
-        ChoicePill(listOf("" to comes) + Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), set, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, accent) }) {
+        // Each colour shown first on this visualizer (tap once to see it, again to pick it); As it comes in its own colour
+        val style = key.substringBefore('#')
+        ChoicePill(listOf("" to comes) + Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), set, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, accent) },
+            preview = { k -> VisColourPages(style, k.ifEmpty { made.ifEmpty { Vis.color() } }) }) {
             Vis.setColorFor(key, it); set = it }
     }
 }

@@ -233,6 +233,16 @@ fun FxPages(key: String, with: Set<String> = emptySet()) = PreviewPager(key, lis
     }
 }
 
+/** A colour in Colours: the visualizer it's for, moving in that colour, on Now playing and by itself. colour: a
+ *  VIS_COLORS key, drawn as it is (not the colour set for the style now). */
+@Composable
+fun VisColourPages(style: String, colour: String) = PreviewPager("$style|$colour", listOf("Now playing", "By itself"), PW, PH) { i ->
+    if (i == 0) LookPreview(Music.look, wide = false, visStyle = style, visColor = "!$colour", pw = PW, ph = PH)
+    else Box(Modifier.size(PW, PH).clip(RoundedCornerShape(12.dp))
+        .background(C.gradient?.takeIf { it.size > 1 }?.let { Brush.linearGradient(it) } ?: Brush.linearGradient(listOf(C.bg, C.bg))).border(1.dp, C.line, RoundedCornerShape(12.dp))) {
+        NowVisSample(style, VIS_LOOK, Modifier.fillMaxSize(), colorKey = "!$colour") }
+}
+
 /** A visualizer style in its menu: Now playing with it moving, and by itself over the look's background. */
 @Composable
 fun VisPages(style: String) = PreviewPager(style, listOf("Now playing", "By itself"), PW, PH) { i ->
