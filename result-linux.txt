@@ -1,60 +1,45 @@
-commit e6dbe333a2d2fe4ed2c834bd6f891c437ac6dd7c · run 44976532222 · Sun Nov 22 02:34:48 UTC 2026
-SHARED TESTS: 131 suites, 617 tests, 0 failed
+commit 21e557b4b8fdb5278586aae9dcdf10a21c6b441d · run 44976843994 · Sun Nov 22 02:43:36 UTC 2026
+SHARED TESTS: no results (it didn't get that far)
 APP TESTS: no results (it didn't get that far)
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
-PC COMPILES: yes
+PC COMPILES: no
 LINUX PACKAGE: not built
 LINUX START: no package to start
 --- errors
-> Task :app:compileDebugKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ReleaseCounts.kt:27:43 Type checking has run into a recursive problem. Easiest workaround: specify the types of your declarations explicitly.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1602:80 @Composable invocations can only happen from the context of a @Composable function
-
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ReleaseCounts.kt:27:43 Type checking has run into a recursive problem. Easiest workaround: specify the types of your declarations explicitly.
-e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1602:80 @Composable invocations can only happen from the context of a @Composable function
-
-> Task :desktop:checkRuntime
---
 * What went wrong:
-Execution failed for task ':app:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+A problem occurred configuring root project 'OmarchyMusic'.
+> Could not resolve all artifacts for configuration ':classpath'.
 --
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
---
-BUILD FAILED in 2m 17s
-48 actionable tasks: 48 executed
+BUILD FAILED in 3m 23s
 --- the end of the log
+            > Could not GET 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'. Received status code 429 from server: Too Many Requests
+      > Could not resolve commons-codec:commons-codec:1.10.
+         > Could not get resource 'https://plugins.gradle.org/m2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'. Received status code 429 from server: Too Many Requests
+   > Could not resolve com.squareup:javawriter:2.5.0.
+     Required by:
+         project : > com.android.application:com.android.application.gradle.plugin:8.6.0 > com.android.tools.build:gradle:8.6.0 > com.android.tools.build:builder:8.6.0
+      > Could not resolve com.squareup:javawriter:2.5.0.
+         > Could not get resource 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'. Received status code 429 from server: Too Many Requests
+      > Could not resolve com.squareup:javawriter:2.5.0.
+         > Could not get resource 'https://plugins.gradle.org/m2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'. Received status code 429 from server: Too Many Requests
+   > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+     Required by:
+         project : > com.android.application:com.android.application.gradle.plugin:8.6.0 > com.android.tools.build:gradle:8.6.0 > com.android.tools.build:builder:8.6.0 > com.android.tools.build:apkzlib:8.6.0
+      > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
+      > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+         > Could not get resource 'https://plugins.gradle.org/m2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
 
 * Try:
 > Run with --stacktrace option to get the stack trace.
 > Run with --info or --debug option to get more log output.
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
-==============================================================================
 
-2: Task failed with an exception.
------------
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-==============================================================================
-
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
-
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
-
-For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-
-BUILD FAILED in 2m 17s
-48 actionable tasks: 48 executed
+BUILD FAILED in 3m 23s
