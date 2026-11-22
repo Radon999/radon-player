@@ -57,9 +57,15 @@ fun cleanTitle(s: String): String {
  *  "Talk (Single)", "Nectar EP" as Lone Survivor, Talk, Nectar) and signs (slashes, dashes, colons…) made spaces; the
  *  words themselves, apostrophes and ampersands kept. Searches found nothing with them in. */
 fun coverWords(s: String): String {
-    var t = s.replace(Regex("[(\\[]\\s*(ep|e\\.p\\.|single)\\s*[)\\]]", RegexOption.IGNORE_CASE), " ")
-    t = t.replace(Regex("\\s[-–—]\\s*(ep|e\\.p\\.|single)\\s*$", RegexOption.IGNORE_CASE), " ")
-    t = t.replace(Regex("\\s(ep|single)\\s*$", RegexOption.IGNORE_CASE), " ")
+    val ic = RegexOption.IGNORE_CASE
+    // Brackets holding only its kind and/or a year: "(EP)", "[2013]", "(EP, 2013)", "(Single)"
+    var t = " " + s + " "
+    t = t.replace(Regex("[(\\[][^)\\]]*[)\\]]")) { m ->
+        if (Regex("^[(\\[][\\s,.\\-]*((ep|e\\.p\\.|single|(19|20)\\d\\d)[\\s,.\\-]*)+[)\\]]$", ic).matches(m.value)) " " else m.value }
+    // "EP" (or "E.P.") as a word anywhere: "Lone Survivor EP 2013"
+    t = t.replace(Regex("(?<=[\\s\\-–—/_:])(ep|e\\.p\\.)(?=[\\s\\-–—/_:,.)]|$)", ic), " ")
+    // …and at the end, a year and "Single" ("… 2013", "… - Single", "… - 2019")
+    repeat(3) { t = t.replace(Regex("[\\s\\-–—/_:,]+((19|20)\\d\\d|single)[\\s.]*$", ic), " ") }
     t = t.replace(Regex("[^\\p{L}\\p{N}'’&]+"), " ")
     return t.trim().replace(Regex("\\s+"), " ").ifEmpty { s.trim() }
 }
