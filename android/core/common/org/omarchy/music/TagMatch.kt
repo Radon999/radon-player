@@ -255,8 +255,10 @@ object TagMatch {
         val byIsrc = HashMap<String, MutableList<Pair<Track, String>>>()
         val byKey = HashMap<String, MutableList<Pair<Track, String>>>()
         val byName = HashMap<String, MutableList<Pair<Track, String>>>()
+        val byLen = HashMap<Int, MutableList<Pair<Track, String>>>()   // (by whole seconds: for the near-matches below)
         for ((t, f) in songs()) {
             if (!Tags.writable(f)) continue
+            if (t.duration > 0) byLen.getOrPut(Math.round(t.duration).toInt()) { ArrayList() } += t to f
             t.isrc?.takeIf { it.isNotBlank() }?.let { byIsrc.getOrPut(it.uppercase()) { ArrayList() } += t to f }
             byKey.getOrPut(TagChanges.key(t.title, t.artist)) { ArrayList() } += t to f
             byName.getOrPut(nameOf(f)) { ArrayList() } += t to f
@@ -265,12 +267,30 @@ object TagMatch {
         val waiting = TagSync.waitingKeys()   // songs you changed here that haven't gone across yet: theirs win
         var changed = 0
         val done = HashSet<String>()
-        for (e in got.entries) {
-            // The same song: both lengths known and within 2 seconds (a song with no length, as a broken file has, never matches)
+        // The same song: both lengths known and within 2 seconds (a song with no length, as a broken file has, never
+        // matches), and the same recording code, else the same title and artist, else the same file name
+        fun exactOf(e: Entry): List<Pair<Track, String>>? {
             fun close(p: Pair<Track, String>) = e.secs > 0 && p.first.duration > 0 && Math.abs(p.first.duration - e.secs) <= 2
-            val mine = (e.isrc.takeIf { it.isNotBlank() }?.let { byIsrc[it.uppercase()] }?.filter(::close)?.takeIf { it.isNotEmpty() }
+            return e.isrc.takeIf { it.isNotBlank() }?.let { byIsrc[it.uppercase()] }?.filter(::close)?.takeIf { it.isNotEmpty() }
                 ?: byKey[e.key]?.filter(::close)?.takeIf { it.isNotEmpty() }
-                ?: byName[e.name]?.filter(::close)?.takeIf { it.isNotEmpty() }) ?: continue
+                ?: byName[e.name]?.filter(::close)?.takeIf { it.isNotEmpty() }
+        }
+        val exact = got.entries.associateWith { exactOf(it) }
+        // …else nearly the same name (a word more or less, "The Dirty Heads" and "Dirty Heads", punctuation), with the
+        // lengths within a second ([SyncMatchRules]). Only when exactly one song here fits, that no other song of the
+        // main device's has as its own or its near match: anything less certain is left out of the sync, never guessed.
+        val claimed = exact.values.filterNotNull().flatten().map { it.second }.toHashSet()
+        val near = HashMap<Entry, Pair<Track, String>>(); val wanted = HashMap<String, Int>()
+        for (e in got.entries) {
+            if (exact[e] != null || e.secs <= 0) continue
+            val theirs = Track(id = "", source = "", title = e.tags["title"]?.takeIf { it.isNotBlank() } ?: continue,
+                artist = e.tags["artist"].orEmpty(), album = e.tags["album"].orEmpty(), duration = e.secs.toDouble())
+            val fits = (e.secs - 1..e.secs + 1).flatMap { byLen[it].orEmpty() }.distinctBy { it.second }
+                .filter { it.second !in claimed && SyncMatchRules.same(theirs, it.first) }
+            if (fits.size == 1) { near[e] = fits[0]; wanted.merge(fits[0].second, 1, Int::plus) }
+        }
+        for (e in got.entries) {
+            val mine = exact[e] ?: near[e]?.takeIf { wanted[it.second] == 1 }?.let { listOf(it) } ?: continue
             for ((t, f) in mine) {
                 if (f == playing || f in done) continue
                 if (TagChanges.key(t.title, t.artist) in waiting) continue
