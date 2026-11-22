@@ -1595,7 +1595,9 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             val at = everyAt
             // How much of it is here: each song once (the list has each once, however many releases it's on), the ones
             // you hid off the page not counted; kept for the Artists tab
-            val have = list?.let { l -> l.distinctBy { org.omarchy.music.ArtistShownRules.songKey(it.title) } }
+            // (your unreleased songs aren't counted: the count is of what can be streamed and downloaded)
+            val have = list?.let { l -> l.filter { !runCatching { org.omarchy.music.Unreleased.has(it) }.getOrDefault(false) }
+                .distinctBy { org.omarchy.music.ArtistShownRules.songKey(it.title) } }
             val counted = have?.let { l -> l.count { yours(it) } to l.count { !yours(it) } }
             if (counted != null && have.isNotEmpty()) androidx.compose.runtime.LaunchedEffect(counted) {
                 org.omarchy.music.ReleaseCounts.put(org.omarchy.music.ReleaseCounts.artistKey(page.name), counted.first, counted.second) }
@@ -1800,7 +1802,8 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
         val reread = asked > said
         Music.bg({
             val (al, now) = org.omarchy.music.AlbumSongs.current(page.album.id, was, reread = reread)
-            Triple(al, now, if (now.isEmpty()) emptyList() else runCatching { Music.albumMissing(al?.title ?: page.album.title, now.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: artist, now, kind) }.getOrDefault(emptyList()))
+            // (an album of your unreleased music: no "missing" songs looked for, nor counted)
+            Triple(al, now, if (now.isEmpty() || now.any { runCatching { org.omarchy.music.Unreleased.has(it) }.getOrDefault(false) }) emptyList() else runCatching { Music.albumMissing(al?.title ?: page.album.title, now.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: artist, now, kind) }.getOrDefault(emptyList()))
         }) { res, _ ->
             if (res != null) { res.first?.let { shown = it }; tracks = res.second; missing = res.third
                 // kept for the Albums tab: what of it is here and what you'd still only stream

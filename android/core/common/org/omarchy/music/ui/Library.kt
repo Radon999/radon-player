@@ -66,7 +66,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     fun withPlays(al: Album, songs: List<Track>) = (listOf(al.sub, playsOf(songs)) +
         // …and how much of it is here and how much you'd still only stream (from its tracklist, once counted)
         // (not on singles: one song is all of it)
-        listOfNotNull(if (singles) null else org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.albumKey(al.title, leadOf(songs)))
+        listOfNotNull(if (singles || songs.any { runCatching { org.omarchy.music.Unreleased.has(it) }.getOrDefault(false) }) null else org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.albumKey(al.title, leadOf(songs)))
             ?.let { org.omarchy.music.ReleaseCounts.text(it) })).filter { it.isNotBlank() }.joinToString(" · ")
     val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
         .flatMap { (al, songs) ->

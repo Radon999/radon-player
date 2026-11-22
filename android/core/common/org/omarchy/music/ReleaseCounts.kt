@@ -47,7 +47,9 @@ object ReleaseCounts {
     /** The albums (title, artist, your songs of it, its kind) not counted yet: their tracklists looked up, one at a time. */
     fun fill(albums: List<Triple<String, String, List<Track>>>, kind: String) {
         if (filling) return
-        val todo = albums.filter { (t, a, _) -> albumKey(t, a).let { k -> of(k) == null && k !in tried } }.take(400)
+        // (not your unreleased music: its songs are seldom streamed, and when they are it's under other names)
+        val todo = albums.filter { (t, a, songs) -> songs.none { s -> runCatching { Unreleased.has(s) }.getOrDefault(false) } &&
+            albumKey(t, a).let { k -> of(k) == null && k !in tried } }.take(400)
         if (todo.isEmpty()) return
         filling = true
         Music.bg({
