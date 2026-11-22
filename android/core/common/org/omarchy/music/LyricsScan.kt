@@ -128,11 +128,31 @@ object LyricsScan {
         val toFind get() = maxOf(0, total - inFiles - inApp - left - instrumental)
     }
 
+    /** The files already looked at for lyrics of their own this run (see [recount]), so each is read once. */
+    private val looked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** (blocking) Songs whose file has lyrics already, though the scanner never put them there (the files were copied
+     *  over from your other device with their lyrics, or another app wrote them): counted as in their file, and kept so,
+     *  with nothing scanned or looked up. Before, they counted as still to find, and Lyrics asked for a scan. Each file
+     *  is read once a run; one the scanner marked already is left as it is. How many were found. */
+    private fun adoptFiles(all: List<Pair<Track, String?>>): Int {
+        var n = 0
+        for ((t, path) in all) {
+            if (path == null || !looked.add(path)) continue
+            val st = synchronized(lock) { songs[keyOf(t)]?.state }.orEmpty()
+            if (st == FILE || st == LEFT || st == INSTRUMENTAL) continue
+            if (!inFile(path).isNullOrBlank()) { set(t, FILE); n++ }
+        }
+        if (n > 0) save()
+        return n
+    }
+
     /** Count again, in the background. */
     fun recount() {
         Music.bg({
             load()
             val all = allSongs()
+            adoptFiles(all)
             val st = synchronized(lock) { all.map { (t, _) -> songs[keyOf(t)]?.state.orEmpty() } }
             Counts(st.count { it == FILE }, st.count { it == APP }, st.count { it == NONE }, st.count { it == LEFT },
                 st.count { it == INSTRUMENTAL }, all.size)
