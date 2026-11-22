@@ -201,6 +201,7 @@ object FileTags {
         if (!src.startsWith("content:") || android.os.Build.VERSION.SDK_INT < 29) return null
         // Never over a file that's there already: Android would name it "… (1)", or refuse
         if (java.io.File(dest).exists()) return null
+        val was = pathOf(src)   // (where it was: its lyrics file beside it goes with it)
         val rel = dest.removePrefix("/storage/emulated/0/").substringBeforeLast('/').trim('/') + "/"
         val name = dest.substringAfterLast('/')
         val cv = android.content.ContentValues().apply {
@@ -211,7 +212,16 @@ object FileTags {
         // Checked: the song is where it was asked to go (its address unchanged), else it's said to have failed
         paths.remove(src)
         val now = pathOf(src)
-        if (now != null && now.trimEnd('/') == dest.trimEnd('/')) src else null
+        if (now == null || now.trimEnd('/') != dest.trimEnd('/')) return null
+        // A lyrics file of the same name beside it (.lrc, .txt) goes with it, renamed to match, as on the PC
+        if (was != null && canMove) runCatching {
+            val from = java.io.File(was); val to = java.io.File(now)
+            for (ext in listOf("lrc", "txt")) java.io.File(from.parentFile, from.nameWithoutExtension + ".$ext").takeIf { it.isFile }?.let { l ->
+                val t = java.io.File(to.parentFile, to.nameWithoutExtension + ".$ext")
+                if (!t.exists()) l.renameTo(t)
+            }
+        }
+        src
     }.getOrNull()
     /** With All files access the folders can be looked in (for where a moved song goes, never over another file). */
     fun exists(path: String) = runCatching { canMove && java.io.File(path).exists() }.getOrDefault(false)
