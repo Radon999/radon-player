@@ -64,4 +64,13 @@ class MprisRulesTest {
         assertEquals(200.0, MprisRules.seekTo(190.0, 30_000_000L, 200.0), 0.0)
         assertEquals("length not known", 220.0, MprisRules.seekTo(190.0, 30_000_000L, 0.0), 0.0)
     }
+
+    @Test fun whatTheButtonsMayDoIsToldWhenASongComesOrGoes() {
+        val none = MprisRules.Now("", "", "", "", "", hasSong = false, playing = false, position = 0.0, duration = 0.0)
+        val song = MprisRules.Now("tidal:1", "One", "Band", "Album", "", hasSong = true, playing = false, position = 0.0, duration = 200.0)
+        val c = MprisRules.changed(none, song)
+        assertTrue(c.toString(), "CanPlay" in c && "CanPause" in c && "CanSeek" in c)
+        assertTrue("CanPlay" in MprisRules.changed(song, none))
+        assertTrue("not with every change of song", "CanPlay" !in MprisRules.changed(song, song.copy(id = "tidal:2", title = "Two")))
+    }
 }

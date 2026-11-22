@@ -36,6 +36,10 @@ object MprisRules {
         val out = LinkedHashSet<String>()
         if (status(before) != status(after)) out += "PlaybackStatus"
         if (before.copy(position = 0.0, playing = false) != after.copy(position = 0.0, playing = false)) out += "Metadata"
+        // What the desktop's buttons may do follows whether there's a song: told when that changes. (Only read once,
+        // when the app started with no song yet, they stayed "can't play, can't pause": the shell's play button then
+        // did nothing, while next and previous, always allowed, worked.)
+        if (before.hasSong != after.hasSong) { out += "CanPlay"; out += "CanPause"; out += "CanSeek" }
         return out
     }
 
