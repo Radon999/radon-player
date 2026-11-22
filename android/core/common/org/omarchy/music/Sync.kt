@@ -282,8 +282,10 @@ object Sync {
 
     private var nextCheck = 0L
 
-    /** (the phone) Just paired with a PC: sync straight away. */
-    fun paired() { met = false; nextCheck = 0L }
+    /** (the phone) Just paired with a PC: nothing synced. It's counted as met, so Auto playlist sync (when it's on)
+     *  doesn't go on meeting it; Sync now, on either device, syncs. */
+    fun paired() { met = true; justPaired = true; nextCheck = 0L }
+    @Volatile private var justPaired = false
     /** Something to send soon (a playlist made synced): on the phone, a sync in a few seconds. */
     fun soon() { if (Prefs.on(SyncPlaylists.AUTO_SYNC)) nextCheck = 0L }   // (with Auto playlist sync on; else a sync only ever starts from Sync now)
 
@@ -301,7 +303,10 @@ object Sync {
             if (err != null) { met = false; nextCheck = System.currentTimeMillis() + 30_000; return@bg }
             if ((s["sent"].long ?: 0L) > 0) PlaylistSend.fetch()   // playlists the PC sent this phone (Send a playlist)
             val pcAt = s["playlistsAt"].long ?: 0L
-            if (s["wanted"].bool == true) now(fromPc = true)
+            if (s["wanted"].bool == true) { justPaired = false; now(fromPc = true) }
+            // Just paired: the playlists as they are on both now are where Auto playlist sync starts from, so only a
+            // change after this syncs by itself (nothing syncs on pairing)
+            else if (justPaired) { justPaired = false; seenPc = pcAt; seenMine = playlistsAt(); connected() }
             // Auto playlist sync (on here or on the PC): on meeting, and when a playlist changed on either since
             else if (SyncPlaylists.autoNow(Prefs.on(SyncPlaylists.AUTO_SYNC) || s["autoPlaylists"].bool == true, s["playlistsOnly"].bool == true,
                     met, pcAt, seenPc, playlistsAt(), seenMine)) { seenPc = pcAt; playlistsNow() }

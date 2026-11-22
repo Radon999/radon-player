@@ -188,7 +188,9 @@ object RemoteHost {
         val tok = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(24).also { java.security.SecureRandom().nextBytes(it) })
         phones = phones + (tok to name.take(60)); saveTokens()
         newCode()   // one code, one phone
-        Music.toast("Paired with ${name.take(60)}: it can play music here now")
+        // A Sync now tapped before this phone was paired doesn't start as soon as it is: sync when you tap Sync now
+        Sync.cancelAsk()
+        Music.toast("Paired with ${name.take(60)}. Nothing syncs until you tap Sync now")
         return 200 to buildJsonObject { put("token", tok); put("name", deviceName) }
     }
 

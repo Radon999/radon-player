@@ -535,7 +535,7 @@ private fun PairDesktop() {
         Pill(if (busy) "Pairing…" else "Pair") {
             if (addr.isBlank() || code.isBlank() || busy) return@Pill
             busy = true
-            Remote.pair(addr, code) { err -> busy = false; Music.toast(if (err == null) "Paired: playing on the desktop" else "Couldn't pair: ${err.message?.take(80)}") }
+            Remote.pair(addr, code) { err -> busy = false; Music.toast(if (err == null) "Paired with the PC. Switch Play on on to play there; Sync now syncs" else "Couldn't pair: ${err.message?.take(80)}") }
         }
     }
 }

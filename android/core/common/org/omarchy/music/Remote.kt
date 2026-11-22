@@ -107,12 +107,12 @@ object Remote {
             }))
         }) { res, err ->
             val tok = res["token"].str
+            // Pairing only pairs: Play on stays off until you switch it on (so the music here isn't stopped), and nothing
+            // syncs until you tap Sync now (with the wrong main device picked, a sync by itself could do harm)
             if (err == null && tok != null) {
-                quietHere()
-                host = h; token = tok; name = res["name"].str ?: "Desktop"; on = true
+                host = h; token = tok; name = res["name"].str ?: "Desktop"; on = false
                 save()
-                Sync.paired()   // synced straight after pairing
-                refresh()
+                Sync.paired()
                 share()
             }
             done(err ?: if (tok == null) IllegalStateException("the desktop didn't answer with a pairing") else null)
