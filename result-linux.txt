@@ -1,8 +1,8 @@
-commit 1edfad0daa05ce65545b5ba23564da2c5c1e271c · run 44980370555 · Sun Nov 22 03:39:27 UTC 2026
+commit 13e97b0c3306510b86f35d4e033533835f18b6a5 · run 44981173836 · Sun Nov 22 03:58:20 UTC 2026
 SHARED TESTS: 131 suites, 617 tests, 0 failed
 APP TESTS: 20 suites, 56 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 44 suites, 171 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.7 s of speech in 1.6 s (with loading the voice); then 4.7 s of speech in 1.0 s (4.7x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.1 s of speech in 2.1 s (with loading the voice); then 4.9 s of speech in 2.4 s (2.0x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_4.0.36_amd64.deb, 91M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 37s
+BUILD SUCCESSFUL in 5m 2s
 59 actionable tasks: 59 executed
