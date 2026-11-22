@@ -17,7 +17,15 @@ object ScanIgnore {
         Prefs.text("ignore_$scan").split('\n').filter { it.isNotBlank() }.toMutableSet()
     }
 
-    fun has(scan: String, key: String): Boolean = synchronized(this) { key in of(scan) }
+    /** Whether it's hidden: the same key, or for a scan by file or folder, the same file or folder written as the other
+     *  device writes it (the Never show picks come across with Sync; see [ScanIgnoreRules]). */
+    fun has(scan: String, key: String): Boolean = synchronized(this) { ScanIgnoreRules.hidden(scan, key, of(scan)) }
+
+    /** The lists read again from the settings: a sync just put the other device's Never show picks in place. */
+    fun reload() {
+        synchronized(this) { sets.clear() }
+        version++
+    }
     fun count(scan: String): Int = synchronized(this) { of(scan).size }
 
     fun add(scan: String, key: String) {
@@ -37,8 +45,10 @@ object ScanIgnore {
     }
 
     /** Every scan's hidden things: the scans' names (Fix albums and artists, Live, Soundtrack notes, songs alone in an
-     *  album, Songs without covers, Empty folders, Albums EPs and singles). */
-    val SCANS = listOf("fixup", "live", "movie", "lone", "nocover", "empty", "truth", "genres")
+     *  album, Songs without covers, Empty folders, Albums EPs and singles, Fix genre names, and the stats' Similar
+     *  artists, Duplicates in Most played and Joint artists). */
+    val SCANS = listOf("fixup", "live", "movie", "lone", "nocover", "empty", "truth", "genres",
+        ScanIgnoreRules.SIMILAR, ScanIgnoreRules.DUPE_SONGS, ScanIgnoreRules.JOINT)
 
     /** How many things are hidden across every scan. */
     fun total(): Int = SCANS.sumOf { count(it) }

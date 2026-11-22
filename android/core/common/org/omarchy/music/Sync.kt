@@ -509,6 +509,7 @@ object Sync {
                 is String -> Prefs.setText(k, v)
             }
         }
+        ScanIgnore.reload()   // the Never show picks that came across, used straight away (not only after a restart)
         Music.applySound()
     }
 

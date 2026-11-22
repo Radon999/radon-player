@@ -38,7 +38,11 @@ fun jointCreditsNow(): List<Triple<String, List<String>, String?>> {
  *  them, or the pair's own). Most played counts again on the way out. The desktop's Joint artists. */
 @Composable
 fun JointArtistsScreen(ui: Ui) {
-    val rows = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow() }
+    var shownAgain by remember { mutableStateOf(0) }
+    // Never show: the pairs hidden before are left out; one hidden just now stays as a line with Undo
+    val rows = remember(Music.artistPicks, org.omarchy.music.Stats.songs, shownAgain) {
+        jointCreditsNow().filter { !org.omarchy.music.ScanIgnore.has(org.omarchy.music.ScanIgnoreRules.JOINT, org.omarchy.music.pairKey(it.first)) } }
+    val justHidden = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     var changed by remember { mutableStateOf(false) }
     val close = {
         ui.jointArtists = false
@@ -48,10 +52,13 @@ fun JointArtistsScreen(ui: Ui) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
             Text(if (rows.isEmpty()) "Every joint credit's plays already go to its main artist: nothing to pick."
                 else "${rows.size} pairs whose main artist isn't clear (both or neither have songs of their own here). Pick whose plays " +
-                    "they are in Most played, Artists and the time tabs.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+                    "they are in Most played, Artists and the time tabs. Never show leaves a pair as it is and out of this list.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            StatsHiddenLine(org.omarchy.music.ScanIgnoreRules.JOINT) { justHidden.clear(); shownAgain++ }
             LazyColumn(Modifier.weight(1f)) {
                 items(rows, key = { it.first }) { (credit, parts, picked) ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
+                    val hideKey = org.omarchy.music.pairKey(credit)
+                    if (hideKey in justHidden) HiddenUndo(credit) { org.omarchy.music.ScanIgnore.remove(org.omarchy.music.ScanIgnoreRules.JOINT, hideKey); justHidden -= hideKey }
+                    else Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(credit, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Box {
@@ -62,6 +69,8 @@ fun JointArtistsScreen(ui: Ui) {
                                     DropdownMenuItem(text = { Text(when (n) { null -> "Not picked (as a pair)"; "" -> "Keep as a pair"; else -> n }, style = T.body) },
                                         onClick = { open = false; Music.setArtistPick(credit, n); changed = true })
                                 }
+                                DropdownMenuItem(text = { Text("Never show", style = T.body) },
+                                    onClick = { open = false; org.omarchy.music.ScanIgnore.add(org.omarchy.music.ScanIgnoreRules.JOINT, hideKey); justHidden += hideKey })
                             }
                         }
                     }
@@ -177,18 +186,25 @@ fun similarArtistsNow(): List<Pair<Pair<String, String>, Pair<Int, List<String>>
  *  plays, each song's too, go with them, and their songs the app downloaded get the artist in their tags. */
 @Composable
 fun SimilarArtistsScreen(ui: Ui) {
-    val rows = remember { similarArtistsNow() }
+    var shownAgain by remember { mutableStateOf(0) }
+    fun hideKey(from: String, to: String) = org.omarchy.music.StatPickRules.apartKey(from, to)
+    // Never show: the pairs hidden before are left out; one hidden just now stays as a line with Undo, and isn't applied
+    val rows = remember(shownAgain) { similarArtistsNow().filter { (n, _) -> !org.omarchy.music.ScanIgnore.has(org.omarchy.music.ScanIgnoreRules.SIMILAR, hideKey(n.first, n.second)) } }
     val pick = remember { androidx.compose.runtime.mutableStateMapOf<Int, String>() }   // "merge", "other", "keep"
+    val justHidden = remember { androidx.compose.runtime.mutableStateListOf<Int>() }
     val close = { ui.similarArtists = false }
     FullScreen("Similar artists", close) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
             Text(if (rows.isEmpty()) "No artists that look like another of yours." else "${rows.size} artists look like another of yours. " +
-                "Merge puts the first's songs and plays (each song's too) under the second; Keep apart isn't asked about again.",
+                "Merge puts the first's songs and plays (each song's too) under the second; Keep apart isn't asked about again. " +
+                "Never show changes nothing and leaves it out of this list.",
                 style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            StatsHiddenLine(org.omarchy.music.ScanIgnoreRules.SIMILAR) { justHidden.clear(); pick.clear(); shownAgain++ }
             LazyColumn(Modifier.weight(1f)) {
                 items(rows.size) { i ->
                     val (names, info) = rows[i]
                     val (from, to) = names
+                    if (i in justHidden) { HiddenUndo("$from → $to") { org.omarchy.music.ScanIgnore.remove(org.omarchy.music.ScanIgnoreRules.SIMILAR, hideKey(from, to)); justHidden -= i }; return@items }
                     val now = pick[i] ?: if (info.second.isNotEmpty()) "merge" else "keep"
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Text("$from → $to", style = T.title)
@@ -199,6 +215,7 @@ fun SimilarArtistsScreen(ui: Ui) {
                             Chip("Merge", now == "merge") { pick[i] = "merge" }
                             Chip("Into $from", now == "other") { pick[i] = "other" }
                             Chip("Keep apart", now == "keep") { pick[i] = "keep" }
+                            Chip("Never show", false) { org.omarchy.music.ScanIgnore.add(org.omarchy.music.ScanIgnoreRules.SIMILAR, hideKey(from, to)); justHidden += i }
                         }
                     }
                 }
@@ -207,6 +224,7 @@ fun SimilarArtistsScreen(ui: Ui) {
                 Pill(if (rows.isEmpty()) "Done" else "Apply") {
                     rows.forEachIndexed { i, (names, info) ->
                         val (from, to) = names
+                        if (i in justHidden) return@forEachIndexed   // Never show: left as it is
                         when (pick[i] ?: if (info.second.isNotEmpty()) "merge" else "keep") {
                             "merge" -> Music.mergeArtist(from, to)
                             "other" -> Music.mergeArtist(to, from)
@@ -333,7 +351,12 @@ fun StatHidesScreen(ui: Ui) {
 @Composable
 fun DuplicatesScreen(ui: Ui) {
     val close = { ui.duplicates = false }
-    val rows = remember { org.omarchy.music.duplicateSongsPlan(org.omarchy.music.Stats.songs, Music.songPicks) }
+    var shownAgain by remember { mutableStateOf(0) }
+    fun hideKey(r: org.omarchy.music.DuplicateSong) = org.omarchy.music.songPickKey(r.title, r.artist)
+    // Never show: the songs hidden before are left out; one hidden just now stays as a line with Undo, and isn't applied
+    val rows = remember(shownAgain) { org.omarchy.music.duplicateSongsPlan(org.omarchy.music.Stats.songs, Music.songPicks)
+        .filter { !org.omarchy.music.ScanIgnore.has(org.omarchy.music.ScanIgnoreRules.DUPE_SONGS, hideKey(it)) } }
+    val justHidden = remember { androidx.compose.runtime.mutableStateListOf<Int>() }
     val titles = remember { org.omarchy.music.Stats.songs.groupBy { org.omarchy.music.Stats.statsKey("", it.artist).second }
         .mapValues { (_, v) -> v.map { it.title } } }
     val pick = remember { androidx.compose.runtime.mutableStateMapOf<Int, String>() }   // a title, or "" left alone
@@ -343,10 +366,13 @@ fun DuplicatesScreen(ui: Ui) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp).navigationBarsPadding()) {
             Text(if (rows.isEmpty()) "No duplicates: every song counted once." else "${rows.size} song${if (rows.size != 1) "s" else ""} may be " +
                 "another counted twice. Merge counts its plays as the one shown; Leave alone isn't asked again. Versions (acoustic, " +
-                "live, remix…) are left alone unless you pick Merge.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+                "live, remix…) are left alone unless you pick Merge. Never show changes nothing and leaves it out of this list.",
+                style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+            StatsHiddenLine(org.omarchy.music.ScanIgnoreRules.DUPE_SONGS) { justHidden.clear(); pick.clear(); shownAgain++ }
             LazyColumn(Modifier.weight(1f)) {
                 items(rows.size) { i ->
                     val r = rows[i]
+                    if (i in justHidden) { HiddenUndo("${r.title} — ${r.artist}") { org.omarchy.music.ScanIgnore.remove(org.omarchy.music.ScanIgnoreRules.DUPE_SONGS, hideKey(r)); justHidden -= i }; return@items }
                     val now = pick[i] ?: if (r.version) "" else r.to.first
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                         Text("${r.title} — ${r.artist}", style = T.title)
@@ -359,6 +385,7 @@ fun DuplicatesScreen(ui: Ui) {
                             if (now.isNotEmpty() && now != r.to.first && now !in r.others) Chip(now, true) {}
                             Chip("Choose your own…", false) { typing = i; typed = "" }
                             Chip("Leave alone", now.isEmpty()) { pick[i] = "" }
+                            Chip("Never show", false) { org.omarchy.music.ScanIgnore.add(org.omarchy.music.ScanIgnoreRules.DUPE_SONGS, hideKey(r)); justHidden += i; if (typing == i) typing = null }
                         }
                         if (typing == i) {
                             Field(typed, "Type a song") { typed = it }
@@ -377,6 +404,7 @@ fun DuplicatesScreen(ui: Ui) {
                 Pill(if (rows.isEmpty()) "Done" else "Apply") {
                     val more = HashMap<String, String>()
                     rows.forEachIndexed { i, r ->
+                        if (i in justHidden) return@forEachIndexed   // Never show: left as it is
                         val to = pick[i] ?: if (r.version) "" else r.to.first
                         val artist = if (to == r.to.first || to in r.others) r.to.second else r.artist
                         val key = org.omarchy.music.songPickKey(r.title, r.artist)
@@ -483,5 +511,18 @@ fun SingleScanScreen(ui: Ui) {
                 }
             }
         }
+    }
+}
+
+
+/** The stats screens' Never show: "N hidden from this list · Show them again" (they come back, to pick for). */
+@Composable
+private fun StatsHiddenLine(scan: String, shown: () -> Unit) {
+    org.omarchy.music.ScanIgnore.version
+    val n = org.omarchy.music.ScanIgnore.count(scan)
+    if (n == 0) return
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("%,d hidden from this list (Never show)".format(n), style = T.sub, modifier = Modifier.weight(1f))
+        Pill("Show them again", quiet = true) { org.omarchy.music.ScanIgnore.clear(scan); shown() }
     }
 }

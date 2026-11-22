@@ -685,7 +685,7 @@ private fun fileKey(f: String): String = f.removePrefix("file:///").removePrefix
 
 /** Something just marked Never show: one line saying so, with Undo (in case it was the wrong one). */
 @Composable
-private fun HiddenUndo(name: String, undo: () -> Unit) {
+fun HiddenUndo(name: String, undo: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("“$name” won't be shown again", style = T.sub, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Chip("Undo", false) { undo() }
