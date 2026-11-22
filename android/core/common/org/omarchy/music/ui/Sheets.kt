@@ -1589,6 +1589,7 @@ private fun PersonalizationBody(ui: Ui) {
                     later = true, kind = Favs.LAYOUTS, menu = { k, l -> Favs.menu(Favs.LAYOUTS, k, l) }) { UiLayouts.choose(it) }
             }
             EffectsLines()
+            ColoursLines(ui)
             NowPlayingLookLines()
             MenuEntriesLines()
             MakerLines(ui)
@@ -1618,12 +1619,65 @@ private fun EffectsLines() {
         "and layout (a look you made keeps its own effects). Pick as many as you like; point at one (on the PC) to see it", false) {
         ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", group = { MenuGroups.effect(it) }, describe = { LookFx.describe(it) }, preview = { FxPages(it, with = picked) }, chosen = LookFx.keys(picked),
             kind = Favs.EFFECTS, menu = { k, l -> Favs.menu(Favs.EFFECTS, k, l) }) {
-            LookFx.toggle(it); picked = LookFx.picked()
+            LookFx.toggle(it); picked = LookFx.picked(); fxTick++
         }
     }
-    // Each effect picked: its own colour, if you like
-    if (!own && LookFx.keys(picked).any { it != "stars" }) FxColors(picked) { p ->
-        org.omarchy.music.Prefs.setText(LookFx.PICK, p.joinToString(";")); picked = LookFx.picked(); org.omarchy.music.Music.applyLook()
+}
+
+/** Bumped when the effects picked change, for Colours to list them again. */
+private var fxTick by mutableStateOf(0)
+
+/** Settings › Personalization › Colours: every colour you can change, in one place, without making anything again: each
+ *  visualizer in use (Now playing's, its bottom one with Dual, the Visualizer tab's), every visualizer at once, and each
+ *  effect you have on. A visualizer's colour here goes over the one it was made with, which stays its default (As it
+ *  comes puts that back). */
+@Composable
+private fun ColoursLines(ui: Ui) = SubGroup("Colours", ui) {
+    fxTick; MyPresets.applied
+    if (CoverScene.now != null) Text("Scenes from the cover is on: the effects and visualizers take the cover's colour. The colours you set here " +
+        "come back when it's off", style = T.sub.copy(color = C.accent), modifier = Modifier.padding(vertical = 6.dp))
+    var all by remember { mutableStateOf(Prefs.text(Vis.COLOR)) }
+    val accent = C.accent
+    Line("Every visualizer", "The colour every visualizer is drawn in, unless it was made with one of its own or you set one for it below " +
+        "(the Visualizer tab's colour)", false) {
+        ChoicePill(Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), all.ifEmpty { Vis.color() }, group = { MenuGroups.visColour(it) }, swatch = { visSwatch(it, accent) },
+            kind = Favs.VIS_COLOURS, menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { Prefs.setText(Vis.COLOR, it); all = it }
+    }
+    // Each visualizer in use, once (one may be in two places)
+    fun name(k: String) = NP_VIS_STYLES.firstOrNull { it.first == k }?.second ?: k
+    val rows = LinkedHashMap<String, Pair<String, String>>()   // its key -> (where it is, the colour it was made with)
+    val now = Vis.nowStyle()
+    if (now != "slim" && now != "off") {
+        val mine = MyVis.style(now)
+        if (Vis.dual(now)) {
+            rows[now] = "Now playing's middle visualizer: ${name(now)}" to mine?.color.orEmpty()
+            rows["$now#bottom"] = "Now playing's bottom visualizer: ${name(now)}" to (mine?.color2?.ifEmpty { mine.color }).orEmpty()
+        } else rows[now] = "Now playing's visualizer: ${name(now)}" to mine?.color.orEmpty()
+    }
+    if (Vis.nowDual() && !Vis.dual(now)) Vis.nowBottom().takeIf { it != "slim" && it != "off" && it !in rows }?.let { b ->
+        rows[b] = "Now playing's bottom visualizer: ${name(b)}" to MyVis.style(b)?.color.orEmpty() }
+    Vis.style().takeIf { it !in rows }?.let { v -> rows[v] = "The Visualizer tab: ${name(v)}" to MyVis.style(v)?.color.orEmpty() }
+    for ((key, r) in rows) androidx.compose.runtime.key(key) { VisColourLine(r.first, key, r.second) }
+    // The effects you have on, each its own colour
+    val picked = LookFx.picked()
+    if (LookFx.ownOn()) Text("Effects: each look's own effects keep the look's colours. Switch Look's own effects off (above) to pick " +
+        "effects of your own and colour each one here", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+    else if (LookFx.keys(picked).any { it != "stars" }) FxColors(picked) { p ->
+        org.omarchy.music.Prefs.setText(LookFx.PICK, p.joinToString(";")); fxTick++; org.omarchy.music.Music.applyLook()
+    }
+    else Text("Effects: none on. Pick some under Effects (above) and each gets its own colour here", style = T.sub, modifier = Modifier.padding(vertical = 6.dp))
+}
+
+/** One visualizer's colour in Colours: As it comes (the colour it was made with, else every visualizer's), or any colour. */
+@Composable
+private fun VisColourLine(title: String, key: String, made: String) {
+    var set by remember(key) { mutableStateOf(Vis.colorSet(key)) }
+    val accent = C.accent
+    val comes = "As it comes (" + (VIS_COLORS.firstOrNull { it.first == made }?.second ?: "every visualizer's colour") + ")"
+    Line(title, "Its own colour, without making it again or changing it. As it comes is the colour it was made with" +
+        (if (made.isEmpty()) ", here every visualizer's" else ""), false) {
+        ChoicePill(listOf("" to comes) + Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), set, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, accent) }) {
+            Vis.setColorFor(key, it); set = it }
     }
 }
 

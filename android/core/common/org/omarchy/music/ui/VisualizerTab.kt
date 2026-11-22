@@ -169,6 +169,16 @@ object Vis {
     /** The style; an old colour preset ("red"…) is Bars in that colour. */
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
     fun color(): String = if (CoverScene.now != null) "cover" else Prefs.text(COLOR).ifEmpty { Music.visPreset.takeIf { Looks.NEON.containsKey(it) } ?: "auto" }
+
+    /** Settings › Personalization › Colours: a colour you set for one visualizer ("style=colour;…", a Dual one's bottom
+     *  part as "myvis-3#bottom"), over the colour it was made with (which stays its default) and the Visualizer's.
+     *  Each device's own, as the Visualizer's colour is. */
+    const val COLOR_FOR = "vis_color_for"
+    /** The colour you set for [style] here ("" none), as it's kept. */
+    fun colorSet(style: String): String = org.omarchy.music.VisColourRules.get(Prefs.text(COLOR_FOR), style)
+    /** The colour [style] is drawn in, if you set one (null: none, or Scenes from the cover gives the cover's). */
+    fun colorFor(style: String): String? = if (CoverScene.now != null) null else colorSet(style).takeIf { it.isNotEmpty() }
+    fun setColorFor(style: String, color: String) = Prefs.setText(COLOR_FOR, org.omarchy.music.VisColourRules.set(Prefs.text(COLOR_FOR), style, color))
     /** Now playing's visualizers as you set them (the style, Dual, Dual's bottom style). */
     fun stored() = org.omarchy.music.PresetVisRules.Trio(Prefs.text(NOW, "slim").let { k -> if (NP_VIS_STYLES.any { it.first == k }) k else "slim" },
         Prefs.on(NOW_DUAL), Prefs.text(NOW_BOTTOM, "slim"))
@@ -306,9 +316,10 @@ class VisPalette(val key: String, private val base: Color, private val shift: Fl
     companion object {
         /** Glow on the look's colour: shades of the look's accent (it used to be a fixed blue-to-violet). */
         fun of(style: String, key: String, base: Color, phase: Float): VisPalette {
-            // A style you made with a colour of its own keeps it; one made from Glow keeps Glow's look on the look's colour
+            // The colour you set for it (Settings › Colours) first; then a style you made keeps the colour it was made
+            // with; one made from Glow keeps Glow's look on the look's colour
             val own = MyVis.style(style)
-            val k = own?.color?.takeIf { it.isNotEmpty() } ?: key
+            val k = Vis.colorFor(style) ?: own?.color?.takeIf { it.isNotEmpty() } ?: key
             val from = own?.base ?: style
             return VisPalette(if (from == "glow" && k == "auto") "lookglow" else k, base, phase * 0.05f)
         }
@@ -1958,7 +1969,8 @@ private fun DrawScope.drawMyVis(d: MyVisStyle, s: VisState, pal: VisPalette, fg:
     if (d.dual) {
         // Two at once, each shaped and coloured its own way: the bottom one (in its own colour, if it has one) and the middle one
         val b = d.bottom()
-        val pal2 = if (d.color2.isNotEmpty()) pal.withKey(d.color2) else pal
+        val c2 = Vis.colorFor(d.key + "#bottom") ?: d.color2   // the colour you set for its bottom part, else the one it was made with
+        val pal2 = if (c2.isNotEmpty()) pal.withKey(c2) else pal
         val middle = d.copy(dual = false)
         when (MyVis.part) {
             MyVis.PART_MIDDLE -> drawMyVis(middle, s, pal, fg, backdrop)
