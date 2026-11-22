@@ -440,7 +440,10 @@ object Sync {
             put("tab_sorts", strs(m.tabSorts.toMap())); put("tab_picks", strs(m.tabPicks.toMap()))
             put("artist_picks", strs(m.artistPicks)); put("album_picks", strs(m.albumPicks)); put("song_picks", strs(m.songPicks))
             put("stat_hides", strs(StatHides.map())); put("damaged_left", strs(FileCheck.leftMap()))
-            put("similar_kept", list(m.similarKept)); put("singles_kept", list(m.singlesKept)); put("not_dupes", list(m.notDupes))
+            // Not a duplicate and the singles left alone name files: written from your music folder on (SyncPaths)
+            val roots = musicRoots()
+            put("similar_kept", list(m.similarKept)); put("singles_kept", list(m.singlesKept.map { SyncPaths.out(it, roots) }))
+            put("not_dupes", list(m.notDupes.map { SyncPaths.outDupeKey(it, roots) }))
             put("lyrics_mode", m.lyricsMode); put("music_sort", m.musicSort); put("playlist_sort", m.playlistSort)
             put("skip_order", m.skipOrder); put("skip_period", m.skipPeriod); put("top_mine_only", m.topMineOnly)
             put("top_period", m.topPeriod); put("top_kind", m.topKind); put("collage_size", m.collageSize)
@@ -450,7 +453,20 @@ object Sync {
         })
     }
 
-    private fun switchesJson(): JsonObject = SyncRules.prefs(JSON.parseToJsonElement(BackupMerge.switchesToSave(Prefs.all())) as JsonObject)
+    private fun switchesJson(): JsonObject {
+        val all = SyncRules.prefs(JSON.parseToJsonElement(BackupMerge.switchesToSave(Prefs.all())) as JsonObject)
+        // The scans' choices that name files and folders: written from your music folder on, for the other device to
+        // put under its own (SyncPaths)
+        val roots = musicRoots()
+        return JsonObject(all.mapValues { (k, v) ->
+            if (k in SyncPaths.PREFS && v is JsonPrimitive && v.isString) JsonPrimitive(SyncPaths.outLines(v.content, roots)) else v })
+    }
+
+    /** This device's music folders, as full paths (for SyncPaths). */
+    private fun musicRoots(): List<String> = runCatching { MusicTools.roots() }.getOrDefault(emptyList())
+
+    /** Whether a file or folder is here (for SyncPaths: which of your music folders has it). */
+    private fun hereNow(path: String): Boolean = runCatching { File(path).exists() }.getOrDefault(false)
 
     // ---- putting a side in place, live ----
 
@@ -498,7 +514,10 @@ object Sync {
 
     private fun applySwitches(text: String) {
         val now = Prefs.all()
-        for ((k, v) in BackupMerge.switchesToRestore(text, crossDevice = true)) {
+        val roots = musicRoots()
+        for ((k, v0) in BackupMerge.switchesToRestore(text, crossDevice = true)) {
+            // A choice that names files and folders: put under this device's music folder
+            val v = if (k in SyncPaths.PREFS && v0 is String) SyncPaths.intoLines(v0, roots, ::hereNow) else v0
             if (!SyncRules.prefSyncs(k) || k in PERSONAL || now[k] == v) continue
             // Your own looks, layouts and visualizers: the other device's added to yours, not swapped for them
             val made = if (v is String) org.omarchy.music.ui.MadeSync.incoming(k, now[k] as? String ?: "", v) else null
@@ -509,7 +528,9 @@ object Sync {
                 is String -> Prefs.setText(k, v)
             }
         }
-        ScanIgnore.reload()   // the Never show picks that came across, used straight away (not only after a restart)
+        // The Never show picks and the scans' choices that came across, used straight away (not only after a restart)
+        ScanIgnore.reload()
+        runCatching { MusicTools.init() }
         Music.applySound()
     }
 
@@ -531,8 +552,9 @@ object Sync {
         strs("stat_hides")?.let { StatHides.take(it) }
         strs("damaged_left")?.let { FileCheck.takeLeft(it) }
         list("similar_kept")?.let { m.similarKept = it }
-        list("singles_kept")?.let { m.singlesKept = it.toSet() }
-        list("not_dupes")?.let { m.notDupes = it.toSet() }
+        val roots = musicRoots()
+        list("singles_kept")?.let { l -> m.singlesKept = l.map { SyncPaths.into(it, roots, ::hereNow) }.toSet() }
+        list("not_dupes")?.let { l -> m.notDupes = l.map { SyncPaths.intoDupeKey(it, roots, ::hereNow) }.toSet() }
         s("lyrics_mode")?.let { m.lyricsMode = it }
         s("music_sort")?.let { m.musicSort = it }
         s("playlist_sort")?.let { m.playlistSort = it }
