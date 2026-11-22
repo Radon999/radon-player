@@ -54,6 +54,14 @@ private const val LOW_COUNT = 4
 fun AlbumsTab(ui: Ui, kind: String = "albums") {
     // EPs and Singles: by the album tag ("Title - EP", "Title - Single"); songs with no album are singles; the rest are albums
     val eps = kind == "eps"; val singles = kind == "singles"
+    // Each one's plays: its songs' plays added up, as the Artists tab counts them (Last.fm and your imports; the plays here
+    // only without Last.fm), worked out off the screen's thread
+    val playCounts by androidx.compose.runtime.produceState(emptyMap<Pair<String, String>, Int>(), Music.musicVersion, org.omarchy.music.Stats.songs) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Music.playCounts() }.getOrDefault(emptyMap()) }
+    }
+    fun playsOf(songs: List<Track>): String = if (playCounts.isEmpty()) "" else
+        songs.sumOf { playCounts[org.omarchy.music.songKey(it)] ?: 0 }.let { n -> "%,d play%s".format(n, if (n != 1) "s" else "") }
+    fun withPlays(sub: String, songs: List<Track>) = playsOf(songs).let { p -> if (p.isEmpty()) sub else if (sub.isBlank()) p else "$sub · $p" }
     val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
         .flatMap { (al, songs) ->
             if (songs.first().album.isEmpty() && songs.none { org.omarchy.music.folderKind(Music.folderOf(it)) != null })   // no album at all: each song is its own single
@@ -116,11 +124,11 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, names = { albums[it].first.title },
             otherNames = listOf({ albums[it].second.firstOrNull()?.artist.orEmpty() }), row = { i ->
             val (al, songs) = albums[i]
-            PlaylistRow(Album(al.id, al.title, al.sub, "", songs.size.toString()), artModel(songs.first()),
+            PlaylistRow(Album(al.id, al.title, withPlays(al.sub, songs), "", songs.size.toString()), artModel(songs.first()),
                 onLongClick = { menu(al, songs) }, checked = if (picking) al.id in picked else null) { tap(al, songs) }
         }) { i, mod, compact ->
             val (al, songs) = albums[i]
-            Tile(artModel(songs.first(), tilePx(compact)), al.title, al.sub, mod, compact, ico = Ico.DISC, lit = picking && al.id in picked,
+            Tile(artModel(songs.first(), tilePx(compact)), al.title, withPlays(al.sub, songs), mod, compact, ico = Ico.DISC, lit = picking && al.id in picked,
                 onLongClick = { menu(al, songs) }) { tap(al, songs) }
         }
     }
