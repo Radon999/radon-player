@@ -353,7 +353,8 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
                 Text(own.title, style = T.title.copy(color = if (playing) C.accent else C.fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val bits = buildList {
                     if (own.duration > 0 && !C.apple) add(fmtTime(own.duration))   // Apple Music's: the length at the end of the row
-                    if (extra.isNotEmpty()) add(extra)
+                    // …and how often you played it, on every list (not the other device's queue: its plays are its own)
+                    (if (remoteQueue) extra else ShownPlays.with(extra, own)).takeIf { it.isNotEmpty() }?.let { add(it) }
                 }.joinToString(" · ")
                 ArtistLinks(own.artist, ui, own.source, suffix = if (bits.isNotEmpty()) "  · $bits" else "")
             }
@@ -373,6 +374,29 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             Modifier.align(Alignment.BottomStart).padding(start = Themes.gap(14.dp) + art + 16.dp, end = 12.dp))   // Apple's thin line between rows
         TrackMenu(t, place, ui, menu) { menu = false }
     }
+}
+
+/** How often you played each song, shown on every song's row: the counts the stats keep (Last.fm and your imports;
+ *  the plays here only without Last.fm), as sorting by plays uses them. Worked out off the screen's thread, again
+ *  whenever your music or the stats change. */
+object ShownPlays {
+    private var map by mutableStateOf<Map<Pair<String, String>, Int>>(emptyMap())
+    private var forVersion = -1
+    private var forStats: Any? = null
+    private var busy = false
+    /** The song's plays, or 0 (none, or not worked out yet). */
+    fun of(t: Track): Int {
+        val v = Music.musicVersion; val s = org.omarchy.music.Stats.songs
+        if ((v != forVersion || s !== forStats) && !busy) {
+            busy = true; forVersion = v; forStats = s
+            Music.bg({ Music.playCounts() }) { m, _ -> busy = false; if (m != null) map = m }
+        }
+        return map[org.omarchy.music.songKey(t)] ?: 0
+    }
+    /** "12 plays", or "" when it hasn't been played. */
+    fun text(t: Track): String = of(t).let { n -> if (n <= 0) "" else "%,d play%s".format(n, if (n != 1) "s" else "") }
+    /** What a row shows: its own words, with its plays (unless they say them already). */
+    fun with(extra: String, t: Track): String = if ("play" in extra) extra else text(t).let { p -> listOf(extra, p).filter { it.isNotEmpty() }.joinToString(" · ") }
 }
 
 /** The mark of a song that isn't on this device, in every list: it plays as a stream until you download it. */

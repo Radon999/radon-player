@@ -173,7 +173,7 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
     var menu by remember { mutableStateOf(false) }
     if (ui.selecting) androidx.compose.runtime.SideEffect { if (ui.selectPool !== place.group) { ui.selectPool = place.group; ui.selectPlace = place } }
     Box(modifier) {
-        Tile(artModel(own, tilePx(compact)), own.title, own.artist, Modifier.fillMaxWidth(), compact, extra, lit = playing || checked,
+        Tile(artModel(own, tilePx(compact)), own.title, own.artist, Modifier.fillMaxWidth(), compact, ShownPlays.with(extra, own), lit = playing || checked,
             onLongClick = { if (ui.selecting) ui.optionsHere(t, place) else ui.startSelecting(place.group, place, t) },   // hold: picking starts
             over = {
                 if (playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
