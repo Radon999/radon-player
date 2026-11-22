@@ -32,7 +32,7 @@ object FolderCleanup {
             while (runCatching { Music.dl.busyNow() }.getOrDefault(false) && waited < 1800) { delay(5000); waited += 5 }
             val todo = synchronized(pending) { scheduled = false; pending.toList().also { pending.clear() } }
             val n = runCatching { tidy(todo) }.onFailure { Crashes.caught(it, "Tidying empty folders") }.getOrDefault(0)
-            if (n > 0) Music.toast(if (FileTags.canListFolders) "Moved $n empty folder${if (n != 1) "s" else ""} to the Recycle Bin"
+            if (n > 0) Music.toast(if (platformName != "android") "Moved $n empty folder${if (n != 1) "s" else ""} to the Recycle Bin"
                 else "Removed $n empty folder${if (n != 1) "s" else ""}")
         }
     }

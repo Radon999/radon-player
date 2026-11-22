@@ -6,7 +6,8 @@ object FileTags {
     /** Songs are moved through Android's own list of music (MediaStore): the song keeps its address, so playlists, the
      *  queue, favorites, plays and sync never see it change. Your own files need All files access (Android 10 and up). */
     val canMove: Boolean get() = android.os.Build.VERSION.SDK_INT >= 29 && runCatching { Music.canWriteOwnFiles() }.getOrDefault(false)
-    const val canListFolders = false
+    /** With All files access the music folders can be looked through (Empty folders, and tidying after a move). */
+    val canListFolders: Boolean get() = canMove
     /** Your own files (not the app's downloads) are tagged through the tag library on their real path, with All files
      *  access: FLAC, MP3, M4A, Ogg, Opus, WAV and more, each in its own format. */
     const val OWN_BY_TAGLIB = true
@@ -227,8 +228,27 @@ object FileTags {
     fun exists(path: String) = runCatching { canMove && java.io.File(path).exists() }.getOrDefault(false)
     fun subfolders(folder: String): List<String> = runCatching {
         if (!canMove) emptyList() else java.io.File(folder).listFiles()?.filter { it.isDirectory }?.map { it.name }.orEmpty() }.getOrDefault(emptyList())
-    fun listTree(roots: List<String>): Pair<Map<String, Long>, List<String>> = emptyMap<String, Long>() to emptyList()
-    fun removeFolder(path: String) = false
+    /** Every file under the folders (path -> size) and every folder, as the PC's. */
+    fun listTree(roots: List<String>): Pair<Map<String, Long>, List<String>> {
+        if (!canListFolders) return emptyMap<String, Long>() to emptyList()
+        val files = LinkedHashMap<String, Long>(); val dirs = ArrayList<String>()
+        for (r in roots) runCatching { java.io.File(r).walkTopDown().forEach { f -> if (f.isDirectory) dirs += f.path else files[f.path] = f.length() } }
+        return files to dirs
+    }
+
+    /** Empty folders' delete: a folder and what's left in it (pictures, lyrics files…), deleted for good (a phone has no
+     *  Recycle Bin), and only when no music is in it, looked at again here. */
+    fun removeFolder(path: String): Boolean = runCatching {
+        if (!canListFolders) return false
+        val top = java.io.File(path)
+        val p = path.trimEnd('/')
+        if (!top.isDirectory || p == "/storage/emulated/0" || p.endsWith("/storage/emulated/0/Music")) return false
+        val names = top.walkTopDown().filter { it.isFile }.map { it.name }.toList()
+        if (hasMusic(names)) return false
+        val ok = top.deleteRecursively()
+        runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(path), null, null) }
+        ok
+    }.getOrDefault(false)
 
     /** The folder a song's file is in, as a full path ("/storage/emulated/0/Music/…"), asked of Android before the
      *  file goes; null if unknown. */

@@ -909,7 +909,8 @@ private fun ToolLines(ui: Ui) {
         if (n > 0) "$n folder${if (n != 1) "s" else ""} left alone now" else "None chosen yet", false) {
         Pill("Choose…", quiet = true) { ui.tool = "skip" }
     }
-    if (!onPhone && org.omarchy.music.FileTags.canListFolders) Line("Empty folders", "Finds folders in your music folders that have no songs left " +
+    if (org.omarchy.music.FileTags.canListFolders) Line("Empty folders", (if (onPhone) "On the phone there's no Recycle Bin: a folder you pick is deleted for good, with what's left in it. " else "") +
+        "Finds folders in your music folders that have no songs left " +
         "in them, only pictures or lyrics files, often left behind after songs are moved. You see each one, its size and what's " +
         "in it, and pick which to delete", false) {
         Pill("Clean up…", quiet = true) { ui.tool = "empty" }
