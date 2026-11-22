@@ -725,6 +725,11 @@ fun VisMaker(ui: Ui, editing: String?) {
     var name by remember { mutableStateOf(startStyle?.name ?: startColor?.name ?: "") }
     // A style
     var base by remember { mutableStateOf(startStyle?.base ?: Vis.style().takeIf { !it.startsWith("myvis-") } ?: "bars") }
+    // Around the cover: made from the thirty that go round the cover, never over it, and kept in Around the cover's menu
+    // (only there); off, from the Visualizer's own styles, and kept in its menus. Opened from Around the cover: on.
+    var around by remember { mutableStateOf(startStyle?.base?.startsWith("ar-") ?: Around.makeNext.also { Around.makeNext = false }) }
+    if (around && !base.startsWith("ar-")) base = AROUND_STYLES.first().first
+    if (!around && base.startsWith("ar-")) base = "bars"
     var mirror by remember { mutableStateOf(startStyle?.mirror ?: false) }
     var flip by remember { mutableStateOf(startStyle?.flip ?: false) }
     var reflect by remember { mutableStateOf(startStyle?.reflect ?: false) }
@@ -756,9 +761,15 @@ fun VisMaker(ui: Ui, editing: String?) {
         Pill("Save") {
             val n = name.ifBlank { if (what == "style") "My style" else "My colours" }
             if (what == "style") {
-                val kept = MyVis.saveStyle(draftStyle.copy(key = editing?.takeIf { it.startsWith("myvis-") } ?: "new", name = n))
-                Music.chooseVisPreset(kept.key)
-                Music.toast("Saved “${kept.name}”: it's with the Visualizer's styles, and Now playing's")
+                val kept = MyVis.saveStyle(draftStyle.copy(key = editing?.takeIf { it.startsWith("myvis-") } ?: "new", name = n,
+                    dual = draftStyle.dual && !around, full = draftStyle.full && !around))
+                if (around) {
+                    Around.set(kept.key)
+                    Music.toast("Saved “${kept.name}”: it's in Around the cover, and on now")
+                } else {
+                    Music.chooseVisPreset(kept.key)
+                    Music.toast("Saved “${kept.name}”: it's with the Visualizer's styles, and Now playing's")
+                }
             } else {
                 val kept = MyVis.saveColor(draftColor.copy(key = editing?.takeIf { it.startsWith("mycol-") } ?: "new", name = n))
                 Prefs.setText(Vis.COLOR, kept.key)
@@ -771,9 +782,15 @@ fun VisMaker(ui: Ui, editing: String?) {
         Column(Modifier.fillMaxSize()) {
             // The preview, moving with what's playing
             val accent = C.accent; val fg = C.fg
+            // Around the cover: round a cover in the layout's shape, as on Now playing
+            val shapeKey = UiLayouts.current.x("artShape")
+            val coverFill = Brush.linearGradient(listOf(accent, C.light, accent.copy(alpha = 0.5f)))
             Canvas(Modifier.fillMaxWidth().height(if (onPhone) 380.dp else 480.dp).padding(horizontal = 16.dp).clip(R.big).background(Color(0xFF0B0B10))) {
                 if (s.frame < 0) return@Canvas
-                if (what == "style") {
+                if (around) {
+                    val pal = if (what == "style") VisPalette(ownColor.ifEmpty { Vis.color() }, accent, s.phase * 0.05f) else previewPalette(draftColor, accent)
+                    drawAroundMaking(base, amp, spin, s, pal, shapeKey, coverFill)
+                } else if (what == "style") {
                     val key = ownColor.ifEmpty { Vis.color() }
                     if (full) drawCoverSpot()   // where the cover sits on Now playing: the visualizer goes over it
                     clipRect { drawVisPreviewStyle(draftStyle, s, VisPalette(key, accent, s.phase * 0.05f), fg) }
@@ -794,7 +811,12 @@ fun VisMaker(ui: Ui, editing: String?) {
                 // A random one to start from: the style and every way of shaping it, or the colours and how they spread
                 Box(Modifier.padding(bottom = 8.dp)) { Pill("Randomize") {
                     val r = kotlin.random.Random
-                    if (what == "style") {
+                    if (what == "style" && around) {
+                        base = AROUND_STYLES.random(r).first
+                        spin = if (r.nextBoolean()) 0f else 0.1f + r.nextFloat() * 0.9f
+                        amp = 0.7f + r.nextFloat() * 0.9f
+                        ownColor = (listOf("") + VIS_COLORS.map { it.first }).random(r)
+                    } else if (what == "style") {
                         dual = r.nextFloat() < 0.3f
                         base = if (dual) VIS_BASES.filter { it.first in Vis.BUILT_CENTRED }.random(r).first else VIS_BASES.random(r).first
                         base2 = VIS_BASES.filter { it.first !in Vis.BUILT_CENTRED }.random(r).first
@@ -816,6 +838,24 @@ fun VisMaker(ui: Ui, editing: String?) {
                 } }
                 NameField(name) { name = it }
                 if (what == "style") {
+                    Toggle("Around the cover", "On: it goes round the album cover on Now playing, from its edge outward, never over it, " +
+                        "in the cover's shape from the layout; it's made from the ones made for that, and it's in Around the cover's " +
+                        "menu. Off: made from the Visualizer's styles, and in its menus", around) { on ->
+                        around = on
+                        if (on) { base = AROUND_STYLES.first().first; dual = false; full = false } else base = "bars"
+                    }
+                    if (around) {
+                        Heading("Start from", "The ones made to go round the cover")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            AROUND_STYLES.forEach { (k, label) -> Chip(label, base == k) { base = k } }
+                        }
+                        Heading("Shape it")
+                        SliderLine("Spin", spin, 0f..1f, if (spin < 0.05f) "off" else "%.0f%%".format(spin * 100)) { spin = it }
+                        SliderLine("Strength", amp, 0.5f..2f, "%.1f×".format(amp)) { amp = it }
+                        Heading("Its colour", "Its own, or whatever the Visualizer's colour is (Colours changes it later too)")
+                        val acc = C.accent
+                        ChoicePill(listOf("" to "The Visualizer's colour") + VIS_COLORS, ownColor, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, acc) }) { ownColor = it }
+                    } else {
                     Toggle("Dual", "Two at once: one in the middle (over the cover on Now playing) and one along the bottom", dual) { on ->
                         dual = on
                         if (on && base !in Vis.BUILT_CENTRED) base = "ring"   // the middle one is one of the middle styles
@@ -862,6 +902,7 @@ fun VisMaker(ui: Ui, editing: String?) {
                         Heading("Its colour: the bottom one", "Its own, or the same as the middle one")
                         ChoicePill(listOf("" to "Same as the middle one") + VIS_COLORS, color2, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, acc) }) { color2 = it }
                     }
+                    }   // (not Around the cover)
                 } else {
                     Heading("Its colours", "2 to 5, from the bass to the treble (or quiet to loud). Tap one to change it")
                     Row(Modifier.padding(bottom = 4.dp)) {

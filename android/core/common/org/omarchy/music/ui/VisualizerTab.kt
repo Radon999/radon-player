@@ -98,7 +98,7 @@ private val BUILT_VIS_STYLES: List<Pair<String, String>> = listOf("bars" to "Bar
 /** The built-in styles that the style maker can start from. */
 val VIS_BASES: List<Pair<String, String>> get() = BUILT_VIS_STYLES
 /** Every style: the built-in ones, then the ones you made (Make your own visualizer). */
-val VIS_STYLES: List<Pair<String, String>> get() = BUILT_VIS_STYLES + numbered(MyVis.styles().map { it.key to it.name }).map { (k, n) -> k to "$n (yours)" }
+val VIS_STYLES: List<Pair<String, String>> get() = BUILT_VIS_STYLES + numbered(MyVis.styles().filter { !it.base.startsWith("ar-") }.map { it.key to it.name }).map { (k, n) -> k to "$n (yours)" }
 
 /** Two of yours with the same name get a number after it ("My style", "My style 2"), so the menus tell them apart. */
 internal fun numbered(items: List<Pair<String, String>>): List<Pair<String, String>> {

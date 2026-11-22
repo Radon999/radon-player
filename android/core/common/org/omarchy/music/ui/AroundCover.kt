@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import org.omarchy.music.Prefs
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 // ───────────────────────────── Around the cover ─────────────────────────────
@@ -45,13 +46,22 @@ val AROUND_STYLES: List<Pair<String, String>> = listOf(
     "ar-sides" to "Side bars", "ar-topbottom" to "Above and below", "ar-halo" to "Halo", "ar-shadow" to "Pulse shadow", "ar-burst" to "Particles",
 )
 
+/** The thirty, and the ones you made from them (in the visualizer maker, with Around the cover on): Around the cover's
+ *  menu. Yours made from these are in no other visualizer menu. */
+val AROUND_ALL: List<Pair<String, String>> get() = AROUND_STYLES +
+    numbered(MyVis.styles().filter { it.base.startsWith("ar-") }.map { it.key to it.name }).map { (k, n) -> k to "$n (yours)" }
+
 object Around {
     /** The style on ("" none): its key, kept as the Now playing visualizer's are, each device its own. */
     const val PREF = "np_vis_around"
-    fun style(): String = Prefs.text(PREF).takeIf { k -> AROUND_STYLES.any { it.first == k } }.orEmpty()
+    fun style(): String = Prefs.text(PREF).takeIf { k -> AROUND_ALL.any { it.first == k } }.orEmpty()
     fun on(): Boolean = style().isNotEmpty()
     fun set(k: String) = Prefs.setText(PREF, k)
-    fun name(k: String): String = AROUND_STYLES.firstOrNull { it.first == k }?.second ?: k
+    fun name(k: String): String = AROUND_ALL.firstOrNull { it.first == k }?.second ?: k
+    /** One of the thirty, or yours made from one. */
+    fun isAround(k: String): Boolean = k.startsWith("ar-") || MyVis.style(k)?.base?.startsWith("ar-") == true
+    /** The visualizer maker opened from Around the cover's menu: it starts as one of these. */
+    var makeNext = false
     /** How far round the cover they reach, as a share of the cover's side (each side). */
     const val REACH = 0.32f
 }
@@ -69,8 +79,10 @@ private class Rim(val cx: Float, val cy: Float, val h: Float, rc0: Float) {
         floatArrayOf(cx - h + rc, cy + h - rc, 90f), floatArrayOf(cx - h + rc, cy - h + rc, 180f))
     private val sides = arrayOf(floatArrayOf(cx + h, cy - h + rc, 0f, 1f, 1f, 0f), floatArrayOf(cx + h - rc, cy + h, -1f, 0f, 0f, 1f),
         floatArrayOf(cx - h, cy + h - rc, 0f, -1f, -1f, 0f), floatArrayOf(cx - h + rc, cy - h, 1f, 0f, 0f, -1f))
+    /** How far round it has turned (a style of yours with Spin): everything drawn along it moves round with it. */
+    var turn = 0f
     fun at(t: Float, out: FloatArray) {
-        var d = (((t % 1f) + 1f) % 1f) * total
+        var d = ((((t + turn) % 1f) + 1f) % 1f) * total
         // the top's right half
         val half = flat / 2f
         if (d <= half) { set(out, cx + d, cy - h, 0f, -1f); return }; d -= half
@@ -104,11 +116,35 @@ private fun levelAt(s: VisState, t: Float): Float {
 
 private fun hash(i: Int): Float { var x = i * 374761393 + 668265263; x = (x xor (x ushr 13)) * 1274126177; return ((x xor (x ushr 16)) and 0xFFFF) / 65535f }
 
-/** Draws [style] round a cover of [side] px across (corner radius [corner] px; side / 2 for a circle) at the middle of
- *  this space. alpha: how strongly it shows. */
+/** Draws [style] (one of the thirty, or yours made from one) round a cover of [side] px across (corner radius [corner]
+ *  px; side / 2 for a circle) at the middle of this space. alpha: how strongly it shows. */
 private fun DrawScope.drawAround(style: String, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
+    val mine = MyVis.style(style)
+    drawAroundBase(mine?.base ?: style, mine?.amp ?: 1f, mine?.spin ?: 0f, s, pal, side, corner, alpha)
+}
+
+/** The visualizer maker's preview of one of these you're making: a cover in the layout's shape ([shape], the Cover's
+ *  shape setting) in the middle, filled with [cover], and [base] round it with your Strength and Spin. */
+internal fun DrawScope.drawAroundMaking(base: String, amp: Float, spin: Float, s: VisState, pal: VisPalette, shape: String, cover: Brush) {
+    val side = min(size.width, size.height) / (1f + 2f * Around.REACH) * 0.92f
+    val corner = when (shape) { "square" -> 0f; "soft" -> side * 0.18f; "circle" -> side / 2f; else -> side * 0.07f }
+    drawAroundBase(base, amp, spin, s, pal, side, corner, 0.95f)
+    drawRoundRect(cover, Offset(size.width / 2f - side / 2f, size.height / 2f - side / 2f), Size(side, side), CornerRadius(corner))
+}
+
+private fun DrawScope.drawAroundBase(style: String, amp: Float, spin: Float, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
+    // Strength: the levels made bigger or smaller while it's drawn, then put back
+    val keptLevels = if (amp != 1f) s.levels.copyOf() else null
+    val keptBass = s.bass
+    if (keptLevels != null) { for (i in s.levels.indices) s.levels[i] = (s.levels[i] * amp).coerceIn(0f, 1f); s.bass = (s.bass * amp).coerceIn(0f, 1f) }
+    try { drawAroundStyle(style, spin, s, pal, side, corner, alpha) }
+    finally { if (keptLevels != null) { keptLevels.copyInto(s.levels); s.bass = keptBass } }
+}
+
+private fun DrawScope.drawAroundStyle(style: String, spin: Float, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
     val cx = size.width / 2f; val cy = size.height / 2f
     val rim = Rim(cx, cy, side / 2f, corner)
+    rim.turn = s.phase * spin * 0.08f
     val reach = side * Around.REACH
     val p = FloatArray(4); val q = FloatArray(4)
     val ph = s.phase
@@ -227,5 +263,20 @@ fun AroundPreview(style: String, colour: String = "") {
             drawAround(style, s, pal, cover.toPx(), corner.toPx(), 0.9f)
         }
         Box(Modifier.size(cover).clip(RoundedCornerShape(corner)).background(Brush.linearGradient(listOf(C.accent, C.light, C.accent.copy(alpha = 0.5f)))))
+    }
+}
+
+/** Around the cover's menu (Settings): the thirty and yours made from them, each shown round a cover in the layout's
+ *  shape; yours can be changed or deleted from the menu (⋯), and Make your own opens the visualizer maker with Around
+ *  the cover on. */
+@Composable
+fun AroundPicker(current: String, picked: (String) -> Unit) {
+    androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        ChoicePill(AROUND_ALL, current, group = { if (it.startsWith("myvis-")) "Yours" else "Made for it" }, preview = { AroundPreview(it) },
+            menu = { k, l -> if (k.startsWith("myvis-")) Favs.menu(Favs.VIS, k, l) else emptyList() }) { Around.set(it); picked(it) }
+        Pill("Make your own", quiet = true) {
+            Ui.current?.let { Around.makeNext = true; it.makerEdit = null; it.sheet = "vismaker" }
+        }
     }
 }

@@ -1684,7 +1684,7 @@ private fun VisColourLine(title: String, key: String, made: String) {
         val style = key.substringBefore('#')
         ChoicePill(listOf("" to comes) + Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), set, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, accent) },
             preview = { k -> val c = k.ifEmpty { made.ifEmpty { Vis.color() } }
-                if (style.startsWith("ar-")) AroundPreview(style, c) else VisColourPages(style, c) }) {
+                if (Around.isAround(style)) AroundPreview(style, c) else VisColourPages(style, c) }) {
             Vis.setColorFor(key, it); set = it }
     }
 }
@@ -1701,13 +1701,15 @@ private fun NowPlayingLookLines() {
     var dual by remember { mutableStateOf(Vis.nowDual()) }
     var around by remember { mutableStateOf(Around.style()) }
     // Around the cover: thirty visualizers made to go round the cover, never over it; on, no middle one is drawn
-    Line("Around the cover", "On: a visualizer goes round the album cover on Now playing, from its edge outward, never over " +
+    // (With Dual on, In the middle offers these too, so the switch is only here without it)
+    if (!dual) Line("Around the cover", "On: a visualizer goes round the album cover on Now playing, from its edge outward, never over " +
         "it, and follows the cover's shape and size from the layout (square, rounded, a circle like a record). It takes the " +
         "middle's place: the middle visualizers aren't drawn while it's on; the one along the bottom still is", around.isNotEmpty()) {
         Switch(around.isNotEmpty(), { on -> val k = if (on) AROUND_STYLES.first().first else ""; Around.set(k); around = k }, colors = swColors())
     }
-    if (around.isNotEmpty()) Line("Round the cover", "Which one goes round the cover (its colour is in Colours)", false) {
-        ChoicePill(AROUND_STYLES, around, preview = { AroundPreview(it) }) { Around.set(it); around = it }
+    if (!dual && around.isNotEmpty()) Line("Round the cover", "Which one goes round the cover: the thirty, and yours made from them " +
+        "(Make your own, with Around the cover on). Its colour is in Colours", false) {
+        AroundPicker(around) { around = it }
     }
     if (!dual) Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
@@ -1720,9 +1722,17 @@ private fun NowPlayingLookLines() {
         "each picked below in place of Now playing visualizer" + (if (around.isNotEmpty()) ". With Around the cover on, only the bottom one is drawn" else ""), dual) {
         Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())
     }
-    if (dual && around.isEmpty()) Line("In the middle", "Dual's style in the middle of Now playing, over the cover", false) {
-        var mid by remember { mutableStateOf(Vis.nowStyle()) }
-        ChoicePill(Vis.MIDDLE_STYLES, mid, group = { MenuGroups.vis(it) }, preview = { VisPages(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); mid = it }
+    // Dual's middle: one over the cover, or one that goes round it and never over it (Around the cover's, yours too)
+    if (dual) Line("In the middle", "Dual's style in the middle of Now playing: over the cover, or (under Around the cover) round " +
+        "it, never over it, in the cover's shape", false) {
+        var mid by remember { mutableStateOf(around.ifEmpty { Vis.nowStyle() }) }
+        ChoicePill(Vis.MIDDLE_STYLES + AROUND_ALL, mid, group = { if (Around.isAround(it)) "Around the cover" else MenuGroups.vis(it) },
+            preview = { k -> if (Around.isAround(k)) AroundPreview(k) else VisPages(k) },
+            menu = { k, l -> if (k.startsWith("myvis-")) Favs.menu(Favs.VIS, k, l) else emptyList() }) { k ->
+            if (Around.isAround(k)) { Around.set(k); around = k }
+            else { org.omarchy.music.Prefs.setText(Vis.NOW, k); Around.set(""); around = "" }
+            mid = k
+        }
     }
     if (dual) Line("Along the bottom", "Dual's style along the bottom of Now playing", false) {
         var bottom by remember { mutableStateOf(Vis.nowBottom()) }
