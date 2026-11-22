@@ -65,7 +65,8 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     fun leadOf(songs: List<Track>) = songs.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: ""
     fun withPlays(al: Album, songs: List<Track>) = (listOf(al.sub, playsOf(songs)) +
         // …and how much of it is here and how much you'd still only stream (from its tracklist, once counted)
-        listOfNotNull(org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.albumKey(al.title, leadOf(songs)))
+        // (not on singles: one song is all of it)
+        listOfNotNull(if (singles) null else org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.albumKey(al.title, leadOf(songs)))
             ?.let { org.omarchy.music.ReleaseCounts.text(it) })).filter { it.isNotBlank() }.joinToString(" · ")
     val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
         .flatMap { (al, songs) ->
@@ -101,7 +102,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     // The ones not counted yet (what of each is here, what you'd still only stream): their tracklists looked up in the
     // background, a few at a time, and kept
     androidx.compose.runtime.LaunchedEffect(all, kind) {
-        org.omarchy.music.ReleaseCounts.fill(all.map { (al, songs) -> Triple(al.title, leadOf(songs), songs) },
+        if (!singles) org.omarchy.music.ReleaseCounts.fill(all.map { (al, songs) -> Triple(al.title, leadOf(songs), songs) },
             if (eps) "ep" else if (singles) "single" else "album")
     }
     org.omarchy.music.ReleaseCounts.version   // (rows redrawn as counts come in)
