@@ -1,47 +1,48 @@
-commit 790c7c3c3b56f33e5873dc6a0703ff8c12c98ed8 · run 44964809113 · Sun Nov 22 00:25:49 UTC 2026
-PC TESTS ON WINDOWS: 44 suites, tests 171, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 3.3 s (with loading the voice); then 4.6 s of speech in 2.4 s (2.0x real time)
-WINDOWS INSTALLER: Radon Player-4.0.34.msi, 97M
+commit c39e365f333fe10acba4d3e683203f4dbb74081c · run 44966393198 · Sun Nov 22 00:34:50 UTC 2026
+PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
+THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
+WINDOWS INSTALLER: not built
 --- errors
-org.omarchy.music.SafeWriteInUseTest > aChangeToTheSongPlayingWaitsUntilItIsFree FAILED
-    java.lang.AssertionError: another address of the same file
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.assertTrue(Assert.java:42)
-        at org.omarchy.music.SafeWriteInUseTest.aChangeToTheSongPlayingWaitsUntilItIsFree(SafeWriteInUseTest.kt:30)
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/WrappedScreen.kt:659:95 Unresolved reference 'openIn'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/WrappedScreen.kt:659:109 Not enough information to infer type argument for 'T'.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/WrappedScreen.kt:659:113 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/WrappedScreen.kt:659:118 Overload resolution ambiguity between candidates:
+fun File.readBytes(): ByteArray
+@SinceKotlin(...) fun InputStream.readBytes(): ByteArray
+@Deprecated(...) @DeprecatedSinceKotlin(...) fun InputStream.readBytes(estimatedSize: Int = ...): ByteArray
+fun URL.readBytes(): ByteArray
 
-171 tests completed, 1 failed
---
-> Task :desktop:test FAILED
+> Task :desktop:compileKotlin FAILED
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':desktop:test'.
-> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
 
 * Try:
-> Run with --scan to get full insights.
-
+> Run with --stacktrace option to get the stack trace.
 --
-BUILD FAILED in 7m 28s
-21 actionable tasks: 21 executed
+BUILD FAILED in 3m 32s
+17 actionable tasks: 17 executed
 --- the end of the log
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.assertTrue(Assert.java:42)
-        at org.omarchy.music.SafeWriteInUseTest.aChangeToTheSongPlayingWaitsUntilItIsFree(SafeWriteInUseTest.kt:30)
+fun URL.readBytes(): ByteArray
 
-171 tests completed, 1 failed
-
-> Task :desktop:test FAILED
+> Task :desktop:compileKotlin FAILED
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':desktop:test'.
-> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+Execution failed for task ':desktop:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
 
 * Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
 > Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -49,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 7m 28s
-21 actionable tasks: 21 executed
+BUILD FAILED in 3m 32s
+17 actionable tasks: 17 executed
