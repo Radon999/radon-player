@@ -215,8 +215,6 @@ class Tidal(ctx: Ctx) : Source {
     }
 
     // ---- clean and explicit (Your music › Clean or explicit; Scanner › Clean and explicit versions) ----
-    /** Whether Tidal's track id is the explicit version (null: Tidal doesn't say). */
-    fun explicitOf(id: Long): Boolean? = runCatching { trackJson(id)["explicit"].bool }.getOrNull()
 
     /** Every version Tidal has of song t, clean and explicit alike (its name, artist and length agree; not a live
      *  recording, a remix or the like), the closest first. */

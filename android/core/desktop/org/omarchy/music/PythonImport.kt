@@ -587,7 +587,6 @@ object PythonImport {
                 // A duplicate song's pick: {"title", "artist"} there, "title\u0000artist" here ("": left alone).
                 (st["song_picks"] as? JsonObject)?.let { m -> e("song_picks", JsonObject(m.mapNotNull { (k, v) ->
                     (if (v is JsonObject) "${text(v["title"]) ?: ""}\u0000${text(v["artist"]) ?: ""}" else text(v))?.let { k to JsonPrimitive(it) } }.toMap())) }
-                e("singles_kept", arr(strings(st["singles_kept"]).map(::JsonPrimitive)))
             }
             prefs(st)
             remoteTokens(st)

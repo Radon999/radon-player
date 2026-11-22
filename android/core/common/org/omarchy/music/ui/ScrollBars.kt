@@ -100,63 +100,6 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
     LazyColumn(modifier, state = state, content = content)
 }
 
-/** Where each letter starts in the list on screen (the letter, the row), as the list's own rows say while they are
- *  laid out. Gathered in a plain list first: the rows are laid out inside a read-only step of drawing, where nothing
- *  the screen watches may be changed, and handed on to [shown] straight after. */
-class JumpIndex {
-    @Volatile private var found: List<Pair<String, Int>> = emptyList()
-    /** Said each time the rows have been gone through: [publish] then. */
-    val told = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
-    var shown by mutableStateOf<List<Pair<String, Int>>>(emptyList())
-        private set
-    fun begin() { found = emptyList() }
-    /** The first list in alphabetical order on the screen has the strip (a screen with two such lists keeps the first's). */
-    fun add(anchors: List<Pair<String, Int>>) { if (found.isEmpty()) found = anchors }
-    fun publish() { if (shown != found) shown = found }
-}
-
-/** The list's rows passed on as they are, counted: so a list can say which row each of its letters starts on. */
-class CountingScope(private val inner: LazyListScope, val jump: JumpIndex) : LazyListScope by inner {
-    var count = 0
-        private set
-    override fun item(key: Any?, contentType: Any?, content: @Composable androidx.compose.foundation.lazy.LazyItemScope.() -> Unit) {
-        count++; inner.item(key, contentType, content)
-    }
-    override fun items(count: Int, key: ((index: Int) -> Any)?, contentType: (index: Int) -> Any?, itemContent: @Composable androidx.compose.foundation.lazy.LazyItemScope.(index: Int) -> Unit) {
-        this.count += count; inner.items(count, key, contentType, itemContent)
-    }
-}
-
-/** The strip of letters down a list's right side: tap one, or run a finger (or the pointer, held) down them. */
-@Composable
-private fun LetterStrip(letters: List<Pair<String, Int>>, state: LazyListState, modifier: Modifier) {
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var height by remember { mutableStateOf(1) }
-    fun go(y: Float) {
-        val i = ((y / height) * letters.size).toInt().coerceIn(0, letters.size - 1)
-        scope.launch { state.scrollToItem(letters[i].second) }
-    }
-    // As tall as the list lets it be and wide enough for a thumb; the letters are as big as fit (4.0.17's were 9 to 10
-    // points in a strip 16 wide: too small to read or hit on a phone)
-    val per = with(androidx.compose.ui.platform.LocalDensity.current) { (height / letters.size.toFloat()).toSp().value }
-    val size = (per * 0.74f).coerceIn(9f, 17f).sp
-    androidx.compose.foundation.layout.Column(modifier.padding(end = if (onPhone) 2.dp else 14.dp)
-        .fillMaxHeight(0.94f).width(STRIP_WIDTH)
-        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(C.light.copy(alpha = 0.7f))
-        .onSizeChanged { height = it.height.coerceAtLeast(1) }
-        .pointerInput(letters) { awaitEachGesture {
-            val down = awaitFirstDown(); down.consume(); go(down.position.y)
-            while (true) { val e = awaitPointerEvent(); val ch = e.changes.firstOrNull() ?: break; if (!ch.pressed) break; ch.consume(); go(ch.position.y) }
-        } }
-        .padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
-        letters.forEach { (l, _) -> androidx.compose.material3.Text(l, style = T.sub.copy(fontSize = size, lineHeight = size,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = C.accent)) }
-    }
-}
-
-/** How wide the strip of letters is. */
-private val STRIP_WIDTH = 30.dp
-
 /** Scrolling up and down, as Compose's verticalScroll, with a scroll bar on the PC. */
 fun Modifier.verticalScroll(state: ScrollState, enabled: Boolean = true, flingBehavior: FlingBehavior? = null,
                             reverseScrolling: Boolean = false): Modifier =

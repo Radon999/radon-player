@@ -393,50 +393,9 @@ fun similarArtists(library: Set<String>, played: Map<String, Int>, titles: Map<S
 }
 
 
-/** What an album is, for which one a song's plays go to: 0 a single, 1 an EP, 2 an album, 3 a deluxe, extended or
- *  anniversary edition (always the one, when there is one). The desktop's album_kind. */
+/** A song on one of its releases, as Music.albumPicks keeps which album its plays count for. */
 fun albumPlayKey(title: String, artist: String, album: String): String =
     statsKey(title, artist).let { "${it.first}|${it.second}|${norm(cleanTitle(album))}" }
-
-/** A song whose plays are on more than one of its releases: [to] is where they all go. */
-data class AlbumPlays(val title: String, val artist: String, val albums: List<Pair<String, Int>>, val to: String)
-
-/** Songs whose plays (title, artist, album, n) are on more than one album (a single, an EP, the album, its deluxe):
- *  the album over an EP and a single, a deluxe or extended edition over the album, then the most played. Only albums
- *  you have songs from on this device (mine) are picked: a single whose EP or album you haven't got stays a single.
- *  Decided ones (picks) aren't offered. The desktop's album_plays_plan. */
-data class AlbumPlay(val title: String, val artist: String, val album: String, val n: Int)
-
-fun albumPlaysPlan(plays: List<AlbumPlay>, mine: List<Track>, picks: Map<String, String>): List<AlbumPlays> {
-    class S(val title: String, val artist: String) { val albums = LinkedHashMap<String, Int>(); val names = HashMap<String, String>(); val have = HashSet<String>() }
-    val songs = LinkedHashMap<Pair<String, String>, S>()
-    for ((title, artist, album, n) in plays) {
-        if (title.isBlank() || artist.isBlank() || album.isBlank()) continue
-        val s = songs.getOrPut(statsKey(title, artist)) { S(title, artist) }
-        val a = norm(cleanTitle(album))
-        s.albums.merge(a, n, Int::plus); s.names.putIfAbsent(a, album.trim())
-    }
-    for (t in mine) {
-        val s = songs[statsKey(t.title, t.artist)] ?: continue
-        if (t.album.isBlank()) continue
-        val a = norm(cleanTitle(t.album))
-        s.names.putIfAbsent(a, t.album.trim()); s.albums.putIfAbsent(a, 0); s.have += a
-    }
-    // The albums you have songs from here (by their artist), for where plays may go.
-    val owned = HashSet<String>()
-    for (t in mine) if (t.album.isNotBlank()) owned += statsKey(t.title, t.artist).second + "|" + norm(cleanTitle(t.album))
-    val out = ArrayList<AlbumPlays>()
-    for ((k, s) in songs) {
-        if (s.albums.size < 2 || s.albums.values.none { it > 0 }) continue
-        if (s.albums.keys.any { "${k.first}|${k.second}|$it" in picks }) continue
-        val yours = s.albums.keys.filter { it in s.have || "${k.second}|$it" in owned }
-        if (yours.isEmpty()) continue
-        val to = yours.maxWithOrNull(compareBy<String>({ albumKind(s.names[it]!!, s.title) }, { it in s.have }, { s.albums[it]!! }))!!
-        if (s.albums.all { (a, n) -> a == to || n == 0 }) continue
-        out += AlbumPlays(s.title, s.artist, s.albums.entries.sortedByDescending { it.value }.map { s.names[it.key]!! to it.value }, s.names[to]!!)
-    }
-    return out.sortedWith(compareBy({ norm(it.artist) }, { norm(it.title) }))
-}
 
 
 val SONG_VERSION = Regex("\\b(acoustic|remix|rmx|live|demo|stripped|orchestra|session|sessions|alternate|commentary|instrumental|" +

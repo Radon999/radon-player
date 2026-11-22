@@ -104,10 +104,6 @@ object AudioTools {
         return fp to secs
     }
 
-    /** (blocking) The whole song's raw fingerprint (Chromaprint's words, ~8 a second), for Clean and explicit versions'
-     *  Listen; null if it couldn't be heard or [stop] said to stop. */
-    fun wholePrint(path: String, stop: () -> Boolean): IntArray? = hear(path, 0, stop)?.raw()?.takeIf { it.isNotEmpty() }
-
     /** The song (its first [maxSecs], 0: all of it) through Chromaprint: ffmpeg decodes it to WAV, the app hears it. */
     private fun hear(path: String, maxSecs: Int, stop: () -> Boolean): Chromaprint? {
         val args = mutableListOf(ffmpeg(), "-v", "error", "-nostdin", "-i", path)

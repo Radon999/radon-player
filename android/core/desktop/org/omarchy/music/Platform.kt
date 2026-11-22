@@ -18,10 +18,21 @@ class Ctx(val filesDir: File, val cacheDir: File) {
     }
 }
 
-private fun pathOf(uri: String) = if (uri.startsWith("file://")) java.net.URI(uri).path else uri
+/** A file:// address as a path: a proper one (file:///C:/Music/x.flac), or one put together by hand ("file://" and a
+ *  Windows path, backslashes and all, which isn't a valid address); anything else as it is. */
+private fun pathOf(uri: String): String {
+    if (!uri.startsWith("file:")) return uri
+    runCatching { return File(java.net.URI(uri)).path }
+    return uri.removePrefix("file://").let { if (Regex("^/[A-Za-z]:[/\\]").containsMatchIn(it)) it.substring(1) else it }
+}
 
-/** One name for a song file however it is addressed (a path, a file:// address), to tell two addresses of the same file. */
-fun fileKey(uri: String): String = runCatching { pathOf(uri) }.getOrDefault(uri)
+/** One name for a song file however it is addressed (a path, a file:// address; on Windows either slash and any case),
+ *  to tell two addresses of the same file. On Windows "file://" + C:\…\x.mp3 was taken as it was and never matched the
+ *  path (the playing song's file could be written to: SafeWriteInUseTest). */
+fun fileKey(uri: String): String = runCatching {
+    val p = File(pathOf(uri)).path
+    if (File.separatorChar == '\') p.replace('/', '\').lowercase() else p
+}.getOrDefault(uri)
 
 fun Ctx.openIn(uri: String): java.io.InputStream? = File(pathOf(uri)).takeIf { it.isFile }?.inputStream()
 
@@ -51,9 +62,6 @@ fun appCtx(c: Ctx): Ctx = c
 const val platformName = "pc"
 val deviceName: String get() = runCatching { java.net.InetAddress.getLocalHost().hostName }.getOrDefault("PC")
 fun sdkAtLeast(n: Int) = true
-
-/** (the phone's: a notification in its shade. On the PC what the app has to say is said in the app itself.) */
-fun notifyUser(ctx: Ctx, title: String, text: String): Boolean = false
 
 /** How much room is left on the disk downloads go to, and how big it is, in bytes. folder: the download folder (one
  *  that isn't a full path is in your home folder). (-1, 0): not known. */

@@ -29,7 +29,7 @@ object Remembered {
         val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
         val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
         val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
-        val song_picks: Map<String, String> = emptyMap(), val singles_kept: List<String> = emptyList(), val not_dupes: List<String> = emptyList(),
+        val song_picks: Map<String, String> = emptyMap(), val not_dupes: List<String> = emptyList(),
         val tab_sorts: Map<String, String> = emptyMap(), val tab_picks: Map<String, String> = emptyMap(),
     )
 
@@ -75,7 +75,6 @@ object Remembered {
         similarKept = st.similar_kept
         albumPicks = st.album_picks
         songPicks = st.song_picks
-        singlesKept = st.singles_kept.toSet()
         notDupes = st.not_dupes.toSet()
         Dj.withNew = djNew
         replayGain = "off"   // ReplayGain, Balance and Tilt were taken out in 3.0.0: back to off, centre and neutral
@@ -119,6 +118,6 @@ object Remembered {
         State(q.queue, q.index, q.radioFrom, q.repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, q.shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             q.queues, q.queueName, q.queueId, q.multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, singlesKept.toList(), notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
+            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
     }
 }

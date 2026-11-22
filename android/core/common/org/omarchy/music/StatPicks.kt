@@ -13,7 +13,6 @@ object StatPicks {
         Music.toast("“${g[0].title}”: not a duplicate, remembered")
     }
 
-    fun keepSingles(more: Collection<String>) { Music.singlesKept = Music.singlesKept + more; Music.saveState() }
     fun addSongPicks(more: Map<String, String>) { Music.songPicks = Music.songPicks + more; Music.saveState(); Stats.refresh(force = true) }
     fun addAlbumPicks(more: Map<String, String>) { Music.albumPicks = Music.albumPicks + more; Music.saveState(); Stats.refresh(force = true) }
 

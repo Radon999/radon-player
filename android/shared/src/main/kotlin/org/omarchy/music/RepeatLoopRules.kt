@@ -40,9 +40,6 @@ object RepeatLoopRules {
     /** Another song began (or the same one was started by hand): the run in one go is over. */
     fun broke(s: Saved): Saved = if (s.run == 0) s else s.copy(lastKey = "", run = 0)
 
-    /** The run a song is on now (0: none). */
-    fun runOf(s: Saved, t: Track): Int = if (s.lastKey == key(t)) s.run else 0
-
     /** The counted ones and the ones from your history as one: a song in both has its days and counts added (they
      *  never share a day), its longest run the longer of the two. */
     fun all(s: Saved): Saved {

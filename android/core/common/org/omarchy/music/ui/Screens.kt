@@ -2031,12 +2031,6 @@ fun androidx.compose.foundation.lazy.LazyListScope.discoveryView(ui: Ui) {
         ))
         else Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) { Chip("Select", false) { ui.startPick("discovery") } }
     }
-    // Jump to a letter: each artist's rows start at its heading (a heading, then its one or two playlists)
-    (this as? CountingScope)?.let { cs ->
-        val starts = ArrayList<Int>(); var at = cs.count
-        for ((_, d, f) in pairs) { starts += at; at += 1 + listOfNotNull(d, f).size }
-        org.omarchy.music.JumpRules.lettersFor(pairs.size) { pairs[it].first }?.let { a -> cs.jump.add(a.map { (l, i) -> l to starts[i] }) }
-    }
     for ((artist, disc, found) in pairs) {
         item(key = "dh-$artist") { Section(artist.uppercase()) }
         listOfNotNull(disc, found).forEach { pl ->

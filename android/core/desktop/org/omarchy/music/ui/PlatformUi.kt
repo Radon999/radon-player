@@ -120,8 +120,6 @@ fun AsyncImage(model: Any?, contentDescription: String?, modifier: Modifier = Mo
     else Box(modifier)
 }
 
-fun smallArt(model: Any?, px: Int): Any? = model?.let { Sized(it, px) }
-
 suspend fun loadImage(model: Any?, px: Int): ImageBitmap? = Images.load(model, px)
 
 fun pixelsOf(img: ImageBitmap): Triple<IntArray, Int, Int> {

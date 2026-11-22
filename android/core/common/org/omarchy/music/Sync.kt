@@ -440,9 +440,9 @@ object Sync {
             put("tab_sorts", strs(m.tabSorts.toMap())); put("tab_picks", strs(m.tabPicks.toMap()))
             put("artist_picks", strs(m.artistPicks)); put("album_picks", strs(m.albumPicks)); put("song_picks", strs(m.songPicks))
             put("stat_hides", strs(StatHides.map())); put("damaged_left", strs(FileCheck.leftMap()))
-            // Not a duplicate and the singles left alone name files: written from your music folder on (SyncPaths)
+            // Not a duplicate names files: written from your music folder on (SyncPaths)
             val roots = musicRoots()
-            put("similar_kept", list(m.similarKept)); put("singles_kept", list(m.singlesKept.map { SyncPaths.out(it, roots) }))
+            put("similar_kept", list(m.similarKept))
             put("not_dupes", list(m.notDupes.map { SyncPaths.outDupeKey(it, roots) }))
             put("lyrics_mode", m.lyricsMode); put("music_sort", m.musicSort); put("playlist_sort", m.playlistSort)
             put("skip_order", m.skipOrder); put("skip_period", m.skipPeriod); put("top_mine_only", m.topMineOnly)
@@ -553,7 +553,6 @@ object Sync {
         strs("damaged_left")?.let { FileCheck.takeLeft(it) }
         list("similar_kept")?.let { m.similarKept = it }
         val roots = musicRoots()
-        list("singles_kept")?.let { l -> m.singlesKept = l.map { SyncPaths.into(it, roots, ::hereNow) }.toSet() }
         list("not_dupes")?.let { l -> m.notDupes = l.map { SyncPaths.intoDupeKey(it, roots, ::hereNow) }.toSet() }
         s("lyrics_mode")?.let { m.lyricsMode = it }
         s("music_sort")?.let { m.musicSort = it }

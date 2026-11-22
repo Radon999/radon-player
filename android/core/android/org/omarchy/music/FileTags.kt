@@ -95,19 +95,6 @@ object FileTags {
         num(tag.getFirst(org.jaudiotagger.tag.FieldKey.DISC_NO))
     }.getOrDefault(0)
 
-    /** A song file's ISRC and what its tags say of it: explicit (true), clean (false) or nothing (null), for Clean
-     *  and explicit versions. Your own files need All files access; null if it can't be read. */
-    fun versionTags(uri: String): Pair<String?, Boolean?>? = runCatching {
-        val f = (if (isDownload(uri)) pathOf(uri)?.let { java.io.File(it) } else ownFile(uri)) ?: return@runCatching null
-        if (!f.isFile || isWav(f)) return@runCatching null
-        setUp
-        val tag = org.jaudiotagger.audio.AudioFileIO.read(f).tag ?: return@runCatching null
-        val isrc = runCatching { tag.getFirst(org.jaudiotagger.tag.FieldKey.ISRC) }.getOrNull()?.trim()?.takeIf { it.length >= 12 }
-        val adv = listOf("ITUNESADVISORY", "EXPLICIT", "rtng").firstNotNullOfOrNull { k ->
-            runCatching { tag.getFirst(k) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() } }
-        isrc to advisory(adv)
-    }.getOrNull()
-
     /** Your own file's tags written in its own format ("" clears a field); true if it worked. */
     fun writeOwn(uri: String, changes: Map<String, String>): Boolean = runCatching {
         val real = fileOf(uri) ?: error("can't write it")

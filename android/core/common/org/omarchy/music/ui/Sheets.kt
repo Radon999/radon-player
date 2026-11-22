@@ -118,15 +118,12 @@ fun Sheets(ui: Ui) {
     ui.folderFor?.let { item -> FolderPicker(ui, item) }
     ui.editTagsFor?.let { tracks -> TagsDialog(ui, tracks) }
     ui.taggerFor?.let { tracks -> TaggerSheet(ui, tracks) }
-    if (ui.tagScan) TagScanScreen(ui)
     ToolScreens(ui)
     if (ui.guide) GuideScreen(ui)
     if (ui.changelog) GuideScreen(ui, changelog = true)
     WhatsNewCard(ui)
     if (ui.jointArtists) JointArtistsScreen(ui)
     if (ui.similarArtists) SimilarArtistsScreen(ui)
-    if (ui.albumPlays) AlbumPlaysScreen(ui)
-    if (ui.singleScan) SingleScanScreen(ui)
     if (ui.duplicates) DuplicatesScreen(ui)
     if (ui.statHides) StatHidesScreen(ui)
     ui.collageFor?.let { kind -> CollageSheet(ui, kind) }

@@ -214,7 +214,6 @@ object Music {
         artistSort = Prefs.text("artist_sort", "album").takeIf { it in setOf("album", "most", "least", "title", "added") } ?: "album"
         MusicTools.init()
         QualityCheck.init(ctx)
-        TagScan.Done.init(ctx)
         eqProcessor.crossfeed = Prefs.on(Prefs.CROSSFEED)
         bpTones = Prefs.on(Prefs.BP_TONES)
         eqProcessor.mono = Prefs.on(Prefs.MONO) || AutoMono.active
@@ -278,11 +277,6 @@ object Music {
     fun saveStateNow() = Remembered.saveNow()
     fun saveState() = Remembered.save()
 
-    fun saveApiKeys(keys: Map<String, String>) {
-        apiKeys = keys.mapValues { it.value.trim() }.filter { it.key in API_KEYS && it.value.isNotEmpty() }
-        saveState()
-    }
-
     /** Called once the playback service is up: a song restored from Tidal can load now. */
     fun playerReady() = PlaybackCore.playerReady()
 
@@ -331,9 +325,7 @@ object Music {
     var notDupes: Set<String> = emptySet()
     fun dupeKey(g: List<Track>) = StatPicks.dupeKey(g)
     fun markNotDupe(g: List<Track>) = StatPicks.markNotDupe(g)
-    var singlesKept: Set<String> = emptySet()   // Singles › Single scan: songs left alone (their files)
     // Your picks in the stats (what they do when you make one) are StatPicks' own: these hand on. The picks are kept here.
-    fun keepSingles(more: Collection<String>) = StatPicks.keepSingles(more)
     fun addSongPicks(more: Map<String, String>) = StatPicks.addSongPicks(more)
     fun addAlbumPicks(more: Map<String, String>) = StatPicks.addAlbumPicks(more)
     fun keepApart(from: String, to: String) = StatPicks.keepApart(from, to)

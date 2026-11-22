@@ -32,9 +32,6 @@ fun AsyncImage(model: Any?, contentDescription: String?, modifier: Modifier = Mo
                alpha: Float = 1f) =
     coil.compose.AsyncImage(model = model, contentDescription = contentDescription, modifier = modifier, contentScale = contentScale, alpha = alpha)
 
-/** A small copy of a picture (drawn big, it's soft: a cheap blur). */
-fun smallArt(model: Any?, px: Int): Any? = model?.let { ImageRequest.Builder(Music.ctx).data(it).size(px).build() }
-
 /** (blocking-free) A picture as a bitmap at about px across, or null. */
 suspend fun loadImage(model: Any?, px: Int): ImageBitmap? {
     model ?: return null

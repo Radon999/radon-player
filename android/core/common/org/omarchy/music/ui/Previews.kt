@@ -447,13 +447,3 @@ fun NowVisPreview(style: String) {
     }
 }
 
-/** An effect (or the stars) over the look in use's background. */
-@Composable
-fun FxPreview(key: String) {
-    val wide = !onPhone
-    val shape = RoundedCornerShape(12.dp)
-    val back = C.gradient?.takeIf { it.size > 1 }?.let { Brush.linearGradient(it) } ?: Brush.linearGradient(listOf(C.bg, C.bg))
-    Box(Modifier.size(if (wide) 360.dp else 220.dp, if (wide) 200.dp else 160.dp).clip(shape).background(back).border(1.dp, C.line, shape)) {
-        if (key == "stars") Stars() else LookEffects(setOf(key))
-    }
-}
