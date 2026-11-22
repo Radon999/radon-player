@@ -29,6 +29,9 @@ object LibraryMatchRules {
         val t = title.replace('_', ' ').trim(); val a = artist.replace('_', ' ').trim()
         val out = LinkedHashSet<String>()
         out += key(t, a)
+        // …and without a soundtrack note ("Lose Yourself (From "8 Mile")", "Song - From the Motion Picture …"): one
+        // device's copy often has the note in its title and the other's not
+        movieName(t)?.let { out += keys(it, a) }
         if (!noArtist(a)) {
             if (t.lowercase().startsWith(a.lowercase() + " - ")) out += key(t.substring(a.length + 3), a)
             if (t.lowercase().endsWith(" - " + a.lowercase())) out += key(t.dropLast(a.length + 3), a)
@@ -47,7 +50,7 @@ object LibraryMatchRules {
     /** A song's name alone, each way it may be: as it is, without a leading track number, and each side of a dash. */
     private fun names(title: String): List<String> {
         val t = title.replace('_', ' ').trim()
-        val whole = listOf(t, withoutTrackNumber(t)).distinct()
+        val whole = listOfNotNull(t, withoutTrackNumber(t), movieName(t)).distinct()
         return (whole + whole.flatMap { w -> w.split(" - ").map { it.trim() }.filter { it.isNotEmpty() } }).distinct().map { nameKey(it) }
     }
 

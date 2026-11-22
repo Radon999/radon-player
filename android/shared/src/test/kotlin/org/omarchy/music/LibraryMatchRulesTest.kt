@@ -24,6 +24,16 @@ class LibraryMatchRulesTest {
         assertTrue(missing(phone, pc).isEmpty())
     }
 
+    @Test fun aSoundtrackNoteInTheNameIsStillTheSameSong() {
+        // the PC's copy has the film in its title, the phone's not (or the other way round)
+        val pc = listOf(t("Lose Yourself (From \"8 Mile\")", "Eminem"), t("Song - From the Motion Picture \"Film\"", "X"))
+        val phone = listOf(t("Lose Yourself", "Eminem"), t("Song", "X"))
+        assertTrue(missing(pc, phone).isEmpty())
+        assertTrue(missing(phone, pc).isEmpty())
+        // another song of the same film is still missing
+        assertEquals(listOf("Rabbit Run (From \"8 Mile\")"), missing(listOf(t("Rabbit Run (From \"8 Mile\")", "Eminem")), phone))
+    }
+
     @Test fun aFileWithNoTagsIsTheSameSongHoweverEachDeviceNamesIt() {
         // the phone reads the whole file name as the title; the PC takes the artist out of it, or out of the folder
         val phone = listOf(t("Jon Bellion - Graveyard [DEMO]", "Jon Bellion"), t("Die To Live", ""), t("High_Tide", "Unknown artist"), t("Brainwash - Cal Scruby", ""), t("lonely_road_(v2)", "Juice WRLD"))
