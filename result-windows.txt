@@ -1,42 +1,47 @@
-commit e6dbe333a2d2fe4ed2c834bd6f891c437ac6dd7c · run 44976532222 · Sun Nov 22 02:39:29 UTC 2026
-PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
-THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
-WINDOWS INSTALLER: not built
+commit 21e557b4b8fdb5278586aae9dcdf10a21c6b441d · run 44976843994 · Sun Nov 22 02:49:55 UTC 2026
+PC TESTS ON WINDOWS: 44 suites, tests 171, failed 1
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.1 s (with loading the voice); then 4.9 s of speech in 1.6 s (3.0x real time)
+WINDOWS INSTALLER: Radon Player-4.0.35.msi, 97M
 --- errors
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ReleaseCounts.kt:27:43 Type checking has run into a recursive problem. Easiest workaround: specify the types of your declarations explicitly.
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1602:80 @Composable invocations can only happen from the context of a @Composable function
+org.omarchy.music.SafeWriteInUseTest > aChangeToTheSongPlayingWaitsUntilItIsFree FAILED
+    java.lang.AssertionError: another address of the same file
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.omarchy.music.SafeWriteInUseTest.aChangeToTheSongPlayingWaitsUntilItIsFree(SafeWriteInUseTest.kt:30)
 
-> Task :desktop:compileKotlin FAILED
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
+171 tests completed, 1 failed
 --
-BUILD FAILED in 3m 35s
-17 actionable tasks: 17 executed
---- the end of the log
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Screens.kt:1602:80 @Composable invocations can only happen from the context of a @Composable function
-
-> Task :desktop:compileKotlin FAILED
+> Task :desktop:test FAILED
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
 
 * Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
 > Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
+
+--
+BUILD FAILED in 5m 12s
+21 actionable tasks: 21 executed
+--- the end of the log
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.omarchy.music.SafeWriteInUseTest.aChangeToTheSongPlayingWaitsUntilItIsFree(SafeWriteInUseTest.kt:30)
+
+171 tests completed, 1 failed
+
+> Task :desktop:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -44,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 35s
-17 actionable tasks: 17 executed
+BUILD FAILED in 5m 12s
+21 actionable tasks: 21 executed
