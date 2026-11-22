@@ -1599,7 +1599,10 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             val counted = have?.let { l -> l.count { yours(it) } to l.count { !yours(it) } }
             if (counted != null && have.isNotEmpty()) androidx.compose.runtime.LaunchedEffect(counted) {
                 org.omarchy.music.ReleaseCounts.put(org.omarchy.music.ReleaseCounts.artistKey(page.name), counted.first, counted.second) }
-            item { ArtistFold("Every song", if (list != null) "%,d".format(have?.size ?: list.size) + (counted?.let { " · " + org.omarchy.music.ReleaseCounts.text(it) } ?: "") else "…", isOpen("every")) { toggle("every") } }
+            // (while the list is gone through again, the count kept from last time, at once)
+            val kept = org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.artistKey(page.name))
+            item { ArtistFold("Every song", if (list != null) "%,d".format(have?.size ?: list.size) + (counted?.let { " · " + org.omarchy.music.ReleaseCounts.text(it) } ?: "")
+                else kept?.let { "%,d · ".format(it.first + it.second) + org.omarchy.music.ReleaseCounts.text(it) } ?: "…", isOpen("every")) { toggle("every") } }
             if (isOpen("every")) {
             if (list == null) item {
                 Text(if (at != null) "Going through their releases… ${at.first} of ${at.second}" else "Going through their releases…", style = T.sub,
