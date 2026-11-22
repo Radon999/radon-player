@@ -122,14 +122,14 @@ internal fun LazyListScope.smartPlaylists(ui: Ui) {
         val pl = shown[i]
         val songs = SmartLists.songs(pl)
         val cover = songs?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-        PlaylistRow(Album(pl.id, pl.name, if (songs == null) "…" else "", "", songs?.size?.toString() ?: ""), cover?.let { artModel(it) },
+        PlaylistRow(Album(pl.id, pl.name, if (songs == null) "…" else ShownPlays.allText(songs), "", songs?.size?.toString() ?: ""), cover?.let { artModel(it) },
             onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null,
             badge = org.omarchy.music.Sync.mark(pl), badgeOn = pl.synced == true) { tapList(pl) }
     }) { i, mod, compact ->
         val pl = shown[i]
         val songs = SmartLists.songs(pl)
         val cover = songs?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-        Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.shown, if (songs == null) "…" else "${songs.size} songs", mod, compact,
+        Tile(cover?.let { artModel(it, tilePx(compact)) }, pl.shown, if (songs == null) "…" else ShownPlays.songsAndPlays(songs), mod, compact,
             ico = Ico.SPARKLE, lit = picking && pl.id in picked, onLongClick = { menu(pl) }) { tapList(pl) }
     }
     // Ready-made ones, a tap each (the ones you have already, by name, left out).

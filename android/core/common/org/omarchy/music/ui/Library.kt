@@ -212,11 +212,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.groups(ui: Ui, kind: 
         horizontalArrangement = Arrangement.spacedBy(6.dp)) { head(); Chip("Select", false) { ui.startPick(kind) }; SortMenu(sortTab, GROUPS_SORTS) } }
     laidOutItems(list, ui, key = { "$kind-" + list[it].first }, names = { name(list[it].first) }, row = { i ->
         val (id, songs) = list[i]
-        GroupRow(ico, name(id), sub(id, songs), songs.size, onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
+        GroupRow(ico, name(id), listOf(sub(id, songs), ShownPlays.allText(songs)).filter { it.isNotEmpty() }.joinToString(" · "), songs.size,
+            onLongClick = { menu(id, songs) }, picked = picking && id in picked) { open(id, songs) }
     }) { i, mod, compact ->
         val (id, songs) = list[i]
         // Folders show as folders in the grid too (the folder icon, not a song's cover), on the phone and the PC.
-        Tile(if (kind == "folder") null else artModel(songs.first(), tilePx(compact)), name(id), "%,d songs".format(songs.size), mod, compact, ico = ico, lit = picking && id in picked,
+        Tile(if (kind == "folder") null else artModel(songs.first(), tilePx(compact)), name(id), ShownPlays.songsAndPlays(songs), mod, compact, ico = ico, lit = picking && id in picked,
             onLongClick = { menu(id, songs) }) { open(id, songs) }
     }
 }
@@ -482,11 +483,12 @@ fun MoodsTab(ui: Ui) {
                         repeat(3 - line.size) { androidx.compose.foundation.layout.Spacer(Modifier.weight(1f)) }
                     }
                 }
-                Text("%,d".format(songs.size), style = T.sub)
+                Text("%,d".format(songs.size) + ShownPlays.allText(songs).let { if (it.isEmpty()) "" else "\n$it" }, style = T.sub,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End)
             }
         }) { i, mod, compact ->
             val (mood, songs) = moods[i]
-            Tile(null, mood, "%,d songs".format(songs.size), mod, compact, ico = Ico.MOOD, lit = picking && mood in picked,
+            Tile(null, mood, ShownPlays.songsAndPlays(songs), mod, compact, ico = Ico.MOOD, lit = picking && mood in picked,
                 onLongClick = { menu(mood, songs) }, over = { MoodSwatch(mood, Modifier.fillMaxSize(), if (compact) 26.dp else 40.dp) }) { open(mood, songs) }
         }
     }

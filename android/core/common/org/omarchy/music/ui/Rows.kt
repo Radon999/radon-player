@@ -393,6 +393,13 @@ object ShownPlays {
         }
         return map[org.omarchy.music.songKey(t)] ?: 0
     }
+    /** A list's plays (a playlist's, a genre's, a folder's…): its songs' added up, each song once. */
+    fun ofAll(songs: List<Track>): Int = songs.distinctBy { org.omarchy.music.songKey(it) }.sumOf { of(it) }
+    /** "1,204 plays", or "" when none of it has been played. */
+    fun allText(songs: List<Track>): String = ofAll(songs).let { n -> if (n <= 0) "" else "%,d play%s".format(n, if (n != 1) "s" else "") }
+    /** "24 songs · 1,204 plays" (the plays left off when there are none). */
+    fun songsAndPlays(songs: List<Track>): String = listOf("%,d song%s".format(songs.size, if (songs.size != 1) "s" else ""), allText(songs))
+        .filter { it.isNotEmpty() }.joinToString(" · ")
     /** "12 plays", or "" when it hasn't been played. */
     fun text(t: Track): String = of(t).let { n -> if (n <= 0) "" else "%,d play%s".format(n, if (n != 1) "s" else "") }
     /** What a row shows: its own words, with its plays (unless they say them already). */

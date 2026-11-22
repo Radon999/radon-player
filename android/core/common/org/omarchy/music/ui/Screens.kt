@@ -919,14 +919,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            PlaylistRow(Album(pl.id, pl.name, "", "", songs.size.toString()), PlaylistCovers.of(pl.id) ?: cover?.let { artModel(it) },
+            PlaylistRow(Album(pl.id, pl.name, ShownPlays.allText(songs), "", songs.size.toString()), PlaylistCovers.of(pl.id) ?: cover?.let { artModel(it) },
                 onLongClick = { menu(pl) }, checked = if (picking) pl.id in picked else null,
                 badge = org.omarchy.music.Sync.mark(pl), badgeOn = pl.synced == true) { tapList(pl) }
         }) { i, mod, compact ->
             val pl = some[i]
             val songs = pl.tracks
             val cover = songs.firstOrNull { it.thumb.isNotEmpty() || it.isFile }
-            Tile(PlaylistCovers.of(pl.id) ?: cover?.let { artModel(it, tilePx(compact)) }, pl.shown, "${songs.size} songs", mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
+            Tile(PlaylistCovers.of(pl.id) ?: cover?.let { artModel(it, tilePx(compact)) }, pl.shown, ShownPlays.songsAndPlays(songs), mod, compact, ico = Ico.PLAYLIST, lit = picking && pl.id in picked,
                 onLongClick = { menu(pl) }) { tapList(pl) }
         }
         lay(shown.filter { it.discovery == null })
