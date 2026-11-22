@@ -46,6 +46,8 @@
   .count span { color: var(--muted); font-size: .9rem; }
 
   .wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-top: 20px; }
+  .showcase { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 20px; }
+  .showcase img { display: block; width: 300px; max-width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
   .film { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin-top: 26px; }
   .film video { display: block; width: 260px; max-width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); background: var(--chip); }
   .film p { flex: 1 1 260px; margin: 0; color: var(--muted); }
@@ -94,6 +96,15 @@
     </div>
     <p class="platforms">Free and open source, always. The same features and the same look on the phone and the computer.</p>
   </header>
+
+  <section aria-labelledby="custom">
+    <h2 id="custom">Custom presets</h2>
+    <p class="sub">Every part of the app can be set your way and saved as a preset of your own. These two are one: a look with its own effects (stars, a moon, shooting stars), a visualizer going round a record-shaped cover and another along the bottom, each in colours picked in one place.</p>
+    <div class="showcase">
+      <img src="shots/s-custom2.jpg" alt="Now playing with a custom preset: a round, record-shaped cover with a rainbow of spikes going round it, bars along the bottom, and stars, a moon and shooting stars over a dark faceted background">
+      <img src="shots/s-custom1.jpg" alt="The queue on Now playing in the same custom preset: the song playing, Shuffle, Repeat and Autoplay, and the songs coming up, over the same starry background">
+    </div>
+  </section>
 
   <section aria-labelledby="looks">
     <h2 id="looks">Make it look like yours</h2>
@@ -248,6 +259,7 @@
           <li><b>Every slide saves or shares</b> as a picture, in the style you pick or one you made.</li>
           <li><b>Most played</b> songs, albums, artists and moods, by plays or by time, for any period, with charts of when you listen. Plus On repeat, Milestones, Skips and On this day.</li>
           <li><b>Repeats:</b> every time a song starts over on Repeat one is counted, with its longest run, for all time, a year, 30 days or 7. Wrapped shows your biggest obsession, your repeat day and more.</li>
+          <li><b>Milestones:</b> every time a song or an artist reached 100, 250, 500, 1,000, 2,500… plays, with the day it happened. Songs, artists or both, newest first or biggest first; tap one to play it or open the artist.</li>
           <li><b>Unplayed and neglected:</b> the songs you've never played, or not in 3 months to 2 years, to play or shuffle.</li>
           <li><b>Skips that mean it:</b> only pressing Next with more than 15 seconds left. Going back or picking another song isn't a skip.</li>
           <li><b>Tidy stats:</b> merge an artist or a song counted under two names, say whose plays a duet's are, and keep look-alike artists apart. <b>Never show</b> takes one that's right as it is off the list for good.</li>
@@ -258,6 +270,7 @@
         <div class="shots">
           <img src="shots/s-mostplayed.jpg" alt="Most played: milestones, On this day, and the top songs with their plays" loading="lazy">
           <img src="shots/s-repeats.jpg" alt="The Repeats tab: songs ranked by how often they were repeated, each with its longest run" loading="lazy">
+          <img src="shots/s-milestones.jpg" alt="The Milestones tab, biggest first: 435 milestones, 10,000 plays of Imagine Dragons at the top, then the artists that reached 5,000 and 2,500 plays, each with its date" loading="lazy">
         </div>
       </article>
 
