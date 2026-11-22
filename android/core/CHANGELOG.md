@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.0.37 · November 2026
+- **Empty folders on the phone:** with All files access (Settings › Tagger) the phone has the Empty folders scan too: folders in your music folders with no songs left in them, only pictures, lyrics files and the like, each shown with its size and what's in it, to tick and delete. A phone has no Recycle Bin, so a folder you delete there is gone for good with what's left in it: the setting and the confirmation say so, and each folder is looked at again just before and kept if any music is in it. Your top Music folder and Folders to leave alone are never touched.
+- **Tidying after a move, on the phone:** when songs are moved or deleted, the folders they leave with nothing at all in them are removed across your music folders, not only in the app's download folder.
+
 ## 4.0.36 · November 2026
 - **The file scans on the phone too:** Fix albums and artists, Live in song names, Soundtrack notes in names and Folders to leave alone are in the phone's Settings now, as on the PC (your own files need All files access, Settings › Tagger). The folders you leave alone are left alone on the phone too. Moving files to their right folders works on the phone too, through Android's own list of music: each song keeps its address, so your playlists, queue, favorites, plays and sync never see it change; never over a file that's there already, and each move is checked after. Empty folders stays the PC's: a phone has no Recycle Bin.
 - **Cover searches find more:** an album's name is searched for without its kind and signs ("Lone Survivor - EP", "Talk (Single)", slashes and dashes), in Pick a cover, Songs without covers and Wrapped's covers alike. Searches with them in found nothing.
