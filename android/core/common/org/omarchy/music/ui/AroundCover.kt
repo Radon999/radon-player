@@ -135,20 +135,19 @@ internal fun DrawScope.drawAroundMaking(base: String, amp: Float, spin: Float, s
 private fun DrawScope.drawAroundBase(style: String, amp: Float, spin: Float, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
     // Strength: the levels made bigger or smaller while it's drawn, then put back
     val keptLevels = if (amp != 1f) s.levels.copyOf() else null
-    val keptBass = s.bass
-    if (keptLevels != null) { for (i in s.levels.indices) s.levels[i] = (s.levels[i] * amp).coerceIn(0f, 1f); s.bass = (s.bass * amp).coerceIn(0f, 1f) }
-    try { drawAroundStyle(style, spin, s, pal, side, corner, alpha) }
-    finally { if (keptLevels != null) { keptLevels.copyInto(s.levels); s.bass = keptBass } }
+    if (keptLevels != null) { for (i in s.levels.indices) s.levels[i] = (s.levels[i] * amp).coerceIn(0f, 1f) }
+    try { drawAroundStyle(style, spin, amp, s, pal, side, corner, alpha) }
+    finally { keptLevels?.copyInto(s.levels) }
 }
 
-private fun DrawScope.drawAroundStyle(style: String, spin: Float, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
+private fun DrawScope.drawAroundStyle(style: String, spin: Float, amp: Float, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
     val cx = size.width / 2f; val cy = size.height / 2f
     val rim = Rim(cx, cy, side / 2f, corner)
     rim.turn = s.phase * spin * 0.08f
     val reach = side * Around.REACH
     val p = FloatArray(4); val q = FloatArray(4)
     val ph = s.phase
-    val bass = s.bass.coerceIn(0f, 1f)
+    val bass = (s.bass * amp).coerceIn(0f, 1f)   // (the bass is the visualizer's own: scaled here, not changed)
     fun col(t: Float, lv: Float, a: Float = 1f) = pal.at(((t % 1f) + 1f) % 1f, lv).copy(alpha = (a * alpha).coerceIn(0f, 1f))
     fun line(n: Int, len: (Float, Float) -> Float, w: Float, start: Float = 2f) {
         for (i in 0 until n) { val t = i / n.toFloat(); rim.at(t, p); val lv = levelAt(s, t); val l = len(t, lv)
