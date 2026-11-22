@@ -1599,8 +1599,9 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
             val have = list?.let { l -> l.filter { !runCatching { org.omarchy.music.Unreleased.has(it) }.getOrDefault(false) }
                 .distinctBy { org.omarchy.music.ArtistShownRules.songKey(it.title) } }
             val counted = have?.let { l -> l.count { yours(it) } to l.count { !yours(it) } }
-            if (counted != null && have.isNotEmpty()) androidx.compose.runtime.LaunchedEffect(counted) {
-                org.omarchy.music.ReleaseCounts.put(org.omarchy.music.ReleaseCounts.artistKey(page.name), counted.first, counted.second) }
+            // (kept as soon as it's counted: the list's heading below is drawn once it is)
+            if (counted != null && have.isNotEmpty()) item(key = "every-count") { androidx.compose.runtime.LaunchedEffect(counted) {
+                org.omarchy.music.ReleaseCounts.put(org.omarchy.music.ReleaseCounts.artistKey(page.name), counted.first, counted.second) } }
             // (while the list is gone through again, the count kept from last time, at once)
             val kept = org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.artistKey(page.name))
             item { ArtistFold("Every song", if (list != null) "%,d".format(have?.size ?: list.size) + (counted?.let { " · " + org.omarchy.music.ReleaseCounts.text(it) } ?: "")

@@ -24,8 +24,8 @@ object ReleaseCounts {
         counts ?: (readText(file())?.let { runCatching { HashMap(JSON.decodeFromString(ser, it)) }.getOrNull() } ?: HashMap()).also { counts = it }
     }
 
-    fun artistKey(name: String) = "ar:" + artistKey(name)
-    fun albumKey(title: String, artist: String) = "al:" + artistKey(artist) + "|" + albumBase(title)
+    fun artistKey(name: String): String = "ar:" + org.omarchy.music.artistKey(name)
+    fun albumKey(title: String, artist: String): String = "al:" + org.omarchy.music.artistKey(artist) + "|" + albumBase(title)
 
     /** (on this device, not downloaded), or null when not counted yet. */
     fun of(key: String): Pair<Int, Int>? = version.let { all()[key]?.takeIf { it.size == 2 }?.let { it[0] to it[1] } }
