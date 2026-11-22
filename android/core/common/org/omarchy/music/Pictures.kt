@@ -248,7 +248,12 @@ object Pictures {
     }
 
     /** Covers for artist's album to pick from: Google's, then Genius's, then Wikipedia's. */
-    fun coverChoices(artist: String, album: String): List<Choice> {
+    fun coverChoices(artistIn: String, albumIn: String): List<Choice> {
+        // (searched for without its kind and signs: "Lone Survivor - EP" as Lone Survivor)
+        // ("Artist / Album - EP" typed: split at its " - ", the album part is only its kind: all of it is the search)
+        val kindOnly = albumIn.trim().lowercase() in setOf("ep", "e.p.", "single")
+        val artist = if (kindOnly || artistIn.isBlank()) "" else coverWords(artistIn)
+        val album = if (kindOnly) coverWords(artistIn) else coverWords(albumIn)
         val out = ArrayList(tried("google") { google("$artist ${bareTitle(album)} album cover") }.orEmpty())
         out += tried("genius") { geniusCovers(artist, album) }.orEmpty()
         tried("wikipedia") { wikiAlbum(artist, album) }?.image?.takeIf { it.isNotEmpty() }?.let { out += Choice(it, it, "Wikipedia") }

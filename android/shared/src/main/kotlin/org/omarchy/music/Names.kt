@@ -53,6 +53,17 @@ fun cleanTitle(s: String): String {
     return squash(NON_WORD.replace(t, " "))
 }
 
+/** A release's name (or anything typed) as a cover search should send it: its kind left off ("Lone Survivor - EP",
+ *  "Talk (Single)", "Nectar EP" as Lone Survivor, Talk, Nectar) and signs (slashes, dashes, colons…) made spaces; the
+ *  words themselves, apostrophes and ampersands kept. Searches found nothing with them in. */
+fun coverWords(s: String): String {
+    var t = s.replace(Regex("[(\\[]\\s*(ep|e\\.p\\.|single)\\s*[)\\]]", RegexOption.IGNORE_CASE), " ")
+    t = t.replace(Regex("\\s[-–—]\\s*(ep|e\\.p\\.|single)\\s*$", RegexOption.IGNORE_CASE), " ")
+    t = t.replace(Regex("\\s(ep|single)\\s*$", RegexOption.IGNORE_CASE), " ")
+    t = t.replace(Regex("[^\\p{L}\\p{N}'’&]+"), " ")
+    return t.trim().replace(Regex("\\s+"), " ").ifEmpty { s.trim() }
+}
+
 /** Just the song's name: no brackets, nothing after " - ". */
 fun bareTitle(s: String) = cleanTitle(Regex("[(\\[][^)\\]]*[)\\]]|\\s[-–]\\s.*$").replace(s, " "))
 
