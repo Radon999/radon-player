@@ -1,6 +1,6 @@
-commit bcd4640dcb4d64534085a340e9880bcc07f699e3 · run 45001238142 · Sun Nov 22 08:38:04 UTC 2026
+commit 129617b14a4e9c1e277aceb9c748fc2197c1e50c · run 45003376829 · Sun Nov 22 08:48:15 UTC 2026
 PC TESTS ON WINDOWS: 44 suites, tests 171, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 1.4 s (with loading the voice); then 4.8 s of speech in 1.0 s (5.0x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 1.9 s of speech in 1.7 s (with loading the voice); then 4.6 s of speech in 1.2 s (3.7x real time)
 WINDOWS INSTALLER: Radon Player-4.0.37.msi, 97M
 --- errors
 org.omarchy.music.SafeWriteInUseTest > aChangeToTheSongPlayingWaitsUntilItIsFree FAILED
@@ -23,7 +23,7 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 3m 59s
+BUILD FAILED in 4m 59s
 21 actionable tasks: 21 executed
 --- the end of the log
         at org.junit.Assert.fail(Assert.java:89)
@@ -49,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 59s
+BUILD FAILED in 4m 59s
 21 actionable tasks: 21 executed
