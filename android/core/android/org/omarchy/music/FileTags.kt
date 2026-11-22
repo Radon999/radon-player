@@ -185,7 +185,7 @@ object FileTags {
                 val af = org.jaudiotagger.audio.AudioFileIO.read(f)
                 val tag = af.tagOrCreateAndSetDefault
                 val art = org.jaudiotagger.tag.images.ArtworkFactory.getNew().apply { binaryData = jpeg; mimeType = "image/jpeg"; pictureType = 3 }
-                tag.deleteArtworkField(); tag.setField(art)
+                tag.deleteArtworkField(); if (jpeg.isNotEmpty()) tag.setField(art)   // (an empty picture: the cover taken off)
                 af.commit()
             }
             runCatching { android.media.MediaScannerConnection.scanFile(Music.ctx, arrayOf(real.path), null, null) }

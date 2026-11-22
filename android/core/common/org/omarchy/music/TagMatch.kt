@@ -263,12 +263,21 @@ object TagMatch {
                 }
                 // The moods: exactly the main device's, in its order (extra ones here taken off), in the file and in the app.
                 // Left alone when they are the same already, and when the main device has none for the song yet.
+                // (none on the main device: taken off here too)
                 val wantMoods = moodsOf(e.mood)
-                if (wantMoods.isNotEmpty() && !Moods.prevented) {
+                if (!Moods.prevented) {
                     if (moodsOf(now.tags[FILE_MOOD].orEmpty()) != wantMoods) TagSync.quietly {
                         if (runCatching { LyricsTags.writeMood(Music.ctx, f, wantMoods.joinToString(";")) }.getOrDefault(false)) did = true
                     }
                     if (moodsOf(runCatching { Moods.moodText(t) }.getOrDefault("")) != wantMoods) { runCatching { Moods.takeExact(t, wantMoods) }; did = true }
+                }
+                // No cover on the main device's copy: this one's is taken off too
+                if (e.art.isEmpty() && now.art.isNotEmpty() && CoverGuard.allowed()) {
+                    val off = runCatching {
+                        if (Music.lib.items.values.any { it.file == f && it.format == "flac" }) { Covers.write(Music.ctx, f, ByteArray(0)); true }
+                        else FileTags.writeCover(Music.ctx, f, ByteArray(0))
+                    }.getOrDefault(false)
+                    if (off) did = true
                 }
                 // The cover: the main device's picture when this copy's isn't it (Prevent album cover changes stops it)
                 if (e.art.isNotEmpty() && e.art != now.art && synchronized(lock) { applied()[f] } != e.art && CoverGuard.allowed()) {

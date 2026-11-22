@@ -167,7 +167,7 @@ object Flac {
             if (keepOther) writeHeader(out, edited(blocks, tags, cover))
             else {
                 val keep = blocks.filter { it.type == 0 || it.type == 3 || it.type == 2 }   // STREAMINFO, SEEKTABLE, APPLICATION
-                writeHeader(out, keep + Block(4, vorbisComment(tags)) + listOfNotNull(cover?.let { Block(6, pictureBlock(it)) }))
+                writeHeader(out, keep + Block(4, vorbisComment(tags)) + listOfNotNull(cover?.takeIf { it.isNotEmpty() }?.let { Block(6, pictureBlock(it)) }))
             }
             input.copyTo(out, 1 shl 16)
         }
@@ -230,7 +230,8 @@ object Flac {
             else -> out += b
         }
         if (!put) out.add(if (out.isNotEmpty() && out[0].type == 0) 1 else 0, comments)
-        if (cover != null) out.add(out.indexOfFirst { it === comments } + 1,Block(6, pictureBlock(cover)))
+        // (an empty picture: every picture taken off, none put in)
+        if (cover != null && cover.isNotEmpty()) out.add(out.indexOfFirst { it === comments } + 1,Block(6, pictureBlock(cover)))
         return out
     }
 

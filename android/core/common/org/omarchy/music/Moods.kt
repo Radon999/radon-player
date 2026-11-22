@@ -595,17 +595,19 @@ object Moods {
         e.picked.ifEmpty { e.inFile.ifEmpty { e.kept.take(MoodRules.MOST).joinToString(";") } }
     }.getOrDefault("")
 
-    /** (blocking) Tags match: this song's moods made exactly the main device's (any others here taken off), kept as
-     *  settled so no scan here changes them. Call after its file's MOOD was written. */
+    /** (blocking) Tags match: this song's moods made exactly the main device's (any others here taken off; none there:
+     *  none here), kept as settled so no scan here changes them. Call after its file's MOOD was written. */
     fun takeExact(t: Track, moods: List<String>) {
-        if (prevented || moods.isEmpty()) return
+        if (prevented) return
         load()
         val p = pathOf(t) ?: return
         val j = moods.joinToString(";")
         val m = runCatching { AudioTools.modified(p) }.getOrNull()
         synchronized(lock) {
             val e = known[p] ?: MoodEntry()
-            known[p] = e.copy(picked = j, kept = moods, heard = true, inFile = j, wrote = j, mtime = m ?: e.mtime, looked = true)
+            known[p] = if (moods.isEmpty())   // no moods: nothing heard or read for it here, so none is worked out
+                MoodEntry(mtime = m ?: e.mtime, heard = true, looked = true, len = e.len)
+            else e.copy(picked = j, kept = moods, heard = true, inFile = j, wrote = j, mtime = m ?: e.mtime, looked = true)
         }
         save()
         Music.scope.launch { version++ }

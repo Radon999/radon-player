@@ -189,7 +189,8 @@ object WavTags {
                     if (v.isNotEmpty()) info.add(minOf(at, info.size), id to (v.toByteArray(Charsets.UTF_8) + 0))
                 }
             }
-            if (jpeg != null) { id3.frames.removeAll { it.first == "APIC" }; id3.frames.add(0, Triple("APIC", byteArrayOf(0, 0), picture(jpeg))) }
+            // (an empty picture: the cover taken off)
+            if (jpeg != null) { id3.frames.removeAll { it.first == "APIC" }; if (jpeg.isNotEmpty()) id3.frames.add(0, Triple("APIC", byteArrayOf(0, 0), picture(jpeg))) }
             RandomAccessFile(tmp, "rw").use { o ->
                 o.setLength(0)
                 o.write("RIFF".toByteArray(Charsets.ISO_8859_1)); o.write(le32(0)); o.write("WAVE".toByteArray(Charsets.ISO_8859_1))
