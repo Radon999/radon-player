@@ -380,7 +380,8 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
     Triple("stats", "Statistics and favorites", listOf(Entry("Most played", Ico.CHART, "music", "top"),
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
         Entry("Not favorited", Ico.STAR_LINE, "music", "unfavorited"), Entry("On repeat", Ico.REPEAT, "music", "repeat"),
-        Entry("Repeats", Ico.REPEAT_ONE, "music", "repeats"), Entry("Unplayed and neglected", Ico.CLOCK, "music", "neglected"))),
+        Entry("Repeats", Ico.REPEAT_ONE, "music", "repeats"), Entry("Unplayed and neglected", Ico.CLOCK, "music", "neglected"),
+        Entry("Milestones", Ico.SPARKLE, "music", "milestones"))),
     Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
         Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"))),
 )

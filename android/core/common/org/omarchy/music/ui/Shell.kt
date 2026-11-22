@@ -174,6 +174,7 @@ object UiLayouts {
         Slot("repeat", "On repeat", Ico.REPEAT, { it.tab == "music" && it.musicView == "repeat" }) { goTo(it, "music", "repeat") },
         Slot("repeats", "Repeats", Ico.REPEAT_ONE, { it.tab == "music" && it.musicView == "repeats" }) { goTo(it, "music", "repeats") },
         Slot("neglected", "Unplayed and neglected", Ico.CLOCK, { it.tab == "music" && it.musicView == "neglected" }) { goTo(it, "music", "neglected") },
+        Slot("milestones", "Milestones", Ico.SPARKLE, { it.tab == "music" && it.musicView == "milestones" }) { goTo(it, "music", "milestones") },
         Slot("dupes", "Duplicates", Ico.COPY, { it.tab == "music" && it.musicView == "dupes" }) { goTo(it, "music", "dupes") },
         Slot("lyrics", "Lyrics", Ico.LYRICS, { it.tab == "lyrics" }) { goTo(it, "lyrics") },
         Slot("eq", "Equalizer", Ico.EQ, { false }) { it.drawer = false; it.sheet = "eq" },

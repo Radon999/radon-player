@@ -414,6 +414,7 @@ fun MusicTab(ui: Ui) {
                 "repeat" -> repeatView(ui)
                 "repeats" -> repeatsView(ui)
                 "neglected" -> neglectedView(ui)
+                "milestones" -> milestonesView(ui)
                 else -> {
                     // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())
@@ -2100,6 +2101,69 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
         }
         val lines = rows.associate { it.first.id to it.second }
         tracks(rows.map { it.first }, ui, "repeats") { t -> lines[t.id] ?: "" }
+    }
+}
+
+/** Milestones: which ones show (all, songs or artists) and in what order (newest first, or biggest first). */
+private var milestonesShow by mutableStateOf("all")
+private var milestonesBiggest by mutableStateOf(false)
+
+/** Milestones (Statistics): every milestone you've reached, a song or an artist getting to 100, 250, 500, 1,000…
+ *  plays, each dated by the play that got it there (Most played shows the last month's five). Songs, artists or both;
+ *  newest first (by year) or biggest first (by how many plays). A song of yours plays when tapped; an artist opens. */
+fun androidx.compose.foundation.lazy.LazyListScope.milestonesView(ui: Ui) {
+    val all = org.omarchy.music.Stats.milestones
+    item {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Chip("All", milestonesShow == "all") { milestonesShow = "all" }
+            Chip("Songs", milestonesShow == "songs") { milestonesShow = "songs" }
+            Chip("Artists", milestonesShow == "artists") { milestonesShow = "artists" }
+            Spacer(Modifier.width(8.dp))
+            Chip("Newest first", !milestonesBiggest) { milestonesBiggest = false }
+            Chip("Biggest first", milestonesBiggest) { milestonesBiggest = true }
+        }
+    }
+    if (all.isEmpty()) { item { Empty("No milestones yet", "A song or an artist reaching 100 plays is the first. They're counted from your stats " +
+        "(Last.fm and your imported history) and the plays here, as Most played is.") }; return }
+    val rows = all.filter { when (milestonesShow) { "songs" -> it.what == "song"; "artists" -> it.what == "artist"; else -> true } }
+        .sortedWith(if (milestonesBiggest) compareBy({ -it.plays }, { -it.at }) else compareBy({ -it.at }, { -it.plays }))
+    item {
+        val songs = all.count { it.what == "song" }; val artists = all.size - songs
+        val top = all.maxWithOrNull(compareBy({ it.plays }, { it.what == "artist" }))
+        Text("%,d milestones: %,d for songs, %,d for artists".format(all.size, songs, artists) +
+            (top?.let { ". The biggest: %,d plays of %s".format(it.plays, if (it.what == "song") "“${it.name}”" else it.name) } ?: "") +
+            ". Each is dated by the play that got it there; one from plays with no date (an all-time count from an import) is undated.",
+            style = T.sub, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+    }
+    if (rows.isEmpty()) { item { Empty("None of these yet", "Try All.") }; return }
+    // In sections: each year (newest first), or each number of plays (biggest first)
+    val zone = java.time.ZoneId.systemDefault()
+    var head = ""
+    for (m in rows) {
+        val h = if (milestonesBiggest) "%,d PLAYS".format(m.plays) else if (m.at <= 0) "UNDATED" else java.time.Instant.ofEpochSecond(m.at).atZone(zone).year.toString()
+        if (h != head) { head = h; item { Section(h) } }
+        item { MilestoneRow(ui, m) }
+    }
+}
+
+/** One milestone: ✦, how many plays of what, and when. */
+@Composable
+private fun MilestoneRow(ui: Ui, m: org.omarchy.music.Stats.Milestone) {
+    val song = m.what == "song"
+    val day = if (m.at <= 0) "undated" else java.time.Instant.ofEpochSecond(m.at).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
+    Row(Modifier.fillMaxWidth().clickable {
+            if (song) {
+                val mine = Music.mineOf(Track("", title = m.name, artist = m.artist))
+                if (mine.isFile) Music.playList(listOf(mine)) else Music.toast("“${m.name}” isn't on this device")
+            } else ui.pages += Ui.Page.Artist(m.name, null)
+        }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("✦", style = T.title.copy(color = C.accent), modifier = Modifier.padding(end = 12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("%,d plays · %s".format(m.plays, if (song) m.name else m.name), style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text((if (song) (m.artist.ifEmpty { "Song" }) else "Artist") + " · " + day, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
