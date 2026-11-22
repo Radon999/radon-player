@@ -215,15 +215,21 @@ fun LayoutPages(lay: UiLayout) = PreviewPager(lay.key, listOf("Plan", "My music"
     }
 }
 
-/** An effect in the Effects menu, moving: by itself, behind Now playing, and behind My music, in the look in use. */
+/** An effect in the Effects menu, moving: by itself, behind Now playing, and behind My music, in the look in use. With
+ *  [with] (the effects you have on), the one shown is drawn together with them, so you see how they all look at once,
+ *  as they would be with it picked. */
 @Composable
-fun FxPages(key: String) = PreviewPager(key, listOf("By itself", "Now playing", "My music"), PW, PH) { i ->
+fun FxPages(key: String, with: Set<String> = emptySet()) = PreviewPager(key, listOf("By itself", "Now playing", "My music"), PW, PH) { i ->
+    // The effects on, each with its own colour ("rain@ff4fd8ff"); the one shown added if it isn't on yet
+    val all = if (LookFx.has(with, key)) with else with + key
+    val drawn = all.filter { LookFx.keyOf(it) != "stars" }.toSet()   // the stars are drawn on their own
     when (i) {
         0 -> Box(Modifier.size(PW, PH).clip(RoundedCornerShape(12.dp))
             .background(C.gradient?.takeIf { it.size > 1 }?.let { Brush.linearGradient(it) } ?: Brush.linearGradient(listOf(C.bg, C.bg))).border(1.dp, C.line, RoundedCornerShape(12.dp))) {
-            if (key == "stars") Stars() else LookEffects(setOf(key)) }
-        1 -> LookPreview(Music.look, wide = false, fx = if (key == "stars") emptySet() else setOf(key), pw = PW, ph = PH)
-        else -> MusicPagePreview(Music.look, fx = if (key == "stars") emptySet() else setOf(key), w = PW, h = PH)
+            if (LookFx.has(all, "stars")) Stars()
+            if (drawn.isNotEmpty()) LookEffects(drawn) }
+        1 -> LookPreview(Music.look, wide = false, fx = drawn, pw = PW, ph = PH)
+        else -> MusicPagePreview(Music.look, fx = drawn, w = PW, h = PH)
     }
 }
 

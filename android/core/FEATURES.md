@@ -114,7 +114,7 @@ Short sets from your own listening, with a voice like a radio host's.
 
 ## Personalization
 
-Settings › Personalization (or the palette on Now playing). Every menu shows each choice as live screens to swipe through, and each device keeps its own.
+Settings › Personalization (or the palette on Now playing). Every menu shows each choice as live screens to swipe through (an effect with the others you have on, as they would look together), and each device keeps its own.
 
 - **Looks** (the colours): Light, Dark, **Now playing** (every screen in the cover's colours) and over ninety more, neon, and places and materials (Stained glass, Blueprint, Tea house…).
 - **Themes** (how things are drawn): 45, from Rounded and Glass to Retro and Brutalist, with any look.

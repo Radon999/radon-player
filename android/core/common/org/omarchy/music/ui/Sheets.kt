@@ -1616,7 +1616,7 @@ private fun EffectsLines() {
     }
     if (!own) Line("Effects", "Drawn over the background, behind everything else, with the ready-made looks, any theme " +
         "and layout (a look you made keeps its own effects). Pick as many as you like; point at one (on the PC) to see it", false) {
-        ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", group = { MenuGroups.effect(it) }, describe = { LookFx.describe(it) }, preview = { FxPages(it) }, chosen = LookFx.keys(picked),
+        ChoicePill(Favs.sorted(Favs.EFFECTS, LookFx.MENU), "", group = { MenuGroups.effect(it) }, describe = { LookFx.describe(it) }, preview = { FxPages(it, with = picked) }, chosen = LookFx.keys(picked),
             kind = Favs.EFFECTS, menu = { k, l -> Favs.menu(Favs.EFFECTS, k, l) }) {
             LookFx.toggle(it); picked = LookFx.picked()
         }
