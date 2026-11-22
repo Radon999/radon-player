@@ -25,6 +25,16 @@ object TagSync {
 
     /** (blocking) A change to the song file at uri was written: noted for the next sync. before: its title and artist
      *  before the change. */
+    /** A scan's tag write (Fix albums and artists, Live, Soundtrack notes, songs alone in an album, Fix genre names,
+     *  Identify by sound…): written, and noted for your other device as Edit tags' changes are, so it gets the same
+     *  change at the next sync (with Tags match off too). */
+    fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean {
+        val before = runCatching { FileTags.read(ctx, uri) }.getOrNull()
+        val ok = FileTags.write(ctx, uri, changes)
+        if (ok && before != null) note(before["title"].orEmpty(), before["artist"].orEmpty(), changes)
+        return ok
+    }
+
     fun note(title: String, artist: String, changes: Map<String, String>) {
         if (taking.get() == true || title.isBlank()) return
         val kept = TagChanges.kept(changes).takeIf { it.isNotEmpty() } ?: return

@@ -125,7 +125,7 @@ object MusicTools {
     fun fixupApply(changes: List<FixupChange>): Pair<Int, List<String>> {
         var done = 0; val failed = ArrayList<String>()
         for (c in changes) {
-            if (FileTags.write(Music.ctx, at(c.file), c.new)) {
+            if (TagSync.write(Music.ctx, at(c.file), c.new)) {
                 done++
                 // A download of the app's shows what its library entry says (not its file's tags): the fix goes there
                 // too, so it shows, and stays after a rescan and a restart.
@@ -165,7 +165,7 @@ object MusicTools {
     fun liveApply(found: List<LiveName>, picked: List<FixupPick>): Int {
         val (renames, keep) = liveNamesApply(found, picked)
         var done = 0
-        for ((f, title) in renames) if (FileTags.write(Music.ctx, at(f), mapOf("title" to title))) done++
+        for ((f, title) in renames) if (TagSync.write(Music.ctx, at(f), mapOf("title" to title))) done++
         liveKept = liveKept + keep
         Prefs.setText("live_kept", liveKept.joinToString("\n"))
         return done
@@ -194,7 +194,7 @@ object MusicTools {
         var done = 0
         for ((g, name) in found.zip(picked)) {
             if (name.isNullOrBlank()) continue
-            for (n in g.names) if (n != name) for (f in g.songs[n].orEmpty()) if (FileTags.write(Music.ctx, at(f), mapOf("genre" to name))) done++
+            for (n in g.names) if (n != name) for (f in g.songs[n].orEmpty()) if (TagSync.write(Music.ctx, at(f), mapOf("genre" to name))) done++
         }
         return done
     }
@@ -205,7 +205,7 @@ object MusicTools {
     fun movieApply(found: List<LiveName>, picked: List<FixupPick>): Int {
         val (renames, keep) = liveNamesApply(found, picked)
         var done = 0
-        for ((f, title) in renames) if (FileTags.write(Music.ctx, at(f), mapOf("title" to title))) done++
+        for ((f, title) in renames) if (TagSync.write(Music.ctx, at(f), mapOf("title" to title))) done++
         movieKept = movieKept + keep
         Prefs.setText("movie_kept", movieKept.joinToString("\n"))
         return done
@@ -231,7 +231,7 @@ object MusicTools {
     fun loneApply(found: List<LiveName>, picked: List<FixupPick>): Int {
         val (renames, keep) = liveNamesApply(found, picked)
         var done = 0
-        for ((f, album) in renames) if (FileTags.write(Music.ctx, at(f), mapOf("album" to album))) done++
+        for ((f, album) in renames) if (TagSync.write(Music.ctx, at(f), mapOf("album" to album))) done++
         loneKept = loneKept + keep
         Prefs.setText("lone_kept", loneKept.joinToString("\n"))
         return done

@@ -638,7 +638,7 @@ private fun IdentifyDialog(ui: Ui, t: org.omarchy.music.Track) {
                     items(got.orEmpty()) { r ->
                         Column(Modifier.fillMaxWidth().clickable(enabled = file != null && org.omarchy.music.FileTags.canWrite(file)) {
                             val f = file ?: return@clickable
-                            Music.bg({ org.omarchy.music.FileTags.write(Music.ctx, f, mapOf("title" to r.title, "artist" to r.artist) +
+                            Music.bg({ org.omarchy.music.TagSync.write(Music.ctx, f, mapOf("title" to r.title, "artist" to r.artist) +
                                 (if (r.album.isNotEmpty()) mapOf("album" to r.album) else emptyMap())) }) { ok, _ ->
                                 Music.toast(if (ok == true) "Tagged: ${r.title} — ${r.artist}" else "Couldn't write its tags"); Music.rescan()
                             }

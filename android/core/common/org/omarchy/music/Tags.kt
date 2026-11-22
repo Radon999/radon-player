@@ -65,11 +65,16 @@ object Tags {
         TagMatch.touched(uri)   // read again for Tags & covers match
         // The phone: your own file (not a download), in its own format, with All files access
         if (FileTags.OWN_BY_TAGLIB && Music.lib.items.values.none { it.file == uri }) {
+            val before = runCatching { FileTags.read(ctx, uri) }.getOrNull()
             if (!FileTags.writeOwn(uri, changes)) error("couldn't write its tags (Settings › Tagger: allow All files access)")
+            // Noted for your other device (Sync): the song as it was named before
+            before?.let { b -> TagSync.note(b["title"].orEmpty(), b["artist"].orEmpty(), changes) }
             return asComments(FileTags.read(ctx, uri) ?: emptyMap())
         }
         if (!uri.startsWith("content:") && !isFlac(ctx, uri)) {   // an MP3, M4A… of yours on the PC
+            val before = runCatching { FileTags.read(ctx, uri) }.getOrNull()
             if (!FileTags.write(ctx, uri, changes)) error("couldn't write its tags")
+            before?.let { b -> TagSync.note(b["title"].orEmpty(), b["artist"].orEmpty(), changes) }   // for your other device (Sync)
             return asComments(FileTags.read(ctx, uri) ?: emptyMap())
         }
         val cr = ctx
