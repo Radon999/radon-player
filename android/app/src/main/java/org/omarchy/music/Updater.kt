@@ -64,33 +64,38 @@ object Updater {
     /** Look for a newer release (quiet: no message when there's none, as at start). */
     private var checkNo = 0   // which look this is: an answer to an older one (given up on) is dropped
 
+    /** (blocking) The newest release now: its version and this app's file in it (null when it isn't up yet), or what went
+     *  wrong. Radon Player Next (org.omarchy.music.next) takes only its own file: the release's RadonPlayer-Next.apk;
+     *  else RadonPlayer.apk (from the update after 3.0.0), or its old name OmarchyMusic.apk. */
+    private fun lookUp(): Triple<String?, String?, Throwable?> {
+        val names = if (ctx.packageName.endsWith(".next")) listOf(NEXT_NAME) + APK_NAMES else APK_NAMES
+        val agent = "omarchy-music-android/$version"
+        return try {
+            val rel = UpdateRules.jsonWithin("https://api.github.com/repos/$REPO/releases/latest",
+                mapOf("User-Agent" to agent, "Accept" to "application/vnd.github+json"))
+            val assets = rel["assets"].list
+            Triple(rel["tag_name"].str, names.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }, null)
+        } catch (e: Throwable) {
+            // GitHub's list of the release's files wasn't had (it answers only so many times an hour): the version
+            // from where its "latest release" page sends on to, and the app's file where every release has it
+            runCatching { UpdateRules.latestTag(REPO) }.getOrNull()?.let { t -> Triple(t, UpdateRules.assetUrl(REPO, t, names[0]), null) }
+                ?: Triple(null, null, e)
+        }
+    }
+
+    /** Radon Player Next updates from the release's RadonPlayer-Next.apk; a release from before 3.2.19 has only the
+     *  other app (org.omarchy.music), which Android won't put in its place, so then the newest Next build. */
+    private fun forThisApp(url: String) = if (ctx.packageName.endsWith(".next") && !url.endsWith("/$NEXT_NAME")) NEXT_APK else url
+
     fun check(quiet: Boolean = true) {
         if (checking) return
         checking = true
         val mine = ++checkNo
-        // Radon Player Next (org.omarchy.music.next) takes only its own file: the release's RadonPlayer-Next.apk.
-        // Else RadonPlayer.apk (from the update after 3.0.0), or its old name OmarchyMusic.apk
-        val names = if (ctx.packageName.endsWith(".next")) listOf(NEXT_NAME) + APK_NAMES else APK_NAMES
-        val agent = "omarchy-music-android/$version"
         // On a thread of its own, and with an end to it. Before, it waited its turn among the app's background work
         // (all of it busy during a scan or a sync) with no time limit of its own, and "checking for a newer version…"
         // could stay up for good.
         Thread({
-            var err: Throwable? = null
-            var tag: String? = null; var url: String? = null
-            try {
-                val rel = UpdateRules.jsonWithin("https://api.github.com/repos/$REPO/releases/latest",
-                    mapOf("User-Agent" to agent, "Accept" to "application/vnd.github+json"))
-                tag = rel["tag_name"].str
-                val assets = rel["assets"].list
-                url = names.firstNotNullOfOrNull { n -> assets.firstOrNull { it["name"].str == n }?.get("browser_download_url").str }
-            } catch (e: Throwable) {
-                err = e
-                // GitHub's list of the release's files wasn't had (it answers only so many times an hour): the version
-                // from where its "latest release" page sends on to, and the app's file where every release has it
-                runCatching { UpdateRules.latestTag(REPO) }.getOrNull()?.let { t -> tag = t; url = UpdateRules.assetUrl(REPO, t, names[0]); err = null }
-            }
-            val t = tag; val u = url; val e = err
+            val (t, u, e) = lookUp()
             Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (mine == checkNo) checked(quiet, t, u, e) }
         }, "update-check").apply { isDaemon = true }.start()
         // Whatever the network does, the looking ends
@@ -115,10 +120,8 @@ object Updater {
                 return
             }
             if (latest != tag.removePrefix("v")) Music.toast("Radon Player ${tag.removePrefix("v")} is out: update it in Settings (⚙)")
-            // Radon Player Next updates from the release's RadonPlayer-Next.apk; a release from before 3.2.19 has only the
-            // other app (org.omarchy.music), which Android won't put in its place, so then the newest Next build
             latest = tag.removePrefix("v")
-            apk = if (ctx.packageName.endsWith(".next") && !url.endsWith("/$NEXT_NAME")) NEXT_APK else url
+            apk = forThisApp(url)
             Music.accountsVersion++
         }
     }
@@ -160,10 +163,18 @@ object Updater {
             return
         }
         state = "working"
+        val known = latest?.let { v -> v to url }
+        var took: String? = null
         alone("update-install", {
+            // Looked for again as you tap Update: the newest release now, not the one the last look found (that can be
+            // hours old, and a newer one out since)
+            val fresh = runCatching { lookUp() }.getOrNull()?.let { (t, u, _) -> if (t != null && u != null) t.removePrefix("v") to forThisApp(u) else null }
+            val (v, get) = UpdateRules.toInstall(known, fresh) ?: (version to url)
+            if (v != latest) took = v
+            android.util.Log.i(TAG, "update: installing $v from $get")
             val file = File(ctx.cacheDir, "update.apk")
-            HTTP.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                if (!r.isSuccessful) throw HttpError(r.code, "", url)
+            HTTP.newCall(Request.Builder().url(get).build()).execute().use { r ->
+                if (!r.isSuccessful) throw HttpError(r.code, "", get)
                 file.outputStream().use { out -> r.body!!.byteStream().copyTo(out) }
             }
             // Only ever this same app (same name, same package), so it installs over it and keeps your settings and
@@ -183,6 +194,7 @@ object Updater {
             }
             file.delete()
         }) { _, err ->
+            took?.let { latest = it; Music.accountsVersion++ }
             if (err != null) { android.util.Log.w(TAG, "update failed", err); state = "Couldn't update: ${err.message?.take(100)}" }
         }
     }

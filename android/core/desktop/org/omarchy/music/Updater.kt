@@ -51,26 +51,8 @@ object Updater {
         // On a thread of its own, and with an end to it (as on the phone): it never waits for the app's other
         // background work, and a network that stalls can't leave "checking…" up for good
         Thread({
-            var err: Throwable? = null
-            var tag: String? = null; var pageUrl: String? = null; var file: String? = null
-            try {
-                val rel = UpdateRules.jsonWithin("https://api.github.com/repos/$REPO/releases/latest",
-                    mapOf("User-Agent" to agent, "Accept" to "application/vnd.github+json"))
-                tag = rel["tag_name"].str; pageUrl = rel["html_url"].str
-                // This system's installer among the release's files: the .msi on Windows, the .deb on Linux
-                val name = StartupRules.installer(rel["assets"].list.mapNotNull { it["name"].str }, os)
-                file = rel["assets"].list.firstOrNull { name != null && it["name"].str == name }?.get("browser_download_url").str
-            } catch (e: Throwable) {
-                err = e
-                // GitHub's list wasn't had (it answers only so many times an hour): the version from where its "latest
-                // release" page sends on to, and the installer where every release has it
-                runCatching { UpdateRules.latestTag(REPO) }.getOrNull()?.let { t ->
-                    tag = t; pageUrl = "https://github.com/$REPO/releases/tag/$t"
-                    file = UpdateRules.pcInstallerName(t, os)?.let { UpdateRules.assetUrl(REPO, t, it) }; err = null
-                }
-            }
-            val t = tag; val p = pageUrl; val f = file; val e = err
-            Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (mine == checkNo) checked(quiet, announce, t, p, f, e) }
+            val (r, e) = lookUp(agent, os)
+            Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { if (mine == checkNo) checked(quiet, announce, r?.tag, r?.page, r?.file, e) }
         }, "update-look").apply { isDaemon = true }.start()
         Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
             kotlinx.coroutines.delay(75_000)
@@ -79,6 +61,29 @@ object Updater {
     }
 
     private var checkNo = 0   // which look this is: an answer to an older one (given up on) is dropped
+
+    /** The newest release: its version, its page, and this system's installer in it (the .msi on Windows, the .deb on
+     *  Linux; null when it isn't up yet). */
+    private class Found(val tag: String?, val page: String?, val file: String?)
+
+    /** (blocking) The newest release now, or what went wrong. */
+    private fun lookUp(agent: String = "radon-player-pc/$version", os: String = System.getProperty("os.name")): Pair<Found?, Throwable?> = try {
+        val rel = UpdateRules.jsonWithin("https://api.github.com/repos/$REPO/releases/latest",
+            mapOf("User-Agent" to agent, "Accept" to "application/vnd.github+json"))
+        val name = StartupRules.installer(rel["assets"].list.mapNotNull { it["name"].str }, os)
+        Found(rel["tag_name"].str, rel["html_url"].str,
+            rel["assets"].list.firstOrNull { name != null && it["name"].str == name }?.get("browser_download_url").str) to null
+    } catch (e: Throwable) {
+        // GitHub's list wasn't had (it answers only so many times an hour): the version from where its "latest
+        // release" page sends on to, and the installer where every release has it
+        runCatching { UpdateRules.latestTag(REPO) }.getOrNull()?.let { t ->
+            Found(t, "https://github.com/$REPO/releases/tag/$t", UpdateRules.pcInstallerName(t, os)?.let { UpdateRules.assetUrl(REPO, t, it) }) to null
+        } ?: (null to e)
+    }
+
+    /** As you tap Update: the newest release now (version, installer, page), to put in place of the one the last look
+     *  found if it's newer (that look can be hours old, and a newer one out since); null if it couldn't be had. */
+    private fun newestNow(): Found? = runCatching { lookUp().first }.getOrNull()?.takeIf { it.tag != null && it.file != null }
 
     private fun checked(quiet: Boolean, announce: Boolean, tag: String?, pageUrl: String?, file: String?, err: Throwable?) {
         checking = false
@@ -97,6 +102,20 @@ object Updater {
     fun checkSoon() { if (System.currentTimeMillis() - checkedAt > 600_000) check() }
 
     fun install() {
+        if (state.isNotEmpty()) return
+        state = "Looking for the newest version…"
+        // Looked for again first (off the screen's thread), then installed
+        Music.bg({ newestNow() }) { r, _ ->
+            r?.let { f ->
+                val known = latest?.let { v -> installer?.let { v to it } }
+                val pick = UpdateRules.toInstall(known, f.tag!!.removePrefix("v") to f.file!!)
+                if (pick != null && pick.first != latest) { latest = pick.first; installer = pick.second; page = f.page }
+            }
+            state = ""; installNow()
+        }
+    }
+
+    private fun installNow() {
         val msi = installer
         val os = System.getProperty("os.name").lowercase()
         val windows = os.contains("win")

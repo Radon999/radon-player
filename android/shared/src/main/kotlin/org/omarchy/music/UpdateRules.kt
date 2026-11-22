@@ -61,6 +61,16 @@ exec ${q("$root/bin/Radon Player")}
         return false
     }
 
+    /** What Update installs: the release found just now ([fresh], looked for as you tap Update) when it's newer than
+     *  the one found earlier ([known], from the last look, which can be hours old: 4.0.37 was installed after 4.0.38 was
+     *  out, and the next look offered 4.0.38 again), else the one found earlier. Each is (its version, its file). */
+    fun toInstall(known: Pair<String, String>?, fresh: Pair<String, String>?): Pair<String, String>? = when {
+        fresh == null -> known
+        known == null -> fresh
+        newer(fresh.first, known.first) -> fresh
+        else -> known
+    }
+
     /** (blocking) One question to the web that always ends: an answer or an error within seconds, however the
      *  network behaves (a name that won't resolve, a connection that stalls). */
     fun jsonWithin(url: String, headers: Map<String, String>, seconds: Long = 25): JsonElement {
