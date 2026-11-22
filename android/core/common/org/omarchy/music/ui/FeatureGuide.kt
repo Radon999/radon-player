@@ -207,6 +207,7 @@ val CHANGELOG: String = listOf(
     "",
     "## 4.0.37 · November 2026",
     "- **Empty folders on the phone:** with All files access (Settings › Tagger) the phone has the Empty folders scan too: folders in your music folders with no songs left in them, only pictures, lyrics files and the like, each shown with its size and what's in it, to tick and delete. A phone has no Recycle Bin, so a folder you delete there is gone for good with what's left in it: the setting and the confirmation say so, and each folder is looked at again just before and kept if any music is in it. Your top Music folder and Folders to leave alone are never touched.",
+    "- **Cover searches find more:** \"EP\" as a word anywhere in an album's name and a year at its end (\"Lone Survivor EP 2013\") are left off the search too, as \" - EP\", \"Single\", brackets and slashes already were.",
     "- **Tidying after a move, on the phone:** when songs are moved or deleted, the folders they leave with nothing at all in them are removed across your music folders, not only in the app's download folder.",
     "",
     "## 4.0.36 · November 2026",
