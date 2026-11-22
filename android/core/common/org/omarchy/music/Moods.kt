@@ -576,8 +576,14 @@ object Moods {
         return e.lyr.isEmpty() && !(e.lyrTried > 0 && now() - e.lyrTried < 30 * 86400)
     }
 
-    /** Scanned: heard whole and its words read (or looked for). */
-    private fun scanned(e: MoodEntry?): Boolean = e != null && e.full && !wordsNeeded(e)
+    /** Scanned: heard whole and its words read (or looked for), or its moods are settled in its file. */
+    private fun scanned(e: MoodEntry?): Boolean = e != null && ((e.full && !wordsNeeded(e)) || settled(e))
+
+    /** A song whose file already holds moods this device didn't put there (written on your other device, by another
+     *  app, or by hand, then copied over) has its moods: it isn't counted as waiting for Scan moods, the scan doesn't
+     *  hear it, read its words or write over them. A reset (Settings › Reset mood and lyrics scans, Rescan) makes the
+     *  file's moods the app's own (wrote = inFile), so the songs are scanned again then. */
+    internal fun settled(e: MoodEntry?): Boolean = e != null && MoodRules.settledInFile(e.picked, e.inFile, e.wrote)
 
     /** The moods to go into a song's file now: yours, else every mood worked out (main first), "" none. */
     /** Worked out fresh from what's known now, never from the remembered answers: those can be from before the song
@@ -642,6 +648,7 @@ object Moods {
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue   // gone
             val e = fresh(p, t, m)
             if (e.picked.isNotEmpty()) continue   // yours: as you set it
+            if (settled(e)) continue              // its file has its moods already: kept as they are
             val write = canWrite(p) && (moodsFor(t, e.copy(wrote = e.inFile)) != e.inFile || (e.lyr.isNotEmpty() && !e.lyrInFile))
             if (!scanned(e) || write) todo += Triple(p, t, m)
         }
@@ -736,7 +743,7 @@ object Moods {
         for (t in Music.mySongs()) {
             val p = pathOf(t) ?: continue
             val e = synchronized(lock) { known[p] }
-            if (e?.picked?.isNotEmpty() == true) continue
+            if (e?.picked?.isNotEmpty() == true || settled(e)) continue
             if (!scanned(e)) { n++; if (e?.full != true) audio += t.duration.takeIf { it > 0 } ?: 200.0; if (e == null || wordsNeeded(e)) words++ }
         }
         n to (estimate("full", 0, audio) + estimate("words", words))

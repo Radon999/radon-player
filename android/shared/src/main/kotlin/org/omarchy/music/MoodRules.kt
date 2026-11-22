@@ -196,6 +196,13 @@ object MoodRules {
     const val NEAR_TOP_HEARD = 0.70
     /** The most moods a song is in (a song in more says little about any of them). */
     const val MOST = 4
+
+    /** A song's moods are settled in its file: the file holds moods ([inFile]) that this device didn't write there
+     *  itself ([wrote]), and none you picked here ([picked], which go their own way). Such a song isn't waiting for
+     *  Scan moods and the scan leaves it alone (moods written on your other device, then the files copied over). A
+     *  reset makes the file's moods the app's own (wrote = inFile), so those songs are scanned again then. */
+    fun settledInFile(picked: String, inFile: String, wrote: String): Boolean =
+        picked.isEmpty() && inFile.isNotBlank() && inFile != wrote
     /** Words that say a mood at least this much (0–1) count even against a sound that says otherwise. */
     const val STRONG_WORDS = 0.6
 
