@@ -1,8 +1,8 @@
-commit 44c2161e95bcae0e24631d8dfce1d3b12b093b5a · run 45067636632 · Sun Nov 22 20:53:24 UTC 2026
+commit fce1b6d769d40986314bd4b5c23bf847022c4adc · run 45068218930 · Sun Nov 22 21:12:44 UTC 2026
 SHARED TESTS: 135 suites, 629 tests, 0 failed
 APP TESTS: 19 suites, 53 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 44 suites, 171 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.3 s of speech in 1.4 s (with loading the voice); then 4.6 s of speech in 1.1 s (4.2x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.1 s of speech in 2.2 s (with loading the voice); then 5.1 s of speech in 2.3 s (2.2x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_4.0.38_amd64.deb, 90M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -22,21 +22,21 @@ LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 --- the end of the log
-> Task :desktop:classes
-> Task :app:bundleDebugClassesToCompileJar
-> Task :app:bundleDebugClassesToRuntimeJar
-> Task :desktop:jar
+w: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
 
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
 The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.0.38_amd64.deb
 
-> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
-> Task :app:processDebugUnitTestJavaRes
-> Task :app:testDebugUnitTest
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
 > Task :desktop:test
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 9s
+BUILD SUCCESSFUL in 5m 1s
 59 actionable tasks: 59 executed
