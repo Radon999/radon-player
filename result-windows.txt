@@ -1,10 +1,10 @@
-commit 44c2161e95bcae0e24631d8dfce1d3b12b093b5a · run 45067636632 · Sun Nov 22 21:00:38 UTC 2026
+commit fce1b6d769d40986314bd4b5c23bf847022c4adc · run 45068218930 · Sun Nov 22 21:19:51 UTC 2026
 PC TESTS ON WINDOWS: 44 suites, tests 171, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.5 s of speech in 2.6 s (with loading the voice); then 4.8 s of speech in 1.5 s (3.2x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.8 s (with loading the voice); then 4.6 s of speech in 2.0 s (2.3x real time)
 WINDOWS INSTALLER: Radon Player-4.0.38.msi, 97M
 --- errors
 --- the end of the log
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1388:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1392:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
 w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
 > Task :desktop:compileJava NO-SOURCE
@@ -27,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m 3s
+BUILD SUCCESSFUL in 5m 54s
 21 actionable tasks: 21 executed
