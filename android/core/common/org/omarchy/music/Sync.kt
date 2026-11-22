@@ -73,6 +73,22 @@ object Sync {
         private set
 
     private val running = AtomicBoolean(false)
+    /** When the sync going now started (ms): one that has gone on longer than any sync can is let go ([stuckFreed]). */
+    @Volatile private var runningSince = 0L
+    private fun begin(): Boolean = running.compareAndSet(false, true).also { if (it) runningSince = System.currentTimeMillis() }
+    /** Longer than a sync can take: the upload and the answer each have 3 minutes, and putting it in place a little. */
+    private const val STUCK_MS = 8 * 60_000L
+
+    /** (the phone) A sync that never finished (the network gone mid-way, the app put away while it worked) held the
+     *  phone's syncing for good: the PC's Sync now then waited for ever, with nothing said. Let go after STUCK_MS,
+     *  noted in Settings › Problems. True if it was. */
+    private fun stuckFreed(): Boolean {
+        if (!running.get() || System.currentTimeMillis() - runningSince < STUCK_MS) return false
+        running.set(false)
+        Music.scope.launch { busy = null }
+        Crashes.caught(IllegalStateException("a sync that had gone on for over ${STUCK_MS / 60_000} minutes was let go"), "Sync")
+        return true
+    }
     private var ctx: Ctx? = null
     private val dir: File get() = (ctx ?: Music.ctx).filesDir
     private val undoFile get() = File(dir, "sync-undo.zip")
@@ -108,13 +124,19 @@ object Sync {
     /** (the phone) Sync with the paired PC. fromPc: the PC's Sync now asked, so its changes win a tie. */
     fun now(fromPc: Boolean = false, auto: Boolean = false, round: Int = 0) {
         if (!Remote.paired) { if (!auto) Music.toast("Pair with the PC first (Settings › Play on)"); return }
-        if (!running.compareAndSet(false, true)) return
+        stuckFreed()
+        if (!begin()) { if (!auto && !fromPc) Music.toast("A sync is already going: it finishes, or is let go after ${STUCK_MS / 60_000} minutes"); return }
         val with = Remote.name.ifEmpty { "the PC" }
         busy = if (round > 0) "Syncing covers with $with (part ${round + 1})…" else "Syncing with $with…"
         // Tags match: covers left over that didn't fit in this sync (either way): it goes on by itself, round after round
         var moreCovers = false
         val songs = songsOn
-        val st = stateJson(); val sw = switchesJson()   // the screen's state, read on its thread
+        // The screen's state, read on its thread. Should it fail, the sync is let go and says why (before, the phone's
+        // syncing stayed held and every Sync now after it waited for nothing)
+        val (st, sw) = try { stateJson() to switchesJson() } catch (e: Throwable) {
+            running.set(false); busy = null; Crashes.caught(e, "Sync")
+            Music.toast("Couldn't sync: ${e.message?.take(80) ?: "this phone's settings couldn't be read"} (Settings › Problems)"); return
+        }
         val host = Remote.host; val headers = Remote.headers()
         Music.bg({
             val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
@@ -209,7 +231,7 @@ object Sync {
      *  on both, songs taken out on either are out of both), nothing else touched, no word said unless something
      *  changed. "Undo last sync" still puts back what was there before the last Sync now. */
     private fun playlistsNow() {
-        if (!Remote.paired || !running.compareAndSet(false, true)) return
+        if (!Remote.paired || !begin()) return
         val with = Remote.name.ifEmpty { "the PC" }
         val host = Remote.host; val headers = Remote.headers()
         Music.bg({
@@ -268,7 +290,9 @@ object Sync {
     /** (the phone, every few seconds) Whether the PC's Sync now is waiting for this phone: then sync. A quick question
      *  every 20 seconds, every 30 seconds while the PC can't be reached; meeting it again syncs ([connected]). */
     fun tick() {
-        if (!Remote.paired || running.get()) return
+        if (!Remote.paired) return
+        stuckFreed()
+        if (running.get()) return
         val t = System.currentTimeMillis()
         if (t < nextCheck) return
         nextCheck = t + 20_000
@@ -306,7 +330,8 @@ object Sync {
      *  in place here; back, what writes the result for the phone. peer: the phone's pairing token (each phone has its
      *  own last sync). */
     fun serve(peer: String, peerName: String, ins: InputStream): (OutputStream) -> Unit {
-        if (!running.compareAndSet(false, true)) throw IllegalStateException("the PC is already syncing")
+        stuckFreed()
+        if (!begin()) throw IllegalStateException("the PC is already syncing")
         try {
             val (asked, theirs) = readZip(ins)
             if (asked["app"].str != "radon-player") throw IllegalArgumentException("that isn't a Radon Player sync")
