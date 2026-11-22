@@ -29,6 +29,9 @@ object AlbumMissing {
         return MissingSongs.from(all, tracks, yours)
     }
 
+    /** Whether the album's tracklist was found (after [find]): an album not found has no count of what's missing. */
+    fun listed(album: String, artist: String): Boolean = seen[norm(artist) to norm(album)]?.isNotEmpty() == true
+
     /** (blocking) The release on Deezer by its name and artist, or null. Its name is compared without its kind on the end
      *  (Deezer lists an EP as "Name" or "Name - EP"; see [MissingSongs.releaseName]); tried by the album search, then a looser search,
      *  then the artist's own list (albums, EPs and singles). Of those named so: the same full name first, then the kind wanted. */

@@ -61,7 +61,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     }
     fun playsOf(songs: List<Track>): String = if (playCounts.isEmpty()) "" else
         songs.sumOf { playCounts[org.omarchy.music.songKey(it)] ?: 0 }.let { n -> "%,d play%s".format(n, if (n != 1) "s" else "") }
-    fun withPlays(sub: String, songs: List<Track>) = playsOf(songs).let { p -> if (p.isEmpty()) sub else if (sub.isBlank()) p else "$sub · $p" }
+    // (an album's lead artist, as its page names it)
+    fun leadOf(songs: List<Track>) = songs.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: ""
+    fun withPlays(al: Album, songs: List<Track>) = (listOf(al.sub, playsOf(songs)) +
+        // …and how much of it is here and how much you'd still only stream (from its tracklist, once counted)
+        listOfNotNull(org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.albumKey(al.title, leadOf(songs)))
+            ?.let { org.omarchy.music.ReleaseCounts.text(it) })).filter { it.isNotBlank() }.joinToString(" · ")
     val all = remember(Music.musicVersion, Music.savedVersion, kind) { runCatching { Music.albums() }.getOrDefault(emptyList())
         .flatMap { (al, songs) ->
             if (songs.first().album.isEmpty() && songs.none { org.omarchy.music.folderKind(Music.folderOf(it)) != null })   // no album at all: each song is its own single
@@ -93,6 +98,13 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
     val albums = rememberSorted(fitting, sort) { d ->
         org.omarchy.music.sortGroups(fitting, sort, d) { (al, songs) ->
             org.omarchy.music.GroupFacts(al.title, al.sub, songs) } }
+    // The ones not counted yet (what of each is here, what you'd still only stream): their tracklists looked up in the
+    // background, a few at a time, and kept
+    androidx.compose.runtime.LaunchedEffect(all, kind) {
+        org.omarchy.music.ReleaseCounts.fill(all.map { (al, songs) -> Triple(al.title, leadOf(songs), songs) },
+            if (eps) "ep" else if (singles) "single" else "album")
+    }
+    org.omarchy.music.ReleaseCounts.version   // (rows redrawn as counts come in)
     fun pin(al: Album) = Pin("album", al.id, al.title, al.sub, source = "local")
     val picking = ui.pickingIn(kind)
     val picked = ui.albumsPicked
@@ -124,11 +136,11 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         laidOutItems(albums, ui, key = { "al-" + albums[it].first.id }, names = { albums[it].first.title },
             otherNames = listOf({ albums[it].second.firstOrNull()?.artist.orEmpty() }), row = { i ->
             val (al, songs) = albums[i]
-            PlaylistRow(Album(al.id, al.title, withPlays(al.sub, songs), "", songs.size.toString()), artModel(songs.first()),
+            PlaylistRow(Album(al.id, al.title, withPlays(al, songs), "", songs.size.toString()), artModel(songs.first()),
                 onLongClick = { menu(al, songs) }, checked = if (picking) al.id in picked else null) { tap(al, songs) }
         }) { i, mod, compact ->
             val (al, songs) = albums[i]
-            Tile(artModel(songs.first(), tilePx(compact)), al.title, withPlays(al.sub, songs), mod, compact, ico = Ico.DISC, lit = picking && al.id in picked,
+            Tile(artModel(songs.first(), tilePx(compact)), al.title, withPlays(al, songs), mod, compact, ico = Ico.DISC, lit = picking && al.id in picked,
                 onLongClick = { menu(al, songs) }) { tap(al, songs) }
         }
     }

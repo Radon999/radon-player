@@ -1141,7 +1141,8 @@ fun ArtistsTab(ui: Ui) {
                 RoundArt(artistArt(a.name, a.thumb), 52.dp)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(a.name, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(plays(a.plays), style = T.sub, maxLines = 1)
+                    Text(plays(a.plays) + (org.omarchy.music.ReleaseCounts.of(org.omarchy.music.ReleaseCounts.artistKey(a.name))?.let { " · " + org.omarchy.music.ReleaseCounts.text(it) } ?: ""),
+                        style = T.sub, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }) { i, mod, compact ->
@@ -1592,7 +1593,13 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         if (i != null && !onlyMine && (i.albums.isNotEmpty() || i.also.isNotEmpty() || gSongs?.isNotEmpty() == true)) {
             val list = everyList
             val at = everyAt
-            item { ArtistFold("Every song", if (list != null) "%,d".format(list.size) else "…", isOpen("every")) { toggle("every") } }
+            // How much of it is here: each song once (the list has each once, however many releases it's on), the ones
+            // you hid off the page not counted; kept for the Artists tab
+            val have = list?.let { l -> l.distinctBy { org.omarchy.music.ArtistShownRules.songKey(it.title) } }
+            val counted = have?.let { l -> l.count { yours(it) } to l.count { !yours(it) } }
+            if (counted != null && have.isNotEmpty()) androidx.compose.runtime.LaunchedEffect(counted) {
+                org.omarchy.music.ReleaseCounts.put(org.omarchy.music.ReleaseCounts.artistKey(page.name), counted.first, counted.second) }
+            item { ArtistFold("Every song", if (list != null) "%,d".format(have?.size ?: list.size) + (counted?.let { " · " + org.omarchy.music.ReleaseCounts.text(it) } ?: "") else "…", isOpen("every")) { toggle("every") } }
             if (isOpen("every")) {
             if (list == null) item {
                 Text(if (at != null) "Going through their releases… ${at.first} of ${at.second}" else "Going through their releases…", style = T.sub,
@@ -1792,7 +1799,10 @@ private fun AlbumPage(ui: Ui, page: Ui.Page.AlbumPage) {
             val (al, now) = org.omarchy.music.AlbumSongs.current(page.album.id, was, reread = reread)
             Triple(al, now, if (now.isEmpty()) emptyList() else runCatching { Music.albumMissing(al?.title ?: page.album.title, now.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: artist, now, kind) }.getOrDefault(emptyList()))
         }) { res, _ ->
-            if (res != null) { res.first?.let { shown = it }; tracks = res.second; missing = res.third }
+            if (res != null) { res.first?.let { shown = it }; tracks = res.second; missing = res.third
+                // kept for the Albums tab: what of it is here and what you'd still only stream
+                if (res.second.isNotEmpty() && org.omarchy.music.AlbumMissing.listed(res.first?.title ?: page.album.title, artist))
+                    org.omarchy.music.ReleaseCounts.put(org.omarchy.music.ReleaseCounts.albumKey(page.album.title, artist), res.second.distinctBy { org.omarchy.music.songKey(it) }.size, res.third.size) }
             done()
         }
     }
