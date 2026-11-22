@@ -586,6 +586,31 @@ object Moods {
     private fun moodsFor(t: Track, e: MoodEntry): String =
         e.picked.ifEmpty { (pathOf(t)?.let { judge(t, it) } ?: NONE).moods.take(MoodRules.MOST).joinToString(";") { it.first } }
 
+    /** (blocking) Tags match: the moods the app has for this song ("Happy;Sad"; "" none): yours, else what's in its
+     *  file, else what was worked out. */
+    fun moodText(t: Track): String = runCatching {
+        load()
+        val p = pathOf(t) ?: return@runCatching ""
+        val e = synchronized(lock) { known[p] } ?: return@runCatching ""
+        e.picked.ifEmpty { e.inFile.ifEmpty { e.kept.take(MoodRules.MOST).joinToString(";") } }
+    }.getOrDefault("")
+
+    /** (blocking) Tags match: this song's moods made exactly the main device's (any others here taken off), kept as
+     *  settled so no scan here changes them. Call after its file's MOOD was written. */
+    fun takeExact(t: Track, moods: List<String>) {
+        if (prevented || moods.isEmpty()) return
+        load()
+        val p = pathOf(t) ?: return
+        val j = moods.joinToString(";")
+        val m = runCatching { AudioTools.modified(p) }.getOrNull()
+        synchronized(lock) {
+            val e = known[p] ?: MoodEntry()
+            known[p] = e.copy(picked = j, kept = moods, heard = true, inFile = j, wrote = j, mtime = m ?: e.mtime, looked = true)
+        }
+        save()
+        Music.scope.launch { version++ }
+    }
+
     /** Settings › Prevent auto mood scans: on, the moods stop being edited: the ones in the files stay (and show) as they
      *  are, no song is scanned (a new one waits), nothing more is written into the files' moods or taken from a sync. */
     const val PREVENT = "prevent_mood_scans"
