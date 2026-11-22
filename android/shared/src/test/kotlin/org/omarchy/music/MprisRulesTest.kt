@@ -47,7 +47,8 @@ class MprisRulesTest {
         assertEquals(setOf("PlaybackStatus"), MprisRules.changed(song, song.copy(playing = false)))
         assertEquals(setOf("Metadata"), MprisRules.changed(song, song.copy(id = "tidal:124", title = "Two")))
         assertEquals("its length came in", setOf("Metadata"), MprisRules.changed(song.copy(duration = 0.0), song))
-        assertEquals(setOf("PlaybackStatus", "Metadata"), MprisRules.changed(MprisRules.Now(), song))
+        assertEquals("a song after none: what the buttons may do too", setOf("PlaybackStatus", "Metadata", "CanPlay", "CanPause", "CanSeek"),
+            MprisRules.changed(MprisRules.Now(), song))
         assertTrue("time passing is not news", MprisRules.changed(song, song.copy(position = 11.0)).isEmpty())
     }
 
