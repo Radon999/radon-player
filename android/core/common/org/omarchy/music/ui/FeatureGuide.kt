@@ -135,7 +135,7 @@ val FEATURE_GUIDE: String = listOf(
     "## Visualizer",
     "",
     "- **90 styles** and over eighty colours and blends: along the bottom (bars, blocks, waves, flames, 8-bit…), round the cover (rings, starfield, galaxy, mandala…), and thirty that are things (organ pipes, piano keys, a lotus, a kite).",
-    "- **On Now playing:** slim bars, any style, **Dual** (one round the cover and one along the bottom), full screen behind everything, or none. **Middle visualizer under the cover** puts a middle one behind the cover, showing round its edges, instead of over it. It only hears the app's own sound; nothing is recorded.",
+    "- **On Now playing:** slim bars, any style, **Dual** (one round the cover and one along the bottom), full screen behind everything, or none. With **Dual** on, **In the middle** and **Along the bottom** each have their own picker. **Around the cover** (a switch, then a picker of 30: glow, bars, waves, ripples, flames, orbits, sparkles and more) goes round the cover from its edge outward, never over it, in the cover's shape and size from the layout (square, rounded, a circle like a record); while it's on, no middle visualizer is drawn, the bottom one still is. It only hears the app's own sound; nothing is recorded.",
     "- **Smoothest screen** (phone, Settings › Playback): asks a 90, 120 or 144 Hz screen for its highest rate. Off at first.",
     "",
     "## Tags & tidying",

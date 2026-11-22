@@ -180,8 +180,8 @@ fun MusicPagePreview(look: String, theme: String = org.omarchy.music.Prefs.text(
     }
 }
 
-private val PW get() = if (onPhone) 240.dp else 260.dp
-private val PH get() = if (onPhone) 300.dp else 320.dp
+internal val PW get() = if (onPhone) 240.dp else 260.dp
+internal val PH get() = if (onPhone) 300.dp else 320.dp
 
 /** A look in the Look menu: Now playing (its visualizer moving), My music, Albums, and a slide of Wrapped in Your look. */
 @Composable

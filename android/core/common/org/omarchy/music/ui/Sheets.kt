@@ -1650,7 +1650,7 @@ private fun ColoursLines(ui: Ui) = SubGroup("Colours", ui) {
     fun name(k: String) = NP_VIS_STYLES.firstOrNull { it.first == k }?.second ?: k
     val rows = LinkedHashMap<String, Pair<String, String>>()   // its key -> (where it is, the colour it was made with)
     val now = Vis.nowStyle()
-    if (now != "slim" && now != "off") {
+    if (now != "slim" && now != "off" && !(Around.on() && now in Vis.CENTRED && !Vis.dual(now))) {
         val mine = MyVis.style(now)
         if (Vis.dual(now)) {
             rows[now] = "Now playing's middle visualizer: ${name(now)}" to mine?.color.orEmpty()
@@ -1660,6 +1660,7 @@ private fun ColoursLines(ui: Ui) = SubGroup("Colours", ui) {
     if (Vis.nowDual() && !Vis.dual(now)) Vis.nowBottom().takeIf { it != "slim" && it != "off" && it !in rows }?.let { b ->
         rows[b] = "Now playing's bottom visualizer: ${name(b)}" to MyVis.style(b)?.color.orEmpty() }
     Vis.style().takeIf { it !in rows }?.let { v -> rows[v] = "The Visualizer tab: ${name(v)}" to MyVis.style(v)?.color.orEmpty() }
+    Around.style().takeIf { it.isNotEmpty() }?.let { a -> rows[a] = "Around the cover: ${Around.name(a)}" to "" }
     for ((key, r) in rows) androidx.compose.runtime.key(key) { VisColourLine(r.first, key, r.second) }
     // The effects you have on, each its own colour
     val picked = LookFx.picked()
@@ -1682,7 +1683,8 @@ private fun VisColourLine(title: String, key: String, made: String) {
         // Each colour shown first on this visualizer (tap once to see it, again to pick it); As it comes in its own colour
         val style = key.substringBefore('#')
         ChoicePill(listOf("" to comes) + Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), set, swatch = { k -> if (k.isEmpty()) null else visSwatch(k, accent) },
-            preview = { k -> VisColourPages(style, k.ifEmpty { made.ifEmpty { Vis.color() } }) }) {
+            preview = { k -> val c = k.ifEmpty { made.ifEmpty { Vis.color() } }
+                if (style.startsWith("ar-")) AroundPreview(style, c) else VisColourPages(style, c) }) {
             Vis.setColorFor(key, it); set = it }
     }
 }
@@ -1694,23 +1696,33 @@ private fun lookDesc(k: String): String = Looks.describe(k).ifEmpty {
 /** Settings › Look for Now playing: its background, and the visualizer behind it. */
 @Composable
 private fun NowPlayingLookLines() {
-    Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
+    // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button). With it on,
+    // its two pickers take the place of Now playing visualizer's one
+    var dual by remember { mutableStateOf(Vis.nowDual()) }
+    var around by remember { mutableStateOf(Around.style()) }
+    // Around the cover: thirty visualizers made to go round the cover, never over it; on, no middle one is drawn
+    Line("Around the cover", "On: a visualizer goes round the album cover on Now playing, from its edge outward, never over " +
+        "it, and follows the cover's shape and size from the layout (square, rounded, a circle like a record). It takes the " +
+        "middle's place: the middle visualizers aren't drawn while it's on; the one along the bottom still is", around.isNotEmpty()) {
+        Switch(around.isNotEmpty(), { on -> val k = if (on) AROUND_STYLES.first().first else ""; Around.set(k); around = k }, colors = swColors())
+    }
+    if (around.isNotEmpty()) Line("Round the cover", "Which one goes round the cover (its colour is in Colours)", false) {
+        ChoicePill(AROUND_STYLES, around, preview = { AroundPreview(it) }) { Around.set(it); around = it }
+    }
+    if (!dual) Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
         "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
         var now by remember { mutableStateOf(Vis.nowStyle()) }
         ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, group = { MenuGroups.vis(it) }, preview = { VisPages(it) },
             kind = Favs.VIS, menu = { k, l -> if (k == "slim" || k == "off") emptyList() else Favs.menu(Favs.VIS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
     }
-    // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button)
-    var dual by remember { mutableStateOf(Vis.nowDual()) }
-    var under by remember { mutableStateOf(Vis.middleUnder()) }
-    Line("Middle visualizer under the cover", "On: a visualizer in the middle of Now playing is drawn behind the album cover, " +
-        "the cover over it and the visualizer showing round its edges. Off: over the cover, the cover showing through it", under) {
-        Switch(under, { under = it; org.omarchy.music.Prefs.set(Vis.MIDDLE_UNDER, it) }, colors = swColors())
-    }
-    Line("Dual visualizer", "Two at once on Now playing: the one above in the middle (around the cover) and another along " +
-        "the bottom", dual) {
+    Line("Dual visualizer", "Two at once on Now playing: one in the middle (over the cover) and another along the bottom, " +
+        "each picked below in place of Now playing visualizer" + (if (around.isNotEmpty()) ". With Around the cover on, only the bottom one is drawn" else ""), dual) {
         Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())
+    }
+    if (dual && around.isEmpty()) Line("In the middle", "Dual's style in the middle of Now playing, over the cover", false) {
+        var mid by remember { mutableStateOf(Vis.nowStyle()) }
+        ChoicePill(Vis.MIDDLE_STYLES, mid, group = { MenuGroups.vis(it) }, preview = { VisPages(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); mid = it }
     }
     if (dual) Line("Along the bottom", "Dual's style along the bottom of Now playing", false) {
         var bottom by remember { mutableStateOf(Vis.nowBottom()) }

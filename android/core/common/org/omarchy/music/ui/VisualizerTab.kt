@@ -190,10 +190,6 @@ object Vis {
         if (!m && !b) t else R.mix(stored(), t, m, b, ::isBottomStyle) }
     fun nowStyle(): String = scene()?.now ?: stored().now
     /** Dual on Now playing (its visualizer button): one style in the middle (nowStyle) and one along the bottom. */
-    /** Settings › Personalization: the middle visualizer behind the cover (the cover over it, the visualizer showing
-     *  round its edges) instead of over it. Off: over the cover, as always. */
-    const val MIDDLE_UNDER = "np_vis_middle_under"
-    fun middleUnder(): Boolean = Prefs.on(MIDDLE_UNDER)
     const val NOW_DUAL = "np_vis_dual"
     const val NOW_BOTTOM = "np_vis_bottom"
     fun nowDual(): Boolean = scene()?.dual ?: Prefs.on(NOW_DUAL)

@@ -194,14 +194,17 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
     val cover = coverLook   // the Now playing look: the cover's colours here as on every screen (words and buttons white)
     val visStyle = Vis.nowStyle()
     val visPane = ui.pane == "nowvis"   // the visualizer's settings in the cover's place: it runs there for the previews
-    val vis = if ((micOk || Remote.active) && (visStyle != "off" || visPane)) rememberVis(on = true) else null
+    val aroundOn = Around.on()   // Around the cover: the middle visualizers aren't drawn, the ones along the bottom are
+    val vis = if ((micOk || Remote.active) && (visStyle != "off" || visPane || aroundOn)) rememberVis(on = true) else null
     val visCol = if (cover) cols.bars else VIS_LOOK   // the look's own visualizer colour (not the words' and buttons'), or the cover's
     val strength = nowStrength
     // The styles around a middle (Ring, Pulse…) go over the big cover while it shows, else they'd hide behind it.
     val coverShown = ui.pane != "queue" && ui.pane != "lyrics" && !visPane
-    val onCover = vis != null && visStyle != "off" && coverShown && visStyle in Vis.OVER_COVER
+    val onCover = vis != null && visStyle != "off" && coverShown && visStyle in Vis.OVER_COVER && !aroundOn
     // Yours with Full screen on: the whole screen, exactly as the Visualizer tab draws it, over the cover
-    val fullOver = vis != null && coverShown && Vis.full(visStyle)
+    val fullOver = vis != null && coverShown && Vis.full(visStyle) && !(aroundOn && visStyle in Vis.CENTRED)
+    // A middle one with Around the cover on: not drawn at all (a Dual one of yours: only its bottom style)
+    val middleOff = aroundOn && visStyle in Vis.CENTRED && !Vis.dual(visStyle)
     var volumeShown by remember { mutableStateOf(false) }   // the volume bar shows only after a tap on the speaker
     Box(Modifier.fillMaxSize().onSizeChanged { npSize = it }.then(when {
         // Every look, the Now playing look too (the cover's colours, as on every other screen: it was black here): the
@@ -213,9 +216,10 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         if (lock != null && C.stars) Stars()   // the look's stars on the lock screen too, as in the window
         if (lock != null) LookEffects(LookFx.behind(C.fx))
         // (a Dual one over the cover: its bottom style still along the bottom here)
-        if (vis != null && visStyle != "off" && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle)) && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
+        if (vis != null && visStyle != "off" && !middleOff && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle)) && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
             // A Dual one's bottom style (Full screen or not) stands right on the bottom edge, as a bottom style always does
-            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter), bottomOnly = onCover || (fullOver && Vis.dual(visStyle)))
+            visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter),
+            bottomOnly = onCover || (fullOver && Vis.dual(visStyle)) || (aroundOn && Vis.dual(visStyle)))
         // Dual (picked on this screen): the bottom style along the bottom too, under the one in the middle
         val second = Vis.nowSecond()
         if (vis != null && second != null && (!visPane || strengthPeek)) NowVis(second, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
@@ -251,26 +255,27 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
                         // Yours with Full screen on, made from a style around a middle: drawn from the cover itself, at the
                         // screen's size, so it always comes out of the cover's exact centre (as the built-in ones do)
                         val over = if (onCover || (fullOver && visStyle in Vis.CENTRED)) vis else null
+                        val around = if (aroundOn && coverShown) vis else null
                         when (np) {
                             NpKind.CENTERED -> {
-                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, scale = 0.74f)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, around = around, scale = 0.74f)
                                 SongLine(ui, n, centered = true)
                             }
                             NpKind.INFO_TOP -> {
                                 SongLine(ui, n)
-                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, around = around)
                             }
                             NpKind.BLEED -> {
-                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, bleed = true)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, around = around, bleed = true)
                                 SongLine(ui, n)
                             }
-                            NpKind.SPLIT -> BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength)
+                            NpKind.SPLIT -> BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, around = around)
                             NpKind.HEADLINE -> {
                                 SongLine(ui, n, headline = true)
-                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, scale = 0.66f)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, around = around, scale = 0.66f)
                             }
                             else -> {
-                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength)
+                                BigCover(ui, art, t != null, Modifier.weight(1f), over, visStyle, visCol, strength, around = around)
                                 SongLine(ui, n)
                             }
                         }
@@ -476,7 +481,7 @@ private fun NowTop(ui: Ui, n: Now, lay: UiLayout = UiLayouts.current) {
  *  over: the visualizer drawn over it (a style around a middle, Vis.OVER_COVER), in visStyle, moving with the cover's swipe. */
 @Composable
 private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, over: VisState? = null, visStyle: String = "",
-                     visCol: Color = Color.White, strength: Float = 0.5f, scale: Float = 1f, bleed: Boolean = false) {
+                     visCol: Color = Color.White, strength: Float = 0.5f, scale: Float = 1f, bleed: Boolean = false, around: VisState? = null) {
     var dx by remember { mutableFloatStateOf(0f) }
     // bleed: edge to edge across the screen, square, no frame or shadow (Full cover); scale: smaller, in the middle
     val lay = UiLayouts.current
@@ -488,18 +493,12 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = if (bleed) 0.dp else 24.dp, vertical = if (bleed) 0.dp else 14.dp),
             contentAlignment = if (bleed) Alignment.TopCenter else Alignment.Center) {
             val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK)
-            // The visualizer in the middle: over the cover (in its middle, a little smaller than it), or, with the middle
-            // visualizer under the cover, behind it and bigger than it, so it shows round the cover's edges. It takes no
-            // taps either way, so the cover's swipes and taps still work.
-            val under = Vis.middleUnder()
-            val middle: @Composable () -> Unit = {
-                if (over != null) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
-                    // Starfield's stars fly out over the whole screen from the cover's middle, Full screen on or not
-                    if (Vis.full(visStyle) || (MyVis.style(visStyle)?.base ?: visStyle) == "starfield") NowVisFullMiddle(visStyle, over, visCol, strength)
-                    else NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * (if (under) 1.3f else 0.8f)))   // always in the cover's exact middle
-                }
+            // Around the cover: drawn under it, round its edges and out from them, in the cover's shape and size; it moves
+            // with the cover's swipe and takes no taps
+            val aroundStyle = Around.style()
+            if (around != null && aroundStyle.isNotEmpty()) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
+                AroundTheCover(aroundStyle, around, visCol, strength, side, if (bleed) 0.dp else coverCorner(lay.x("artShape"), side))
             }
-            if (under) middle()
             Box(Modifier.size(side)
                 .onGloballyPositioned { val p = it.positionInWindow(); coverCenter = androidx.compose.ui.geometry.Offset(p.x + it.size.width / 2f, p.y + it.size.height / 2f) }   // where a full screen visualizer centres
                 .graphicsLayer(translationX = dx * 0.6f, rotationZ = if (bleed) 0f else dx / 90f, alpha = 1f - (abs(dx) / 900f).coerceIn(0f, 0.5f))
@@ -521,7 +520,13 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
                 Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
                 if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
-            if (!under) middle()
+            // On top of the cover, in its middle and a little smaller than it; it takes no taps, so the cover's swipes and
+            // taps still work.
+            if (over != null) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
+                // Starfield's stars fly out over the whole screen from the cover's middle, Full screen on or not
+                if (Vis.full(visStyle) || (MyVis.style(visStyle)?.base ?: visStyle) == "starfield") NowVisFullMiddle(visStyle, over, visCol, strength)
+                else NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * 0.8f))   // always in the cover's exact middle
+            }
         }
     }
 }
@@ -1179,10 +1184,12 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
     LaunchedEffect(t?.id, Music.savedVersion) { cols = loadNowColors(art) ?: GREY }
     val cover = coverLook
     val visStyle = Vis.nowStyle()
-    val vis = if (visStyle != "off") rememberVis(on = true) else null
+    val aroundStyle = Around.style()
+    val vis = if (visStyle != "off" || aroundStyle.isNotEmpty()) rememberVis(on = true) else null
     val visCol = if (cover) cols.bars else VIS_LOOK
     val strength = nowStrength
-    val round = visStyle in Vis.CENTRED || Vis.full(visStyle)
+    // With Around the cover on, a middle one isn't drawn (a Dual one of yours: its bottom style still is)
+    val round = (visStyle in Vis.CENTRED || Vis.full(visStyle)) && aroundStyle.isEmpty()
     val lay = UiLayouts.current
     val shape = when (lay.x("artShape")) {
         "square" -> RoundedCornerShape(0.dp); "soft" -> RoundedCornerShape(24.dp); "circle" -> RoundedCornerShape(50); else -> RoundedCornerShape(10.dp) }
@@ -1209,15 +1216,16 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
                         .background(if (C.isLight) C.light.copy(alpha = 0.94f) else if (cover) Color.Black.copy(alpha = 0.25f) else C.light.copy(alpha = 0.6f))) { LyricsTab(ui) }
                     else -> BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                         val side = if (maxWidth < maxHeight) maxWidth else maxHeight
-                        // Around a middle: coming out of the cover's centre (it isn't clipped to the cover), over it or under it
-                        val under = Vis.middleUnder()
-                        if (vis != null && round && under) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
+                        // Around the cover, under it and round its edges, in its shape
+                        if (vis != null && aroundStyle.isNotEmpty()) AroundTheCover(aroundStyle, vis, visCol, strength, side,
+                            when (lay.x("artShape")) { "square" -> 0.dp; "soft" -> 24.dp; "circle" -> side / 2; else -> 10.dp })
                         Box(Modifier.size(side).clip(shape).background(GLASS), contentAlignment = Alignment.Center) {
                             Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
                             if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize())
                         }
-                        if (vis != null && round && !under) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
+                        // Around a middle: over the cover, coming out of its centre (it isn't clipped to the cover)
+                        if (vis != null && round) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
                     }
                 }
             }
