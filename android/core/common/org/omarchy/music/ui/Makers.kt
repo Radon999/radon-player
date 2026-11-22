@@ -1132,8 +1132,12 @@ object MyPresets {
     /** Puts every choice of the preset on (the ones it names that are gone now, a deleted look say, are left as they are). */
     /** skip: the kinds of choice left as they are (Personalization Preset Shuffle's "Leave out of the shuffle":
      *  [org.omarchy.music.PresetShuffleRules.PARTS]). Picking a preset yourself leaves nothing out. */
+    /** The last preset put on (picked, or by Preset Shuffle or the time of day): Save edits to… offers it first. */
+    var lastApplied: String = ""
+
     fun apply(key: String, skip: Set<String> = emptySet()) {
         val p = of(key) ?: return
+        lastApplied = key
         // Follows the cover: its scenes on (any other preset: off). It changes colours, effects and visualizers with each
         // song, on the Glass theme, and leaves your layout alone.
         val cover = p.key == CoverScene.PRESET || p.key == CoverScene.GLASS_PRESET

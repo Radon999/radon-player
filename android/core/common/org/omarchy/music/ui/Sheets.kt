@@ -3284,9 +3284,30 @@ fun PresetLines(ui: Ui) {
                     MyPresets.save(n); MyPresets.editing = null; Music.toast("Saved “${n.trim()}”") }
             }
             Pill("Cancel", quiet = true) { MyPresets.editing = null }
-        } else Pill("Save as a preset") {
-            ui.askName = Triple("Name this preset", "My preset ${MyPresets.mine().size + 1}") { n: String ->
-                MyPresets.save(n); Music.toast("Saved “${n.trim()}”: it's in Personalization presets") }
+        } else {
+            Pill("Save as a preset") {
+                ui.askName = Triple("Name this preset", "My preset ${MyPresets.mine().size + 1}") { n: String ->
+                    MyPresets.save(n); Music.toast("Saved “${n.trim()}”: it's in Personalization presets") }
+            }
+            // Save edits to one of yours: what's on now saved over it, its name kept, without opening it with Edit first
+            // (which put it back on as it was). The one put on last comes first.
+            val mineNow = MyPresets.mine()
+            if (mineNow.isNotEmpty()) Box {
+                var open by remember { mutableStateOf(false) }
+                Pill("Save edits to…", quiet = true) { open = true }
+                androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                    val last = MyPresets.lastApplied
+                    mineNow.sortedBy { if (it.key == last) 0 else 1 }.forEach { p ->
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(p.name + if (p.key == last) " (put on last)" else "", style = T.body) },
+                            onClick = {
+                                open = false
+                                ui.confirm = "Save what's on now over “${p.name}”? Its look, theme, layout, effects, visualizers, Wrapped and lyrics card styles become what you have on now; its name stays." to {
+                                    MyPresets.save(p.name, p.key); MyPresets.applied++; Music.toast("Saved your edits to “${p.name}”") }
+                            })
+                    }
+                }
+            }
         }
     }
     if (editing != null) Text("Editing “${editing.name}”: change anything on this tab, then Save changes", style = T.sub,
