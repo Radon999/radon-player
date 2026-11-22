@@ -53,6 +53,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -357,6 +358,7 @@ fun WrappedScreen(onClose: () -> Unit) {
     // all time) and loads only the one you tap. (It used to start on the year at once, which was time and data spent
     // on a Wrapped you may not have wanted.) Asked for from outside (the PC's "wrapped month"): that one, at once.
     val asked0 = remember { WrappedAsk.take() }
+    WrappedPick.ask?.let { WrappedCoverDialog(it) }
     var chosen by remember { mutableStateOf(asked0 != null) }
     var period by remember { mutableStateOf<Wrapped.Period>(asked0 ?: Wrapped.Period.Year(Wrapped.year())) }
     var data by remember { mutableStateOf<Wrapped.Data?>(null) }
@@ -639,15 +641,98 @@ private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
     }
 }
 
+/** A cover you pick for a Wrapped row (a right-click or a long press on it): asked for, and kept by its artist and name
+ *  (Pictures' chosen covers), so the row shows it from then on, in every Wrapped. */
+private object WrappedPick {
+    class Ask(val name: String, val artist: String, val file: String?)
+    var ask by mutableStateOf<Ask?>(null)
+    var v by mutableStateOf(0)
+    /** The cover picked for this row, or null. */
+    fun over(name: String, artist: String): Any? {
+        v.let { }
+        if (artist.isBlank() || name.isBlank()) return null
+        return runCatching { org.omarchy.music.Pictures.cover(artist, name) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { picModel(it) }
+    }
+    /** (blocking) Keep src (a web address, or a picture file) as the row's cover: a copy kept here, and put into your own
+     *  file of it too when it is one of your songs. */
+    fun keep(a: Ask, src: String) {
+        val raw = if (src.startsWith("http")) org.omarchy.music.httpBytes(src) else Music.ctx.openIn(src)!!.use { it.readBytes() }
+        val jpeg = org.omarchy.music.Covers.jpeg(raw)
+        val f = java.io.File(java.io.File(Music.ctx.filesDir, "covers").apply { mkdirs() }, "${org.omarchy.music.randomHex(8)}.jpg").apply { writeBytes(jpeg) }
+        org.omarchy.music.Pictures.chooseCover(a.artist, a.name, f.path)
+        val file = a.file ?: return
+        val t = runCatching { Music.mySongs().firstOrNull { it.file == file } ?: Music.lib.items.values.firstOrNull { it.file == file }?.track() }.getOrNull() ?: return
+        Music.scope.launch { Music.setCover(listOf(t), f.path, wholeAlbum = false) }
+    }
+}
+
+/** Pick a cover for a Wrapped row: found on Google, Genius and Wikipedia, a picture of the artist, or a picture of yours. */
+@Composable
+private fun WrappedCoverDialog(a: WrappedPick.Ask) {
+    var query by remember(a) { mutableStateOf("${a.artist} - ${a.name}") }
+    var asked by remember(a) { mutableStateOf(query) }
+    var choices by remember(a) { mutableStateOf<List<org.omarchy.music.Pictures.Choice>?>(null) }
+    var busy by remember(a) { mutableStateOf(false) }
+    val close = { WrappedPick.ask = null }
+    val use = { src: String ->
+        busy = true
+        Music.bg({ WrappedPick.keep(a, src) }) { _, err ->
+            busy = false
+            if (err != null) Music.toast("Couldn't use that picture: ${err.message?.take(80)}")
+            else { WrappedPick.v++; Music.toast("Cover kept for “${a.name}”"); close() }
+        }
+    }
+    val pick = rememberOpenFile { uri -> if (uri != null) use(uri) }
+    LaunchedEffect(asked) {
+        choices = null
+        val (ar, al) = if (" - " in asked) asked.substringBefore(" - ").trim() to asked.substringAfter(" - ").trim() else "" to asked.trim()
+        Music.bg({ org.omarchy.music.Pictures.coverChoices(ar, al) + runCatching { org.omarchy.music.Pictures.artistChoices(a.artist) }.getOrDefault(emptyList()) }) { c, _ -> choices = c ?: emptyList() }
+    }
+    androidx.compose.material3.AlertDialog(onDismissRequest = close, containerColor = C.light,
+        title = { Text("Cover of “${a.name}”", style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column {
+                androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true, textStyle = T.body,
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(C.accent),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { asked = query }),
+                        modifier = Modifier.weight(1f).background(C.bg, RoundedCornerShape(20.dp)).padding(horizontal = 12.dp, vertical = 10.dp))
+                    Pill("Search", quiet = true) { asked = query }
+                }
+                val c = choices
+                Text(when { busy -> "Putting it in place…"; c == null -> "Looking on Google, Genius and Wikipedia…"
+                    c.isEmpty() -> "Nothing found: search another way, or pick a picture of yours."
+                    else -> "Tap one. It is kept for this row" + (if (a.file != null) ", and put into your file of it" else "") }, style = T.sub,
+                    modifier = Modifier.padding(bottom = 8.dp))
+                if (!busy && !c.isNullOrEmpty()) androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 340.dp)) {
+                    items((c.size + 2) / 3) { row ->
+                        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                            for (ch in c.drop(row * 3).take(3)) Column(Modifier.clickable { use(ch.url) }) {
+                                ArtImage(ch.thumb, 84.dp)
+                                Text(ch.from, style = T.time)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton({ pick.launch(arrayOf("image/*")) }) { Text("A picture of yours…", color = C.accent) } },
+        dismissButton = { androidx.compose.material3.TextButton(close) { Text("Cancel", color = C.muted) } })
+}
+
 @Composable
 private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = null, start: Int = 1, meter: Boolean = false) {
     val top = (items.maxOfOrNull { it.third } ?: 0).coerceAtLeast(1)
     // A long list (a top 15) a little tighter, so all of it fits on one screen
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy((if (items.size > 10) 8.dp else 12.dp) * WS.spacing)) {
         items.forEachIndexed { i, (name, sub, plays) ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // A row with a picture: right-click or long-press it to pick its cover yourself
+            val hold: (() -> Unit)? = if (art == null || sub.isBlank()) null else ({
+                WrappedPick.ask = WrappedPick.Ask(name, sub, (art.getOrNull(i) as? FileArt)?.uri) })
+            Row((if (hold != null) Modifier.pressable({}, hold) else Modifier), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${i + start}", style = W.rank, modifier = Modifier.widthIn(min = 26.dp))
-                art?.let { Pic(it.getOrNull(i), if (items.size > 10) 34.dp else if (items.size > 6) 38.dp else 44.dp) }
+                art?.let { Pic(WrappedPick.over(name, sub) ?: it.getOrNull(i), if (items.size > 10) 34.dp else if (items.size > 6) 38.dp else 44.dp) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(name, style = W.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (sub.isNotEmpty()) Text(sub, style = W.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1157,7 +1242,8 @@ private fun releaseSlides(d: Wrapped.Data): List<Slide> {
         if (list.isNotEmpty()) out += Slide(color) {
             Text(head, style = W.kicker)
             if (list.size <= 6) {   // a few: the top one big
-                Pic(list[0].pic, 150.dp)
+                Box(Modifier.pressable({}, { WrappedPick.ask = WrappedPick.Ask(list[0].name, list[0].artist, list[0].file.ifEmpty { null }) })) {
+                    Pic(WrappedPick.over(list[0].name, list[0].artist) ?: list[0].pic, 150.dp) }
                 Text(list[0].name, style = W.big)
                 Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
                 if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)

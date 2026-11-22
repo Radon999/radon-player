@@ -688,6 +688,10 @@ object Wrapped {
             val web = picture(a.art).let { if (big && it.isNotEmpty()) bigLastfm(it) else it }
             val art = m.saved.ifEmpty { web }.ifEmpty {
                 if (ownCover(m.file)) "" else runCatching { Pictures.deezerPace(); deezerAlbumCover(a.artist, bareRelease(a.name)) }.getOrNull() ?: ""
+            }.ifEmpty {   // …by its name without a featured artist ("daisies (feat. Flowars)" as daisies)
+                if (ownCover(m.file) || bareTitle(a.name) == bareRelease(a.name)) "" else runCatching { Pictures.deezerPace(); deezerAlbumCover(a.artist, bareTitle(a.name)) }.getOrNull() ?: ""
+            }.ifEmpty {   // a single is a song: the app's song cover finder (Deezer's songs, the service, Last.fm, iTunes, Genius)
+                if (ownCover(m.file)) "" else runCatching { SongCovers.look(Track(id = "", source = "lastfm", title = a.name, artist = a.artist)) }.getOrNull() ?: ""
             }.ifEmpty {   // nothing has it: the artist's picture, so the row isn't left blank
                 if (ownCover(m.file)) "" else runCatching { Pictures.known(a.artist)?.let { p -> p.saved.takeIf { it.isNotEmpty() && File(it).exists() } ?: p.image } }.getOrNull() ?: ""
             }
@@ -751,7 +755,8 @@ object Wrapped {
             }
         }
         fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP).map { r ->
-            AlbumPlays(r.name, r.artist, r.n, "", r.t.file ?: "")   // its picture: the file's own cover (load's last step)
+            // its picture: the file's own cover (load's last step): a file in your folders, or one of the app's downloads
+            AlbumPlays(r.name, r.artist, r.n, "", r.t.file ?: runCatching { Music.lib.items[r.t.id]?.file }.getOrNull() ?: "")
         }
         return d.copy(fileGenres = genres.entries.sortedByDescending { it.value }.take(TOP).map { genreName.getValue(it.key) to it.value },
             moods = moods.entries.sortedByDescending { it.value }.take(TOP).map { it.key to it.value },
