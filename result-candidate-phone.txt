@@ -1,5 +1,17 @@
-commit 6f076d1e9e0f380324911a96e72289c049c8cf5c · run 45000841799 · Sun Nov 22 08:01:46 UTC 2026
+commit d0ebf7220b96cfa471d1e62b5c7b299ad759834e · run 45000846866 · Sun Nov 22 08:06:24 UTC 2026
 PHONE INSTALL-OVER: not made (or not the owner's app in every way: not handed out)
 DOWNLOAD: 
 --- errors
 --- the end of the log
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:optimizeReleaseResources
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
