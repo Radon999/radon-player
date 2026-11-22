@@ -1636,12 +1636,12 @@ private fun ColoursLines(ui: Ui) = SubGroup("Colours", ui) {
     fxTick; MyPresets.applied
     if (CoverScene.now != null) Text("Scenes from the cover is on: the effects and visualizers take the cover's colour. The colours you set here " +
         "come back when it's off", style = T.sub.copy(color = C.accent), modifier = Modifier.padding(vertical = 6.dp))
-    var all by remember { mutableStateOf(Prefs.text(Vis.COLOR)) }
+    var all by remember { mutableStateOf(org.omarchy.music.Prefs.text(Vis.COLOR)) }
     val accent = C.accent
     Line("Every visualizer", "The colour every visualizer is drawn in, unless it was made with one of its own or you set one for it below " +
         "(the Visualizer tab's colour)", false) {
         ChoicePill(Favs.sorted(Favs.VIS_COLOURS, VIS_COLORS), all.ifEmpty { Vis.color() }, group = { MenuGroups.visColour(it) }, swatch = { visSwatch(it, accent) },
-            kind = Favs.VIS_COLOURS, menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { Prefs.setText(Vis.COLOR, it); all = it }
+            kind = Favs.VIS_COLOURS, menu = { k, l -> Favs.menu(Favs.VIS_COLOURS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.COLOR, it); all = it }
     }
     // Each visualizer in use, once (one may be in two places)
     fun name(k: String) = NP_VIS_STYLES.firstOrNull { it.first == k }?.second ?: k

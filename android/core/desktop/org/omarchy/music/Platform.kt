@@ -23,7 +23,7 @@ class Ctx(val filesDir: File, val cacheDir: File) {
 private fun pathOf(uri: String): String {
     if (!uri.startsWith("file:")) return uri
     runCatching { return File(java.net.URI(uri)).path }
-    return uri.removePrefix("file://").let { if (Regex("^/[A-Za-z]:[/\\]").containsMatchIn(it)) it.substring(1) else it }
+    return uri.removePrefix("file://").let { if (Regex("""^/[A-Za-z]:[/\\]""").containsMatchIn(it)) it.substring(1) else it }
 }
 
 /** One name for a song file however it is addressed (a path, a file:// address; on Windows either slash and any case),
@@ -31,7 +31,7 @@ private fun pathOf(uri: String): String {
  *  path (the playing song's file could be written to: SafeWriteInUseTest). */
 fun fileKey(uri: String): String = runCatching {
     val p = File(pathOf(uri)).path
-    if (File.separatorChar == '\') p.replace('/', '\').lowercase() else p
+    if (File.separatorChar == '\\') p.replace('/', '\\').lowercase() else p
 }.getOrDefault(uri)
 
 fun Ctx.openIn(uri: String): java.io.InputStream? = File(pathOf(uri)).takeIf { it.isFile }?.inputStream()
