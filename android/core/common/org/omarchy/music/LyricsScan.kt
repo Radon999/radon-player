@@ -184,7 +184,18 @@ object LyricsScan {
     /** (found, none found). */
     private fun work(): Pair<Int, Int> {
         load()
-        val all = allSongs()
+        // Only the songs still without lyrics: the ones whose file has them (known, or found now by looking in the files
+        // not looked at yet), the ones kept in the app, and the ones left alone or instrumental aren't gone through at
+        // all. Before, every song was, each file read again, and the count ran over all of them.
+        val everything = allSongs()
+        adoptFiles(everything)
+        val all = everything.filter { (t, _) ->
+            when (stateOf(t)) {
+                FILE, LEFT, INSTRUMENTAL -> false
+                APP -> kept(Music.ctx, t) == null
+                else -> true
+            }
+        }
         val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
         Music.scope.launch { progress = 0 to all.size }
         var found = 0; var none = 0
