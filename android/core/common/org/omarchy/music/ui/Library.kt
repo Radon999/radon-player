@@ -46,6 +46,10 @@ import org.omarchy.music.Track
 // Albums, Genres and Folders (from the ☰ menu), a named list of songs, and your queues.
 
 /** Albums: your songs by album: covers in a grid (or a list, or a compact grid). */
+
+/** Albums › Low song count albums: the albums you have this many songs of or fewer (one to four); the rest are in Albums. */
+private const val LOW_COUNT = 4
+
 @Composable
 fun AlbumsTab(ui: Ui, kind: String = "albums") {
     // EPs and Singles: by the album tag ("Title - EP", "Title - Single"); songs with no album are singles; the rest are albums
@@ -69,12 +73,12 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         }.sortedBy { org.omarchy.music.norm(it.first.title) } }
     if (all.isEmpty()) { Empty(if (eps) "No EPs yet" else if (singles) "No singles yet" else "No albums yet",
         if (eps) "Your EPs (\"- EP\" at the end of their album name) show up here." else if (singles) "Your singles (\"- Single\" at the end of their album name, or no album) show up here." else "Your songs, by album, show up here."); return }
-    // Albums: the big ones (more than six songs here) or the ones you have only a few songs of; while you search
+    // Albums: the ones you have five songs or more of, or the ones you have only a few (one to four) of; while you search
     // the page, all of them (whichever group they're in), so a search finds any album
     val searching = !ui.filter.isNullOrBlank()
     val split = kind == "albums" && !searching
     val bigAlbums = kind == "albums" && ui.albumsLow.not()
-    val sized = if (!split) all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= 6 else songs.size > 6 }
+    val sized = if (!split) all else all.filter { (_, songs) -> if (ui.albumsLow) songs.size <= LOW_COUNT else songs.size > LOW_COUNT }
     val sorts = if (singles) org.omarchy.music.GROUP_SORTS - setOf("songs", "songs-least") else org.omarchy.music.GROUP_SORTS
     val sort = sortNow(kind, sorts)
     val fitting = sized.filter { fits(ui, it.first.title, it.first.sub) }
@@ -103,8 +107,8 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
                     SortMenu(kind, sorts)
                 }
                 if (split) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Chip("Albums (${all.count { it.second.size > 6 }})", !ui.albumsLow) { ui.albumsLow = false }
-                    Chip("Low song count albums (${all.count { it.second.size <= 6 }})", ui.albumsLow) { ui.albumsLow = true }
+                    Chip("Albums (${all.count { it.second.size > LOW_COUNT }})", !ui.albumsLow) { ui.albumsLow = false }
+                    Chip("Low song count albums (${all.count { it.second.size <= LOW_COUNT }})", ui.albumsLow) { ui.albumsLow = true }
                 }
             }
             Section("${albums.size} ${if (eps) "EP" else if (singles) "SINGLE" else if (split && !bigAlbums) "LOW SONG COUNT ALBUM" else "ALBUM"}${if (albums.size != 1) "S" else ""}")
