@@ -588,12 +588,12 @@ object Moods {
 
     /** (blocking) Tags match: the moods the app has for this song ("Happy;Sad"; "" none): yours, else what's in its
      *  file, else what was worked out. */
-    fun moodText(t: Track): String = runCatching {
+    fun moodText(t: Track): String? = runCatching {
         load()
-        val p = pathOf(t) ?: return@runCatching ""
-        val e = synchronized(lock) { known[p] } ?: return@runCatching ""
+        val p = pathOf(t) ?: return@runCatching null
+        val e = synchronized(lock) { known[p] } ?: return@runCatching null
         e.picked.ifEmpty { e.inFile.ifEmpty { e.kept.take(MoodRules.MOST).joinToString(";") } }
-    }.getOrDefault("")
+    }.getOrNull()
 
     /** (blocking) Tags match: this song's moods made exactly the main device's (any others here taken off; none there:
      *  none here), kept as settled so no scan here changes them. Call after its file's MOOD was written. */

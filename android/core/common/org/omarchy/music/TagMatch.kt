@@ -23,7 +23,7 @@ object TagMatch {
     private val FIELDS = Tags.FIELDS.map { it.first }
     private val lock = Any()
     private val dir get() = Music.ctx.filesDir
-    private val cacheFile get() = File(dir, "tag-match-cache.json")
+    private val cacheFile get() = File(dir, "tag-match-cache2.json")   // (2: with the lyrics, and what was read for certain)
     private val peerFile get() = File(dir, "tag-match-peer.json")
     /** The receiving device: the main device's cover (its mark) last put into each file, so a picture the main device
      *  keeps as a PNG (its mark never the JPEG's here) isn't put in again at every sync. */
@@ -50,14 +50,22 @@ object TagMatch {
 
     /** What a file says, as last read: its tags, its cover's fingerprint ("" for none) and when it was read. */
     @Serializable
-    data class Read(val stamp: Long = 0, val tags: Map<String, String> = emptyMap(), val art: String = "")
+    data class Read(val stamp: Long = 0, val tags: Map<String, String> = emptyMap(), val art: String = "",
+                    /** What could be told for certain: the file's tags were read whole (so a lyric or mood it hasn't got
+                     *  is truly not there), and whether it has a picture at all (1 yes, 0 none, -1 not told). */
+                    val tagsRead: Boolean = false, val pic: Int = -1)
 
     /** A song as the main device sends it. */
     @Serializable
     data class Entry(val isrc: String = "", val key: String = "", val name: String = "", val secs: Int = 0,
                      val tags: Map<String, String> = emptyMap(), val art: String = "",
-                     /** The song's moods on the main device ("Happy;Sad"), as the app has them. */
-                     val mood: String = "")
+                     /** The song's moods on the main device ("Happy;Sad"), as the app has them; null: they couldn't be
+                      *  told, and the other device's are left as they are. */
+                     val mood: String? = null,
+                     /** Failsafe: the main device read its copy's lyrics (and their mood) for certain, so none means none. */
+                     val lyricsRead: Boolean = false,
+                     /** Failsafe: the main device knows for certain whether its copy has a cover (so none means none). */
+                     val artRead: Boolean = false)
 
     /** What goes across: this device's songs (only when it's the main one), the covers the other lacks, and the
      *  fingerprints of this device's covers (so the main device knows which to send). */
@@ -109,13 +117,41 @@ object TagMatch {
     }.distinctBy { it.second }
 
     private fun readFile(uri: String): Read? = runCatching {
+        // (null: the file's tags couldn't be read whole: nothing it seems not to have is taken off the other device)
+        val extra = runCatching { Music.ctx.openIn(uri)?.use { MoodTag.readTags(it, setOf(MoodTag.LYRICS, MoodTag.MOOD_LYRICS, MoodTag.MOOD)) } }.getOrNull()
         val tags = Tags.read(Music.ctx, listOf(uri)).mapValues { it.value.orEmpty() }.filterKeys { it in FIELDS } +
-            (runCatching { Music.ctx.openIn(uri)?.use { MoodTag.readTags(it, setOf(MoodTag.LYRICS, MoodTag.MOOD_LYRICS, MoodTag.MOOD)) } }.getOrNull().orEmpty()
-                .let { m -> listOfNotNull(m[MoodTag.LYRICS]?.let { LYRICS to it }, m[MoodTag.MOOD_LYRICS]?.let { LYRICS_MOOD to it },
-                    m[MoodTag.MOOD]?.let { FILE_MOOD to it }).toMap() })
-        val art = runCatching { FileTags.cover(Music.ctx, uri) }.getOrNull()?.let { hash(it) } ?: ""
-        Read(stampOf(uri), tags, art)
+            extra.orEmpty().let { m -> listOfNotNull(m[MoodTag.LYRICS]?.let { LYRICS to it }, m[MoodTag.MOOD_LYRICS]?.let { LYRICS_MOOD to it },
+                m[MoodTag.MOOD]?.let { FILE_MOOD to it }).toMap() }
+        val cover = runCatching { FileTags.cover(Music.ctx, uri) }.getOrNull()
+        val art = cover?.let { hash(it) } ?: ""
+        Read(stampOf(uri), tags, art, tagsRead = extra != null, pic = if (cover != null) 1 else picture(uri))
     }.getOrNull()
+
+    /** Whether the file has a picture in it, told from how it is built (not from reading the picture): 1 yes, 0 none,
+     *  -1 can't be told (a kind of file this doesn't look into, or one that couldn't be read). A FLAC's PICTURE block,
+     *  an MP3's (or a WAV's ID3 chunk's) APIC frame. */
+    private fun picture(uri: String): Int = runCatching {
+        Music.ctx.openIn(uri)?.buffered()?.use { s ->
+            s.mark(16)
+            val h = ByteArray(10); var n = 0
+            while (n < 10) { val r = s.read(h, n, 10 - n); if (r < 0) break; n += r }
+            if (n < 10) return@use -1
+            s.reset()
+            when {
+                String(h, 0, 4, Charsets.ISO_8859_1) == "fLaC" -> if (Flac.readHeader(s).any { it.type == 6 }) 1 else 0
+                String(h, 0, 3, Charsets.ISO_8859_1) == "ID3" -> {
+                    val size = 10 + (((h[6].toInt() and 0x7f) shl 21) or ((h[7].toInt() and 0x7f) shl 14) or ((h[8].toInt() and 0x7f) shl 7) or (h[9].toInt() and 0x7f))
+                    if (size > (64 shl 20)) return@use -1
+                    val b = ByteArray(size); var got = 0
+                    while (got < size) { val r = s.read(b, got, size - got); if (r < 0) break; got += r }
+                    if (got < size) return@use -1
+                    val tag = TagWrite.parseId3(b)?.first ?: return@use -1
+                    if (tag.frames.any { it.first == "APIC" }) 1 else 0
+                }
+                else -> -1
+            }
+        } ?: -1
+    }.getOrDefault(-1)
 
     /** (blocking) Read the files that are new or changed since; quick when nothing is. */
     fun refresh() {
@@ -178,7 +214,9 @@ object TagMatch {
             ?: emptyMap()
         val entries = list.map { (t, f, r) ->
             Entry(t.isrc.orEmpty(), TagChanges.key(t.title, t.artist), nameOf(f), t.duration.toInt(), r.tags.filterValues { it.isNotBlank() }.filterKeys { it != FILE_MOOD }, r.art,
-                runCatching { Moods.moodText(t) }.getOrDefault("").ifEmpty { r.tags[FILE_MOOD].orEmpty() })
+                // the moods: the app's, else the file's; null when neither could be told (a failsafe: nothing taken off)
+                runCatching { Moods.moodText(t) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: r.tags[FILE_MOOD] ?: (if (r.tagsRead) "" else null),
+                lyricsRead = r.tagsRead, artRead = r.pic >= 0)
         }
         // The covers the other device's copies haven't got (as it said, song by song): as many as fit, the rest next time
         val art = LinkedHashMap<String, String>()
@@ -245,6 +283,7 @@ object TagMatch {
                     when {
                         want.isBlank() && (k == "title" || k == "artist") -> null
                         want.isBlank() && have.isBlank() -> null
+                        want.isBlank() && !e.lyricsRead -> null   // (a field the main device's copy may only seem not to have: kept)
                         want.isNotBlank() && have.isNotBlank() && (want.trim() == have.trim() || same(k, want, have) && k != "artist" && k != "albumartist") -> null
                         else -> k to want
                     }
@@ -256,23 +295,25 @@ object TagMatch {
                 // The lyrics and their mood, the same way
                 val lyr = e.tags[LYRICS].orEmpty(); val lm = e.tags[LYRICS_MOOD].orEmpty()
                 fun plain(x: String) = x.replace("\r\n", "\n").replace('\r', '\n').trim()
-                val lyrDiffers = plain(lyr) != plain(now.tags[LYRICS].orEmpty())
-                val lmDiffers = plain(lm) != plain(now.tags[LYRICS_MOOD].orEmpty())
+                // (taken off only when the main device read for certain it has none)
+                val lyrDiffers = plain(lyr) != plain(now.tags[LYRICS].orEmpty()) && (lyr.isNotBlank() || e.lyricsRead)
+                val lmDiffers = plain(lm) != plain(now.tags[LYRICS_MOOD].orEmpty()) && (lm.isNotBlank() || e.lyricsRead)
                 if (lyrDiffers || lmDiffers) TagSync.quietly {
                     if (runCatching { LyricsTags.writeTags(Music.ctx, f, if (lyrDiffers) lyr else null, if (lmDiffers) mapOf(MoodTag.MOOD_LYRICS to lm) else emptyMap()) }.getOrDefault(false)) did = true
                 }
                 // The moods: exactly the main device's, in its order (extra ones here taken off), in the file and in the app.
                 // Left alone when they are the same already, and when the main device has none for the song yet.
                 // (none on the main device: taken off here too)
-                val wantMoods = moodsOf(e.mood)
-                if (!Moods.prevented) {
+                val wantMoods = moodsOf(e.mood.orEmpty())
+                if (e.mood != null && !Moods.prevented) {   // (null: the main device couldn't tell its moods: left as they are)
                     if (moodsOf(now.tags[FILE_MOOD].orEmpty()) != wantMoods) TagSync.quietly {
                         if (runCatching { LyricsTags.writeMood(Music.ctx, f, wantMoods.joinToString(";")) }.getOrDefault(false)) did = true
                     }
-                    if (moodsOf(runCatching { Moods.moodText(t) }.getOrDefault("")) != wantMoods) { runCatching { Moods.takeExact(t, wantMoods) }; did = true }
+                    if (moodsOf(runCatching { Moods.moodText(t) }.getOrNull().orEmpty()) != wantMoods) { runCatching { Moods.takeExact(t, wantMoods) }; did = true }
                 }
                 // No cover on the main device's copy: this one's is taken off too
-                if (e.art.isEmpty() && now.art.isNotEmpty() && CoverGuard.allowed()) {
+                // (only when the main device knows for certain its copy has none: a cover it couldn't read stays here)
+                if (e.art.isEmpty() && e.artRead && now.art.isNotEmpty() && CoverGuard.allowed()) {
                     val off = runCatching {
                         if (Music.lib.items.values.any { it.file == f && it.format == "flac" }) { Covers.write(Music.ctx, f, ByteArray(0)); true }
                         else FileTags.writeCover(Music.ctx, f, ByteArray(0))
