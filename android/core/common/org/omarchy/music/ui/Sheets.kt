@@ -1697,6 +1697,11 @@ private fun NowPlayingLookLines() {
     }
     // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button)
     var dual by remember { mutableStateOf(Vis.nowDual()) }
+    var under by remember { mutableStateOf(Vis.middleUnder()) }
+    Line("Middle visualizer under the cover", "On: a visualizer in the middle of Now playing is drawn behind the album cover, " +
+        "the cover over it and the visualizer showing round its edges. Off: over the cover, the cover showing through it", under) {
+        Switch(under, { under = it; org.omarchy.music.Prefs.set(Vis.MIDDLE_UNDER, it) }, colors = swColors())
+    }
     Line("Dual visualizer", "Two at once on Now playing: the one above in the middle (around the cover) and another along " +
         "the bottom", dual) {
         Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())

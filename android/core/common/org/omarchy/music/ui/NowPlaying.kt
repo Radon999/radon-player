@@ -488,6 +488,18 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = if (bleed) 0.dp else 24.dp, vertical = if (bleed) 0.dp else 14.dp),
             contentAlignment = if (bleed) Alignment.TopCenter else Alignment.Center) {
             val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK)
+            // The visualizer in the middle: over the cover (in its middle, a little smaller than it), or, with the middle
+            // visualizer under the cover, behind it and bigger than it, so it shows round the cover's edges. It takes no
+            // taps either way, so the cover's swipes and taps still work.
+            val under = Vis.middleUnder()
+            val middle: @Composable () -> Unit = {
+                if (over != null) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
+                    // Starfield's stars fly out over the whole screen from the cover's middle, Full screen on or not
+                    if (Vis.full(visStyle) || (MyVis.style(visStyle)?.base ?: visStyle) == "starfield") NowVisFullMiddle(visStyle, over, visCol, strength)
+                    else NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * (if (under) 1.3f else 0.8f)))   // always in the cover's exact middle
+                }
+            }
+            if (under) middle()
             Box(Modifier.size(side)
                 .onGloballyPositioned { val p = it.positionInWindow(); coverCenter = androidx.compose.ui.geometry.Offset(p.x + it.size.width / 2f, p.y + it.size.height / 2f) }   // where a full screen visualizer centres
                 .graphicsLayer(translationX = dx * 0.6f, rotationZ = if (bleed) 0f else dx / 90f, alpha = 1f - (abs(dx) / 900f).coerceIn(0f, 0.5f))
@@ -509,13 +521,7 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
                 Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
                 if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
-            // On top of the cover, in its middle and a little smaller than it; it takes no taps, so the cover's swipes and
-            // taps still work.
-            if (over != null) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
-                // Starfield's stars fly out over the whole screen from the cover's middle, Full screen on or not
-                if (Vis.full(visStyle) || (MyVis.style(visStyle)?.base ?: visStyle) == "starfield") NowVisFullMiddle(visStyle, over, visCol, strength)
-                else NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * 0.8f))   // always in the cover's exact middle
-            }
+            if (!under) middle()
         }
     }
 }
@@ -1203,13 +1209,15 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
                         .background(if (C.isLight) C.light.copy(alpha = 0.94f) else if (cover) Color.Black.copy(alpha = 0.25f) else C.light.copy(alpha = 0.6f))) { LyricsTab(ui) }
                     else -> BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                         val side = if (maxWidth < maxHeight) maxWidth else maxHeight
+                        // Around a middle: coming out of the cover's centre (it isn't clipped to the cover), over it or under it
+                        val under = Vis.middleUnder()
+                        if (vis != null && round && under) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
                         Box(Modifier.size(side).clip(shape).background(GLASS), contentAlignment = Alignment.Center) {
                             Icon(Ico.NOTE, WHITE.copy(alpha = 0.4f), side * 0.3f)
                             if (art != null) AsyncImage(model = art, contentDescription = null, contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize())
                         }
-                        // Around a middle: over the cover, coming out of its centre (it isn't clipped to the cover)
-                        if (vis != null && round) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
+                        if (vis != null && round && !under) NowVisOver(visStyle, vis, visCol, strength, Modifier.size(side * 1.3f))
                     }
                 }
             }

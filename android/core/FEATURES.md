@@ -129,7 +129,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 ## Visualizer
 
 - **90 styles** and over eighty colours and blends: along the bottom (bars, blocks, waves, flames, 8-bit…), round the cover (rings, starfield, galaxy, mandala…), and thirty that are things (organ pipes, piano keys, a lotus, a kite).
-- **On Now playing:** slim bars, any style, **Dual** (one round the cover and one along the bottom), full screen behind everything, or none. It only hears the app's own sound; nothing is recorded.
+- **On Now playing:** slim bars, any style, **Dual** (one round the cover and one along the bottom), full screen behind everything, or none. **Middle visualizer under the cover** puts a middle one behind the cover, showing round its edges, instead of over it. It only hears the app's own sound; nothing is recorded.
 - **Smoothest screen** (phone, Settings › Playback): asks a 90, 120 or 144 Hz screen for its highest rate. Off at first.
 
 ## Tags & tidying
