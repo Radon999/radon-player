@@ -172,12 +172,13 @@ object Stats {
                 out += Milestone(what, key, name, artist, level, at)
             }
         }
-        songs.take(3000).forEach {
+        // Every song and artist: one under the first level (100 plays) has none, so this is all that reached one
+        songs.filter { it.plays >= MILESTONES.first() }.forEach {
             val k = statsKey(it.title, it.artist)
             check("song", k.toList().joinToString("|"), it.title, it.artist, it.plays, songTimes[k].orEmpty())
         }
-        artists.take(1000).forEach { check("artist", artistKey(it.name), it.name, "", it.plays, artistTimes[artistKey(it.name)].orEmpty()) }
-        return out.sortedWith(compareBy({ -it.at }, { -it.plays })).take(6000)
+        artists.filter { it.plays >= MILESTONES.first() }.forEach { check("artist", artistKey(it.name), it.name, "", it.plays, artistTimes[artistKey(it.name)].orEmpty()) }
+        return out.sortedWith(compareBy({ -it.at }, { -it.plays }))
     }
 
     /** The milestones reached from start to end (start 0: ever), the highest of each song's and artist's, biggest first. */
