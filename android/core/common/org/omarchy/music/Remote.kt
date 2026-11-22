@@ -35,7 +35,9 @@ object Remote {
         private set
     var name by mutableStateOf("")
         private set
-    private var token = ""
+    // Watched by the screen (paired is read from it): Forget changed nothing the screen watched when Play on was already
+    // off, so it kept showing "Paired with …" and seemed to do nothing
+    private var token by mutableStateOf("")
     var on by mutableStateOf(false)
         private set
     var status by mutableStateOf(Status())
