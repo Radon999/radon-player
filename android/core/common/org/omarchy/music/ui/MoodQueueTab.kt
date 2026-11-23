@@ -31,8 +31,11 @@ import org.omarchy.music.Music
  *  sound check found, each with its moods to tick and untick and Save, which writes them into the file as the Tagger
  *  does. A suggestion from the sound check shows with why, and Use it (or Use every suggestion) takes it. */
 fun androidx.compose.foundation.lazy.LazyListScope.moodQueueView(ui: Ui) {
-    Music.musicVersion; Moods.version
-    val items = MoodQueue.items()
+    // Worked out off the screen's thread (MoodQueue.shownNow): each song's copy and moods were looked up here, for every
+    // row, each time a play was counted, which froze scrolling and the start of a song
+    val queued = org.omarchy.music.Prefs.text(MoodQueue.PREF)
+    val rows = MoodQueue.shownNow(Triple(queued, Moods.version, Music.musicVersion))
+    val items = rows?.map { it.item } ?: MoodQueue.items()
     item {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
             Text("Songs whose moods you want to look at: select songs anywhere (in a DJ set, say) and pick Queue a mood edit. " +
@@ -49,10 +52,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodQueueView(ui: Ui) {
                 val withFix = items.filter { it.suggest.isNotEmpty() }
                 if (withFix.isNotEmpty()) Pill("Use every suggestion (%,d)".format(withFix.size), quiet = true) {
                     ui.confirm = "Write the suggested moods into %,d song files?".format(withFix.size) to {
-                        withFix.forEach { MoodQueue.write(it, it.suggest) } }
+                        val copies = rows.orEmpty().associate { it.item.key to it.track }
+                        withFix.forEach { MoodQueue.write(it, it.suggest, copies[it.key]) } }
                 }
                 // Listen to them all, one after another, while you go down the list
-                val here = items.mapNotNull { MoodQueue.song(it) }
+                val here = rows.orEmpty().mapNotNull { it.track }
                 if (here.isNotEmpty()) Pill("Listen to them all", quiet = true) { Music.playList(here) }
                 if (items.isNotEmpty()) Pill("Clear the list", quiet = true) { ui.confirm = "Take every song off the list? Their moods stay as they are." to { MoodQueue.clear() } }
             }
@@ -60,15 +64,15 @@ fun androidx.compose.foundation.lazy.LazyListScope.moodQueueView(ui: Ui) {
     }
     if (items.isEmpty()) { item { Empty("No queued mood edits", "Select songs and pick Queue a mood edit, or check moods against the sound.") }; return }
     item { Section("%,d SONG%s".format(items.size, if (items.size != 1) "S" else "")) }
-    for (i in items) item(key = "mq-" + i.title + "\t" + i.artist) { QueuedMoodRow(i) }
+    if (rows == null) { item { Empty("Finding your copies of these songs…", "") }; return }
+    for (r in rows) item(key = "mq-" + r.item.title + "\t" + r.item.artist) { QueuedMoodRow(r) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QueuedMoodRow(i: MoodQueue.Item) {
-    val t = remember(i.title, i.artist, Music.musicVersion) { MoodQueue.song(i) }
-    val now = remember(t, Moods.version) { t?.let { runCatching { Moods.all(it) }.getOrDefault(emptyList()) }.orEmpty() }
-    var picked by remember(t, now) { mutableStateOf(now) }
+private fun QueuedMoodRow(r: MoodQueue.Shown) {
+    val i = r.item; val t = r.track; val now = r.now
+    var picked by remember(i.key, now) { mutableStateOf(now) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clip(RoundedCornerShape(12.dp)).background(C.light)
         .border(1.dp, C.line, RoundedCornerShape(12.dp)).padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -80,7 +84,7 @@ private fun QueuedMoodRow(i: MoodQueue.Item) {
         }
         if (t == null) { Text("Not on this device: its file is on your other one.", style = T.sub, modifier = Modifier.padding(top = 6.dp)); return@Column }
         // Listen before deciding: play it (or pause), and jump on to hear its quiet and loud parts
-        val playing = Music.current()?.let { org.omarchy.music.statsKey(it.title, it.artist) == i.key } == true
+        val playing = Music.current()?.id == t.id
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!playing) Pill("▶ Listen") { Music.playList(listOf(t)) }
             else {
@@ -103,7 +107,7 @@ private fun QueuedMoodRow(i: MoodQueue.Item) {
         }
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Pill(if (picked == now) "Keep as it is" else "Save to the file") {
-                if (picked == now) MoodQueue.remove(i) else MoodQueue.write(i, picked)
+                if (picked == now) MoodQueue.remove(i) else MoodQueue.write(i, picked, t)
             }
             Pill("Take off the list", quiet = true) { MoodQueue.remove(i) }
             if (picked.size >= MoodRules.MOST) Text("(at most ${MoodRules.MOST})", style = T.sub)

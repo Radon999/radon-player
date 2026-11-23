@@ -49,9 +49,40 @@ object MoodQueue {
     /** Your copy of the song (the one whose file gets the moods), or null when it isn't on this device. */
     fun song(i: Item): Track? = runCatching { Music.songIndex()[i.key] }.getOrNull()?.takeIf { it.isFile }
 
-    /** The moods written into the song's file (Moods.pick, as the Tagger does), and it's off the list. */
-    fun write(i: Item, moods: List<String>) {
-        val t = song(i) ?: run { Music.toast("“${i.title}” isn't on this device"); return }
+    // ---- what the screen shows ----
+    /** A song on the list as the screen shows it: your copy of it (null: not on this device) and its moods now. */
+    class Shown(val item: Item, val track: Track?, val now: List<String>)
+    /** The list as the screen shows it, worked out off the screen's thread (finding each song's copy goes through every
+     *  song of yours, and its moods may be read from its file): done there, each change of the list, the moods or your
+     *  songs (a play counted too) froze scrolling and playing. null: not worked out yet. */
+    var shown by mutableStateOf<List<Shown>?>(null)
+        private set
+    private var shownFor: Any? = null
+    private var building = false
+    /** The list as the screen shows it, asked for again when what it's made from changed (stamp: the list, the moods'
+     *  and your songs' versions): what was worked out last stays shown meanwhile. Called from the screen's thread. */
+    fun shownNow(stamp: Any): List<Shown>? {
+        if (stamp != shownFor && !building) {
+            shownFor = stamp; building = true
+            Music.bg({
+                val index = runCatching { Music.songIndex() }.getOrDefault(emptyMap())
+                items().map { i ->
+                    val t = index[i.key]?.takeIf { it.isFile }
+                    Shown(i, t, t?.let { runCatching { Moods.all(it) }.getOrDefault(emptyList()) }.orEmpty())
+                }
+            }) { list, _ ->
+                // (anything that changed meanwhile: the screen looks again with a new stamp, and that is worked out next)
+                building = false
+                if (list != null) shown = list
+            }
+        }
+        return shown
+    }
+
+    /** The moods written into the song's file (Moods.pick, as the Tagger does), and it's off the list. t: the song's copy
+     *  when already known (the screen has it), so it isn't looked for again. */
+    fun write(i: Item, moods: List<String>, t0: Track? = null) {
+        val t = t0 ?: song(i) ?: run { Music.toast("“${i.title}” isn't on this device"); return }
         Moods.pick(listOf(t), moods.ifEmpty { null })
         remove(i)
     }
