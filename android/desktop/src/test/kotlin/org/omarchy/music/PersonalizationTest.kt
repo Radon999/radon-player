@@ -62,7 +62,7 @@ class PersonalizationTest {
             assertTrue("${p.name}: its theme ${p.theme}", Themes.known(p.theme))
             assertTrue("${p.name}: its layout ${p.layout}", UiLayouts.BUILT_IN.any { it.key == p.layout })
             for (e in p.fx.split(';').filter { it.isNotBlank() }) assertTrue("${p.name}: its effect $e", LookFx.keyOf(e) in fx)
-            assertTrue("${p.name}: its visualizer ${p.npVis}", p.npVis in vis)
+            assertTrue("${p.name}: its visualizer ${p.npVis}", p.npVis in vis || AROUND_STYLES.any { it.first == p.npVis })   // round the cover too (4.5.4)
             if (p.npBottom.isNotEmpty()) assertTrue("${p.name}: its bottom visualizer ${p.npBottom}", p.npBottom in vis)
             if (p.wrapped.isNotEmpty()) assertTrue("${p.name}: its Wrapped style ${p.wrapped}", p.wrapped in wraps)
             if (p.card.isNotEmpty()) assertTrue("${p.name}: its lyrics card ${p.card}", p.card == LyricsCards.LOOK || p.card == LyricsCards.NOW || LyricsCards.of(p.card) != null)
