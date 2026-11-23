@@ -216,8 +216,12 @@ object SeamlessBt {
         }
     }
 
-    private fun ready(key: String, policy: Int, now: Long): Boolean =
-        failedAt["$key:$policy"]?.let { now - it >= RETRY_MS } ?: true
+    /** Whether to try a switch again: a minute after Media audio or calls failed; the phonebook and messages (switched as
+     *  well as the phone lets them) only every half hour, as some phones refuse those for good. */
+    private fun ready(key: String, policy: Int, now: Long): Boolean {
+        val minor = BtIgnoreRules.parseOff(key).second.let { it != BtIgnoreRules.A2DP && it != BtIgnoreRules.HEADSET }
+        return failedAt["$key:$policy"]?.let { now - it >= if (minor) 30 * RETRY_MS else RETRY_MS } ?: true
+    }
 
     /** A switch that didn't work: tried again a minute later. Only Media audio and calls are said in Settings (the
      *  phonebook and messages are switched as well as the phone lets them, quietly). */
