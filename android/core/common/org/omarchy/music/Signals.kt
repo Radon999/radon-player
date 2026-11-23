@@ -125,6 +125,9 @@ object Signals {
         val seedMood = seed?.let { runCatching { Moods.of(Music.localOf(it)) }.getOrNull() }
         val hourSlot = (java.time.LocalTime.now().hour / 4).coerceIn(0, 5)
         val bad = introSuccess().filterValues { it < 0.25 }.keys
+        val places = placeShares()
+        val outKind = Music.outputNow.kind
+        val seedGenre = (seed?.let { runCatching { Music.genreOf(Music.localOf(it)) }.getOrDefault("") } ?: "").takeIf { it != ReleaseTabRules.UNKNOWN_GENRE } ?: ""
         val cands = all.mapIndexed { i, t ->
             val key = SignalRules.songKey(t.title, t.artist)
             val lead = statsKey("", t.artist).second
@@ -142,7 +145,9 @@ object Signals {
                 sameMood = seedMood != null && runCatching { Moods.of(local) }.getOrNull() == seedMood,
                 hourFit = habits?.hours?.get(lead)?.get(hourSlot) ?: 0.0,
                 artistDown = a != null && (a.noAuto > 0 || SignalRules.thumb(a) < 0), artistUp = SignalRules.thumb(a) > 0,
-                introFail = lead in bad)
+                introFail = lead in bad,
+                placeFit = places[lead]?.get(outKind) ?: 0.0,
+                sameGenre = seedGenre.isNotEmpty() && runCatching { Music.genreOf(local) }.getOrDefault("").equals(seedGenre, ignoreCase = true))
         }
         val byKey = all.associateBy { SignalRules.songKey(it.title, it.artist) }
         val ranked = AutoplayRules.rank(cands, nowS, seedLead).mapNotNull { byKey[it.key] }
@@ -156,6 +161,22 @@ object Signals {
         if ((s?.noAuto ?: 0) > 0 || SignalRules.thumb(s) < 0) return false
         if (a != null && (a.noAuto > 0 || SignalRules.thumb(a) < 0)) return false
         return SignalRules.earlyLately(s, now().toLong()) < 2
+    }
+
+    /** Where you play each artist (lead key → output kind → share of their plays: car, bluetooth, speaker…), from this
+     *  device's diary of listening; made again every half hour. */
+    @Volatile private var placesAt = 0L
+    @Volatile private var placesKept: Map<String, Map<String, Double>> = emptyMap()
+    private fun placeShares(): Map<String, Map<String, Double>> {
+        val t = System.currentTimeMillis()
+        if (t - placesAt < 30 * 60_000L) return placesKept
+        placesAt = t
+        placesKept = runCatching {
+            ListenLog.all().filter { it.outKind.isNotEmpty() }.groupBy { statsKey("", it.artist).second }
+                .filterValues { it.size >= 5 }
+                .mapValues { (_, es) -> es.groupingBy { it.outKind }.eachCount().mapValues { it.value.toDouble() / es.size } }
+        }.getOrDefault(emptyMap())
+        return placesKept
     }
 
     private fun soundOf(t: Track): SoundFeatures? = if (!t.isFile) null else runCatching { Moods.sound(t) }.getOrNull()

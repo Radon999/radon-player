@@ -415,6 +415,7 @@ fun MusicTab(ui: Ui) {
                 "repeats" -> repeatsView(ui)
                 "neglected" -> neglectedView(ui)
                 "milestones" -> milestonesView(ui)
+                "taste" -> tasteView(ui)
                 else -> {
                     // Your own copy of each song (its file's cover and tags), not the streamed copy the count was made with
                     val skipRows = if (ui.musicView == "skips") Music.songStats.rows(Music.skipsSince())

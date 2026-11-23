@@ -151,6 +151,8 @@ object AutoplayRules {
         val artistDown: Boolean = false,          // the artist: Less like this or Not for autoplay
         val introFail: Boolean = false,           // new songs of this artist went badly before
         val artistUp: Boolean = false,
+        val placeFit: Double = 0.0,               // the share of the artist's plays on the output in use (car, earbuds…), 0 … 1
+        val sameGenre: Boolean = false,
     )
 
     /** Left out altogether: what you said no to, what you heard in the last 3 hours, what you keep skipping. */
@@ -168,6 +170,8 @@ object AutoplayRules {
         c.sound?.let { s += 0.3 * it }
         if (c.sameMood) s += 0.15
         s += 0.2 * c.hourFit
+        s += 0.15 * c.placeFit
+        if (c.sameGenre) s += 0.15
         if (c.introFail) s -= 0.4
         val tried = c.skips + c.full
         if (tried >= 2) s -= 0.4 * c.skips / tried
