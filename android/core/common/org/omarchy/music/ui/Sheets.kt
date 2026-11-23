@@ -2358,9 +2358,9 @@ private fun PlaylistPicker(ui: Ui, tracks: List<org.omarchy.music.Track>) {
                         ui.askName = Triple("New playlist", "") { n -> Music.addToPlaylist(Music.newPlaylist(n), tracks) }
                     }.padding(vertical = 10.dp))
                 }
-                // Not the ones the app fills itself (discovery pairs, artist playlists, the Weekly mix): AddToRules
+                // Not the ones the app fills itself (discovery pairs, artist playlists, weekly mixes, smart playlists, Listen later): AddToRules
                 val lists = Music.lists.all().filter { pl ->
-                    org.omarchy.music.AddToRules.offered(pl.name, pl.discovery != null, pl.tracks.map { it.artist }) }
+                    org.omarchy.music.AddToRules.offered(pl.name, pl.discovery != null, pl.tracks.map { it.artist }, smart = pl.smart != null) }
                 items(lists.size) { i ->
                     val pl = lists[i]
                     Text("${pl.shown}  ·  ${pl.tracks.size}", style = T.body, modifier = Modifier.fillMaxWidth().clickable {

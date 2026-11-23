@@ -3,12 +3,14 @@ package org.omarchy.music
 /** Add to playlist…: which of your playlists it offers. Not the ones the app makes and fills itself, where an added
  *  song would make no sense or be wiped: the discovery pairs (an artist's songs you don't have, and the ones you
  *  found from them), artist playlists (Create artist playlist: every song of one artist, made again from your music),
- *  and the Weekly mix (its songs replaced each week). */
+ *  the Weekly mix (its songs replaced each week), smart playlists (they fill themselves by their rules) and
+ *  Listen later (it has its own button). Only the playlists you made or imported are left. */
 object AddToRules {
-    /** name: the playlist's; discovery: it's one of a discovery pair; artists: its songs' artists. */
-    fun offered(name: String, discovery: Boolean, artists: List<String>): Boolean {
-        if (discovery) return false
-        if (name.trim().equals(WeeklyMixRules.NAME, ignoreCase = true)) return false
+    /** name: the playlist's; discovery: it's one of a discovery pair; smart: a smart playlist; artists: its songs' artists. */
+    fun offered(name: String, discovery: Boolean, artists: List<String>, smart: Boolean = false): Boolean {
+        if (discovery || smart) return false
+        val n = name.trim()
+        if (n.startsWith(WeeklyMixRules.NAME, ignoreCase = true) || n.equals(ListenLaterRules.NAME, ignoreCase = true)) return false
         return !artistPlaylist(name, artists)
     }
 

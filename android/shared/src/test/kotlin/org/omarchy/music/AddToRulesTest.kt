@@ -10,6 +10,9 @@ class AddToRulesTest {
         assertFalse(AddToRules.offered("Keane Discovery playlist", true, listOf("Keane")))
         assertFalse(AddToRules.offered("Keane discovered", true, emptyList()))
         assertFalse(AddToRules.offered("Weekly mix", false, listOf("Lauv", "Keane")))
+        assertFalse(AddToRules.offered("Weekly mix 2", false, listOf("Lauv")))
+        assertFalse(AddToRules.offered("Listen later", false, listOf("Lauv", "Keane")))
+        assertFalse(AddToRules.offered("Sad songs", false, listOf("Lauv", "Keane"), smart = true))
     }
 
     @Test fun anArtistPlaylistIsLeftOut() {
