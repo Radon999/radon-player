@@ -4,6 +4,11 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.5.7: Ignore Bluetooth devices without a gap, and recent searches (Android, Windows and Linux)
+- **Ignore Bluetooth devices, without a gap (the phone):** the music is held on your earbuds before an ignored device (the car) even connects, not only once it's there, so Android has nothing to move and the sound doesn't go to the car for a split second and back. And when the car goes again while the music plays on your earbuds, Android's "headphones unplugged" (it's sent for the car) no longer pauses the music for a second.
+- **Never near the car at all:** apps can't switch a device's music connection (Android keeps that to its own Settings), so Ignore Bluetooth devices now says how: turn off the car's Media audio (Samsung: Audio) in Android's Bluetooth settings, calls and Android Auto stay; a button goes straight there.
+- **Recent searches:** the Search tab and every page's own search (Albums, Artists, a playlist…) each keep their own last ten, shown under the empty search bar: tap one to search it again, × to forget it, Clear for all. The steps of one search typed aren't kept, only the search.
+
 ## 4.5.6: Keep playing, the music no longer pauses by itself (Android)
 - **Keep playing (the phone):** the music no longer pauses by itself. Android paused it whenever another app took the sound, even when that app then played nothing (a car connecting over Bluetooth nearby, an app as it opens), so it stopped every so often with the phone untouched. Now the app holds the sound itself: another app taking it leaves the music playing; one taking it for a moment (voice typing, the assistant, a spoken direction) turns it down instead; a call is the only pause, and the music plays again when the call is over. Settings › Playback › Keep playing, on at first; off is Android's way, as before.
 

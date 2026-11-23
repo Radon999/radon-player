@@ -1,0 +1,8 @@
+v4.5.7
+Radon Player 4.5.7: Ignore Bluetooth devices without a gap, and recent searches
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.7.msi` (Windows), `radon-player_4.5.7_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Ignore Bluetooth devices, without a gap (the phone):** the music is held on your earbuds before an ignored device (the car) even connects, not only once it's there, so Android has nothing to move and the sound doesn't go to the car for a split second and back. And when the car goes again while the music plays on your earbuds, Android's "headphones unplugged" (it's sent for the car) no longer pauses the music for a second.
+- **Never near the car at all:** apps can't switch a device's music connection (Android keeps that to its own Settings), so Ignore Bluetooth devices now says how: turn off the car's Media audio (Samsung: Audio) in Android's Bluetooth settings, calls and Android Auto stay; a button goes straight there.
+- **Recent searches:** the Search tab and every page's own search (Albums, Artists, a playlist…) each keep their own last ten, shown under the empty search bar: tap one to search it again, × to forget it, Clear for all. The steps of one search typed aren't kept, only the search.
