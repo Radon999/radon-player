@@ -1,3 +1,0 @@
-/home/radon/Work/radon-player/android/app/.cxx/Debug/151p5xb4/armeabi-v7a/CMakeFiles/radonusb.dir
-/home/radon/Work/radon-player/android/app/.cxx/Debug/151p5xb4/armeabi-v7a/CMakeFiles/edit_cache.dir
-/home/radon/Work/radon-player/android/app/.cxx/Debug/151p5xb4/armeabi-v7a/CMakeFiles/rebuild_cache.dir
