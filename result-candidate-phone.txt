@@ -1,20 +1,26 @@
-commit afe53c8f16915ba4afce745cd8ced907bccdaa9f · run 45237208725 · Mon Nov 23 18:26:30 UTC 2026
-PHONE INSTALL-OVER: made, Radon Player Next 3.3.0, the test key: it installs over the app on the phone
-package: name='org.omarchy.music.next' versionCode='30300' versionName='3.3.0' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
-/home/runner/work/_temp/badging.txt:application-label:'Radon Player Next'
-/home/runner/work/_temp/certs.txt:V2 Signer: certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45237208725/artifacts/14850064074
+commit 86350ba0dea0d6177d3d1e08fa43d83524ec22c3 · run 45256346215 · Mon Nov 23 20:14:19 UTC 2026
+PHONE INSTALL-OVER: not made (or not the owner's app in every way: not handed out)
+DOWNLOAD: 
 --- errors
+* What went wrong:
+A problem occurred configuring root project 'OmarchyMusic'.
+> Could not resolve all artifacts for configuration ':classpath'.
+   > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.22.
+     Required by:
+         project :
+      > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.22.
+--
+BUILD FAILED in 3m 25s
 --- the end of the log
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
+            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
+      > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+         > Could not get resource 'https://plugins.gradle.org/m2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
 
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
 
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
-
-For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-
-BUILD SUCCESSFUL in 4m 54s
-95 actionable tasks: 95 executed
+BUILD FAILED in 3m 25s
