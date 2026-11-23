@@ -360,7 +360,7 @@ object UsbDirect {
         val frameBytes = a.subslot * channels
         if (rate.toLong() * frameBytes / pktsPerSec + frameBytes > a.maxPacket) { note = "${dc.dev.productName}'s packets are too small for ${"%g".format(rate / 1000.0)} kHz"; return null }
         applyVolume()
-        stream = UsbNative.start(c.fileDescriptor, a.ep, a.maxPacket, pktsPerSec, if (a.adaptive) 0 else a.fbEp, a.fbMax, fbScale, frameBytes, rate, 400)
+        stream = UsbNative.start(c.fileDescriptor, a.ep, a.maxPacket, pktsPerSec, if (a.adaptive) 0 else a.fbEp, a.fbMax, fbScale, frameBytes, rate, STREAM_BUFFER_MS)
         if (stream == 0L) { note = "Couldn't start streaming to ${dc.dev.productName}"; return null }
         report(stream, "$lastSetup; $pktsPerSec packets/s, $frameBytes bytes a frame")
         watch(stream)
@@ -441,15 +441,22 @@ object UsbDirect {
                     if (playingSince == 0L) playingSince = System.currentTimeMillis()
                     if (System.currentTimeMillis() - playingSince < 500) continue
                     val v = runCatching { UsbNative.stats(h) }.getOrNull() ?: break
-                    // Nothing back from the DAC for 0.15 s (64 ms of music is queued): set up again at once, the shortest gap
-                    // (sending the transfers again only got it going for a moment)
-                    if (v.size < 14 || v[9] < 150) { if (v.size >= 14 && v[9] < 50) kicks = 0; continue }
+                    // Nothing back from the DAC for STALL_MS: set up again (sending the transfers again only got it going for a
+                    // moment). It was 0.15 s: Android slowing the app for a moment (opening the recent apps, the screen going
+                    // off) was taken for the DAC stopping, and each restart was a gap, the DAC set up again (22 Nov 2026)
+                    if (v.size < 14 || v[9] < STALL_MS) { if (v.size >= 14 && v[9] < 50) kicks = 0; continue }
                     if (++kicks > 40) break
                     restartWanted = h
                 }
             } finally { watching.remove(h) }
         }
     }
+
+    /** How much music the stream to the DAC keeps ready (ms): enough to ride out Android slowing the app for a moment
+     *  (opening the recent apps, switching apps) without a gap. It was 0.4 s. */
+    private const val STREAM_BUFFER_MS = 1200
+    /** Nothing back from the DAC for this long (ms) while it plays is the DAC stopping: the stream is set up again. */
+    private const val STALL_MS = 800
 
     @Volatile private var tookOverAt = 0L
     /** When the DAC was taken from Android lately (ms), to stop a tug-of-war (SinkRules.mayTakeOver). Not cleared when the
