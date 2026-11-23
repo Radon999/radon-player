@@ -100,7 +100,8 @@ Short sets from your own listening, with a voice like a radio host's.
 
 - **Sets of one kind each:** on repeat, this time of day, most played, throwbacks, loved and forgotten, ten mood sets, a genre, new music like yours, deep cuts, an artist spotlight, an album moment, on this day, a decade trip, one-hit wonders, second chances, your unreleased songs, streaks, and four from the songs you repeat.
 - **From your whole library,** files, downloads and playlists. **Include new songs** brings in new music like yours; off, only what you have.
-- **It takes turns:** every kind plays before one comes back, no song returns until 300 others have played, no artist twice in a row, and each set flows by mood.
+- **New music picked from your taste:** new songs start from the songs you love most (heard to the end, favourites, More like this, repeats, artists you've just fallen for) as well as recent ones; artists suggested by several of your favourites come first, and ones you've drifted from don't lead anywhere. What you said no to, songs you skip early and artists whose new songs you keep skipping are left out, and the rest is ranked against your taste before the set is picked.
+- **It takes turns:** every kind plays before one comes back, no song returns until 300 others have played, no artist twice in a row, and each set flows by mood and in the order you tend to play things (what you usually play after what).
 - **The voice** talks over the start of the song with the music turned down, never paused: a hello, milestones (a song's 100th play), a word about a song or your repeats, facts about your listening. Each thing has a few wordings, taking turns. The natural voice (about 95 MB, from DJ › Voice settings) is the same on phone and computer; or use the phone's own voice, or none.
 - **Instant:** the first set is ready before you tap DJ. **Switch it up** (✦) jumps to another kind; on headphones, pause then Next does the same.
 - **Ask for something:** an artist, a genre, a decade, a mood or "workout".
@@ -136,7 +137,8 @@ Short sets from your own listening, with a voice like a radio host's.
 - **Bit-perfect** to a USB DAC (phone) or the computer's sound card: each song arrives untouched at its own rate and bit depth. On phones without a bit-perfect mode (Samsung's) the app drives the DAC itself. **Bass and Treble** can stay on with it. Off, the EQ and the rest come back.
 - **Sound quality** (each its own switch): clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on at first), and loudness compensation (off at first). On the phone, **Android's own FLAC decoder** for phones whose maker's decoder drops sound now and then.
 - **A FiiO KA17's own EQ** switched from the app (phone and Windows).
-- **Bluetooth rules,** all optional: **Ignore Bluetooth devices** (so the car doesn't take the music), **Newest Bluetooth device wins**, **Car always wins** (phone). For no gap at all, Ignore Bluetooth devices shows how to switch off the car's Media audio in Android's Bluetooth settings (calls and Android Auto stay), with a button straight there.
+- **Bluetooth rules,** all optional: **Ignore Bluetooth devices** (so the car doesn't take the music), **Newest Bluetooth device wins**, **Car always wins** (phone). An ignored device coming or going can cause a moment's stutter, but the music always carries on by itself, even when the car or the earbuds send a pause of their own just then.
+- **No stutter at all with Shizuku** (phone, Android 14 or newer): with Shizuku (a free app) running, an ignored device has its Media audio switched off while your headphones are connected, so it never takes the sound; with no headphones it gets it back. Calls and Android Auto are untouched. Settings walks you through setting Shizuku up; or switch the car's Media audio off by hand in Android's Bluetooth settings.
 
 ## Personalization
 
