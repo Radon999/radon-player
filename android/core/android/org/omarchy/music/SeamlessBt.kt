@@ -174,6 +174,9 @@ object SeamlessBt {
             !installed() -> "Shizuku isn't installed: get it from Google Play (free), then set it up as below" to "Get Shizuku"
             !running() -> "Shizuku isn't running: open it and tap Start (again after each restart of the phone)" to "Open Shizuku"
             !allowed() -> "Radon Player isn't allowed in Shizuku yet" to "Allow in Shizuku"
+            // It's Ignore Bluetooth devices' own: nothing to do without that on and a device picked
+            !IgnoreBt.on -> "Ready, but Ignore Bluetooth devices is off: switch it on above (this only takes away its stutter)" to ""
+            IgnoreBt.ignored().none { it != BtRoute.AUTO } -> "Ready: pick the device to ignore above (your truck's Bluetooth)" to ""
             failure.isNotEmpty() -> "Shizuku couldn't switch it: $failure" to ""
             mine.isNotEmpty() -> "Working: ${mine.joinToString(", ")} has Media audio off while your headphones are connected, " +
                 "so it can't take the music" to ""

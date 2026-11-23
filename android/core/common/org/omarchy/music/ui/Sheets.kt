@@ -1849,7 +1849,7 @@ private fun IgnoreBtLines(ui: Ui) {
     if (onPhone) {
         Text("Each time an ignored device connects or drops (driving or walking in and out of its range, over and over), " +
             "Android moves the sound to it and back, so the music can stutter for a moment. It always carries on by itself " +
-            "straight away. For no stutter at all, use Shizuku below.",
+            "straight away. For no stutter at all, switch on Ignore Bluetooth devices: no stutter at all, below.",
             style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
         SeamlessBtLines(picked.firstOrNull(), ign.here)
     }
@@ -1869,10 +1869,11 @@ private fun IgnoreBtLines(ui: Ui) {
 private fun SeamlessBtLines(device: String?, here: String) {
     val s = org.omarchy.music.SeamlessBt
     val on = s.on
-    Line("No stutter at all (Shizuku)", if (on || s.status.isNotEmpty()) s.status.ifEmpty { "On" }
-        else "While your headphones are connected, an ignored device has its Media audio switched off, so it never takes " +
-            "the sound; with no headphones it gets it back. Calls and Android Auto are untouched. Needs Shizuku, a free app " +
-            "(Android 14 or newer)", on && s.step.isEmpty()) {
+    Line("Ignore Bluetooth devices: no stutter at all", if (on || s.status.isNotEmpty()) s.status.ifEmpty { "On" }
+        else "Part of Ignore Bluetooth devices, not a setting of its own: it takes away the stutter. While your headphones " +
+            "are connected, an ignored device has its Media audio switched off, so it never takes the sound; with no " +
+            "headphones it gets it back. Calls and Android Auto's map are untouched. Needs Shizuku, a free app (Android 14 " +
+            "or newer)", on && s.step.isEmpty()) {
         Switch(on, { s.setOn(it) }, colors = swColors())
     }
     if (s.step.isNotEmpty()) {

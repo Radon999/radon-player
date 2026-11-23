@@ -162,10 +162,18 @@ object BtRoute {
         IgnoreBt.saw(bt + calls + (if (auto) listOf(AUTO) else emptyList()))
         val ignored = IgnoreBt.ignored().toSet()
         val carIgnored = auto && IgnoreBt.on && (AUTO in ignored || (bt + calls).any { it in ignored })
+        // The car is among the ignored devices (Android Auto picked, or a name that's the car's), connected or not. Then
+        // the music is kept from Android Auto (ALLOW_CAPTURE_BY_NONE) for as long as headphones have it, not only while
+        // Android Auto is on: each change of that makes the player build its sound output again (a gap), and at the edge
+        // of the truck's range Android Auto comes and goes again and again (the owner's cutting in and out, Shizuku on).
+        val carAhead = IgnoreBt.on && (AUTO in ignored || ignored.any { it in IgnoreBt.carNames() || CAR.containsMatchIn(it) })
         // The devices stirring around an ignored one (see stirAt), and whether there's something else to listen on
         val ignoredHere = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).toSet()
             else emptySet()
         val all = (bt + calls + (if (auto) listOf(AUTO) else emptyList())).toSet()
+        // In Sound lately (and so in a hiccup's "just before" in Problems): every device coming and going, to put beside
+        // a gap in the sound
+        if (all != lastAll) SoundLog.note("connected: " + ((all - lastAll).map { "+$it" } + (lastAll - all).map { "-$it" }).joinToString(" "))
         if (BtIgnoreRules.stirs(lastAll, all, lastIgnored, ignoredHere)) {
             stirAt = android.os.SystemClock.elapsedRealtime()
             onStir?.let { runCatching { it() } }
@@ -210,7 +218,7 @@ object BtRoute {
             val d = pick?.takeIf { it != AUTO }?.let { k -> outs.firstOrNull { it.type in BT && key(it) == k } }
             if (pick == AUTO || d != null) {
                 use(d)          // Android Auto: where Android puts it (the car); else the newest device
-                hide(d != null && auto && pick != carBt)   // headphones newer than Android Auto: kept from it (not the car itself)
+                hide(d != null && pick != carBt && (auto || carAhead))   // headphones newer than Android Auto: kept from it (not the car itself)
                 IgnoreBt.newest(pick!!, compete.filter { it != pick && it !in ign }.joinToString(", "))
                 val here = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).distinct().joinToString(", ") else ""
                 IgnoreBt.report(here, routed?.label ?: if (pick == AUTO) AUTO else "", "")
@@ -219,7 +227,7 @@ object BtRoute {
         }
         IgnoreBt.newest("", "")
         if (carIgnored) { keepFromAuto(outs, ignored, bt + calls); return }
-        hide(false)
+        // (kept from Android Auto or not: after the output is picked, below)
         val ignoring = IgnoreBt.on && !auto
         // Where Android plays by itself when nothing's ignored: a Bluetooth device first, then USB or wired (as Outputs.now)
         val natural = (outs.firstOrNull { it.type in BT && key(it) !in ignored } ?: outs.firstOrNull { it.type in WIRED })?.let { key(it) }
@@ -230,6 +238,7 @@ object BtRoute {
         val ahead = if (target == null && ignoring && ignored.isNotEmpty() && bt.none { it in ignored }) natural else null
         val d = (target ?: ahead)?.let { t -> outs.firstOrNull { key(it) == t } }
         use(d)
+        hide(carAhead && d != null)
         val here = if (IgnoreBt.on) bt.filter { it in ignored }.joinToString(", ") else ""
         IgnoreBt.report(here, routed?.label ?: "", when {
             here.isEmpty() || d != null -> ""
