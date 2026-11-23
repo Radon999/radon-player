@@ -16,28 +16,31 @@ LINUX FILM: the window 2097159: Window 2097159   Position: 0,0 (screen: 0)   Geo
 LINUX FILM: Now playing with the Blocks visualizer filmed for 12 s (linux-vis.mp4, 152 KB)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- what the app wrote as it started
-Tray is not supported on the current platform. Use the global property `isTraySupported` to check.
-[SKIKO] warn: Fallback to next API
-org.jetbrains.skiko.RenderException: Cannot create Linux GL context
-radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content
-radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content
-radon-player: pictures: genius: org.omarchy.music.HttpError: HTTP 403 from https://genius.com/api/search/artist: <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content
-radon-player: A song change took 79.7 s: 13 the player said ENDED: dj=false song=1/1 at=39.0/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 16 next: END | 1043 next: NEXT_SONG | 1043 load “40 Hz Test Tone” play=true | 1329 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2830 next: NEXT_SONG | 2830 load “10Hz Bass Test” play=true | 3114 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4615 next: NEXT_SONG | 4615 load “100-20Hz Sine Sweep” play=true | 4809 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6309 next: NEXT_SONG | 6309 load “Woofer Excursion Test” play=true | 14222 couldn't get it: YouTube: Got HTML document, expected JSON response (latest u | 20121 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 79339 load “Linux test tone” play=true | 79343 got it | 79343 into the player (at 0 s, play=true, state before 1): java.lang.Exception: A song change took 79.7 s: 13 the player said ENDED: dj=false song=1/1 at=39.0/40.0 state=4 pwr=true advancing=false streaming=false fading=false talking=false busy=- loadedFor=this | 16 next: END | 1043 next: NEXT_SONG | 1043 load “40 Hz Test Tone” play=true | 1329 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 2830 next: NEXT_SONG | 2830 load “10Hz Bass Test” play=true | 3114 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 4615 next: NEXT_SONG | 4615 load “100-20Hz Sine Sweep” play=true | 4809 couldn't get it: YouTube: YouTube probably temporarily blocked anonymous watc | 6309 next: NEXT_SONG | 6309 load “Woofer Excursion Test” play=true | 14222 couldn't get it: YouTube: Got HTML document, expected JSON response (latest u | 20121 still not playing: state=1 pwr=true hasItem=false advancing=false paused=true | 79339 load “Linux test tone” play=true | 79343 got it | 79343 into the player (at 0 s, play=true, state before 1)
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:4 BlockType:STREAMINFO DataLength:34 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:42 BlockType:VORBIS_COMMENT DataLength:87 isLastBlock:false
+Nov 23, 2026 1:23:40 AM org.jaudiotagger.audio.flac.FlacInfoReader read
+INFO: /home/runner/work/_temp/Radon demo.flac StartByte:133 BlockType:PADDING DataLength:8192 isLastBlock:true
 --- its Problems
 	at java.desktop/java.awt.event.InvocationEvent.dispatch(Unknown Source)
 	at java.desktop/java.awt.EventQueue.dispatchEventImpl(Unknown Source)
