@@ -139,7 +139,7 @@ object UsbDirect {
     fun wanted(): Boolean {
         if (!UsbNative.loaded || !Music.bitPerfect) return false
         if (dac != null) return true
-        if (failures >= 2) return false
+        if (failures >= 2 || tugStopped) return false
         val d = device() ?: return false
         if (nativeFor != d.deviceName) { nativeFor = d.deviceName; nativeHas = androidHasBitPerfect() }
         if (nativeHas) return false
@@ -288,9 +288,10 @@ object UsbDirect {
             // on, all through the song, with the DAC set up two ways at once (loud static) or not at all (silence).
             // Taken over too often just now: no more for now; the music plays through Android, and it's said why.
             if (!SinkRules.mayTakeOver(takeovers, System.currentTimeMillis())) {
-                failures = 2
-                note = "Bit-perfect straight to the DAC stopped: the phone and Radon Player kept taking ${dc.dev.productName ?: "the DAC"} from " +
-                    "each other. It plays through Android for now; unplug the DAC and plug it in, or turn bit-perfect off and on, to try again"
+                failures = 2; tugStopped = true
+                note = "Bit-perfect straight to the DAC stopped: each time Radon Player took ${dc.dev.productName ?: "the DAC"} over, the phone's USB " +
+                    "dropped it and found it again, over and over. It plays through Android now (the songs still whole, but mixed by Android); turn " +
+                    "bit-perfect off and on to try again"
                 Crashes.note("USB DAC: taken over ${takeovers.size} times in ${SinkRules.TAKEOVER_SPAN_MS / 1000} s, so bit-perfect straight to it stopped (it plays through Android) · $lastSetup")
                 closeAll()
                 return null
@@ -454,6 +455,12 @@ object UsbDirect {
     /** When the DAC was taken from Android lately (ms), to stop a tug-of-war (SinkRules.mayTakeOver). Not cleared when the
      *  DAC drops off and comes back: that's part of the same tug. */
     private val takeovers = ArrayList<Long>()
+    /** The tug-of-war stopped bit-perfect straight to the DAC: kept until bit-perfect is turned off and on. The DAC dropping
+     *  off and coming back doesn't clear it (on some phones taking the DAC over makes the phone's USB drop it and find it
+     *  again, which cleared the count of failed songs each time, so it never stopped). */
+    @Volatile var tugStopped = false
+    /** Bit-perfect turned off: the next time it's on, the DAC may be taken again. */
+    fun tryAgainLater() { tugStopped = false; takeovers.clear(); failures = 0 }
     @Volatile private var releasedAt = 0L
     /** The DAC was just taken from Android (it then thinks it was unplugged for a moment). */
     fun tookOverLately() = System.currentTimeMillis() - tookOverAt < 5000
