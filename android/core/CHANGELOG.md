@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.5.6 · November 2026
+- **Keep playing (the phone):** the music no longer pauses by itself. Android paused it whenever another app took the sound, even when that app then played nothing (a car connecting over Bluetooth nearby, an app as it opens), so it stopped every so often with the phone untouched. Now the app holds the sound itself: another app taking it leaves the music playing; one taking it for a moment (voice typing, the assistant, a spoken direction) turns it down instead; a call is the only pause, and the music plays again when the call is over. Settings › Playback › Keep playing, on at first; off is Android's way, as before.
+
 ## 4.5.5 · November 2026
 - **Queued mood edits no longer freezes the app:** each song on the list looked through your whole library for its copy, and worked out its moods, on the part of the app that draws the screen, again each time a song came into view or a play was counted. With the sound check's finds in the list the whole app stopped responding. It's all worked out once now, in the background.
 - **Moods: saving doesn't hold up the screen:** while a mood scan or the sound check saved its progress, everything showing a mood waited for it.

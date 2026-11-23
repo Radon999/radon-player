@@ -180,6 +180,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 - **Lock screen player, notification and home screen widget** in the song's colours, and a picture-in-picture mini player. With **Shuffle button in the notification** off, a Download button takes its place on a streamed song.
 - **Swipe a song** to queue, favorite or more; you choose what each side does (or nothing).
 - **Auto mono** for the earbuds you choose.
+- **Keep playing** (Settings › Playback, on at first): no other app pauses the music, not even one that takes the sound and plays nothing (a car connecting nearby). One that takes it for a moment (voice typing, the assistant, a spoken direction) turns the music down instead, and a call pauses it until the call is over. Off: Android's way.
 
 ## Computer only (Windows and Linux)
 

@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.5.6: Keep playing, the music no longer pauses by itself (Android)
+- **Keep playing (the phone):** the music no longer pauses by itself. Android paused it whenever another app took the sound, even when that app then played nothing (a car connecting over Bluetooth nearby, an app as it opens), so it stopped every so often with the phone untouched. Now the app holds the sound itself: another app taking it leaves the music playing; one taking it for a moment (voice typing, the assistant, a spoken direction) turns it down instead; a call is the only pause, and the music plays again when the call is over. Settings › Playback › Keep playing, on at first; off is Android's way, as before.
+
 ## 4.5.5: Queued mood edits without the freezing, and Hide from stats in Wrapped (Android, Windows and Linux)
 - **Queued mood edits no longer freezes the app:** each song on the list looked through your whole library for its copy, and worked out its moods, on the part of the app that draws the screen, again each time a song came into view or a play was counted. With the sound check's finds in the list the whole app stopped responding. It's all worked out once now, in the background.
 - **Moods: saving doesn't hold up the screen:** while a mood scan or the sound check saved its progress, everything showing a mood waited for it.
