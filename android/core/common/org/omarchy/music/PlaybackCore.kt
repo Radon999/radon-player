@@ -285,7 +285,12 @@ object PlaybackCore {
     }
 
     // ---- what's playing (what the screens show) ----
-    var paused by mutableStateOf(true)
+    /** Wakes the clock ([start]) from its rest the moment the music plays again. */
+    private val clockWake = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    private var pausedState by mutableStateOf(true)
+    var paused: Boolean
+        get() = pausedState
+        set(v) { pausedState = v; if (!v) clockWake.trySend(Unit) }   // playing again: the clock (see start) at once
     var position by mutableStateOf(0.0)
     var duration by mutableStateOf(0.0)
     var streaming by mutableStateOf(false)
@@ -719,8 +724,10 @@ object PlaybackCore {
     }
 
     // ---- the clock ----
-    /** Twice a second, for as long as the app runs: where the song is, what counts as played, a crossfade coming up,
-     *  a song stuck at its end, a song change that's taking too long. Started once, by [Music.init]. */
+    /** Twice a second while music plays (or is about to): where the song is, what counts as played, a crossfade coming
+     *  up, a song stuck at its end, a song change that's taking too long. With the music paused for real every one of
+     *  those has nothing to do ([PowerRules.clockRests]), so it looks only every two seconds, and Play wakes it at
+     *  once: nothing waits on the longer step. Started once, by [Music.init]. */
     fun start() {
         Music.scope.launch {
             while (true) {   // the position, and what counts as played
@@ -737,7 +744,9 @@ object PlaybackCore {
                 if (p != null) volumeWatch(p)
                 if (p != null) idleWatch(p)
                 changeWatch(p)
-                delay(500)
+                if (PowerRules.clockRests(p != null, p?.isPlaying == true, p?.playWhenReady == true, paused, advancing, changeAt != 0L))
+                    kotlinx.coroutines.withTimeoutOrNull(PowerRules.CLOCK_RESTING_MS) { clockWake.receive() }
+                else delay(PowerRules.CLOCK_MS)
             }
         }
     }

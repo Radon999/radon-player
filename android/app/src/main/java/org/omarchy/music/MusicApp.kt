@@ -13,6 +13,10 @@ class MusicApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         Crashes.init(this)
+        // Off the screen until a screen of the app starts (AppVisible): started by the music alone (Android Auto, a
+        // headset's button, the service coming back), the timers that only serve the screen rest from the first moment.
+        AppVisible.set(false)
+        MainActivity.watchScreens(this)
         // The last start closed with a crash within seconds: this time nothing starts but the report (the window shows
         // it, to send on), so a crash at start can always be seen and fixed.
         val starting = java.io.File(filesDir, "starting")

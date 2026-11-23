@@ -139,7 +139,7 @@ object Signals {
                 own = local.isFile, skips = skips, full = full, early = SignalRules.earlyLately(s, nowS),
                 thumb = SignalRules.thumb(s), blocked = (s?.noAuto ?: 0) > 0,
                 lastPlayed = taste?.last?.get(Stats.statsKey(t.title, t.artist)) ?: 0L,
-                artistPlays = taste?.facts?.artistAll?.entries?.firstOrNull { statsKey("", it.key).second == lead }?.value ?: 0,
+                artistPlays = artistPlays(taste?.facts?.artistAll, lead),
                 near = near[lead] ?: 0.0, after = after[key] ?: 0,
                 sound = if (seedSound != null && snd != null) AutoplayRules.soundClose(seedSound.bpm, seedSound.loud, snd.bpm, snd.loud) else null,
                 sameMood = seedMood != null && runCatching { Moods.of(local) }.getOrNull() == seedMood,
@@ -155,13 +155,44 @@ object Signals {
         ranked.ifEmpty { offered.filter { (sigs[SignalRules.songKey(it.title, it.artist)]?.noAuto ?: 0) == 0L && SignalRules.thumb(sigs[SignalRules.songKey(it.title, it.artist)]) >= 0 } }
     }.getOrElse { offered }
 
-    /** Whether the DJ may put a song in: not one you said no to, nor one you keep skipping in its first seconds. */
+    /** Whether the DJ may put a song in: not one you said no to, nor one you keep skipping in its first seconds, nor one
+     *  by an artist you said no to. */
     fun djMay(t: Track): Boolean {
-        val s = of(t); val a = ofArtist(t.artist)
+        if (!songMay(t)) return false
+        val a = ofArtist(t.artist)
+        return a == null || (a.noAuto == 0L && SignalRules.thumb(a) >= 0)
+    }
+
+    /** The song itself (whoever's it is): not Not for autoplay, not Less like this, and not skipped in its first seconds
+     *  twice lately. For lists you asked for of one artist (a discovery playlist), where that artist is your choice. */
+    fun songMay(t: Track): Boolean {
+        val s = of(t)
         if ((s?.noAuto ?: 0) > 0 || SignalRules.thumb(s) < 0) return false
-        if (a != null && (a.noAuto > 0 || SignalRules.thumb(a) < 0)) return false
         return SignalRules.earlyLately(s, now().toLong()) < 2
     }
+
+    /** Songs the DJ brings that are new to you, made to fit you: the ones it may not play gone ([djMay]), and the ones by
+     *  artists whose new songs mostly went badly before (skipped, never kept); the rest in the order that fits you best
+     *  ([rank]: still the service's order most, then your artists, what you said, the time of day, the sound…). seed:
+     *  the song they're like, or null. Your own songs are never added (they aren't new). */
+    fun djNew(seed: Track?, offered: List<Track>): List<Track> {
+        if (offered.isEmpty()) return offered
+        val bad = introSuccess().filterValues { it < 0.25 }.keys
+        val may = offered.filter { djMay(it) && statsKey("", it.artist).second !in bad }
+        return if (may.size < 2) may else rank(seed, may, habitsToo = false)
+    }
+
+    /** All your plays of an artist (lead key, as statsKey makes it), from Most played's counts by name: the counts
+     *  looked up by lead key, made once for each new picture of your listening (not once a song: a few thousand artists'
+     *  names tidied for every song offered was slow). */
+    private fun artistPlays(all: Map<String, Int>?, lead: String): Int {
+        if (all == null) return 0
+        val made = playsByLead
+        val byLead = if (made != null && made.first === all) made.second
+            else HashMap<String, Int>().also { m -> all.forEach { (a, n) -> m.merge(statsKey("", a).second, n, Int::plus) } }.also { playsByLead = all to it }
+        return byLead[lead] ?: 0
+    }
+    @Volatile private var playsByLead: Pair<Map<String, Int>, Map<String, Int>>? = null
 
     /** Where you play each artist (lead key → output kind → share of their plays: car, bluetooth, speaker…), from this
      *  device's diary of listening; made again every half hour. */

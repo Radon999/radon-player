@@ -57,6 +57,9 @@ class Habits(
     val phase: Map<String, String> = emptyMap(),
     /** An artist → when you play them: the share of their plays in each 4-hour stretch of the day (6 numbers). */
     val hours: Map<String, DoubleArray> = emptyMap(),
+    /** An artist → the artists you've played straight after one of theirs (in the same sitting), most often first, with
+     *  how often: how you go from one artist to the next, for songs [after] knows nothing of (new ones). */
+    val afterArtist: Map<String, List<Pair<String, Int>>> = emptyMap(),
 )
 
 object HabitRules {
@@ -70,6 +73,7 @@ object HabitRules {
     fun count(plays: List<Heard>, nowS: Long, zoneHour: (Long) -> Int): Habits {
         val ps = plays.filter { it.t > 0 }.sortedBy { it.t }
         val after = HashMap<String, HashMap<String, Int>>()
+        val afterArtist = HashMap<String, HashMap<String, Int>>()
         val pair = HashMap<String, HashMap<String, Int>>()
         val artistPlays = HashMap<String, Int>()
         val first = HashMap<String, Long>(); val last = HashMap<String, Long>()
@@ -77,15 +81,17 @@ object HabitRules {
         val recent60 = HashMap<String, Int>(); val year = HashMap<String, Int>(); val before = HashMap<String, Int>()
         val hourCounts = HashMap<String, IntArray>()
         var sitting = ArrayList<String>()
-        var prevKey: String? = null; var prevT = 0L
+        var prevKey: String? = null; var prevLead = ""; var prevT = 0L
         for (p in ps) {
             val k = statsKey(p.title, p.artist); val key = k.first + "\t" + k.second; val a = k.second
             if (a.isEmpty()) continue
-            if (prevKey != null && p.t - prevT in 1..SITTING && prevKey != key)
+            if (prevKey != null && p.t - prevT in 1..SITTING && prevKey != key) {
                 after.getOrPut(prevKey) { HashMap() }.merge(key, 1, Int::plus)
+                if (prevLead != a) afterArtist.getOrPut(prevLead) { HashMap() }.merge(a, 1, Int::plus)
+            }
             if (p.t - prevT > SITTING) { sittingPairs(sitting, pair); sitting = ArrayList() }
             if (a !in sitting) sitting += a
-            prevKey = key; prevT = p.t
+            prevKey = key; prevLead = a; prevT = p.t
             artistPlays.merge(a, 1, Int::plus)
             if (a !in first) first[a] = p.t
             last[a] = p.t
@@ -96,6 +102,7 @@ object HabitRules {
         }
         sittingPairs(sitting, pair)
         val afterTop = after.mapValues { (_, m) -> m.entries.sortedByDescending { it.value }.take(15).map { it.key to it.value } }
+        val afterArtistTop = afterArtist.mapValues { (_, m) -> m.entries.sortedByDescending { it.value }.take(25).map { it.key to it.value } }
         val near = pair.mapValues { (a, m) ->
             val na = artistPlays[a] ?: 1
             m.entries.map { (b, n) -> b to n / sqrt(na.toDouble() * (artistPlays[b] ?: 1)).coerceAtLeast(1.0) }
@@ -115,7 +122,7 @@ object HabitRules {
             }
         }
         val hours = hourCounts.filter { (artistPlays[it.key] ?: 0) >= 10 }.mapValues { (_, c) -> val s = c.sum().toDouble(); DoubleArray(6) { c[it] / s } }
-        return Habits(afterTop, near, phase, hours)
+        return Habits(afterTop, near, phase, hours, afterArtistTop)
     }
 
     private fun sittingPairs(s: List<String>, pair: HashMap<String, HashMap<String, Int>>) {

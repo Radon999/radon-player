@@ -57,21 +57,37 @@ object KindRules {
     /** Artists for you: the artists you might like, best first, each with the ones of yours it's like. The artists
      *  you play most (allTime: the top twelve, thisMonth: the top six, counted double; otherwise: your artists when
      *  there are no counts) each bring their similar artists (similarTo: a name and how alike, 0 to 1), added up; the
-     *  ones you play already (known: names as [norm] makes them) are left out. */
+     *  ones you play already (known: names as [norm] makes them) are left out.
+     *  phase (an artist's lead key, as [statsKey] makes it → [HabitRules]' phase) leans it to where your listening is
+     *  going: the artists you've lately fallen for or play more and more count half as much again (and bring theirs even
+     *  from below the top twelve), and the ones you've left behind bring none. An artist that several of yours lead to
+     *  is a surer bet than one only a single artist does: each more of yours adds half again. */
     fun artistsForYou(allTime: Map<String, Int>, thisMonth: Map<String, Int>, otherwise: List<String>, known: Set<String>,
+                      phase: Map<String, String> = emptyMap(),
                       similarTo: (String) -> List<Pair<String, Double>>): List<Pair<String, List<String>>> {
+        fun phaseOf(a: String) = if (phase.isEmpty()) null else phase[statsKey("", a).second]
+        fun growing(a: String) = phaseOf(a).let { it == HabitRules.NEW_LOVE || it == HabitRules.RISING }
         val weight = HashMap<String, Double>()
-        allTime.entries.sortedByDescending { it.value }.take(12).forEach { (a, n) -> weight.merge(a, Math.log(1.0 + n), Double::plus) }
+        val top = allTime.entries.sortedByDescending { it.value }
+        top.take(12).forEach { (a, n) -> weight.merge(a, Math.log(1.0 + n), Double::plus) }
         thisMonth.entries.sortedByDescending { it.value }.take(6).forEach { (a, n) -> weight.merge(a, 2 * Math.log(1.0 + n), Double::plus) }
+        if (phase.isNotEmpty()) top.drop(12).take(40).filter { growing(it.key) }.take(4).forEach { (a, n) -> weight.putIfAbsent(a, Math.log(1.0 + n)) }
         if (weight.isEmpty()) otherwise.take(10).forEach { weight[it] = 1.0 }
+        for (a in weight.keys.toList()) when {
+            phaseOf(a) == HabitRules.FADED -> weight.remove(a)
+            growing(a) -> weight[a] = weight.getValue(a) * 1.5
+        }
         val score = HashMap<String, Double>(); val because = HashMap<String, MutableList<String>>(); val shown = HashMap<String, String>()
-        for ((seed, w) in weight.entries.sortedByDescending { it.value }.take(10)) for ((name, match) in similarTo(seed)) {
+        // The ten heaviest, and every artist you've lately fallen for even below them (a few plays can't outweigh years)
+        val seeds = weight.entries.sortedByDescending { it.value }.let { s -> s.take(10) + s.drop(10).filter { growing(it.key) } }
+        for ((seed, w) in seeds) for ((name, match) in similarTo(seed)) {
             val k = norm(name)
             if (k.isEmpty() || k in known) continue
             score.merge(k, w * match, Double::plus); shown.putIfAbsent(k, name)
             because.getOrPut(k) { ArrayList() }.let { if (seed !in it) it += seed }
         }
-        return score.entries.sortedByDescending { it.value }.map { (k, _) -> shown.getValue(k) to because[k].orEmpty() }
+        return score.entries.sortedByDescending { (k, s) -> s * (1 + 0.5 * (because[k].orEmpty().size - 1).coerceAtLeast(0)) }
+            .map { (k, _) -> shown.getValue(k) to because[k].orEmpty() }
     }
 
     /** A mood's set with new songs in it: songs you know, with a new one third and fifth (known, known, new, known,

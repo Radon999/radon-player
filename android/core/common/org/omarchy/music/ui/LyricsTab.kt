@@ -43,6 +43,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import org.omarchy.music.Lyrics
 import org.omarchy.music.Music
 
@@ -169,7 +171,19 @@ private fun NoteCard(n: Lyrics.Noted, page: String?, modifier: Modifier, close: 
 @Composable
 private fun Synced(lines: List<Pair<Double, String>>) {
     var pos by remember { mutableDoubleStateOf(Music.livePosition()) }
-    LaunchedEffect(Unit) { while (true) { pos = Music.livePosition(); delay(120) } }
+    LaunchedEffect(Unit) {
+        while (true) {
+            org.omarchy.music.AppVisible.awaitShown()   // off the screen nothing shows it: caught up the moment it's back
+            pos = Music.livePosition()
+            // Playing: about 8 times a second, as the lines go by. Paused, it only moves when it's moved (a tap on a line,
+            // the seek bar): looked at then, and once a second in case it was moved some other way.
+            val moving = if (org.omarchy.music.Remote.active) !org.omarchy.music.Remote.status.paused else !Music.paused
+            if (moving) delay(120)
+            else kotlinx.coroutines.withTimeoutOrNull(1000) {
+                androidx.compose.runtime.snapshotFlow { Triple(Music.position, Music.paused, org.omarchy.music.Remote.status) }.drop(1).first()
+            }
+        }
+    }
     val times = remember(lines) { lines.map { it.first } }
     // The line being sung: a quarter second early, as you read ahead.
     val cur = times.indexOfLast { it <= pos + 0.25 }

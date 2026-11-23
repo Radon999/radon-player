@@ -35,9 +35,6 @@ class ListeningTest {
     }
 
     @Test fun runsAndTimes() {
-        val d = LocalDate.of(2026, 1, 1)
-        assertEquals(4, Listening.longestRun(listOf(d, d.plusDays(1), d.plusDays(3), d.plusDays(2), d.plusDays(31))))
-        assertEquals(0, Listening.longestRun(emptyList()))
         assertEquals("1 day 1 hour", Listening.duration(90_000.0))
         assertEquals("10 min", Listening.duration(600.0))
         assertEquals("2 hours 5 min", Listening.duration(7_500.0))

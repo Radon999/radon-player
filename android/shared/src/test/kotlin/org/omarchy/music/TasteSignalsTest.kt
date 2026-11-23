@@ -24,6 +24,9 @@ class TasteSignalsTest {
         assertTrue(after.none { it.first.endsWith("sody") })
         // Played in the same sittings: close
         assertTrue(h.near.getValue(statsKey("", "Lauv").second).any { it.first == statsKey("", "Keane").second })
+        // Artist after artist: Keane follows Lauv five times; nothing follows Keane in the same sitting, nor Sody Lauv
+        assertEquals(listOf(statsKey("", "Keane").second to 5), h.afterArtist[statsKey("", "Lauv").second])
+        assertNull(h.afterArtist[statsKey("", "Keane").second])
     }
 
     @Test fun phases() {

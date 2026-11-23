@@ -554,7 +554,6 @@ object Looks {
     }
 }
 
-val Mono = FontFamily.Monospace
 /** The type: a clean sans-serif, like Poweramp's, or the theme's own (Retro's monospace…). */
 val Sans: FontFamily get() = Themes.current.font
 

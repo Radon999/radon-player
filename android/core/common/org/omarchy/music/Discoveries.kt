@@ -33,7 +33,10 @@ object Discoveries {
                 (d?.tracks.orEmpty() + f?.tracks.orEmpty()).forEach { have += songKey(it) } }
             val name = info.name.ifEmpty { artist }
             val yours = yourTitles(Music.mySongs(), listOf(artist, name))
-            Triple(name, notYours(info, have, yours) { al -> runCatching { src?.album(al.id) ?: emptyList() }.getOrDefault(emptyList()) }, yours)
+            // Songs you said no to (Not for autoplay, Less like this) or keep skipping in their first seconds stay out;
+            // the artist is your choice here, so what you said of them as a whole doesn't keep their songs out
+            val songs = notYours(info, have, yours) { al -> runCatching { src?.album(al.id) ?: emptyList() }.getOrDefault(emptyList()) }
+            Triple(name, songs.filter { Signals.songMay(it) }, yours)
         }) { res, err ->
             making.remove(norm(artist))
             if (res == null) { toast("Couldn't make it: ${err?.message?.take(100)}"); return@bg }

@@ -5,7 +5,7 @@ data class MoodPlay(val t: Long, val mood: String, val song: String = "")
 
 /** Counting plays by mood (pure, no app): how much of each mood you played in a time span, how that changed, which
  *  part of the day you go for a mood, and a mood you've drifted away from. The DJ's mood facts are made from these;
- *  the app's side is [MoodPlays] (it gives the plays). */
+ *  the plays come from TasteService.moodPlays. */
 object MoodTally {
     /** Plays of each mood from fromEpoch (inclusive) to toEpoch (exclusive), seconds. */
     fun counts(plays: List<MoodPlay>, fromEpoch: Long, toEpoch: Long): Map<String, Int> {

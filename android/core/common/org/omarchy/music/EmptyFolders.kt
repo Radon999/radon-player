@@ -4,11 +4,6 @@ package org.omarchy.music
 // songs left in them (only pictures, lyrics and the like, or nothing), to delete. Only the deciding is here, over a
 // listing of the folders the caller reads from the disk; deleting them is the caller's.
 
-/** The extensions of songs (the desktop's AUDIO_EXTS). The rule for empty folders doesn't need them: anything that
- *  isn't a leftover keeps a folder, a song or not. */
-val AUDIO_EXTS = setOf(".flac", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".aif", ".aiff", ".wv", ".ape", ".alac",
-    ".dsf", ".dff", ".tta", ".mka", ".webm", ".wma", ".mpc")
-
 /** What a folder of music leaves behind: a folder with only these in it has no music. */
 val LEFTOVER_EXTS = setOf(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".lrc", ".txt", ".nfo", ".m3u", ".m3u8", ".cue",
     ".log", ".sfv", ".md5", ".ini", ".db", ".ds_store")

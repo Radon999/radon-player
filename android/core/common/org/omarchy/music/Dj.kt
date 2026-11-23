@@ -22,7 +22,6 @@ object Dj {
     const val SET = 6   // songs in a set
     /** The most words in one break (a set's line with its hello and its fact), as said out loud: about 15 seconds. */
     const val MOST_WORDS = ScriptRules.MOST_WORDS
-    private val SPACES = Regex("\\s+")
     /** How many words text is when it's said (numbers and symbols as words, see Spoken). */
     private fun wordsSaid(text: String): Int = ScriptRules.wordsSaid(text)
     /** The mood sets: one for each of these (moods alike share one), "mood:" and its moods joined by "+"
@@ -677,7 +676,7 @@ object Dj {
                 val keys = services()
                 for ((i, seed) in knownPick.take(2).withIndex()) {
                     if (fresh.size >= 3) break
-                    val got = radio(seed, keys[i % keys.size]).filter { newToYou(it, notNew) && songKey(it) !in fresh.map { f -> songKey(f) }.toSet() }
+                    val got = Signals.djNew(seed, radio(seed, keys[i % keys.size]).filter { newToYou(it, notNew) && songKey(it) !in fresh.map { f -> songKey(f) }.toSet() })
                     fresh += got.take(10).filter { t -> group.any { fitsMood(t, it, unknownFits = noKey) } }.take(2)
                 }
                 // Artists like yours whose sound is this mood
@@ -685,7 +684,7 @@ object Dj {
                     if (fresh.size >= 3) break
                     if (artistMoods(name).take(2).none { it in group }) continue
                     val info = runCatching { Music.artistInfo(name, null) }.getOrNull() ?: continue
-                    fresh += info.top.filter { newToYou(it, notNew) }.take(1)
+                    fresh += Signals.djNew(null, info.top.filter { newToYou(it, notNew) }).take(1)
                 }
             }
             val news = pick(fresh, 2, used)
@@ -719,14 +718,41 @@ object Dj {
             "A run through your most played, with ${q(s)} by ${by(s)} to open.")
     }
 
+    /** (blocking) n of your songs to find new music from: the ones that show most that you like them (played a lot,
+     *  heard to the end, More like this, favourites, on repeat, by artists you've lately fallen for), taken in turns
+     *  from what you play lately and from long-time favourites still played this year ([NewMusicRules.seeds]); none
+     *  the DJ may not play. Playing from songs you picked: only from those. */
+    private fun seeds(taste: Taste, n: Int): List<Track> {
+        val t = now().toLong()
+        val lately = taste.recent.take(30)
+        val latelyKeys = lately.mapTo(HashSet()) { songKey(it) }
+        val everything = scope == null || whole
+        val loops = if (everything) runCatching { RepeatLoops.all().songs }.getOrDefault(emptyMap()) else emptyMap()
+        val extra = if (!everything) emptyList() else runCatching { Music.favorites.tracks().take(60) }.getOrDefault(emptyList()) +
+            loops.values.sortedByDescending { it.n }.take(20).map { Music.mineOf(it.track) }
+        val long = (taste.all.take(150).filter { playsOf(taste, it) > 0 && t - lastPlayed(taste, it) < 365 * 86_400L } + extra)
+            .filter { songKey(it) !in latelyKeys }.distinctBy { songKey(it) }
+        val phase = taste.habits?.phase.orEmpty()
+        fun cand(s: Track, lately: Boolean): NewMusicRules.SeedCand<Track> {
+            val (skips, full) = runCatching { Music.songStats.get(s) }.getOrDefault(0 to 0)
+            return NewMusicRules.SeedCand(s, lately, plays = playsOf(taste, s), full = full, skips = skips,
+                up = SignalRules.thumb(Signals.of(s)) > 0, fav = runCatching { Music.favorites.has(s) }.getOrDefault(false),
+                loops = loops[RepeatLoopRules.key(s)]?.n ?: 0, phase = phase[statsKey("", s.artist).second].orEmpty())
+        }
+        val cands = (lately.map { cand(it, true) } + long.map { cand(it, false) }).filter { Signals.djMay(it.item) }
+        return NewMusicRules.seeds(cands, n).ifEmpty { pick(taste.all.take(40), n, emptySet()) }
+    }
+
+    /** New for you: radios of two of your songs (see [seeds]), the songs you've never played, the ones that fit you best
+     *  likelier ([Signals.djNew]). */
     private fun setFresh(taste: Taste): Pair<List<Track>, String>? {
-        val seeds = pick(taste.recent.take(20).ifEmpty { taste.all.take(40) }, 2, emptySet())
+        val seeds = seeds(taste, 2)
         if (seeds.isEmpty()) return null
         val known = known(taste) + used
         val keys = services()
         val found = seeds.mapIndexed { i, seed ->
             val got = radio(seed, keys[i % keys.size]).ifEmpty { radio(seed, keys[(i + 1) % keys.size]) }
-            got.filter { newToYou(it, known) }
+            Signals.djNew(seed, got.filter { newToYou(it, known) })
         }
         val mixed = KindRules.interleave(found)
         val songs = pick(mixed.take(30), SET, used)
@@ -747,7 +773,7 @@ object Dj {
         for (name in taste.artists.take(10).shuffled().take(3)) {
             val info = runCatching { Music.artistInfo(name, null) }.getOrNull() ?: continue   // the next artist
             val known = known(taste) + used
-            val songs = info.top.filter { newToYou(it, known) }.take(SET)
+            val songs = Signals.djNew(null, info.top.filter { newToYou(it, known) }).take(SET)
             val who = info.name.ifEmpty { name }
             if (songs.size >= 3) return songs to say("deep",
                 "Deep cuts from $who, songs of theirs you haven't played yet.",
@@ -781,11 +807,15 @@ object Dj {
             "Following $a a little further into $tag.")
     }
 
-    /** Radio of what's playing (or, when no service has one of it, of a song you play a lot). */
+    /** Radio of what's playing (or, when no service has one of it, of one of your songs that shows most that you like
+     *  it: see [seeds]): songs you've never played, as the other kinds of new songs (its lines promise "songs you might
+     *  not know"), the ones that fit you best likelier. */
     private fun setLike(taste: Taste): Pair<List<Track>, String>? {
-        val seeds = listOfNotNull(Music.current()) + taste.recent.take(5)
+        val known = known(taste) + used
+        val seeds = (listOfNotNull(Music.current()?.takeIf { Signals.djMay(it) }) + seeds(taste, 3)).distinctBy { songKey(it) }
         for (seed in seeds.take(4)) for (key in services()) {
-            val songs = pick(radio(seed, key).take(25).filter { songKey(it) != songKey(seed) }, SET, used)
+            val got = radio(seed, key).filter { songKey(it) != songKey(seed) && newToYou(it, known) }
+            val songs = pick(Signals.djNew(seed, got).take(25), SET, used)
             if (songs.size >= 3) return songs to say("like",
                 "More like ${q(seed)} by ${by(seed)}.",
                 "If ${q(seed)} did something for you, stay for these.",
@@ -1178,7 +1208,7 @@ object Dj {
         // badly before (skipped, not kept) and the ones you said no to are left out
         val near = taste.habits?.near.orEmpty()
         val bad = Signals.introSuccess().filterValues { it < 0.25 }.keys
-        return KindRules.artistsForYou(f.artistAll, f.artistMonth, taste.artists, known) { a -> HabitRules.similar(similarTo(a), near[statsKey("", a).second].orEmpty()) }
+        return KindRules.artistsForYou(f.artistAll, f.artistMonth, taste.artists, known, taste.habits?.phase.orEmpty()) { a -> HabitRules.similar(similarTo(a), near[statsKey("", a).second].orEmpty()) }
             .filter { (a, _) -> statsKey("", a).second !in bad && Signals.ofArtist(a).let { s -> s == null || (s.noAuto == 0L && SignalRules.thumb(s) >= 0) } }
     }
 
@@ -1190,7 +1220,7 @@ object Dj {
         val picked = ArrayList<Pair<String, List<String>>>(); val songs = ArrayList<Track>()
         for ((name, because) in artistsForYou(taste).filter { norm(it.first) !in introduced }.take(12).shuffled()) {
             val info = runCatching { Music.artistInfo(name, null) }.getOrNull() ?: continue
-            val top = info.top.filter { newToYou(it, known) }.take(3)
+            val top = Signals.djNew(null, info.top.filter { newToYou(it, known) }).take(3)
             if (top.size < 2) continue
             picked += (info.name.ifEmpty { name }) to because; songs += top
             introduced += norm(name)
@@ -1487,7 +1517,7 @@ object Dj {
         val looped = RepeatLoops.all().songs.keys
         val seeds = loopTracks().filter { it.second >= 3 }.take(6).map { it.first }.shuffled()
         for (seed in seeds.take(3)) for (key in services()) {
-            val songs = pick(radio(seed, key).take(25).filter { songKey(it) != songKey(seed) && RepeatLoopRules.key(it) !in looped }, SET, used)
+            val songs = pick(Signals.djNew(seed, radio(seed, key).filter { songKey(it) != songKey(seed) && RepeatLoopRules.key(it) !in looped }).take(25), SET, used)
             if (songs.size >= 3) return songs to say("likeloops",
                 "You've had ${q(seed)} on repeat so often, so here are songs close to it that you haven't worn out yet.",
                 "If ${q(seed)} is worth playing again and again, these might be too.",
@@ -1520,9 +1550,12 @@ object Dj {
             "$run times in a row. ${q(t)} has got hold of you.")
     }
 
-    // ---- variety, and a mood arc, for every set ----
-    /** Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row: SetRules has the rules. */
+    // ---- variety, a mood arc and your own way from song to song, for every set ----
+    /** Every set flows by mood (calm building up, loud easing down), then goes from song to song the way you do yourself
+     *  (what you play after what: [NewMusicRules.flow]), and no artist comes twice in a row: SetRules and NewMusicRules
+     *  have the rules. */
     private fun arc(songs: List<Track>): List<Track> = SetRules.arc(songs) { runCatching { Moods.of(it) }.getOrNull() }
+    private fun flow(songs: List<Track>, taste: Taste): List<Track> = NewMusicRules.flow(songs, taste.habits)
     private fun spread(songs: List<Track>, cap: Boolean): List<Track> = SetRules.spread(songs, cap)
 
     // ---- what the DJ says about the time, and between songs ----
@@ -1810,7 +1843,7 @@ object Dj {
                     val artists = sc.second.groupingBy { it.artist.split(",")[0].trim() }.eachCount().entries
                         .filter { it.key.isNotEmpty() }.sortedByDescending { it.value }.map { it.key }.take(20)
                     regularSet(k, Taste(taste.mine, sc.second.shuffled().take(20), sc.second, artists, taste.last, taste.hour, taste.years,
-                        taste.facts, taste.moods, taste.moodHour, taste.moodPlays, taste.dayAgo, taste.streak))
+                        taste.facts, taste.moods, taste.moodHour, taste.moodPlays, taste.dayAgo, taste.streak, taste.habits))
                 } else {
                     only.set(keys)
                     try {
@@ -1833,11 +1866,12 @@ object Dj {
             }
             dead.remove("$key:$k")
             if (k in order) remember(KIND_HISTORY, canon(k), keep = 200)   // played: it waits until every other kind has had a turn
-            // Every set flows by mood (calm building up, loud easing down) and no artist comes twice in a row (nor more
-            // than twice in a set, but for an artist's own set); an album moment stays in the album's order
+            // Every set flows by mood (calm building up, loud easing down), song to song the way you play them yourself, and
+            // no artist comes twice in a row (nor more than twice in a set, but for an artist's own set); an album moment
+            // stays in the album's order
             // …and the song the line names first is the one that plays first ("leads", "gets us going", "we start with")
             val songs = if (k == "album") got.first
-                else LeadRules.leadFirst(spread(arc(got.first), cap = k !in setOf("spotlight", "deep", "artist", "discover")), got.second) { it.title }
+                else LeadRules.leadFirst(spread(flow(arc(got.first), taste), cap = k !in setOf("spotlight", "deep", "artist", "discover")), got.second) { it.title }
             val opener0 = if (first) hello() else timeFlavor()
             val (opener, line) = ScriptRules.opened(opener0, got.second, first)
             // A break is MOST_WORDS words at most, as said: a word about the day goes first if it's over (a hello stays)

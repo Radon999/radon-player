@@ -157,9 +157,6 @@ class VoiceDspTest {
     @Test fun aQuietLineIsOnlyFilteredAndSetForTwoSpeakers() {
         val y = DjVoiceProcessor.process(tone(1000.0, 24000, 1.0, 0.5), 24000, 48000)
         assertEquals(0.5 * DjVoiceProcessor.UPMIX, peak(y, 12000, 36000).toDouble(), 0.01)   // 1 kHz: no filter moves it
-        val two = DjVoiceProcessor.stereo(y)
-        assertEquals(y.size * 2, two.size)
-        for (i in 10000 until 10100) { assertEquals(y[i], two[2 * i], 0f); assertEquals(y[i], two[2 * i + 1], 0f) }
     }
 
     @Test fun nothingInNothingOutAndNoBadNumbers() {

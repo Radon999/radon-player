@@ -50,12 +50,16 @@ object NewReleases {
 
     /** The artists to look for: the lead artist of every song of yours, the ones you have most songs of first. */
     fun readArtists(songs: List<Track>): Int {
-        artists = songs.mapNotNull { splitArtists(it.artist).firstOrNull()?.trim() }
+        val counted = songs.mapNotNull { splitArtists(it.artist).firstOrNull()?.trim() }
             .filter { it.isNotEmpty() && norm(it) !in setOf("unknown artist", "various artists") }
-            .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+            .groupingBy { it }.eachCount()
+        songCounts = counted
+        artists = counted.entries.sortedByDescending { it.value }.map { it.key }
         Music.bg({ save() })
         return artists.size
     }
+    /** How many songs of each artist you have, as last read (for the order a look goes in). */
+    @Volatile private var songCounts: Map<String, Int> = emptyMap()
 
     private fun kindOf(t: String?) = when (t?.lowercase()) { "ep" -> "ep"; "single" -> "single"; else -> "album" }
 
@@ -135,8 +139,11 @@ object NewReleases {
         status = "Looking…"
         stop = false
         val since = LocalDate.now().minusDays(RANGES[period] ?: 30).toString()
-        val names = artists
+        val songsOf = artists.associateWith { songCounts[it] ?: 0 }   // (most songs first, as read)
         Music.bg({
+            // The artists you play most, and the ones you've lately fallen for, are looked at first: a look stopped
+            // halfway (or the daily one) has found theirs
+            val names = byTaste(songsOf)
             val out = ArrayList<Release>()
             for ((i, name) in names.withIndex()) {
                 if (stop) break
@@ -160,5 +167,15 @@ object NewReleases {
             Music.bg({ save() })
             if (quiet) announce(res) else Music.toast("${res.size} new release${if (res.size != 1) "s" else ""}")
         }
+    }
+
+    /** (blocking) The artists (each with how many songs of theirs you have) in the order to look: [NewMusicRules.releaseOrder]
+     *  by your plays of each and their phase in your listening, as the last picture of it has them (none yet: as given). */
+    private fun byTaste(songsOf: Map<String, Int>): List<String> {
+        val taste = TasteService.current ?: return songsOf.keys.toList()
+        val all = taste.facts.artistAll
+        val byNorm = HashMap<String, Int>().also { m -> all.forEach { (a, n) -> m.merge(norm(a), n, Int::plus) } }
+        val phase = taste.habits?.phase.orEmpty()
+        return NewMusicRules.releaseOrder(songsOf.toList(), { a -> all[a] ?: byNorm[norm(a)] ?: 0 }, { a -> phase[statsKey("", a).second] })
     }
 }

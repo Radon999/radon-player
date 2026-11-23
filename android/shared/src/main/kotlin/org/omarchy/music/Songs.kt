@@ -213,7 +213,7 @@ fun artistKey(credit: String) = statsKey("", credit).second
 
 private val DUO = Regex(" & | x |,")
 
-fun soloKey(n: String) = norm(n).replace(Regex("[\\W_]+"), "")
+fun soloKey(n: String) = norm(n).replace(NOT_LETTERS, "")
 
 /** Of the names one artist goes by ("Quinn XCII", "Quinn XCII & Jeremy Zucker"), the one they have on their own; with only
  *  "A & B", A when A is an artist of their own (solo), else the duo ("Simon & Garfunkel"). The desktop's artist_named. */
@@ -256,7 +256,7 @@ fun bandTail(s: String): Boolean {
 // ---- Whose plays a joint credit's are (the desktop's artist_resolver) ----
 private val FEAT_SPLIT = Regex("\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE)
 private val PAIR_SEP = Regex(" & | x |,|;")
-private fun plainKey(n: String) = norm(n).replace(Regex("[\\W_]+"), "")
+private fun plainKey(n: String) = norm(n).replace(NOT_LETTERS, "")
 
 /** The artists of a credit joined by "&", "x" or commas; a band's own name stays whole ("Of Monsters and Men",
  *  "Lil Nas X", "Tyler, The Creator"). */
@@ -402,20 +402,29 @@ val SONG_VERSION = Regex("\\b(acoustic|remix|rmx|live|demo|stripped|orchestra|se
     "sped|slowed|mix|edit|rework|piano|reprise|cover|karaoke|cappella|unplugged|extended|voice memo|home recording|recorded at|version|vip|bootleg|flip)\\b",
     RegexOption.IGNORE_CASE)
 
+// The patterns the song keys below are made with, built once: these run for every play of every history (tens of
+// thousands at a time, on the phone too), and making each pattern again on every call was time and battery for nothing.
+private val BRACKETS = Regex("[(\\[][^)\\]]*[)\\]]")
+private val DASH_REST = Regex("\\s[-–—]\\s.*$")
+private val FEAT_REST = Regex("\\s(?:feat|ft|featuring)\\b.*$")
+private val NOT_LETTERS = Regex("[\\W_]+")
+private val LEADING_NUMBER = Regex("^\\s*\\d{1,3}\\s*[-._)]?\\s+(\\S.*)$")
+private val CREDIT_SPLIT = Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with ")
+
 /** A song's name with everything after it left out and no punctuation ("N.P.D" = "NPD"). The desktop's loose_title. */
 fun looseTitle(title: String): String {
     var t = Censored.plain(Normalizer.normalize(title.lowercase(), Normalizer.Form.NFKC))
-    t = Regex("[(\\[][^)\\]]*[)\\]]").replace(t, " ")
-    t = Regex("\\s[-–—]\\s.*$").replace(t, " ")
-    t = Regex("\\s(?:feat|ft|featuring)\\b.*$").replace(t, " ")
-    return Regex("[\\W_]+").replace(t, "")
+    t = BRACKETS.replace(t, " ")
+    t = DASH_REST.replace(t, " ")
+    t = FEAT_REST.replace(t, " ")
+    return NOT_LETTERS.replace(t, "")
 }
 
 /** A title without the track number a file's name starts with ("11 Ruby", "03 - Intro", "13. unconditional"): what a
  *  file with no tags is called by its name alone. The title as it is when nothing but a number would be left, or when
  *  no number leads it. ("24 Hours" loses its 24 too, so this is only ever tried beside the title as it is.) */
 fun withoutTrackNumber(title: String): String {
-    val m = Regex("^\\s*\\d{1,3}\\s*[-._)]?\\s+(\\S.*)$").find(title) ?: return title
+    val m = LEADING_NUMBER.find(title) ?: return title
     return m.groupValues[1].trim().takeIf { r -> r.any { it.isLetter() } } ?: title
 }
 
@@ -427,8 +436,8 @@ fun noArtistNamed(artist: String?): Boolean = (artist ?: "").replace('_', ' ').t
  *  of them, and not the first, so it is looked for under each. */
 fun creditKeys(title: String, artist: String): List<Pair<String, String>> {
     val t = norm(cleanTitle(title))
-    return artist.lowercase().split(Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with "))
-        .map { p -> norm(p).let { n -> n.replace(Regex("[\\W_]+"), "").ifEmpty { n } } }
+    return artist.lowercase().split(CREDIT_SPLIT)
+        .map { p -> norm(p).let { n -> n.replace(NOT_LETTERS, "").ifEmpty { n } } }
         .filter { it.isNotEmpty() }.distinct().map { t to it }
 }
 
@@ -437,8 +446,8 @@ fun songPickKey(title: String, artist: String): String = statsKey(title, artist)
 /** A song across Last.fm, Spotify, Apple Music and here: its name and lead artist, tidied
  *  (feat., & and x credits, remaster notes left out). The desktop's stats_key. */
 fun statsKey(title: String, artist: String): Pair<String, String> =
-    norm(cleanTitle(title)) to norm(artist.lowercase().split(Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with "))[0])
-        .let { n -> n.replace(Regex("[\\W_]+"), "").ifEmpty { n } }   // K.Flay = kflay
+    norm(cleanTitle(title)) to norm(artist.lowercase().split(CREDIT_SPLIT)[0])
+        .let { n -> n.replace(NOT_LETTERS, "").ifEmpty { n } }   // K.Flay = kflay
 
 /** A service's songs for a search, the best fits first: the song named just what you typed, then ones whose name and
  *  artist hold all your words, then the rest, each in the service's own order. */

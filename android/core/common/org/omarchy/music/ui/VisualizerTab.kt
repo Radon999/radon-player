@@ -148,7 +148,6 @@ val NP_VIS_STYLES: List<Pair<String, String>> get() = listOf("slim" to "Slim bar
 object Vis {
     const val COLOR = "vis_color"     // the colour, a VIS_COLORS key
     const val NOW = "np_vis"          // Now playing's visualizer, an NP_VIS_STYLES key
-    const val NOW_BG = "np_bg"        // Now playing's background: "blur" (the cover's colours, the cover blurred) or "plain" (black)
     const val NOW_STRENGTH = "np_vis_strength"   // how strongly Now playing's visualizer shows, 0.1 … 1 (a number)
 
     /** The styles drawn around the middle of the space (the others stand on its bottom). */

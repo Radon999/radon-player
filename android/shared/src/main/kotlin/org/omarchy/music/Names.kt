@@ -19,7 +19,8 @@ fun norm(s: String?): String {
 
 /** Text as searches compare it: [norm] (no commas, dots or other symbols, any case or accent), with an apostrophe
  *  joining its word ("Don't" is "dont"), so what's typed matches with or without them. */
-fun searchNorm(s: String?): String = norm((s ?: "").replace(Regex("['’‘`´]"), ""))
+fun searchNorm(s: String?): String = norm((s ?: "").replace(APOSTROPHES, ""))
+private val APOSTROPHES = Regex("['’‘`´]")   // (built once: every row is matched against a search as you type)
 
 /** The words of a search. */
 fun searchWords(q: String): List<String> = searchNorm(q).split(" ").filter { it.isNotEmpty() }

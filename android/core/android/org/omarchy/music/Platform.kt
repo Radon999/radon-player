@@ -1,5 +1,7 @@
 package org.omarchy.music
 
+import kotlinx.coroutines.launch
+
 // The phone's side of what the shared code asks of the platform (the PC has its own, the same names).
 
 /** Where the app keeps its files: the phone's app context. */
@@ -173,26 +175,40 @@ fun embeddedPicture(ctx: Ctx, uri: String): ByteArray? {
     return own ?: runCatching { ctx.openIn(uri)?.buffered()?.use { EmbeddedArt.picture(it) } }.getOrNull()
 }
 
-/** Desktops on this network with the remote on (they announce _omarchy-music._tcp): found(name, address). */
+/** Desktops on this network with the remote on (they announce _omarchy-music._tcp): found(name, address). Looked for
+ *  while the app is on the screen (they're only shown there, when pairing); away from it the looking stops, as it keeps
+ *  Wi-Fi busy, and starts again the moment the app is back. Those found stay found. */
 fun discoverDesktops(ctx: Ctx, found: (String, String) -> Unit) {
     val nsd = ctx.getSystemService(android.net.nsd.NsdManager::class.java) ?: return
-    nsd.discoverServices("_omarchy-music._tcp", android.net.nsd.NsdManager.PROTOCOL_DNS_SD, object : android.net.nsd.NsdManager.DiscoveryListener {
-        override fun onServiceFound(info: android.net.nsd.NsdServiceInfo) {
-            @Suppress("DEPRECATION")
-            nsd.resolveService(info, object : android.net.nsd.NsdManager.ResolveListener {
-                override fun onResolveFailed(i: android.net.nsd.NsdServiceInfo, code: Int) {}
-                override fun onServiceResolved(i: android.net.nsd.NsdServiceInfo) {
-                    @Suppress("DEPRECATION")
-                    found(i.serviceName, "${i.host.hostAddress}:${i.port}")
-                }
-            })
+    var looking: android.net.nsd.NsdManager.DiscoveryListener? = null
+    fun start() {
+        if (looking != null) return
+        val l = object : android.net.nsd.NsdManager.DiscoveryListener {
+            override fun onServiceFound(info: android.net.nsd.NsdServiceInfo) {
+                @Suppress("DEPRECATION")
+                nsd.resolveService(info, object : android.net.nsd.NsdManager.ResolveListener {
+                    override fun onResolveFailed(i: android.net.nsd.NsdServiceInfo, code: Int) {}
+                    override fun onServiceResolved(i: android.net.nsd.NsdServiceInfo) {
+                        @Suppress("DEPRECATION")
+                        found(i.serviceName, "${i.host.hostAddress}:${i.port}")
+                    }
+                })
+            }
+            override fun onServiceLost(info: android.net.nsd.NsdServiceInfo) {}
+            override fun onDiscoveryStarted(type: String) {}
+            override fun onDiscoveryStopped(type: String) {}
+            override fun onStartDiscoveryFailed(type: String, code: Int) {}
+            override fun onStopDiscoveryFailed(type: String, code: Int) {}
         }
-        override fun onServiceLost(info: android.net.nsd.NsdServiceInfo) {}
-        override fun onDiscoveryStarted(type: String) {}
-        override fun onDiscoveryStopped(type: String) {}
-        override fun onStartDiscoveryFailed(type: String, code: Int) {}
-        override fun onStopDiscoveryFailed(type: String, code: Int) {}
-    })
+        looking = l
+        runCatching { nsd.discoverServices("_omarchy-music._tcp", android.net.nsd.NsdManager.PROTOCOL_DNS_SD, l) }
+    }
+    fun stop() {
+        val l = looking ?: return
+        looking = null
+        runCatching { nsd.stopServiceDiscovery(l) }   // (one that never started says so: nothing to stop)
+    }
+    Music.scope.launch { AppVisible.flow.collect { shown -> if (shown) start() else stop() } }
 }
 
 /** A picture that needs a login header: what the picture loader (Coil) takes. */

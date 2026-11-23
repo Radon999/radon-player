@@ -12,10 +12,6 @@ object SinkRules {
      *  to 16 bits and then sent "bit-perfect" to the DAC: Settings said 16-bit/48 kHz for a 24-bit/48 kHz file. */
     fun asItIs(bitPerfectNow: Boolean, dacWanted: Boolean): Boolean = bitPerfectNow || dacWanted
 
-    /** Whether hi-res music is brought down to 16 bits for Android's own output (some outputs refuse more): only when
-     *  it is hi-res and isn't going on as it is. */
-    fun toSixteen(hiRes: Boolean, bitPerfectNow: Boolean, dacWanted: Boolean): Boolean = hiRes && !asItIs(bitPerfectNow, dacWanted)
-
     /** Bit-perfect straight to a USB DAC takes it from Android, and Android, seeing it gone, moves the sound to the speaker;
      *  the player sets up again and the DAC is taken again, or handed back and taken again. Normally it's taken once and
      *  kept, song after song; taken TAKEOVER_MAX times within TAKEOVER_SPAN_MS is the two pulling it between them (static,

@@ -241,8 +241,10 @@ object Music {
         rescan()
         // Headphones coming and going: their correction comes with them (see outputChanged).
         watchOutputs(ctx) { outputChanged() }
-        // The DJ's first set made ahead while it's off (and made again when it goes stale), so it starts at once
-        scope.launch { delay(20_000); while (true) { runCatching { djWarm() }; delay(10 * 60_000L) } }
+        // The DJ's first set made ahead while it's off (and made again when it goes stale), so it starts at once. Only
+        // while the app is on the screen, where the DJ is started: away from it, it waits, and is made the moment the
+        // app is back (a set and its line made every half hour with the screen off was work nobody could use).
+        scope.launch { delay(20_000); while (true) { AppVisible.awaitShown(); runCatching { djWarm() }; delay(10 * 60_000L) } }
         PlaybackCore.start()   // the clock of what's playing: the position, what counts as played, crossfade, the watches
     }
 

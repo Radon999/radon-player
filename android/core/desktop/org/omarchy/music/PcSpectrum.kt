@@ -12,7 +12,6 @@ object PcSpectrum {
     private var key = ""
     private var startedAt = 0L
     private var startedPos = 0.0
-    private val windows = System.getProperty("os.name").lowercase().contains("win")
 
     private fun ffmpeg(): String = Bins.ffmpeg
 

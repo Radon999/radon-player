@@ -60,7 +60,7 @@ object TasteService {
     }.getOrDefault(emptyList())
 
     /** (blocking) Every play (Last.fm, your imports, the plays here) of a song of yours whose mood is known, oldest
-     *  first, read again every ten minutes. See [MoodPlays]. */
+     *  first, read again every ten minutes. Counted by [MoodTally] for the DJ's mood facts. */
     fun moodPlays(): List<MoodPlay> = get().moodPlays
 
     /** Your copy of the song a [MoodPlay.song] names (title and artist key), or null. */

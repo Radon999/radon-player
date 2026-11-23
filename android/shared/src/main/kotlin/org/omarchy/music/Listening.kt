@@ -117,16 +117,6 @@ object Listening {
         return Kind(name, line, all)
     }
 
-    /** The longest run of days in a row in days. */
-    fun longestRun(days: Collection<java.time.LocalDate>): Int {
-        var best = 0; var run = 0; var prev: java.time.LocalDate? = null
-        for (d in days.toSortedSet()) {
-            run = if (prev != null && prev.plusDays(1) == d) run + 1 else 1
-            best = maxOf(best, run); prev = d
-        }
-        return best
-    }
-
     /** "3 days 4 hours", "5 hours 12 min", "12 min": how long seconds of music is. */
     fun duration(secs: Double): String {
         val m = Math.round(secs / 60).toLong()

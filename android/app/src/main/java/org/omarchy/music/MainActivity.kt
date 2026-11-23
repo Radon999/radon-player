@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        watchScreens(application)   // whether the app is on the screen, for the timers that only serve it (AppVisible)
         if (MusicApp.safeMode) { showCrash(); return }
         org.omarchy.music.ui.remakeScreen = { runCatching { recreate() } }
         // The volume buttons are the music's here, always: with bit-perfect streaming straight to a USB DAC Android hears
@@ -171,6 +172,24 @@ class MainActivity : ComponentActivity() {
         @Volatile var visible = false   // on screen: Android lets it open the installer's question
         var mini by androidx.compose.runtime.mutableStateOf(false)   // in the mini player (picture in picture)
         const val MINI = "org.omarchy.music.MINI"
+
+        private var watchingScreens = false
+        /** Whether the app is on the screen ([AppVisible]): while any of its screens is started, this one (the mini
+         *  player too) or the lock screen player. Followed from here, before this screen's own start, so it is counted. */
+        fun watchScreens(app: android.app.Application) {
+            if (watchingScreens) return
+            watchingScreens = true
+            val started = HashSet<Int>()   // (by identity: no screen is held on to)
+            app.registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
+                override fun onActivityStarted(a: android.app.Activity) { started += System.identityHashCode(a); AppVisible.set(true) }
+                override fun onActivityStopped(a: android.app.Activity) { started -= System.identityHashCode(a); AppVisible.set(started.isNotEmpty()) }
+                override fun onActivityCreated(a: android.app.Activity, b: Bundle?) {}
+                override fun onActivityResumed(a: android.app.Activity) {}
+                override fun onActivityPaused(a: android.app.Activity) {}
+                override fun onActivitySaveInstanceState(a: android.app.Activity, b: Bundle) {}
+                override fun onActivityDestroyed(a: android.app.Activity) {}
+            })
+        }
     }
 
     override fun onStart() {

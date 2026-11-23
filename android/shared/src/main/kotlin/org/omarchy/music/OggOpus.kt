@@ -79,9 +79,6 @@ object OggOpus {
         return Opus(head ?: opusHead(channels, 312), packets, endTrim)
     }
 
-    /** A WebM's Opus audio written as an Ogg Opus file, with tags. Throws if it isn't Opus in WebM. */
-    fun webmToOpus(webm: ByteArray, out: OutputStream, tags: Tags) = write(readWebm(webm), out, tags)
-
     /** The OpusHead packet for channels (1 or 2) and preSkip samples, 48 kHz. */
     private fun opusHead(channels: Int, preSkip: Int): ByteArray = ByteArrayOutputStream().apply {
         write("OpusHead".toByteArray()); write(1); write(channels.coerceIn(1, 2)); le16(this, preSkip); le32(this, 48_000); le16(this, 0); write(0)

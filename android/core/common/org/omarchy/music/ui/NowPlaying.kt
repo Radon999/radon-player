@@ -372,6 +372,7 @@ private fun LockTop(n: Now, lock: () -> Unit) {
     var clock by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
         while (true) {
+            org.omarchy.music.AppVisible.awaitShown()   // (off the screen nothing shows it: put right the moment it's back)
             clock = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())
             kotlinx.coroutines.delay(10_000)
         }
@@ -725,9 +726,10 @@ private fun ModeButton(ico: Ico, on: Boolean, desc: String, k: Float, onClick: (
 private fun VolumeLine() {
     var v by remember { mutableFloatStateOf(SysVolume.get()) }
     var held by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {   // the volume keys change it too
+    LaunchedEffect(Unit) {   // the volume keys change it too (looked at while the app is on the screen, where it shows)
         while (true) {
             kotlinx.coroutines.delay(600)
+            org.omarchy.music.AppVisible.awaitShown()
             if (!held) v = SysVolume.get()
         }
     }

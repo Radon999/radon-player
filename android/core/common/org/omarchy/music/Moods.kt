@@ -103,7 +103,6 @@ object Moods {
     /** Moods from a restored backup, waiting for their songs to turn up here. */
     private val restoreFile get() = File(Music.ctx.filesDir, "moods-restore.json")
 
-    private const val WRITE_KEY = "moods_write"         // "on", "off", or "" (on once a Full scan has finished)
     private const val FULL_DONE_KEY = "moods_full_done"  // a Full scan went through every song once
     private const val CLEARED_KEY = "moods_cleared"      // Remove all moods was used and no Full scan has finished since
     const val ASK_OVER = 25                              // more files than this to write: ask first
@@ -403,7 +402,6 @@ object Moods {
     /** Rescan moods: 0 none; 1 hearing every song again; 2 then reading every song's words again; afterwards the
      *  moods go into the files (when writing moods into files is on). */
     @Volatile private var rescanStage = 0
-    val rescanning get() = rescanStage != 0
 
     /** Rescan moods (the Moods tab, only for when moods are lost or spoilt): everything the scans worked out is
      *  forgotten and every song is heard again and its words read again (by the AI when it's on, else on the device),
@@ -858,7 +856,7 @@ object Moods {
             val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: continue   // gone
             val e = fresh(p, t, m)
             // A song whose file already has a MOOD tag has its mood: neither scan hears it again.
-            // (Unless the app put it there and it was sent to hear the song again: see [hearAgainFromElsewhere].)
+            // (Unless the app put it there itself: a reset makes the file's moods the app's own, so they're heard again.)
             // (A mood the app wrote itself doesn't stop Full scan hearing the whole song: only one from elsewhere does.)
             val need = if (e.inFile.isNotEmpty() && e.inFile != e.wrote) false
                 else if (full) !e.full
@@ -1409,22 +1407,6 @@ object Moods {
             mainFile.writeText("1")
         } else mainFile.delete()
         writeAtomic(restoreFile, text)
-    }
-
-    /** (blocking) Those songs heard again here, from scratch: their moods from elsewhere dropped (the MOOD the app wrote
-     *  into their files is worked out again and rewritten). For moods a sync spoilt. How many. */
-    fun hearAgainFromElsewhere(): Int {
-        load()
-        var n = 0
-        synchronized(lock) {
-            for ((p, e) in known.entries.toList()) if (e.kept.isNotEmpty() && e.picked.isEmpty()) {
-                known[p] = e.copy(kept = emptyList(), keptSure = 0.0, heard = false, full = false, sound = null,
-                    wrote = e.inFile.ifEmpty { e.wrote })
-                n++
-            }
-        }
-        if (n > 0) { save(); Music.scope.launch { version++ } }
-        return n
     }
 
     /** The other device is the main one (Tags & covers match) and these moods came from it: its moods win. */

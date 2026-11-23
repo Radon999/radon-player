@@ -114,6 +114,34 @@ class KindRulesTest {
         assertEquals(emptyList<Pair<String, List<String>>>(), KindRules.artistsForYou(emptyMap(), emptyMap(), emptyList(), emptySet()) { listOf("x" to 1.0) })
     }
 
+    @Test fun anArtistSeveralOfYoursLeadToBeatsOneOnlyABigOneDoes() {
+        // Big alone brings "Big's best" (6.0) further than all three bring "Shared" added up (5.0); but three of yours
+        // leading to it makes it the surer bet
+        val similar = mapOf("Big" to listOf("Big's best" to 1.0, "Shared" to 0.6), "Mid" to listOf("Shared" to 0.2), "Small" to listOf("Shared" to 0.2))
+        val got = KindRules.artistsForYou(mapOf("Big" to 400, "Mid" to 60, "Small" to 20), emptyMap(), emptyList(), emptySet()) { similar[it].orEmpty() }
+        assertEquals(listOf("Shared", "Big's best"), got.map { it.first })
+        assertEquals(setOf("Big", "Mid", "Small"), got[0].second.toSet())
+    }
+
+    @Test fun artistsYouveFallenForLeadAndOnesYouveLeftBehindBringNone() {
+        val similar = mapOf("Old flame" to listOf("Like the old" to 1.0), "Steady" to listOf("Like the steady" to 1.0),
+            "New crush" to listOf("Like the new" to 1.0))
+        val plays = mapOf("Old flame" to 500, "Steady" to 100, "New crush" to 60)
+        val phase = mapOf(statsKey("", "Old flame").second to HabitRules.FADED, statsKey("", "New crush").second to HabitRules.NEW_LOVE)
+        assertEquals("without phases: the most played first", listOf("Like the old", "Like the steady", "Like the new"),
+            KindRules.artistsForYou(plays, emptyMap(), emptyList(), emptySet()) { similar[it].orEmpty() }.map { it.first })
+        assertEquals("the faded one's are gone; the new love's count half again (60 plays beat 100)", listOf("Like the new", "Like the steady"),
+            KindRules.artistsForYou(plays, emptyMap(), emptyList(), emptySet(), phase) { similar[it].orEmpty() }.map { it.first })
+    }
+
+    @Test fun aRisingArtistBelowTheTopTwelveBringsTheirsToo() {
+        val plays = (1..12).associate { "Top $it" to 1000 - it } + ("Riser" to 30)
+        val phase = mapOf(statsKey("", "Riser").second to HabitRules.RISING)
+        val like = { a: String -> if (a == "Riser") listOf("Like the riser" to 1.0) else emptyList<Pair<String, Double>>() }
+        assertEquals(listOf("Like the riser" to listOf("Riser")), KindRules.artistsForYou(plays, emptyMap(), emptyList(), emptySet(), phase, like))
+        assertTrue("not without its phase", KindRules.artistsForYou(plays, emptyMap(), emptyList(), emptySet(), similarTo = like).isEmpty())
+    }
+
     @Test fun newSongsComeThirdAndFifthAmongTheOnesYouKnow() {
         assertEquals(listOf("k1", "k2", "n1", "k3", "n2", "k4"), KindRules.withNewOnes(listOf("k1", "k2", "k3", "k4", "k5"), listOf("n1", "n2"), 6))
         assertEquals("no new ones: the known ones", listOf("k1", "k2", "k3"), KindRules.withNewOnes(listOf("k1", "k2", "k3"), emptyList<String>(), 6))

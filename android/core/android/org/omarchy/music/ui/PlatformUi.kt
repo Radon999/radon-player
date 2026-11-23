@@ -132,9 +132,6 @@ fun SystemBars(light: Boolean) {
     }
 }
 
-/** How strongly a blurred cover can show (older Android can't blur, and it would just be a soft picture). */
-val blurAlpha: Float get() = if (android.os.Build.VERSION.SDK_INT >= 31) 0.5f else 0.16f
-
 /** The mini player (picture in picture). */
 fun enterMiniPlayer(activity: Any?) { (activity as? org.omarchy.music.MainActivity)?.enterMini() }
 fun updateMiniPlayer(activity: Any?) { (activity as? org.omarchy.music.MainActivity)?.updateMini() }
@@ -163,8 +160,10 @@ fun rememberSpectrum(on: Boolean, failed: (String) -> Unit = {}): FloatArray? {
     return SpectrumHub.target
 }
 
-/** The one Android visualizer, open while any screen shows a visualizer. It follows the player's sound (a new session
- *  when the player changes) and is opened again by itself when it goes quiet while music plays. */
+/** The one Android visualizer, open while any screen shows a visualizer and the app is on the screen. It follows the
+ *  player's sound (a new session when the player changes) and is opened again by itself when it goes quiet while music
+ *  plays. Off the screen nothing is drawn, so it lets go (Android's visualizer reads the sound many times a second)
+ *  and is opened again the moment the app is back. */
 object SpectrumHub {
     val target = FloatArray(org.omarchy.music.Spectrum.BANDS)
     private var users = 0
@@ -173,6 +172,7 @@ object SpectrumHub {
     @Volatile private var heard = 0L
     private var watch: kotlinx.coroutines.Job? = null
     private var tap: kotlinx.coroutines.Job? = null
+    private var following: kotlinx.coroutines.Job? = null
     private var onFail: (String) -> Unit = {}
 
     private fun sessionNow() = ((Music.player as? org.omarchy.music.ExoEngine)?.p as? androidx.media3.exoplayer.ExoPlayer)?.audioSessionId ?: 0
@@ -181,15 +181,28 @@ object SpectrumHub {
         onFail = failed
         users++
         if (users > 1) return
+        // The app leaving the screen and coming back: let go, and taken up again (while a screen still wants it)
+        if (following == null) following = Music.scope.launch {
+            org.omarchy.music.AppVisible.flow.collect { shown -> if (!shown) stop() else if (users > 0) start() }
+        }
+        if (org.omarchy.music.AppVisible.on) start()
+    }
+
+    fun release() {
+        users = (users - 1).coerceAtLeast(0)
+        if (users > 0) return
+        stop()
+    }
+
+    private fun start() {
+        if (tap != null) return
         open()
-        watch?.cancel()
         // Bit-perfect straight to a USB DAC: Android's visualizer hears nothing, so the bars come from the app's own
-        // output (AudioTap), about 30 times a second
-        tap?.cancel()
+        // output (AudioTap), about 30 times a second. Until that output has music it's only looked at every 0.1 s.
         tap = Music.scope.launch {
             var wasTap = false
             while (true) {
-                kotlinx.coroutines.delay(33)
+                kotlinx.coroutines.delay(if (wasTap) 33 else 100)
                 if (!org.omarchy.music.AudioTap.active) { if (wasTap) { wasTap = false; target.fill(0f) }; continue }
                 wasTap = true
                 if (vis != null) close()
@@ -210,9 +223,7 @@ object SpectrumHub {
         }
     }
 
-    fun release() {
-        users = (users - 1).coerceAtLeast(0)
-        if (users > 0) return
+    private fun stop() {
         watch?.cancel(); watch = null
         tap?.cancel(); tap = null
         close()
@@ -226,7 +237,7 @@ object SpectrumHub {
 
     private fun open() {
         close()
-        if (org.omarchy.music.AudioTap.active) return   // the app's own output has it (see acquire)
+        if (org.omarchy.music.AudioTap.active) return   // the app's own output has it (see start)
         session = sessionNow()
         heard = System.currentTimeMillis()
         if (session == 0) return   // no player's sound yet: tried again in a moment
@@ -245,13 +256,15 @@ object SpectrumHub {
         }.onFailure { onFail(it.message ?: "Android's visualizer isn't available") }.getOrNull()
     }
 }
-/** The PC's sound's levels while this phone is its remote: asked of the PC about 20 times a second. */
+/** The PC's sound's levels while this phone is its remote: asked of the PC about 20 times a second, while the app is on
+ *  the screen (off it nothing is drawn: asked again the moment it's back). */
 @Composable
 private fun rememberPcSpectrum(): FloatArray {
     val target = remember { FloatArray(org.omarchy.music.Spectrum.BANDS) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         var misses = 0
         while (true) {
+            org.omarchy.music.AppVisible.awaitShown()
             val got = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { org.omarchy.music.Remote.levels() }
             if (got != null) { misses = 0; got.copyInto(target, endIndex = minOf(got.size, target.size)) }
             else { misses++; target.fill(0f) }

@@ -172,7 +172,7 @@ object Limiter {
 
 /** The whole of it, in order: to the music's rate, the level for two speakers (x 0.7071), rumble out (80 Hz), warmth
  *  in (+2.5 dB under 180 Hz), presence in (+2 dB around 3.5 kHz), peaks held under -1.5 dB, and 5 ms of fade at each
- *  end so it never clicks. One channel comes out, the same for both speakers ([stereo] makes the two of it). */
+ *  end so it never clicks. One channel comes out, the same for both speakers (the player plays it to both). */
 object DjVoiceProcessor {
     const val UPMIX = 0.70710678
     private const val FADE = 0.005   // seconds
@@ -193,7 +193,4 @@ object DjVoiceProcessor {
         for (i in 0 until fade) { val g = i.toFloat() / fade; y[i] *= g; y[y.size - 1 - i] *= g }
         return y
     }
-
-    /** One channel as two, the same in each (left, right, left, right...). */
-    fun stereo(mono: FloatArray): FloatArray = FloatArray(mono.size * 2) { mono[it / 2] }
 }

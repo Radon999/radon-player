@@ -61,7 +61,7 @@ class OggOpusTest {
         val pkts = List(600) { i -> byteArrayOf(0xFC.toByte()) + ByteArray(150 + i % 300) { (it * 7 + i).toByte() } }   // CELT 20 ms
         val cover = ByteArray(200_000) { (it % 251).toByte() }.also { it[0] = 0xFF.toByte(); it[1] = 0xD8.toByte() }
         val out = ByteArrayOutputStream()
-        OggOpus.webmToOpus(webm(pkts, 6_500_000), out, OggOpus.Tags("Title", "Artist", "Album", cover))
+        OggOpus.write(OggOpus.readWebm(webm(pkts, 6_500_000)), out, OggOpus.Tags("Title", "Artist", "Album", cover))   // as Downloader does
         val ps = pages(out.toByteArray())
         assertEquals(2, ps.first().flags)            // the first page begins the stream
         assertEquals(4, ps.last().flags and 4)       // the last ends it

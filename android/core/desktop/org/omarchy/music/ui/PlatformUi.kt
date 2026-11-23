@@ -228,8 +228,6 @@ fun shouldExplain(activity: Any?, p: String) = false
 @Composable
 fun SystemBars(light: Boolean) {}
 
-val blurAlpha: Float get() = 0.5f
-
 /** The PC's windows the screens can open: the mini player (a small window, always on top). */
 object PcWindows {
     var mini by mutableStateOf(false)

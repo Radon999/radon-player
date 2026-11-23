@@ -424,8 +424,11 @@ object UsbDirect {
     /** Watches the stream while it plays: if the DAC stops taking music (no data back for 0.4 s), the queued transfers
      *  are sent again, and if that doesn't help the stream is set up from scratch (the player's own thread does it: see
      *  restartWanted). Quiet: it works on its own; only a stream that keeps stopping is noted (UsbAudioSink). Paused,
-     *  it's left alone: the phone may sleep then, and the stream with it, which is no problem. */
+     *  it's left alone: the phone may sleep then, and the stream with it, which is no problem. It looks ten times a
+     *  second while the music plays; paused, once a second (only the phone's volume is followed then), woken at once
+     *  when the music starts again ([watchWake]). */
     private val watching: MutableSet<Long> = java.util.Collections.synchronizedSet(HashSet())
+    private val watchWake = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
     private fun watch(h: Long) {
         if (!watching.add(h)) return   // one watch for each stream
         Music.scope.launch {
@@ -436,7 +439,8 @@ object UsbDirect {
             var saidAt = 0L
             try {
                 while (stream == h) {
-                    kotlinx.coroutines.delay(100)
+                    if (Music.localPlayer?.playWhenReady == true) kotlinx.coroutines.delay(100)
+                    else kotlinx.coroutines.withTimeoutOrNull(1000) { watchWake.receive() }
                     if (stream != h) break
                     // The phone's volume, followed here too (in case Android's "volume changed" never comes)
                     val now = runCatching { am.getStreamVolume(AudioManager.STREAM_MUSIC) }.getOrDefault(vol)
@@ -518,6 +522,7 @@ object UsbDirect {
 
     /** Whether the player has the DAC's stream playing (see UsbAudioSink): the DJ's voice leaves it as it found it. */
     @Volatile var sinkPlaying = false
+        set(v) { field = v; if (v) watchWake.trySend(Unit) }   // the music started again: the watch looks closely at once
     /** The player has its volume at nothing (the DJ talking, a fade's start): the stream mutes the music then. */
     @Volatile var sinkMuted = false
     /** The DJ's voice is going to the DAC: the music player's samples wait (they'd be heard under it). */

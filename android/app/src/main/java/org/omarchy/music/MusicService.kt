@@ -237,6 +237,23 @@ class MusicService : MediaLibraryService() {
                 }
             }
         })
+        // Wi-Fi kept fully awake while the music plays only when the music may need the network to go on (a stream,
+        // the next song not on the phone, the DJ on: PowerRules.needsNetwork); a queue of your own files lets Wi-Fi keep
+        // to its own power saving. The phone itself is kept awake while it plays either way. Looked at again with each
+        // song, and when the queue or the DJ changes.
+        var wakeNet = true   // (as built: WAKE_MODE_NETWORK)
+        fun wakeMode() {
+            val nxt = Music.queue.getOrNull(Music.index + 1)
+            val net = PowerRules.needsNetwork(exo.currentMediaItem?.localConfiguration?.uri?.toString(),
+                nxt?.let { it.isFile || Music.lib.has(it.id) }, Music.dj.on)
+            if (net == wakeNet) return
+            wakeNet = net
+            exo.setWakeMode(if (net) C.WAKE_MODE_NETWORK else C.WAKE_MODE_LOCAL)
+        }
+        exo.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) = wakeMode()
+        })
+        Music.scope.launch { snapshotFlow { Triple(Music.queue, Music.index, Music.dj.on) }.collect { runCatching { wakeMode() } } }
         // A song gone silent partway though it plays on (seen with one 24-bit FLAC: sound for twenty seconds, then none
         // until the song was moved): moving it brings the sound back, so the app does that itself, in place, and notes
         // where the sound stopped. At most twice a song (a song with real silence in it is left alone after that).
@@ -252,6 +269,7 @@ class MusicService : MediaLibraryService() {
             var stuckHeals = 0
             val fedWatch = object : Runnable {
                 override fun run() {
+                    if (!exo.isPlaying) return   // it only ever acts on music playing: looked at again once it plays (below)
                     h.postDelayed(this, 2000)
                     runCatching {
                         val eq = Music.eqProcessor
@@ -269,7 +287,13 @@ class MusicService : MediaLibraryService() {
                     }
                 }
             }
-            h.postDelayed(fedWatch, 5000)
+            // Every 2 seconds while the music plays, and not at all while it doesn't: started again 2 seconds after it
+            // plays again (before, it looked every 2 seconds for as long as the app ran, paused or not).
+            exo.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (isPlaying) { h.removeCallbacks(fedWatch); h.postDelayed(fedWatch, 2000) }
+                }
+            })
             Music.eqProcessor.onDead = { where ->
                 h.post {
                     val t = Music.current()
