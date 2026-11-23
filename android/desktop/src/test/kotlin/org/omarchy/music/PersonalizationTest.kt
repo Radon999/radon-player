@@ -30,7 +30,7 @@ class PersonalizationTest {
         assertTrue("the thirty new looks are in the Look menu", looks.containsAll(MenuGroups.NEW))
         assertEquals(30, MenuGroups.NEW.size)
         assertEquals(45, Themes.ALL.size); assertEquals(45, UiLayouts.BUILT_IN.size)
-        assertEquals(91, LookFx.ALL.size); assertEquals(60, LyricsCards.PRESETS.size); assertEquals("sixty, and Follows the cover and Glass cover", 62, MyPresets.BUILT.size)
+        assertEquals("121: thirty more that move to the music", 121, LookFx.ALL.size); assertEquals(30, LookFx.ALL.count { it.music }); assertEquals("thirty Music scenes", 30, looks.count { it.startsWith("scene-") }); assertEquals(60, LyricsCards.PRESETS.size); assertEquals("sixty, and Follows the cover and Glass cover", 62, MyPresets.BUILT.size)
         assertEquals(30, WRAPS_BUILT.size)
         assertEquals("ninety visualizers", 90, VIS_STYLES.count { !it.first.startsWith("myvis-") })
         for (k in MenuGroups.NEW) assertTrue("a colour blend for $k", VIS_COLORS.any { it.first == k })
