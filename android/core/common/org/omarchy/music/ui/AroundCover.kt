@@ -118,7 +118,7 @@ private fun hash(i: Int): Float { var x = i * 374761393 + 668265263; x = (x xor 
 
 /** Draws [style] (one of the thirty, or yours made from one) round a cover of [side] px across (corner radius [corner]
  *  px; side / 2 for a circle) at the middle of this space. alpha: how strongly it shows. */
-private fun DrawScope.drawAround(style: String, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
+internal fun DrawScope.drawAround(style: String, s: VisState, pal: VisPalette, side: Float, corner: Float, alpha: Float) {
     val mine = MyVis.style(style)
     drawAroundBase(mine?.base ?: style, mine?.amp ?: 1f, mine?.spin ?: 0f, s, pal, side, corner, alpha)
 }

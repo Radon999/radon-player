@@ -1,6 +1,7 @@
 package org.omarchy.music.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -67,14 +68,22 @@ fun LookPreview(key: String, wide: Boolean = !onPhone, fx: Set<String>? = null, 
         if (effects.isNotEmpty()) LookEffects(effects, accent = c.accent, fg = c.fg, bg = c.bg)
         // The Now playing visualizer you use, in this look's own visualizer colour, behind the song as on Now playing
         // (a preset's: its own, and Dual's second one along the bottom)
-        NowVisSample(visStyle, vis, Modifier.fillMaxSize(), visColor)
+        val around = Around.isAround(visStyle)
+        if (!around) NowVisSample(visStyle, vis, Modifier.fillMaxSize(), visColor)
         if (bottom != null) NowVisSample(bottom, vis, Modifier.fillMaxSize(), visColor, bottomOnly = true)
         val title = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = word,
             shadow = androidx.compose.ui.graphics.Shadow(c.bg.copy(alpha = 0.9f), blurRadius = 8f))
         val sub = TextStyle(fontSize = 11.sp, color = soft)
+        val sample = if (around) rememberSampleVis() else null
         val cover: @Composable (Dp) -> Unit = { s ->
-            Box(Modifier.size(s).clip(RoundedCornerShape(8.dp))
-                .background(Brush.linearGradient(listOf(c.accent, c.card, c.accent.copy(alpha = 0.5f)))))
+            Box(contentAlignment = Alignment.Center) {
+                if (sample != null) Canvas(Modifier.requiredSize(s * (1f + 2f * Around.REACH))) {
+                    if (sample.frame < 0) return@Canvas
+                    drawAround(visStyle, sample, VisPalette.of(visStyle, visColor, vis, sample.phase), s.toPx(), 8.dp.toPx(), 0.9f)
+                }
+                Box(Modifier.size(s).clip(RoundedCornerShape(8.dp))
+                    .background(Brush.linearGradient(listOf(c.accent, c.card, c.accent.copy(alpha = 0.5f)))))
+            }
         }
         val song: @Composable () -> Unit = {
             Text("Song title", style = title, maxLines = 1)

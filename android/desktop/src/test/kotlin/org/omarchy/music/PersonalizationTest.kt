@@ -3,6 +3,8 @@ package org.omarchy.music
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.omarchy.music.ui.AROUND_STYLES
+import org.omarchy.music.ui.Vis
 import org.omarchy.music.ui.Looks
 import org.omarchy.music.ui.LookFx
 import org.omarchy.music.ui.LyricsCards
@@ -30,7 +32,16 @@ class PersonalizationTest {
         assertTrue("the thirty new looks are in the Look menu", looks.containsAll(MenuGroups.NEW))
         assertEquals(30, MenuGroups.NEW.size)
         assertEquals(45, Themes.ALL.size); assertEquals(45, UiLayouts.BUILT_IN.size)
-        assertEquals("121: thirty more that move to the music", 121, LookFx.ALL.size); assertEquals(30, LookFx.ALL.count { it.music }); assertEquals("thirty Music scenes", 30, looks.count { it.startsWith("scene-") }); assertEquals(60, LyricsCards.PRESETS.size); assertEquals("sixty, and Follows the cover and Glass cover", 62, MyPresets.BUILT.size)
+        assertEquals("121: thirty more that move to the music", 121, LookFx.ALL.size); assertEquals(30, LookFx.ALL.count { it.music }); assertEquals("thirty Music scenes", 30, looks.count { it.startsWith("scene-") }); assertEquals(60, LyricsCards.PRESETS.size); assertEquals("ninety, and Follows the cover and Glass cover", 92, MyPresets.BUILT.size)
+        // The thirty for the Music scenes: everything they name is there
+        for (p in MyPresets.BUILT.filter { it.look.startsWith("scene-") }) {
+            assertTrue("look ${p.look}", p.look in looks); assertTrue("theme ${p.theme}", Themes.known(p.theme))
+            assertTrue("layout ${p.layout}", UiLayouts.all().any { it.key == p.layout })
+            for (e in p.fx.split(";")) assertTrue("effect $e in ${p.name}", LookFx.ALL.any { it.key == e })
+            assertTrue("around ${p.npVis}", AROUND_STYLES.any { it.first == p.npVis }); assertTrue("bottom ${p.npBottom}", Vis.isBottomStyle(p.npBottom))
+            assertTrue("colour ${p.visColor}", VIS_COLORS.any { it.first == p.visColor }); assertTrue("wrapped ${p.wrapped}", WS.STYLES.any { it.first == p.wrapped })
+        }
+        assertEquals(30, MyPresets.BUILT.count { it.look.startsWith("scene-") })
         assertEquals(30, WRAPS_BUILT.size)
         assertEquals("ninety visualizers", 90, VIS_STYLES.count { !it.first.startsWith("myvis-") })
         for (k in MenuGroups.NEW) assertTrue("a colour blend for $k", VIS_COLORS.any { it.first == k })

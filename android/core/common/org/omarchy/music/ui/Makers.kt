@@ -996,7 +996,7 @@ object MyPresets {
         val mine get() = key.startsWith("mypreset-")
     }
 
-    /** 60 ready-made presets, each a whole matching setup: a look and theme, a layout, effects, Now playing's visualizer
+    /** 90 ready-made presets, each a whole matching setup: a look and theme, a layout, effects, Now playing's visualizer
      *  (Dual: one in the middle, one along the bottom) and its colour, Wrapped's style and the lyrics card's style. */
     private fun b(n: Int, name: String, look: String, theme: String, layout: String, fx: String, vis: String, bottom: String,
                   wrapped: String, card: Int, color: String) =
@@ -1073,6 +1073,38 @@ object MyPresets {
         b(58, "Shipyard", "foundry", "dense", "widescreen", "rivets", "stringart", "pipes", "wrap-foundry", 58, "foundry"),
         b(59, "Wine cellar", "plumwine", "zine", "statsdesk", "eddy", "whirlpool", "drapefolds", "wrap-plumwine", 59, "plumwine"),
         b(60, "Windy day", "kitesky", "ticket", "filecabinet", "kites", "kite", "pennants", "wrap-kitesky", 60, "kitesky"),
+        // 4.5.4: thirty more, one for each Music scene: its look, effects that move to the music, a visualizer round the
+        // cover (Around the cover) with another along the bottom, and its own colours
+        b(61, "Smoky jazz", "scene-jazz", "elegant", "nightstand", "beat-spots,beat-orbs,grain", "ar-glow", "curtain", "look", 3, "amber"),
+        b(62, "Delta blues", "scene-blues", "novel", "sidebyside", "beat-wave,beat-stars", "ar-wave", "tides", "look", 5, "ocean"),
+        b(63, "Mosh pit", "scene-punk", "brutal", "bigtype", "beat-tremor,beat-flash", "ar-spikes", "blocks", "pink", 7, "neonpop"),
+        b(64, "Thunder riff", "scene-metal", "sharp", "stage", "beat-bolt,beat-glow", "ar-lightning", "flames", "red", 9, "fire"),
+        b(65, "Island time", "scene-reggae", "rounded", "zen", "beat-orbs,beat-bubbles", "ar-ripples", "wave", "look", 11, "forest"),
+        b(66, "Block party", "scene-hiphop", "bold", "djbooth", "beat-speakers,beat-confetti", "ar-bars", "towers", "gold", 13, "goldleaf"),
+        b(67, "Study session", "scene-lofi", "calm", "songfirst", "beat-stars,rain", "ar-halo", "rain", "look", 15, "twilight"),
+        b(68, "Mirror ball", "scene-disco", "playful", "centrestage", "beat-disco,beat-flash", "ar-sparkle", "dotbars", "purple", 17, "neonpop"),
+        b(69, "Get down", "scene-funk", "poster", "headline", "beat-neon,beat-confetti", "ar-dots", "bounce", "orange", 19, "sunset"),
+        b(70, "Idol stage", "scene-kpop", "bubble", "playerontop", "beat-confetti,beat-spots", "ar-petals", "pianokeys", "look", 21, "pastel"),
+        b(71, "Back porch", "scene-country", "ruled", "bottomclassic", "beat-ripples,fireflies", "ar-beads", "grass", "look", 23, "amber"),
+        b(72, "Garage tape", "scene-grunge", "dotted", "compactrail", "beat-glow,grain,scanlines", "ar-shadow", "stitches", "look", 25, "moss"),
+        b(73, "Velvet crypt", "scene-goth", "whisper", "nightstand", "beat-heart,fog", "ar-heart", "drapefolds", "look", 27, "velvet"),
+        b(74, "Warehouse", "scene-techno", "minimal", "sounddesk", "beat-flash,beat-lasers", "ar-neon", "needles", "cyan", 29, "ice"),
+        b(75, "Main room", "scene-house", "capsule", "dock", "beat-lasers,beat-spots", "ar-rays", "coralbars", "gold", 31, "synthwave"),
+        b(76, "Euphoria", "scene-trance", "glass", "cover", "beat-aurora,beat-stars", "ar-corona", "aurora", "blue", 33, "aurora"),
+        b(77, "Jungle pressure", "scene-dnb", "slab", "railpill", "beat-grid,beat-sparks", "ar-march", "terrain", "green", 35, "acid"),
+        b(78, "The drop", "scene-dubstep", "cutglass", "stage", "beat-rings,beat-bolt", "ar-burst", "blocks", "purple", 37, "galaxy"),
+        b(79, "Drift", "scene-ambient", "airy", "zen", "beat-blobs,beat-fireflies", "ar-echo", "hills", "look", 39, "jade"),
+        b(80, "Front row", "scene-classical", "gallery", "magazine", "beat-fireflies,sheen", "ar-fine", "pianokeys", "look", 41, "goldleaf"),
+        b(81, "Grand finale", "scene-opera", "elegant", "stage", "beat-frame,beat-fireworks", "ar-ribbon", "curtain", "gold", 43, "velvet"),
+        b(82, "Late night soul", "scene-soul", "roomy", "nightstand", "beat-fog,beat-orbs", "ar-glow", "lanternrow", "look", 45, "sunset"),
+        b(83, "Sunday choir", "scene-gospel", "storybook", "singalong", "beat-burst,rays", "ar-corona", "pennants", "look", 47, "amber"),
+        b(84, "Ipanema", "scene-bossa", "lighttype", "sidebyside", "beat-bloom,petals", "ar-petals", "wave", "look", 49, "tropical"),
+        b(85, "Tablao", "scene-flamenco", "sharp", "headline", "beat-fireworks,beat-glow", "ar-flames", "flames", "red", 51, "magma"),
+        b(86, "Lagos nights", "scene-afrobeat", "bold", "playlistbar", "beat-fountain,beat-confetti", "ar-blocks", "bounce", "gold", 53, "sunset"),
+        b(87, "Salsa caliente", "scene-salsa", "playful", "djbooth", "beat-comets,beat-flash", "ar-twinwave", "ribbon", "orange", 55, "fire"),
+        b(88, "Orbit", "scene-spacerock", "console", "explorer", "beat-radar,warp", "ar-orbits", "dots", "blue", 57, "galaxy"),
+        b(89, "High score", "scene-chiptune", "console", "statsrail", "beat-bubbles,pixels", "ar-march", "capsules", "green", 58, "neonpop"),
+        b(90, "Tokyo night drive", "scene-citypop", "frosted", "rightpill", "beat-sparks,skyline", "ar-spectrum", "skyline", "pink", 59, "synthwave"),
     )
 
     /** Goes up each time a preset is put on, so the tab's lines show the new choices. */
@@ -1150,13 +1182,16 @@ object MyPresets {
             // Presets leave my middle / bottom visualizer (PresetVisRules): yours kept where its switch is on
             val VR = org.omarchy.music.PresetVisRules
             val keepM = Prefs.on(VR.KEEP_MIDDLE); val keepB = Prefs.on(VR.KEEP_BOTTOM)
+            val around = Around.isAround(p.npVis)
+            val pv = if (around) "" else p.npVis
+            if (!keepM) Around.set(if (around) p.npVis else "")
             if (!keepM && !keepB) {
-                if (p.npVis.isNotBlank()) Prefs.setText(Vis.NOW, p.npVis)
+                if (pv.isNotBlank()) Prefs.setText(Vis.NOW, pv)
                 Prefs.set(Vis.NOW_DUAL, p.dual)
                 if (p.npBottom.isNotBlank()) Prefs.setText(Vis.NOW_BOTTOM, p.npBottom)
             } else {
                 val yours = Vis.stored()
-                val t = VR.mix(yours, org.omarchy.music.PresetVisRules.Trio(p.npVis.ifBlank { yours.now }, p.dual, p.npBottom.ifBlank { yours.bottom }), keepM, keepB, Vis::isBottomStyle)
+                val t = VR.mix(yours, org.omarchy.music.PresetVisRules.Trio(pv.ifBlank { yours.now }, p.dual, p.npBottom.ifBlank { yours.bottom }), keepM, keepB, Vis::isBottomStyle)
                 Prefs.setText(Vis.NOW, t.now); Prefs.set(Vis.NOW_DUAL, t.dual); Prefs.setText(Vis.NOW_BOTTOM, t.bottom)
             }
         }
