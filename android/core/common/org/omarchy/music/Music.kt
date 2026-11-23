@@ -481,7 +481,7 @@ object Music {
 
     // Your playlists and their folders (making, filling, deleting them) are YourPlaylists' own: these hand on.
     fun newPlaylist(name: String, synced: Boolean? = null): String = YourPlaylists.create(name, synced)
-    fun addToPlaylist(id: String, tracks: List<Track>) = YourPlaylists.add(id, tracks)
+    fun addToPlaylist(id: String, tracks: List<Track>) { YourPlaylists.add(id, tracks); bg({ Signals.kept(tracks) }) }
     fun removeFromPlaylist(id: String, ids: Set<String>) = YourPlaylists.remove(id, ids)
     fun renamePlaylist(id: String, name: String) = YourPlaylists.rename(id, name)
     fun setPlaylistSynced(id: String, on: Boolean) = YourPlaylists.setSynced(id, on)
@@ -579,7 +579,7 @@ object Music {
 
     // ---- favorites, a song's volume, moods by hand, looks ----
     // A favorite and a song's own volume are SongMarks' own: these hand on.
-    fun setFavorite(tracks: List<Track>, on: Boolean? = null) = SongMarks.favorite(tracks, on)
+    fun setFavorite(tracks: List<Track>, on: Boolean? = null) { SongMarks.favorite(tracks, on); if (on != false) bg({ Signals.kept(tracks) }) }
     fun setGain(tracks: List<Track>, db: Double, output: String? = outputNow.key) = SongMarks.gain(tracks, db, output)
     fun refreshSongVolume() = SongMarks.refreshVolume()
     fun gainNow(t: Track): Double = SongMarks.gainNow(t)
@@ -705,7 +705,7 @@ object Music {
     /** Song radio (a song's Options): this song, then songs like it from your streaming service, as a queue of its own. */
     fun songRadio(t: Track) {
         toast("Finding songs like “${t.title}”…")
-        bg({ radioTracks(t) }) { found, err ->
+        bg({ radioTracks(t).let { Signals.rank(t, it, habitsToo = false) } }) { found, err ->
             val more = found.orEmpty().filter { it.id != t.id }.distinctBy { it.id }
             if (more.isEmpty()) { toast("No radio for “${t.title}”" + (err?.message?.let { ": ${it.take(70)}" } ?: ": your streaming service has no songs like it")); return@bg }
             playFrom(listOf(t) + more, 0, true)

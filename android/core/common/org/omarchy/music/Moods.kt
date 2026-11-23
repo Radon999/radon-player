@@ -224,6 +224,9 @@ object Moods {
     /** The mood you picked for the song in the Tagger, or "" (it's worked out). */
     fun picked(t: Track): String = pathOf(t)?.let { p -> load(); synchronized(lock) { known[p] }?.picked }.orEmpty()
 
+    /** The song's sound as heard by the mood scan (tempo, loudness…), or null: for autoplay to keep the flow. */
+    fun sound(t: Track): SoundFeatures? = pathOf(t)?.let { p -> load(); synchronized(lock) { known[p] }?.sound }
+
     /** Your songs with that mood (their main mood or one of the others that fit): the ones it fits best first. */
     fun songs(mood: String): List<Track> {
         val m = memoNow()

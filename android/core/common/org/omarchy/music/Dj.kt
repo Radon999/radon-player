@@ -454,7 +454,7 @@ object Dj {
     /** The songs of a pool the DJ may play: all but its last 300 (see [SONG_GAP]). Skips never keep a song out of its
      *  sets (you may just not be in the mood for it); they're only counted, for Skips and the DJ's facts. */
     @Suppress("UNUSED_PARAMETER")
-    private fun ok(taste: Taste, pool: List<Track>): List<Track> { val u = used; return pool.filter { inScope(it) && !isUsed(it, u) } }
+    private fun ok(taste: Taste, pool: List<Track>): List<Track> { val u = used; return pool.filter { inScope(it) && !isUsed(it, u) && Signals.djMay(it) } }
 
     /** While a set of a kind made for everything is made for songs you picked (on this thread: sets are made side
      *  by side), the songs it may have; null: any. */
@@ -1174,7 +1174,12 @@ object Dj {
     private fun artistsForYou(taste: Taste): List<Pair<String, List<String>>> {
         val f = taste.facts
         val known = (f.artistAll.filterValues { it >= 3 }.keys + taste.mine.values.map { it.artist.split(",")[0].trim() }).map { norm(it) }.toSet()
-        return KindRules.artistsForYou(f.artistAll, f.artistMonth, taste.artists, known) { similarTo(it) }
+        // Similar artists: Last.fm's blended with the ones you play in the same sittings; artists whose new songs went
+        // badly before (skipped, not kept) and the ones you said no to are left out
+        val near = taste.habits?.near.orEmpty()
+        val bad = Signals.introSuccess().filterValues { it < 0.25 }.keys
+        return KindRules.artistsForYou(f.artistAll, f.artistMonth, taste.artists, known) { a -> HabitRules.similar(similarTo(a), near[statsKey("", a).second].orEmpty()) }
+            .filter { (a, _) -> statsKey("", a).second !in bad && Signals.ofArtist(a).let { s -> s == null || (s.noAuto == 0L && SignalRules.thumb(s) >= 0) } }
     }
 
     private val introduced: MutableSet<String> = ConcurrentHashMap.newKeySet()   // the artists for you the DJ played already

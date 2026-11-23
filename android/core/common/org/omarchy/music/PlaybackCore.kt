@@ -390,9 +390,12 @@ object PlaybackCore {
         val fin = finishing; val back = goingBack; val fwd = skippedOn
         finishing = false; goingBack = false; skippedOn = false
         if (ls == null || fin || back || !fwd) return
+        // Next in its first seconds: written down (autoplay and the DJ leave out what you keep skipping straight away)
+        val at = position
+        Music.bg({ Signals.leftAt(ls.track, at) })
         val dur = duration.takeIf { it > 0 } ?: ls.track.duration
         if (PlayRules.isSkip(ls.played, dur, position, SongStats.SKIP_LEFT.toDouble())) {
-            Music.bg({ Music.songStats.skipped(ls.track) }) { _, _ -> Music.musicVersion++ }
+            Music.bg({ Music.songStats.skipped(ls.track); Signals.skipped(ls.track) }) { _, _ -> Music.musicVersion++ }
         }
     }
 
@@ -401,7 +404,8 @@ object PlaybackCore {
         if (djSide.on) return   // the DJ makes its own sets: ∞ never adds to them
         radioFrom = t.id
         val ctxNow = context
-        Music.bg({ Music.localsOf(Music.radioTracks(t)) }) { res, err ->   // the radio's songs you have play from your copies
+        // the radio's songs you have play from your copies, in an order that fits you (Signals: your habits, skips, likes)
+        Music.bg({ Signals.rank(t, Music.localsOf(Music.radioTracks(t))) }) { res, err ->
             if (ctxNow != context || err != null || res.isNullOrEmpty()) { if (ended) doneAdvancing(); return@bg }
             var q = queue
             if (keepUntil != null) {
@@ -490,7 +494,7 @@ object PlaybackCore {
         advancing = true
         if (djSide.on) djSide.songEnded()
         if (streaming && duration > 0 && position < duration - 5) { step("taken for a stream that broke"); streamBroke(); return }   // the network went away mid-song
-        current()?.let { t -> Music.bg({ Music.songStats.heardOut(t) }); Music.discovered(t) }
+        current()?.let { t -> Music.bg({ Music.songStats.heardOut(t); Signals.heardOut(t) }); Music.discovered(t) }
         finishing = true
         // Repeat one: from its very start, and counted as one repeat of the song (the Repeats tab)
         if (repeat == "one") {

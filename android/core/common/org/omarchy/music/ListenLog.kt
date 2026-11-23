@@ -89,6 +89,8 @@ object ListenLog {
         val searched = fromSearch || searchPick == t.id
         if (searched) searchPick = null
         open = Entry(now().toLong(), 0.0, t.title, t.artist, t.album, t.id, from, kind, list, Music.shuffled, o.label, o.kind, searched)
+        val k = kind
+        Music.bg({ Signals.started(t, k) })   // a new song the DJ or autoplay brought: how it goes is written down
         savedAt = now()
     }
 

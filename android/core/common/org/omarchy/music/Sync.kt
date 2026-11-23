@@ -520,6 +520,7 @@ object Sync {
         swap("plays.json", m.plays) { m.plays = Plays(m.ctx) }
         swap("skips.json", m.songStats) { m.songStats = m.newSongStats(f("skips.json")) }
         swap("song-speeds.json", m.speeds) { m.speeds = SongSpeeds(f("song-speeds.json")) }
+        swap(Signals.FILE, Signals) { Signals.reload() }
         val vols = listOf("song-volume.json", "song-volume-outputs.json").filter { it in changed && it in files }
         if (vols.isNotEmpty()) synchronized(m.gains) {
             for (n in vols) writeAtomic(f(n), files.getValue(n))

@@ -1116,7 +1116,15 @@ fun ArtistsTab(ui: Ui) {
     fun menu(name: String, thumb: String) {
         if (picking) { picked[name] = Music.artistSongs(name); ui.optionsFor(picked.values.flatten()); return }
         artistMenu(ui, name, thumb)
-        ui.choices = ui.choices?.let { (t, l) -> t to (l + listOf("Create artist playlist" to { Music.makeArtistPlaylist(name) },
+        val sig = org.omarchy.music.Signals.ofArtist(name)
+        val said = org.omarchy.music.SignalRules.thumb(sig)
+        // Your word on the artist, for autoplay, radios and the DJ (Signals)
+        val taste = listOfNotNull(
+            (if (said == 1) "More of $name: on (tap to undo)" to { org.omarchy.music.Signals.artistThumb(name, null) } else "More of $name" to { org.omarchy.music.Signals.artistThumb(name, true) }),
+            (if (said == -1) "Less of $name: on (tap to undo)" to { org.omarchy.music.Signals.artistThumb(name, null) } else "Less of $name" to { org.omarchy.music.Signals.artistThumb(name, false) }),
+            (if ((sig?.noAuto ?: 0) > 0) "Let autoplay put $name in again" to { org.omarchy.music.Signals.artistNoAuto(name, false) }
+             else "$name: not for autoplay, radios or the DJ" to { org.omarchy.music.Signals.artistNoAuto(name, true) }))
+        ui.choices = ui.choices?.let { (t, l) -> t to (l + taste + listOf("Create artist playlist" to { Music.makeArtistPlaylist(name) },
             "Options…" to { ui.optionsFor(Music.artistSongs(name)) },
             "Select" to { ui.startPick("artists", name, Music.artistSongs(name)) })) }
     }

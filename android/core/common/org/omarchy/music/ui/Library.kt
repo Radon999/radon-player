@@ -810,6 +810,20 @@ fun OptionsSheet(ui: Ui) {
                 add(Triple(Ico.PLAY, "Play") { Music.playList(picked) })
                 add(Triple(Ico.SHUFFLE, "Shuffle play") { Music.playList(picked, shuffled = true) })
                 if (picked.size == 1 && !org.omarchy.music.Remote.active) add(Triple(Ico.SPARKLE, "Song radio (songs like this)") { Music.songRadio(picked[0]) })
+                // Your word on it, for autoplay, radios and the DJ (Signals): more like it, less like it, or never put in
+                if (one != null) {
+                    val sig = org.omarchy.music.Signals.of(one)
+                    when (org.omarchy.music.SignalRules.thumb(sig)) {
+                        1 -> add(Triple(Ico.HEART, "More like this: on (tap to undo)") { org.omarchy.music.Signals.thumb(one, null) })
+                        -1 -> add(Triple(Ico.CLOSE, "Less like this: on (tap to undo)") { org.omarchy.music.Signals.thumb(one, null) })
+                        else -> {
+                            add(Triple(Ico.HEART_LINE, "More like this") { org.omarchy.music.Signals.thumb(one, true) })
+                            add(Triple(Ico.CLOSE, "Less like this") { org.omarchy.music.Signals.thumb(one, false) })
+                        }
+                    }
+                    if ((sig?.noAuto ?: 0) > 0) add(Triple(Ico.INFINITY, "Let autoplay, radios and the DJ put it in again") { org.omarchy.music.Signals.noAuto(one, false) })
+                    else add(Triple(Ico.INFINITY, "Not for autoplay, radios or the DJ") { org.omarchy.music.Signals.noAuto(one, true) })
+                }
                 add(Triple(Ico.NEXT, "Play after the current song") { Music.enqueue(picked, "next") })
                 add(Triple(Ico.QUEUE, "Add to the queue") { Music.enqueue(picked) })
                 add(Triple(Ico.PLAYLIST, "Add to a playlist…") { ui.pickPlaylistFor = picked })

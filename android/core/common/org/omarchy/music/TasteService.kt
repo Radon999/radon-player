@@ -16,7 +16,9 @@ object TasteService {
                 val facts: Facts = Facts(),
                 val moods: Map<String, Int> = emptyMap(), val moodHour: Map<String, Int> = emptyMap(),
                 val moodPlays: List<MoodPlay> = emptyList(),
-                val dayAgo: Map<Int, List<Track>> = emptyMap(), val streak: List<Pair<Track, Int>> = emptyList())
+                val dayAgo: Map<Int, List<Track>> = emptyMap(), val streak: List<Pair<Track, Int>> = emptyList(),
+                /** Your habits: what you play after what, the artists you play together, phases, times of day ([HabitRules]). */
+                val habits: Habits? = null)
 
     /** What the DJ knows to tell you about: every song's plays and first play, your artists all told and this month,
      *  the hours you listen at, how many plays in all, each year's number one and plays, the moods of this month's plays. */
@@ -76,7 +78,9 @@ object TasteService {
         val nowS = now().toLong()
         val zone = java.time.ZoneId.systemDefault()
         val h = java.time.LocalTime.now().hour
-        val c = TasteRules.count(history(), nowS, h, java.time.LocalDate.now(zone), zone) { k -> mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
+        val heard = history()
+        val habits = runCatching { HabitRules.count(heard, nowS) { t -> java.time.Instant.ofEpochSecond(t).atZone(zone).hour } }.getOrNull()
+        val c = TasteRules.count(heard, nowS, h, java.time.LocalDate.now(zone), zone) { k -> mine[k]?.let { runCatching { Moods.of(it) }.getOrNull() } }
         val names = c.names; val last = c.last; val recent = c.recent; val hour = c.hour; val years = c.years; val artists = c.artists
         val count = c.count; val first = c.first; val artistAll = c.artistAll; val artistMonth = c.artistMonth; val hours = c.hours
         val total = c.total; val since = c.since; val moodPlays = c.moodPlays; val moodMonth = c.moodMonth; val moodHour = c.moodHour
@@ -111,6 +115,6 @@ object TasteService {
             .map { (k, ds) -> val p = names.getValue(k); Music.fmSong(p.title, p.artist, "", mine).copy(plays = count[k] ?: 0) to ds.size }
         return Taste(mine, rec, all, top, last, songs(hour, 120),
             years.filter { it.value.values.sum() >= 30 }.mapValues { songs(it.value, 60) }, facts, moodMonth, moodHour,
-            moodPlays.sortedBy { it.t }, dayAgo.filter { it.value.values.sum() >= 8 }.mapValues { songs(it.value, 40) }, streak)
+            moodPlays.sortedBy { it.t }, dayAgo.filter { it.value.values.sum() >= 8 }.mapValues { songs(it.value, 40) }, streak, habits)
     }
 }

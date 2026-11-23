@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
  *  Everything here is listed by name on purpose: a new file or setting stays put until it's added here. */
 object SyncRules {
     /** The data files that sync, as the app keeps them (in its files folder), each merged by [SyncMerge.RULES]. */
-    val FILES = listOf("playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json", "song-speeds.json")
+    val FILES = listOf("playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json", "song-speeds.json", "taste.json")
 
     /** The volumes and Custom EQs you gave songs: made for the headphones you use with each device, so they go across
      *  only when both devices have "Songs' own volumes and EQs" on (as a backup, they restore only on the same kind). */
@@ -130,6 +130,7 @@ object SyncMerge {
         "plays.json" to Rule.ByKey(Rule.Tally(listOf("plays" to "at"), listOf("last"), 500)),
         "skips.json" to Rule.ByKey(Rule.Tally(listOf("skips" to "skips_at", "full" to "full_at"), listOf("last_skip"), 300)),
         "song-speeds.json" to Rule.ByKey(),
+        "taste.json" to Rule.ByKey(),
         "song-volume.json" to Rule.ByKey(),
         "song-volume-outputs.json" to Rule.ByKey(Rule.ByKey()),
         "song-eq.json" to Rule.ByKey(Rule.ByKey()),
