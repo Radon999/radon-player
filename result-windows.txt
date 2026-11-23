@@ -1,8 +1,15 @@
-commit b93f96b7ae774c93a566b94b0229658ea254ee8f · run 45227691665 · Mon Nov 23 18:07:58 UTC 2026
+commit 84a0fbfeeebdfb3bd83114ab31fb8dfc73f943c1 · run 45235255415 · Mon Nov 23 18:32:41 UTC 2026
 PC TESTS ON WINDOWS: 44 suites, tests 171, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.0 s of speech in 2.1 s (with loading the voice); then 4.5 s of speech in 1.5 s (3.0x real time)
-WINDOWS INSTALLER: Radon Player-4.5.6.msi, 97M
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.2 s (with loading the voice); then 4.9 s of speech in 1.5 s (3.3x real time)
+WINDOWS INSTALLER: Radon Player-4.5.7.msi, 97M
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
+> Task :ui-common:assembleDesktopMainResources
+> Task :ui-common:desktopProcessResources
+> Task :desktop:assembleMainResources
+> Task :desktop:writeBuildInfo
 --- the end of the log
 w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1393:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
 w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
@@ -12,7 +19,7 @@ w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music
 > Task :desktop:jar
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.6.msi
+The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.7.msi
 
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
@@ -27,5 +34,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 55s
+BUILD SUCCESSFUL in 9m 32s
 21 actionable tasks: 21 executed
