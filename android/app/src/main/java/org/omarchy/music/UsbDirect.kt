@@ -429,6 +429,8 @@ object UsbDirect {
             var kicks = 0
             var vol = -1
             var playingSince = 0L
+            var gapsSaid = 0L   // late + starved already written down
+            var saidAt = 0L
             try {
                 while (stream == h) {
                     kotlinx.coroutines.delay(100)
@@ -441,6 +443,13 @@ object UsbDirect {
                     if (playingSince == 0L) playingSince = System.currentTimeMillis()
                     if (System.currentTimeMillis() - playingSince < 500) continue
                     val v = runCatching { UsbNative.stats(h) }.getOrNull() ?: break
+                    // A gap in the sound: written down (Settings › Problems), at most once a minute, saying which kind, so a
+                    // stutter can be told apart: the phone not running the app in time, or the player not handing music over
+                    if (v.size >= 18 && v[14] + v[16] > gapsSaid && System.currentTimeMillis() - saidAt > 60_000) {
+                        gapsSaid = v[14] + v[16]; saidAt = System.currentTimeMillis()
+                        Crashes.note("USB DAC: a gap in the sound on “${Music.current()?.title ?: "?"}” · the phone didn't run the sending in time " +
+                            "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued) · the music ran out ${v[16]}× (longest ${v[17]} ms) · $lastSetup")
+                    }
                     // Nothing back from the DAC for STALL_MS: set up again (sending the transfers again only got it going for a
                     // moment). It was 0.15 s: Android slowing the app for a moment (opening the recent apps, the screen going
                     // off) was taken for the DAC stopping, and each restart was a gap, the DAC set up again (22 Nov 2026)
@@ -455,6 +464,8 @@ object UsbDirect {
     /** How much music the stream to the DAC keeps ready (ms): enough to ride out Android slowing the app for a moment
      *  (opening the recent apps, switching apps) without a gap. It was 0.4 s. */
     private const val STREAM_BUFFER_MS = 1200
+    /** How much is queued with the phone's USB (usbaudio.c NURB): only said in the report. */
+    private const val STREAM_URBS_MS = 128
     /** Nothing back from the DAC for this long (ms) while it plays is the DAC stopping: the stream is set up again. */
     private const val STALL_MS = 800
 

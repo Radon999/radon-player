@@ -20,8 +20,9 @@
 
 static long long nowMs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000; }
 
-#define NURB 64          /* data URBs kept queued, 1 ms each (as Linux's own USB audio driver sends them): 64 ms ahead, so a
-                          * moment the phone is busy elsewhere never leaves the DAC without music (a split-second gap) */
+#define NURB 128         /* data URBs kept queued, 1 ms each (as Linux's own USB audio driver sends them): 128 ms ahead, so a
+                          * moment the phone is busy elsewhere never leaves the DAC without music (a split-second gap). It was
+                          * 64: opening the recent apps or another app still stuttered now and then (22 Nov 2026) */
 #define NFB 2            /* feedback URBs kept queued */
 
 typedef struct {
@@ -55,6 +56,12 @@ typedef struct {
      * the next stream on the same DAC got them back instead (and the kernel wrote into freed memory: the crash after
      * skipping many songs, and starting the DJ, when there were more URBs than the old clean-up waited for) */
     _Atomic int outstanding;
+    /* Gaps in the sound, for the report: "late", this thread wasn't run for longer than the queued URBs last (the phone
+     * busy elsewhere), with the longest such wait (ms); "starved", the ring ran out of music in the middle of a song (the
+     * player didn't hand music over in time), with the longest such stretch (ms). */
+    _Atomic int late, lateMax, starved, starvedMax;
+    long long lastReap, starveFrom;   /* the loop thread's own */
+    int hadMusic;
 } Stream;
 
 
@@ -101,6 +108,16 @@ static void fill(Stream *s, Slot *sl) {
     }
     sl->gen = atomic_load(&s->gen);
     pthread_mutex_unlock(&s->mu);
+    if (!pause) {
+        int full = real > 0 && real * s->frameBytes >= off;
+        if (!full && s->hadMusic && s->starveFrom == 0) s->starveFrom = nowMs();
+        if (real > 0 && s->starveFrom != 0) {
+            long long gap = nowMs() - s->starveFrom;
+            if (gap < 2000) { atomic_fetch_add(&s->starved, 1); if (gap > atomic_load(&s->starvedMax)) atomic_store(&s->starvedMax, (int)gap); }
+            s->starveFrom = 0;
+        }
+        if (real > 0) s->hadMusic = 1;
+    } else { s->starveFrom = 0; s->hadMusic = 0; }
     sl->realFrames = real;
     atomic_fetch_add(&s->inflight, real);
     u->type = USBDEVFS_URB_TYPE_ISO;
@@ -175,7 +192,14 @@ static void *loop(void *arg) {
         }
         Slot *sl = &s->slots[id];
         atomic_fetch_add(&s->urbs, 1);
-        atomic_store(&s->dataAt, nowMs());
+        long long reapNow = nowMs();
+        atomic_store(&s->dataAt, reapNow);
+        /* Not run for longer than the queue lasts: the DAC ran dry for a moment */
+        if (s->lastReap != 0 && reapNow - s->lastReap > NURB * 8 / 10 && !atomic_load(&s->paused)) {
+            atomic_fetch_add(&s->late, 1);
+            if (reapNow - s->lastReap > atomic_load(&s->lateMax)) atomic_store(&s->lateMax, (int)(reapNow - s->lastReap));
+        }
+        s->lastReap = reapNow;
         if (done->status != 0) atomic_fetch_add(&s->urbErr, 1);
         for (int k = 0; k < done->number_of_packets; k++) if (done->iso_frame_desc[k].status != 0) { atomic_fetch_add(&s->pktErr, 1); break; }
         atomic_fetch_sub(&s->inflight, sl->realFrames);
@@ -257,14 +281,15 @@ static jlong impl_pending(JNIEnv *env, jclass c, jlong h) {
  * length, frames per packet now (Q16.16) and nominal. */
 static jlongArray impl_stats(JNIEnv *env, jclass c, jlong h) {
     Stream *s = (Stream *)(intptr_t)h;
-    jlong v[14] = {0};
+    jlong v[18] = {0};
     if (s) { v[0] = atomic_load(&s->urbs); v[1] = atomic_load(&s->urbErr); v[2] = atomic_load(&s->pktErr); v[3] = atomic_load(&s->fbSeen);
         v[4] = atomic_load(&s->fbTaken); v[5] = atomic_load(&s->fbLast); v[6] = atomic_load(&s->fbLastLen); v[7] = atomic_load(&s->fpp); v[8] = s->nominal;
         long long n = nowMs();
         v[9] = n - atomic_load(&s->dataAt); v[10] = n - atomic_load(&s->fbAt); v[11] = atomic_load(&s->played);
-        v[12] = atomic_load(&s->kicks); v[13] = n - atomic_load(&s->startedAt); }
-    jlongArray out = (*env)->NewLongArray(env, 14);
-    if (out) (*env)->SetLongArrayRegion(env, out, 0, 14, v);
+        v[12] = atomic_load(&s->kicks); v[13] = n - atomic_load(&s->startedAt);
+        v[14] = atomic_load(&s->late); v[15] = atomic_load(&s->lateMax); v[16] = atomic_load(&s->starved); v[17] = atomic_load(&s->starvedMax); }
+    jlongArray out = (*env)->NewLongArray(env, 18);
+    if (out) (*env)->SetLongArrayRegion(env, out, 0, 18, v);
     return out;
 }
 
