@@ -175,10 +175,11 @@ fun LookEffects(fx: Set<String> = C.fx, modifier: Modifier = Modifier.fillMaxSiz
     val keys = remember(fx) { LookFx.keys(fx).let { on -> LookFx.ALL.map { it.key }.filter { it in on } } }
     val tints = remember(fx) { LookFx.colors(fx) }
     // One that moves to the music: the visualizer's listening, shared with any visualizer on screen
-    val vis = if (LookFx.hears(fx)) rememberVis(true) else null
+    val hears = LookFx.hears(fx)
+    val spectrum = if (hears) rememberSpectrum(true) else null
     Canvas(modifier) {
         val t = time?.value ?: 0f
-        if (vis != null || LookFx.hears(fx)) { vis?.frame; FxSound.take(vis, t) }
+        if (hears) FxSound.take(spectrum)
         for (k in keys) drawFx(k, t, seeds, accent, fg, bg, tints[k])
     }
 }

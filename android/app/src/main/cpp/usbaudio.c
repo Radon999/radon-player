@@ -20,9 +20,10 @@
 
 static long long nowMs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000; }
 
-#define NURB 128         /* data URBs kept queued, 1 ms each (as Linux's own USB audio driver sends them): 128 ms ahead, so a
-                          * moment the phone is busy elsewhere never leaves the DAC without music (a split-second gap). It was
-                          * 64: opening the recent apps or another app still stuttered now and then (22 Nov 2026) */
+#define NURB 64          /* data URBs kept queued, 1 ms each (as Linux's own USB audio driver sends them): 64 ms ahead, so a
+                          * moment the phone is busy elsewhere never leaves the DAC without music (a split-second gap). NOT more:
+                          * 128 (4.5.3) made a Samsung phone's USB stop sending after 159 of them (its feedback still coming), so
+                          * the stream was set up again every second or two, the music stopping and starting (22 Nov 2026) */
 #define NFB 2            /* feedback URBs kept queued */
 
 typedef struct {

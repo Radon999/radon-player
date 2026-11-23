@@ -22,8 +22,6 @@ import kotlin.math.sin
 internal val BEAT_FX: List<LookFx.Fx> = listOf(
     LookFx.Fx("beat-glow", "Bass glow", "The edges of the screen glow with the bass", true, music = true),
     LookFx.Fx("beat-rings", "Beat rings", "A ring spreads out from the middle on every beat", true, music = true),
-    LookFx.Fx("beat-floor", "Equalizer floor", "Bars along the bottom rising and falling with the music", true, music = true),
-    LookFx.Fx("beat-hang", "Hanging bars", "Thin bars hanging from the top, longer as the music gets louder", true, music = true),
     LookFx.Fx("beat-wave", "Sound wave", "A wave across the middle, its height following the music", true, music = true),
     LookFx.Fx("beat-flash", "Beat flash", "A soft flash of colour on each beat", true, music = true),
     LookFx.Fx("beat-stars", "Singing stars", "Stars that sparkle brighter with the high notes", true, music = true),
@@ -38,9 +36,7 @@ internal val BEAT_FX: List<LookFx.Fx> = listOf(
     LookFx.Fx("beat-ripples", "Floor ripples", "Ripples spreading over the floor on each beat", true, music = true),
     LookFx.Fx("beat-aurora", "Dancing aurora", "Ribbons of light across the top that dance to the music", true, music = true),
     LookFx.Fx("beat-heart", "Heart monitor", "A heart monitor's line along the bottom, a spike on each beat", true, music = true),
-    LookFx.Fx("beat-arc", "Spectrum arc", "A rainbow arc over the top, each band of it the music's", true, music = true),
     LookFx.Fx("beat-tremor", "Tremor lines", "Fine lines across the screen that shake with the bass", true, music = true),
-    LookFx.Fx("beat-flames", "Flames", "Flames along the bottom, leaping with the music", true, music = true),
     LookFx.Fx("beat-bloom", "Blooming flower", "A flower in the corner, its petals opening with the music", true, music = true),
     LookFx.Fx("beat-burst", "Sound burst", "Rays from the middle, each as long as its part of the music is loud", true, music = true),
     LookFx.Fx("beat-blobs", "Bass lava", "Lava-lamp blobs that swell and drift with the bass", true, music = true),
@@ -48,7 +44,11 @@ internal val BEAT_FX: List<LookFx.Fx> = listOf(
     LookFx.Fx("beat-fountain", "Fountains", "Fountains along the bottom, jumping higher with the music", true, music = true),
     LookFx.Fx("beat-grid", "Racing grid", "A neon grid floor racing towards you, faster and brighter with the music", true, music = true),
     LookFx.Fx("beat-radar", "Radar", "A radar sweep in the middle, the music showing up on it", true, music = true),
-    LookFx.Fx("beat-dots", "Dot matrix", "A wall of lights along the bottom, lit like an old stereo's meter", true, music = true),
+    LookFx.Fx("beat-neon", "Neon shapes", "Neon circles, triangles and squares turning slowly, flaring on the beat", true, music = true),
+    LookFx.Fx("beat-fog", "Fog machine", "Stage fog puffing up from the floor on the strong beats, lit in your colour", true, music = true),
+    LookFx.Fx("beat-fireworks", "Beat fireworks", "Fireworks bursting high up on the strong beats", true, music = true),
+    LookFx.Fx("beat-bubbles", "Popping bubbles", "Bubbles drifting up that pop on the beat", true, music = true),
+    LookFx.Fx("beat-fireflies", "Fireflies in time", "Fireflies blinking together on the beat", true, music = true),
     LookFx.Fx("beat-bolt", "Bass lightning", "A bolt of lightning on the hardest hits", true, music = true),
 )
 
@@ -67,26 +67,33 @@ internal object FxSound {
     val beatAt = FloatArray(8) { -99f }
     /** How far things have moved: grows faster with louder music. */
     var travel = 0f
-    private var lastT = -1f
+    /** The effects' own clock (seconds), the same for every effect on screen: the beats' times are on it. Each preview
+     *  used to bring its own clock and its own music state, so an old beat looked new in another one and Bass lightning
+     *  struck over and over (22 Nov 2026). */
+    var now = 0f
+        private set
+    private val vs = VisState()
+    private var lastNs = 0L
     private var lastSince = 99f
-    private var lastFrame = -1
 
-    fun take(v: VisState?, t: Float) {
-        if (v != null && v.frame == lastFrame && t == lastT) return   // already taken this frame (the second canvas)
-        val dt = if (lastT < 0f) 1f / 60f else (t - lastT).let { if (it < 0f || it > 0.5f) 1f / 60f else it }
-        lastT = t
+    /** Once a frame, whichever effect asks first: the spectrum (null: not heard) moved on into the one music state. */
+    fun take(target: FloatArray?) {
+        val ns = System.nanoTime()
+        if (lastNs != 0L && ns - lastNs < 8_000_000L) return   // already taken this frame (another effect, a preview)
+        val dt = if (lastNs == 0L) 1f / 60f else ((ns - lastNs) / 1e9f).coerceIn(0.001f, 0.1f)
+        lastNs = ns; now += dt
         val n = levels.size
-        val playing = v != null && !org.omarchy.music.Music.paused
-        if (v != null && playing) {
-            lastFrame = v.frame
-            v.levels.copyInto(levels)
+        val paused = if (org.omarchy.music.Remote.active) org.omarchy.music.Remote.status.paused else org.omarchy.music.Music.paused
+        if (target != null) vs.step(target, paused, dt)
+        if (target != null && !paused) {
+            vs.levels.copyInto(levels)
             // A new beat: the time since the last one fell back to nothing
-            if (v.sinceBeat < lastSince - 0.05f) { beats++; beatAt[beats % beatAt.size] = t; power = v.bass.coerceIn(0f, 1f) }
-            lastSince = v.sinceBeat
-            beat = exp(-v.sinceBeat * 5f).coerceIn(0f, 1f)
+            if (vs.sinceBeat < lastSince - 0.05f) { beats++; beatAt[beats % beatAt.size] = now; power = vs.bass.coerceIn(0f, 1f) }
+            lastSince = vs.sinceBeat
+            beat = exp(-vs.sinceBeat * 5f).coerceIn(0f, 1f)
         } else {
             // Resting: a slow swell so nothing stands dead still, and no beats
-            for (b in 0 until n) levels[b] = 0.06f + 0.05f * sin(t * 0.7f + b * 0.35f).let { it * it }
+            for (b in 0 until n) levels[b] = 0.06f + 0.05f * sin(now * 0.7f + b * 0.35f).let { it * it }
             beat *= 0.9f
         }
         fun avg(a: Int, b: Int): Float { var s = 0f; for (i in a until b) s += levels[i]; return s / (b - a) }
@@ -110,7 +117,7 @@ internal fun DrawScope.drawFx3(k: String, t: Float, s: List<FloatArray>, accent:
     val half = min(W, H) / 2f
     fun shade(i: Int) = if (tint != null) lerp(tint, if (i % 2 == 0) Color.White else Color.Black, (i % 3) * 0.15f)
         else Color.hsv(((i * 47f + t * 8f) % 360f + 360f) % 360f, 0.65f, 1f)
-    fun since(j: Int) = t - a.beatAt[((a.beats - j) % a.beatAt.size + a.beatAt.size) % a.beatAt.size]
+    fun since(j: Int) = a.now - a.beatAt[((a.beats - j) % a.beatAt.size + a.beatAt.size) % a.beatAt.size]
     fun hash(i: Int, salt: Int) = s[((i * 31 + salt * 7) % s.size + s.size) % s.size]
     when (k) {
         "beat-glow" -> { val g = (0.06f + 0.5f * a.bass).coerceAtMost(0.6f); val e = min(W, H) * (0.12f + 0.18f * a.bass)
@@ -121,14 +128,6 @@ internal fun DrawScope.drawFx3(k: String, t: Float, s: List<FloatArray>, accent:
         "beat-rings" -> for (j in 0 until a.beatAt.size) { val age = since(j); if (age < 0f || age > 3f) continue
             val r = half * 0.1f + age * half * 0.7f
             drawCircle(c.copy(alpha = (0.45f * (1f - age / 3f)).coerceAtLeast(0f)), r, mid, style = Stroke((1.5f + 3f * (1f - age / 3f)) * u)) }
-        "beat-floor" -> { val n = 32; val bw = W / n
-            for (i in 0 until n) { val v = a.at(i / (n - 1f)); val h = max(2f * u, v * H * 0.28f)
-                drawRoundRect(Brush.verticalGradient(listOf(light.copy(alpha = 0.55f), c.copy(alpha = 0.15f)), H - h, H),
-                    Offset(i * bw + bw * 0.15f, H - h), Size(bw * 0.7f, h), CornerRadius(bw * 0.2f)) } }
-        "beat-hang" -> { val n = 40; val bw = W / n
-            for (i in 0 until n) { val v = a.at(abs(i - n / 2f) / (n / 2f)); val h = 6f * u + v * H * 0.22f
-                drawLine(shade(i).copy(alpha = 0.35f + 0.4f * v), Offset(i * bw + bw / 2f, 0f), Offset(i * bw + bw / 2f, h), bw * 0.35f)
-                drawCircle(shade(i).copy(alpha = 0.6f), bw * 0.3f, Offset(i * bw + bw / 2f, h)) } }
         "beat-wave" -> for (line in 0 until 3) { val p = Path(); val steps = 80
             for (j in 0..steps) { val f = j / steps.toFloat(); val x = f * W
                 val y = H * 0.5f + sin(f * tau * (2f + line) + t * (1.2f + line * 0.5f)) * a.at(f) * H * (0.18f - line * 0.04f) + line * 6f * u
@@ -197,21 +196,10 @@ internal fun DrawScope.drawFx3(k: String, t: Float, s: List<FloatArray>, accent:
                     if (abs(dx) < 24f * u) y += when { dx < -8f * u -> (dx + 24f * u) * 0.25f; dx < 4f * u -> -(8f * u - abs(dx)) * 6f; else -> (24f * u - dx) * 0.3f } }
                 if (j == 0) p.moveTo(x, base + y) else p.lineTo(x, base + y) }
             drawPath(p, c.copy(alpha = 0.18f), style = Stroke(6f * u)); drawPath(p, light.copy(alpha = 0.75f), style = Stroke(1.8f * u)) }
-        "beat-arc" -> { val n = 36; val ctr = Offset(W / 2f, H * 0.42f); val r0 = min(W, H) * 0.42f
-            for (i in 0 until n) { val f = i / (n - 1f); val ang = PI.toFloat() + f * PI.toFloat(); val len = 6f * u + a.at(f) * r0 * 0.45f
-                val p0 = Offset(ctr.x + cos(ang) * r0, ctr.y + sin(ang) * r0); val p1 = Offset(ctr.x + cos(ang) * (r0 + len), ctr.y + sin(ang) * (r0 + len))
-                drawLine((tint?.let { lerp(it, Color.White, f * 0.5f) } ?: Color.hsv(f * 300f, 0.7f, 1f)).copy(alpha = 0.6f), p0, p1, 5f * u) } }
         "beat-tremor" -> for (i in 0 until 14) { val y0 = H * (i + 0.5f) / 14f; val p = Path(); val amp = (1f + a.bass * 14f) * u
             for (j in 0..40) { val x = j * W / 40f; val y = y0 + sin(j * 1.7f + t * 25f + i) * amp * sin(j * 0.25f + i)
                 if (j == 0) p.moveTo(x, y) else p.lineTo(x, y) }
             drawPath(p, (tint ?: fg).copy(alpha = 0.07f + 0.15f * a.bass), style = Stroke(1f * u)) }
-        "beat-flames" -> { val n = 40; val bw = W / n
-            for (i in 0 until n) { val v = a.at(i / (n - 1f)); val fl = 0.75f + 0.25f * sin(t * 9f + i * 1.3f)
-                val h = (12f * u + v * H * 0.3f) * fl; val x = i * bw + bw / 2f
-                val p = Path(); p.moveTo(x - bw * 0.9f, H); p.quadraticTo(x - bw * 0.4f, H - h * 0.5f, x + sin(t * 4f + i) * bw * 0.4f, H - h)
-                p.quadraticTo(x + bw * 0.4f, H - h * 0.5f, x + bw * 0.9f, H); p.close()
-                val top = tint?.let { lerp(it, Color.White, 0.5f) } ?: Color(0xFFFFE27A); val bot = tint ?: Color(0xFFFF4A1C)
-                drawPath(p, Brush.verticalGradient(listOf(top.copy(alpha = 0.0f), top.copy(alpha = 0.45f), bot.copy(alpha = 0.55f)), H - h, H)) } }
         "beat-bloom" -> { val ctr = Offset(W * 0.12f, H * 0.9f); val n = 12
             for (i in 0 until n) { val f = i / n.toFloat(); val ang = f * tau + t * 0.1f; val len = half * (0.18f + 0.35f * a.at(f))
                 val tip = Offset(ctr.x + cos(ang) * len, ctr.y + sin(ang) * len); val side = Offset(-sin(ang), cos(ang)) * (len * 0.22f)
@@ -250,17 +238,46 @@ internal fun DrawScope.drawFx3(k: String, t: Float, s: List<FloatArray>, accent:
             for (i in 0 until 24) { val f = i / 24f; val v = a.at(f); if (v < 0.25f) continue; val ang = f * tau
                 val behind = ((sweep - ang) % tau + tau) % tau; val fade = (1f - behind / tau)
                 drawCircle(light.copy(alpha = 0.8f * fade), (2f + v * 4f) * u, Offset(mid.x + cos(ang) * R * (1f - v * 0.7f), mid.y + sin(ang) * R * (1f - v * 0.7f))) } }
-        "beat-dots" -> { val cols = 24; val rows = 10; val cw = W / cols; val ch = min(cw, H * 0.3f / rows)
-            for (i in 0 until cols) { val lit = (a.at(i / (cols - 1f)) * rows * 1.3f).toInt()
-                for (r in 0 until rows) { val on = r < lit
-                    val col = when { r >= rows - 2 -> Color(0xFFFF4A4A); r >= rows - 4 -> Color(0xFFFFC93C); else -> tint ?: Color(0xFF3CFF7A) }
-                    drawCircle(col.copy(alpha = if (on) 0.75f else 0.06f), min(cw, ch) * 0.32f, Offset(i * cw + cw / 2f, H - (r + 0.5f) * ch - 4f * u)) } } }
         "beat-bolt" -> { val age = since(0); if (age in 0f..0.35f && a.power > 0.5f) { val o = hash(a.beats, 17)
             val p = Path(); var x = (0.15f + o[0] * 0.7f) * W; var y = 0f; p.moveTo(x, y)
             var q = 0; while (y < H * 0.75f) { val h = hash(a.beats * 13 + q, 19); x += (h[0] - 0.5f) * 70f * u; y += (20f + h[1] * 40f) * u; p.lineTo(x, y); q++ }
             val fade = 1f - age / 0.35f
             drawRect(light.copy(alpha = 0.10f * fade))
             drawPath(p, light.copy(alpha = 0.35f * fade), style = Stroke(8f * u)); drawPath(p, Color.White.copy(alpha = 0.95f * fade), style = Stroke(2f * u)) } }
+        "beat-neon" -> for (i in 0 until 6) { val p = s[i + 60]; val ctr = Offset((0.15f + p[0] * 0.7f) * W, (0.12f + p[1] * 0.76f) * H)
+            val r = (26f + p[2] * 40f) * u * (1f + 0.25f * a.beat); val sides = 3 + i % 3 + (if (i % 3 == 2) 7 else 0)   // triangle, square, circle
+            val rot = t * (0.15f + p[3] * 0.25f) * (if (i % 2 == 0) 1f else -1f)
+            val col = shade(i).copy(alpha = 0.25f + 0.55f * a.beat * (0.5f + p[3]) + 0.1f * a.loud)
+            val path = Path()
+            for (q in 0..sides) { val ang = rot + q * tau / sides; val pt = Offset(ctr.x + cos(ang) * r, ctr.y + sin(ang) * r); if (q == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y) }
+            drawPath(path, col.copy(alpha = col.alpha * 0.3f), style = Stroke(9f * u)); drawPath(path, col, style = Stroke(2f * u)) }
+        "beat-fog" -> { for (j in 0 until 6) { val age = since(j); if (age < 0f || age > 6f) continue
+                val o = hash(a.beats - j, 23); if (o[2] < 0.35f) continue
+                val x = (0.1f + o[0] * 0.8f) * W; val rise = age / 6f
+                val y = H - rise * H * 0.45f; val r = (60f + 140f * rise) * u
+                drawCircle(Brush.radialGradient(listOf(light.copy(alpha = 0.22f * (1f - rise)), Color.Transparent), Offset(x, y), r), r, Offset(x, y)) }
+            drawRect(Brush.verticalGradient(listOf(Color.Transparent, c.copy(alpha = 0.08f + 0.12f * a.bass)), H * 0.75f, H), Offset(0f, H * 0.75f), Size(W, H * 0.25f)) }
+        "beat-fireworks" -> for (j in 0 until 4) { val age = since(j); if (age < 0f || age > 2.2f || a.power < 0.35f) continue
+            val b = a.beats - j; val o = hash(b, 29); val cx = (0.15f + o[0] * 0.7f) * W; val cy = (0.1f + o[1] * 0.35f) * H
+            val fade = (1f - age / 2.2f).coerceIn(0f, 1f); val col = shade(b)
+            for (q in 0 until 26) { val ang = q * tau / 26f + o[2]; val v = (70f + 60f * hash(b * 26 + q, 31)[0]) * u
+                val x = cx + cos(ang) * v * age; val y = cy + sin(ang) * v * age + 60f * u * age * age
+                drawLine(col.copy(alpha = 0.8f * fade), Offset(x, y), Offset(x - cos(ang) * 6f * u, y - sin(ang) * 6f * u - 2f * u), 2f * u)
+                drawCircle(Color.White.copy(alpha = 0.6f * fade), 1.4f * u, Offset(x, y)) } }
+        "beat-bubbles" -> for (i in 0 until 28) { val p = s[i + 150]
+            val cyc = 9f + p[2] * 8f; val life = ((t + p[3] * cyc) % cyc) / cyc
+            val popped = a.beat > 0.6f && p[0] < 0.25f + 0.5f * a.power   // some pop on the beat
+            val x = p[0] * W + sin(t * 0.8f + i) * 12f * u; val y = H * (1.05f - life * 1.1f); val r = (6f + p[1] * 14f) * u
+            if (popped && life > 0.2f) for (q in 0 until 6) { val ang = q * tau / 6f
+                drawLine(light.copy(alpha = 0.6f * a.beat), Offset(x + cos(ang) * r * 0.8f, y + sin(ang) * r * 0.8f), Offset(x + cos(ang) * r * 1.5f, y + sin(ang) * r * 1.5f), 1.5f * u) }
+            else { drawCircle(c.copy(alpha = 0.10f), r, Offset(x, y)); drawCircle(light.copy(alpha = 0.45f), r, Offset(x, y), style = Stroke(1.2f * u))
+                drawCircle(Color.White.copy(alpha = 0.5f), r * 0.22f, Offset(x - r * 0.35f, y - r * 0.35f)) } }
+        "beat-fireflies" -> for (i in 0 until 40) { val p = s[i + 110]
+            val x = (p[0] + 0.03f * sin(t * (0.3f + p[2] * 0.4f) + i)) * W; val y = (0.35f + p[1] * 0.6f + 0.03f * cos(t * (0.25f + p[3] * 0.3f) + i)) * H
+            val glow = (0.08f + 0.85f * a.beat * (0.4f + 0.6f * p[3]) + 0.1f * a.high).coerceAtMost(1f)
+            val col = tint ?: Color(0xFFFFF27A)
+            drawCircle(Brush.radialGradient(listOf(col.copy(alpha = 0.35f * glow), Color.Transparent), Offset(x, y), 14f * u), 14f * u, Offset(x, y))
+            drawCircle(col.copy(alpha = glow), 2.2f * u, Offset(x, y)) }
         else -> return false
     }
     return true

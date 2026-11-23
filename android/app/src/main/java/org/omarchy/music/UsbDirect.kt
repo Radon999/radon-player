@@ -468,7 +468,7 @@ object UsbDirect {
      *  (opening the recent apps, switching apps) without a gap. It was 0.4 s. */
     private const val STREAM_BUFFER_MS = 1200
     /** How much is queued with the phone's USB (usbaudio.c NURB): only said in the report. */
-    private const val STREAM_URBS_MS = 128
+    private const val STREAM_URBS_MS = 64
     /** Nothing back from the DAC for this long (ms) while it plays is the DAC stopping: the stream is set up again. */
     private const val STALL_MS = 800
 
