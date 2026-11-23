@@ -123,7 +123,10 @@ object Moods {
 
     private fun save() = runCatching {
         synchronized(saving) {
-            val text = synchronized(lock) { JSON.encodeToString(MoodStore.serializer(), MoodStore(known.toMap(), artists.toMap(), bias.toMap(), ok.toList())) }
+            // Copied under the lock (quick), turned into text outside it: the text of every song's moods takes a while,
+            // and anything showing a mood on screen waited for the lock that long, each time the scan saved
+            val store = synchronized(lock) { MoodStore(known.toMap(), artists.toMap(), bias.toMap(), ok.toList()) }
+            val text = JSON.encodeToString(MoodStore.serializer(), store)
             writeAtomic(file, text)
         }
     }
