@@ -69,6 +69,8 @@ Every song gets up to four moods from twelve: Happy, Energetic, Party, Hype, Chi
 - **Only when you ask:** a scan runs when you tap it, shows the time left, and can be stopped and carried on. A song is scanned once, and one whose file already has moods (from your other device, say) is left as it is.
 - **AI reading (optional):** add your own Anthropic API key and Claude reads the lyrics, catching irony and sad stories told cheerfully. Without one, it works on its own.
 - **Fix one** in the Tagger, and songs that sound like it learn from your fix.
+- **Queued mood edits** (Utilities): select songs anywhere (in a DJ set, say) and pick **Queue a mood edit**; look at them all later, tick and untick their moods, and **Save to the file**, written into the files as the Tagger does.
+- **The sound check:** worked-out moods that the sound plainly says otherwise of (a loud, fast song only Chill, a soft, slow one only Hype) follow the sound. **Check moods against the sound** (Queued mood edits) hears your songs, only their sound (no words, no AI), and lists the ones whose moods in the file don't fit it, each with what it should be and why; **Use it**, or **Use every suggestion**.
 - **Your controls:** **Prevent auto mood scans** freezes every mood; Settings › Reset mood and lyrics scans starts over (moods only, the sound scan, your own picks, or everything).
 - **Used in** smart playlists, the DJ, Most played and Wrapped, and they go across with Sync and backups.
 

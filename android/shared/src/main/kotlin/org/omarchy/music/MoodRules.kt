@@ -197,6 +197,51 @@ object MoodRules {
     /** The most moods a song is in (a song in more says little about any of them). */
     const val MOST = 4
 
+    // ---- The sound check: moods the sound plainly says otherwise of (a loud, fast song in Chill; a soft, slow one in Hype) ----
+    /** The calm moods and the lively ones: a song that's plainly loud and lively isn't only calm, and the other way round. */
+    val CALM = setOf("Chill", "Calm", "Dreamy", "Focus")
+    val LIVELY = setOf("Energetic", "Party", "Hype", "Intense")
+    /** At or over this, the sound is plainly lively; at or under [CALM_AT], plainly soft and slow. */
+    const val LIVELY_AT = 0.68
+    const val CALM_AT = 0.28
+
+    /** How lively a song sounds, 0 … 1: how loud it is, how loud its loud parts get, its tempo, how busy it is and how
+     *  clear its beat, on the same scales as the moods' own. */
+    fun liveliness(f: SoundFeatures): Double {
+        val e = clamp((f.loud - LOUD_LO) / (LOUD_HI - LOUD_LO))
+        val peak = clamp((f.loud + f.range / 2 - LOUD_LO) / (LOUD_HI - LOUD_LO))   // its loud parts
+        val fast = if (f.bpm <= 0) 0.4 else clamp((f.bpm - 85) / 55)
+        val busy = clamp((f.onsets - BUSY_LO) / (BUSY_HI - BUSY_LO))
+        val beat = clamp((f.beat - BEAT_LO) / (BEAT_HI - BEAT_LO))
+        return clamp(0.32 * e + 0.2 * peak + 0.2 * fast + 0.18 * busy + 0.1 * beat)
+    }
+
+    /** The moods a song should have instead, and why in a few words; null when its sound agrees with them (or isn't known).
+     *  Plainly lively but only calm moods: the calm ones give way to Energetic (Intense when it's in a minor key, sad or
+     *  dark). Plainly soft and slow but only lively moods: they give way to Chill (Calm when it's minor, sad or dark).
+     *  Its other moods (Happy, Sad, Romantic…) stay. */
+    class SoundFix(val moods: List<String>, val why: String)
+    fun soundCheck(moods: List<String>, f: SoundFeatures?): SoundFix? {
+        if (f == null || f.loud <= -60 || moods.isEmpty()) return null
+        val l = liveliness(f)
+        val calm = moods.filter { it in CALM }; val lively = moods.filter { it in LIVELY }
+        val darkish = f.major < -0.15 || "Dark" in moods || "Sad" in moods
+        val how = (if (f.bpm > 0) "${Math.round(f.bpm)} BPM, " else "") + "about ${Math.round(f.loud)} dB" +
+            (if (f.range >= 6) ", its loud parts ${Math.round(f.range)} dB louder" else "")
+        if (l >= LIVELY_AT && calm.isNotEmpty() && lively.isEmpty()) {
+            val add = if (darkish) "Intense" else "Energetic"
+            return SoundFix((listOf(add) + moods.filter { it !in CALM }).distinct().take(MOST),
+                "it sounds loud and lively ($how), not ${calm.joinToString(" or ").lowercase()}")
+        }
+        if (l <= CALM_AT && lively.isNotEmpty() && calm.isEmpty()) {
+            val add = if (darkish) "Calm" else "Chill"
+            val keep = moods.filter { it !in LIVELY }
+            return SoundFix((if (keep.isEmpty()) listOf(add) else keep + add).distinct().take(MOST),
+                "it sounds soft and slow ($how), not ${lively.joinToString(" or ").lowercase()}")
+        }
+        return null
+    }
+
     /** A song's moods are settled in its file: the file holds moods ([inFile]) that this device didn't write there
      *  itself ([wrote]), and none you picked here ([picked], which go their own way). Such a song isn't waiting for
      *  Scan moods and the scan leaves it alone (moods written on your other device, then the files copied over). A

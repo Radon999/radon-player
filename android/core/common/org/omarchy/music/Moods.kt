@@ -145,7 +145,7 @@ object Moods {
 
     /** The rules' version: bumped when they change, so what's remembered is worked out again (from what's stored:
      *  no song needs hearing again). */
-    private const val RULES = 4   // 4: a heard song gets every mood that fits fairly well, not only its main one
+    private const val RULES = 5   // 4: a heard song gets every mood that fits fairly well, not only its main one; 5: the sound check
 
     private class Memo(val stamp: Triple<Int, Int, Int>) {
         val judged = ConcurrentHashMap<String, Judged>()
@@ -198,7 +198,11 @@ object Moods {
         if (e == null || (e.sound == null && e.lyr.isEmpty() && e.tags.isEmpty())) return NONE
         // Worth a look: the sound and the words plainly disagree, or there's more than one clue and it's still unsure.
         val doubt = j.moods.isNotEmpty() && (j.conflict >= 0.5 || (j.clues >= 2 && j.confidence < 0.5))
-        return Judged(j.moods, j.confidence, j.conflict, false, doubt)
+        // The sound check: worked-out moods the sound plainly says otherwise of (a loud, fast song only Chill; a soft,
+        // slow one only Hype) give way to what it says (moods in the file or yours are only suggested: Queued mood edits)
+        val fix = MoodRules.soundCheck(j.moods.map { it.first }, e.sound)
+        val moods = fix?.moods?.mapIndexed { i, m -> m to (j.scores[m] ?: 0.0).coerceAtLeast(if (i == 0) 0.7 else 0.5) } ?: j.moods
+        return Judged(moods, j.confidence, j.conflict, false, doubt)
     }
 
     /** What's known of the song's moods (see [Judged]); remembered until something changes. */
@@ -223,6 +227,24 @@ object Moods {
 
     /** The mood you picked for the song in the Tagger, or "" (it's worked out). */
     fun picked(t: Track): String = pathOf(t)?.let { p -> load(); synchronized(lock) { known[p] }?.picked }.orEmpty()
+
+    /** (blocking) The song's sound (a minute of its middle), heard now if it hasn't been: only the sound, no words read and
+     *  nothing asked of the AI or Last.fm. Kept with the song, its moods left as they are. For the sound check. */
+    fun soundOrHear(t: Track): SoundFeatures? {
+        load()
+        val p = pathOf(t) ?: return null
+        synchronized(lock) { known[p] }?.sound?.let { return it }
+        val m = runCatching { AudioTools.modified(p) }.getOrNull() ?: return null
+        val sound = runCatching { SoundMood.features(AudioTools.moodPcm(p, t.duration, SECS, RATE)) }.getOrNull() ?: return null
+        synchronized(lock) { val e = known[p] ?: fresh(p, t, m); known[p] = e.copy(sound = sound) }
+        if (++heardForCheck % 25 == 0) save()
+        // Gentle, as the scan is: a pause between songs, longer while music plays, so playback never stutters
+        Thread.sleep(if (Music.paused) 40 else 300)
+        return sound
+    }
+    @Volatile private var heardForCheck = 0
+    /** Kept to the file now (after the sound check), and what shows worked out again. */
+    fun keepNow() { runCatching { save() }; Music.scope.launch { version++ } }
 
     /** The song's sound as heard by the mood scan (tempo, loudness…), or null: for autoplay to keep the flow. */
     fun sound(t: Track): SoundFeatures? = pathOf(t)?.let { p -> load(); synchronized(lock) { known[p] }?.sound }
