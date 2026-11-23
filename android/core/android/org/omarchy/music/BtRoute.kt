@@ -73,6 +73,22 @@ object BtRoute {
     }
     fun voiceDevice(): AudioDeviceInfo? = if (hidden) device else null
 
+    /** Android's "headphones unplugged" is about a device that isn't the one the music is held on (the car leaving while
+     *  the music plays on your earbuds): Android sends it for whatever it plays media on itself, and the music paused
+     *  for a second with nothing unplugged. True when the music is held on a device still connected that isn't where
+     *  Android sends media now (the one going). Android 13 on (it can't be told before). */
+    fun heldThroughNoisy(): Boolean {
+        val d = device ?: return false
+        if (android.os.Build.VERSION.SDK_INT < 33) return false
+        val am = Music.ctx.getSystemService(AudioManager::class.java) ?: return false
+        val here = runCatching { am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.id == d.id } }.getOrDefault(false)
+        if (!here) return false
+        val media = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        val going = runCatching { am.getAudioDevicesForAttributes(media) }.getOrNull()?.firstOrNull() ?: return false
+        return going.id != d.id
+    }
+
     private fun name(d: AudioDeviceInfo) = d.productName?.toString()?.trim()?.takeIf { it.isNotEmpty() && it != android.os.Build.MODEL }
 
     /** An output's name for the rules: a Bluetooth device's own name (as picked in Settings), else "usb:…" or "wired". */

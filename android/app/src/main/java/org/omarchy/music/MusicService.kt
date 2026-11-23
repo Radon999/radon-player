@@ -293,6 +293,9 @@ class MusicService : MediaLibraryService() {
                     return
                 }
                 if (!exo.playWhenReady) return
+                // The device going isn't the one the music is held on (the car leaving while it plays on your earbuds,
+                // Ignore Bluetooth devices): not a pause at all, not even the second it took to look before
+                if (BtRoute.heldThroughNoisy()) { SoundLog.note("another device went (not the one the music is on): the music plays on"); return }
                 exo.pause()
                 // With two things connected (earbuds and the car), the music moving from one to the other is told to
                 // the app the same way as headphones being unplugged, and the song stopped partway for no reason you
