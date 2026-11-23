@@ -1,7 +1,7 @@
-commit 86350ba0dea0d6177d3d1e08fa43d83524ec22c3 · run 45256346215 · Mon Nov 23 20:16:56 UTC 2026
+commit 86350ba0dea0d6177d3d1e08fa43d83524ec22c3 · run 45256346215 · Mon Nov 23 21:03:02 UTC 2026
 PC INSTALL-OVER: made, Radon Player-4.5.8.msi, 215M
 BRINGS: ffmpeg.exe mpv.exe radon-media.exe 
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45256346215/artifacts/14858123630
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45256346215/artifacts/14861834210
 --- errors
 --- the end of the log
 > Task :desktop:jar
@@ -14,5 +14,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m 25s
+BUILD SUCCESSFUL in 10m 12s
 18 actionable tasks: 18 executed
