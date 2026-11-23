@@ -123,12 +123,13 @@ object HabitRules {
         for (i in s.indices) for (j in s.indices) if (i != j) pair.getOrPut(s[i]) { HashMap() }.merge(s[j], 1, Int::plus)
     }
 
-    /** Artists like an artist: Last.fm's similar artists (how alike, 0 … 1) blended with the ones you play in the same
-     *  sittings, so the list fits you as well as everyone. */
+    /** Artists like an artist: Last.fm's similar artists (how alike, 0 … 1), the ones you also play in the same sittings
+     *  as it moved up, so the list fits you as well as everyone. Only Last.fm's are given: the ones from your sittings
+     *  you play already, so they are never new to you. */
     fun similar(lastFm: List<Pair<String, Double>>, near: List<Pair<String, Double>>): List<Pair<String, Double>> {
         val out = HashMap<String, Double>(); val name = HashMap<String, String>()
         for ((n, s) in lastFm) { val k = statsKey("", n).second; out.merge(k, 0.6 * s, Double::plus); name.putIfAbsent(k, n) }
-        for ((k, s) in near) { out.merge(k, 0.4 * s + 0.15, Double::plus); name.putIfAbsent(k, k) }
+        for ((k, s) in near) if (k in out) out.merge(k, 0.4 * s + 0.15, Double::plus)
         return out.entries.sortedByDescending { it.value }.map { name.getValue(it.key) to it.value.coerceAtMost(1.0) }
     }
 }

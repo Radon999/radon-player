@@ -36,9 +36,10 @@ class TasteSignalsTest {
     }
 
     @Test fun yourSimilarArtistsBlendLastFmAndYourHabits() {
-        val s = HabitRules.similar(listOf("Keane" to 1.0, "Coldplay" to 0.5), listOf(statsKey("", "Sody").second to 0.8))
-        assertEquals("Keane", s.first().first)
-        assertTrue(s.any { it.first == statsKey("", "Sody").second })
+        // Coldplay, played in the same sittings, moves up past Keane; Sody (only from your sittings) is never new to you
+        val s = HabitRules.similar(listOf("Keane" to 0.8, "Coldplay" to 0.6), listOf(statsKey("", "Coldplay").second to 0.8, statsKey("", "Sody").second to 0.9))
+        assertEquals("Coldplay", s.first().first)
+        assertTrue(s.none { statsKey("", it.first).second == statsKey("", "Sody").second })
     }
 
     @Test fun autoplayLeavesOutWhatYouSaidNoTo() {
