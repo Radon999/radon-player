@@ -100,6 +100,8 @@ fun openSystemSettings(kind: String) {
             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, c.packageName)
         "allfiles" -> android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
             android.net.Uri.parse("package:" + c.packageName))
+        // Android's Bluetooth devices (Ignore Bluetooth devices: a device's Media audio switched off there)
+        "bluetooth" -> android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
         else -> android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${c.packageName}"))
     }
     runCatching { c.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }

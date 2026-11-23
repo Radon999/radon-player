@@ -188,24 +188,36 @@ fun TrackTile(t: Track, place: RowPlace, ui: Ui, extra: String, modifier: Modifi
     }
 }
 
-/** The page's own search, under its name: it looks only through what's on the page. */
+/** The page's own search, under its name: it looks only through what's on the page. Its last ten searches (kept apart
+ *  for each kind of page: Albums', Artists', a playlist's…) show under it while it's empty, a tap to search again. */
 @Composable
 fun FilterField(ui: Ui, title: String) {
     val focus = LocalFocusManager.current
     val ask = remember { FocusRequester() }
+    val place = layoutKey(ui)
     LaunchedEffect(Unit) { runCatching { ask.requestFocus() } }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp).clip(R.pill)
-        .background(if (C.isLight) C.light else C.fg.copy(alpha = 0.07f)), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Ico.SEARCH, C.muted, 18.dp, Modifier.padding(start = 16.dp))
-        Box(Modifier.weight(1f).padding(start = 10.dp, top = 12.dp, bottom = 12.dp)) {
-            if (ui.filter.isNullOrEmpty()) Text("Search $title", style = T.body.copy(color = C.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            BasicTextField(ui.filter.orEmpty(), { ui.filter = it }, singleLine = true, textStyle = T.body, cursorBrush = SolidColor(C.accent),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
-                modifier = Modifier.fillMaxWidth().focusRequester(ask).typing())
+    // Kept once you stop typing for a moment (each step of one search typed isn't kept: see SearchHistoryRules)
+    LaunchedEffect(ui.filter, place) {
+        val q = ui.filter?.trim().orEmpty()
+        if (q.length < 2) return@LaunchedEffect
+        kotlinx.coroutines.delay(1500)
+        org.omarchy.music.SearchHistory.add(place, q)
+    }
+    Column {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp).clip(R.pill)
+            .background(if (C.isLight) C.light else C.fg.copy(alpha = 0.07f)), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Ico.SEARCH, C.muted, 18.dp, Modifier.padding(start = 16.dp))
+            Box(Modifier.weight(1f).padding(start = 10.dp, top = 12.dp, bottom = 12.dp)) {
+                if (ui.filter.isNullOrEmpty()) Text("Search $title", style = T.body.copy(color = C.muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                BasicTextField(ui.filter.orEmpty(), { ui.filter = it }, singleLine = true, textStyle = T.body, cursorBrush = SolidColor(C.accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { org.omarchy.music.SearchHistory.add(place, ui.filter.orEmpty()); focus.clearFocus() }),
+                    modifier = Modifier.fillMaxWidth().focusRequester(ask).typing())
+            }
+            MicButton { said -> ui.filter = said; org.omarchy.music.SearchHistory.add(place, said); focus.clearFocus() }
+            Box(Modifier.clip(R.pill).clickable { ui.filter = null; focus.clearFocus() }.padding(12.dp)) { Icon(Ico.CLOSE, C.muted, 16.dp) }
         }
-        MicButton { said -> ui.filter = said; focus.clearFocus() }
-        Box(Modifier.clip(R.pill).clickable { ui.filter = null; focus.clearFocus() }.padding(12.dp)) { Icon(Ico.CLOSE, C.muted, 16.dp) }
+        if (ui.filter.isNullOrBlank()) RecentSearches(place) { q -> ui.filter = q; org.omarchy.music.SearchHistory.add(place, q); focus.clearFocus() }
     }
 }
 

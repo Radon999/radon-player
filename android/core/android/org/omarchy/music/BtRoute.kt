@@ -164,7 +164,10 @@ object BtRoute {
         val natural = (outs.firstOrNull { it.type in BT && key(it) !in ignored } ?: outs.firstOrNull { it.type in WIRED })?.let { key(it) }
         val target = BtIgnoreRules.keepOn(ignoring, ignored, bt, previous, outs.mapNotNull { key(it) })
         previous = BtIgnoreRules.previousAfter(ignoring, ignored, bt, natural, previous)
-        val d = target?.let { t -> outs.firstOrNull { key(it) == t } }
+        // Held on the output it's on before an ignored device even comes (not only once it's here): Android then has
+        // nothing to move when the car connects, so there's no split second of the sound going to it and back
+        val ahead = if (target == null && ignoring && ignored.isNotEmpty() && bt.none { it in ignored }) natural else null
+        val d = (target ?: ahead)?.let { t -> outs.firstOrNull { key(it) == t } }
         use(d)
         val here = if (IgnoreBt.on) bt.filter { it in ignored }.joinToString(", ") else ""
         IgnoreBt.report(here, routed?.label ?: "", when {

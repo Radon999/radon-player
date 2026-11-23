@@ -1844,6 +1844,18 @@ private fun IgnoreBtLines(ui: Ui) {
         }
         if (names.isEmpty()) Text("No Bluetooth devices seen yet: connect one (your car) once and it shows up here to pick", style = T.sub)
     }
+    // The only way never to have the sound move at all: the phone not using the device for music. Apps can't switch that
+    // (Android keeps it for its own Settings), so where it is, and a button to it.
+    if (onPhone) {
+        Text("Never a gap: Android connects an ignored device for music anyway and moves the sound to it and back, which " +
+            "can leave a split-second gap. To stop that completely, switch off its music in Android's Bluetooth settings: " +
+            "tap ⚙ beside ${picked.firstOrNull() ?: "the device"} and turn off Media audio (on Samsung: Audio), leaving Calls on. " +
+            "It then connects for calls and Android Auto only, and the music never goes near it." +
+            if (ign.here.isNotEmpty()) " ${ign.here} is connected for music right now." else "",
+            style = T.sub.copy(color = if (ign.here.isNotEmpty()) C.accent else C.muted), modifier = Modifier.padding(bottom = 6.dp))
+        Pill("Open Bluetooth settings", quiet = true) { openSystemSettings("bluetooth") }
+        Spacer(Modifier.height(8.dp))
+    }
     Text(if (onPhone) "Phones decide how Bluetooth works, so this may not work on every phone. Many play to only one Bluetooth " +
         "device at a time: once the car takes over, your headphones drop out and there's nowhere else to keep the music, so it's " +
         "left as it is. It never moves the music to the phone's own speaker. With Android Auto (wired or wireless) and the car " +
