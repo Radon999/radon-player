@@ -82,4 +82,29 @@ object BtIgnoreRules {
      *  elsewhereGoneAt: when the last something else went (0: never there). */
     fun mediaOff(on: Boolean, ignored: List<String>, elsewhere: Boolean, elsewhereGoneAt: Long, now: Long): List<String> =
         if (on && (elsewhere || (elsewhereGoneAt > 0 && now - elsewhereGoneAt < ELSEWHERE_GONE_MS))) ignored else emptyList()
+
+    // Bluetooth's profiles, as Android numbers them (BluetoothProfile): the media one, and the ones a car connects for
+    // calls (Android Auto starts over the calls one), its phonebook and its messages.
+    const val A2DP = 2
+    const val HEADSET = 1
+    const val PBAP = 6
+    const val MAP = 9
+    val CALL_PROFILES = listOf(HEADSET, PBAP, MAP)
+
+    /** How the app remembers a device's profile it switched off: the name alone for Media audio (as kept before
+     *  calls were switched too), "name|profile" for the others. */
+    fun offKey(name: String, profile: Int): String = if (profile == A2DP) name else "$name|$profile"
+    fun parseOff(key: String): Pair<String, Int> {
+        val p = key.substringAfterLast('|', "").toIntOrNull()
+        return if (p == null) key to A2DP else key.substringBeforeLast('|') to p
+    }
+
+    /** Ignore Bluetooth devices with Shizuku: every (device, profile) to have switched off now. mediaOff: the devices
+     *  kept from the music ([mediaOff]); their calls connection too (so the truck doesn't connect at all and can't
+     *  cut the music in and out at the edge of its range), but not while Android Auto is allowed (the notification's
+     *  Connect Android Auto). A device connected for calls right now (in the truck already, Android Auto on) is left
+     *  connected, so putting the earbuds in doesn't cut it off; unless forced: Disconnect Android Auto was tapped. */
+    fun keptOff(mediaOff: List<String>, connectedForCalls: Set<String>, autoAllowed: Boolean, forced: Boolean = false): List<String> =
+        mediaOff.map { offKey(it, A2DP) } +
+            (if (autoAllowed) emptyList() else mediaOff.filter { forced || it !in connectedForCalls }.flatMap { n -> CALL_PROFILES.map { offKey(n, it) } })
 }

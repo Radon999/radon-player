@@ -57,6 +57,10 @@ object BtRoute {
      *  with Shizuku the ignored devices then have Media audio off (SeamlessBt). */
     @Volatile var elsewhere = false
         private set
+    /** Bluetooth devices connected for calls now, as Android lists them (it lists the one in use for calls, which may
+     *  be the earbuds rather than the truck; SeamlessBt counts Android Auto being on as the truck being here too). */
+    @Volatile var callsHere: Set<String> = emptySet()
+        private set
 
     // Letting go of a device that's still connected (the music "where Android puts it", or no longer kept from Android
     // Auto) waits HOLD_MS for a second look: Android Auto starting asks for that and, a moment later, for the opposite,
@@ -174,6 +178,7 @@ object BtRoute {
         // In Sound lately (and so in a hiccup's "just before" in Problems): every device coming and going, to put beside
         // a gap in the sound
         if (all != lastAll) SoundLog.note("connected: " + ((all - lastAll).map { "+$it" } + (lastAll - all).map { "-$it" }).joinToString(" "))
+        callsHere = calls.toSet()
         if (BtIgnoreRules.stirs(lastAll, all, lastIgnored, ignoredHere)) {
             stirAt = android.os.SystemClock.elapsedRealtime()
             onStir?.let { runCatching { it() } }

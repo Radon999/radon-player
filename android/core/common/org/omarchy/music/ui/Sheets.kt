@@ -1871,14 +1871,32 @@ private fun SeamlessBtLines(device: String?, here: String) {
     val on = s.on
     Line("Ignore Bluetooth devices: no stutter at all", if (on || s.status.isNotEmpty()) s.status.ifEmpty { "On" }
         else "Part of Ignore Bluetooth devices, not a setting of its own: it takes away the stutter. While your headphones " +
-            "are connected, an ignored device has its Media audio switched off, so it never takes the sound; with no " +
-            "headphones it gets it back. Calls and Android Auto's map are untouched. Needs Shizuku, a free app (Android 14 " +
-            "or newer)", on && s.step.isEmpty()) {
+            "are connected, an ignored device (your truck) is kept disconnected, so it can't take the sound or cut the music " +
+            "in and out as you come and go. The player's notification gets an Android Auto button: tap it in the truck to " +
+            "let Android Auto connect (its map and calls; the music stays on your headphones), and again when you leave. " +
+            "With no headphones the truck connects as usual. Needs Shizuku, a free app (Android 14 or newer)", on && s.step.isEmpty()) {
         Switch(on, { s.setOn(it) }, colors = swColors())
     }
     if (s.step.isNotEmpty()) {
         Pill(s.step) { s.nextStep() }
         Spacer(Modifier.height(8.dp))
+    }
+    // The same button as the notification's, here too, and what to do with it, in plain words: it's the one thing the
+    // switch asks of you, and getting it wrong is either the stutter back or no GPS
+    if (on) {
+        if (s.autoButton.isNotEmpty()) {
+            Pill(s.autoButton) { s.toggleAuto() }
+            Spacer(Modifier.height(6.dp))
+        }
+        Text("How to use the Android Auto button (in the player's notification, and here):\n" +
+            "• Off (a crossed-out car): your truck is kept disconnected, so the music never stutters as you walk near it " +
+            "or away from it. Leave it off whenever you're not driving.\n" +
+            "• On (a car): tap it when you get in and need the truck's GPS or Android Auto. The truck connects; the music " +
+            "stays on your headphones.\n" +
+            "• Tap it off again when you leave the truck, or the stutter comes back as you walk away and come back near it. " +
+            "(It also goes off by itself once the truck disconnects.)\n" +
+            "With no headphones connected, the truck connects and plays the music as usual (the button then says on).",
+            style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 8.dp))
     }
     if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +
         "1. Install Shizuku from Google Play (free). " +
@@ -1889,7 +1907,7 @@ private fun SeamlessBtLines(device: String?, here: String) {
         "5. Flip the switch above and tap Allow when Shizuku asks. " +
         "Shizuku doesn't need to stay open, only running. After the phone restarts it has to be started again: newer " +
         "Shizuku can do that by itself on your home Wi-Fi (its start-on-boot setting); otherwise open it and tap Start. " +
-        "Uninstalling Radon Player? Switch this off first, so ${device ?: "the device"} gets its Media audio back.",
+        "Uninstalling Radon Player? Switch this off first, so ${device ?: "the device"} connects as before.",
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
     Text("Rather do it by hand? In Android's Bluetooth settings tap ⚙ beside ${device ?: "the device"} and turn off Media " +
         "audio (on Samsung: Audio), leaving Calls on. It then never plays music, headphones or not." +

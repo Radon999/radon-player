@@ -85,4 +85,23 @@ class BtIgnoreRulesTest {
         assertEquals(emptyList<String>(), BtIgnoreRules.mediaOff(true, ign, false, 0L, 50_000L))
         assertEquals(emptyList<String>(), BtIgnoreRules.mediaOff(false, ign, true, 0L, 50_000L))
     }
+
+    @Test fun offKeysRoundTrip() {
+        assertEquals("Chevy" to BtIgnoreRules.A2DP, BtIgnoreRules.parseOff(BtIgnoreRules.offKey("Chevy", BtIgnoreRules.A2DP)))
+        assertEquals("Chevy" to BtIgnoreRules.HEADSET, BtIgnoreRules.parseOff(BtIgnoreRules.offKey("Chevy", BtIgnoreRules.HEADSET)))
+        assertEquals("Chevy" to BtIgnoreRules.A2DP, BtIgnoreRules.parseOff("Chevy"))   // kept before calls were switched too
+    }
+
+    @Test fun keptOffWholeUnlessAndroidAutoOrConnected() {
+        val calls = BtIgnoreRules.CALL_PROFILES.map { BtIgnoreRules.offKey("Chevy", it) }
+        // earbuds on, the truck not connected: kept off entirely
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(listOf("Chevy"), emptySet(), autoAllowed = false))
+        // Connect Android Auto tapped: only its Media audio stays off
+        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(listOf("Chevy"), emptySet(), autoAllowed = true))
+        // already connected for calls (Android Auto on): left connected
+        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(listOf("Chevy"), setOf("Chevy"), autoAllowed = false))
+        // ... unless Disconnect Android Auto was tapped
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(listOf("Chevy"), setOf("Chevy"), autoAllowed = false, forced = true))
+        assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), emptySet(), false))
+    }
 }
