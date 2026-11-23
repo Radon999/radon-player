@@ -30,7 +30,8 @@ import kotlin.math.sqrt
 /** A look's effects (Make your own look › Effects): drawn over the window's background and behind everything else, so
  *  they go with every theme, layout and look. Each is its own kind of thing; any of them can be on together. */
 object LookFx {
-    class Fx(val key: String, val name: String, val desc: String, val moves: Boolean = false)
+    /** music: it moves to the music (BEAT_FX), so the visualizer's listening is on while it shows. */
+    class Fx(val key: String, val name: String, val desc: String, val moves: Boolean = false, val music: Boolean = false)
 
     val ALL = listOf(
         Fx("twinkle", "Twinkling stars", "Stars that slowly brighten and fade", true),
@@ -95,8 +96,9 @@ object LookFx {
         Fx("glitch", "Glitch", "Now and then bands of the screen glitch sideways", true),
         Fx("warp", "Warp speed", "Stars streaking out from the middle", true),
         Fx("sunbeams", "Sunbeams", "Warm beams of light from a top corner", true),
-    ) + MORE_FX   // 4.0.14: thirty more (Effects2.kt)
+    ) + MORE_FX + BEAT_FX   // 4.0.14: thirty more (Effects2.kt); 4.5.3: thirty that move to the music (Effects3.kt)
     fun moves(fx: Set<String>) = keys(fx).let { k -> ALL.any { it.moves && it.key in k } }
+    fun hears(fx: Set<String>) = keys(fx).any { it.startsWith("beat-") }
 
     // An effect's own colour rides in its entry: "rain@ff4fd8ff" (ARGB hex); a plain "rain" draws in the look's colours.
     fun keyOf(e: String) = e.substringBefore('@')
@@ -172,8 +174,11 @@ fun LookEffects(fx: Set<String> = C.fx, modifier: Modifier = Modifier.fillMaxSiz
     val seeds = remember { java.util.Random(11).let { r -> List(200) { floatArrayOf(r.nextFloat(), r.nextFloat(), r.nextFloat(), r.nextFloat()) } } }
     val keys = remember(fx) { LookFx.keys(fx).let { on -> LookFx.ALL.map { it.key }.filter { it in on } } }
     val tints = remember(fx) { LookFx.colors(fx) }
+    // One that moves to the music: the visualizer's listening, shared with any visualizer on screen
+    val vis = if (LookFx.hears(fx)) rememberVis(true) else null
     Canvas(modifier) {
         val t = time?.value ?: 0f
+        if (vis != null || LookFx.hears(fx)) { vis?.frame; FxSound.take(vis, t) }
         for (k in keys) drawFx(k, t, seeds, accent, fg, bg, tints[k])
     }
 }
@@ -185,6 +190,7 @@ internal fun DrawScope.drawFx(k: String, t: Float, s: List<FloatArray>, lookAcce
     fun m(def: Color) = tint ?: def
     val light = lerp(accent, Color.White, 0.5f)
     if (drawFx2(k, t, s, accent, fg, bg, tint)) return   // one of the thirty added in 4.0.14
+    if (drawFx3(k, t, s, accent, fg, tint)) return   // one that moves to the music (4.5.3)
     when (k) {
         "twinkle" -> for (i in 0 until 90) { val p = s[i]
             val a = 0.15f + 0.75f * (0.5f + 0.5f * sin(t * (0.6f + p[2] * 1.4f) + p[3] * 6.28f))

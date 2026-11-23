@@ -42,7 +42,11 @@ object MenuGroups {
         "mosaic", "facets", "veins", "rivets", "draft", "shapes", "fans")
     private val THINGS = setOf("skyline", "confetti", "hearts", "notes", "drops", "blots", "drapes", "slices", "bunting", "cranes", "scribbles",
         "lanterns", "pixels", "kites")
-    fun effect(k: String): String = when (k) {
+    fun effect(k: String): String = when {
+        k.startsWith("beat-") -> "Moves to the music"
+        else -> effectKind(k)
+    }
+    private fun effectKind(k: String): String = when (k) {
         in SKY -> "Sky and space"
         in NATURE -> "Weather and nature"
         in PATTERNS -> "Patterns and textures"
