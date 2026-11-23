@@ -2,6 +2,17 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.5.3 · November 2026
+- **Autoplay that knows you:** the songs autoplay and song radios bring are put in an order that fits you: songs you often play after the one playing, artists you love and the ones you play alongside them, your own copies, songs that sound alike (tempo and loudness) or share the mood or genre, and the artists you play at this time of day and on this output (the car, earbuds, the PC). Left out: anything heard in the last three hours, songs you keep skipping (above all in their first seconds), and what you said no to. No artist twice in a row.
+- **More like this, Less like this, Not for autoplay:** in a song's Options and an artist's menu. Autoplay, radios and the DJ follow them, and they sync between your phone and computer.
+- **The DJ learns too:** it leaves out what you said no to and what you keep skipping straight away; its artists for you lean on the artists you play together; and artists whose new songs keep getting skipped aren't brought again.
+- **Stats › Taste:** your phases (new loves, rising, long-time favourites, faded), the artists you skip most, the songs you always hear to the end, the new songs the DJ and autoplay brought and how they went, and everything you said, each undone with a tap.
+- **Thirty effects that move to the music** (Effects › Moves to the music): beat rings, lasers, a disco ball, flames, a heart monitor, bass lightning and more, reacting to the bass, the highs and the beat, as the visualizers do.
+- **Music scenes:** thirty new looks in a group of their own, each a kind of music (Jazz club, Punk, Disco, Techno, Concert hall, City pop…), each with an effect that moves to the music.
+- **Rearrange:** a playlist's songs (Rearrange songs, in its Options) and your playlists (Rearrange…, with the Your order sort): drag them, or move one place at a time.
+- **Add to playlist** shows only your own playlists: no discovery playlists, artist playlists, weekly mixes, smart playlists or Listen later.
+- **Bit-perfect (the phone):** twice as much sound is kept queued with the USB DAC, for the stutter when pulling down the notifications or opening the recent apps; any gap left is written down in Settings › Problems with its cause. A false "music not getting through" note when a song started over is gone.
+
 ## 4.5.2 · November 2026
 - **Bit-perfect: no more loud static on FLACs (the phone):** with bit-perfect on, the phone maker's FLAC decoder (Samsung's and others') gave 16-bit FLACs as loud static, whatever the sound went to, the phone's speaker too. With bit-perfect on, FLACs now always go through Android's own decoder, which gives them right.
 - **Bit-perfect: the app and the phone stop pulling the USB DAC between them (the phone):** taking the DAC over for bit-perfect made some phones' USB drop it and find it again, over and over: the sound switching between the DAC and the speaker every second or two, static or silence, the DAC's screen changing all the time. Each drop also cleared the count that should have stopped it, so it never stopped. Now, after a few takeovers in a minute, the app stops taking the DAC and the music plays through Android (whole, but mixed by Android); Settings says why, and turning bit-perfect off and on tries again.
