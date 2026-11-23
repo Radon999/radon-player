@@ -32,6 +32,8 @@ object Wrapped {
     val MONTH_NAMES = "January February March April May June July August September October November December".split(" ")
     /** How many each top list shows (songs, albums, artists, genres…). */
     const val TOP = 15
+    /** How many more each list keeps past its TOP: what takes the place of one you hide from stats while Wrapped is open. */
+    const val SPARE = 10
 
     /** "What Wrapped counts", at the top of Wrapped: every source and stat it uses, in plain words (heading, what). */
     val COUNTS: List<Pair<String, String>> = listOf(
@@ -41,7 +43,8 @@ object Wrapped {
             "places is one song.",
         "Minutes" to "How long Spotify and the other imports say each song played; for the rest, the length of your own copy, " +
             "else Last.fm's, else about three and a half minutes a song.",
-        "Top songs, artists and albums" to "Your plays added up: the $TOP you played most. An album and its deluxe edition count as one.",
+        "Top songs, artists and albums" to "Your plays added up: the $TOP you played most. An album and its deluxe edition count as one. " +
+            "What you hid from stats isn't in any list: hold a row (right-click on the PC) to hide it, and the next one takes its place.",
         "Top genres" to "The genre tag in your own music files, for every play of a song you have (\"Pop; Rock\" counts for both). " +
             "Without genre tags, your top artists' tags on Last.fm.",
         "Top moods" to "The mood the app finds for each of your own songs (from its sound, its genre tag and Last.fm's tags), " +
@@ -185,12 +188,50 @@ object Wrapped {
         val discovered: List<Song> = emptyList(), val discoveredCount: Int = 0,
         val newArtists: List<Pair<String, Int>> = emptyList(), val newArtistCount: Int = 0, val firstsKnown: Boolean = false,
         val dayRepeat: Repeat? = null,                            // the song played most times in one day
+        val dayRepeats: List<Repeat> = emptyList(),               // …and the next ones, to stand in when that one is hidden
         val monthTops: List<Pair<Int, String>> = emptyList(),     // a year's months (0–11) and each one's top artist
+        val monthArtists: List<List<String>> = emptyList(),       // each month's top few artists (0–11), for the same
+        val artistSongs: Map<String, Pair<String, Int>> = emptyMap(),   // each top artist's most played song in it
         val log: LogStats = LogStats(),                           // from the listening diary (ListenLog)
         val type: Listening.Kind? = null,                         // the listener type
         val library: LibraryStats? = null,                        // your music as it is now
         val loops: RepeatFactsRules.Summary? = null,              // your repeats in it (Repeat one), if any
     )
+
+    /** What Wrapped shows of d: without what you hid from stats (a song, an album, an artist), each list's next one in
+     *  its place, and each list cut to its TOP. Worked out again whenever something is hidden, so it changes at once. */
+    fun shown(d: Data): Data {
+        fun song(title: String, artist: String) = StatHides.any && StatHides.play(title, artist, "")
+        fun album(name: String, artist: String) = StatHides.any && (StatHides.album(name, artist) || StatHides.artist(artist))
+        fun artist(name: String) = StatHides.any && StatHides.artist(name)
+        val artists = d.artists.filter { !artist(it.first) }
+        val loops = runCatching {
+            val all = d.period == Period.All
+            RepeatFactsRules.summary(RepeatLoops.all(), if (all) "" else d.period.start().toString(), if (all) "" else d.period.end().toString(), TOP) {
+                StatHides.any && StatHides.play(it.track.title, it.track.artist, it.track.album) }
+        }.getOrDefault(d.loops)
+        if (!StatHides.any) return d.copy(songs = d.songs.take(TOP), albums = d.albums.take(TOP), singles = d.singles.take(TOP),
+            eps = d.eps.take(TOP), discovered = d.discovered.take(TOP), newArtists = d.newArtists.take(TOP),
+            log = d.log.copy(searched = d.log.searched.take(TOP)), loops = loops)
+        val top = artists.firstOrNull()?.first
+        return d.copy(
+            artists = artists,
+            songs = d.songs.filter { !song(it.title, it.artist) }.take(TOP),
+            albums = d.albums.filter { !album(it.name, it.artist) }.take(TOP),
+            singles = d.singles.filter { !album(it.name, it.artist) && !song(it.name, it.artist) }.take(TOP),
+            eps = d.eps.filter { !album(it.name, it.artist) }.take(TOP),
+            discovered = d.discovered.filter { !song(it.title, it.artist) }.take(TOP),
+            newArtists = d.newArtists.filter { !artist(it.first) }.take(TOP),
+            milestones = d.milestones.filter { if (it.what == "artist") !artist(it.name) else !song(it.name, it.artist) },
+            topArtistSong = if (top == d.artists.firstOrNull()?.first) d.topArtistSong else top?.let { d.artistSongs[it] },
+            dayRepeat = (if (d.dayRepeats.isEmpty()) listOfNotNull(d.dayRepeat) else d.dayRepeats).firstOrNull { !song(it.song.title, it.song.artist) },
+            monthTops = if (d.monthArtists.isEmpty()) d.monthTops.filter { !artist(it.second) }
+                else d.monthArtists.mapIndexedNotNull { m, names -> names.firstOrNull { !artist(it) }?.let { m to it } },
+            first = d.first?.takeIf { !StatHides.play(it.title, it.artist, it.album) },
+            log = d.log.copy(searched = d.log.searched.filter { !song(it.title, it.artist) }.take(TOP)),
+            loops = loops,
+        )
+    }
 
     /** A song played n times in one day. */
     data class Repeat(val song: Song, val day: LocalDate)
@@ -336,16 +377,22 @@ object Wrapped {
         val topArtist = common(artists).first().key
         val byTop = common(songs).firstOrNull { it.key.second == topArtist }
         val t0 = rows.firstOrNull()
-        val rep = daySongs.entries.maxByOrNull { it.value }?.takeIf { it.value >= 3 }?.let { (k, n) ->
+        // The song played most in one day, and the next few (to stand in when it is hidden from stats)
+        val reps = daySongs.entries.filter { it.value >= 3 }.sortedByDescending { it.value }.distinctBy { it.key.second }.take(5).map { (k, n) ->
             val (title, artist) = songName[k.second]!!
             Repeat(Song(title, artist, n, art[k.second] ?: ""), k.first)
         }
         val monthTops = (0 until 12).mapNotNull { m -> common(monthArtists[m]).firstOrNull()?.let { m to artistName[it.key]!! } }
-        return base.copy(dayRepeat = rep, monthTops = monthTops,
+        val topArtists = common(artists).take(30)
+        val artistSongs = HashMap<String, Pair<String, Int>>()   // each top artist's most played song
+        val topKeys = topArtists.map { it.key }.toSet()
+        for ((k, n) in common(songs)) if (k.second in topKeys) artistSongs.putIfAbsent(artistName[k.second]!!, songName[k]!!.first to n)
+        return base.copy(dayRepeat = reps.firstOrNull(), dayRepeats = reps, monthTops = monthTops,
+            monthArtists = (0 until 12).map { m -> common(monthArtists[m]).take(5).map { artistName[it.key]!! } }, artistSongs = artistSongs,
             scrobbles = rows.size + undated.size, artistCount = artists.size, songCount = songs.size,
-            artists = common(artists).take(30).map { artistName[it.key]!! to it.value },
-            songs = common(songs).take(TOP).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k]) },
-            albums = common(albums).take(TOP).map { (k, n) -> AlbumPlays(albumName[k]!!.first, albumName[k]!!.second, n, albumArt[k] ?: "") },
+            artists = topArtists.map { artistName[it.key]!! to it.value },
+            songs = common(songs).take(TOP + SPARE).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k]) },
+            albums = common(albums).take(TOP + SPARE).map { (k, n) -> AlbumPlays(albumName[k]!!.first, albumName[k]!!.second, n, albumArt[k] ?: "") },
             topArtistSong = byTop?.let { songName[it.key]!!.first to it.value },
             months = months.toList(), hours = hours.toList(), weekdays = weekdays.toList(), streak = streak, days = days.size,
             busiest = busiest?.key ?: base.busiest, busiestN = busiest?.value ?: 0,
@@ -583,14 +630,14 @@ object Wrapped {
             if (me!!.playcount == 0) return base.copy(empty = true)
             data = base.copy(scrobbles = me.playcount, yearsCount = counts,
                 artists = LastFm.top("artist", 30).map { it.name to it.plays },
-                songs = LastFm.top("track", TOP).map { Song(it.name, it.artist, it.plays, it.image) },
-                albums = LastFm.top("album", TOP).map { AlbumPlays(it.name, it.artist, it.plays, it.image) },
+                songs = LastFm.top("track", TOP + SPARE).map { Song(it.name, it.artist, it.plays, it.image) },
+                albums = LastFm.top("album", TOP + SPARE).map { AlbumPlays(it.name, it.artist, it.plays, it.image) },
                 minutes = Math.round(me.playcount * 3.5).toInt())   // about three and a half minutes a song
             rows = localRows(keptScrobbles(ctx).sortedBy { it.t }, local)   // what's kept here already, for the pages worked out from plays
             if (rows.isNotEmpty()) {
                 val y = yearStats(base, rows)
                 data = data.copy(hours = y.hours, weekdays = y.weekdays, streak = y.streak, days = y.days, busiest = y.busiest,
-                    busiestN = y.busiestN, first = y.first, dayRepeat = y.dayRepeat, artistCount = y.artistCount, songCount = y.songCount)
+                    busiestN = y.busiestN, first = y.first, dayRepeat = y.dayRepeat, dayRepeats = y.dayRepeats, artistCount = y.artistCount, songCount = y.songCount)
             }
         } else {
             rows = if (period == Period.All)
@@ -754,7 +801,7 @@ object Wrapped {
                 else if (truth == "album") from.remove(key)
             }
         }
-        fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP).map { r ->
+        fun top(m: Map<String, Rel>) = m.values.sortedByDescending { it.n }.take(TOP + SPARE).map { r ->
             // its picture: the file's own cover (load's last step): a file in your folders, or one of the app's downloads
             AlbumPlays(r.name, r.artist, r.n, "", r.t.file ?: runCatching { Music.lib.items[r.t.id]?.file }.getOrNull() ?: "")
         }
@@ -791,9 +838,9 @@ object Wrapped {
             }
         }
         return d.copy(firstsKnown = true, discoveredCount = songPlays.size, newArtistCount = artistPlays.size,
-            discovered = songPlays.entries.sortedByDescending { it.value }.take(TOP).map { (k, n) ->
+            discovered = songPlays.entries.sortedByDescending { it.value }.take(TOP + SPARE).map { (k, n) ->
                 Song(names.getValue(k).first, names.getValue(k).second, n, "", firstSong[k]) },
-            newArtists = artistPlays.entries.sortedByDescending { it.value }.take(TOP).map { artistName.getValue(it.key) to it.value })
+            newArtists = artistPlays.entries.sortedByDescending { it.value }.take(TOP + SPARE).map { artistName.getValue(it.key) to it.value })
     }
 
     /** Searched this many times within a week, a song counts as one you search often (Most searched). */
@@ -821,7 +868,7 @@ object Wrapped {
         val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.values
             .filter { l -> searchedOften(l.map { it.t }) }.map { l ->
             val e = l.first(); Song(e.title, e.artist, l.size, "", e.t)   // pictures: load's last step
-        }.sortedByDescending { it.plays }.take(TOP)
+        }.sortedByDescending { it.plays }.take(TOP + SPARE)
         // Shuffled or in order: listening from your playlists, albums and other lists (not the DJ, a radio or a search)
         val listed = es.filter { it.kind in setOf("playlist", "album", "artist", "other") }
         val listedSecs = listed.sumOf { it.secs }

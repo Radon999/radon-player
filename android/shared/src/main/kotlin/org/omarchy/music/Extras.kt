@@ -222,10 +222,11 @@ class SongStats(private val file: File) {
     data class Habits(val skips: Int, val full: Int, val never: List<Pair<Track, Int>>, val neverCount: Int,
                       val mostSkipped: List<Pair<Track, Int>>, val favsAdded: List<Track>, val favsTotal: Int)
 
-    /** For Wrapped: how you took songs between start and end (seconds). */
-    fun habits(start: Double, end: Double, favorites: Favorites?): Habits {
+    /** For Wrapped: how you took songs between start and end (seconds). hidden: songs left out (hidden from stats), so
+     *  the next ones take their places in the lists. */
+    fun habits(start: Double, end: Double, favorites: Favorites?, hidden: (Track) -> Boolean = { false }): Habits {
         val rows = all().mapNotNull { e ->
-            val t = e.track ?: return@mapNotNull null
+            val t = e.track?.takeIf { !hidden(it) } ?: return@mapNotNull null
             val sk = e.skips_at.count { it >= start && it < end }
             val fu = e.full_at.count { it >= start && it < end }
             if (sk + fu > 0) Triple(t, sk, fu) else null

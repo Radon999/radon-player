@@ -48,6 +48,7 @@ object StatHides {
     fun take(now: Map<String, String>) { if (now != hidden) keep(now) }
 
     fun hideSongs(tracks: List<Track>) = keep(hidden + tracks.associate { StatHideRules.song(it.title, it.artist) to "${it.title} · ${it.artist}" })
+    fun hideSong(title: String, artist: String) = keep(hidden + (StatHideRules.song(title, artist) to "$title · $artist"))
     fun hideArtist(name: String) = keep(hidden + (StatHideRules.artist(name) to name))
     fun hideAlbum(title: String, artist: String) = keep(hidden + (StatHideRules.album(title, artist) to "$title · $artist"))
 

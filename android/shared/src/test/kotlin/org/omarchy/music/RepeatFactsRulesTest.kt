@@ -63,4 +63,16 @@ class RepeatFactsRulesTest {
         val both = RepeatLoopRules.all(s.copy(imports = mapOf(RepeatLoopRules.key(b) to RepeatLoopRules.Loop(b, 4, 3, 0, mapOf("2024-05-05" to 4), "2024-05-05"))))
         assertEquals(6, both.songs.getValue(RepeatLoopRules.key(b)).n); assertEquals(3, both.songs.getValue(RepeatLoopRules.key(b)).best)
     }
+
+    @Test fun aSongHiddenFromStatsLeavesWrappedAndTheNextTakesItsPlace() {
+        var s = RepeatLoopRules.Saved()
+        val a = Track("1", title = "1997", artist = "Saint Motel", duration = 240.0); val b = Track("2", title = "Blood", artist = "K.Flay", duration = 200.0)
+        repeat(6) { s = RepeatLoopRules.add(s, a, "2026-03-07", 1, 21) }
+        s = RepeatLoopRules.add(s, b, "2026-03-09", 2, 9)
+        val y = RepeatFactsRules.summary(s, "2026-01-01", "2027-01-01", 15) { it.track.title == "1997" }!!
+        assertEquals(listOf("Blood" to 1), y.top.map { it.first.track.title to it.second })
+        assertEquals("March's obsession is the next one", listOf("2026-03" to "Blood"), y.months.map { it.first to it.second.track.title })
+        assertEquals(listOf("K.Flay" to 1), y.artists)
+        assertNull("nothing left", RepeatFactsRules.summary(s, "2026-01-01", "2027-01-01", 15) { true })
+    }
 }

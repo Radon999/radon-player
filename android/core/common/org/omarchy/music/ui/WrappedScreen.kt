@@ -360,6 +360,7 @@ fun WrappedScreen(onClose: () -> Unit) {
     // on a Wrapped you may not have wanted.) Asked for from outside (the PC's "wrapped month"): that one, at once.
     val asked0 = remember { WrappedAsk.take() }
     WrappedPick.ask?.let { WrappedCoverDialog(it) }
+    WrappedPick.held?.let { WrappedHoldDialog(it) }
     var chosen by remember { mutableStateOf(asked0 != null) }
     var period by remember { mutableStateOf<Wrapped.Period>(asked0 ?: Wrapped.Period.Year(Wrapped.year())) }
     var data by remember { mutableStateOf<Wrapped.Data?>(null) }
@@ -380,6 +381,10 @@ fun WrappedScreen(onClose: () -> Unit) {
         }
     }
     val label = period.name.uppercase()
+    // What it shows: without what you hid from stats, made again the moment you hide something (held on a row here, or
+    // anywhere else), each list's next one taking its place
+    val hidesNow = org.omarchy.music.StatHides.version
+    val shown = remember(data, hidesNow) { data?.let { Wrapped.shown(it) } }
     val slides: List<Slide> = when {
         !chosen -> listOf(Slide(0) {
             Text("YOUR WRAPPED", style = W.kicker)
@@ -410,13 +415,13 @@ fun WrappedScreen(onClose: () -> Unit) {
             Text("No scrobbles here yet", style = W.big)
             Text("Play some music and come back: everything you play is scrobbled to Last.fm.", style = W.sub)
         })
-        data!!.period == Wrapped.Period.All -> allTime(data!!)
-        else -> periodSlides(data!!)
+        shown!!.period == Wrapped.Period.All -> allTime(shown)
+        else -> periodSlides(shown!!)
     }
     Dialog(onDismissRequest = onClose, properties = fullScreenDialog()) {
         val pager = rememberPagerState { slides.size }
         val scope = rememberCoroutineScope()
-        LaunchedEffect(slides.size, data) { pager.scrollToPage(0) }
+        LaunchedEffect(data) { pager.scrollToPage(0) }   // a new Wrapped from its start (hiding a row stays on its slide)
         val layers = remember { HashMap<Int, GraphicsLayer>() }   // each page's drawing, for its picture
         var busy by remember { mutableStateOf(false) }
         var menu by remember { mutableStateOf(false) }
@@ -647,6 +652,10 @@ private fun Pic(art: Any?, size: Dp, round: Boolean = false) {
 private object WrappedPick {
     class Ask(val name: String, val artist: String, val file: String?)
     var ask by mutableStateOf<Ask?>(null)
+    /** A row held: what can be done with it. kind: what hiding it from stats hides ("song", "album", "artist"; null:
+     *  nothing, a genre or a mood); cover: the cover it can be given (null: a row without a picture). */
+    class Held(val name: String, val artist: String, val kind: String?, val cover: Ask?)
+    var held by mutableStateOf<Held?>(null)
     var v by mutableStateOf(0)
     /** The cover picked for this row, or null. */
     fun over(name: String, artist: String): Any? {
@@ -665,6 +674,34 @@ private object WrappedPick {
         val t = runCatching { Music.mySongs().firstOrNull { it.file == file } ?: Music.lib.items.values.firstOrNull { it.file == file }?.track() }.getOrNull() ?: return
         Music.scope.launch { Music.setCover(listOf(t), f.path, wholeAlbum = false) }
     }
+}
+
+/** A row held in Wrapped: hide it from stats (it leaves Wrapped, Most played and the other stats lists, and the next
+ *  one takes its place at once; Settings › Hidden from stats brings it back), or pick its cover. */
+@Composable
+private fun WrappedHoldDialog(h: WrappedPick.Held) {
+    val close = { WrappedPick.held = null }
+    val what = when (h.kind) { "artist" -> "the artist"; "album" -> "the release"; else -> "the song" }
+    androidx.compose.material3.AlertDialog(onDismissRequest = close, containerColor = C.light,
+        title = { Text(if (h.kind == "artist" || h.artist.isBlank()) "“${h.name}”" else "“${h.name}” · ${h.artist}", style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Text("Hide from stats takes $what out of Wrapped, Most played and the other stats lists, and the next one moves " +
+                "up into its place. Its plays are still counted. Settings › Hidden from stats brings it back.", style = T.sub)
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton({
+                val H = org.omarchy.music.StatHides
+                when (h.kind) { "artist" -> H.hideArtist(h.name); "album" -> H.hideAlbum(h.name, h.artist); else -> H.hideSong(h.name, h.artist) }
+                close()
+                Music.toast("${h.name} is hidden from stats. Settings › Hidden from stats brings it back")
+            }) { Text("Hide from stats", color = C.accent) }
+        },
+        dismissButton = {
+            Row {
+                h.cover?.let { c -> androidx.compose.material3.TextButton({ close(); WrappedPick.ask = c }) { Text("Pick its cover…", color = C.accent) } }
+                androidx.compose.material3.TextButton(close) { Text("Cancel", color = C.muted) }
+            }
+        })
 }
 
 /** Pick a cover for a Wrapped row: found on Google, Genius and Wikipedia, a picture of the artist, or a picture of yours. */
@@ -723,14 +760,18 @@ private fun WrappedCoverDialog(a: WrappedPick.Ask) {
 }
 
 @Composable
-private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = null, start: Int = 1, meter: Boolean = false) {
+private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = null, start: Int = 1, meter: Boolean = false, hide: String? = null) {
     val top = (items.maxOfOrNull { it.third } ?: 0).coerceAtLeast(1)
     // A long list (a top 15) a little tighter, so all of it fits on one screen
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy((if (items.size > 10) 8.dp else 12.dp) * WS.spacing)) {
         items.forEachIndexed { i, (name, sub, plays) ->
-            // A row with a picture: right-click or long-press it to pick its cover yourself
-            val hold: (() -> Unit)? = if (art == null || sub.isBlank()) null else ({
-                WrappedPick.ask = WrappedPick.Ask(name, sub, (art.getOrNull(i) as? FileArt)?.uri) })
+            // Right-click or long-press a row: hide it from stats (the next one takes its place), or pick its cover yourself
+            val cover = if (art == null || sub.isBlank()) null else WrappedPick.Ask(name, sub, (art.getOrNull(i) as? FileArt)?.uri)
+            val hold: (() -> Unit)? = when {
+                hide != null -> ({ WrappedPick.held = WrappedPick.Held(name, sub, hide, cover) })
+                cover != null -> ({ WrappedPick.ask = cover })
+                else -> null
+            }
             Row((if (hold != null) Modifier.pressable({}, hold) else Modifier), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${i + start}", style = W.rank, modifier = Modifier.widthIn(min = 26.dp))
                 art?.let { Pic(WrappedPick.over(name, sub) ?: it.getOrNull(i), if (items.size > 10) 34.dp else if (items.size > 6) 38.dp else 44.dp) }
@@ -868,7 +909,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
     out += Slide(4) {
         Text("YOUR TOP ARTISTS", style = W.kicker)
         Text("#1 of ${n(d.artistCount)}", style = W.mid.copy(color = WS.accent, shadow = WS.shadow))
-        Ranked(d.artists.take(Wrapped.TOP).map { Triple(it.first, "", it.second) }, meter = true)
+        Ranked(d.artists.take(Wrapped.TOP).map { Triple(it.first, "", it.second) }, meter = true, hide = "artist")
     }
     d.songs.firstOrNull()?.let { s ->
         out += Slide(5) {
@@ -881,7 +922,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
     }
     out += Slide(6) {
         Text("YOUR TOP SONGS", style = W.kicker)
-        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.pic }, meter = true)
+        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.pic }, meter = true, hide = "song")
     }
     d.albums.firstOrNull()?.let { a ->
         out += Slide(7) {
@@ -892,7 +933,7 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
         }
         if (d.albums.size > 1) out += Slide(0) {
             Text("YOUR TOP ALBUMS", style = W.kicker)
-            Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.pic }, meter = true)
+            Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.pic }, meter = true, hide = "album")
         }
     }
     out += releaseSlides(d)
@@ -999,16 +1040,16 @@ private fun allTime(d: Wrapped.Data): List<Slide> {
             Pic(d.artistImage, 200.dp, round = true)
             Text(name, style = W.big)
             Text("${n(plays)} plays", style = W.sub)
-            Ranked(d.artists.drop(1).take(Wrapped.TOP - 1).map { Triple(it.first, "", it.second) }, start = 2, meter = true)
+            Ranked(d.artists.drop(1).take(Wrapped.TOP - 1).map { Triple(it.first, "", it.second) }, start = 2, meter = true, hide = "artist")
         }
     }
     out += Slide(5) {
         Text("YOUR SONGS OF ALL TIME", style = W.kicker)
-        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.pic }, meter = true)
+        Ranked(d.songs.take(Wrapped.TOP).map { Triple(it.title, it.artist, it.plays) }, d.songs.take(Wrapped.TOP).map { it.pic }, meter = true, hide = "song")
     }
     if (d.albums.isNotEmpty()) out += Slide(7) {
         Text("YOUR ALBUMS OF ALL TIME", style = W.kicker)
-        Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.pic }, meter = true)
+        Ranked(d.albums.take(Wrapped.TOP).map { Triple(it.name, it.artist, it.plays) }, d.albums.take(Wrapped.TOP).map { it.pic }, meter = true, hide = "album")
     }
     out += releaseSlides(d)
     val counts = d.yearsCount
@@ -1062,7 +1103,7 @@ private fun milestoneSlides(d: Wrapped.Data, whenText: String): List<Slide> {
 private fun habitSlides(p: Wrapped.Period): List<Slide> {
     val z = java.time.ZoneId.systemDefault()
     val h = Music.songStats.habits(p.start().atStartOfDay(z).toEpochSecond().toDouble(),
-        p.end().atStartOfDay(z).toEpochSecond().toDouble(), Music.favorites)
+        p.end().atStartOfDay(z).toEpochSecond().toDouble(), Music.favorites) { org.omarchy.music.StatHides.any && org.omarchy.music.StatHides.play(it.title, it.artist, it.album) }   // without what you hid from stats
     val out = ArrayList<Slide>()
     if (h.skips + h.full > 0) out += Slide(5) {
         val heard = h.full * 100 / maxOf(1, h.skips + h.full)
@@ -1082,7 +1123,7 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
         Text("NEVER SKIPPED", style = W.kicker)
         // (a top 15 now: the first one's line is one short line, so the whole list fits)
         Text("“${t.title}” by ${t.artist}: heard to the end $f times, not skipped once", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true)
+        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true, hide = "song")
         Text("Times heard to the end", style = W.small)
     }
     if (h.mostSkipped.isNotEmpty()) out += Slide(4) {
@@ -1091,7 +1132,7 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
         val found = TopArt.tick
         Text("MOST SKIPPED", style = W.kicker)
         Text("“${t.title}” by ${t.artist}: skipped $k time${if (k != 1) "s" else ""}", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, h.mostSkipped.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true)
+        Ranked(h.mostSkipped.map { Triple(it.first.title, it.first.artist, it.second) }, h.mostSkipped.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true, hide = "song")
         Text("Skips: gone with more than ${org.omarchy.music.SongStats.SKIP_LEFT} seconds left", style = W.small)
     }
     if (h.favsAdded.isNotEmpty()) out += Slide(7) {
@@ -1247,9 +1288,9 @@ private fun releaseSlides(d: Wrapped.Data): List<Slide> {
                     Pic(WrappedPick.over(list[0].name, list[0].artist) ?: list[0].pic, 150.dp) }
                 Text(list[0].name, style = W.big)
                 Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
-                if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true)
+                if (list.size > 1) Ranked(list.drop(1).map { Triple(it.name, it.artist, it.plays) }, list.drop(1).map { it.pic }, start = 2, meter = true, hide = "album")
             } else   // a full top 15: one list, as the top songs, so all of it fits on one screen
-                Ranked(list.map { Triple(it.name, it.artist, it.plays) }, list.map { it.pic }, meter = true)
+                Ranked(list.map { Triple(it.name, it.artist, it.plays) }, list.map { it.pic }, meter = true, hide = "album")
         }
     }
     return out
@@ -1264,14 +1305,14 @@ private fun discoverySlides(d: Wrapped.Data): List<Slide> {
         Text(n(d.discoveredCount), style = W.huge.copy(color = WS.accent, shadow = WS.shadow))
         Text(if (d.discoveredCount == 1) "song new to you" else "songs new to you", style = W.big)
         Text("Played for the very first time in ${d.period.of}. The ones you played most:", style = W.sub)
-        Ranked(d.discovered.map { Triple(it.title, it.artist, it.plays) }, d.discovered.map { it.pic }, meter = true)
+        Ranked(d.discovered.map { Triple(it.title, it.artist, it.plays) }, d.discovered.map { it.pic }, meter = true, hide = "song")
     }
     if (d.newArtists.isNotEmpty()) out += Slide(1) {
         Text("NEW ARTISTS", style = W.kicker)
         Text(n(d.newArtistCount), style = W.huge.copy(color = WS.accent, shadow = WS.shadow))
         Text("artists you'd never played before", style = W.big)
         if (d.artistCount > 0) Text("${Math.round(d.newArtistCount * 100.0 / d.artistCount)}% of the artists you played.", style = W.sub)
-        Ranked(d.newArtists.map { Triple(it.first, "", it.second) }, meter = true)
+        Ranked(d.newArtists.map { Triple(it.first, "", it.second) }, meter = true, hide = "artist")
     }
     return out
 }
@@ -1364,7 +1405,7 @@ private fun diarySlides(d: Wrapped.Data): List<Slide> {
             Text(s.title, style = W.big)
             Text("${s.artist} · started from search ${s.plays} time${if (s.plays != 1) "s" else ""}", style = W.sub)
             if (log.searched.size > 1) Ranked(log.searched.drop(1).map { Triple(it.title, it.artist, it.plays) },
-                log.searched.drop(1).map { it.pic }, start = 2, meter = true)
+                log.searched.drop(1).map { it.pic }, start = 2, meter = true, hide = "song")
         }
     }
     return out
@@ -1399,11 +1440,11 @@ private fun loopSlides(d: Wrapped.Data): List<Slide> {
     }
     if (l.top.size >= 2) out += Slide(6) {
         Text("YOUR MOST REPEATED SONGS", style = W.kicker)
-        Ranked(l.top.map { Triple(it.first.track.title, it.first.track.artist, it.second) }, l.top.map { pic(it.first.track) }, meter = true)
+        Ranked(l.top.map { Triple(it.first.track.title, it.first.track.artist, it.second) }, l.top.map { pic(it.first.track) }, meter = true, hide = "song")
     }
     if (l.artists.size >= 2) out += Slide(4) {
         Text("YOUR MOST REPEATED ARTISTS", style = W.kicker)
-        Ranked(l.artists.map { Triple(it.first, "", it.second) }, meter = true)
+        Ranked(l.artists.map { Triple(it.first, "", it.second) }, meter = true, hide = "artist")
     }
     val moments = ArrayList<Pair<String, String>>()
     l.bestRun?.let { (loop, run) -> moments += "$run in a row" to "your longest run: “${loop.track.title}” by ${loop.track.artist}" +
@@ -1424,7 +1465,9 @@ private fun loopSlides(d: Wrapped.Data): List<Slide> {
         Text("The song you repeated most", style = W.big)
         Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             l.months.takeLast(12).forEach { (month, loop, count) ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // held: hide it from stats, and the month's next most repeated song takes its place
+                Row(Modifier.pressable({}, { WrappedPick.held = WrappedPick.Held(loop.track.title, loop.track.artist, "song", null) }),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Wrapped.MONTHS.getOrElse((month.drop(5).toIntOrNull() ?: 1) - 1) { "" }, style = W.rank, modifier = Modifier.widthIn(min = 42.dp))
                     // the song, then whose it is and how often it went round that month
                     // (as your own file names it when you have it: a history may have it under someone else)

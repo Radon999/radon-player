@@ -37,9 +37,10 @@ object RepeatFactsRules {
     private fun inside(day: String, from: String, to: String) = (from.isEmpty() || day >= from) && (to.isEmpty() || day < to)
 
     /** The repeats on days from [from] up to (not including) [to] ("2026-01-01"; "": open). limit: how many songs the
-     *  list holds (as many as Wrapped's other lists). null: none in that time. */
-    fun summary(s: Saved, from: String, to: String, limit: Int): Summary? {
-        val counts = s.songs.values.map { l -> l to l.days.filterKeys { inside(it, from, to) }.values.sum() }.filter { it.second > 0 }
+     *  list holds (as many as Wrapped's other lists). hidden: songs left out (hidden from stats), so the next ones take
+     *  their places. null: none in that time. */
+    fun summary(s: Saved, from: String, to: String, limit: Int, hidden: (Loop) -> Boolean = { false }): Summary? {
+        val counts = s.songs.values.filter { !hidden(it) }.map { l -> l to l.days.filterKeys { inside(it, from, to) }.values.sum() }.filter { it.second > 0 }
         if (counts.isEmpty()) return null
         val top = counts.sortedWith(compareByDescending<Pair<Loop, Int>> { it.second }.thenByDescending { it.first.last })
         val total = counts.sumOf { it.second }
