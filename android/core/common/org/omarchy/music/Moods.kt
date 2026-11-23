@@ -201,8 +201,8 @@ object Moods {
         // The sound check: worked-out moods the sound plainly says otherwise of (a loud, fast song only Chill; a soft,
         // slow one only Hype) give way to what it says (moods in the file or yours are only suggested: Queued mood edits)
         val fix = MoodRules.soundCheck(j.moods.map { it.first }, e.sound)
-        val moods = fix?.moods?.mapIndexed { i, m -> m to (j.scores[m] ?: 0.0).coerceAtLeast(if (i == 0) 0.7 else 0.5) } ?: j.moods
-        return Judged(moods, j.confidence, j.conflict, false, doubt)
+        val heardMoods = fix?.moods?.mapIndexed { i, m -> m to (j.scores[m] ?: 0.0).coerceAtLeast(if (i == 0) 0.7 else 0.5) } ?: j.moods
+        return Judged(heardMoods, j.confidence, j.conflict, false, doubt)
     }
 
     /** What's known of the song's moods (see [Judged]); remembered until something changes. */
