@@ -409,6 +409,9 @@ object UsbDirect {
             // Played the whole time (not paused for the DJ, say) and the song hardly moved on: then it's worth noting
             if (pl?.playWhenReady != true || !earlyPlaying || rate <= 0 || earlyPlayed < 0 || played - earlyPlayed >= rate * 2 ||
                 pl.positionMs - earlyAt >= 2000) return@launch
+            // The song started over in between (a skip, a seek, the next song): the counts began again, so they can't be
+            // compared. It was noted as music not getting through while it played fine (22 Nov 2026)
+            if (played < earlyPlayed || pl.positionMs < earlyAt) return@launch
             Crashes.note("USB DAC report (${dac?.dev?.productName}): music not getting through · $setup · $volumeInfo · at 2 s: ${early?.get(0)} transfers, $earlyPlayed frames played, " +
                 "player at ${earlyAt}ms · at 5 s: $played frames played, ${runCatching { UsbNative.pending(h) }.getOrDefault(-1L)} waiting, " +
                 "player at ${pl.positionMs}ms (state ${pl.state}) · ${v[0]} transfers, ${v[1]} failed, ${v[2]} with bad packets, " +
