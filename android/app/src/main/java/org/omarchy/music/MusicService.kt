@@ -34,6 +34,7 @@ class MusicService : MediaLibraryService() {
     private var retriedFor: String? = null   // the song played again once after an audio error
     private var reparsedFor: String? = null   // the song read again once after its file read as broken
     private var noisyPause = 0L              // when Android's "becoming noisy" last paused the music (0: not waiting on one)
+    private var outsidePauseAt = 0L          // when a Pause from outside the app (earbuds, car, lock screen) last paused it (elapsed ms)
 
     /** Something other than the phone's own speaker is connected to play through: Bluetooth (earbuds, a car),
      *  wired headphones, a USB DAC, a hearing aid. */
@@ -144,7 +145,7 @@ class MusicService : MediaLibraryService() {
                     exo.play(); return
                 }
                 Music.paused = !playWhenReady
-                if (playWhenReady) noisyPause = 0L   // playing again (by you, or by itself): nothing left to undo
+                if (playWhenReady) { noisyPause = 0L; outsidePauseAt = 0L }   // playing again (by you, or by itself): nothing left to undo
                 if (!playWhenReady) pausedAt = android.os.SystemClock.elapsedRealtime()
                 // Keep playing: the app holds the sound while the music plays, so no other app taking it pauses it
                 keep.playChanged(playWhenReady)
@@ -325,6 +326,8 @@ class MusicService : MediaLibraryService() {
                 // the app the same way as headphones being unplugged, and the song stopped partway for no reason you
                 // could see. So: paused at once, as for an unplug (nothing ever blares from the phone's speaker), and a
                 // moment later, if headphones, a car or a DAC are still connected to play through, it goes on by itself.
+                // Around an ignored device coming or going (BtRoute.stirred) it keeps looking for twenty seconds, not
+                // four: earbuds the car pushed off come back after several seconds, and the music stayed paused.
                 val stoppedAt = android.os.SystemClock.elapsedRealtime()
                 noisyPause = stoppedAt
                 val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
@@ -332,14 +335,25 @@ class MusicService : MediaLibraryService() {
                 fun look(tries: Int) {
                     if (noisyPause != stoppedAt || exo.playWhenReady) return   // started again, or paused again, meanwhile
                     if (stillPlugged(am)) {
-                        Crashes.note("The sound moved to another device mid-song (not an unplug): the music went on by itself")
+                        SoundLog.note("the sound moved to another device mid-song (not an unplug): the music went on by itself")
                         noisyPause = 0L
                         exo.play()
-                    } else if (tries < 3) h.postDelayed({ look(tries + 1) }, 900)
+                    } else if (tries < 3 || (tries < 25 && BtRoute.stirred(BtIgnoreRules.NOISY_STIRRED_MS))) h.postDelayed({ look(tries + 1) }, 900)
                 }
                 h.postDelayed({ look(0) }, 1200)
             }
         }, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        // A Pause from outside the app (see queueAware's pause) a moment before an ignored device came or went was the
+        // car's or the earbuds' doing (Android Auto ending sends one, then lets go): the music plays on by itself, as
+        // long as there's somewhere other than the phone's speaker to play.
+        BtRoute.onStir = {
+            val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            if (!exo.playWhenReady && BtIgnoreRules.near(outsidePauseAt, BtRoute.stirAt) && stillPlugged(am)) {
+                outsidePauseAt = 0L
+                SoundLog.note("a Pause from outside the app just as a device you ignore came or went: the music plays on")
+                exo.play()
+            }
+        }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val local = queueAware(exo)
@@ -460,6 +474,17 @@ class MusicService : MediaLibraryService() {
             // Some phones send a Pause when the USB DAC "goes away" (bit-perfect taking it from Android looks like an
             // unplug): one in the first seconds after the app took it is that, not you, and is left alone
             if (p !is RemotePlayer && UsbDirect.active && UsbDirect.sinceTakeover() < 4000) return
+            // Ignore Bluetooth devices: cars and earbuds send a Pause of their own as an ignored device comes or goes
+            // (the car connecting or letting go, the earbuds as the car takes the sound). Seconds after such a moment
+            // it's left alone; seconds before one, it's undone when the moment comes (BtRoute.onStir, above).
+            if (p is androidx.media3.exoplayer.ExoPlayer && p.playWhenReady && IgnoreBt.on) {
+                val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                if (BtRoute.stirred() && stillPlugged(am)) {
+                    SoundLog.note("a Pause from outside the app just as a device you ignore came or went: left alone, the music plays on")
+                    return
+                }
+                outsidePauseAt = android.os.SystemClock.elapsedRealtime()
+            }
             if (p !is RemotePlayer && Music.djTalking) Music.djHush(); super.pause()
         }
 

@@ -57,4 +57,32 @@ class BtIgnoreRulesTest {
         val was = mapOf("Buds" to 100L, "Gone" to 50L)
         assertEquals(mapOf("Buds" to 100L, "Truck" to 900L), BtIgnoreRules.arrivals(was, listOf("Buds", "Truck"), 900L))
     }
+
+    @Test fun stirOnlyAroundIgnoredDevices() {
+        val buds = setOf("Buds")
+        val both = setOf("Buds", "Chevy")
+        assertEquals(true, BtIgnoreRules.stirs(buds, both, emptySet(), car))        // the car arrives
+        assertEquals(true, BtIgnoreRules.stirs(both, buds, car, emptySet()))        // the car leaves
+        assertEquals(true, BtIgnoreRules.stirs(both, car, car, car))                // the buds drop out while the car's there
+        assertEquals(false, BtIgnoreRules.stirs(emptySet(), buds, emptySet(), emptySet()))   // nothing ignored involved
+        assertEquals(false, BtIgnoreRules.stirs(both, both, car, car))              // nothing changed
+    }
+
+    @Test fun nearIsEitherSide() {
+        assertEquals(true, BtIgnoreRules.near(10_000L, 15_000L))
+        assertEquals(true, BtIgnoreRules.near(15_000L, 10_000L))
+        assertEquals(false, BtIgnoreRules.near(10_000L, 10_000L + BtIgnoreRules.STIR_MS))
+        assertEquals(false, BtIgnoreRules.near(0L, 100L))   // never happened
+    }
+
+    @Test fun mediaOffWhileThereIsSomewhereElse() {
+        val ign = listOf("Chevy")
+        assertEquals(ign, BtIgnoreRules.mediaOff(true, ign, elsewhere = true, elsewhereGoneAt = 0L, now = 50_000L))
+        // the earbuds out for a moment: still off
+        assertEquals(ign, BtIgnoreRules.mediaOff(true, ign, elsewhere = false, elsewhereGoneAt = 45_000L, now = 50_000L))
+        // gone for good: the car may have the music again
+        assertEquals(emptyList<String>(), BtIgnoreRules.mediaOff(true, ign, false, 30_000L, 50_000L))
+        assertEquals(emptyList<String>(), BtIgnoreRules.mediaOff(true, ign, false, 0L, 50_000L))
+        assertEquals(emptyList<String>(), BtIgnoreRules.mediaOff(false, ign, true, 0L, 50_000L))
+    }
 }

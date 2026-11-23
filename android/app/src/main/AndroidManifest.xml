@@ -29,6 +29,8 @@
         <!-- Android Auto's connection state (wired or wireless), for the truck's own equalizer -->
         <package android:name="com.google.android.projection.gearhead" />
         <provider android:authorities="androidx.car.app.connection" />
+        <!-- Shizuku: whether it's installed (Ignore Bluetooth devices with no gaps; see SeamlessBt) -->
+        <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
     <application
@@ -103,6 +105,16 @@
             android:name="org.omarchy.music.ArtProvider"
             android:authorities="${applicationId}.art"
             android:exported="true" />
+
+        <!-- Shizuku hands the app its connection through this (Ignore Bluetooth devices with no gaps; see SeamlessBt).
+             Only Shizuku can reach it: the permission is one ordinary apps can't hold. -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <!-- Android Auto: a media app, browsed through MusicService's library session (see Car). -->
         <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"

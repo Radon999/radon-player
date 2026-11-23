@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/radon/Work/radon-player/android/app/.cxx/Debug/151p5xb4/arm64-v8a",
+  "command": "/home/radon/.local/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-none-linux-android29 --sysroot=/home/radon/.local/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dradonusb_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -fno-limit-debug-info  -fPIC -o CMakeFiles/radonusb.dir/usbaudio.c.o -c /home/radon/Work/radon-player/android/app/src/main/cpp/usbaudio.c",
+  "file": "/home/radon/Work/radon-player/android/app/src/main/cpp/usbaudio.c"
+}
+]

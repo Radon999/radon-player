@@ -51,4 +51,35 @@ object BtIgnoreRules {
     /** When each output came: kept for the ones still here, now for the new ones. */
     fun arrivals(was: Map<String, Long>, here: Collection<String>, now: Long): Map<String, Long> =
         here.distinct().associateWith { was[it] ?: now }
+
+    /** The moment an ignored device comes or goes (the car connecting, Android Auto starting or ending with the car
+     *  ignored): this long either side of it. Cars and earbuds send a Pause of their own then (the car as it connects
+     *  or lets go, the earbuds as the car takes the sound from them), which the app can't tell from you pressing it. */
+    const val STIR_MS = 6_000L
+
+    /** Whether the connected devices changing is such a moment. all: every Bluetooth device connected (for music or
+     *  calls), and Android Auto; ignored: the ignored ones of them (Android Auto when the car is ignored). Any
+     *  change that brings or takes an ignored one, or any change at all while one is there (the earbuds dropping
+     *  out as the car takes over). */
+    fun stirs(wasAll: Set<String>, nowAll: Set<String>, wasIgnored: Set<String>, nowIgnored: Set<String>): Boolean =
+        wasIgnored != nowIgnored || (wasAll != nowAll && (wasIgnored.isNotEmpty() || nowIgnored.isNotEmpty()))
+
+    /** Whether two moments (a Pause from outside the app, the devices stirring) are close enough to be one. */
+    fun near(a: Long, b: Long): Boolean = a > 0 && b > 0 && kotlin.math.abs(a - b) < STIR_MS
+
+    /** After Android's "headphones unplugged" pause, how long it keeps looking for somewhere to play on (headphones,
+     *  the car) when the devices just stirred: earbuds the car pushed off take several seconds to come back. Any other
+     *  time it looks for about four seconds, as before. */
+    const val NOISY_STIRRED_MS = 20_000L
+
+    /** Ignore Bluetooth devices with Shizuku (the phone): how long your headphones must be gone before an ignored
+     *  device has its Media audio back (an earbud out for a moment mustn't hand it the music and take it back). */
+    const val ELSEWHERE_GONE_MS = 8_000L
+
+    /** Ignore Bluetooth devices with Shizuku: the ignored devices to have Media audio off now. While you have
+     *  something else to listen on (headphones, the car not ignored), so they never take the sound; with nothing
+     *  else, theirs again (as Ignore Bluetooth devices does without Shizuku: never the phone's own speaker).
+     *  elsewhereGoneAt: when the last something else went (0: never there). */
+    fun mediaOff(on: Boolean, ignored: List<String>, elsewhere: Boolean, elsewhereGoneAt: Long, now: Long): List<String> =
+        if (on && (elsewhere || (elsewhereGoneAt > 0 && now - elsewhereGoneAt < ELSEWHERE_GONE_MS))) ignored else emptyList()
 }

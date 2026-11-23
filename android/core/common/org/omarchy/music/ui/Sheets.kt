@@ -1844,17 +1844,14 @@ private fun IgnoreBtLines(ui: Ui) {
         }
         if (names.isEmpty()) Text("No Bluetooth devices seen yet: connect one (your car) once and it shows up here to pick", style = T.sub)
     }
-    // The only way never to have the sound move at all: the phone not using the device for music. Apps can't switch that
-    // (Android keeps it for its own Settings), so where it is, and a button to it.
+    // Android still connects an ignored device for music and moves the sound to it and back: a stutter each time. Said
+    // plainly; then the two ways never to have it: Shizuku doing it for you, or switching it off yourself.
     if (onPhone) {
-        Text("Never a gap: Android connects an ignored device for music anyway and moves the sound to it and back, which " +
-            "can leave a split-second gap. To stop that completely, switch off its music in Android's Bluetooth settings: " +
-            "tap ⚙ beside ${picked.firstOrNull() ?: "the device"} and turn off Media audio (on Samsung: Audio), leaving Calls on. " +
-            "It then connects for calls and Android Auto only, and the music never goes near it." +
-            if (ign.here.isNotEmpty()) " ${ign.here} is connected for music right now." else "",
-            style = T.sub.copy(color = if (ign.here.isNotEmpty()) C.accent else C.muted), modifier = Modifier.padding(bottom = 6.dp))
-        Pill("Open Bluetooth settings", quiet = true) { openSystemSettings("bluetooth") }
-        Spacer(Modifier.height(8.dp))
+        Text("Each time an ignored device connects or drops (driving or walking in and out of its range, over and over), " +
+            "Android moves the sound to it and back, so the music can stutter for a moment. It always carries on by itself " +
+            "straight away. For no stutter at all, use Shizuku below.",
+            style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+        SeamlessBtLines(picked.firstOrNull(), ign.here)
     }
     Text(if (onPhone) "Phones decide how Bluetooth works, so this may not work on every phone. Many play to only one Bluetooth " +
         "device at a time: once the car takes over, your headphones drop out and there's nowhere else to keep the music, so it's " +
@@ -1864,6 +1861,41 @@ private fun IgnoreBtLines(ui: Ui) {
         else "The PC decides its default output; the app looks every few seconds, so the device may have the sound for a moment " +
         "first. The music goes back to the output it was on, as long as that's still there",
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+}
+
+/** Ignore Bluetooth devices with no stutter (the phone): the Shizuku switch, its next step, how to set Shizuku up, and
+ *  the way to do it by hand in Android's Bluetooth settings. */
+@Composable
+private fun SeamlessBtLines(device: String?, here: String) {
+    val s = org.omarchy.music.SeamlessBt
+    val on = s.on
+    Line("No stutter at all (Shizuku)", if (on || s.status.isNotEmpty()) s.status.ifEmpty { "On" }
+        else "While your headphones are connected, an ignored device has its Media audio switched off, so it never takes " +
+            "the sound; with no headphones it gets it back. Calls and Android Auto are untouched. Needs Shizuku, a free app " +
+            "(Android 14 or newer)", on && s.step.isEmpty()) {
+        Switch(on, { s.setOn(it) }, colors = swColors())
+    }
+    if (s.step.isNotEmpty()) {
+        Pill(s.step) { s.nextStep() }
+        Spacer(Modifier.height(8.dp))
+    }
+    if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +
+        "1. Install Shizuku from Google Play (free). " +
+        "2. Turn on Developer options: Settings › About phone › Software information, tap Build number seven times. " +
+        "3. On Wi-Fi, open Shizuku and tap Pairing (under Start via Wireless debugging). In Settings › Developer options › " +
+        "Wireless debugging, switch it on, tap Pair device with pairing code, and type the code into Shizuku's notification. " +
+        "4. In Shizuku, tap Start. " +
+        "5. Flip the switch above and tap Allow when Shizuku asks. " +
+        "Shizuku doesn't need to stay open, only running. After the phone restarts it has to be started again: newer " +
+        "Shizuku can do that by itself on your home Wi-Fi (its start-on-boot setting); otherwise open it and tap Start. " +
+        "Uninstalling Radon Player? Switch this off first, so ${device ?: "the device"} gets its Media audio back.",
+        style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
+    Text("Rather do it by hand? In Android's Bluetooth settings tap ⚙ beside ${device ?: "the device"} and turn off Media " +
+        "audio (on Samsung: Audio), leaving Calls on. It then never plays music, headphones or not." +
+        if (here.isNotEmpty()) " $here is connected for music right now." else "",
+        style = T.sub.copy(color = if (here.isNotEmpty() && !on) C.accent else C.muted), modifier = Modifier.padding(bottom = 6.dp))
+    Pill("Open Bluetooth settings", quiet = true) { openSystemSettings("bluetooth") }
+    Spacer(Modifier.height(8.dp))
 }
 
 /** Car always wins (the phone): a failsafe beside Newest Bluetooth device wins. */

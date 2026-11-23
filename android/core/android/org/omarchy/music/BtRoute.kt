@@ -41,6 +41,33 @@ object BtRoute {
     @Volatile var routed: Outputs.Out? = null
         private set
 
+    /** When the devices last stirred around an ignored one (elapsed ms; see BtIgnoreRules.stirs): a Pause from outside
+     *  the app close to it is the car's or the earbuds' doing, and Android's "unplugged" pause then waits longer for
+     *  the headphones to come back. 0: never. */
+    @Volatile var stirAt = 0L
+        private set
+    /** Told each time the devices stir (MusicService: a Pause from outside just before is undone). Main thread. */
+    var onStir: (() -> Unit)? = null
+    private var lastAll = emptySet<String>()
+    private var lastIgnored = emptySet<String>()
+    fun stirred(within: Long = BtIgnoreRules.STIR_MS): Boolean =
+        stirAt > 0 && android.os.SystemClock.elapsedRealtime() - stirAt < within
+
+    /** Something not ignored to listen on is connected (Bluetooth headphones, a car that isn't ignored, wired, USB):
+     *  with Shizuku the ignored devices then have Media audio off (SeamlessBt). */
+    @Volatile var elsewhere = false
+        private set
+
+    // Letting go of a device that's still connected (the music "where Android puts it", or no longer kept from Android
+    // Auto) waits HOLD_MS for a second look: Android Auto starting asks for that and, a moment later, for the opposite,
+    // and every change moves the sound, a gap each time (seen on the owner's phone: three changes in one second).
+    private const val HOLD_MS = 2_500L
+    private val h by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    private var holding = false     // a let-go waiting for its second look
+    private var asked = false       // this look asked to let go (see check)
+    private var releaseNow = false  // the second look: let go for real
+    private val secondLook = Runnable { holding = false; releaseNow = true; try { check() } finally { releaseNow = false } }
+
     /** One of the app's players (the main one, crossfade's second): it plays where the music's kept too. */
     fun attach(p: ExoPlayer) {
         players[p] = p !in noFocus
@@ -111,8 +138,16 @@ object BtRoute {
         }
     }
 
-    /** Look at the outputs again: remember the Bluetooth ones, keep the music off an ignored one if there's somewhere to. */
+    /** Look at the outputs again: remember the Bluetooth ones, keep the music off an ignored one if there's somewhere to;
+     *  then Shizuku's part (SeamlessBt). A let-go still waiting for its second look and not asked for again is dropped. */
     fun check() {
+        asked = false
+        look()
+        if (holding && !asked) { holding = false; h.removeCallbacks(secondLook) }
+        runCatching { SeamlessBt.update() }
+    }
+
+    private fun look() {
         val am = Music.ctx.getSystemService(AudioManager::class.java) ?: return
         val outs = runCatching { am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList() }.getOrDefault(emptyList())
             .filter { (it.type in BT || it.type in WIRED) && key(it) != null }
@@ -127,6 +162,16 @@ object BtRoute {
         IgnoreBt.saw(bt + calls + (if (auto) listOf(AUTO) else emptyList()))
         val ignored = IgnoreBt.ignored().toSet()
         val carIgnored = auto && IgnoreBt.on && (AUTO in ignored || (bt + calls).any { it in ignored })
+        // The devices stirring around an ignored one (see stirAt), and whether there's something else to listen on
+        val ignoredHere = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).toSet()
+            else emptySet()
+        val all = (bt + calls + (if (auto) listOf(AUTO) else emptyList())).toSet()
+        if (BtIgnoreRules.stirs(lastAll, all, lastIgnored, ignoredHere)) {
+            stirAt = android.os.SystemClock.elapsedRealtime()
+            onStir?.let { runCatching { it() } }
+        }
+        lastAll = all; lastIgnored = ignoredHere
+        elsewhere = outs.any { (it.type in BT && key(it) !in ignored) || it.type in WIRED }
         // Newest Bluetooth device wins: of the ones connected (Android Auto too), the last to come has the music. An
         // ignored one never does (Ignore Bluetooth devices first); with fewer than two left, the usual rules decide.
         val nowMs = System.currentTimeMillis()
@@ -203,17 +248,31 @@ object BtRoute {
         IgnoreBt.report(car, routed?.label ?: "", if (d == null) "your headphones aren't connected" else "")
     }
 
-    private fun hide(h: Boolean) {
-        if (h == hidden) return
-        hidden = h
-        players.keys.toList().forEach { attrs(it, h) }
+    private fun hide(on: Boolean) {
+        if (on == hidden) return
+        if (!on && held()) return   // no longer kept from Android Auto: after the second look (see HOLD_MS)
+        hidden = on
+        players.keys.toList().forEach { attrs(it, on) }
     }
 
     private fun use(d: AudioDeviceInfo?) {
         if (d?.id == device?.id) return   // the same one (or none, as before)
+        if (d == null && held()) return  // let go of a device still connected: after the second look (see HOLD_MS)
         device = d
         routed = d?.let { out(it) }
         SoundLog.note(if (d == null) "music left where Android puts it" else "music kept on ${routed?.label} (type ${d.type})")
         players.keys.toList().forEach { p -> runCatching { p.setPreferredAudioDevice(d) } }
+    }
+
+    /** A let-go of the device the music is kept on, while it's still connected: waits for the second look (true), or
+     *  is that look (false: go ahead). */
+    private fun held(): Boolean {
+        val d = device ?: return false
+        if (releaseNow) return false
+        val am = Music.ctx.getSystemService(AudioManager::class.java) ?: return false
+        if (runCatching { am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).none { it.id == d.id } }.getOrDefault(true)) return false
+        asked = true
+        if (!holding) { holding = true; h.postDelayed(secondLook, HOLD_MS) }
+        return true
     }
 }

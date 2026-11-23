@@ -12,6 +12,7 @@ object BackupMerge {
     /** Switches that belong to the device (its earbuds, its window, its own reminders), and sign-ins, which no backup keeps. */
     val DEVICE_SWITCHES = setOf("auto_mono_device", "pc_volume", "tray_hint_shown", "notif_asked", "notif_hinted",
         "phone_remote", "discord", "close_after", "adopt_files",
+        "ignore_bt_media_off",   // the phone's own Bluetooth: which devices it switched Media audio off for (Shizuku)
         "ui_size", "hide_hint_shown")   // Size of everything is each screen's own: a backup put on the other device leaves it at its own (100% until you change it)
 
     fun isSignIn(key: String) = key.endsWith("_cookie") || key.endsWith("_token") || key.endsWith("_password")
