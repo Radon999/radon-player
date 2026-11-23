@@ -1,8 +1,8 @@
-commit c81c237581f1f6b760d6381e1d7662cf7ca55761 · run 45140543035 · Mon Nov 23 08:52:27 UTC 2026
+commit 57c9b9dc894ac97f4dbc679f1d4795e4d6ea0853 · run 45140904625 · Mon Nov 23 09:13:10 UTC 2026
 SHARED TESTS: 139 suites, 648 tests, 0 failed
 APP TESTS: 19 suites, 53 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 44 suites, 171 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 2.1 s (with loading the voice); then 4.5 s of speech in 1.7 s (2.6x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.9 s (with loading the voice); then 4.5 s of speech in 1.8 s (2.6x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_4.5.4_amd64.deb, 91M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -22,10 +22,10 @@ LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 --- the end of the log
-> Task :app:compileDebugJavaWithJavac
-> Task :app:processDebugJavaRes
-> Task :app:bundleDebugClassesToCompileJar
+> Task :desktop:classes
 > Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :desktop:jar
 
 > Task :app:compileDebugUnitTestKotlin
 w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 15s
+BUILD SUCCESSFUL in 4m 32s
 59 actionable tasks: 59 executed
