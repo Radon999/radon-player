@@ -42,7 +42,7 @@ object Signals {
             when (on) { true -> it.copy(up = at, down = 0); false -> it.copy(down = at, up = 0); null -> it.copy(up = 0, down = 0) }
         }
         Music.musicVersion++
-        toast(when (on) { true -> "More like “${t.title}” from now on"; false -> "Less like “${t.title}” from now on: it won't be put in again"; null -> "Back to normal for “${t.title}”" })
+        Music.toast(when (on) { true -> "More like “${t.title}” from now on"; false -> "Less like “${t.title}” from now on: it won't be put in again"; null -> "Back to normal for “${t.title}”" })
     }
 
     fun artistThumb(artist: String, on: Boolean?) {
@@ -51,21 +51,21 @@ object Signals {
             when (on) { true -> it.copy(up = at, down = 0); false -> it.copy(down = at, up = 0); null -> it.copy(up = 0, down = 0) }
         }
         Music.musicVersion++
-        toast(when (on) { true -> "More of $a from now on"; false -> "Less of $a from now on"; null -> "Back to normal for $a" })
+        Music.toast(when (on) { true -> "More of $a from now on"; false -> "Less of $a from now on"; null -> "Back to normal for $a" })
     }
 
     /** Not for autoplay: never put in by autoplay, radios or the DJ (you can still play it yourself). */
     fun noAuto(t: Track, on: Boolean) {
         change(SignalRules.songKey(t.title, t.artist), t.title, t.artist) { it.copy(noAuto = if (on) now().toLong() else 0) }
         Music.musicVersion++
-        toast(if (on) "“${t.title}” won't be put in by autoplay, radios or the DJ" else "“${t.title}” can be put in by autoplay again")
+        Music.toast(if (on) "“${t.title}” won't be put in by autoplay, radios or the DJ" else "“${t.title}” can be put in by autoplay again")
     }
 
     fun artistNoAuto(artist: String, on: Boolean) {
         val a = lead(artist)
         change(SignalRules.artistKey(a), "", a) { it.copy(noAuto = if (on) now().toLong() else 0) }
         Music.musicVersion++
-        toast(if (on) "$a won't be put in by autoplay, radios or the DJ" else "$a can be put in by autoplay again")
+        Music.toast(if (on) "$a won't be put in by autoplay, radios or the DJ" else "$a can be put in by autoplay again")
     }
 
     // ---- what it sees ----
