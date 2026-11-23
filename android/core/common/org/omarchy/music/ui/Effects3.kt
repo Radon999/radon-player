@@ -240,7 +240,9 @@ internal fun DrawScope.drawFx3(k: String, t: Float, s: List<FloatArray>, accent:
                 drawCircle(light.copy(alpha = 0.8f * fade), (2f + v * 4f) * u, Offset(mid.x + cos(ang) * R * (1f - v * 0.7f), mid.y + sin(ang) * R * (1f - v * 0.7f))) } }
         "beat-bolt" -> { val age = since(0); if (age in 0f..0.35f && a.power > 0.5f) { val o = hash(a.beats, 17)
             val p = Path(); var x = (0.15f + o[0] * 0.7f) * W; var y = 0f; p.moveTo(x, y)
-            var q = 0; while (y < H * 0.75f) { val h = hash(a.beats * 13 + q, 19); x += (h[0] - 0.5f) * 70f * u; y += (20f + h[1] * 40f) * u; p.lineTo(x, y); q++ }
+            // All the way down: it ends past the bottom edge (it used to stop three quarters of the way), and never wanders off a side
+            var q = 0; while (y < H) { val h = hash(a.beats * 13 + q, 19)
+                x = (x + (h[0] - 0.5f) * 70f * u).coerceIn(0.05f * W, 0.95f * W); y += (20f + h[1] * 40f) * u; p.lineTo(x, y); q++ }
             val fade = 1f - age / 0.35f
             drawRect(light.copy(alpha = 0.10f * fade))
             drawPath(p, light.copy(alpha = 0.35f * fade), style = Stroke(8f * u)); drawPath(p, Color.White.copy(alpha = 0.95f * fade), style = Stroke(2f * u)) } }
