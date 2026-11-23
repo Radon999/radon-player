@@ -1461,6 +1461,14 @@ private fun PlaybackLines(ui: Ui) {
         if (lock && !allowed) { Pill("Allow", quiet = true) { org.omarchy.music.LockScreen.askAllowed(ctx) }; Spacer(Modifier.width(6.dp)) }
         Switch(lock, { P.set(P.LOCK_SCREEN, it); if (it && !allowed) org.omarchy.music.LockScreen.askAllowed(ctx) }, colors = swColors())
     }
+    // When another app takes the sound for good (Android pauses the music) but then plays nothing: a car connecting, say
+    val focusBack = P.on(P.FOCUS_BACK, true)
+    if (onPhone) Line("Carry on when nothing else plays", if (focusBack) "On: when another app takes the sound and the music " +
+        "pauses, but nothing else plays (a car connecting over Bluetooth, an app grabbing the sound as it opens), the music " +
+        "goes on by itself within a few seconds. An app that really plays, or a call, keeps the sound as always"
+        else "Off: the music stays paused whenever another app takes the sound, even when that app then plays nothing", focusBack) {
+        Switch(focusBack, { P.set(P.FOCUS_BACK, it) }, colors = swColors())
+    }
     // Smoothest screen: only on a phone whose screen can show more than 60 pictures a second
     val hz = org.omarchy.music.ScreenRate.maxHz()
     val smooth = P.on(org.omarchy.music.ScreenRate.PREF)

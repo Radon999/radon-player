@@ -34,6 +34,34 @@ class MusicService : MediaLibraryService() {
     private var retriedFor: String? = null   // the song played again once after an audio error
     private var reparsedFor: String? = null   // the song read again once after its file read as broken
     private var noisyPause = 0L              // when Android's "becoming noisy" last paused the music (0: not waiting on one)
+    private var focusPause = 0L              // when another app taking the sound for good last paused the music (0: not waiting on one)
+    private val focusResumed = ArrayList<Long>()   // when the music went on by itself after that (FocusRules.MOST)
+
+    /** The music was paused by another app taking the sound for good (FocusRules): a look in a moment, and a few more,
+     *  and it goes on when nothing else plays and no call is on. You playing or pausing meanwhile ends the looking. */
+    private fun focusBack(exo: ExoPlayer) {
+        if (!Prefs.on(Prefs.FOCUS_BACK, true)) return
+        val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        val pausedAt = android.os.SystemClock.elapsedRealtime()
+        focusPause = pausedAt
+        val h = Handler(mainLooper)
+        fun look(n: Int) {
+            val still = focusPause == pausedAt && !exo.playWhenReady
+            if (!still) return
+            val inCall = am.mode != android.media.AudioManager.MODE_NORMAL
+            val other = runCatching { am.isMusicActive }.getOrDefault(true)
+            val now = System.currentTimeMillis()
+            if (FocusRules.goOn(true, still, inCall, other, focusResumed, now)) {
+                focusResumed += now; focusResumed.removeAll { now - it >= FocusRules.SPAN_MS }
+                focusPause = 0L
+                SoundLog.note("the app that took the sound played nothing (after ${(android.os.SystemClock.elapsedRealtime() - pausedAt) / 100 / 10.0} s): the music went on by itself")
+                exo.play()
+            } else if (n + 1 < FocusRules.LOOKS && focusResumed.count { now - it < FocusRules.SPAN_MS } < FocusRules.MOST)
+                h.postDelayed({ look(n + 1) }, FocusRules.EVERY_MS)
+            else { focusPause = 0L; SoundLog.note("another app has the sound" + (if (other) " and is playing" else if (inCall) " (a call)" else "") + ": the music stays paused") }
+        }
+        h.postDelayed({ look(0) }, FocusRules.FIRST_MS)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -133,6 +161,10 @@ class MusicService : MediaLibraryService() {
                 Music.paused = !playWhenReady
                 if (playWhenReady) noisyPause = 0L   // playing again (by you, or by itself): nothing left to undo
                 if (!playWhenReady) pausedAt = android.os.SystemClock.elapsedRealtime()
+                // Another app took the sound for good: some never play (a car connecting, an app as it opens), and the
+                // music stayed paused for nothing. Looked at for a few seconds: nothing else playing, no call, it goes on.
+                focusPause = 0L
+                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) focusBack(exo)
             }
 
             override fun onPlaybackStateChanged(state: Int) {
