@@ -89,6 +89,10 @@ class EqProcessor : BaseAudioProcessor() {
     @Volatile private var boostGain = 1.0   // Boost (Equalizer): always with the limiter
     @Volatile var songGain = 1.0   // the playing song's own volume (Volume…), on top
     @Volatile var rgGain = 1.0     // ReplayGain, on top of that
+    /** Keep playing: how loud the music is while another app has the sound for a moment (1: full), eased to a buffer at
+     *  a time so it doesn't click. */
+    @Volatile var focusTarget = 1.0
+    @Volatile private var focusNow = 1.0
     @Volatile var bypass = false   // bit-perfect: every sample passes exactly as it came
     /** Headphone crossfeed (Equalizer › Crossfeed): a little of each side, its highs softened, into the other, as you'd
      *  hear speakers across a room. The desktop's ffmpeg crossfeed, its strength 0.3. */
@@ -218,7 +222,8 @@ class EqProcessor : BaseAudioProcessor() {
     }
 
     /** Nothing to do: every sample would pass exactly as it came. */
-    fun idle() = bypass || (stages.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono && !detail && balance == 0.0 && boostGain == 1.0)
+    fun idle() = bypass || (stages.isEmpty() && songGain == 1.0 && rgGain == 1.0 && !crossfeed && !mono && !detail && balance == 0.0 && boostGain == 1.0 &&
+        focusNow == 1.0 && focusTarget == 1.0)
 
     /** The float path (EqSink, for hi-res): set up for rate and channels outside the player's processor chain. */
     fun configureFloat(sampleRate: Int, channelCount: Int) {
@@ -254,7 +259,10 @@ class EqProcessor : BaseAudioProcessor() {
             out.put(input)
             return
         }
-        val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain * boostGain
+        // (towards Keep playing's level, a step a buffer: from full to turned down in about a fifth of a second)
+        val ft = focusTarget
+        if (focusNow != ft) focusNow = if (kotlin.math.abs(ft - focusNow) <= 0.08) ft else focusNow + (if (ft > focusNow) 0.08 else -0.08)
+        val g = (if (st.isEmpty()) 1.0 else gain) * songGain * rgGain * boostGain * focusNow
         val b = balance
         val gl = if (b > 0) 1.0 - b else 1.0
         val gr = if (b < 0) 1.0 + b else 1.0

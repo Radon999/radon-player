@@ -166,7 +166,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Lock screen player, notification and home screen widget** in the song's colours, and a picture-in-picture mini player. With **Shuffle button in the notification** off, a Download button takes its place on a streamed song.",
     "- **Swipe a song** to queue, favorite or more; you choose what each side does (or nothing).",
     "- **Auto mono** for the earbuds you choose.",
-    "- **Carry on when nothing else plays** (Settings › Playback, on at first): when another app takes the sound and the music pauses, but nothing then plays (a car connecting over Bluetooth, an app grabbing the sound as it opens), the music goes on by itself within a few seconds. An app that really plays, or a call, keeps the sound.",
+    "- **Keep playing** (Settings › Playback, on at first): no other app pauses the music, not even one that takes the sound and plays nothing (a car connecting nearby). One that takes it for a moment (voice typing, the assistant, a spoken direction) turns the music down instead, and a call pauses it until the call is over. Off: Android's way.",
     "",
     "## Computer only (Windows and Linux)",
     "",

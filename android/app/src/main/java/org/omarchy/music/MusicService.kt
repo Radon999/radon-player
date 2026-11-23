@@ -34,34 +34,16 @@ class MusicService : MediaLibraryService() {
     private var retriedFor: String? = null   // the song played again once after an audio error
     private var reparsedFor: String? = null   // the song read again once after its file read as broken
     private var noisyPause = 0L              // when Android's "becoming noisy" last paused the music (0: not waiting on one)
-    private var focusPause = 0L              // when another app taking the sound for good last paused the music (0: not waiting on one)
-    private val focusResumed = ArrayList<Long>()   // when the music went on by itself after that (FocusRules.MOST)
 
-    /** The music was paused by another app taking the sound for good (FocusRules): a look in a moment, and a few more,
-     *  and it goes on when nothing else plays and no call is on. You playing or pausing meanwhile ends the looking. */
-    private fun focusBack(exo: ExoPlayer) {
-        if (!Prefs.on(Prefs.FOCUS_BACK, true)) return
-        val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
-        val pausedAt = android.os.SystemClock.elapsedRealtime()
-        focusPause = pausedAt
-        val h = Handler(mainLooper)
-        fun look(n: Int) {
-            val still = focusPause == pausedAt && !exo.playWhenReady
-            if (!still) return
-            val inCall = am.mode != android.media.AudioManager.MODE_NORMAL
-            val other = runCatching { am.isMusicActive }.getOrDefault(true)
-            val now = System.currentTimeMillis()
-            if (FocusRules.goOn(true, still, inCall, other, focusResumed, now)) {
-                focusResumed += now; focusResumed.removeAll { now - it >= FocusRules.SPAN_MS }
-                focusPause = 0L
-                SoundLog.note("the app that took the sound played nothing (after ${(android.os.SystemClock.elapsedRealtime() - pausedAt) / 100 / 10.0} s): the music went on by itself")
-                exo.play()
-            } else if (n + 1 < FocusRules.LOOKS && focusResumed.count { now - it < FocusRules.SPAN_MS } < FocusRules.MOST)
-                h.postDelayed({ look(n + 1) }, FocusRules.EVERY_MS)
-            else { focusPause = 0L; SoundLog.note("another app has the sound" + (if (other) " and is playing" else if (inCall) " (a call)" else "") + ": the music stays paused") }
-        }
-        h.postDelayed({ look(0) }, FocusRules.FIRST_MS)
-    }
+    /** Something other than the phone's own speaker is connected to play through: Bluetooth (earbuds, a car),
+     *  wired headphones, a USB DAC, a hearing aid. */
+    private fun stillPlugged(am: android.media.AudioManager): Boolean = runCatching {
+        val kinds = setOf(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES, android.media.AudioDeviceInfo.TYPE_USB_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_HEARING_AID,
+            26 /* BLE headset */, 27 /* BLE speaker */)
+        am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any { it.type in kinds }
+    }.getOrDefault(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -70,10 +52,13 @@ class MusicService : MediaLibraryService() {
         DacPeqUsb.init(this)
         val renderers = ExoEngine.renderers(this, Music.eqProcessor)   // the EQ for float (hi-res) music too: see EqSink
         val exo = ExoPlayer.Builder(this, renderers)
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
+            // (Android's way of handling the sound, unless Keep playing holds it: see KeepPlaying)
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+                !Prefs.on(Prefs.KEEP_PLAYING, true))
             .setHandleAudioBecomingNoisy(false)   // its own, below: bit-perfect taking the DAC isn't an unplug
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        val keep = KeepPlaying(this, exo)
         // What the sound output itself does (a new one made, one let go, it running dry, it failing): into Sound lately,
         // so a song gone silent can be put beside what the output did just before.
         var madeFor: String? = null
@@ -161,10 +146,8 @@ class MusicService : MediaLibraryService() {
                 Music.paused = !playWhenReady
                 if (playWhenReady) noisyPause = 0L   // playing again (by you, or by itself): nothing left to undo
                 if (!playWhenReady) pausedAt = android.os.SystemClock.elapsedRealtime()
-                // Another app took the sound for good: some never play (a car connecting, an app as it opens), and the
-                // music stayed paused for nothing. Looked at for a few seconds: nothing else playing, no call, it goes on.
-                focusPause = 0L
-                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) focusBack(exo)
+                // Keep playing: the app holds the sound while the music plays, so no other app taking it pauses it
+                keep.playChanged(playWhenReady)
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -329,16 +312,6 @@ class MusicService : MediaLibraryService() {
                 }
                 h.postDelayed({ look(0) }, 1200)
             }
-
-            /** Something other than the phone's own speaker is connected to play through: Bluetooth (earbuds, a car),
-             *  wired headphones, a USB DAC, a hearing aid. */
-            private fun stillPlugged(am: android.media.AudioManager): Boolean = runCatching {
-                val kinds = setOf(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
-                    android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES, android.media.AudioDeviceInfo.TYPE_USB_HEADSET,
-                    android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_HEARING_AID,
-                    26 /* BLE headset */, 27 /* BLE speaker */)
-                am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any { it.type in kinds }
-            }.getOrDefault(false)
         }, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -372,6 +345,9 @@ class MusicService : MediaLibraryService() {
             }
         }
         Music.player = ExoEngine(exo, this, Music.eqProcessor)
+        // Keep playing (Settings › Playback): the sound held by the app, not the player; set again when it's switched
+        keep.apply()
+        Music.scope.launch { snapshotFlow { Prefs.on(Prefs.KEEP_PLAYING, true) }.collect { keep.apply() } }
         Music.playerReady()
         LockScreen.register(this)
     }

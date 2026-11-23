@@ -60,8 +60,8 @@ object Prefs {
     const val QUEUE_MOVE = "queue_move"          // Play next / Add to queue: a song already waiting is moved up, not put in twice
     const val LOUDNESS_CHECK = "loudness_check"
     const val LOCK_SCREEN = "lock_screen_player"
-    /** The phone: carry on when another app took the sound for good but plays nothing (a car connecting, say): see FocusRules. On at first. */
-    const val FOCUS_BACK = "focus_back"
+    /** The phone: Keep playing, no other app taking the sound pauses the music, only a call (KeepPlayingRules). On at first. */
+    const val KEEP_PLAYING = "keep_playing"
     /** On (as it always was): Shuffle beside Repeat in the notification and on the lock screen; off: Download in its place. */
     const val NOTIF_SHUFFLE = "notif_shuffle_button"
     const val NOTIF_HINTED = "notif_hinted"

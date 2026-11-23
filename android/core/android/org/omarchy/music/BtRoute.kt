@@ -53,9 +53,17 @@ object BtRoute {
     /** A player that doesn't handle audio focus (crossfade's second): say so before it's attached. */
     fun withoutFocus(p: ExoPlayer) { noFocus += p }
 
+    /** Whether the player handles audio focus itself (Android's way) or not (Keep playing holds the sound for it):
+     *  set again now, with whether its sound is kept from Android Auto as it is. */
+    fun handlesFocus(p: ExoPlayer, on: Boolean) {
+        if (on) noFocus -= p else noFocus += p
+        if (p in players) players[p] = on
+        attrs(p, hidden)
+    }
+
     private fun attrs(p: ExoPlayer, hide: Boolean) = runCatching {
         p.setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .setAllowedCapturePolicy(if (hide) C.ALLOW_CAPTURE_BY_NONE else C.ALLOW_CAPTURE_BY_ALL).build(), players[p] ?: true)
+            .setAllowedCapturePolicy(if (hide) C.ALLOW_CAPTURE_BY_NONE else C.ALLOW_CAPTURE_BY_ALL).build(), players[p] ?: (p !in noFocus))
     }
 
     /** The DJ's voice: kept off Android Auto and on your headphones too, while the music is. */
