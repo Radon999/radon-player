@@ -451,7 +451,7 @@ object UsbDirect {
                     if (v.size >= 18 && v[14] + v[16] > gapsSaid && System.currentTimeMillis() - saidAt > 60_000) {
                         gapsSaid = v[14] + v[16]; saidAt = System.currentTimeMillis()
                         Crashes.note("USB DAC: a gap in the sound on “${Music.current()?.title ?: "?"}” · the phone didn't run the sending in time " +
-                            "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued) · the music ran out ${v[16]}× (longest ${v[17]} ms) · $lastSetup")
+                            "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued) · the music ran out ${v[16]}× (longest ${v[17]} ms) · the sending's priority ${v.getOrNull(18) ?: "?"} (-19 best, 0 normal) · $lastSetup")
                     }
                     // Nothing back from the DAC for STALL_MS: set up again (sending the transfers again only got it going for a
                     // moment). It was 0.15 s: Android slowing the app for a moment (opening the recent apps, the screen going

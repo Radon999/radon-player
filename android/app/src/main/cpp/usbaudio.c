@@ -61,6 +61,7 @@ typedef struct {
      * busy elsewhere), with the longest such wait (ms); "starved", the ring ran out of music in the middle of a song (the
      * player didn't hand music over in time), with the longest such stretch (ms). */
     _Atomic int late, lateMax, starved, starvedMax;
+    _Atomic int nice;   /* the priority the sending thread really got (-19 best; 0 the normal one) */
     long long lastReap, starveFrom;   /* the loop thread's own */
     int hadMusic;
 } Stream;
@@ -162,8 +163,13 @@ static void feedback(Stream *s, const uint8_t *b, int len) {
 static void *loop(void *arg) {
     Stream *s = (Stream *)arg;
     /* Audio priority (Android's THREAD_PRIORITY_URGENT_AUDIO, as its own audio threads have): the DAC is kept fed
-     * even when the phone is busy; where it isn't allowed, the normal priority it had */
-    setpriority(PRIO_PROCESS, (id_t)syscall(SYS_gettid), -19);
+     * even when the phone is busy. Where that's refused, the next best audio priority (THREAD_PRIORITY_AUDIO, which
+     * every app may take, as the player's own thread has), then display's: before, a refusal left it at the normal
+     * priority, behind everything the phone does when it's busy (pulling down the notifications, the recent apps) */
+    id_t tid = (id_t)syscall(SYS_gettid);
+    if (setpriority(PRIO_PROCESS, tid, -19) != 0 && setpriority(PRIO_PROCESS, tid, -16) != 0) setpriority(PRIO_PROCESS, tid, -10);
+    errno = 0;
+    { int got = getpriority(PRIO_PROCESS, tid); atomic_store(&s->nice, errno == 0 ? got : 99); }
     for (int i = 0; i < NURB; i++) {
         fill(s, &s->slots[i]);
         s->slots[i].urb->usercontext = (void *)(intptr_t)i;
@@ -282,15 +288,15 @@ static jlong impl_pending(JNIEnv *env, jclass c, jlong h) {
  * length, frames per packet now (Q16.16) and nominal. */
 static jlongArray impl_stats(JNIEnv *env, jclass c, jlong h) {
     Stream *s = (Stream *)(intptr_t)h;
-    jlong v[18] = {0};
+    jlong v[19] = {0};
     if (s) { v[0] = atomic_load(&s->urbs); v[1] = atomic_load(&s->urbErr); v[2] = atomic_load(&s->pktErr); v[3] = atomic_load(&s->fbSeen);
         v[4] = atomic_load(&s->fbTaken); v[5] = atomic_load(&s->fbLast); v[6] = atomic_load(&s->fbLastLen); v[7] = atomic_load(&s->fpp); v[8] = s->nominal;
         long long n = nowMs();
         v[9] = n - atomic_load(&s->dataAt); v[10] = n - atomic_load(&s->fbAt); v[11] = atomic_load(&s->played);
         v[12] = atomic_load(&s->kicks); v[13] = n - atomic_load(&s->startedAt);
-        v[14] = atomic_load(&s->late); v[15] = atomic_load(&s->lateMax); v[16] = atomic_load(&s->starved); v[17] = atomic_load(&s->starvedMax); }
-    jlongArray out = (*env)->NewLongArray(env, 18);
-    if (out) (*env)->SetLongArrayRegion(env, out, 0, 18, v);
+        v[14] = atomic_load(&s->late); v[15] = atomic_load(&s->lateMax); v[16] = atomic_load(&s->starved); v[17] = atomic_load(&s->starvedMax); v[18] = atomic_load(&s->nice); }
+    jlongArray out = (*env)->NewLongArray(env, 19);
+    if (out) (*env)->SetLongArrayRegion(env, out, 0, 19, v);
     return out;
 }
 
