@@ -1,18 +1,18 @@
-commit eb9927b6bdd707bb025612594444456da017d347 · run 45214733291 · Mon Nov 23 16:44:50 UTC 2026
+commit f7e4bf0d6233aaab73e9eb7d9b8f259e8f4adc2f · run 45220058595 · Mon Nov 23 17:05:19 UTC 2026
 PC TESTS ON WINDOWS: 44 suites, tests 171, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.1 s of speech in 1.3 s (with loading the voice); then 4.4 s of speech in 0.8 s (5.5x real time)
-WINDOWS INSTALLER: Radon Player-4.5.5.msi, 97M
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.1 s (with loading the voice); then 4.6 s of speech in 1.5 s (3.1x real time)
+WINDOWS INSTALLER: Radon Player-4.5.6.msi, 97M
 --- errors
 --- the end of the log
+w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1393:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
 w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
 > Task :desktop:compileJava NO-SOURCE
 > Task :desktop:classes
 > Task :desktop:jar
 > Task :desktop:compileTestKotlin
-
 > Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.5.msi
+The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.6.msi
 
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
@@ -27,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 10s
+BUILD SUCCESSFUL in 6m 3s
 21 actionable tasks: 21 executed
