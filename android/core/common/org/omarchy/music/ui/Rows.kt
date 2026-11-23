@@ -67,6 +67,7 @@ class Ui {
     var showQueues by mutableStateOf(false)            // the queues switcher is open
     var lyricsSearch by mutableStateOf(false)          // the lyrics' search box is open
     var lyricsCard by mutableStateOf<Pair<org.omarchy.music.Track, org.omarchy.music.Lyrics.Got>?>(null)   // Card: making one of this song's
+    var rearrange by mutableStateOf<RearrangeWhat?>(null)       // Rearrange: your playlists, or a playlist's songs, being put in order
     var playlistCoverFor by mutableStateOf<String?>(null)       // a playlist's menu › Set a cover…: the playlist a picture is being picked for
     var songClip by mutableStateOf<org.omarchy.music.Track?>(null)        // a song's Options › Share a clip with sound: the song
     var presetEdit by mutableStateOf<List<String>?>(null)                  // Personalization's Presets menu › Edit: the ready-made presets being edited

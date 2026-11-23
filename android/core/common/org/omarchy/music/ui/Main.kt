@@ -301,6 +301,7 @@ fun App() {
             if (ui.showQueues) QueuesDialog(ui)
             ChoicesDialog(ui)
             ui.reviewFor?.let { ReviewDialog(ui, it) }
+            ui.rearrange?.let { RearrangeScreen(ui, it) }
             ui.releasePick?.let { ReleasePicker(ui, it) }
             if (ui.castPick) CastPicker(ui)
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }

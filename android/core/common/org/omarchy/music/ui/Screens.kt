@@ -874,6 +874,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
         // A playlist in a folder shows in its folder only
         val shown = org.omarchy.music.sortGroups(org.omarchy.music.YourPlaylists.outsideFolders(lists).filter { fits(ui, it.name) }, plSort) { pl ->
             org.omarchy.music.GroupFacts(pl.name, songs = pl.tracks, created = pl.created, updated = pl.updated, added = pl.created) }
+            .let { if (plSort == "order") PlaylistOrder.sorted(it) { pl -> pl.id } else it }   // Your order: as you rearranged them
         val picking = ui.pickingIn("playlists")
         val picked = ui.albumsPicked
         fun menu(pl: org.omarchy.music.Playlist) {
@@ -914,6 +915,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
             else if (lists.isNotEmpty()) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("Select", false) { ui.startPick("playlists") }
                 SortMenu("playlists", PLAYLISTS_SORTS, names = mapOf("order" to "Your order"))
+                if (plSort == "order") Chip("Rearrange…", false) { ui.rearrange = RearrangeWhat.Playlists }
             }
         }
         fun lay(some: List<org.omarchy.music.Playlist>) = laidOutItems(some, ui, key = { "pl-" + some[it].id }, names = { some[it].name }, row = { i ->
@@ -951,6 +953,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
     val sorted = Music.sortedPlaylist(open.tracks)
     item {
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
+            // Its own order (the Order sort), put the way you want: drag the songs
+            ("Rearrange songs" to { Music.pickPlaylistSort("order"); ui.rearrange = RearrangeWhat.Songs(open.id) }).takeIf { open.tracks.size > 1 },
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
             ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(open) }).takeIf { org.omarchy.music.PlaylistSend.canSend },
