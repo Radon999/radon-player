@@ -1,43 +1,47 @@
-commit c59da3c203074af06f2af316d993bcbae64dd3bc · run 45102201038 · Mon Nov 23 02:57:05 UTC 2026
-PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
-THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
-WINDOWS INSTALLER: not built
+commit 3c223e66ea95a24cd616670c806154d1a7129309 · run 45103135172 · Mon Nov 23 03:16:05 UTC 2026
+PC TESTS ON WINDOWS: 44 suites, tests 171, failed 1
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 1.9 s (with loading the voice); then 4.8 s of speech in 1.2 s (3.9x real time)
+WINDOWS INSTALLER: Radon Player-4.5.2.msi, 97M
 --- errors
-> Task :desktop:compileKotlin FAILED
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:45:9 Unresolved reference 'toast'.
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:54:9 Unresolved reference 'toast'.
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:61:9 Unresolved reference 'toast'.
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:68:9 Unresolved reference 'toast'.
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
+org.omarchy.music.DjNewSongKindsTest > artistsForYouAreArtistsLikeTheOnesYouPlayThatYouDontPlayYet FAILED
+    java.lang.AssertionError: artists you don't play yet: [Newcomer 4, latelyband7]
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.omarchy.music.DjNewSongKindsTest.artistsForYouAreArtistsLikeTheOnesYouPlayThatYouDontPlayYet$lambda$33$lambda$32(DjNewSongKindsTest.kt:97)
+        at org.omarchy.music.DjNewSongKindsTest.built(DjNewSongKindsTest.kt:59)
+        at org.omarchy.music.DjNewSongKindsTest.artistsForYouAreArtistsLikeTheOnesYouPlayThatYouDontPlayYet$lambda$33(DjNewSongKindsTest.kt:95)
 --
-BUILD FAILED in 3m 9s
-17 actionable tasks: 17 executed
---- the end of the log
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:54:9 Unresolved reference 'toast'.
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:61:9 Unresolved reference 'toast'.
-e: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/Signals.kt:68:9 Unresolved reference 'toast'.
+> Task :desktop:test FAILED
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
 
 * Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
 > Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
+
+--
+BUILD FAILED in 5m 6s
+21 actionable tasks: 21 executed
+--- the end of the log
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+
+> Task :desktop:test
+
+171 tests completed, 1 failed
+
+> Task :desktop:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -45,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 9s
-17 actionable tasks: 17 executed
+BUILD FAILED in 5m 6s
+21 actionable tasks: 21 executed
