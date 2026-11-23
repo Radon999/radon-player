@@ -117,10 +117,10 @@ Short sets from your own listening, with a voice like a radio host's.
 
 Settings › Personalization (or the palette on Now playing). Every menu shows each choice as live screens to swipe through (an effect with the others you have on, as they would look together), and each device keeps its own.
 
-- **Looks** (the colours): Light, Dark, **Now playing** (every screen in the cover's colours) and over ninety more, neon, and places and materials (Stained glass, Blueprint, Tea house…).
+- **Looks** (the colours): Light, Dark, **Now playing** (every screen in the cover's colours) and over ninety more, neon, and places and materials (Stained glass, Blueprint, Tea house…), and **Music scenes**: thirty looks of kinds of music (Jazz club, Punk, Disco, Techno, Concert hall…), each with an effect that moves to the music.
 - **Themes** (how things are drawn): 45, from Rounded and Glass to Retro and Brutalist, with any look.
 - **Layouts** (where things are): the ☰ menu, a bottom bar, a side rail or top tabs, the mini player, and how Now playing is arranged: 45 ready-made.
-- **Effects:** 91, from stars, aurora and rain to lanterns and kites, each in its own colour.
+- **Effects:** 121, from stars, aurora and rain to lanterns and kites, each in its own colour. Thirty **move to the music** (beat rings, lasers, a disco ball, flames, a heart monitor…), as the visualizers do.
 - **Presets:** 60 ready-made setups of everything together (Midnight drive, Cherry blossom, Cathedral…). **Follows the cover** changes with every song; **Glass cover** blurs the cover behind the whole app. **Preset Shuffle** puts on another favourite every 5 to 30 minutes, and **Presets by time of day** picks one for each part of the day; both off until you turn them on. Two switches make presets leave your middle or bottom visualizer alone.
 - **Your menus, your way:** **Select several** to hide choices (under Hidden, a tap brings them back) or copy their codes; ★ favourites go to the top. Edit a ready-made preset's effects and visualizers; **Reset default preset edits** puts them back. Nothing ready-made is ever deleted.
 - **Colours** (Personalization › Colours): every colour in one place. Every visualizer at once, or each one in use on its own (Now playing's, its bottom one, the Visualizer tab's), and each effect you have on. A visualizer you made keeps the colour you made it with as its default, and **As it comes** puts that back; no need to make or edit one to change its colour. Scenes from the cover overrides them while it's on.

@@ -17,6 +17,7 @@ object MenuGroups {
         yours(k) -> YOURS
         k == "apple" || k == "apple-dark" || k == Looks.NOW_PLAYING -> "Basics"
         k.startsWith("neon-") -> "Neon"
+        k.startsWith("scene-") -> "Music scenes"
         k in NEW -> if (Looks.isLight(k)) "Materials and places: light" else "Materials and places: dark"
         Looks.isLight(k) -> "Light"
         else -> "Dark"
