@@ -76,7 +76,8 @@ private fun QueuedMoodRow(r: MoodQueue.Shown) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clip(RoundedCornerShape(12.dp)).background(C.light)
         .border(1.dp, C.line, RoundedCornerShape(12.dp)).padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ArtImage(t?.let { artModel(it) }, 44.dp, Modifier.clickable { t?.let { Music.playList(listOf(it)) } })
+            val art = remember(t) { t?.let { artModel(it) } }   // (it looks on disk: once, not at each redraw)
+            ArtImage(art, 44.dp, Modifier.clickable { t?.let { Music.playList(listOf(it)) } })
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(i.title, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(i.artist + " · now: " + (now.joinToString(", ").ifEmpty { "no mood" }), style = T.sub, maxLines = 2, overflow = TextOverflow.Ellipsis)
