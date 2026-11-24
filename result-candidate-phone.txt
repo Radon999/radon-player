@@ -1,20 +1,17 @@
-commit b2a58eb9020fda632876b4fbdd9e4bb53ba36b5b · run 45479029671 · Tue Nov 24 20:23:11 UTC 2026
-PHONE INSTALL-OVER: made, Radon Player Next 3.3.0, the test key: it installs over the app on the phone
-package: name='org.omarchy.music.next' versionCode='30300' versionName='3.3.0' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
-/home/runner/work/_temp/badging.txt:application-label:'Radon Player Next'
-/home/runner/work/_temp/certs.txt:V2 Signer: certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45479029671/artifacts/14961831497
+commit 133088b52ceca5981a4b13b8ee73077016418486 · run 45501226788 · Tue Nov 24 22:32:31 UTC 2026
+PHONE INSTALL-OVER: not made (or not the owner's app in every way: not handed out)
+DOWNLOAD: 
 --- errors
 --- the end of the log
-> Task :app:lintVitalReportRelease
-> Task :app:lintVitalRelease
-> Task :app:assembleRelease
-
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
-
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
-
-For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-
-BUILD SUCCESSFUL in 5m 12s
-95 actionable tasks: 95 executed
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:optimizeReleaseResources
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:desugarReleaseFileDependencies
+> Task :ui-common:lintVitalAnalyzeRelease
