@@ -1855,7 +1855,9 @@ private fun IgnoreBtLines(ui: Ui) {
     if (onPhone) {
         Text("Each time an ignored device connects or drops (driving or walking in and out of its range, over and over), " +
             "Android moves the sound to it and back, so the music can stutter for a moment. It always carries on by itself " +
-            "straight away. For no stutter at all, switch on Ignore Bluetooth devices: no stutter at all, below.",
+            "straight away. For no stutter at all, switch on Ignore Bluetooth devices: no stutter at all, below. " +
+            "Switching this off gives the car the music: the app pauses and plays once a few seconds after the car is " +
+            "connected, so the car's sound starts. If the car still plays nothing, pause and play, and the sound comes back.",
             style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
         SeamlessBtLines(picked.firstOrNull(), ign.here)
     }

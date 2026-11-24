@@ -70,6 +70,24 @@ object BtRoute {
     private var releaseNow = false  // the second look: let go for real
     private val secondLook = Runnable { holding = false; releaseNow = true; try { check() } finally { releaseNow = false } }
 
+    // Ignore Bluetooth devices switched off gives the car the music while it plays, and the truck stayed silent until
+    // you paused and played: a car's stereo starts its Bluetooth sound when it sees the music start. So the first time
+    // the car is here after the switch went off (it may connect a moment later, Shizuku connecting it again), the app
+    // pauses and plays once for it, once the car has settled. Only then: a car connecting another time is left alone.
+    private const val NUDGE_WINDOW_MS = 120_000L
+    private const val NUDGE_AFTER_MS = 3_000L
+    private var wasOn: Boolean? = null
+    private var offAt = 0L          // when the switch went off (elapsed ms), until the car has had its nudge
+    private var carWasHere = false
+    private val nudge = Runnable {
+        offAt = 0L
+        val playing = players.keys.filter { runCatching { it.isPlaying }.getOrDefault(false) }
+        if (playing.isEmpty()) return@Runnable
+        SoundLog.note("the car has the music again: paused and played once, for its sound to start")
+        playing.forEach { runCatching { it.pause() } }
+        h.postDelayed({ playing.forEach { runCatching { it.play() } } }, 400)
+    }
+
     /** One of the app's players (the main one, crossfade's second): it plays where the music's kept too. */
     fun attach(p: ExoPlayer) {
         players[p] = p !in noFocus
@@ -172,6 +190,16 @@ object BtRoute {
         // Android Auto is on: each change of that makes the player build its sound output again (a gap), and at the edge
         // of the truck's range Android Auto comes and goes again and again (the owner's cutting in and out, Shizuku on).
         val carAhead = IgnoreBt.on && (AUTO in ignored || ignored.any(isCar))
+        // The switch just went off: the car, here now or within NUDGE_WINDOW_MS, gets a pause and play (see nudge)
+        val nowEl = android.os.SystemClock.elapsedRealtime()
+        if (wasOn == true && !IgnoreBt.on) offAt = nowEl
+        if (IgnoreBt.on) { offAt = 0L; h.removeCallbacks(nudge) }
+        wasOn = IgnoreBt.on
+        val carHere = auto || bt.any { it in ignored || isCar(it) }
+        if (offAt > 0 && nowEl - offAt < NUDGE_WINDOW_MS && carHere && (offAt == nowEl || !carWasHere)) {
+            h.removeCallbacks(nudge); h.postDelayed(nudge, NUDGE_AFTER_MS)
+        }
+        carWasHere = carHere
         // The devices stirring around an ignored one (see stirAt), and whether there's something else to listen on
         val ignoredHere = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).toSet()
             else emptySet()
