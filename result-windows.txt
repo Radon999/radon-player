@@ -1,10 +1,10 @@
-commit 5d815fe05a4773c3569a3cb76bd3a5daa526e200 · run 45507979516 · Tue Nov 24 23:30:54 UTC 2026
+commit 33b8152d87b33882a94a99a6102abc51c5158df2 · run 45511875904 · Tue Nov 24 23:58:54 UTC 2026
 PC TESTS ON WINDOWS: 45 suites, tests 174, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.1 s of speech in 2.5 s (with loading the voice); then 4.4 s of speech in 2.2 s (2.0x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.5 s of speech in 1.7 s (with loading the voice); then 4.6 s of speech in 1.2 s (3.7x real time)
 WINDOWS INSTALLER: Radon Player-4.5.19.msi, 97M
 --- errors
 org.omarchy.music.DjBehaviourTest > aLineNeverNamesASongTheQueueLeavesOut FAILED
-    java.lang.AssertionError: sets were made (88)
+    java.lang.AssertionError: sets were made (91)
         at org.junit.Assert.fail(Assert.java:89)
         at org.junit.Assert.assertTrue(Assert.java:42)
         at org.omarchy.music.DjBehaviourTest.aLineNeverNamesASongTheQueueLeavesOut(DjBehaviourTest.kt:227)
@@ -23,7 +23,7 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 5m 51s
+BUILD FAILED in 5m 25s
 21 actionable tasks: 21 executed
 --- the end of the log
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
@@ -49,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 5m 51s
+BUILD FAILED in 5m 25s
 21 actionable tasks: 21 executed
