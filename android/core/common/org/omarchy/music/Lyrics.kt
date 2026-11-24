@@ -232,7 +232,12 @@ object Lyrics {
     /** The lyrics of track, or null if nobody has them. It blocks. */
     fun get(ctx: Ctx, t: Track, refresh: Boolean = false): Got? {
         val m = songMeta(ctx, Music.lib, t)
-        if (m.file != null && !refresh) (fromFile(m) ?: fromOtherFile(ctx, m))?.let { return it }
+        if (m.file != null && !refresh) (fromFile(m) ?: fromOtherFile(ctx, m))?.let { f ->
+            // The file has only the words and the timing was kept in the app (auto-sync, a file it couldn't change)
+            if (f.synced != null) return f
+            val k = LyricsScan.kept(ctx, t)?.takeIf { Lyrics.parseLrc(it.synced).isNotEmpty() }
+            return if (k != null) f.copy(synced = k.synced, synced_from = k.synced_from) else f
+        }
         if (!refresh) LyricsScan.kept(ctx, t)?.let { return it }   // found by the lyrics scanner, or typed in by you
         val dir = File(ctx.cacheDir, "lyrics").apply { mkdirs() }
         val file = File(dir, "${safeName(t.id)}.json")
@@ -248,6 +253,8 @@ object Lyrics {
      *  them timed. Looked up as for a song with none and kept in the same place (not asked again for a while when there
      *  are none). Null: nobody has them timed. */
     fun timed(ctx: Ctx, t: Track): String? {
+        // Timed by auto-sync (or found by the scanner) and kept in the app, the song's file having only the words
+        LyricsScan.kept(ctx, t)?.synced?.takeIf { parseLrc(it).isNotEmpty() }?.let { return it }
         val m = songMeta(ctx, Music.lib, t)
         val file = File(File(ctx.cacheDir, "lyrics").apply { mkdirs() }, "${safeName(t.id)}.json")
         val cached = readText(file)?.let { runCatching { JSON.decodeFromString(Got.serializer(), it) }.getOrNull() }

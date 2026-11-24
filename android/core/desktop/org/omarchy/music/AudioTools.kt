@@ -93,6 +93,31 @@ object AudioTools {
         return song.result()
     }
 
+    /** (blocking) The whole song in one channel at [rate] samples a second, for auto-sync to listen to (LyricsAutoSync):
+     *  ffmpeg decodes and resamples it (properly filtered). null: [stop] said to stop, or the song runs over [maxSecs]. */
+    fun songPcm(path: String, rate: Int, maxSecs: Int, stop: () -> Boolean): Pcm? {
+        val p = ProcessBuilder(ffmpeg(), "-v", "error", "-nostdin", "-i", path, "-vn", "-ac", "1", "-ar", rate.toString(),
+            "-t", maxSecs.toString(), "-f", "f32le", "-acodec", "pcm_f32le", "-")
+            .redirectInput(ProcessBuilder.Redirect.from(File(if (windows) "NUL" else "/dev/null")))
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        val out = java.io.ByteArrayOutputStream()
+        try {
+            val buf = ByteArray(1 shl 16)
+            while (true) {
+                if (stop()) return null
+                val n = p.inputStream.read(buf); if (n <= 0) break
+                out.write(buf, 0, n)
+            }
+        } finally { p.destroy(); p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS) }
+        val bytes = out.toByteArray()
+        val n = bytes.size / 4
+        if (n < rate) return null
+        if (n >= maxSecs.toLong() * rate) return null   // cut at the limit: too long to listen to
+        val f = FloatArray(n)
+        java.nio.ByteBuffer.wrap(bytes, 0, n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(f)
+        return Pcm(f, rate)
+    }
+
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two
      *  minutes. ffmpeg decodes (to WAV, for its rate and channels) and the app's own Chromaprint hears it, as on the phone,
      *  so any ffmpeg does (not only one built with chromaprint); it makes the same fingerprint ffmpeg's would. */

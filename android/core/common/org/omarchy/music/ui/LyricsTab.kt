@@ -100,9 +100,18 @@ fun LyricsTab(ui: Ui) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(if (mode == "synced") "TIMED · ${(g.synced_from ?: "").uppercase()}" else "LYRICS · ${(g.plain_from ?: "").uppercase()}" +
+            // Lyrics the app timed itself (auto-sync): said, with Time again and Remove timing
+            val auto = mode == "synced" && org.omarchy.music.LyricsAutoSync.isAuto(g.synced)
+            Text(if (auto) "TIMED BY RADON" else if (mode == "synced") "TIMED · ${(g.synced_from ?: "").uppercase()}" else "LYRICS · ${(g.plain_from ?: "").uppercase()}" +
                 if (notes.isNotEmpty()) " · ${notes.size} NOTE${if (notes.size != 1) "S" else ""}: TAP A MARKED LINE" else "",
                 style = T.section, maxLines = 1, modifier = Modifier.weight(1f))
+            if (auto && !org.omarchy.music.Remote.active) {
+                Pill("Time again", quiet = true) { org.omarchy.music.LyricsAutoSync.again(t) { refresh++ } }
+                Pill("Remove timing", quiet = true) {
+                    ui.confirm = "Remove the timing Radon made for “${t.title}”? Its words stay; auto-sync won't time it again by itself." to {
+                        org.omarchy.music.LyricsAutoSync.remove(t) { refresh++ } }
+                }
+            }
             Pill("Card", quiet = true) { ui.lyricsCard = t to g }
             IconButton(Ico.SEARCH, C.muted, 16.dp, 6.dp, desc = "Search the lyrics") { ui.lyricsSearch = !ui.lyricsSearch }
             if (synced && plain) {

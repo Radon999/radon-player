@@ -41,14 +41,22 @@ object AudioTools {
                 val from = inFmt.getLong(MediaFormat.KEY_DURATION) / 2 - maxSecs * 500_000L
                 if (from > 0) ex.seekTo(from, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
             }
-            inFmt.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT)
-            val codec = MediaCodec.createDecoderByType(inFmt.getString(MediaFormat.KEY_MIME)!!)
+            // FLAC and WAV are unpacked by Android's own reader: the track is plain sound already (audio/raw) in the
+            // reader's own sample format (16-bit for FLAC, even a 24-bit one). Asking for decimals there is ignored while
+            // the format the "decoder" reports still says decimals, which read 16-bit sound as noise at half its length:
+            // so plain sound is read in the format the track says, and decimals are only asked of real decoders.
+            val mime = inFmt.getString(MediaFormat.KEY_MIME)!!
+            val raw = mime == MediaFormat.MIMETYPE_AUDIO_RAW
+            val rawEnc = if (raw && inFmt.containsKey(MediaFormat.KEY_PCM_ENCODING)) inFmt.getInteger(MediaFormat.KEY_PCM_ENCODING)
+                else AudioFormat.ENCODING_PCM_16BIT
+            if (!raw) inFmt.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT)
+            val codec = MediaCodec.createDecoderByType(mime)
             try {
                 codec.configure(inFmt, null, null, 0)
                 codec.start()
                 var rate = inFmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                 var ch = inFmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                var enc = AudioFormat.ENCODING_PCM_16BIT
+                var enc = rawEnc
                 val info = MediaCodec.BufferInfo()
                 var inDone = false
                 var buf = FloatArray(16384)
@@ -66,14 +74,28 @@ object AudioTools {
                     if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         val f = codec.outputFormat
                         rate = f.getInteger(MediaFormat.KEY_SAMPLE_RATE); ch = f.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                        enc = if (f.containsKey(MediaFormat.KEY_PCM_ENCODING)) f.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
+                        enc = if (raw) rawEnc else if (f.containsKey(MediaFormat.KEY_PCM_ENCODING)) f.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
                     } else if (o >= 0) {
                         val bb = codec.getOutputBuffer(o)!!.order(ByteOrder.nativeOrder())
                         bb.position(info.offset); bb.limit(info.offset + info.size)
-                        val n = if (enc == AudioFormat.ENCODING_PCM_FLOAT) info.size / 4 else info.size / 2
+                        val bytes = when (enc) {
+                            AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_32BIT -> 4
+                            AudioFormat.ENCODING_PCM_24BIT_PACKED -> 3
+                            AudioFormat.ENCODING_PCM_8BIT -> 1
+                            else -> 2
+                        }
+                        val n = info.size / bytes
                         if (buf.size < n) buf = FloatArray(n)
-                        if (enc == AudioFormat.ENCODING_PCM_FLOAT) bb.asFloatBuffer().get(buf, 0, n)
-                        else { val s = bb.asShortBuffer(); for (k in 0 until n) buf[k] = s.get(k) / 32768f }
+                        when (enc) {
+                            AudioFormat.ENCODING_PCM_FLOAT -> bb.asFloatBuffer().get(buf, 0, n)
+                            AudioFormat.ENCODING_PCM_32BIT -> { val s = bb.asIntBuffer(); for (k in 0 until n) buf[k] = s.get(k) / 2147483648f }
+                            AudioFormat.ENCODING_PCM_24BIT_PACKED -> { val p = bb.position(); for (k in 0 until n) {
+                                val i = p + k * 3   // little-endian, the top byte signed
+                                buf[k] = ((bb.get(i).toInt() and 0xff) or ((bb.get(i + 1).toInt() and 0xff) shl 8) or (bb.get(i + 2).toInt() shl 16)) / 8388608f
+                            } }
+                            AudioFormat.ENCODING_PCM_8BIT -> { val p = bb.position(); for (k in 0 until n) buf[k] = ((bb.get(p + k).toInt() and 0xff) - 128) / 128f }
+                            else -> { val s = bb.asShortBuffer(); for (k in 0 until n) buf[k] = s.get(k) / 32768f }
+                        }
                         codec.releaseOutputBuffer(o, false)
                         if (n > 0) block(buf, n, rate, ch)
                         frames += n / maxOf(ch, 1)
@@ -156,6 +178,28 @@ object AudioTools {
         val w = win ?: return null
         w.finish()
         return song.result()
+    }
+
+    /** (blocking) The whole song in one channel at [rate] samples a second, for auto-sync to listen to (LyricsAutoSync):
+     *  decoded a block at a time and averaged down as it goes, ten seconds at a time kept. null: [stop] said to stop, or
+     *  the song runs over [maxSecs]. */
+    fun songPcm(path: String, rate: Int, maxSecs: Int, stop: () -> Boolean): Pcm? {
+        val parts = ArrayList<FloatArray>()
+        var win: MonoWindows? = null
+        try {
+            decode(path, 0) { buf, count, r, ch ->
+                if (stop()) throw Stopped()
+                val w = win ?: MonoWindows(r, ch, rate, 10) { parts += it.samples }.also { win = it }
+                w.feed(buf, count)
+                if (w.heard > maxSecs) throw Stopped()
+            }
+        } catch (_: Stopped) { return null }
+        val w = win ?: return null
+        w.finish()
+        val out = FloatArray(parts.sumOf { it.size })
+        var at = 0
+        for (p in parts) { p.copyInto(out, at); at += p.size }
+        return Pcm(out, w.rate)
     }
 
     /** (blocking) A song's sound as AcoustID knows it: (its fingerprint, its length in seconds), from its first two minutes. */

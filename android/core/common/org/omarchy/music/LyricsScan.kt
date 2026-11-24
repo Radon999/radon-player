@@ -65,7 +65,7 @@ object LyricsScan {
     }
 
     /** A song's file (its own, or its download's), or null when it's streamed. */
-    private fun pathOf(t: Track): String? = t.file?.takeIf { it.isNotEmpty() }
+    fun pathOf(t: Track): String? = t.file?.takeIf { it.isNotEmpty() }
         ?: runCatching { Music.lib.items[t.id]?.file }.getOrNull()?.takeIf { it.isNotEmpty() }
 
     /** How the scanner knows a song: its file, else the song (title and lead artist). */
@@ -290,4 +290,54 @@ object LyricsScan {
 
     /** A web search for the song's lyrics, to open in your browser (nothing is read from it here). */
     fun webSearch(t: Track): String = "https://www.google.com/search?q=" + enc("${t.title} ${t.artist.split(",")[0].trim()} lyrics")
+
+    // ---- the songs with words but no timing (auto-sync, LyricsAutoSync) ----
+
+    /** (blocking) The lyrics a song has here, nothing looked up: its file's, with timed lines kept in the app when the
+     *  file has only the words (a file the app couldn't write the timing into), else the ones kept in the app. */
+    fun here(t: Track): Lyrics.Got? {
+        val path = pathOf(t)
+        val f = path?.let { inFile(it) }?.takeIf { it.isNotBlank() }?.let { txt ->
+            if (Lyrics.parseLrc(txt).isNotEmpty()) Lyrics.Got(null, null, txt, "the file") else Lyrics.Got(txt, "the file")
+        }
+        val k = kept(Music.ctx, t)
+        if (f == null) return k
+        if (f.synced == null && k?.synced != null) return f.copy(synced = k.synced, synced_from = k.synced_from)
+        return f
+    }
+
+    /** (blocking) Your songs (with a file, so they can be listened to) that have their words but no timing: what
+     *  auto-sync goes through. The ones left alone or instrumental aren't. */
+    fun untimed(): List<Pair<Track, Lyrics.Got>> {
+        load()
+        return allSongs().mapNotNull { (t, path) ->
+            if (path == null) return@mapNotNull null
+            val st = stateOf(t)
+            if (st == LEFT || st == INSTRUMENTAL) return@mapNotNull null
+            val g = here(t) ?: return@mapNotNull null
+            if (g.synced != null || LyricsTags.words(g) == null) null else t to g
+        }
+    }
+
+    /** (blocking) Timed lyrics for a song put where its lyrics go (its file where the app may change it, else kept in
+     *  the app, as the scan does), with its words. True if they were put somewhere. */
+    fun placeTimed(t: Track, words: String, lrc: String, from: String): Boolean {
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        val ok = place(t, pathOf(t), Lyrics.Got(plain = words, plain_from = "the file", synced = lrc, synced_from = from), playing)
+        save(); Music.scope.launch { version++ }
+        return ok
+    }
+
+    /** (blocking) A song's timing taken away again (auto-sync's, removed): only its words, in its file or kept. */
+    fun dropTiming(t: Track): Boolean {
+        val words = here(t)?.let { LyricsTags.words(it) } ?: return false
+        val path = pathOf(t)
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        val inFileTimed = path?.let { inFile(it) }?.let { Lyrics.parseLrc(it).isNotEmpty() } == true
+        // Its file holds the timing: the words written over it; else the timing was kept in the app: only the words kept
+        val ok = if (inFileTimed) place(t, path, Lyrics.Got(plain = words, plain_from = "the file"), playing)
+            else { keep(t, Lyrics.Got(plain = words, plain_from = "the file")); true }
+        save(); Music.scope.launch { version++ }
+        return ok
+    }
 }

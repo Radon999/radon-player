@@ -115,6 +115,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Clips with sound:** a song's Options makes a short video of its cover and a filling seek bar, with the song playing from where you say to where you say (3 seconds to a minute). Streamed songs too.",
     "- **Picture cards** share a song with a line of your own. Cards and clips show your play count (Personalization switches it off).",
     "- **Lyrics scanner:** finds lyrics for every song and writes them into the files (and .lrc files if you like); type the ones it can't find, or mark them instrumental.",
+    "- **Auto-sync:** after the scan, the songs with words but no timing are listed apart from the ones with no lyrics. **Start auto-syncing missing synced lyrics** looks each one up once more, and the ones nobody has timed (your unreleased songs) it listens to on the device, hears when each line is sung, and times them itself. The timing goes into the song's file, so Sync takes it to your other device. The Lyrics tab marks these **Timed by Radon**, with **Time again** and **Remove timing**. Phone and PC, each its own songs; the listening model is a one-time download of about 100 MB.",
     "",
     "## Sound",
     "",

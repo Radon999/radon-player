@@ -952,9 +952,10 @@ private fun LyricsMoodsLines(ui: Ui) {
     Line("Lyrics", "Finds every song's lyrics and writes them into its file (timed lines when there are some), so any player " +
         "shows them" + (if (onPhone) ". On the phone that's the songs the app downloaded; the others keep theirs in the app" else "") +
         ". Songs with lyrics in their file already are skipped; the ones with none found are listed after, to leave alone, " +
-        "type in or search for" + (c?.let { ". Lyrics in files: %,d · kept in the app: %,d · still to find: %,d".format(it.inFiles, it.inApp, it.toFind) } ?: ""),
-        ls.progress != null) {
-        Pill(if (ls.progress != null) "Finding…" else "Show…", quiet = true) { ui.tool = "lyrics" }
+        "type in or search for, and apart from them the ones with words but no timing, which auto-sync can time by listening" +
+        (c?.let { ". Lyrics in files: %,d · kept in the app: %,d · still to find: %,d".format(it.inFiles, it.inApp, it.toFind) } ?: ""),
+        ls.progress != null || org.omarchy.music.LyricsAutoSync.progress != null) {
+        Pill(if (ls.progress != null) "Finding…" else if (org.omarchy.music.LyricsAutoSync.progress != null) "Timing…" else "Show…", quiet = true) { ui.tool = "lyrics" }
     }
     Line("Lyrics files (.lrc)", "Saves a .lrc file beside each song that has lyrics in its file, with the same name " +
         "(timed lines when the song has them, else the words), so any player, and the folder wherever it's copied, has " +
