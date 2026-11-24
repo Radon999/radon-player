@@ -1,47 +1,25 @@
-commit d1cf6fc482274940886ff019ab002406fdd4c56b · run 45459515383 · Tue Nov 24 18:46:18 UTC 2026
-PC TESTS ON WINDOWS: 44 suites, tests 171, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 1.4 s (with loading the voice); then 4.5 s of speech in 0.9 s (4.9x real time)
+commit b5b7cb3f252e88c043d304b5e37d6f58476a547e · run 45461946924 · Tue Nov 24 19:05:37 UTC 2026
+PC TESTS ON WINDOWS: 44 suites, tests 172, failed 0
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.0 s of speech in 2.6 s (with loading the voice); then 5.0 s of speech in 2.5 s (2.0x real time)
 WINDOWS INSTALLER: Radon Player-4.5.16.msi, 97M
 --- errors
-org.omarchy.music.PlaybackBehaviourTest > leavingASongPartWayIsASkipButNotInItsLastSeconds FAILED
-    java.lang.AssertionError: waited 8 s for: the first counted as skipped (loaded: [file-skips-1, file-skips-2], index 1, at 8046 ms)
-        at org.omarchy.music.PlaybackBehaviourTest.until(PlaybackBehaviourTest.kt:76)
-        at org.omarchy.music.PlaybackBehaviourTest.until$default(PlaybackBehaviourTest.kt:73)
-        at org.omarchy.music.PlaybackBehaviourTest.leavingASongPartWayIsASkipButNotInItsLastSeconds(PlaybackBehaviourTest.kt:259)
-
-D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
---
-> Task :desktop:test FAILED
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':desktop:test'.
-> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
-
-* Try:
-> Run with --scan to get full insights.
-
---
-BUILD FAILED in 4m 55s
-21 actionable tasks: 21 executed
 --- the end of the log
-OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1392:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
+> Task :desktop:compileTestKotlin
+> Task :desktop:packageMsi
+The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.16.msi
+
+> Task :desktop:compileTestJava NO-SOURCE
+> Task :desktop:testClasses
 > Task :desktop:test
 
-171 tests completed, 1 failed
-
-> Task :desktop:test FAILED
-
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':desktop:test'.
-> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
-
-* Try:
-> Run with --scan to get full insights.
+D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -49,5 +27,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 4m 55s
+BUILD SUCCESSFUL in 6m 44s
 21 actionable tasks: 21 executed
