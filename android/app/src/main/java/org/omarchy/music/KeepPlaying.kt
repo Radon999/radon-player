@@ -55,6 +55,8 @@ class KeepPlaying(ctx: Context, private val exo: ExoPlayer) {
         if (held) runCatching { am.abandonAudioFocusRequest(request) }
         held = false
         Music.eqProcessor.focusTarget = 1.0
+        // Nothing to watch for while it's paused (not for a call): told of the phone's mode again once it plays
+        if (!pausedForCall && android.os.Build.VERSION.SDK_INT >= 31) modes?.let { runCatching { am.removeOnModeChangedListener(it) }; modes = null }
     }
 
     private fun changed(c: Int) {
@@ -92,9 +94,15 @@ class KeepPlaying(ctx: Context, private val exo: ExoPlayer) {
         exo.play()
     }
 
-    /** Once a second while the music plays or waits for a call to end: a call starting pauses it (even when another app
-     *  has the sound, so nothing is told), and a second after the call ends it plays again. */
+    /** A call starting pauses the music (even when another app has the sound, so nothing is told), and a second after
+     *  the call ends it plays again. Android 12 on, the app is told the moment the phone's mode changes, so nothing runs
+     *  in between (it used to wake the phone every second for as long as the music played); before that, and if
+     *  Android won't tell it, a look once a second while the music plays or waits for a call to end. */
     private fun watch() {
+        if (android.os.Build.VERSION.SDK_INT >= 31 && listenModes()) {
+            h.postDelayed({ modeChanged() }, 1000)   // already in a call when it started playing: paused, as before
+            return
+        }
         if (watching) return
         watching = true
         fun tick() {
@@ -108,5 +116,25 @@ class KeepPlaying(ctx: Context, private val exo: ExoPlayer) {
             h.postDelayed({ tick() }, 1000)
         }
         h.postDelayed({ tick() }, 1000)
+    }
+
+    private var modes: AudioManager.OnModeChangedListener? = null
+
+    /** (Android 12 on) Told of each change of the phone's mode, from now; false if Android won't. */
+    @androidx.annotation.RequiresApi(31)
+    private fun listenModes(): Boolean {
+        if (modes != null) return true
+        val l = AudioManager.OnModeChangedListener { modeChanged() }
+        if (runCatching { am.addOnModeChangedListener({ h.post(it) }, l) }.isFailure) return false
+        modes = l
+        return true
+    }
+
+    /** The phone's mode changed (a call started or ended), or the first look after the music started. */
+    private fun modeChanged() {
+        if (!on) return
+        val call = inCall()
+        if (call && exo.playWhenReady && !pausedForCall) pauseForCall()
+        else if (!call && pausedForCall) h.postDelayed({ if (on && pausedForCall && !inCall()) playAfterCall() }, 1000)
     }
 }
