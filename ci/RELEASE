@@ -1,6 +1,0 @@
-v4.5.15
-Radon Player 4.5.15: Bit-perfect with shorter gaps while switching apps
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.15.msi` (Windows), `radon-player_4.5.15_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
-
-**What is new**
-- **Bit-perfect: shorter gaps while switching apps (the phone):** when the phone is busy opening apps it sometimes makes the app wait its turn on the DAC's USB connection, though the DAC is still taking music. 4.5.13 and 4.5.14 took that wait for the USB having stopped and set the stream up again, which added a second gap. Now the app looks first: with music waiting to be collected it simply carries on the moment the phone lets go, and it's only set up again when the USB really has stopped. The note in Settings › Problems says which it was.
