@@ -30,7 +30,7 @@ import rikka.shizuku.Shizuku
 object SeamlessBt {
     const val SHIZUKU = "moe.shizuku.privileged.api"
     private const val ASK = 4517       // Shizuku's permission question
-    private const val VERSION = 3      // SeamlessBtService's: a new one replaces a running old one (3: disconnect, Android Auto)
+    private const val VERSION = 4      // SeamlessBtService's: a new one replaces a running old one (3: disconnect, Android Auto; 4: USB debugging)
     private const val RETRY_MS = 60_000L
 
     /** What it's doing or waiting on, for Settings. */
@@ -182,6 +182,26 @@ object SeamlessBt {
         return true
     }
 
+    private var usbDebugAsked = false
+    /** USB debugging switched on once (no cable needed) while this is on and Shizuku runs: Shizuku, started through
+     *  Wireless debugging, lives in Android's debugging service, which stops once neither kind of debugging is on, so
+     *  the Wi-Fi going (which switches Wireless debugging off) stopped Shizuku, and the truck stayed kept off. With USB
+     *  debugging on the service stays, Wi-Fi or not, any network, mobile data as it is. */
+    private fun keepShizuku(now: Long) {
+        if (!on || usbDebugAsked || !allowed()) return
+        val usb = runCatching { android.provider.Settings.Global.getInt(Music.ctx.contentResolver, android.provider.Settings.Global.ADB_ENABLED, 0) }.getOrDefault(1)
+        if (usb == 1) return
+        val s = service ?: run { bind(now); return }
+        usbDebugAsked = true
+        Music.scope.launch(Dispatchers.IO) {
+            val (r, _, why) = runCatching { ask(s, SeamlessBtService.USB_DEBUG) {} }.getOrElse { Triple(SeamlessBtService.ERROR, -1, it.toString()) }
+            h.post {
+                SoundLog.note(if (r == SeamlessBtService.DONE) "USB debugging switched on (Shizuku keeps running without Wi-Fi)" else "USB debugging not switched on: $why")
+                if (r == SeamlessBtService.DONE) tell("USB debugging switched on, so Shizuku keeps running when the Wi-Fi goes (no cable needed)")
+            }
+        }
+    }
+
     /** Look again (BtRoute.check calls it whenever the outputs or the lists change): switch connections off or on
      *  where they should be, and say how it stands. */
     fun update() {
@@ -224,6 +244,7 @@ object SeamlessBt {
         val back = (mine - want.toSet()).filter { ready(it, SeamlessBtService.ALLOWED, now) }
         // (the button's label says what's meant; the switching below catches up)
         say(mine, want)
+        keepShizuku(now)
         if (off.isEmpty() && back.isEmpty()) return
         if (!allowed()) {
             // A device kept off can't have its connections back: say so once (it'd otherwise just never connect)

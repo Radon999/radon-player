@@ -1926,13 +1926,14 @@ private fun SeamlessBtLines(device: String?, here: String) {
             "(It also goes off by itself once the truck disconnects, while your headphones are connected.)\n" +
             "Off stays off until you turn it on, headphones or not (with no headphones the music then plays on the phone). " +
             "Not tapped yet, with no headphones connected the truck connects and plays as usual.\n" +
-            "• Shizuku and Wi-Fi: Shizuku started through Wireless debugging only keeps running while the phone is on " +
-            "Wi-Fi. When the Wi-Fi goes (turning Android Auto off ends its Wi-Fi link with the truck, or you walk out of " +
-            "range), Android switches Wireless debugging off and Shizuku stops. The truck then stays off, and On still gets " +
-            "it back without Shizuku: tap it in Radon Player and Android Auto is opened (so it can start again), then " +
-            "Bluetooth settings, where you tap ⚙ by the truck and switch Calls and Media audio on. Start Shizuku again " +
-            "(open it, tap Start) once you're on Wi-Fi. Started from a computer over a USB cable instead, Shizuku keeps " +
-            "running without Wi-Fi until the phone restarts.",
+            "• Shizuku and Wi-Fi: Shizuku started through Wireless debugging lives in Android's debugging service, which " +
+            "stops once no kind of debugging is on: when the Wi-Fi goes (turning Android Auto off ends its Wi-Fi link with " +
+            "the truck, or you walk out of range) Android switches Wireless debugging off, and Shizuku stopped with it. So " +
+            "the app switches Developer options › USB debugging on (no cable needed), which keeps that service running: " +
+            "Shizuku then carries on without Wi-Fi, on any Wi-Fi you switch to, and your mobile data works as always. If " +
+            "Shizuku stops anyway, the truck stays off, and On still gets it back: tap it in Radon Player and Android Auto " +
+            "is opened (so it can start again), then Bluetooth settings, where you tap ⚙ by the truck and switch Calls and " +
+            "Media audio on. After the phone restarts, Shizuku has to be started again (open it, tap Start).",
             style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 8.dp))
     }
     if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +

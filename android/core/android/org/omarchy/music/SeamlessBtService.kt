@@ -25,6 +25,10 @@ class SeamlessBtService @JvmOverloads constructor(private val ctx: Context? = nu
         const val CONNECT = 3
         /** Android Auto stopped (1: it can't connect the truck from the background) or allowed to start again (0). */
         const val AUTO = 4
+        /** USB debugging on (Developer options; no cable needed): Shizuku, started through Wireless debugging, lives in
+         *  Android's debugging service, which stops when neither kind of debugging is on: the Wi-Fi going switches
+         *  Wireless debugging off, and Shizuku stopped with it. With USB debugging on the service stays. */
+        const val USB_DEBUG = 5
         /** Shizuku's own "stop" (the process ends). */
         const val DESTROY = 16777115
         const val DONE = 1
@@ -52,6 +56,10 @@ class SeamlessBtService @JvmOverloads constructor(private val ctx: Context? = nu
             }
             DROP, CONNECT -> { val name = data.readString() ?: ""; runCatching { link(name, code == CONNECT) } }
             AUTO -> { val stop = data.readInt() == 1; val user = data.readInt(); runCatching { auto(stop, user) } }
+            USB_DEBUG -> runCatching {
+                val code = Runtime.getRuntime().exec(arrayOf("settings", "put", "global", "adb_enabled", "1")).waitFor()
+                Answer(if (code == 0) DONE else ERROR, code, if (code == 0) "" else "Android didn't switch USB debugging on ($code)")
+            }
             else -> return super.onTransact(code, data, reply, flags)
         }.getOrElse { Answer(ERROR, -1, it.cause?.toString() ?: it.toString()) }
         reply?.writeInt(r.result); reply?.writeInt(r.before); reply?.writeString(r.why)
