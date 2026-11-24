@@ -1,0 +1,6 @@
+v4.5.14
+Radon Player 4.5.14: Bit-perfect gaps pinned down
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.14.msi` (Windows), `radon-player_4.5.14_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Bit-perfect gaps pinned down (the phone):** the note in Settings › Problems after a gap now says correctly whether the phone's USB stopped for a moment or the phone held the app back from music the USB had already taken (4.5.13 counted that in whole milliseconds and got it wrong). This tells what's left to fix.

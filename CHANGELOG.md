@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.5.14: Bit-perfect gaps pinned down (Android)
+- **Bit-perfect gaps pinned down (the phone):** the note in Settings › Problems after a gap now says correctly whether the phone's USB stopped for a moment or the phone held the app back from music the USB had already taken (4.5.13 counted that in whole milliseconds and got it wrong). This tells what's left to fix.
+
 ## 4.5.13: Phases with the right plays, and bit-perfect that recovers faster (Android, Windows and Linux)
 - **Taste › Phases shows the right plays:** New loves had artists with 0 or 1 plays beside them, and Faded one with 2. The number beside each artist now is the count that put them in that phase (it came from Most played, which counts its own way), and artists you've hidden from stats are left out.
 - **Bit-perfect: a phone USB that stops for a moment is got going again (the phone):** in 4.5.12 a moment where the phone's USB gave nothing back was left to sort itself out (once 1.4 s of silence). After 0.8 s the stream is now set up again, as before.
