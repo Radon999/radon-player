@@ -847,6 +847,11 @@ object Music {
     /** The Chevy (Android Auto, wired or wireless): always in the Equalizer's list on the phone, to set up any time. */
     const val CAR = "car:Chevrolet"
     fun forgetEqOutput(key: String) = EqControl.forgetOutput(key)
+    fun eqPresetsFor(out: String) = EqControl.presetsFor(eq, out)
+    fun saveOutputPreset(name: String, asDefault: Boolean) = EqControl.saveOutputPreset(name, asDefault)
+    fun useOutputPreset(key: String) = EqControl.useOutputPreset(key)
+    fun setOutputDefault(out: String, key: String?) = EqControl.setOutputDefault(out, key)
+    fun deleteOutputPreset(key: String) = EqControl.deleteOutputPreset(key)
     fun outLabel(key: String) = EqControl.outLabel(key)
     var outputNow by mutableStateOf(Outputs.Out("speaker", "Built-in speaker", "speaker"))
         internal set

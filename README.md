@@ -135,6 +135,7 @@ Short sets from your own listening, with a voice like a radio host's.
 ## Sound
 
 - **Equalizer for each output:** speaker, wired headphones, each Bluetooth device, a USB DAC, the car, switched by itself. 3 to 31 bands, presets and your own, and **Auto EQ** headphone correction by name.
+- **Presets for each output:** under the output picked in the Equalizer (Now playing's and the tab's), a drop-down with its name lists its own presets. **Save as preset…** keeps its whole EQ (Sound, bands, correction, bass and treble, Boost) under a name, and can make it the **default** (★): switched in each time the sound goes to that output. The presets and defaults of the outputs both devices meet (Bluetooth headphones and speakers, a USB DAC, the car) sync; all of them go into backups.
 - **Boost, Crossfeed and Crossfade** (off until you set it; never inside an album that flows). **Dual volume** decides whether a song's own volume and Boost go together.
 - **Bit-perfect** to a USB DAC (phone) or the computer's sound card: each song arrives untouched at its own rate and bit depth. On phones without a bit-perfect mode (Samsung's) the app drives the DAC itself. **Bass and Treble** can stay on with it. Off, the EQ and the rest come back.
 - **Sound quality** (each its own switch): clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on at first), and loudness compensation (off at first). On the phone, **Android's own FLAC decoder** for phones whose maker's decoder drops sound now and then.

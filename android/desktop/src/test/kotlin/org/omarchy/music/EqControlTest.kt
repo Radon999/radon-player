@@ -50,6 +50,19 @@ class EqControlTest {
         assertEquals("and the other's kept", -2.0, back.outputs.getValue("bt:Buds").bass, 0.0)
     }
 
+    @Test fun anOutputsDefaultPresetComesInEachTimeTheSoundGoesThere() {
+        val bass = OutputEq(on = true, preset = "custom", bands = List(10) { 2.0 }, custom = List(10) { 2.0 }, boost = 3.0)
+        val e = flat.copy(perOutput = true, output = "wired", outputs = mapOf("bt:Buds" to OutputEq("Buds", on = true, bass = -4.0)),
+            outputPresets = mapOf("bt:Buds|a" to OutputPreset("bt:Buds", "Bass", bass)), outputDefaults = mapOf("bt:Buds" to "bt:Buds|a"))
+        val bt = Outputs.Out("bt:Buds", "Buds", "bluetooth")
+        val there = EqControl.moved(e, "wired", bt)
+        assertEquals("its default preset, not the EQ it was left with", List(10) { 2.0 }, there.bands)
+        assertEquals(3.0, there.boost, 0.0)
+        assertEquals(0.0, there.bass, 0.0)
+        assertEquals("kept as its EQ now", 3.0, there.outputs.getValue("bt:Buds").boost, 0.0)
+        assertEquals("no default: as it was left", -4.0, EqControl.moved(e.copy(outputDefaults = emptyMap()), "wired", bt).bass, 0.0)
+    }
+
     @Test fun boostIsKeptInHalfDecibelsUpToTheMost() {
         assertEquals(3.5, EqControl.boost(3.4), 0.0)
         assertEquals(0.0, EqControl.boost(-2.0), 0.0)

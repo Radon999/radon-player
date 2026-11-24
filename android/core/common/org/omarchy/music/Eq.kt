@@ -220,6 +220,8 @@ data class EqSettings(
     val output: String = "",                                  // the output these settings are for now
     val boost: Double = 0.0,                                  // Boost: dB louder than normal (0-12), this output's
     val myPresets: Map<String, MyPreset> = emptyMap(),        // Sound presets you saved or imported (10 bands each)
+    val outputPresets: Map<String, OutputPreset> = emptyMap(),   // presets saved for one output, by "its output key|an id"
+    val outputDefaults: Map<String, String> = emptyMap(),        // an output's default preset (its outputPresets key): switched in when the sound goes there
 ) {
     /** These settings as one output keeps them. */
     fun toOutput(label: String) = OutputEq(label, on, headphones, preset, bands, custom, bass, treble, count, boost)
@@ -233,6 +235,11 @@ data class EqSettings(
 /** A Sound preset of yours: its name and its ten bands' gains. */
 @Serializable
 data class MyPreset(val name: String, val bands: List<Double>)
+
+/** A preset of one output's (the earbuds', the car's…): its whole EQ as it was saved (Sound, bands, correction, bass
+ *  and treble, Boost), under a name you gave it. */
+@Serializable
+data class OutputPreset(val output: String, val name: String, val eq: OutputEq)
 
 /** One output's own EQ. */
 @Serializable

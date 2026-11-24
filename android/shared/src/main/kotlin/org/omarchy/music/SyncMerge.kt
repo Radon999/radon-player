@@ -42,12 +42,16 @@ object SyncRules {
         "keep_played", "bit_perfect", "replay_gain", "mic_asked", "drawer_folds", "layouts", "api_keys", "dj", "styled", "apple_ui")
 
     /** The equalizer's parts that sync: Sound presets you saved, headphone corrections you added, and each portable
-     *  output's EQ and correction (headphones, a USB DAC, the car). The EQ playing now is the output's own. */
-    val EQ_KEYS = listOf("myPresets", "profiles", "devices", "outputs", "perOutput")
+     *  output's EQ and correction (headphones, a USB DAC, the car), its own presets and its default one. The EQ playing
+     *  now is the output's own. */
+    val EQ_KEYS = listOf("myPresets", "profiles", "devices", "outputs", "perOutput", "outputPresets", "outputDefaults")
 
     /** An output both devices can meet: Bluetooth headphones and speakers, a USB DAC, the car. The phone's speaker and
      *  jack, and the PC's speakers, are each device's own. */
     fun portableOutput(key: String) = key.startsWith("bt:") || key.startsWith("bluetooth:") || key.startsWith("usb:") || key.startsWith("car:")
+
+    /** A preset of an output's own (its key "output|id") that's a portable output's. */
+    fun portablePreset(key: String) = portableOutput(key.substringBeforeLast('|'))
 
     /** Switches that are the device's own: its earbuds and Bluetooth handling, its window, tray and startup, Discord,
      *  notifications and the lock screen, its sound card (the PC's resampler, bit-perfect), stream quality on its
@@ -76,7 +80,11 @@ object SyncRules {
         val out = LinkedHashMap<String, JsonElement>()
         for (k in EQ_KEYS) {
             val v = e[k] ?: continue
-            out[k] = if ((k == "outputs" || k == "devices") && v is JsonObject) JsonObject(v.filterKeys { portableOutput(it) }) else v
+            out[k] = when {
+                (k == "outputs" || k == "devices" || k == "outputDefaults") && v is JsonObject -> JsonObject(v.filterKeys { portableOutput(it) })
+                k == "outputPresets" && v is JsonObject -> JsonObject(v.filterKeys { portablePreset(it) })
+                else -> v
+            }
         }
         return JsonObject(out)
     }
@@ -138,7 +146,7 @@ object SyncMerge {
             SyncRules.STATE_MAPS.associateWith<String, Rule> { Rule.ByKey() } + SyncRules.STATE_SETS.associateWith<String, Rule> { Rule.Bag } + mapOf<String, Rule>(
                 "pins" to Rule.ById(::pinKey, newFirst = true),
                 "eq" to Rule.Fields(mapOf("myPresets" to Rule.ByKey(), "profiles" to Rule.ByKey(), "devices" to Rule.ByKey(),
-                    "outputs" to Rule.ByKey())))),
+                    "outputs" to Rule.ByKey(), "outputPresets" to Rule.ByKey(), "outputDefaults" to Rule.ByKey())))),
         SyncRules.SWITCHES to Rule.ByKey(),
     )
 
@@ -347,6 +355,7 @@ object SyncMerge {
             t += "Sound presets" to size(eq?.get("myPresets"))
             t += "headphone corrections" to size(eq?.get("profiles"))
             t += "output EQs" to size(eq?.get("outputs"))
+            t += "output presets" to size(eq?.get("outputPresets"))
         }
         merged["favorites.json"]?.let { t += "favorites" to size(it) }
         if (st != null) t += "pins" to size(st["pins"])

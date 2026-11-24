@@ -50,6 +50,14 @@ class SyncMergeTest {
         assertEquals(setOf("crossfade", "dj_voice"), sw.keys)
     }
 
+    @Test fun outputPresetsSyncForTheOutputsBothDevicesMeet() {
+        val st = j("""{"eq":{"outputPresets":{"bt:Buds|a":{"output":"bt:Buds","name":"Bass","eq":{}},"speaker|b":{"output":"speaker","name":"Loud","eq":{}}},
+            "outputDefaults":{"bt:Buds":"bt:Buds|a","speaker":"speaker|b"}}}""") as JsonObject
+        val eq = SyncRules.state(st)["eq"] as JsonObject
+        assertEquals(setOf("bt:Buds|a"), (eq["outputPresets"] as JsonObject).keys)   // the phone's speaker's stays on the phone
+        assertEquals(setOf("bt:Buds"), (eq["outputDefaults"] as JsonObject).keys)
+    }
+
     @Test fun firstSyncIsAUnion() {
         val l = files("playlists.json" to """[{"id":"p1","name":"Gym","created":1,"updated":10,"tracks":[]}]""",
             "song-volume.json" to """{"a|x":2.0}""")

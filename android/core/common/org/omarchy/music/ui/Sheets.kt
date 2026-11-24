@@ -2242,6 +2242,7 @@ private fun EqSheet(ui: Ui) {
                     }
                 }
             }
+            OutputPresets(ui, eq)
             val freqs = Eq.bandsFor(eq.count)
             val rowH = ((screenH - 150) / freqs.size).coerceIn(18, 48).dp
             freqs.forEachIndexed { i, hz ->
@@ -2302,6 +2303,7 @@ private fun EqSheet(ui: Ui) {
                     }
                 }
             }
+            OutputPresets(ui, eq)
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("A separate equalizer for each output (speaker, headphones, earbuds, car…), switched in by itself when the sound goes there", style = T.sub, modifier = Modifier.weight(1f))
                 Switch(eq.perOutput, { Music.setEqPerOutput(it) }, colors = swColors())
@@ -2488,7 +2490,7 @@ private fun PresetTools(ui: Ui, eq: org.omarchy.music.EqSettings) {
     val exporter = rememberSaveFile("text/plain") { uri -> if (uri != null) Music.exportPreset(uri) }
     val label = org.omarchy.music.Eq.presets(eq)[eq.preset]?.first ?: "Sound"
     Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Pill("Save as preset…", quiet = true) { naming = if (eq.preset == "custom" || eq.preset.startsWith("my:")) "" else "$label (mine)" }
+        Pill("Save as Sound preset…", quiet = true) { naming = if (eq.preset == "custom" || eq.preset.startsWith("my:")) "" else "$label (mine)" }
         Pill("Import", quiet = true) { importer.launch(arrayOf("text/*", "application/octet-stream")) }
         Pill("Export", quiet = true) { exporter.launch("${label.replace(Regex("[^\\w .()-]"), "")} GraphicEQ.txt") }
         if (eq.preset.startsWith("my:")) Pill("Delete “$label”", quiet = true) { ui.confirm = "Delete your preset “$label”?" to { Music.deletePreset(eq.preset) } }
@@ -2503,6 +2505,66 @@ private fun PresetTools(ui: Ui, eq: org.omarchy.music.EqSettings) {
                 Field(name, "Its name") { name = it }
             } },
             confirmButton = { TextButton({ naming = null; Music.savePreset(name) }) { Text("Save", color = C.accent) } },
+            dismissButton = { TextButton({ naming = null }) { Text("Cancel", color = C.muted) } })
+    }
+}
+
+/** The presets of the output being set (picked at the top of the Equalizer): a drop-down under its name with each one
+ *  (tap: use it; ★ its default, switched in each time the sound goes to it; × delete), and Save as preset… (a name, and
+ *  whether it's the default). Each one keeps the output's whole EQ. Synced and in your backups. */
+@Composable
+private fun OutputPresets(ui: Ui, eq: org.omarchy.music.EqSettings) {
+    if (!eq.perOutput) return
+    val key = eq.output.ifEmpty { Music.outputNow.key }
+    val label = eq.outputs[key]?.label?.ifEmpty { null } ?: if (key == Music.outputNow.key) Music.outputNow.label else Music.outLabel(key)
+    val list = Music.eqPresetsFor(key)
+    val default = eq.outputDefaults[key]
+    // The preset these settings are now, if they're one of them unchanged
+    val now = list.firstOrNull { it.second.eq.sameAs(eq.toOutput("")) }
+    var open by remember { mutableStateOf(false) }
+    var naming by remember { mutableStateOf<String?>(null) }
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box {
+            Chip("$label: ${now?.second?.name ?: if (list.isEmpty()) "no presets yet" else "presets"} ▾", now != null) { open = true }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.light) {
+                if (list.isEmpty()) androidx.compose.material3.DropdownMenuItem(
+                    { Text("No presets for $label yet: set it as you like it, then Save as preset…", style = T.sub) }, {}, enabled = false)
+                list.forEach { (k, p) ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(p.name + if (k == default) "  · default" else "", style = T.body.copy(color = if (k == now?.first) C.accent else C.fg)) },
+                        onClick = { open = false; Music.useOutputPreset(k) },
+                        trailingIcon = { Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (k == default) "★" else "☆", style = T.title.copy(color = if (k == default) C.accent else C.muted),
+                                modifier = Modifier.clip(R.pill).clickable { Music.setOutputDefault(key, if (k == default) null else k) }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp))
+                            Text("×", style = T.title.copy(color = C.muted), modifier = Modifier.clip(R.pill)
+                                .clickable { open = false; ui.confirm = "Delete the preset “${p.name}” of $label?" to { Music.deleteOutputPreset(k) } }
+                                .padding(horizontal = 8.dp, vertical = 4.dp))
+                        } })
+                }
+            }
+        }
+        Pill("Save as preset…", quiet = true) { naming = now?.second?.name ?: "" }
+    }
+    if (default != null) Text("${list.firstOrNull { it.first == default }?.second?.name ?: "Its default"} is switched in each time the sound goes to $label (★ in the list to change it)",
+        style = T.sub, modifier = Modifier.padding(top = 4.dp))
+    naming?.let { start ->
+        var name by remember { mutableStateOf(start) }
+        var asDefault by remember { mutableStateOf(default == null) }
+        AlertDialog(onDismissRequest = { naming = null }, containerColor = C.light,
+            title = { Text("Save as a preset of $label", style = T.title) },
+            text = { Column {
+                Text("$label's equalizer as it is now (Sound, bands, correction, bass and treble, Boost), kept in its list. " +
+                    (if (org.omarchy.music.SyncRules.portableOutput(key)) "Synced to your other device and in your backups."
+                    else "In your backups (this $DEVICE's own output, so it isn't synced)."), style = T.sub)
+                Spacer(Modifier.height(8.dp))
+                Field(name, "Its name") { name = it }
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Default: switched in each time the sound goes to $label", style = T.sub, modifier = Modifier.weight(1f))
+                    Switch(asDefault, { asDefault = it }, colors = swColors())
+                }
+            } },
+            confirmButton = { TextButton({ if (name.isNotBlank()) { naming = null; Music.saveOutputPreset(name, asDefault) } }) { Text("Save", color = C.accent) } },
             dismissButton = { TextButton({ naming = null }) { Text("Cancel", color = C.muted) } })
     }
 }

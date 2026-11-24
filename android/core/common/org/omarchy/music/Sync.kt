@@ -616,7 +616,11 @@ object Sync {
             !(o.at == 0L && e.outputs.containsKey(k)) }
         val outs = e.outputs + theirsOk
         val devs = e.devices.filterKeys { !SyncRules.portableOutput(it) } + got.devices.filterKeys { SyncRules.portableOutput(it) }
-        val n = e.copy(myPresets = got.myPresets, profiles = got.profiles, devices = devs, outputs = outs, perOutput = got.perOutput)
+        // Presets of an output's own and its default: the portable outputs' from the sync, this device's own outputs' kept
+        val presets = e.outputPresets.filterKeys { !SyncRules.portablePreset(it) } + got.outputPresets.filterKeys { SyncRules.portablePreset(it) }
+        val defaults = e.outputDefaults.filterKeys { !SyncRules.portableOutput(it) } + got.outputDefaults.filterKeys { SyncRules.portableOutput(it) }
+        val n = e.copy(myPresets = got.myPresets, profiles = got.profiles, devices = devs, outputs = outs, perOutput = got.perOutput,
+            outputPresets = presets, outputDefaults = defaults)
         val cur = e.output
         val theirs = outs[cur]
         return if (cur.isNotEmpty() && SyncRules.portableOutput(cur) && theirs != null && !theirs.sameAs(e.toOutput(theirs.label))) n.withOutput(cur, theirs) else n

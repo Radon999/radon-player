@@ -33,12 +33,50 @@ object EqControl {
         return if (!dual && gained) e.copy(boost = 0.0) else e
     }
 
-    /** The sound moved from the output was to o: the settings with was's kept as they are, and o's own brought in (a
-     *  new output starts flat, with as many bands as you had). */
+    /** The sound moved from the output was to o: the settings with was's kept as they are, and o's own brought in: its
+     *  default preset when it has one (each time it connects), else its EQ as you left it (a new output starts flat,
+     *  with as many bands as you had). */
     fun moved(e: EqSettings, was: String, o: Outputs.Out): EqSettings {
         val saved = (if (was.isNotEmpty()) e.outputs + (was to e.toOutput(e.outputs[was]?.label ?: outLabel(was)).copy(at = e.outputs[was]?.at ?: 0)) else e.outputs)
-        val mine = saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
+        val default = e.outputDefaults[o.key]?.let { e.outputPresets[it] }?.eq?.copy(at = saved[o.key]?.at ?: 0)
+        val mine = default ?: saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
         return e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
+    }
+
+    // ---- an output's own presets ----
+
+    /** The presets saved for an output (its key), by name: (their outputPresets key, the preset). */
+    fun presetsFor(e: EqSettings, out: String): List<Pair<String, OutputPreset>> =
+        e.outputPresets.filter { it.value.output == out }.toList().sortedBy { it.second.name.lowercase() }
+
+    /** The EQ of the output being set (the one picked at the top of the Equalizer) saved as a preset of its own, under
+     *  name (one of that name already: replaced). asDefault: switched in each time the sound goes to that output. */
+    fun saveOutputPreset(name: String, asDefault: Boolean) {
+        val n = name.trim()
+        if (n.isEmpty()) return
+        set { e ->
+            val out = e.output.ifEmpty { Music.outputNow.key }
+            val key = e.outputPresets.entries.firstOrNull { it.value.output == out && it.value.name.equals(n, ignoreCase = true) }?.key
+                ?: "$out|${System.currentTimeMillis().toString(36)}"
+            e.copy(outputPresets = e.outputPresets + (key to OutputPreset(out, n, e.toOutput("").copy(at = 0))),
+                outputDefaults = if (asDefault) e.outputDefaults + (out to key) else e.outputDefaults)
+        }
+        toast("Saved “$n” for ${outLabel(Music.eq.output)}" + if (asDefault) ", its default" else "")
+    }
+
+    /** A preset of an output's put on that output's EQ (heard straight away if it's playing there). */
+    fun useOutputPreset(key: String) = set { e ->
+        val p = e.outputPresets[key] ?: return@set e
+        e.withOutput(p.output, p.eq)
+    }
+
+    /** An output's default preset (null: none, it keeps its EQ as you left it). */
+    fun setOutputDefault(out: String, key: String?) = set { e ->
+        e.copy(outputDefaults = if (key == null) e.outputDefaults - out else e.outputDefaults + (out to key))
+    }
+
+    fun deleteOutputPreset(key: String) = set { e ->
+        e.copy(outputPresets = e.outputPresets - key, outputDefaults = e.outputDefaults.filterValues { it != key })
     }
 
     /** Boost as it is kept: 0 to the most there is, in half decibels. */
