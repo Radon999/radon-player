@@ -5,6 +5,7 @@ import android.media.AudioManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
+import org.omarchy.music.BtIgnoreRules.AUTO
 
 /** Ignore Bluetooth devices, the phone's side: when an ignored device (the car) is connected, the app's players are asked
  *  to play on the output the music was on before (ExoPlayer's preferred audio device), and let go again when it leaves
@@ -20,9 +21,6 @@ object BtRoute {
     private val BT = setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER)
     private val WIRED = setOf(AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE,
         AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES)
-
-    /** The name Android Auto goes by in the list of devices to ignore. */
-    const val AUTO = "Android Auto"
 
     private val players = java.util.WeakHashMap<ExoPlayer, Boolean>()   // each with whether it handles audio focus
     private val noFocus = java.util.Collections.newSetFromMap(java.util.WeakHashMap<ExoPlayer, Boolean>())
@@ -165,12 +163,15 @@ object BtRoute {
         val auto = Outputs.carProjecting
         IgnoreBt.saw(bt + calls + (if (auto) listOf(AUTO) else emptyList()))
         val ignored = IgnoreBt.ignored().toSet()
-        val carIgnored = auto && IgnoreBt.on && (AUTO in ignored || (bt + calls).any { it in ignored })
+        val isCar = { n: String -> n in IgnoreBt.carNames() || CAR.containsMatchIn(n) }
+        // Android Auto on with the car ignored: its Bluetooth still connected or not (wireless Android Auto outlives it by
+        // most of a minute, and the music went to it then: silent in the earbuds until it ended, the owner's long cut)
+        val carIgnored = BtIgnoreRules.autoIgnored(auto, IgnoreBt.on, ignored, bt + calls, isCar)
         // The car is among the ignored devices (Android Auto picked, or a name that's the car's), connected or not. Then
         // the music is kept from Android Auto (ALLOW_CAPTURE_BY_NONE) for as long as headphones have it, not only while
         // Android Auto is on: each change of that makes the player build its sound output again (a gap), and at the edge
         // of the truck's range Android Auto comes and goes again and again (the owner's cutting in and out, Shizuku on).
-        val carAhead = IgnoreBt.on && (AUTO in ignored || ignored.any { it in IgnoreBt.carNames() || CAR.containsMatchIn(it) })
+        val carAhead = IgnoreBt.on && (AUTO in ignored || ignored.any(isCar))
         // The devices stirring around an ignored one (see stirAt), and whether there's something else to listen on
         val ignoredHere = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).toSet()
             else emptySet()

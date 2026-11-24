@@ -52,6 +52,17 @@ object BtIgnoreRules {
     fun arrivals(was: Map<String, Long>, here: Collection<String>, now: Long): Map<String, Long> =
         here.distinct().associateWith { was[it] ?: now }
 
+    /** Whether Android Auto, while it's on, is the ignored car (its sound kept off, the music held on your headphones).
+     *  on: Ignore Bluetooth devices; ignored: the names ignored; here: the Bluetooth devices connected now (for music or
+     *  calls); isCar: a name that's a car's (learnt beside Android Auto, or plainly a car's). The ignored car counts
+     *  whether its Bluetooth is still connected or not: wireless Android Auto stays up for most of a minute after the
+     *  truck's Bluetooth has gone, and the music went to it then, silent in your earbuds until it ended. */
+    fun autoIgnored(auto: Boolean, on: Boolean, ignored: Set<String>, here: Collection<String>, isCar: (String) -> Boolean): Boolean =
+        auto && on && (AUTO in ignored || here.any { it in ignored } || ignored.any(isCar))
+
+    /** The name Android Auto goes by in the list of devices to ignore. */
+    const val AUTO = "Android Auto"
+
     /** The moment an ignored device comes or goes (the car connecting, Android Auto starting or ending with the car
      *  ignored): this long either side of it. Cars and earbuds send a Pause of their own then (the car as it connects
      *  or lets go, the earbuds as the car takes the sound from them), which the app can't tell from you pressing it. */

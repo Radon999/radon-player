@@ -108,3 +108,20 @@ class BtIgnoreRulesTest {
         assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), truck, emptySet(), autoOn = null))
     }
 }
+
+class AutoIgnoredTest {
+    private val isCar = { n: String -> n == "CHEVROLET1512" }
+
+    @Test fun theIgnoredTruckStaysIgnoredWhileAndroidAutoLingersAfterItsBluetoothWent() {
+        // the truck's Bluetooth gone, wireless Android Auto still on: still the ignored car (the music stays on the earbuds)
+        assertEquals(true, BtIgnoreRules.autoIgnored(true, true, setOf("CHEVROLET1512"), listOf("WF-1000XM6"), isCar))
+        assertEquals(true, BtIgnoreRules.autoIgnored(true, true, setOf("CHEVROLET1512"), listOf("CHEVROLET1512", "WF-1000XM6"), isCar))
+        assertEquals(true, BtIgnoreRules.autoIgnored(true, true, setOf(BtIgnoreRules.AUTO), emptyList(), isCar))
+    }
+
+    @Test fun notIgnoredWhenItIsnt() {
+        assertEquals(false, BtIgnoreRules.autoIgnored(false, true, setOf("CHEVROLET1512"), emptyList(), isCar))   // Android Auto off
+        assertEquals(false, BtIgnoreRules.autoIgnored(true, false, setOf("CHEVROLET1512"), emptyList(), isCar))   // ignoring off
+        assertEquals(false, BtIgnoreRules.autoIgnored(true, true, setOf("Kitchen speaker"), listOf("WF-1000XM6"), isCar))   // only a speaker ignored
+    }
+}

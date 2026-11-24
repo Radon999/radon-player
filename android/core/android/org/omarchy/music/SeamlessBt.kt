@@ -155,14 +155,14 @@ object SeamlessBt {
     fun update() {
         val mine = mine()
         // Switched off with Android Auto stopped by it: let it start again, and connect the truck
-        if (!on && linkedOff == true && supported) relink(false, IgnoreBt.ignored().filter { it != BtRoute.AUTO })
+        if (!on && linkedOff == true && supported) relink(false, IgnoreBt.ignored().filter { it != BtIgnoreRules.AUTO })
         if (!on && mine.isEmpty()) { status = ""; step = ""; autoButton = ""; return }
         listen()
         val now = SystemClock.elapsedRealtime()
         val elsewhere = BtRoute.elsewhere
         if (wasElsewhere && !elsewhere) goneAt = now
         wasElsewhere = elsewhere
-        val ignored = if (IgnoreBt.on) IgnoreBt.ignored().filter { it != BtRoute.AUTO } else emptyList()
+        val ignored = if (IgnoreBt.on) IgnoreBt.ignored().filter { it != BtIgnoreRules.AUTO } else emptyList()
         val mediaOff = BtIgnoreRules.mediaOff(on && supported, ignored, elsewhere, goneAt, now)
         // Connected for calls now: listed for calls, or Android Auto on (then the car is, whichever it is: Android lists
         // only the calls device in use, which may be the earbuds)
@@ -273,9 +273,9 @@ object SeamlessBt {
             !allowed() -> "Radon Player isn't allowed in Shizuku yet" to "Allow in Shizuku"
             // It's Ignore Bluetooth devices' own: nothing to do without that on and a device picked
             !IgnoreBt.on -> "Ready, but Ignore Bluetooth devices is off: switch it on above (this only takes away its stutter)" to ""
-            IgnoreBt.ignored().none { it != BtRoute.AUTO } -> "Ready: pick the device to ignore above (your truck's Bluetooth)" to ""
+            IgnoreBt.ignored().none { it != BtIgnoreRules.AUTO } -> "Ready: pick the device to ignore above (your truck's Bluetooth)" to ""
             failure.isNotEmpty() -> "Shizuku couldn't switch it: $failure" to ""
-            autoState == true -> "Android Auto on: ${IgnoreBt.ignored().filter { it != BtRoute.AUTO }.joinToString(", ")} may connect for its map and calls" +
+            autoState == true -> "Android Auto on: ${IgnoreBt.ignored().filter { it != BtIgnoreRules.AUTO }.joinToString(", ")} may connect for its map and calls" +
                 (if (wasElsewhere) ", the music stays on your headphones" else "") + ". Tap the Android Auto button again when you leave" to ""
             whole -> "Working: $names is kept disconnected, so it can't cut the music in and out. For its GPS, tap the " +
                 "Android Auto button (in the player's notification, or below)" to ""
