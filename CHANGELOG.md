@@ -4,6 +4,11 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.5.12: Bit-perfect without dropouts while opening apps (Android)
+- **Bit-perfect: no more dropouts while opening apps (the phone):** with a USB DAC, opening an app, Chrome or the recent apps could cut the music for a moment. The part of the app that hands the music to the DAC had to wait for the part that reads the songs, which the phone slows down while it's busy. Now it never waits for it.
+- **Bit-perfect: a busy phone isn't taken for a stopped DAC:** when the phone was busy for a moment, the app thought the DAC had stopped and set it up again from scratch, another gap. Now it only does that when the DAC itself has stopped taking music.
+- **Bit-perfect: a moment's refusal from the phone's USB is tried again at once,** instead of setting the stream up again. If a song still needs setting up again and again, Problems says why.
+
 ## 4.5.11: The Android Auto button works every time, Auto mono explained, and battery (Android)
 - **The Android Auto button works every time (the phone):** in 4.5.10 a tap did nothing without headphones connected, and from the notification you weren't told why. Now every tap switches it, headphones or not ("Android Auto off: tap to connect" / "Android Auto on: tap to disconnect"), and a message says what it is now, from the notification too. If Shizuku can't do it (not running, the app not allowed in it), the message, Settings and Problems say why; a truck name not found among your paired devices is said too, with the names that are.
 - **Auto mono says what it is:** it's the app's own mono, so Android's Mono audio setting (in Accessibility) isn't changed and still shows off, but the music does play in mono.

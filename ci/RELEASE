@@ -1,0 +1,8 @@
+v4.5.12
+Radon Player 4.5.12: Bit-perfect without dropouts while opening apps
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.12.msi` (Windows), `radon-player_4.5.12_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Bit-perfect: no more dropouts while opening apps (the phone):** with a USB DAC, opening an app, Chrome or the recent apps could cut the music for a moment. The part of the app that hands the music to the DAC had to wait for the part that reads the songs, which the phone slows down while it's busy. Now it never waits for it.
+- **Bit-perfect: a busy phone isn't taken for a stopped DAC:** when the phone was busy for a moment, the app thought the DAC had stopped and set it up again from scratch, another gap. Now it only does that when the DAC itself has stopped taking music.
+- **Bit-perfect: a moment's refusal from the phone's USB is tried again at once,** instead of setting the stream up again. If a song still needs setting up again and again, Problems says why.
