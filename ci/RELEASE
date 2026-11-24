@@ -1,8 +1,0 @@
-v4.5.10
-Radon Player 4.5.10: The truck kept off while you wear your earbuds, with an Android Auto button
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.10.msi` (Windows), `radon-player_4.5.10_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
-
-**What is new**
-- **Ignore Bluetooth devices: no stutter at all keeps the truck off, with an Android Auto button (the phone):** 4.5.9 still cut in and out at the edge of the truck's range, as the truck kept connecting and dropping there for calls and Android Auto. Now, with Shizuku, while your headphones are connected an ignored device is kept fully disconnected (music and calls), so walking near it or away from it can't touch your music.
-- **The Android Auto button:** while Ignore Bluetooth devices and its no-stutter switch are both on, the player's notification (and Settings) has a button that says how it stands. "Android Auto off: tap to connect" (a crossed-out car) keeps the truck disconnected; tap it in the truck when you need its GPS, and it reads "Android Auto on: tap to disconnect" (a car): the truck connects for Android Auto and calls, and the music stays on your headphones. Tap it off again when you leave (it also goes off by itself once the truck has disconnected). Each tap says what it is now. With no headphones connected, the truck connects and plays as usual; if you're already driving with Android Auto on when you put your earbuds in, it's left connected.
-- **Settings explains it:** right under the switch, in plain words: leave the button off when you're not driving so the music never stutters, turn it on for the truck's GPS, and off again when you leave.
