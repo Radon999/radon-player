@@ -18,6 +18,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <poll.h>
 
 static long long nowMs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000; }
 static long long nowUs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000000 + t.tv_nsec / 1000; }
@@ -511,6 +512,25 @@ JNIEXPORT jint JNICALL Java_org_omarchy_music_UsbNative_error(JNIEnv *env, jclas
 JNIEXPORT jbyteArray JNICALL Java_org_omarchy_music_UsbNative_unsent(JNIEnv *env, jclass c, jlong h) {
     pthread_rwlock_rdlock(&g_live);
     jbyteArray r = alive((Stream *)(intptr_t)h) ? impl_unsent(env, c, h) : NULL;
+    pthread_rwlock_unlock(&g_live);
+    return r;
+}
+
+/* Whether transfers the DAC has done are waiting to be collected. Every other call into the phone's USB (handing a
+ * transfer over, collecting one) first takes the phone's lock on the device, and waits while anything else on the phone
+ * holds it (once 1.5 s, 23 Nov 2026: the DAC had done all 64 queued, the thread couldn't collect them). poll() doesn't
+ * take that lock, so this tells the USB having stopped (none back: setting the stream up again helps) from the lock being
+ * held (back and waiting: it carries on by itself the moment it's let go; setting up again only adds a gap). */
+static jint impl_backWaiting(JNIEnv *env, jclass c, jlong h) {
+    Stream *s = (Stream *)(intptr_t)h;
+    struct pollfd p = { .fd = s->fd, .events = POLLOUT, .revents = 0 };
+    if (poll(&p, 1, 0) < 0) return -1;
+    return (p.revents & POLLOUT) ? 1 : 0;
+}
+
+JNIEXPORT jint JNICALL Java_org_omarchy_music_UsbNative_backWaiting(JNIEnv *env, jclass c, jlong h) {
+    pthread_rwlock_rdlock(&g_live);
+    jint r = alive((Stream *)(intptr_t)h) ? impl_backWaiting(env, c, h) : -1;
     pthread_rwlock_unlock(&g_live);
     return r;
 }

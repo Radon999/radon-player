@@ -33,6 +33,9 @@ object UsbNative {
     @JvmStatic external fun stats(h: Long): LongArray?
     @JvmStatic external fun kick(h: Long)
     @JvmStatic external fun unsent(h: Long): ByteArray?
+    /** 1: transfers the DAC has done are waiting to be collected (the phone's USB is working), 0: none, -1: no stream.
+     *  Asked without the lock every other USB call waits for (see usbaudio.c). */
+    @JvmStatic external fun backWaiting(h: Long): Int
 }
 
 /** Bit-perfect straight to a USB DAC, for phones whose Android mixes every sound first (Samsung's and many others':
@@ -437,6 +440,8 @@ object UsbDirect {
             var playingSince = 0L
             var gapsSaid = 0L   // late + starved already written down
             var saidAt = 0L
+            var heldSkipped = 0   // stalls left alone as the phone held its USB lock (the transfers were done and waiting)
+            var heldNow = false
             try {
                 while (stream == h) {
                     if (Music.localPlayer?.playWhenReady == true) kotlinx.coroutines.delay(100)
@@ -455,10 +460,15 @@ object UsbDirect {
                     if (v.size >= 18 && v[14] + v[16] > gapsSaid && System.currentTimeMillis() - saidAt > 60_000) {
                         gapsSaid = v[14] + v[16]; saidAt = System.currentTimeMillis()
                         // Where the time of each late stretch went, and the longest one in detail (usbaudio.c)
+                        // The transfers already back after the longest: nearly all of the queue means the USB had done them
+                        // and the app couldn't collect them (the phone holding its USB lock), few means the USB had stopped
+                        val back = v.getOrNull(29) ?: -1L
+                        val meaning = when { back < 0 -> ""; back >= STREAM_URBS_MS / 2 -> " (the USB had done them: the phone held the app back)"; else -> " (the USB itself had stopped)" }
                         val where = if (v.size >= 31) " (waiting on the phone's USB ${v[19]}×, longest ${v[20]} ms; held up handing it over " +
                             "${v[21]}×, longest ${v[22]} ms; not run ${v[23]}×, longest ${v[24]} ms · the longest: ${v[27]} ms waiting, " +
-                            "${v[28]} ms handing over, ${v[29].let { if (it < 0) "?" else "$it" }} transfers already back after it · " +
-                            "kept in RAM: ${when (v[30]) { 3L -> "yes"; 0L -> "no"; else -> "partly" }})" else ""
+                            "${v[28]} ms handing over, ${if (back < 0) "?" else "$back"} transfers already back after it$meaning · " +
+                            "kept in RAM: ${when (v[30]) { 3L -> "yes"; 0L -> "no"; else -> "partly" }}) · set up again only when the USB has stopped: " +
+                            "$heldSkipped× left alone as the phone held it" else ""
                         Crashes.note("USB DAC: a gap in the sound on “${Music.current()?.title ?: "?"}” · the phone didn't run the sending in time " +
                             "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued)$where · the music ran out ${v[16]}× (longest ${v[17]} ms) · " +
                             "the sending's priority ${v.getOrNull(18) ?: "?"} (-19 best, 0 normal) · $lastSetup")
@@ -470,14 +480,20 @@ object UsbDirect {
                     // the one sending thread, so neither coming back is that thread not being run for a moment (the phone
                     // busy opening an app), which ends by itself; a restart then only added a gap (23 Nov 2026). A DAC
                     // with no feedback (v[3], none ever seen) can't be told apart: as before. Nor can one where the sending
-                    // thread has sat waiting on the USB (v[25] 1) the whole time, with this watch being run meanwhile: then
-                    // the phone's USB gives nothing back at all (both ways), which a restart got going again before 4.5.12
-                    // (left alone, one lasted 1.4 s on 23 Nov 2026). Held up handing music over, or filling it, it's left alone.
+                    // thread has sat waiting on the USB (v[25] 1) the whole time, with this watch being run meanwhile, and
+                    // nothing the DAC did is waiting to be collected (backWaiting, asked without the phone's USB lock): then
+                    // the phone's USB gives nothing back at all, which a restart gets going again. With transfers done and
+                    // waiting, it's the phone holding its USB lock (once 1.5 s): it carries on the moment it's let go, and a
+                    // restart only added a gap (4.5.13 and 4.5.14 did that). Held up handing music over, it's left alone too.
                     if (v.size < 14 || v[9] < STALL_MS) { if (v.size >= 14 && v[9] < 50) kicks = 0; continue }
-                    val usbSilent = v.size >= 31 && v[25] == 1L && v[26] >= STALL_MS
+                    val waiting = v.size >= 31 && v[25] == 1L && v[26] >= STALL_MS
+                    val held = waiting && runCatching { UsbNative.backWaiting(h) }.getOrDefault(-1) == 1
+                    if (held) { if (!heldNow) { heldNow = true; heldSkipped++ }; continue }
+                    heldNow = false
+                    val usbSilent = waiting
                     if (v[3] > 0 && v[10] >= STALL_MS / 2 && !usbSilent) continue
                     if (++kicks > 40) break
-                    restartWhy = if (usbSilent) "the phone's USB gave nothing back for ${v[26]} ms (music or feedback)"
+                    restartWhy = if (usbSilent) "the phone's USB gave nothing back for ${v[26]} ms (music or feedback, none waiting)"
                         else "the DAC stopped taking music (nothing back for ${v[9]} ms, its feedback ${v[10]} ms ago)"
                     restartWanted = h
                 }
