@@ -402,11 +402,25 @@ object SeamlessBt {
             note(if (off) "stopping Android Auto" else "letting Android Auto start",
                 runCatching { ask(s, SeamlessBtService.AUTO) { it.writeInt(if (off) 1 else 0); it.writeInt(user) } }
                     .getOrElse { Triple(SeamlessBtService.ERROR, -1, it.toString()) }, off)
-            Thread.sleep(1500)   // the connections switched meanwhile (update), so it doesn't connect straight back
+            if (off) Thread.sleep(1500)   // the connections switched meanwhile (update), so it doesn't connect straight back
+            else {
+                // On: the truck's calls connection allowed again first (update's switching runs beside this, and can
+                // take longer than a moment): connecting before that connected nothing, and nothing tried again, so the
+                // truck never came back for Android Auto (the owner's, Shizuku running)
+                val end = SystemClock.elapsedRealtime() + 15_000
+                while (SystemClock.elapsedRealtime() < end && mine().any { k ->
+                        BtIgnoreRules.parseOff(k).let { (n, p) -> n in ignored && p == BtIgnoreRules.HEADSET } }) Thread.sleep(300)
+            }
             // (a truck out of range may answer that it isn't connected: a note in Sound lately only)
-            for (name in ignored) note((if (off) "disconnecting " else "connecting ") + name,
+            fun link(name: String) = note((if (off) "disconnecting " else "connecting ") + name,
                 runCatching { ask(s, if (off) SeamlessBtService.DROP else SeamlessBtService.CONNECT) { it.writeString(name) } }
                     .getOrElse { Triple(SeamlessBtService.ERROR, -1, it.toString()) }, false)
+            for (name in ignored) link(name)
+            // On, and the truck not connected for calls a few seconds on (it was busy, or still coming in range): once more
+            if (!off) {
+                Thread.sleep(8_000)
+                if (linkedOff == false && !Outputs.carProjecting) ignored.filter { it !in BtRoute.callsHere }.forEach { link(it) }
+            }
             h.post {
                 SoundLog.note("Android Auto button: the truck " + (if (off) "disconnected, Android Auto stopped" else "connecting, Android Auto allowed") +
                     if (notes.isEmpty()) "" else " · " + notes.joinToString("; "))
