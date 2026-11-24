@@ -29,6 +29,12 @@ object DjDirector {
         if (dj.on) djStart() else dj = dj.copy(from = DJ_LIBRARY)
     }
 
+    /** Which songs a set may have when it's queued: with new music off, only yours (a file, or a download); else any.
+     *  Set building uses the same rule (Dj.playable), before the line is written, so the DJ never names a song the
+     *  queue then leaves out. */
+    private fun queueable(t: Track) = djNew || t.isFile || lib.has(t.id)
+    init { Dj.playable = { queueable(it) } }
+
     // ---- what it asks of the app ([Music]) ----
     private val lists get() = Music.lists
     private val local get() = Music.local
@@ -168,8 +174,8 @@ object DjDirector {
         if (sets.size > 30) sets = sets - sets.keys.minBy { it.toInt() }
         dj = dj.copy(sets = sets)
         val songs = localsOf(b.songs)   // your own copies (Dj.build has found them already: this is quick)
-            // Only my songs: never a stream, whatever the set found
-            .let { all -> if (djNew) all else all.filter { it.isFile || lib.has(it.id) } }
+            // Only my songs: never a stream, whatever the set found (Dj.build has kept them out already, see queueable)
+            .filter { queueable(it) }
         Dj.played(b.songs + songs)   // none again for the next 300 songs
         Dj.commit(b.id)   // it's played: its kind has had its turn, its fact is told (held till now, see Dj.Hold)
         Dj.queuedAs(b.id, n)

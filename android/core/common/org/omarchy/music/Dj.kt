@@ -48,6 +48,9 @@ object Dj {
     /** A kind of set's name, as the DJ screen and the queue show it ("Happy songs" for a mood's set), or null. */
     fun kindName(k: String?): String? = if (k == null) null else if (k.startsWith("mood:")) groupName(k.removePrefix("mood:").split("+")) + " songs" else KINDS[k]
     @Volatile var withNew = true   // with a scope: new songs like those too
+    /** Which songs a set may have, as the queue will take them (DjDirector: with new music off, only yours); all, until
+     *  it's set (the tests' songs). */
+    @Volatile var playable: (Track) -> Boolean = { true }
     val KINDS = mapOf("repeat" to "On repeat", "fresh" to "New for you", "throwback" to "Throwback", "deep" to "Deep cuts",
         "genre" to "Your genre", "like" to "More like this", "ask" to "You asked", "loved" to "Most played", "mostplayed" to "Most played",
         "unplayed" to "Not played yet", "artist" to "One artist", "mix" to "Mix", "hour" to "This time of day",
@@ -1853,11 +1856,19 @@ object Dj {
             } else regularSet(k, taste)
             // Never a song the DJ played in its last 300 (or one still to come), whatever the kind: the kinds made for the
             // songs picked keep to that themselves (letting the longest-ago back in when there are few)
-            val got = if (built == null || (sc != null && k in FROM_KINDS)) built else {
+            val got0 = if (built == null || (sc != null && k in FROM_KINDS)) built else {
                 // (A last look: the sets keep these out themselves now. One that still has such a song loses it only if
                 // its line doesn't name it; else the set is left for another time.)
                 val avoidNow = used
                 without(built.first, built.second) { isUsed(it, avoidNow) || songKey(it) in coming }?.let { it to built.second }
+            }
+            // Songs that can't be queued (new music off: a stream, with no copy of yours: DjDirector.queueable) out now,
+            // the same way: queuing took them out after the line was written, and the DJ named a song that then didn't
+            // play, another one first (the owner's, twice)
+            val got = if (got0 == null) null else {
+                val loc = Music.localsOf(got0.first)
+                val out = got0.first.indices.filter { i -> loc.getOrNull(i)?.let(playable) != true }.map { songKey(got0.first[it]) }.toSet()
+                if (out.isEmpty()) got0 else without(got0.first, got0.second) { songKey(it) in out }?.let { it to got0.second }
             }
             if (got == null) {   // can't make one now: tried after the others for a while, and not counted
                 if (kind == null) dead["$key:$k"] = now()
@@ -1871,7 +1882,8 @@ object Dj {
             // stays in the album's order
             // …and the song the line names first is the one that plays first ("leads", "gets us going", "we start with")
             val songs = if (k == "album") got.first
-                else LeadRules.leadFirst(spread(flow(arc(got.first), taste), cap = k !in setOf("spotlight", "deep", "artist", "discover")), got.second) { it.title }
+                else LeadRules.leadFirst(spread(flow(arc(got.first), taste), cap = k !in setOf("spotlight", "deep", "artist", "discover")), got.second,
+                    { leadOf(it) }) { it.title }
             val opener0 = if (first) hello() else timeFlavor()
             val (opener, line) = ScriptRules.opened(opener0, got.second, first)
             // A break is MOST_WORDS words at most, as said: a word about the day goes first if it's over (a hello stays)

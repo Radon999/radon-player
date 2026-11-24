@@ -3,6 +3,7 @@ package org.omarchy.music
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Test
 
 /** The DJ in the queue, as it is today: starting it, its next set queued before this one runs out, the next set
@@ -16,6 +17,14 @@ class DjFlowTest {
     private val engine: FakeEngine by lazy { FakeEngine().also { e -> Harness.ui { Music.player = e } } }
 
     private fun loaded() = engine.loads.lastOrNull()?.id == Music.current()?.id
+    /** The DJ stopped and New music back on (its usual), so the tests after these build sets from their own
+     *  (streamed) songs as before: Only my songs keeps those out of a set (Dj.playable). Nothing is looked up still
+     *  (Dj.withNew stays the harness's). */
+    @After fun backToUsual() {
+        Harness.ui { Music.djStop(); DjDirector.djNew = true }
+        Dj.withNew = false
+    }
+
 
     /** The DJ started on a library of 80 songs; back once its first set's first song is in the player. */
     private fun startDj(before: () -> Unit = {}) {

@@ -202,6 +202,33 @@ class DjBehaviourTest {
         assertTrue("lines that name a song were among them ($naming)", naming > 50)
     }
 
+    /** The owner's, twice: the DJ named a song and another played first. With new music off the queue leaves out a
+     *  song with no copy of yours (a stream), and it did that after the line was written. Now the songs the queue
+     *  won't take (Dj.playable) are out before: the line never names one, and the first it names plays first. */
+    @Test fun aLineNeverNamesASongTheQueueLeavesOut() {
+        Harness.ctx
+        val pool = Harness.songs(60, from = 700)
+        Dj.playFrom("the test songs", pool)
+        val streams = pool.filterIndexed { i, _ -> i % 2 == 0 }.map { it.id }.toSet()
+        val was = Dj.playable
+        Dj.playable = { it.id !in streams }
+        try {
+            var built = 0
+            var naming = 0
+            repeat(300) {
+                val b = Dj.build(kind = "onehit") ?: return@repeat
+                built++
+                val titles = b.songs.map { it.title }
+                assertTrue("a song the queue would leave out: $titles", b.songs.none { it.id in streams })
+                val said = named.findAll(b.line).map { it.groupValues[1] }.toList()
+                assertTrue("the line names a song its set doesn't have: ${b.line} · $titles", said.all { it in titles })
+                if (said.isNotEmpty()) { naming++; assertEquals(b.line, titles[0], said[0]) }
+            }
+            assertTrue("sets were made ($built)", built > 100)
+            assertTrue("lines that name a song were among them ($naming)", naming > 20)
+        } finally { Dj.playable = was }
+    }
+
     /** C-4, fixed (it was: a set that was only made, never queued or played, had already used up its kind's turn: the
      *  kind was written to the history when the set was built). Now it's only held: written when the set is played,
      *  forgotten when the set is let go. */
