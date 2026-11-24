@@ -2,6 +2,12 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.5.13 · November 2026
+- **Taste › Phases shows the right plays:** New loves had artists with 0 or 1 plays beside them, and Faded one with 2. The number beside each artist now is the count that put them in that phase (it came from Most played, which counts its own way), and artists you've hidden from stats are left out.
+- **Bit-perfect: a phone USB that stops for a moment is got going again (the phone):** in 4.5.12 a moment where the phone's USB gave nothing back was left to sort itself out (once 1.4 s of silence). After 0.8 s the stream is now set up again, as before.
+- **Bit-perfect: the music kept in RAM:** the music waiting for the DAC is kept in the phone's memory, so opening another app (when the phone makes room) never holds the sending up.
+- **Bit-perfect gaps explained:** the note in Settings › Problems says where each gap's time went (waiting on the phone's USB, handing the music over, or the app not being run), so any gap left can be pinned down.
+
 ## 4.5.12 · November 2026
 - **Bit-perfect: no more dropouts while opening apps (the phone):** with a USB DAC, opening an app, Chrome or the recent apps could cut the music for a moment. The part of the app that hands the music to the DAC had to wait for the part that reads the songs, which the phone slows down while it's busy. Now it never waits for it.
 - **Bit-perfect: a busy phone isn't taken for a stopped DAC:** when the phone was busy for a moment, the app thought the DAC had stopped and set it up again from scratch, another gap. Now it only does that when the DAC itself has stopped taking music.
