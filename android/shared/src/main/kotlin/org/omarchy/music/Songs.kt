@@ -409,7 +409,8 @@ private val DASH_REST = Regex("\\s[-–—]\\s.*$")
 private val FEAT_REST = Regex("\\s(?:feat|ft|featuring)\\b.*$")
 private val NOT_LETTERS = Regex("[\\W_]+")
 private val LEADING_NUMBER = Regex("^\\s*\\d{1,3}\\s*[-._)]?\\s+(\\S.*)$")
-private val CREDIT_SPLIT = Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with ")
+/** Where an artist credit splits into its artists (statsKey's lead is the first); any case, as names are written. */
+internal val CREDIT_SPLIT = Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with ", RegexOption.IGNORE_CASE)
 
 /** A song's name with everything after it left out and no punctuation ("N.P.D" = "NPD"). The desktop's loose_title. */
 fun looseTitle(title: String): String {

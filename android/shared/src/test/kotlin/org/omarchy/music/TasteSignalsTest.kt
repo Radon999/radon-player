@@ -31,11 +31,14 @@ class TasteSignalsTest {
 
     @Test fun phases() {
         val plays = ArrayList<Heard>()
-        repeat(20) { plays += Heard(now - 30 * day + it * 3600, "New Band", "Song $it") }          // new love
+        repeat(20) { plays += Heard(now - 30 * day + it * 3600, "New Band feat. Someone", "Song $it") }   // new love
         repeat(60) { plays += Heard(now - 400 * day + it * 3600, "Old Band", "Song $it") }        // faded
         val h = HabitRules.count(plays, now) { 12 }
         assertEquals(HabitRules.NEW_LOVE, h.phase[statsKey("", "New Band").second])
         assertEquals(HabitRules.FADED, h.phase[statsKey("", "Old Band").second])
+        // What the Taste tab shows beside them: the plays that put them there, under the name as written
+        assertEquals(20 to "New Band", h.plays[statsKey("", "New Band").second])
+        assertEquals(60 to "Old Band", h.plays[statsKey("", "Old Band").second])
     }
 
     @Test fun yourSimilarArtistsBlendLastFmAndYourHabits() {

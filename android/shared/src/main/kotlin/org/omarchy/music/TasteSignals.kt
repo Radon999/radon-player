@@ -60,6 +60,10 @@ class Habits(
     /** An artist → the artists you've played straight after one of theirs (in the same sitting), most often first, with
      *  how often: how you go from one artist to the next, for songs [after] knows nothing of (new ones). */
     val afterArtist: Map<String, List<Pair<String, Int>>> = emptyMap(),
+    /** An artist (key) → the plays their phase was worked out from, and their name as your plays write it: what the
+     *  Taste tab's Phases show, so the number beside an artist is the one that put them there (Most played counts its
+     *  own way, and showed New loves with 0 or 1 plays, and Faded with 2). */
+    val plays: Map<String, Pair<Int, String>> = emptyMap(),
 )
 
 object HabitRules {
@@ -80,6 +84,7 @@ object HabitRules {
         val years = HashMap<String, HashSet<Int>>()
         val recent60 = HashMap<String, Int>(); val year = HashMap<String, Int>(); val before = HashMap<String, Int>()
         val hourCounts = HashMap<String, IntArray>()
+        val names = HashMap<String, String>()
         var sitting = ArrayList<String>()
         var prevKey: String? = null; var prevLead = ""; var prevT = 0L
         for (p in ps) {
@@ -93,6 +98,7 @@ object HabitRules {
             if (a !in sitting) sitting += a
             prevKey = key; prevLead = a; prevT = p.t
             artistPlays.merge(a, 1, Int::plus)
+            if (a !in names) names[a] = p.artist.split(CREDIT_SPLIT)[0].trim()
             if (a !in first) first[a] = p.t
             last[a] = p.t
             years.getOrPut(a) { HashSet() } += (p.t / (365L * 86_400L)).toInt()
@@ -122,7 +128,8 @@ object HabitRules {
             }
         }
         val hours = hourCounts.filter { (artistPlays[it.key] ?: 0) >= 10 }.mapValues { (_, c) -> val s = c.sum().toDouble(); DoubleArray(6) { c[it] / s } }
-        return Habits(afterTop, near, phase, hours, afterArtistTop)
+        val counted = phase.keys.associateWith { (artistPlays[it] ?: 0) to (names[it] ?: it) }
+        return Habits(afterTop, near, phase, hours, afterArtistTop, counted)
     }
 
     private fun sittingPairs(s: List<String>, pair: HashMap<String, HashMap<String, Int>>) {

@@ -61,22 +61,23 @@ private fun androidx.compose.foundation.lazy.LazyListScope.phases(ui: Ui) {
     }
     val habits = taste.habits
     if (habits == null || habits.phase.isEmpty()) { item { Empty("No phases yet", "They show once there are a few months of plays to go by.") }; return }
-    // The artists' names as your stats write them
-    val names = HashMap<String, String>()
-    val plays = HashMap<String, Int>()
-    for ((n, c) in taste.facts.artistAll) { val k = statsKey("", n).second; names.putIfAbsent(k, n); plays.merge(k, c, Int::plus) }
+    // Each artist with the plays their phase was worked out from (the same plays, the same artist), so the number fits
+    // the heading; and nothing hidden from stats (Hide from stats)
     for ((phase, title, sub) in listOf(
         Triple(HabitRules.NEW_LOVE, "NEW LOVES", "First played in the last four months, and a lot since"),
         Triple(HabitRules.RISING, "RISING", "Much more lately than usual"),
         Triple(HabitRules.LONG_TIME, "LONG-TIME FAVOURITES", "Played across three years or more, and still now"),
         Triple(HabitRules.FADED, "FADED", "Played a lot once, nothing in the last six months"))) {
-        val who = habits.phase.filterValues { it == phase }.keys.sortedByDescending { plays[it] ?: 0 }.take(30)
+        val who = habits.phase.filterValues { it == phase }.keys
+            .map { k -> k to (habits.plays[k] ?: (0 to k)) }
+            .filter { (_, p) -> !org.omarchy.music.StatHides.artist(p.second) }
+            .sortedByDescending { it.second.first }.take(30)
         if (who.isEmpty()) continue
         item { Section(title) }
         item { Text(sub, style = T.sub, modifier = Modifier.padding(horizontal = 12.dp)) }
-        for (a in who) item {
-            val name = names[a] ?: a
-            Line(name, "%,d plays".format(plays[a] ?: 0)) { ui.pages += Ui.Page.Artist(name, null) }
+        for ((_, p) in who) item {
+            val (n, name) = p
+            Line(name, "%,d plays".format(n)) { ui.pages += Ui.Page.Artist(name, null) }
         }
     }
 }
