@@ -1917,9 +1917,10 @@ private fun SeamlessBtLines(device: String?, here: String) {
             Spacer(Modifier.height(6.dp))
         }
         Text("How to use the Android Auto button (in the player's notification, and here):\n" +
-            "• Off (a crossed-out car): your truck is disconnected completely (music, calls, everything Bluetooth) and " +
-            "Android Auto is stopped, so nothing reconnects it and the music never stutters as you walk near it or away " +
-            "from it. Calls come to your headphones or the phone meanwhile. Leave it off whenever you're not driving.\n" +
+            "• Off (a crossed-out car): Android Auto is stopped and the truck disconnected, and the truck's music " +
+            "connection stays off, so it can't take the music and it never stutters as you walk near it or away from it. " +
+            "The truck may still connect for phone calls by itself; Android Auto doesn't start until you turn it on. " +
+            "Leave it off whenever you're not driving.\n" +
             "• On (a car): tap it when you get in and need the truck's GPS or Android Auto. Android Auto may start, the " +
             "truck connects; the music stays on your headphones while they're connected.\n" +
             "• Tap it off again when you leave the truck, or the stutter comes back as you walk away and come back near it. " +
@@ -1931,9 +1932,9 @@ private fun SeamlessBtLines(device: String?, here: String) {
             "the truck, or you walk out of range) Android switches Wireless debugging off, and Shizuku stopped with it. So " +
             "the app switches Developer options › USB debugging on (no cable needed), which keeps that service running: " +
             "Shizuku then carries on without Wi-Fi, on any Wi-Fi you switch to, and your mobile data works as always. If " +
-            "Shizuku stops anyway, the truck stays off, and On still gets it back: tap it in Radon Player and Android Auto " +
-            "is opened (so it can start again), then Bluetooth settings, where you tap ⚙ by the truck and switch Calls and " +
-            "Media audio on. After the phone restarts, Shizuku has to be started again (open it, tap Start).",
+            "Shizuku stops anyway, nothing is left blocked that Android Auto needs: tap On in Radon Player and Android " +
+            "Auto is opened (so it can start again) and the truck connects as usual. Settings › Problems notes each time " +
+            "Shizuku stops, with how things stood. After the phone restarts, Shizuku has to be started again (open it, tap Start).",
             style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 8.dp))
     }
     if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +

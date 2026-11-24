@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.5.19 · November 2026
+- **The truck never stuck off (the phone, Ignore Bluetooth devices: no stutter at all):** when Shizuku stopped with Android Auto off, the truck stayed blocked and couldn't connect for Android Auto until you plugged in USB. Now the only thing the app keeps switched off is the truck's music connection (which stops the stutter; Android Auto doesn't need it). Android Auto off still stops Android Auto and disconnects the truck, but its calls connection isn't blocked any more, so if Shizuku stops, nothing is left stuck: tap Android Auto on in Radon Player and Android Auto opens so it can start, and the truck connects as usual. While off, the truck may connect for phone calls by itself; Android Auto doesn't start and the music stays on your headphones. Anything an older version left blocked is switched back on once Shizuku runs.
+- **Shizuku stopping is noted in Problems (the phone):** each time, with how things stood (USB debugging, Wireless debugging, Wi-Fi, a USB cable, Android Auto) and what happened just before, so what stops it can be found. Wi-Fi coming and going is noted in Sound lately too.
+
 ## 4.5.18 · November 2026
 - **Android Auto on brings the truck back (the phone, Ignore Bluetooth devices: no stutter at all):** with Shizuku running, tapping Android Auto on didn't reconnect the truck for its GPS: the truck was asked to connect before its calls connection was allowed again, so nothing connected, and nothing tried again. Now the app waits until the truck's calls connection is allowed, then connects it, and tries once more a few seconds later if the truck still isn't connected.
 

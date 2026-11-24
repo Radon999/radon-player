@@ -94,16 +94,11 @@ object BtIgnoreRules {
     fun mediaOff(on: Boolean, ignored: List<String>, elsewhere: Boolean, elsewhereGoneAt: Long, now: Long): List<String> =
         if (on && (elsewhere || (elsewhereGoneAt > 0 && now - elsewhereGoneAt < ELSEWHERE_GONE_MS))) ignored else emptyList()
 
-    // Bluetooth's profiles, as Android numbers them (BluetoothProfile): the media one, and the others a car connects
-    // with: calls (Android Auto starts over it), its phonebook, its messages, the SIM, and LE Audio (calls and music on
-    // newer cars). Off together they leave the truck nothing to connect for.
+    // Bluetooth's profiles, as Android numbers them (BluetoothProfile): the media one, and calls (Android Auto starts
+    // over it; before 4.5.19 the app kept it off too, with the truck's phonebook, messages, SIM and LE Audio: those
+    // are given back wherever they're still off)
     const val A2DP = 2
     const val HEADSET = 1
-    const val PBAP = 6
-    const val MAP = 9
-    const val SAP = 10
-    const val LE_AUDIO = 22
-    val CALL_PROFILES = listOf(HEADSET, PBAP, MAP, SAP, LE_AUDIO)
 
     /** How the app remembers a device's profile it switched off: the name alone for Media audio (as kept before
      *  calls were switched too), "name|profile" for the others. */
@@ -113,16 +108,21 @@ object BtIgnoreRules {
         return if (p == null) key to A2DP else key.substringBeforeLast('|') to p
     }
 
-    /** Ignore Bluetooth devices with Shizuku: every (device, profile) to have switched off now, by the Android Auto
-     *  button. autoOn false (off): everything, music too, for every ignored device, headphones or not, connected or not:
-     *  the truck isn't connected at all until it's turned on again. true (on): only Media audio while your headphones
-     *  have the music ([mediaOff]), so the truck connects for its map and calls. null (not tapped yet): Media audio
-     *  while your headphones have the music, and the rest of the ones not connected for calls right now (so the truck
-     *  can't connect and drop at the edge of its range, but putting the earbuds in while driving doesn't cut Android
-     *  Auto off). */
-    fun keptOff(mediaOff: List<String>, ignored: List<String>, connectedForCalls: Set<String>, autoOn: Boolean?): List<String> {
-        if (autoOn == false) return ignored.flatMap { n -> (listOf(A2DP) + CALL_PROFILES).map { offKey(n, it) } }
-        val calls = if (autoOn == true) emptyList() else mediaOff.filter { it !in connectedForCalls }
-        return mediaOff.map { offKey(it, A2DP) } + calls.flatMap { n -> CALL_PROFILES.map { offKey(n, it) } }
+    /** Ignore Bluetooth devices with Shizuku: the ignored devices to have Media audio switched off now, the one thing
+     *  the app keeps switched off (it outlasts Shizuku stopping, and the truck needs nothing of it: Android Auto brings
+     *  its own sound). autoOn false (the Android Auto button off): every ignored device's, headphones or not; else
+     *  while your headphones have the music ([mediaOff]). The calls connection is never kept off: when Shizuku had
+     *  stopped, the truck then couldn't connect for Android Auto until Shizuku ran again (the owner's, needing USB). */
+    fun keptOff(mediaOff: List<String>, ignored: List<String>, autoOn: Boolean?): List<String> =
+        (if (autoOn == false) ignored else mediaOff).map { offKey(it, A2DP) }
+
+    /** Whether Android Auto is kept off now (stopped, the truck disconnected once): the button off; on, not. Not
+     *  tapped: while your headphones have the music and the truck isn't connected for calls already (putting the
+     *  earbuds in while driving doesn't cut Android Auto off), and once kept off, until your headphones go (the truck
+     *  connecting by itself for calls doesn't let Android Auto back). */
+    fun autoKeptOff(mediaOff: List<String>, connectedForCalls: Set<String>, autoOn: Boolean?, keptOffAlready: Boolean): Boolean = when (autoOn) {
+        false -> true
+        true -> false
+        null -> mediaOff.isNotEmpty() && (keptOffAlready || mediaOff.any { it !in connectedForCalls })
     }
 }

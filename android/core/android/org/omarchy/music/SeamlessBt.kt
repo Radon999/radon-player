@@ -73,16 +73,33 @@ object SeamlessBt {
         Shizuku.addBinderReceivedListenerSticky { h.post { update() } }
         Shizuku.addBinderDeadListener { h.post {
             service = null; binding = false
-            // Shizuku gone (Wireless debugging turns off when the Wi-Fi goes, and Shizuku with it: Android Auto's own
-            // Wi-Fi going when it's switched off, or walking out of range) with the truck kept off: it stays off until
-            // you turn Android Auto on, which then works without Shizuku (byHand)
-            if (on && (mine().isNotEmpty() || linkedOff == true)) {
-                SoundLog.note("Shizuku stopped with the truck kept off")
-                tell("Shizuku stopped (the Wi-Fi went, so Wireless debugging did too). The truck stays off until you tap " +
-                    "Android Auto on in Radon Player, which works without Shizuku")
+            // Shizuku gone: put in Problems with how things stood, so what stops it can be found (the Wi-Fi, USB, the
+            // debugging switches, the truck); nothing is left kept off that Android Auto needs, and On lets it start
+            // again without Shizuku (byHand)
+            if (on) {
+                val g = { k: String -> runCatching { android.provider.Settings.Global.getInt(Music.ctx.contentResolver, k, -1) }.getOrDefault(-1) }
+                val cm = Music.ctx.getSystemService(android.net.ConnectivityManager::class.java)
+                val wifi = runCatching { cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true }.getOrDefault(false)
+                val usb = runCatching { Music.ctx.registerReceiver(null, android.content.IntentFilter("android.hardware.usb.action.USB_STATE"))?.getBooleanExtra("connected", false) == true }.getOrDefault(false)
+                Crashes.note("Shizuku stopped. USB debugging ${g("adb_enabled")}, Wireless debugging ${g("adb_wifi_enabled")}, " +
+                    "Developer options ${g(android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)} (1 on, 0 off); " +
+                    "the internet on Wi-Fi: ${if (wifi) "yes" else "no"}; a USB cable in: ${if (usb) "yes" else "no"}; " +
+                    "Android Auto ${if (Outputs.carProjecting) "on" else "off"}, the button ${if (autoOff) "off" else "on"}. Just before: ${SoundLog.text().takeLast(700)}")
+                tell("Shizuku stopped (Settings › Problems says how things stood). The truck isn't kept off: tap Android Auto on " +
+                    "in Radon Player and it can connect")
             }
             update()
         } }
+        // Wi-Fi coming and going, in Sound lately (and so in Shizuku's note above when it stops)
+        runCatching {
+            Music.ctx.getSystemService(android.net.ConnectivityManager::class.java).registerNetworkCallback(
+                android.net.NetworkRequest.Builder().addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                    .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET).build(),
+                object : android.net.ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: android.net.Network) { SoundLog.note("Wi-Fi connected") }
+                    override fun onLost(network: android.net.Network) { SoundLog.note("Wi-Fi gone") }
+                })
+        }
         Shizuku.addRequestPermissionResultListener { code, _ -> if (code == ASK) h.post { update() } }
         // Back in the app (from Shizuku, after starting it or allowing the app): look again
         Music.scope.launch { AppVisible.flow.collect { if (it) h.post { update() } } }
@@ -116,39 +133,40 @@ object SeamlessBt {
     }
 
     /** The player notification's button while Ignore Bluetooth devices and this are both on, saying how it stands now:
-     *  "Android Auto off: tap to connect" while the truck's calls connection is kept off, "Android Auto on: tap to
-     *  disconnect" while it may connect; "" (no button) otherwise. [autoOn]: which of the two. */
+     *  "Android Auto off: tap to connect" while Android Auto is kept off, "Android Auto on: tap to disconnect" while it
+     *  may connect; "" (no button) otherwise. [autoOn]: which of the two. */
     var autoButton by mutableStateOf("")
         private set
-    val autoOn: Boolean get() = autoButton.isNotEmpty() && !callsOff
+    val autoOn: Boolean get() = autoButton.isNotEmpty() && !autoOff
     /** The button as you last set it: null not tapped (your headphones decide: off while they're connected), true on,
      *  false off (headphones or not). Kept, so off stays off until you turn it on (the app starting again too). */
     private var autoState: Boolean?
         get() = when (Prefs.text(Prefs.IGNORE_BT_AUTO)) { "on" -> true; "off" -> false; else -> null }
         set(v) = Prefs.setText(Prefs.IGNORE_BT_AUTO, when (v) { true -> "on"; false -> "off"; null -> "" })
     private var sawCar = false        // on, and the truck has connected since
-    private var callsOff = false      // the truck's calls connection is meant to be off now
+    private var autoOff = false       // Android Auto is meant to be kept off now (BtIgnoreRules.autoKeptOff)
     /** What the truck's link was last made (true off: disconnected, Android Auto stopped; false on), null not yet. */
     private var linkedOff: Boolean? = if (Prefs.on(Prefs.IGNORE_BT_AUTO_STOPPED)) true else null   // (Android Auto stopped by the app: remembered)
 
     /** The button: a tap always switches it, and says what it is now (on the screen, or as Android's own message from
      *  the notification, where the app's messages don't show), and why nothing changes yet if Shizuku can't do it. On:
-     *  the truck may connect for calls and Android Auto (its map); its Media audio stays off while your headphones are
-     *  connected, so the music stays on them. Off: the truck's calls connection is cut off at once. On goes back by
-     *  itself once the truck has connected and disconnected again (you left it: walking away it'd otherwise connect and
-     *  drop at the edge of its range, the cutting in and out this is for). */
+     *  Android Auto may start and the truck connect for its map and calls; its Media audio stays off while your
+     *  headphones are connected, so the music stays on them. Off: Android Auto stopped and the truck disconnected. On
+     *  goes back by itself once the truck has connected and disconnected again (you left it: walking away it'd
+     *  otherwise connect and drop at the edge of its range, the cutting in and out this is for). */
     fun toggleAuto() {
         if (autoButton.isEmpty()) return
-        autoState = callsOff   // off: now on; on: now off
+        autoState = autoOff   // off: now on; on: now off
         sawCar = false
         val nowOn = autoState == true
         val what = if (nowOn) "Android Auto on: the truck can connect for its map and calls" +
             (if (wasElsewhere) ", the music stays on your headphones" else "")
-            else "Android Auto off: the truck is disconnected and kept off, Android Auto stopped"
+            else "Android Auto off: Android Auto stopped and the truck disconnected (its music kept off)"
         val problem = when {
-            nowOn && !allowed() -> if (byHand()) "Shizuku isn't running, so it's done by hand: Android Auto was opened (so it can start " +
-                "again), and in Bluetooth settings tap ⚙ by ${IgnoreBt.ignored().firstOrNull { it != BtIgnoreRules.AUTO } ?: "the truck"} " +
-                "and switch Calls and Media audio on" else "Shizuku isn't running: open Radon Player and tap Android Auto on there to get the truck back"
+            nowOn && !allowed() -> if (byHand()) "Shizuku isn't running, so Android Auto was opened for you (so it can start again); " +
+                "the truck connects as usual" + (if (legacyCallsOff()) ". In Bluetooth settings tap ⚙ by ${IgnoreBt.ignored().firstOrNull { it != BtIgnoreRules.AUTO } ?: "the truck"} " +
+                "and switch Calls on (an older version kept them off)" else "")
+                else "Shizuku isn't running: open Radon Player and tap Android Auto on there, so Android Auto can start again"
             !running() -> "Shizuku isn't running, so the truck can't be switched yet: open Shizuku and tap Start"
             !allowed() -> "Radon Player isn't allowed in Shizuku yet (Settings › Playback)"
             else -> ""
@@ -164,10 +182,14 @@ object SeamlessBt {
         else runCatching { android.widget.Toast.makeText(Music.ctx, text, android.widget.Toast.LENGTH_LONG).show() }
     }
 
-    /** Android Auto on with Shizuku not running (it stopped with the Wi-Fi): the truck let back without it. Android
-     *  Auto's own screen opened (an app opened is let start by itself again, which the force-stop took away), then
-     *  Bluetooth settings, to switch the truck's Calls and Media audio back on (only Shizuku could do that for you).
-     *  Only while the app is on the screen (Android doesn't let an app open screens from behind). Whether it did. */
+    /** A calls connection (or the truck's phonebook, messages…) an older version kept off, still off: only Shizuku, or
+     *  you in Bluetooth settings, can give it back (this version gives them back once Shizuku runs). */
+    private fun legacyCallsOff() = mine().any { BtIgnoreRules.parseOff(it).second != BtIgnoreRules.A2DP }
+
+    /** Android Auto on with Shizuku not running: Android Auto's own screen opened (an app opened is let start by
+     *  itself again, which the force-stop took away), so it starts when the truck connects (nothing of the truck's
+     *  that it needs is kept off). Bluetooth settings too while an older version's calls switch is still off. Only
+     *  while the app is on the screen (Android doesn't let an app open screens from behind). Whether it did. */
     private fun byHand(): Boolean {
         if (!AppVisible.on) return false
         val c = Music.ctx
@@ -177,8 +199,10 @@ object SeamlessBt {
             ?: pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).setPackage(auto), 0).firstOrNull { it.activityInfo.exported }
                 ?.let { Intent(Intent.ACTION_MAIN).setClassName(auto, it.activityInfo.name) }
         open?.let { runCatching { c.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-        runCatching { c.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        SoundLog.note("Android Auto on without Shizuku: Android Auto opened" + (if (open == null) " (couldn't find its screen)" else "") + ", Bluetooth settings shown")
+        val legacy = legacyCallsOff()
+        if (legacy) runCatching { c.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        SoundLog.note("Android Auto on without Shizuku: Android Auto opened" + (if (open == null) " (couldn't find its screen)" else "") +
+            if (legacy) ", Bluetooth settings shown" else "")
         return true
     }
 
@@ -228,14 +252,14 @@ object SeamlessBt {
                 SoundLog.note("Android Auto button back off by itself: the truck disconnected (you left it)")
             }
         }
-        val want = if (on && supported) BtIgnoreRules.keptOff(mediaOff, ignored, forCalls, autoState) else emptyList()
-        callsOff = want.any { BtIgnoreRules.parseOff(it).second == BtIgnoreRules.HEADSET }
+        val want = if (on && supported) BtIgnoreRules.keptOff(mediaOff, ignored, autoState) else emptyList()
+        autoOff = on && supported && BtIgnoreRules.autoKeptOff(mediaOff, forCalls, autoState, keptOffAlready = linkedOff == true)
         autoButton = if (on && IgnoreBt.on && ignored.isNotEmpty())
-            (if (callsOff) "Android Auto off: tap to connect" else "Android Auto on: tap to disconnect") else ""
-        // Off: the truck disconnected outright and Android Auto stopped (switching its connections off didn't end one
-        // already up, and Android Auto kept the truck connected wirelessly by itself); on again: both undone. Once each
-        // time it changes (and not "on" at the start, with nothing to undo).
-        if (on && supported && ignored.isNotEmpty() && callsOff != linkedOff && (callsOff || linkedOff == true)) relink(callsOff, ignored)
+            (if (autoOff) "Android Auto off: tap to connect" else "Android Auto on: tap to disconnect") else ""
+        // Off: Android Auto stopped and the truck disconnected outright (Android Auto kept the truck connected
+        // wirelessly by itself); on again: Android Auto let start and the truck connected. Once each time it changes
+        // (and not "on" at the start, with nothing to undo). Nothing of it outlasts Shizuku but the truck's Media audio.
+        if (on && supported && ignored.isNotEmpty() && autoOff != linkedOff && (autoOff || linkedOff == true)) relink(autoOff, ignored)
         // Headphones gone a moment ago: the truck back once they've been gone long enough, so look again then
         h.removeCallbacks(again)
         if (!elsewhere && goneAt > 0 && now - goneAt < BtIgnoreRules.ELSEWHERE_GONE_MS)
@@ -316,7 +340,7 @@ object SeamlessBt {
 
     private fun say(mine: List<String>, want: List<String>) {
         val names = mine.map { BtIgnoreRules.parseOff(it).first }.distinct().joinToString(", ")
-        val whole = mine.any { BtIgnoreRules.parseOff(it).second == BtIgnoreRules.HEADSET }
+        val whole = autoOff
         val (s, next) = when {
             !on -> (if (mine.isNotEmpty()) "Start Shizuku once more so $names connects again as before " +
                 "(or switch its Media audio and Calls on yourself in Bluetooth settings)" else "") to (if (mine.isNotEmpty() && !running()) "Open Shizuku" else "")
@@ -330,11 +354,12 @@ object SeamlessBt {
             failure.isNotEmpty() -> "Shizuku couldn't switch it: $failure" to ""
             autoState == true -> "Android Auto on: ${IgnoreBt.ignored().filter { it != BtIgnoreRules.AUTO }.joinToString(", ")} may connect for its map and calls" +
                 (if (wasElsewhere) ", the music stays on your headphones" else "") + ". Tap the Android Auto button again when you leave" to ""
-            whole -> "Working: $names is kept disconnected, so it can't cut the music in and out. For its GPS, tap the " +
-                "Android Auto button (in the player's notification, or below)" to ""
+            whole -> "Working: Android Auto is off and ${IgnoreBt.ignored().filter { it != BtIgnoreRules.AUTO }.joinToString(", ")} " +
+                "can't take the music, so it can't cut it in and out. For its GPS, tap the Android Auto button (in the player's " +
+                "notification, or below)" to ""
             mine.isNotEmpty() -> "Working: $names has Media audio off while your headphones are connected" to ""
-            want.isNotEmpty() -> "Working: keeping ${want.map { BtIgnoreRules.parseOff(it).first }.distinct().joinToString(", ")} off…" to ""
-            else -> "Ready: an ignored device is kept disconnected whenever your headphones are connected" to ""
+            want.isNotEmpty() -> "Working: keeping ${want.map { BtIgnoreRules.parseOff(it).first }.distinct().joinToString(", ")}'s Media audio off…" to ""
+            else -> "Ready: an ignored device can't take the music whenever your headphones are connected" to ""
         }
         status = s; step = next
     }
