@@ -71,7 +71,18 @@ object SeamlessBt {
         if (listening) return
         listening = true
         Shizuku.addBinderReceivedListenerSticky { h.post { update() } }
-        Shizuku.addBinderDeadListener { h.post { service = null; binding = false; update() } }
+        Shizuku.addBinderDeadListener { h.post {
+            service = null; binding = false
+            // Shizuku gone (Wireless debugging turns off when the Wi-Fi goes, and Shizuku with it: Android Auto's own
+            // Wi-Fi going when it's switched off, or walking out of range) with the truck kept off: it stays off until
+            // you turn Android Auto on, which then works without Shizuku (byHand)
+            if (on && (mine().isNotEmpty() || linkedOff == true)) {
+                SoundLog.note("Shizuku stopped with the truck kept off")
+                tell("Shizuku stopped (the Wi-Fi went, so Wireless debugging did too). The truck stays off until you tap " +
+                    "Android Auto on in Radon Player, which works without Shizuku")
+            }
+            update()
+        } }
         Shizuku.addRequestPermissionResultListener { code, _ -> if (code == ASK) h.post { update() } }
         // Back in the app (from Shizuku, after starting it or allowing the app): look again
         Music.scope.launch { AppVisible.flow.collect { if (it) h.post { update() } } }
@@ -135,6 +146,9 @@ object SeamlessBt {
             (if (wasElsewhere) ", the music stays on your headphones" else "")
             else "Android Auto off: the truck is disconnected and kept off, Android Auto stopped"
         val problem = when {
+            nowOn && !allowed() -> if (byHand()) "Shizuku isn't running, so it's done by hand: Android Auto was opened (so it can start " +
+                "again), and in Bluetooth settings tap ⚙ by ${IgnoreBt.ignored().firstOrNull { it != BtIgnoreRules.AUTO } ?: "the truck"} " +
+                "and switch Calls and Media audio on" else "Shizuku isn't running: open Radon Player and tap Android Auto on there to get the truck back"
             !running() -> "Shizuku isn't running, so the truck can't be switched yet: open Shizuku and tap Start"
             !allowed() -> "Radon Player isn't allowed in Shizuku yet (Settings › Playback)"
             else -> ""
@@ -148,6 +162,24 @@ object SeamlessBt {
     private fun tell(text: String) {
         if (AppVisible.on) Music.toast(text)
         else runCatching { android.widget.Toast.makeText(Music.ctx, text, android.widget.Toast.LENGTH_LONG).show() }
+    }
+
+    /** Android Auto on with Shizuku not running (it stopped with the Wi-Fi): the truck let back without it. Android
+     *  Auto's own screen opened (an app opened is let start by itself again, which the force-stop took away), then
+     *  Bluetooth settings, to switch the truck's Calls and Media audio back on (only Shizuku could do that for you).
+     *  Only while the app is on the screen (Android doesn't let an app open screens from behind). Whether it did. */
+    private fun byHand(): Boolean {
+        if (!AppVisible.on) return false
+        val c = Music.ctx
+        val pm = c.packageManager
+        val auto = SeamlessBtService.ANDROID_AUTO
+        val open = pm.getLaunchIntentForPackage(auto)
+            ?: pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).setPackage(auto), 0).firstOrNull { it.activityInfo.exported }
+                ?.let { Intent(Intent.ACTION_MAIN).setClassName(auto, it.activityInfo.name) }
+        open?.let { runCatching { c.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+        runCatching { c.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        SoundLog.note("Android Auto on without Shizuku: Android Auto opened" + (if (open == null) " (couldn't find its screen)" else "") + ", Bluetooth settings shown")
+        return true
     }
 
     /** Look again (BtRoute.check calls it whenever the outputs or the lists change): switch connections off or on
