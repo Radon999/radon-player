@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/resource.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 
 static long long nowMs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000; }
@@ -69,7 +70,21 @@ typedef struct {
      * player didn't hand music over in time), with the longest such stretch (ms). */
     _Atomic int late, lateMax, starved, starvedMax;
     _Atomic int nice;   /* the priority the sending thread really got (-19 best; 0 the normal one) */
+    /* Each "late" gap, by where the time went (23 Nov 2026: one of 1.4 s): waiting on the phone's USB to give a transfer
+     * back (the USB itself stopped for a moment), handing transfers to it (the phone holding the app up, short of
+     * memory as an app opens), or neither (this thread not run). Counts and the longest of each (ms). */
+    _Atomic int waitUsb, waitUsbMax, handOver, handOverMax, notRun, notRunMax;
+    /* Where the thread is now (1 waiting on the USB, 2 handing a transfer over, 3 filling one) and since when: the
+     * app's watch tells the USB stopping (set up again) from the phone holding the app up (left alone, it passes) */
+    _Atomic int where; _Atomic long long whereAt;
+    int locked;          /* the music's memory kept in RAM (mlock), so a busy phone never has to fetch it back first */
+    uint8_t *bufs; size_t bufBytes;   /* the data URBs' buffers, one block (each slot's buf points into it) */
+    /* The longest gap in detail: ms waiting on the USB, ms handing over, and how many transfers were already back and
+     * waiting when the thread got to them (many: the USB was fine and the thread wasn't run; few: the USB stopped) */
+    _Atomic int lgWait, lgWork, lgReady;
     long long lastReap, starveFrom;   /* the loop thread's own */
+    long long sumWait, sumWork;       /* since the last data URB: ms waiting on the USB, ms filling and handing over */
+    int counting, ready;              /* counting the transfers back at once after the longest gap */
     int hadMusic;
 } Stream;
 
@@ -200,7 +215,13 @@ static void *loop(void *arg) {
     if (s->fbEp) for (int i = 0; i < NFB; i++) submitFb(s, i);
     while (atomic_load(&s->running)) {
         struct usbdevfs_urb *done = NULL;
-        if (ioctl(s->fd, USBDEVFS_REAPURB, &done) < 0) {
+        long long w0 = nowMs();
+        atomic_store(&s->whereAt, w0); atomic_store(&s->where, 1);
+        int r = ioctl(s->fd, USBDEVFS_REAPURB, &done);
+        long long w1 = nowMs();
+        s->sumWait += w1 - w0;
+        atomic_store(&s->whereAt, w1); atomic_store(&s->where, 3);
+        if (r < 0) {
             if (errno == EINTR) continue;
             atomic_store(&s->error, errno); break;
         }
@@ -222,12 +243,28 @@ static void *loop(void *arg) {
         atomic_fetch_add(&s->urbs, 1);
         long long reapNow = nowMs();
         atomic_store(&s->dataAt, reapNow);
-        /* Not run for longer than the queue lasts: the DAC ran dry for a moment */
-        if (s->lastReap != 0 && reapNow - s->lastReap > NURB * 8 / 10 && !atomic_load(&s->paused)) {
-            atomic_fetch_add(&s->late, 1);
-            if (reapNow - s->lastReap > atomic_load(&s->lateMax)) atomic_store(&s->lateMax, (int)(reapNow - s->lastReap));
+        /* Not run for longer than the queue lasts: the DAC ran dry for a moment. Put down to where the time went. */
+        long long gap = reapNow - s->lastReap;
+        /* After the longest gap: the transfers that come back without a wait were waiting already */
+        if (s->counting) {
+            if (w1 - w0 <= 1) s->ready++;
+            else { atomic_store(&s->lgReady, s->ready); s->counting = 0; }
         }
-        s->lastReap = reapNow;
+        if (s->lastReap != 0 && gap > NURB * 8 / 10 && !atomic_load(&s->paused)) {
+            atomic_fetch_add(&s->late, 1);
+            long long rest = gap - s->sumWait - s->sumWork;
+            _Atomic int *n = &s->notRun, *mx = &s->notRunMax; long long part = rest;
+            if (s->sumWait >= rest && s->sumWait >= s->sumWork) { n = &s->waitUsb; mx = &s->waitUsbMax; part = s->sumWait; }
+            else if (s->sumWork >= rest) { n = &s->handOver; mx = &s->handOverMax; part = s->sumWork; }
+            atomic_fetch_add(n, 1);
+            if (part > atomic_load(mx)) atomic_store(mx, (int)part);
+            if (gap > atomic_load(&s->lateMax)) {
+                atomic_store(&s->lateMax, (int)gap);
+                atomic_store(&s->lgWait, (int)s->sumWait); atomic_store(&s->lgWork, (int)s->sumWork);
+                s->counting = 1; s->ready = 0; atomic_store(&s->lgReady, -1);
+            }
+        }
+        s->lastReap = reapNow; s->sumWait = 0; s->sumWork = 0;
         if (done->status != 0) atomic_fetch_add(&s->urbErr, 1);
         for (int k = 0; k < done->number_of_packets; k++) if (done->iso_frame_desc[k].status != 0) { atomic_fetch_add(&s->pktErr, 1); break; }
         atomic_fetch_sub(&s->inflight, sl->realFrames);
@@ -235,8 +272,13 @@ static void *loop(void *arg) {
         if (done->status == -ENODEV || done->status == -ESHUTDOWN) { atomic_store(&s->error, ENODEV); break; }
         if (!atomic_load(&s->running)) continue;
         fill(s, sl);
+        long long h0 = nowMs();
+        atomic_store(&s->whereAt, h0); atomic_store(&s->where, 2);
         { int e = submit(s, sl->urb); if (e) { atomic_store(&s->error, e); break; } }
         atomic_fetch_add(&s->outstanding, 1);
+        long long h1 = nowMs();
+        s->sumWork += h1 - reapNow;
+        atomic_store(&s->whereAt, h1); atomic_store(&s->where, 3);
     }
     atomic_store(&s->running, 0);
     return NULL;
@@ -256,10 +298,16 @@ JNIEXPORT jlong JNICALL Java_org_omarchy_music_UsbNative_start(JNIEnv *env, jcla
     s->cap = (size_t)rate * (size_t)frameBytes * (size_t)bufferMs / 1000; s->cap -= s->cap % (size_t)frameBytes;
     s->ring = malloc(s->cap);
     pthread_mutex_init(&s->mu, NULL); pthread_mutex_init(&s->wmu, NULL);
+    /* The transfers' buffers in one block, so it and the music waiting can be kept in RAM together (below) */
+    s->bufBytes = (size_t)maxPacket * (size_t)s->pktsPerUrb;
+    s->bufs = malloc(s->bufBytes * NURB);
     for (int i = 0; i < NURB; i++) {
         s->slots[i].urb = calloc(1, sizeof(struct usbdevfs_urb) + (size_t)s->pktsPerUrb * sizeof(struct usbdevfs_iso_packet_desc));
-        s->slots[i].buf = malloc((size_t)maxPacket * (size_t)s->pktsPerUrb);
+        s->slots[i].buf = s->bufs + s->bufBytes * (size_t)i;
     }
+    /* Kept in RAM (where the phone allows it): opening an app, the phone makes room by setting other apps' memory aside,
+     * and touching memory set aside means waiting for it to be fetched back, the sending held up meanwhile */
+    s->locked = (s->ring && mlock(s->ring, s->cap) == 0 ? 1 : 0) + (s->bufs && mlock(s->bufs, s->bufBytes * NURB) == 0 ? 2 : 0);
     for (int i = 0; i < NFB; i++) {
         s->fb[i] = calloc(1, sizeof(struct usbdevfs_urb) + sizeof(struct usbdevfs_iso_packet_desc));
         s->fbBuf[i] = calloc(1, (size_t)s->fbMaxPacket + 8);
@@ -311,15 +359,19 @@ static jlong impl_pending(JNIEnv *env, jclass c, jlong h) {
  * length, frames per packet now (Q16.16) and nominal. */
 static jlongArray impl_stats(JNIEnv *env, jclass c, jlong h) {
     Stream *s = (Stream *)(intptr_t)h;
-    jlong v[19] = {0};
+    jlong v[31] = {0};
     if (s) { v[0] = atomic_load(&s->urbs); v[1] = atomic_load(&s->urbErr); v[2] = atomic_load(&s->pktErr); v[3] = atomic_load(&s->fbSeen);
         v[4] = atomic_load(&s->fbTaken); v[5] = atomic_load(&s->fbLast); v[6] = atomic_load(&s->fbLastLen); v[7] = atomic_load(&s->fpp); v[8] = s->nominal;
         long long n = nowMs();
         v[9] = n - atomic_load(&s->dataAt); v[10] = n - atomic_load(&s->fbAt); v[11] = atomic_load(&s->played);
         v[12] = atomic_load(&s->kicks); v[13] = n - atomic_load(&s->startedAt);
-        v[14] = atomic_load(&s->late); v[15] = atomic_load(&s->lateMax); v[16] = atomic_load(&s->starved); v[17] = atomic_load(&s->starvedMax); v[18] = atomic_load(&s->nice); }
-    jlongArray out = (*env)->NewLongArray(env, 19);
-    if (out) (*env)->SetLongArrayRegion(env, out, 0, 19, v);
+        v[14] = atomic_load(&s->late); v[15] = atomic_load(&s->lateMax); v[16] = atomic_load(&s->starved); v[17] = atomic_load(&s->starvedMax); v[18] = atomic_load(&s->nice);
+        v[19] = atomic_load(&s->waitUsb); v[20] = atomic_load(&s->waitUsbMax); v[21] = atomic_load(&s->handOver); v[22] = atomic_load(&s->handOverMax);
+        v[23] = atomic_load(&s->notRun); v[24] = atomic_load(&s->notRunMax);
+        v[25] = atomic_load(&s->where); v[26] = n - atomic_load(&s->whereAt);
+        v[27] = atomic_load(&s->lgWait); v[28] = atomic_load(&s->lgWork); v[29] = atomic_load(&s->lgReady); v[30] = s->locked; }
+    jlongArray out = (*env)->NewLongArray(env, 31);
+    if (out) (*env)->SetLongArrayRegion(env, out, 0, 31, v);
     return out;
 }
 
@@ -401,9 +453,12 @@ JNIEXPORT void JNICALL Java_org_omarchy_music_UsbNative_stop(JNIEnv *env, jclass
     }
     /* Any still out after that (never seen): their memory kept rather than freed under the kernel */
     if (atomic_load(&s->outstanding) > 0) return;
-    for (int i = 0; i < NURB; i++) { free(s->slots[i].urb); free(s->slots[i].buf); }
+    for (int i = 0; i < NURB; i++) free(s->slots[i].urb);
+    if (s->locked & 2) munlock(s->bufs, s->bufBytes * NURB);
+    free(s->bufs);
     for (int i = 0; i < NFB; i++) { free(s->fb[i]); free(s->fbBuf[i]); }
     pthread_mutex_destroy(&s->mu); pthread_mutex_destroy(&s->wmu);
+    if (s->locked & 1) munlock(s->ring, s->cap);
     free(s->ring); free(s);
 }
 

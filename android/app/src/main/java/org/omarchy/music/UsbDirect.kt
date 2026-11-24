@@ -454,8 +454,14 @@ object UsbDirect {
                     // stutter can be told apart: the phone not running the app in time, or the player not handing music over
                     if (v.size >= 18 && v[14] + v[16] > gapsSaid && System.currentTimeMillis() - saidAt > 60_000) {
                         gapsSaid = v[14] + v[16]; saidAt = System.currentTimeMillis()
+                        // Where the time of each late stretch went, and the longest one in detail (usbaudio.c)
+                        val where = if (v.size >= 31) " (waiting on the phone's USB ${v[19]}×, longest ${v[20]} ms; held up handing it over " +
+                            "${v[21]}×, longest ${v[22]} ms; not run ${v[23]}×, longest ${v[24]} ms · the longest: ${v[27]} ms waiting, " +
+                            "${v[28]} ms handing over, ${v[29].let { if (it < 0) "?" else "$it" }} transfers already back after it · " +
+                            "kept in RAM: ${when (v[30]) { 3L -> "yes"; 0L -> "no"; else -> "partly" }})" else ""
                         Crashes.note("USB DAC: a gap in the sound on “${Music.current()?.title ?: "?"}” · the phone didn't run the sending in time " +
-                            "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued) · the music ran out ${v[16]}× (longest ${v[17]} ms) · the sending's priority ${v.getOrNull(18) ?: "?"} (-19 best, 0 normal) · $lastSetup")
+                            "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued)$where · the music ran out ${v[16]}× (longest ${v[17]} ms) · " +
+                            "the sending's priority ${v.getOrNull(18) ?: "?"} (-19 best, 0 normal) · $lastSetup")
                     }
                     // Nothing back from the DAC for STALL_MS: set up again (sending the transfers again only got it going for a
                     // moment). It was 0.15 s: Android slowing the app for a moment (opening the recent apps, the screen going
@@ -463,11 +469,16 @@ object UsbDirect {
                     // And only when the DAC's feedback still comes back (v[10]) with the music not: both are collected by
                     // the one sending thread, so neither coming back is that thread not being run for a moment (the phone
                     // busy opening an app), which ends by itself; a restart then only added a gap (23 Nov 2026). A DAC
-                    // with no feedback (v[3], none ever seen) can't be told apart: as before.
+                    // with no feedback (v[3], none ever seen) can't be told apart: as before. Nor can one where the sending
+                    // thread has sat waiting on the USB (v[25] 1) the whole time, with this watch being run meanwhile: then
+                    // the phone's USB gives nothing back at all (both ways), which a restart got going again before 4.5.12
+                    // (left alone, one lasted 1.4 s on 23 Nov 2026). Held up handing music over, or filling it, it's left alone.
                     if (v.size < 14 || v[9] < STALL_MS) { if (v.size >= 14 && v[9] < 50) kicks = 0; continue }
-                    if (v[3] > 0 && v[10] >= STALL_MS / 2) continue
+                    val usbSilent = v.size >= 31 && v[25] == 1L && v[26] >= STALL_MS
+                    if (v[3] > 0 && v[10] >= STALL_MS / 2 && !usbSilent) continue
                     if (++kicks > 40) break
-                    restartWhy = "the DAC stopped taking music (nothing back for ${v[9]} ms, its feedback ${v[10]} ms ago)"
+                    restartWhy = if (usbSilent) "the phone's USB gave nothing back for ${v[26]} ms (music or feedback)"
+                        else "the DAC stopped taking music (nothing back for ${v[9]} ms, its feedback ${v[10]} ms ago)"
                     restartWanted = h
                 }
             } finally { watching.remove(h) }
