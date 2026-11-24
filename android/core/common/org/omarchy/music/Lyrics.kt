@@ -232,6 +232,12 @@ object Lyrics {
     /** The lyrics of track, or null if nobody has them. It blocks. */
     fun get(ctx: Ctx, t: Track, refresh: Boolean = false): Got? {
         val m = songMeta(ctx, Music.lib, t)
+        if (!refresh) {
+            // Waiting for the song to finish playing to go into its file: they're the song's lyrics now (none: removed)
+            if (LyricsScan.isHeld(t)) return LyricsScan.kept(ctx, t)?.takeIf { LyricsTags.forFile(it) != null }
+            // Yours (typed in, or changed in the Lyrics tab) where the file couldn't take them: over the file's
+            LyricsScan.kept(ctx, t)?.takeIf { it.plain_from == "you" || it.synced_from == "you" }?.let { return it }
+        }
         if (m.file != null && !refresh) (fromFile(m) ?: fromOtherFile(ctx, m))?.let { f ->
             // The file has only the words and the timing was kept in the app (auto-sync, a file it couldn't change)
             if (f.synced != null) return f

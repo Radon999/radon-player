@@ -5,11 +5,11 @@ package org.omarchy.music
 object SpeechHear {
     @Volatile private var rec: com.k2fsa.sherpa.onnx.OfflineRecognizer? = null
 
-    /** (blocking) Fetch the model and unpack it (only into its own folder). */
-    fun get(progress: (String) -> Unit) {
+    /** (blocking) Fetch the model and unpack it (only into its own folder); [stop] ends the download. */
+    fun get(stop: () -> Boolean, progress: (String) -> Unit) {
         val home = LyricHearing.home(Music.ctx).apply { mkdirs() }
         val zip = java.io.File(home, "model.tar.bz2")
-        LyricHearing.fetch(zip, progress)
+        LyricHearing.fetch(zip, stop, progress)
         progress("Unpacking the listening model… (a minute or two)")
         LyricHearing.modelDir(Music.ctx).deleteRecursively()
         try {

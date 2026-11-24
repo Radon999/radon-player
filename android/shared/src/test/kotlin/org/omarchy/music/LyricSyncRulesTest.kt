@@ -9,8 +9,8 @@ class LyricSyncRulesTest {
     private fun heard(vararg ws: Pair<String, Double>) = ws.map { LyricSyncRules.Heard(LyricSyncRules.norm(it.first), it.second) }
 
     @Test fun recogniserPiecesBecomeWords() {
-        val w = LyricSyncRules.words(listOf("\u2581C", "od", "e", "\u2581Mon", "key", " get"), listOf(0.7, 0.9, 1.0, 1.2, 1.3, 1.7), 20.0)
-        assertEquals(listOf("code" to 20.7, "monkey" to 21.2, "get" to 21.7), w.map { it.word to it.at })
+        val spoken = LyricSyncRules.spoken(listOf("\u2581C", "od", "e", "\u2581Mon", "key", " get", "."), listOf(0.7, 0.9, 1.0, 1.2, 1.3, 1.7, 1.9), 20.0)
+        assertEquals(listOf("code" to 20.7, "monkey" to 21.2, "get" to 21.7), LyricSyncRules.words(spoken).map { it.word to it.at })
     }
 
     @Test fun overlappingWindowsKeepEachWordOnce() {
@@ -61,5 +61,37 @@ class LyricSyncRulesTest {
         assertEquals("dont", LyricSyncRules.norm("Don't"))
         assertTrue(LyricSyncRules.alike("dilligent", "diligent") >= 0.6)
         assertTrue(LyricSyncRules.alike("monkey", "coffee") < 0.6)
+    }
+}
+
+class LyricHeardLinesTest {
+    /** Words a third of a second apart from [at], one line of them. */
+    private fun said(at: Double, text: String) = text.split(" ").mapIndexed { i, w -> LyricSyncRules.Heard(w, at + i * 0.3) }
+    private fun song(vararg lines: Pair<Double, String>) = lines.flatMap { said(it.first, it.second) } +
+        said(100.0, "and then some more words sung later on to make it long enough for a song")
+
+    @Test fun recogniserPiecesKeepTheirCapitalsAndPunctuation() {
+        val w = LyricSyncRules.spoken(listOf("\u2581C", "od", "e", "\u2581Mon", "key", "\u2581get", "\u2581co", "ffee", "."), List(9) { 1.0 + it * 0.2 }, 10.0)
+        assertEquals(listOf("Code", "Monkey", "get", "coffee."), w.map { it.word })
+        assertEquals(11.0, w[0].at, 1e-9)
+    }
+
+    @Test fun linesEndAtSentencesAndPauses() {
+        val h = song(0.0 to "Code Monkey get up get coffee.", 3.5 to "Code Monkey go to job", 7.0 to "Code Monkey have boring meeting")
+        val l = LyricSyncRules.heardLines(h, 200.0)!!
+        assertEquals(listOf("Code Monkey get up get coffee", "Code Monkey go to job", "Code Monkey have boring meeting"), l.take(3).map { it.second })
+        assertEquals(3.5 - LyricSyncRules.LEAD, l[1].first, 0.01)   // shown a moment before it's sung
+    }
+
+    @Test fun aLongRunOfWordsIsCutIntoLines() {
+        val h = song(0.0 to "one two three four five six seven eight nine ten eleven twelve")
+        val l = LyricSyncRules.heardLines(h, 200.0)!!
+        assertEquals("One two three four five six seven eight nine ten", l[0].second)
+        assertEquals("Eleven twelve", l[1].second)
+    }
+
+    @Test fun littleSingingGivesNoLyrics() {
+        assertNull(LyricSyncRules.heardLines(said(10.0, "yeah yeah oh"), 200.0))
+        assertNull(LyricSyncRules.heardLines(emptyList(), 200.0))
     }
 }

@@ -34,19 +34,8 @@ object LyricSyncRules {
         .map { it to it.split(Regex("\\s+")).map(::norm).filter { w -> w.isNotEmpty() } }
         .filter { it.second.isNotEmpty() }
 
-    /** Words from a recogniser's pieces (each with its time), whose pieces starting with a space begin a new word. */
-    fun words(tokens: List<String>, times: List<Double>, offset: Double): List<Heard> {
-        val out = ArrayList<Heard>()
-        var cur = StringBuilder(); var at = 0.0
-        for (i in tokens.indices) {
-            val t = tokens[i]
-            if ((t.startsWith(" ") || t.startsWith("\u2581")) && cur.isNotEmpty()) { norm(cur.toString()).takeIf { it.isNotEmpty() }?.let { out += Heard(it, at) }; cur = StringBuilder() }
-            if (cur.isEmpty()) at = offset + (times.getOrNull(i) ?: 0.0)
-            cur.append(t.trimStart(' ', '\u2581'))
-        }
-        norm(cur.toString()).takeIf { it.isNotEmpty() }?.let { out += Heard(it, at) }
-        return out
-    }
+    /** Words heard ([spoken]) as they're compared with the lyrics ([norm]), the ones left with nothing dropped. */
+    fun words(spoken: List<Heard>): List<Heard> = spoken.map { Heard(norm(it.word), it.at) }.filter { it.word.isNotEmpty() }
 
     /** The words of one recognition window to keep: the window starting at [start] seconds, of a song of [total]
      *  seconds; a word in an overlap is kept from the window it's further inside of. */
@@ -151,5 +140,62 @@ object LyricSyncRules {
     /** As an LRC file ("[mm:ss.xx]line", one a line). */
     fun lrc(lines: List<Pair<Double, String>>): String = lines.joinToString("\n") { (s, l) ->
         val cs = Math.round(s * 100); "[%02d:%02d.%02d]%s".format(cs / 6000, (cs / 100) % 60, cs % 100, l)
+    }
+
+    // ---- lyrics written down from what's heard (a song with no lyrics anywhere) ----
+
+    /** The fewest words heard for a song to get lyrics from them (fewer: little or no singing, an instrumental). */
+    const val MIN_WORDS = 25
+    /** A new line after a pause this long from one word's start to the next's (seconds; a sung word takes some of it). */
+    const val PAUSE_SECS = 1.2
+    /** …always after a pause this long, however short the line. */
+    const val BREAK_SECS = 2.5
+    /** The most words in a line. */
+    const val MAX_LINE = 10
+
+    /** Words as the recogniser wrote them (capitals and punctuation kept, "coffee." a word), each with its time. */
+    fun spoken(tokens: List<String>, times: List<Double>, offset: Double): List<Heard> {
+        val out = ArrayList<Heard>()
+        var cur = StringBuilder(); var at = 0.0
+        fun done() { cur.toString().trim().takeIf { w -> w.any { it.isLetterOrDigit() } }?.let { out += Heard(it, at) } }
+        for (i in tokens.indices) {
+            val t = tokens[i]
+            if ((t.startsWith(" ") || t.startsWith("\u2581")) && cur.isNotEmpty()) { done(); cur = StringBuilder() }
+            if (cur.isEmpty()) at = offset + (times.getOrNull(i) ?: 0.0)
+            cur.append(t.trimStart(' ', '\u2581'))
+        }
+        done()
+        return out
+    }
+
+    /** Lyrics from the words heard in a song: (each line's start in seconds, the line), or null when too few words
+     *  were heard. A line ends at a pause in the singing, at the end of a sentence, after a comma once it's a long one,
+     *  or at [MAX_LINE] words; each starts with a capital, without the full stop or comma it ended on. */
+    fun heardLines(heard: List<Heard>, length: Double): List<Pair<Double, String>>? {
+        val ws = heard.filter { h -> h.word.any { it.isLetterOrDigit() } }.sortedBy { it.at }
+        if (ws.size < MIN_WORDS) return null
+        val groups = ArrayList<List<Heard>>()
+        var cur = ArrayList<Heard>()
+        for (w in ws) {
+            val prev = cur.lastOrNull()
+            if (prev != null) {
+                val gap = w.at - prev.at
+                val end = prev.word.last()
+                if (gap >= BREAK_SECS || (gap >= PAUSE_SECS && cur.size >= 2) || (end in ".!?" && cur.size >= 3) ||
+                    (end in ",;:" && cur.size >= 6) || cur.size >= MAX_LINE) { groups += cur; cur = ArrayList() }
+            }
+            cur += w
+        }
+        if (cur.isNotEmpty()) groups += cur
+        val out = ArrayList<Pair<Double, String>>()
+        var prev = -1.0
+        for (g in groups) {
+            val text = g.joinToString(" ") { it.word }.trimEnd('.', ',', ';', ':').trim()
+                .replaceFirstChar { it.uppercaseChar() }
+            var s = (g.first().at - LEAD).coerceIn(0.0, max(0.0, length - 0.5))
+            if (s <= prev) s = min(prev + 0.1, max(prev, length))
+            out += s to text; prev = s
+        }
+        return out
     }
 }

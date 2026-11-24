@@ -91,6 +91,64 @@ object LyricsScan {
     }.getOrNull()
 
     private fun keep(t: Track, g: Lyrics.Got) = runCatching { writeAtomic(keptFile(Music.ctx, t), JSON.encodeToString(Lyrics.Got.serializer(), g.copy(time = now()))) }
+    private fun unkeep(t: Track) { runCatching { keptFile(Music.ctx, t).delete() } }
+
+    // ---- lyrics waiting for their song's file to be free ----
+    // The song playing (or next) isn't written under the player: its new lyrics (found, timed, edited, removed) are
+    // kept in the app and noted here, shown in its place by the Lyrics tab, and put into the file once the song is free.
+
+    private val heldLock = Any()
+    private var heldMap: MutableMap<String, Track>? = null
+    private val heldFile get() = File(Music.ctx.filesDir, "lyrics-held.json")
+    private val heldSer = MapSerializer(String.serializer(), Track.serializer())
+    private fun held(): MutableMap<String, Track> = heldMap ?: (runCatching { readText(heldFile)?.let { JSON.decodeFromString(heldSer, it) } }
+        .getOrNull()?.toMutableMap() ?: mutableMapOf()).also { heldMap = it }
+    private fun saveHeld() { val m = held(); runCatching { if (m.isEmpty()) heldFile.delete() else writeAtomic(heldFile, JSON.encodeToString(heldSer, m)) } }
+    private fun hold(t: Track) = synchronized(heldLock) { held()[keyOf(t)] = t; saveHeld() }
+
+    /** Whether a song's lyrics in the app are newer than its file's (waiting for the song to finish playing). */
+    fun isHeld(t: Track): Boolean = synchronized(heldLock) { keyOf(t) in held() }
+
+    /** (blocking, quick when nothing waits) The lyrics that waited for their songs to finish playing put into their
+     *  files, each once its song is free. Asked when a song starts. */
+    fun writeHeld() {
+        val wrote = synchronized(heldLock) {
+            val m = held(); if (m.isEmpty()) return
+            var any = false
+            for ((k, t) in m.toList()) {
+                val path = pathOf(t)
+                if (path != null && runCatching { Music.inUse(path) }.getOrDefault(false)) continue
+                val g = kept(Music.ctx, t)
+                m.remove(k)
+                if (g == null || path == null || !canWrite(path)) continue   // stays as it's kept in the app
+                val text = LyricsTags.forFile(g) ?: ""   // "": they were removed
+                if (runCatching { LyricsTags.writeTags(Music.ctx, path, text, emptyMap()) }.getOrDefault(false)) {
+                    unkeep(t); set(t, if (text.isEmpty()) NONE else FILE); any = true
+                }
+            }
+            saveHeld(); any
+        }
+        if (wrote) { save(); Music.scope.launch { version++ } }
+    }
+
+    /** (blocking) Lyrics put where they go: into the song's file where the app may change it (at once, or once the
+     *  song is free: kept and shown meanwhile), else kept in the app. A [g] with no words ("" plain) takes them away.
+     *  Its state set (FILE, APP, NONE); whether they went into the file (or will). */
+    private fun putLyrics(t: Track, path: String?, g: Lyrics.Got, playing: String? = null): Boolean {
+        val text = LyricsTags.forFile(g) ?: ""
+        val writable = path != null && canWrite(path)
+        val busy = path != null && (path == playing || runCatching { Music.inUse(path) }.getOrDefault(false))
+        val wrote = writable && !busy && runCatching { LyricsTags.writeTags(Music.ctx, path!!, text, emptyMap()) }.getOrDefault(false)
+        val gone = text.isEmpty()
+        when {
+            wrote -> unkeep(t)
+            writable && busy -> { keep(t, g); hold(t) }
+            gone -> unkeep(t)
+            else -> keep(t, g)
+        }
+        set(t, if (gone) NONE else if (wrote) FILE else APP)
+        return wrote || (writable && busy)
+    }
 
     /** Whether the app may change the file: on the PC any of yours; on the phone only its own downloads. */
     private fun canWrite(path: String) = runCatching { FileTags.canWrite(path) }.getOrDefault(false)
@@ -218,18 +276,14 @@ object LyricsScan {
         return found to none
     }
 
-    /** Lyrics found for a song put where they go: its file when the app may change it (not while it plays), else kept
-     *  in the app. Nothing found: an instrumental, or none. True if it has lyrics now. */
+    /** Lyrics found for a song put where they go (putLyrics: its file when the app may change it, once it isn't
+     *  playing, else kept in the app). Nothing found: an instrumental, or none. True if it has lyrics now. */
     private fun place(t: Track, path: String?, got: Lyrics.Got?, playing: String? = null): Boolean {
-        val text = got?.let { LyricsTags.forFile(it) }
-        if (got == null || text == null) {
+        if (got == null || LyricsTags.forFile(got) == null) {
             set(t, if (got?.instrumental == true) INSTRUMENTAL else NONE)
             return false
         }
-        val wrote = path != null && path != playing && canWrite(path) &&
-            runCatching { LyricsTags.writeTags(Music.ctx, path, text, emptyMap()) }.getOrDefault(false)
-        if (!wrote) keep(t, got)
-        set(t, if (wrote) FILE else APP)
+        putLyrics(t, path, got, playing)
         return true
     }
 
@@ -293,9 +347,11 @@ object LyricsScan {
 
     // ---- the songs with words but no timing (auto-sync, LyricsAutoSync) ----
 
-    /** (blocking) The lyrics a song has here, nothing looked up: its file's, with timed lines kept in the app when the
-     *  file has only the words (a file the app couldn't write the timing into), else the ones kept in the app. */
+    /** (blocking) The lyrics a song has here, nothing looked up: the ones waiting for its file when there are some
+     *  (null: they were removed), else its file's, with timed lines kept in the app when the file has only the words
+     *  (a file the app couldn't write the timing into), else the ones kept in the app. */
     fun here(t: Track): Lyrics.Got? {
+        if (isHeld(t)) return kept(Music.ctx, t)?.takeIf { LyricsTags.forFile(it) != null }
         val path = pathOf(t)
         val f = path?.let { inFile(it) }?.takeIf { it.isNotBlank() }?.let { txt ->
             if (Lyrics.parseLrc(txt).isNotEmpty()) Lyrics.Got(null, null, txt, "the file") else Lyrics.Got(txt, "the file")
@@ -305,6 +361,10 @@ object LyricsScan {
         if (f.synced == null && k?.synced != null) return f.copy(synced = k.synced, synced_from = k.synced_from)
         return f
     }
+
+    /** (blocking) Your songs (with a file, so they can be listened to) that the scan found no lyrics for and that
+     *  still have none: what auto-sync listens to for their words. */
+    fun unheard(): List<Track> = notFound().filter { pathOf(it) != null && here(it) == null }
 
     /** (blocking) Your songs (with a file, so they can be listened to) that have their words but no timing: what
      *  auto-sync goes through. The ones left alone or instrumental aren't. */
@@ -331,13 +391,43 @@ object LyricsScan {
     /** (blocking) A song's timing taken away again (auto-sync's, removed): only its words, in its file or kept. */
     fun dropTiming(t: Track): Boolean {
         val words = here(t)?.let { LyricsTags.words(it) } ?: return false
-        val path = pathOf(t)
         val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
-        val inFileTimed = path?.let { inFile(it) }?.let { Lyrics.parseLrc(it).isNotEmpty() } == true
-        // Its file holds the timing: the words written over it; else the timing was kept in the app: only the words kept
-        val ok = if (inFileTimed) place(t, path, Lyrics.Got(plain = words, plain_from = "the file"), playing)
-            else { keep(t, Lyrics.Got(plain = words, plain_from = "the file")); true }
+        putLyrics(t, pathOf(t), Lyrics.Got(plain = words, plain_from = "the file"), playing)
         save(); Music.scope.launch { version++ }
-        return ok
+        return true
+    }
+
+    /** (blocking) A song's lyrics taken away (ones the app heard, removed): out of its file, or the app. It's among the
+     *  songs with none found again. */
+    fun dropLyrics(t: Track): Boolean {
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        putLyrics(t, pathOf(t), Lyrics.Got(plain = ""), playing)
+        save(); Music.scope.launch { version++ }
+        return true
+    }
+
+    /** Lyrics you changed (the Lyrics tab's Edit): timed lines when they have times ("[01:23.45]"), else the words.
+     *  Straight into the song's file where the app may change it (the song playing: the moment it ends, shown as they
+     *  are meanwhile), else kept in the app. [done]: whether they were saved. */
+    fun edit(t: Track, text: String, done: (Boolean) -> Unit = {}) {
+        val body = text.lines().joinToString("\n") { it.trimEnd() }.trim()
+        if (body.isEmpty()) return
+        val g = if (Lyrics.parseLrc(body).isNotEmpty()) Lyrics.Got(synced = body, synced_from = "you") else Lyrics.Got(plain = body, plain_from = "you")
+        val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
+        Music.bg({
+            val path = pathOf(t)
+            val toFile = putLyrics(t, path, g, playing)
+            save()
+            when {
+                toFile && isHeld(t) -> "Saved: it goes into the song's file as soon as it has finished playing"
+                toFile -> "Saved into the song's file"
+                path == null -> "Saved in the app (the song is streamed: there's no file)"
+                else -> "Saved in the app (the app may not change this song's file)"
+            }
+        }) { msg, err ->
+            version++; recount()
+            Music.toast(msg ?: "Couldn't save the lyrics: ${err?.message}")
+            done(msg != null)
+        }
     }
 }

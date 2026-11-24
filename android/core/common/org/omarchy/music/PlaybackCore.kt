@@ -534,8 +534,8 @@ object PlaybackCore {
         val c = current() ?: return
         step("load “${c.title.take(30)}” play=$autoplay")
         Music.heldTagsSoon()   // the song that was playing: its tag changes, once its file is free
-        // …and any other change that waited for it to finish (SafeWrite), a moment after its file is let go
-        Music.scope.launch { delay(2500); Music.bg({ SafeWrite.writeWaiting(Music.ctx) }) }
+        // …and any other change that waited for it to finish (SafeWrite, lyrics), a moment after its file is let go
+        Music.scope.launch { delay(2500); Music.bg({ SafeWrite.writeWaiting(Music.ctx); LyricsScan.writeHeld() }) }
         // A song you have yourself (a file or a download) plays from your copy, whatever list it came from (a queue
         // kept from before you had it too): never the service's stream of it.
         if (!Remote.active) Copies.heal(c)   // a download whose file was moved (a tag change): your file of it is found again

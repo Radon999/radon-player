@@ -959,7 +959,8 @@ private fun LyricsMoodsLines(ui: Ui) {
     }
     Line("Lyrics files (.lrc)", "Saves a .lrc file beside each song that has lyrics in its file, with the same name " +
         "(timed lines when the song has them, else the words), so any player, and the folder wherever it's copied, has " +
-        "them. Songs with a .lrc already are left as they are" + (if (onPhone) ". On the phone it needs All files access" else ""), false) {
+        "them. Each scan goes through every song and replaces the .lrc files there with the lyrics in the songs' files, so " +
+        "lyrics you've edited reach them" + (if (onPhone) ". On the phone it needs All files access" else ""), false) {
         Pill("Scan…", quiet = true) { ui.tool = "lrc" }
     }
     Line("Moods from lyrics", "Scan moods (the Moods tab) reads each song's words as well as hearing its sound: on this " +

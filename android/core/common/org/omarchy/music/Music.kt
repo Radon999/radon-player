@@ -225,7 +225,7 @@ object Music {
         speeds = SongSpeeds(File(ctx.filesDir, "song-speeds.json"))
         favorites = Favorites(File(ctx.filesDir, "favorites.json"))
         songStats = newSongStats(File(ctx.filesDir, "skips.json"))
-        bg({ SafeWrite.recover(ctx); SafeWrite.writeWaiting(ctx) })   // a tag write the app was closed in the middle of: finished from its copy; and the ones that waited for a song to finish
+        bg({ SafeWrite.recover(ctx); SafeWrite.writeWaiting(ctx); LyricsScan.writeHeld() })   // a tag write the app was closed in the middle of: finished from its copy; and the ones (lyrics too) that waited for a song to finish
         gains = SongGains(File(ctx.filesDir, "song-volume.json"), File(ctx.filesDir, "song-volume-outputs.json"))
         songEqs = SongEqs(File(ctx.filesDir, "song-eq.json"))
         local = LocalFiles(ctx)

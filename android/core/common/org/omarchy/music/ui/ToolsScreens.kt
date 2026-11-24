@@ -481,6 +481,10 @@ private fun LyricsScanScreen(ui: Ui) {
             if (progress == null && f != null) Text(if (f.isEmpty()) "No songs without lyrics: each one has them, or you've said what to do with it"
                 else "No lyrics at all: ${f.size} song${if (f.size != 1) "s" else ""}", style = T.section, modifier = Modifier.padding(bottom = 4.dp))
             LazyColumn(Modifier.weight(1f)) {
+                // Auto-sync at work (either job): how far, and Stop
+                if (progress == null && org.omarchy.music.LyricsAutoSync.progress != null) item { AutoSyncRunning() }
+                // The songs with no lyrics: auto-sync can listen for their words
+                if (progress == null && !f.isNullOrEmpty()) item { HearLyrics(ui) }
                 items(if (progress == null) f.orEmpty() else emptyList()) { t ->
                     val key = ls.keyOf(t)
                     if (key in justLeft) { HiddenUndo(t.title) { ls.unleave(t); justLeft.remove(key) }; return@items }
@@ -512,6 +516,7 @@ private fun LyricsScanScreen(ui: Ui) {
                 }
                 // The songs with their words but no timing: kept apart from the ones with no lyrics, with auto-sync
                 if (progress == null) item { UntimedLyrics(ui) }
+                if (progress == null) item { AutoSyncDone() }
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 Pill("Done", quiet = true) { close() }
@@ -520,9 +525,56 @@ private fun LyricsScanScreen(ui: Ui) {
     }
 }
 
+/** Auto-sync started from Lyrics (the listening model fetched first, once you've said yes to the download). */
+private fun startAutoSync(ui: Ui, job: String, again: Boolean) {
+    val auto = org.omarchy.music.LyricsAutoSync
+    if (auto.modelReady) auto.start(job, again)
+    else ui.confirm = ("Auto-sync listens with a speech recognition model (NVIDIA's Parakeet, free under CC BY 4.0) that " +
+        "runs on your $DEVICE. It's ${org.omarchy.music.LyricHearing.SIZE} to download, once; then nothing more is " +
+        "fetched for it, and your songs never leave the $DEVICE. Download it and start?") to { auto.start(job, again) }
+}
+
+/** Auto-sync at work: what it's doing, the song, how far, and Stop (what's done is kept; the next start carries on). */
+@Composable
+private fun AutoSyncRunning() {
+    val auto = org.omarchy.music.LyricsAutoSync
+    val running = auto.progress ?: return
+    val what = if (auto.kind == org.omarchy.music.LyricsAutoSync.WORDS) "Listening for lyrics" else "Timing lyrics"
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Pill("Stop", quiet = true) { auto.stop() }
+        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+            Text(auto.doing.ifEmpty { if (running.second > 0) "$what… %,d of %,d".format(running.first, running.second) else "$what…" }, style = T.sub)
+            if (auto.nowSong.isNotEmpty()) Text(auto.nowSong, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Lyrics › the songs with no lyrics: auto-sync listens to them and writes down the words it hears (LyricsAutoSync.WORDS). */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun HearLyrics(ui: Ui) {
+    val auto = org.omarchy.music.LyricsAutoSync
+    var songs by remember { mutableStateOf<List<org.omarchy.music.Track>?>(null) }
+    LaunchedEffect(auto.version, org.omarchy.music.LyricsScan.version, auto.progress == null) {
+        if (auto.progress == null) Music.bg({ auto.wordless() }) { r, _ -> songs = r ?: emptyList() }
+    }
+    val s = songs
+    if (s.isNullOrEmpty() || auto.progress != null) return
+    val failed = s.count { auto.stateOf(it)?.state == org.omarchy.music.LyricsAutoSync.FAILED }
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Text("Auto-sync can listen to ${if (s.size == 1) "this one" else "these %,d".format(s.size)} and write down the words " +
+            "it hears, timed to the song, on this $DEVICE: a first go, to correct with Edit in the Lyrics tab (it marks them " +
+            "\"Heard by Radon\"). English songs only. They go into the song's file like any lyrics.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Pill("Listen for their lyrics") { startAutoSync(ui, org.omarchy.music.LyricsAutoSync.WORDS, false) }
+            if (failed > 0) Pill("Try the $failed it couldn't again", quiet = true) { startAutoSync(ui, org.omarchy.music.LyricsAutoSync.WORDS, true) }
+        }
+    }
+}
+
 /** Lyrics › the songs with their words but no timing, and auto-sync: timing looked up once more, else the song listened
- *  to and its lines timed by the app (LyricsAutoSync). How many, Start (the listening model fetched the first time, once
- *  asked), Stop and how far it's got, and the songs themselves with what happened to each. */
+ *  to and its lines timed by the app (LyricsAutoSync.TIMING). How many, Start, and the songs with what happened to each.
+ *  Songs it has timed aren't here any more (they have timing): only the ones left are done by the next start. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun UntimedLyrics(ui: Ui) {
@@ -531,7 +583,7 @@ private fun UntimedLyrics(ui: Ui) {
     var waiting by remember { mutableStateOf<List<org.omarchy.music.Track>?>(null) }
     var open by remember { mutableStateOf(false) }
     LaunchedEffect(auto.version, org.omarchy.music.LyricsScan.version, running == null) {
-        if (running == null) Music.bg({ auto.waiting().map { it.first } }) { r, _ -> waiting = r ?: emptyList() }
+        if (running == null) Music.bg({ auto.waiting() }) { r, _ -> waiting = r ?: emptyList() }
     }
     Column(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 8.dp)) {
         val w = waiting
@@ -541,29 +593,14 @@ private fun UntimedLyrics(ui: Ui) {
             "ones nobody has timed (your unreleased songs) it listens to: it hears the words being sung and when, on this " +
             "$DEVICE (nothing is sent anywhere), and times the lines itself. The timed lyrics go into the song's file like " +
             "the lyrics above (Sync takes them to your other device), and the Lyrics tab marks them \"Timed by Radon\". " +
-            "It takes a while: " + (if (onPhone) "about 10 to 30 seconds a song on the phone." else "a few seconds a song on the PC."),
+            "Songs done are kept done: each start only does the ones left. It takes a while: " +
+            (if (onPhone) "about 10 to 30 seconds a song on the phone." else "a few seconds a song on the PC."),
             style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
-        if (running != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Pill("Stop", quiet = true) { auto.stop() }
-                Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Text(auto.doing.ifEmpty { if (running.second > 0) "Timing lyrics… %,d of %,d".format(running.first, running.second) else "Timing lyrics…" }, style = T.sub)
-                    if (auto.nowSong.isNotEmpty()) Text(auto.nowSong, style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            return@Column
-        }
-        if (w.isNullOrEmpty()) return@Column
+        if (running != null || w.isNullOrEmpty()) return@Column
         val failed = w.count { auto.stateOf(it)?.state == org.omarchy.music.LyricsAutoSync.FAILED }
-        val start = { again: Boolean ->
-            if (auto.modelReady) auto.start(again)
-            else ui.confirm = ("Auto-sync listens with a speech recognition model (NVIDIA's Parakeet, free under CC BY 4.0) that " +
-                "runs on your $DEVICE. It's ${org.omarchy.music.LyricHearing.SIZE} to download, once; then nothing more is " +
-                "fetched for it, and your songs never leave the $DEVICE. Download it and start?") to { auto.start(again) }
-        }
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pill("Start auto-syncing missing synced lyrics") { start(false) }
-            if (failed > 0) Pill("Try the $failed it couldn't again", quiet = true) { start(true) }
+            Pill("Start auto-syncing missing synced lyrics") { startAutoSync(ui, org.omarchy.music.LyricsAutoSync.TIMING, false) }
+            if (failed > 0) Pill("Try the $failed it couldn't again", quiet = true) { startAutoSync(ui, org.omarchy.music.LyricsAutoSync.TIMING, true) }
             Pill(if (open) "Hide the songs" else "Show the songs", quiet = true) { open = !open }
         }
         if (open) for (t in w.take(300)) {
@@ -573,6 +610,32 @@ private fun UntimedLyrics(ui: Ui) {
                 modifier = Modifier.padding(vertical = 3.dp))
         }
         if (open && w.size > 300) Text("…and ${w.size - 300} more", style = T.sub)
+    }
+}
+
+/** Lyrics › what auto-sync has done: each song timed by listening, timed lyrics found online, or lyrics heard. */
+@Composable
+private fun AutoSyncDone() {
+    val auto = org.omarchy.music.LyricsAutoSync
+    var done by remember { mutableStateOf<List<org.omarchy.music.AutoSyncSong>>(emptyList()) }
+    var open by remember { mutableStateOf(false) }
+    LaunchedEffect(auto.version) { Music.bg({ auto.done() }) { r, _ -> done = r ?: emptyList() } }
+    if (done.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Done by auto-sync: %,d song%s".format(done.size, if (done.size != 1) "s" else ""), style = T.section, modifier = Modifier.weight(1f))
+            Pill(if (open) "Hide them" else "Show them", quiet = true) { open = !open }
+        }
+        if (open) for (s in done.take(300)) {
+            val what = when (s.state) {
+                org.omarchy.music.LyricsAutoSync.FOUND -> "timed lyrics found online"
+                org.omarchy.music.LyricsAutoSync.HEARD -> "lyrics heard"
+                else -> "timed by listening"
+            }
+            Text("“${s.title}” · ${s.artist.split(",")[0].trim()} · $what", style = T.sub, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(vertical = 3.dp))
+        }
+        if (open && done.size > 300) Text("…and ${done.size - 300} more", style = T.sub)
     }
 }
 
@@ -843,10 +906,12 @@ private fun LrcScreen(ui: Ui) {
             val d = done
             Text(when {
                 running -> status.ifEmpty { "Starting…" }
-                d != null -> "%,d lyrics file%s saved · %,d had one already · %,d with no lyrics in the file · %,d couldn't be saved".format(
-                    d.saved, if (d.saved != 1) "s" else "", d.had, d.none, d.failed)
+                d != null -> ("%,d lyrics file%s saved · %,d replaced with the song's lyrics · %,d the same already · " +
+                    "%,d with no lyrics in the file · %,d couldn't be saved").format(d.saved, if (d.saved != 1) "s" else "", d.replaced,
+                    d.same, d.none, d.failed) + if (d.timedKept > 0) " · %,d timed .lrc kept (the song's file has only the words)".format(d.timedKept) else ""
                 else -> "Each song with lyrics in its file gets a .lrc of the same name beside it: its timed lines when it has " +
-                    "them, else its words. Songs with a .lrc already are left as they are."
+                    "them, else its words. A .lrc that's there already is replaced with the lyrics in the song's file, so " +
+                    "lyrics you've edited reach it (a timed .lrc isn't replaced by words without times)."
             }, style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
             d?.notes?.forEach { Text(it, style = T.sub) }
             Spacer(Modifier.weight(1f))
@@ -855,7 +920,7 @@ private fun LrcScreen(ui: Ui) {
                     running = true
                     Music.bg({ org.omarchy.music.LrcFiles.save { s -> Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = s } } }) { r, e ->
                         running = false
-                        done = r ?: org.omarchy.music.LrcFiles.Done(0, 0, 0, 0, listOf("Couldn't finish: ${e?.message}"))
+                        done = r ?: org.omarchy.music.LrcFiles.Done(0, 0, 0, 0, 0, 0, listOf("Couldn't finish: ${e?.message}"))
                     }
                 }
                 if (!running) Pill(if (d == null) "Cancel" else "Done", quiet = d == null) { close() }

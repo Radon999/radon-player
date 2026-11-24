@@ -4,9 +4,11 @@ import java.io.File
 
 /** Lyrics files: for each song with lyrics in its file's tags, a .lrc file of the same name beside it, so any player
  *  (and any device the folder goes to) has them. Timed lyrics are saved as they are; plain ones as lines with no times.
- *  A song with a .lrc beside it already is left as it is. */
+ *  It goes through every song each time and a .lrc that's there already is replaced with the lyrics in the song's file,
+ *  so lyrics changed since (edited in the Lyrics tab, timed by auto-sync) reach it too. Left alone: a .lrc that says the
+ *  same already, and a timed .lrc beside a song whose file has only the words (its timing isn't thrown away). */
 object LrcFiles {
-    data class Done(val saved: Int, val had: Int, val none: Int, val failed: Int, val notes: List<String>)
+    data class Done(val saved: Int, val replaced: Int, val same: Int, val timedKept: Int, val none: Int, val failed: Int, val notes: List<String>)
 
     private fun clean(s: String) = s.replace(Regex("[\\r\\n\\[\\]]"), " ").trim()
 
@@ -27,9 +29,9 @@ object LrcFiles {
         return head + plain.lines().joinToString("\n") { it.trimEnd() } + "\n"
     }
 
-    /** (blocking) A .lrc beside every song of yours that has lyrics in its file. */
+    /** (blocking) A .lrc beside every song of yours that has lyrics in its file (see the object's note). */
     fun save(progress: (String) -> Unit = {}): Done {
-        var saved = 0; var had = 0; var none = 0; var failed = 0
+        var saved = 0; var replaced = 0; var same = 0; var timedKept = 0; var none = 0; var failed = 0
         val notes = ArrayList<String>()
         val songs = Music.mySongs()
         val seen = HashSet<String>()
@@ -42,13 +44,15 @@ object LrcFiles {
                 ?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
             if (dir == null || name == null) { failed++; if (notes.size < 20) notes += "“${t.title}”: couldn't find its folder"; continue }
             val lrc = File(dir, "$name.lrc")
-            if (lrc.isFile) { had++; continue }
             val g = runCatching { Lyrics.inFile(Music.ctx, t) }.getOrNull()
             val body = g?.let { text(t, it) }
             if (body == null) { none++; continue }
-            if (runCatching { lrc.writeText(body, Charsets.UTF_8); true }.getOrDefault(false)) saved++
+            val old = if (lrc.isFile) runCatching { lrc.readText(Charsets.UTF_8) }.getOrNull() else null
+            if (old == body) { same++; continue }
+            if (old != null && Lyrics.parseLrc(old).isNotEmpty() && Lyrics.parseLrc(body).isEmpty()) { timedKept++; continue }
+            if (runCatching { lrc.writeText(body, Charsets.UTF_8); true }.getOrDefault(false)) { if (old != null) replaced++ else saved++ }
             else { failed++; if (notes.size < 20) notes += "“${t.title}”: couldn't save ${lrc.name}" }
         }
-        return Done(saved, had, none, failed, notes)
+        return Done(saved, replaced, same, timedKept, none, failed, notes)
     }
 }

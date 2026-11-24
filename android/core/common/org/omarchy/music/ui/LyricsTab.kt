@@ -97,26 +97,57 @@ fun LyricsTab(ui: Ui) {
     var mode = Music.lyricsMode
     if (mode == "synced" && !synced) mode = "genius"
     if (mode == "genius" && !plain) mode = "synced"
+    // Edit: what goes into the song's file, its timed lines when it has them (their times shown, to change too), else
+    // its words. Lyrics the app made keep their mark (not shown here) so they're still said to be Radon's.
+    var editing by remember(g) { mutableStateOf<String?>(null) }
+    val auto = org.omarchy.music.LyricsAutoSync.isAuto(g.synced)
+    val heard = org.omarchy.music.LyricsAutoSync.isHeard(g.synced)
+    val local = !org.omarchy.music.Remote.active   // the song's file is on this device
+    editing?.let { text ->
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Text("EDIT THE LYRICS", style = T.section)
+            Text((if (synced) "Each line starts with when it's sung ([minutes:seconds]): change the words, or the times. " else "") +
+                "Saving puts them straight into the song's file" + (if (org.omarchy.music.LyricsScan.pathOf(t) == null) " (this one is streamed: kept in the app)" else "") +
+                ".", style = T.sub, modifier = Modifier.padding(vertical = 4.dp))
+            androidx.compose.material3.OutlinedTextField(text, { editing = it }, modifier = Modifier.fillMaxWidth().weight(1f).typing())
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Pill("Cancel", quiet = true) { editing = null }
+                Pill("Save") {
+                    val mark = g.synced?.lines()?.filter { it.trim().startsWith("[re:Radon Player") }.orEmpty()
+                    val body = if (synced && Lyrics.parseLrc(text).isNotEmpty()) (mark + text.trim()).joinToString("\n") else text
+                    org.omarchy.music.LyricsScan.edit(t, body) { ok -> if (ok) { editing = null; refresh++ } }
+                }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            // Lyrics the app timed itself (auto-sync): said, with Time again and Remove timing
-            val auto = mode == "synced" && org.omarchy.music.LyricsAutoSync.isAuto(g.synced)
-            Text(if (auto) "TIMED BY RADON" else if (mode == "synced") "TIMED · ${(g.synced_from ?: "").uppercase()}" else "LYRICS · ${(g.plain_from ?: "").uppercase()}" +
+            Text(if (mode == "synced" && heard) "HEARD BY RADON" else if (mode == "synced" && auto) "TIMED BY RADON"
+                else if (mode == "synced") "TIMED · ${(g.synced_from ?: "").uppercase()}" else "LYRICS · ${(g.plain_from ?: "").uppercase()}" +
                 if (notes.isNotEmpty()) " · ${notes.size} NOTE${if (notes.size != 1) "S" else ""}: TAP A MARKED LINE" else "",
                 style = T.section, maxLines = 1, modifier = Modifier.weight(1f))
-            if (auto && !org.omarchy.music.Remote.active) {
-                Pill("Time again", quiet = true) { org.omarchy.music.LyricsAutoSync.again(t) { refresh++ } }
-                Pill("Remove timing", quiet = true) {
-                    ui.confirm = "Remove the timing Radon made for “${t.title}”? Its words stay; auto-sync won't time it again by itself." to {
-                        org.omarchy.music.LyricsAutoSync.remove(t) { refresh++ } }
-                }
+            if (local) Pill("Edit", quiet = true) {
+                editing = if (synced) g.synced!!.lines().filterNot { it.trim().startsWith("[re:Radon Player") }.joinToString("\n").trim()
+                    else g.plain.orEmpty().trim()
             }
             Pill("Card", quiet = true) { ui.lyricsCard = t to g }
             IconButton(Ico.SEARCH, C.muted, 16.dp, 6.dp, desc = "Search the lyrics") { ui.lyricsSearch = !ui.lyricsSearch }
             if (synced && plain) {
                 Chip("Genius", mode == "genius") { Music.setLyricsMode("genius") }
                 Chip("Synced", mode == "synced") { Music.setLyricsMode("synced") }
+            }
+        }
+        // Lyrics the app made itself (auto-sync): done again by listening, or taken away
+        if (auto && mode == "synced" && local) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(if (heard) "Written down by listening: Edit to correct them" else "Timed by listening", style = T.sub, modifier = Modifier.weight(1f))
+            Pill(if (heard) "Listen again" else "Time again", quiet = true) { org.omarchy.music.LyricsAutoSync.again(t) { refresh++ } }
+            Pill(if (heard) "Remove lyrics" else "Remove timing", quiet = true) {
+                ui.confirm = (if (heard) "Remove the lyrics Radon heard for “${t.title}”? It has no lyrics again; auto-sync won't listen to it again by itself."
+                    else "Remove the timing Radon made for “${t.title}”? Its words stay; auto-sync won't time it again by itself.") to {
+                    org.omarchy.music.LyricsAutoSync.remove(t) { refresh++ } }
             }
         }
         if (ui.lyricsSearch && t != null) LyricsSearch(t, searched)

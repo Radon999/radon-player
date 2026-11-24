@@ -24,8 +24,8 @@ object LyricHearing {
     fun modelDir(ctx: Ctx): java.io.File = java.io.File(home(ctx), DIR)
     fun ready(ctx: Ctx): Boolean = listOf(ENCODER, DECODER, JOINER, TOKENS).all { java.io.File(modelDir(ctx), it).isFile }
 
-    /** (blocking) The archive fetched to [to], saying how far it's got. */
-    fun fetch(to: java.io.File, progress: (String) -> Unit) {
+    /** (blocking) The archive fetched to [to], saying how far it's got; [stop] ends it (nothing kept). */
+    fun fetch(to: java.io.File, stop: () -> Boolean, progress: (String) -> Unit) {
         val c = java.net.URI(URL).toURL().openConnection() as java.net.HttpURLConnection
         c.instanceFollowRedirects = true; c.connectTimeout = 20_000; c.readTimeout = 60_000
         c.setRequestProperty("User-Agent", "RadonPlayer")
@@ -35,6 +35,7 @@ object LyricHearing {
         c.inputStream.use { ins -> part.outputStream().use { out ->
             val buf = ByteArray(1 shl 16); var got = 0L; var shown = -1L
             while (true) {
+                if (stop()) { out.close(); part.delete(); error("stopped") }
                 val k = ins.read(buf); if (k < 0) break
                 out.write(buf, 0, k); got += k
                 val step = if (total > 0) got * 100 / total else got / 5_000_000

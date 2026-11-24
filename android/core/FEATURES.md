@@ -104,12 +104,13 @@ Short sets from your own listening, with a voice like a radio host's.
 ## Lyrics
 
 - **Synced lyrics** light up line by line (tap a line to jump); **Genius** shows them as written, with annotations.
+- **Edit lyrics** in the Lyrics tab (the words, and the times of synced lines): saved straight into the song's file. The song playing gets them the moment it ends (shown at once); a file the app may not change, or a streamed song, keeps them in the app.
 - **Lyrics cards:** tick up to 25 lines (tick the first and last to get every line between) for a picture to share or save, in one of 60 styles, your look, Now playing's colours, or your own.
 - **With the song's sound:** the card as a short video with the song playing over the lines you ticked, or between Starts and Ends you set yourself. Untick it for a plain picture.
 - **Clips with sound:** a song's Options makes a short video of its cover and a filling seek bar, with the song playing from where you say to where you say (3 seconds to a minute). Streamed songs too.
 - **Picture cards** share a song with a line of your own. Cards and clips show your play count (Personalization switches it off).
-- **Lyrics scanner:** finds lyrics for every song and writes them into the files (and .lrc files if you like); type the ones it can't find, or mark them instrumental.
-- **Auto-sync:** after the scan, the songs with words but no timing are listed apart from the ones with no lyrics. **Start auto-syncing missing synced lyrics** looks each one up once more, and the ones nobody has timed (your unreleased songs) it listens to on the device, hears when each line is sung, and times them itself. The timing goes into the song's file, so Sync takes it to your other device. The Lyrics tab marks these **Timed by Radon**, with **Time again** and **Remove timing**. Phone and PC, each its own songs; the listening model is a one-time download of about 100 MB.
+- **Lyrics scanner:** finds lyrics for every song and writes them into the files; type the ones it can't find, or mark them instrumental. **Lyrics files (.lrc)** goes through every song each time and replaces the .lrc files with the lyrics in the songs' files, so edits reach them.
+- **Auto-sync:** after the scan, the songs with words but no timing are listed apart from the ones with no lyrics. **Start auto-syncing missing synced lyrics** looks each one up once more, and the ones nobody has timed (your unreleased songs) it listens to on the device, hears when each line is sung, and times them itself. **Listen for their lyrics** does the songs with no lyrics at all: it writes down the words it hears, timed (English songs; a first go to correct with Edit). The lyrics go into the song's file, so Sync takes them to your other device. Songs done stay done and are listed; each start only does the ones left. The Lyrics tab marks them **Timed by Radon** or **Heard by Radon**, with **Time again** / **Listen again** and **Remove**. Phone and PC, each its own songs; the listening model is a one-time download of about 100 MB.
 
 ## Sound
 
