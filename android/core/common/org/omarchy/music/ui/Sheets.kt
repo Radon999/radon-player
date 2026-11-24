@@ -3494,7 +3494,7 @@ private fun WhatsNewCard(ui: Ui) {
     val now = org.omarchy.music.appVersion
     var show by remember { mutableStateOf(org.omarchy.music.WhatsNewRules.show(org.omarchy.music.Prefs.text(key), now).also {
         if (!it) org.omarchy.music.Prefs.setText(key, now) }) }   // (a fresh install, or seen: noted for next time)
-    if (!show) return
+    if (!show) { TidalNotice(ui); return }   // (after it, never both at once)
     val heads = remember { org.omarchy.music.WhatsNewRules.headlines(CHANGELOG, now) }
     val more = remember { org.omarchy.music.WhatsNewRules.more(CHANGELOG, now, heads.size) }
     fun done() { org.omarchy.music.Prefs.setText(key, now); show = false }
@@ -3507,6 +3507,29 @@ private fun WhatsNewCard(ui: Ui) {
         } },
         confirmButton = { TextButton({ done(); ui.sheet = null; ui.changelog = true }) { Text("Read about them", color = C.accent) } },
         dismissButton = { TextButton({ done() }) { Text("Later", color = C.muted) } })
+}
+
+private var tidalNoticeShown = false   // once each time the app starts (the screen drawn again doesn't bring it back)
+
+/** At start, not signed in to Tidal: streaming is YouTube's audio until you are, Tidal's for FLAC. Sign in, Not now, or
+ *  Don't show again (for listening to your own files only). Not while this device is a remote (it plays nothing). */
+@Composable
+private fun TidalNotice(ui: Ui) {
+    val never = "tidal_notice_never"
+    var show by remember { mutableStateOf(!tidalNoticeShown && !org.omarchy.music.Prefs.on(never) &&
+        !org.omarchy.music.Remote.active && runCatching { !Music.tidal.signedIn }.getOrDefault(false)) }
+    if (!show) return
+    fun done() { tidalNoticeShown = true; show = false }
+    AlertDialog(onDismissRequest = { done() }, containerColor = C.light,
+        title = { Text("Streaming without Tidal", style = T.title) },
+        text = { Text("You're not signed in to Tidal, so songs you stream play in YouTube's quality (about 160 kbps Opus, " +
+            "which sounds about like a 320 kbps MP3). Sign in to Tidal to stream in FLAC. Your own music files always " +
+            "play in their full quality.", style = T.body) },
+        confirmButton = { TextButton({ done(); ui.sheet = "tidal-login" }) { Text("Sign in to Tidal", color = C.accent) } },
+        dismissButton = { Row {
+            TextButton({ done(); org.omarchy.music.Prefs.set(never, true) }) { Text("Don't show again", color = C.muted) }
+            TextButton({ done() }) { Text("Not now", color = C.muted) }
+        } })
 }
 
 /** Settings › Personalization › Menu entries: each entry of the ☰ menu with a switch; off, it isn't in the menu. */
