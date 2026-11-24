@@ -9,3 +9,5 @@ tidal.properties
 *.iml
 *.jks
 keystore.properties
+# Kotlin's own local state (its compile daemon's error logs)
+.kotlin/
