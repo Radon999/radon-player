@@ -20,6 +20,7 @@
 #include <sys/syscall.h>
 
 static long long nowMs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000; }
+static long long nowUs(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (long long)t.tv_sec * 1000000 + t.tv_nsec / 1000; }
 
 #define NURB 64          /* data URBs kept queued, 1 ms each (as Linux's own USB audio driver sends them): 64 ms ahead, so a
                           * moment the phone is busy elsewhere never leaves the DAC without music (a split-second gap). NOT more:
@@ -215,10 +216,10 @@ static void *loop(void *arg) {
     if (s->fbEp) for (int i = 0; i < NFB; i++) submitFb(s, i);
     while (atomic_load(&s->running)) {
         struct usbdevfs_urb *done = NULL;
-        long long w0 = nowMs();
+        long long w0 = nowMs(), u0 = nowUs();
         atomic_store(&s->whereAt, w0); atomic_store(&s->where, 1);
         int r = ioctl(s->fd, USBDEVFS_REAPURB, &done);
-        long long w1 = nowMs();
+        long long w1 = nowMs(), waitedUs = nowUs() - u0;
         s->sumWait += w1 - w0;
         atomic_store(&s->whereAt, w1); atomic_store(&s->where, 3);
         if (r < 0) {
@@ -245,9 +246,12 @@ static void *loop(void *arg) {
         atomic_store(&s->dataAt, reapNow);
         /* Not run for longer than the queue lasts: the DAC ran dry for a moment. Put down to where the time went. */
         long long gap = reapNow - s->lastReap;
-        /* After the longest gap: the transfers that come back without a wait were waiting already */
+        /* After the longest gap: the transfers that come back without waiting at all (under 0.2 ms; a normal one waits
+         * about 1 ms, the length of one) were back already, collected late: many of them is the phone not letting this
+         * thread have them (the USB itself was fine), few is the USB having stopped. Counted in ms, every normal wait
+         * looked like none (4.5.13's "756 already back"). */
         if (s->counting) {
-            if (w1 - w0 <= 1) s->ready++;
+            if (waitedUs < 200) s->ready++;
             else { atomic_store(&s->lgReady, s->ready); s->counting = 0; }
         }
         if (s->lastReap != 0 && gap > NURB * 8 / 10 && !atomic_load(&s->paused)) {
