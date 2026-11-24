@@ -1916,6 +1916,10 @@ private fun SeamlessBtLines(device: String?, here: String) {
             Pill(s.autoButton) { s.toggleAuto() }
             Spacer(Modifier.height(6.dp))
         }
+        Text("Keep Wi-Fi switched ON. It doesn't need to be connected to anything: no network, no internet. It only has " +
+            "to be on, because wireless Android Auto links to the truck over Wi-Fi by itself (and Shizuku is started over " +
+            "Wi-Fi). Your mobile data keeps working as always.",
+            style = T.body.copy(color = C.accent), modifier = Modifier.padding(bottom = 8.dp))
         Text("How to use the Android Auto button (in the player's notification, and here):\n" +
             "• Off (a crossed-out car): Android Auto is stopped and the truck disconnected, and the truck's music " +
             "connection stays off, so it can't take the music and it never stutters as you walk near it or away from it. " +
@@ -1944,6 +1948,7 @@ private fun SeamlessBtLines(device: String?, here: String) {
         "Wireless debugging, switch it on, tap Pair device with pairing code, and type the code into Shizuku's notification. " +
         "4. In Shizuku, tap Start. " +
         "5. Flip the switch above and tap Allow when Shizuku asks. " +
+        "Keep Wi-Fi switched on from then on: nothing needs to be connected, it only has to be on. " +
         "Shizuku doesn't need to stay open, only running. After the phone restarts it has to be started again: newer " +
         "Shizuku can do that by itself on your home Wi-Fi (its start-on-boot setting); otherwise open it and tap Start. " +
         "Uninstalling Radon Player? Switch this off first, so ${device ?: "the device"} connects as before.",
