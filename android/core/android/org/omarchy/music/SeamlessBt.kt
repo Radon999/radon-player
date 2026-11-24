@@ -30,7 +30,7 @@ import rikka.shizuku.Shizuku
 object SeamlessBt {
     const val SHIZUKU = "moe.shizuku.privileged.api"
     private const val ASK = 4517       // Shizuku's permission question
-    private const val VERSION = 2      // SeamlessBtService's: a new one replaces a running old one (2: which connection)
+    private const val VERSION = 3      // SeamlessBtService's: a new one replaces a running old one (3: disconnect, Android Auto)
     private const val RETRY_MS = 60_000L
 
     /** What it's doing or waiting on, for Settings. */
@@ -111,10 +111,14 @@ object SeamlessBt {
         private set
     val autoOn: Boolean get() = autoButton.isNotEmpty() && !callsOff
     /** The button as you last set it: null not tapped (your headphones decide: off while they're connected), true on,
-     *  false off (headphones or not). */
-    private var autoState: Boolean? = null
+     *  false off (headphones or not). Kept, so off stays off until you turn it on (the app starting again too). */
+    private var autoState: Boolean?
+        get() = when (Prefs.text(Prefs.IGNORE_BT_AUTO)) { "on" -> true; "off" -> false; else -> null }
+        set(v) = Prefs.setText(Prefs.IGNORE_BT_AUTO, when (v) { true -> "on"; false -> "off"; null -> "" })
     private var sawCar = false        // on, and the truck has connected since
     private var callsOff = false      // the truck's calls connection is meant to be off now
+    /** What the truck's link was last made (true off: disconnected, Android Auto stopped; false on), null not yet. */
+    private var linkedOff: Boolean? = if (Prefs.on(Prefs.IGNORE_BT_AUTO_STOPPED)) true else null   // (Android Auto stopped by the app: remembered)
 
     /** The button: a tap always switches it, and says what it is now (on the screen, or as Android's own message from
      *  the notification, where the app's messages don't show), and why nothing changes yet if Shizuku can't do it. On:
@@ -129,7 +133,7 @@ object SeamlessBt {
         val nowOn = autoState == true
         val what = if (nowOn) "Android Auto on: the truck can connect for its map and calls" +
             (if (wasElsewhere) ", the music stays on your headphones" else "")
-            else "Android Auto off: the truck is kept disconnected"
+            else "Android Auto off: the truck is disconnected and kept off, Android Auto stopped"
         val problem = when {
             !running() -> "Shizuku isn't running, so the truck can't be switched yet: open Shizuku and tap Start"
             !allowed() -> "Radon Player isn't allowed in Shizuku yet (Settings › Playback)"
@@ -150,6 +154,8 @@ object SeamlessBt {
      *  where they should be, and say how it stands. */
     fun update() {
         val mine = mine()
+        // Switched off with Android Auto stopped by it: let it start again, and connect the truck
+        if (!on && linkedOff == true && supported) relink(false, IgnoreBt.ignored().filter { it != BtRoute.AUTO })
         if (!on && mine.isEmpty()) { status = ""; step = ""; autoButton = ""; return }
         listen()
         val now = SystemClock.elapsedRealtime()
@@ -174,6 +180,10 @@ object SeamlessBt {
         callsOff = want.any { BtIgnoreRules.parseOff(it).second == BtIgnoreRules.HEADSET }
         autoButton = if (on && IgnoreBt.on && ignored.isNotEmpty())
             (if (callsOff) "Android Auto off: tap to connect" else "Android Auto on: tap to disconnect") else ""
+        // Off: the truck disconnected outright and Android Auto stopped (switching its connections off didn't end one
+        // already up, and Android Auto kept the truck connected wirelessly by itself); on again: both undone. Once each
+        // time it changes (and not "on" at the start, with nothing to undo).
+        if (on && supported && ignored.isNotEmpty() && callsOff != linkedOff && (callsOff || linkedOff == true)) relink(callsOff, ignored)
         // Headphones gone a moment ago: the truck back once they've been gone long enough, so look again then
         h.removeCallbacks(again)
         if (!elsewhere && goneAt > 0 && now - goneAt < BtIgnoreRules.ELSEWHERE_GONE_MS)
@@ -265,8 +275,8 @@ object SeamlessBt {
             !IgnoreBt.on -> "Ready, but Ignore Bluetooth devices is off: switch it on above (this only takes away its stutter)" to ""
             IgnoreBt.ignored().none { it != BtRoute.AUTO } -> "Ready: pick the device to ignore above (your truck's Bluetooth)" to ""
             failure.isNotEmpty() -> "Shizuku couldn't switch it: $failure" to ""
-            autoState == true -> "Android Auto on: ${IgnoreBt.ignored().filter { it != BtRoute.AUTO }.joinToString(", ")} may connect for its map and calls, the music stays on your " +
-                "headphones. Tap the Android Auto button again when you leave" to ""
+            autoState == true -> "Android Auto on: ${IgnoreBt.ignored().filter { it != BtRoute.AUTO }.joinToString(", ")} may connect for its map and calls" +
+                (if (wasElsewhere) ", the music stays on your headphones" else "") + ". Tap the Android Auto button again when you leave" to ""
             whole -> "Working: $names is kept disconnected, so it can't cut the music in and out. For its GPS, tap the " +
                 "Android Auto button (in the player's notification, or below)" to ""
             mine.isNotEmpty() -> "Working: $names has Media audio off while your headphones are connected" to ""
@@ -304,5 +314,56 @@ object SeamlessBt {
             b.transact(SeamlessBtService.SET, data, reply, 0)
             return Triple(reply.readInt(), reply.readInt(), reply.readString() ?: "")
         } finally { data.recycle(); reply.recycle() }
+    }
+
+    /** (a background thread) Any other call inside Shizuku, with what it's given: (result, a number, why not). */
+    private fun ask(b: IBinder, code: Int, fill: (Parcel) -> Unit): Triple<Int, Int, String> {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            fill(data)
+            b.transact(code, data, reply, 0)
+            return Triple(reply.readInt(), reply.readInt(), reply.readString() ?: "")
+        } finally { data.recycle(); reply.recycle() }
+    }
+
+    /** The truck's link to go with the button (see update). Off: Android Auto stopped first (else it connects the truck
+     *  again at once), then, once its connections are switched off (update's switching, a moment), the truck
+     *  disconnected outright. On: Android Auto allowed to start again, and the truck connected (its connections are
+     *  allowed again meanwhile). Needs Shizuku: without it this waits, and is done at the next look once it can be. */
+    private fun relink(off: Boolean, ignored: List<String>) {
+        if (!allowed()) return
+        val s = service ?: run { bind(SystemClock.elapsedRealtime()); h.postDelayed(again, 2000); return }
+        linkedOff = off
+        Prefs.set(Prefs.IGNORE_BT_AUTO_STOPPED, off)
+        val user = android.os.Process.myUid() / 100_000
+        Music.scope.launch(Dispatchers.IO) {
+            val notes = ArrayList<String>()
+            val serious = ArrayList<String>()   // worth Problems: Android Auto not stopped, the truck not found
+            fun note(what: String, a: Triple<Int, Int, String>, big: Boolean) {
+                if (a.first == SeamlessBtService.DONE) return
+                val line = "$what: ${a.third.ifEmpty { "it didn't work" }}"
+                notes += line
+                if (big || a.first == SeamlessBtService.NOT_PAIRED) serious += line
+            }
+            note(if (off) "stopping Android Auto" else "letting Android Auto start",
+                runCatching { ask(s, SeamlessBtService.AUTO) { it.writeInt(if (off) 1 else 0); it.writeInt(user) } }
+                    .getOrElse { Triple(SeamlessBtService.ERROR, -1, it.toString()) }, off)
+            Thread.sleep(1500)   // the connections switched meanwhile (update), so it doesn't connect straight back
+            // (a truck out of range may answer that it isn't connected: a note in Sound lately only)
+            for (name in ignored) note((if (off) "disconnecting " else "connecting ") + name,
+                runCatching { ask(s, if (off) SeamlessBtService.DROP else SeamlessBtService.CONNECT) { it.writeString(name) } }
+                    .getOrElse { Triple(SeamlessBtService.ERROR, -1, it.toString()) }, false)
+            h.post {
+                SoundLog.note("Android Auto button: the truck " + (if (off) "disconnected, Android Auto stopped" else "connecting, Android Auto allowed") +
+                    if (notes.isEmpty()) "" else " · " + notes.joinToString("; "))
+                // Connecting a truck that's out of range can't work: only stopping and disconnecting are worth a note
+                if (off && serious.isNotEmpty()) {
+                    failure = serious.joinToString("; ")
+                    Crashes.note("Ignore Bluetooth devices: no stutter at all, Android Auto off didn't fully work: ${serious.joinToString("; ")}")
+                }
+                runCatching { BtRoute.check() }
+            }
+        }
     }
 }

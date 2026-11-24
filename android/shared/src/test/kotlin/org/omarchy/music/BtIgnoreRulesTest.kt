@@ -101,9 +101,9 @@ class BtIgnoreRulesTest {
         assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, setOf("Chevy"), autoOn = null))
         // button on: only its Media audio stays off (the music on the earbuds)
         assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, emptySet(), autoOn = true))
-        // button off: its calls off even while connected, and even with no earbuds (its Media audio is then its own)
+        // button off: everything off, even while connected, and even with no earbuds (music too)
         assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(truck, truck, setOf("Chevy"), autoOn = false))
-        assertEquals(calls, BtIgnoreRules.keptOff(emptyList(), truck, emptySet(), autoOn = false))
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(emptyList(), truck, emptySet(), autoOn = false))
         // no earbuds, not tapped: nothing kept off
         assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), truck, emptySet(), autoOn = null))
     }

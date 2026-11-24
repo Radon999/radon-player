@@ -1893,14 +1893,15 @@ private fun SeamlessBtLines(device: String?, here: String) {
             Spacer(Modifier.height(6.dp))
         }
         Text("How to use the Android Auto button (in the player's notification, and here):\n" +
-            "• Off (a crossed-out car): your truck is kept disconnected, so the music never stutters as you walk near it " +
-            "or away from it. Leave it off whenever you're not driving.\n" +
-            "• On (a car): tap it when you get in and need the truck's GPS or Android Auto. The truck connects; the music " +
-            "stays on your headphones.\n" +
+            "• Off (a crossed-out car): your truck is disconnected completely (music, calls, everything Bluetooth) and " +
+            "Android Auto is stopped, so nothing reconnects it and the music never stutters as you walk near it or away " +
+            "from it. Calls come to your headphones or the phone meanwhile. Leave it off whenever you're not driving.\n" +
+            "• On (a car): tap it when you get in and need the truck's GPS or Android Auto. Android Auto may start, the " +
+            "truck connects; the music stays on your headphones while they're connected.\n" +
             "• Tap it off again when you leave the truck, or the stutter comes back as you walk away and come back near it. " +
-            "(It also goes off by itself once the truck disconnects.)\n" +
-            "With no headphones connected, the truck connects and plays the music as usual (the button then says on); " +
-            "the button still switches Android Auto off and on then, it just can't keep the music off the truck.",
+            "(It also goes off by itself once the truck disconnects, while your headphones are connected.)\n" +
+            "Off stays off until you turn it on, headphones or not (with no headphones the music then plays on the phone). " +
+            "Not tapped yet, with no headphones connected the truck connects and plays as usual.",
             style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 8.dp))
     }
     if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +
