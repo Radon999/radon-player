@@ -106,6 +106,17 @@ object SafeWrite {
         saveLater(ctx)
     }
 
+    /** The copies in the app's tag-work folder that nothing will use any more (a write cut short before its copy was
+     *  noted): not the note of a write under way (pending.txt) or its copy, not a change waiting for its song to finish
+     *  playing (later.txt and its copies). Each one is a whole song. (blocking: waits for a write under way) */
+    fun leftovers(ctx: Ctx): List<File> = synchronized(lock) {
+        val keep = HashSet<String>()
+        keep += journal(ctx).path; keep += laterFile(ctx).path
+        later(ctx).values.forEach { keep += it.path }
+        readText(journal(ctx))?.lineSequence()?.firstOrNull()?.let { keep += it }
+        dir(ctx).listFiles()?.filter { it.isFile && it.path !in keep }.orEmpty()
+    }
+
     /** The copy written over your file, and your file then measured: it must be as long as the copy (once more if not). */
     /** A writer that changes a file where it is (a repair, a tag blanked in place, a WAV's own writer) takes its turn
      *  with every other: never while another write of the app's is under way. */

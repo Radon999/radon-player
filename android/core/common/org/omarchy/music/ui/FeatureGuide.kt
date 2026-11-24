@@ -188,6 +188,7 @@ val FEATURE_GUIDE: String = listOf(
     "- **Wake-up timer:** start a playlist at a time you set, while the app is open.",
     "- **Updates:** checked at each start; **Update** in Settings installs it, and a card says what's new.",
     "- **Problems** (Settings) lists anything that went wrong lately, and **Details for support** copies what someone helping you would ask for (no sign-ins or song names), with Clear for when it's fixed.",
+    "- **Clear unimportant cache and data** (Settings › General): shows the leftovers it found and their sizes, and clears them once you say so: pieces of downloads cut short, covers copied out of songs played before, an installed update, short-lived files (the DJ's last line, a sync's or an import's copy, pictures you shared), cut-short downloads of the DJ's voice or the listening model, copies of songs left by a tag change cut short, and the sign-in pages' web cache. Only files untouched for an hour. Settings, playlists, favorites, stats, equalizers and presets, lyrics and the lyrics scan, moods, sign-ins, backups, the DJ's voice, the listening model and the caches that make the app fast all stay.",
     "- **Changelog and Features** are in the ☰ menu.",
     "",
 ).joinToString("\n")

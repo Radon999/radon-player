@@ -198,6 +198,26 @@ private fun AccountsSheet(ui: Ui) {
                     ui.confirm = "Clear the problems noted so far? The details will hold only what goes wrong from now on" to { org.omarchy.music.Crashes.clear(); Music.toast("Cleared: the details hold no problems now") }
                 }
             }
+            // Leftovers only (SpaceCleanup): found first and shown with their sizes, cleared once you say so
+            Line("Clear unimportant cache and data", "Frees the space taken by leftovers the app doesn't need: pieces of downloads " +
+                "cut short, covers copied out of songs played before, an installed update, short-lived files. Your settings, " +
+                "playlists, favorites, stats, equalizers and presets, lyrics, moods, sign-ins, backups, the DJ's voice and the " +
+                "caches that make it fast (covers, artist photos, lyrics found online) all stay", false) {
+                Pill("Look…", quiet = true) {
+                    Music.bg({ org.omarchy.music.SpaceCleanup.look(Music.ctx) }) { kinds, _ ->
+                        val k = kinds.orEmpty()
+                        if (k.isEmpty()) { Music.toast("Nothing to clear: there are no leftovers"); return@bg }
+                        val total = k.sumOf { it.bytes }
+                        ui.confirm = ("Clear ${org.omarchy.music.SpaceCleanup.mb(total)} of leftovers?\n\n" +
+                            k.joinToString("\n") { "• ${it.what}: ${org.omarchy.music.SpaceCleanup.mb(it.bytes)}" } +
+                            "\n\nNothing else is touched.") to {
+                            Music.bg({ org.omarchy.music.SpaceCleanup.clear(Music.ctx) }) { freed, err ->
+                                Music.toast(if (freed != null) "Freed ${org.omarchy.music.SpaceCleanup.mb(freed)}" else "Couldn't clear it all: ${err?.message}")
+                            }
+                        }
+                    }
+                }
+            }
             // What went wrong lately (the app closing, or errors it lived through): copy it to send it on.
             if (problems.isNotEmpty()) {
                 Line("Problems", problems.lineSequence().first().split(" · ").let { "${it.last()} · ${it.first()}" }, false) {

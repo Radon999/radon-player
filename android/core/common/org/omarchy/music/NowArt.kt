@@ -38,6 +38,8 @@ object NowArt {
         java.security.MessageDigest.getInstance("SHA-1").digest(file.toByteArray()).joinToString("") { "%02x".format(it) }.take(24) + ".jpg"
 
     private val fileArts = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** The covers made since the app started (still shown, or about to be): the ones in now-art not to clear away. */
+    fun inUse(): Set<String> = fileArts.values.filter { it.isNotEmpty() }.toSet()
     private fun fileArt(file: String): String? {
         fileArts[file]?.let { return it.ifEmpty { null } }
         val ctx = Music.ctx
