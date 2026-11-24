@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 4.5.18 · November 2026
+- **Android Auto on brings the truck back (the phone, Ignore Bluetooth devices: no stutter at all):** with Shizuku running, tapping Android Auto on didn't reconnect the truck for its GPS: the truck was asked to connect before its calls connection was allowed again, so nothing connected, and nothing tried again. Now the app waits until the truck's calls connection is allowed, then connects it, and tries once more a few seconds later if the truck still isn't connected.
+
 ## 4.5.17 · November 2026
 - **Presets for each output (the phone and the PC):** in the Equalizer (Now playing's and the tab's), under the output picked, a drop-down with its name lists its own presets. **Save as preset…** keeps its whole EQ (Sound, bands, correction, bass and treble, Boost) under a name you give it, and can make it the **default** (★): switched in each time the sound goes to that output. Tap one to use it, × to delete it. The presets of the outputs both devices meet (Bluetooth headphones and speakers, the USB DAC, the car) sync; all of them go into backups. The shared Sound presets' button now reads **Save as Sound preset…**.
 - **Clear unimportant cache and data (Settings › General):** **Look…** shows the leftovers it found and their sizes, and clears them only once you say so: covers copied out of songs played before, pieces of downloads cut short, an installed update, short-lived files, cut-short downloads of the DJ's voice or the listening model, copies of songs left by a tag change cut short, and the sign-in pages' web cache. Your settings, playlists, stats, equalizers, lyrics, moods, sign-ins, backups and the caches that make the app fast all stay.

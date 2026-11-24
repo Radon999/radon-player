@@ -1,0 +1,6 @@
+v4.5.18
+Radon Player 4.5.18: Android Auto on brings the truck back
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.18.msi` (Windows), `radon-player_4.5.18_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Android Auto on brings the truck back (the phone, Ignore Bluetooth devices: no stutter at all):** with Shizuku running, tapping Android Auto on didn't reconnect the truck for its GPS: the truck was asked to connect before its calls connection was allowed again, so nothing connected, and nothing tried again. Now the app waits until the truck's calls connection is allowed, then connects it, and tries once more a few seconds later if the truck still isn't connected.
