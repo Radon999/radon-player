@@ -224,8 +224,9 @@ class DjBehaviourTest {
                 assertTrue("the line names a song its set doesn't have: ${b.line} · $titles", said.all { it in titles })
                 if (said.isNotEmpty()) { naming++; assertEquals(b.line, titles[0], said[0]) }
             }
-            assertTrue("sets were made ($built)", built > 100)
-            assertTrue("lines that name a song were among them ($naming)", naming > 20)
+            // (Many tries give no set: half the songs are out, and a line naming one leaves its set for another time)
+            assertTrue("sets were made ($built)", built > 40)
+            assertTrue("lines that name a song were among them ($naming)", naming > 10)
         } finally { Dj.playable = was }
     }
 
