@@ -1,9 +1,9 @@
-commit bf9af156368c4622091abe0d9852e369b8e7c7d3 · run 45309737133 · Tue Nov 24 02:11:59 UTC 2026
-PHONE INSTALL-OVER: made, Radon Player Next 3.3.0, the test key: it installs over the app on the phone
-package: name='org.omarchy.music.next' versionCode='30300' versionName='3.3.0' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+commit 04004482162f4f04436e9493a476cb3fa4e9a14f · run 45317202921 · Tue Nov 24 03:13:08 UTC 2026
+PHONE INSTALL-OVER: made, Radon Player Next 4.5.12, the test key: it installs over the app on the phone
+package: name='org.omarchy.music.next' versionCode='40512' versionName='4.5.12' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
 /home/runner/work/_temp/badging.txt:application-label:'Radon Player Next'
 /home/runner/work/_temp/certs.txt:V2 Signer: certificate SHA-256 digest: ecb1d00a5af31235763dd087351edecf9237999628ad09002c481e1e152a76f9
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45309737133/artifacts/14883446167
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45317202921/artifacts/14886806216
 --- errors
 e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
     1. Kotlin compile daemon is ready
@@ -23,5 +23,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 16s
+BUILD SUCCESSFUL in 4m 45s
 95 actionable tasks: 95 executed
