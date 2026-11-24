@@ -94,11 +94,16 @@ object BtIgnoreRules {
     fun mediaOff(on: Boolean, ignored: List<String>, elsewhere: Boolean, elsewhereGoneAt: Long, now: Long): List<String> =
         if (on && (elsewhere || (elsewhereGoneAt > 0 && now - elsewhereGoneAt < ELSEWHERE_GONE_MS))) ignored else emptyList()
 
-    // Bluetooth's profiles, as Android numbers them (BluetoothProfile): the media one, and calls (Android Auto starts
-    // over it; before 4.5.19 the app kept it off too, with the truck's phonebook, messages, SIM and LE Audio: those
-    // are given back wherever they're still off)
+    // Bluetooth's profiles, as Android numbers them (BluetoothProfile): the media one, and the others a car connects
+    // with: calls (Android Auto starts over it), its phonebook, its messages, the SIM, and LE Audio (calls and music on
+    // newer cars). Off together they leave the truck nothing to connect for.
     const val A2DP = 2
     const val HEADSET = 1
+    const val PBAP = 6
+    const val MAP = 9
+    const val SAP = 10
+    const val LE_AUDIO = 22
+    val CALL_PROFILES = listOf(HEADSET, PBAP, MAP, SAP, LE_AUDIO)
 
     /** How the app remembers a device's profile it switched off: the name alone for Media audio (as kept before
      *  calls were switched too), "name|profile" for the others. */
@@ -108,13 +113,15 @@ object BtIgnoreRules {
         return if (p == null) key to A2DP else key.substringBeforeLast('|') to p
     }
 
-    /** Ignore Bluetooth devices with Shizuku: the ignored devices to have Media audio switched off now, the one thing
-     *  the app keeps switched off (it outlasts Shizuku stopping, and the truck needs nothing of it: Android Auto brings
-     *  its own sound). autoOn false (the Android Auto button off): every ignored device's, headphones or not; else
-     *  while your headphones have the music ([mediaOff]). The calls connection is never kept off: when Shizuku had
-     *  stopped, the truck then couldn't connect for Android Auto until Shizuku ran again (the owner's, needing USB). */
-    fun keptOff(mediaOff: List<String>, ignored: List<String>, autoOn: Boolean?): List<String> =
-        (if (autoOn == false) ignored else mediaOff).map { offKey(it, A2DP) }
+    /** Ignore Bluetooth devices with Shizuku: every (device, profile) to have switched off now. Media audio: every
+     *  ignored device's with the Android Auto button off, else while your headphones have the music ([mediaOff]).
+     *  While Android Auto is kept off ([autoKeptOff]), the rest of every ignored device's too: any link the truck has,
+     *  calls only even, shares the phone's Bluetooth with your earbuds and stutters them at the edge of its range (the
+     *  owner's, 4.5.19 letting the truck connect for calls). If Shizuku stops while they're off, tapping the note the
+     *  app shows opens Bluetooth settings to switch them on there. */
+    fun keptOff(mediaOff: List<String>, ignored: List<String>, autoOn: Boolean?, autoOff: Boolean): List<String> =
+        (if (autoOn == false) ignored else mediaOff).map { offKey(it, A2DP) } +
+            (if (autoOff) ignored.flatMap { n -> CALL_PROFILES.map { offKey(n, it) } } else emptyList())
 
     /** Whether Android Auto is kept off now (stopped, the truck disconnected once): the button off; on, not. Not
      *  tapped: while your headphones have the music and the truck isn't connected for calls already (putting the

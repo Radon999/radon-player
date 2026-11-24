@@ -92,15 +92,18 @@ class BtIgnoreRulesTest {
         assertEquals("Chevy" to BtIgnoreRules.A2DP, BtIgnoreRules.parseOff("Chevy"))   // kept before calls were switched too
     }
 
-    @Test fun onlyMediaAudioIsKeptOff() {
+    @Test fun keptOffByTheHeadphonesAndWhetherAndroidAutoIs() {
         val truck = listOf("Chevy")
-        // earbuds on (button not tapped, or on): the truck's Media audio off, nothing else (its calls connection never)
-        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, autoOn = null))
-        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, autoOn = true))
-        // button off: its Media audio off even with no earbuds
-        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(emptyList(), truck, autoOn = false))
+        val calls = BtIgnoreRules.CALL_PROFILES.map { BtIgnoreRules.offKey("Chevy", it) }
+        // earbuds on, Android Auto allowed (on, or the truck already connected): only its Media audio
+        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, autoOn = true, autoOff = false))
+        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, autoOn = null, autoOff = false))
+        // Android Auto kept off: everything of the truck's (any link of its stutters the earbuds)
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(truck, truck, autoOn = null, autoOff = true))
+        // the button off: everything, even with no earbuds
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(emptyList(), truck, autoOn = false, autoOff = true))
         // no earbuds, not tapped: nothing
-        assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), truck, autoOn = null))
+        assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), truck, autoOn = null, autoOff = false))
     }
 
     @Test fun androidAutoKeptOffByTheButtonAndTheHeadphones() {
