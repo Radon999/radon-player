@@ -38,8 +38,15 @@ typedef struct {
     uint32_t nominal;    /* frames per packet, Q16.16 */
     _Atomic uint32_t fpp;
     uint32_t acc;
-    uint8_t *ring; size_t cap, head, tail, count;
-    pthread_mutex_t mu;
+    /* The music waiting: the player's thread (and the DJ's voice) write in at head, this stream's sending thread takes
+     * from tail. count is the one thing they share, atomically: the writer never holds a lock the sending thread needs.
+     * Before, both took one lock, and a writer the phone stopped running mid-copy (opening an app, the recent apps) held
+     * the sending thread up with it, far below it in priority: the DAC ran dry (a gap of 50 to 80 ms, 23 Nov 2026).
+     * wmu keeps writers in turn (never the sending thread); mu keeps the sending thread's taking apart from a flush and
+     * from reading what's unsent (both rare, both writers' own, and both take wmu first). */
+    uint8_t *ring; size_t cap, head, tail;
+    _Atomic size_t count;
+    pthread_mutex_t mu, wmu;
     _Atomic long long played;   /* music frames the DAC has taken since the last flush */
     _Atomic int inflight;       /* music frames queued in URBs */
     _Atomic int running, paused, muted, gen, error;
@@ -75,13 +82,27 @@ static pthread_rwlock_t g_live = PTHREAD_RWLOCK_INITIALIZER;
 static Stream *g_streams[NLIVE];
 static int alive(Stream *s) { if (!s) return 0; for (int i = 0; i < NLIVE; i++) if (g_streams[i] == s) return 1; return 0; }
 
+/* (the sending thread, mu held) */
 static size_t ringTake(Stream *s, uint8_t *dst, size_t want) {
-    size_t n = want < s->count ? want : s->count;
+    size_t have = atomic_load_explicit(&s->count, memory_order_acquire);
+    size_t n = want < have ? want : have;
     size_t first = s->cap - s->tail; if (first > n) first = n;
     memcpy(dst, s->ring + s->tail, first);
     memcpy(dst + first, s->ring, n - first);
-    s->tail = (s->tail + n) % s->cap; s->count -= n;
+    s->tail = (s->tail + n) % s->cap;
+    atomic_fetch_sub_explicit(&s->count, n, memory_order_release);
     return n;
+}
+
+/* A URB handed to the kernel; a moment's refusal (the phone short of memory as an app opens, a signal) is tried again
+ * at once rather than ending the stream: before, it was set up again from scratch, a gap each time. */
+static int submit(Stream *s, struct usbdevfs_urb *u) {
+    for (int tries = 0; ; tries++) {
+        if (ioctl(s->fd, USBDEVFS_SUBMITURB, u) == 0) return 0;
+        int e = errno;
+        if (tries >= 20 || (e != EINTR && e != EAGAIN && e != ENOMEM && e != EBUSY)) return e;
+        usleep(500);
+    }
 }
 
 /* Fills a data URB: packet by packet, the frames the DAC wants now (the accumulator carries the fraction). */
@@ -142,7 +163,7 @@ static void submitFb(Stream *s, int i) {
     u->number_of_packets = 1;
     u->iso_frame_desc[0].length = (unsigned)s->fbMaxPacket;
     u->usercontext = (void *)(intptr_t)(1000 + i);
-    if (ioctl(s->fd, USBDEVFS_SUBMITURB, u) < 0) s->fbEp = 0;   /* no feedback then: nominal rate */
+    if (submit(s, u) != 0) s->fbEp = 0;   /* no feedback then: nominal rate */
     else atomic_fetch_add(&s->outstanding, 1);
 }
 
@@ -173,8 +194,8 @@ static void *loop(void *arg) {
     for (int i = 0; i < NURB; i++) {
         fill(s, &s->slots[i]);
         s->slots[i].urb->usercontext = (void *)(intptr_t)i;
-        if (ioctl(s->fd, USBDEVFS_SUBMITURB, s->slots[i].urb) < 0) { atomic_store(&s->error, errno); atomic_store(&s->running, 0); }
-        else atomic_fetch_add(&s->outstanding, 1);
+        { int e = submit(s, s->slots[i].urb); if (e) { atomic_store(&s->error, e); atomic_store(&s->running, 0); }
+          else atomic_fetch_add(&s->outstanding, 1); }
     }
     if (s->fbEp) for (int i = 0; i < NFB; i++) submitFb(s, i);
     while (atomic_load(&s->running)) {
@@ -214,7 +235,7 @@ static void *loop(void *arg) {
         if (done->status == -ENODEV || done->status == -ESHUTDOWN) { atomic_store(&s->error, ENODEV); break; }
         if (!atomic_load(&s->running)) continue;
         fill(s, sl);
-        if (ioctl(s->fd, USBDEVFS_SUBMITURB, sl->urb) < 0) { atomic_store(&s->error, errno); break; }
+        { int e = submit(s, sl->urb); if (e) { atomic_store(&s->error, e); break; } }
         atomic_fetch_add(&s->outstanding, 1);
     }
     atomic_store(&s->running, 0);
@@ -234,7 +255,7 @@ JNIEXPORT jlong JNICALL Java_org_omarchy_music_UsbNative_start(JNIEnv *env, jcla
     atomic_store(&s->fpp, s->nominal);
     s->cap = (size_t)rate * (size_t)frameBytes * (size_t)bufferMs / 1000; s->cap -= s->cap % (size_t)frameBytes;
     s->ring = malloc(s->cap);
-    pthread_mutex_init(&s->mu, NULL);
+    pthread_mutex_init(&s->mu, NULL); pthread_mutex_init(&s->wmu, NULL);
     for (int i = 0; i < NURB; i++) {
         s->slots[i].urb = calloc(1, sizeof(struct usbdevfs_urb) + (size_t)s->pktsPerUrb * sizeof(struct usbdevfs_iso_packet_desc));
         s->slots[i].buf = malloc((size_t)maxPacket * (size_t)s->pktsPerUrb);
@@ -255,21 +276,23 @@ JNIEXPORT jlong JNICALL Java_org_omarchy_music_UsbNative_start(JNIEnv *env, jcla
     return (jlong)(intptr_t)s;
 }
 
-/* Copies as much of the buffer as fits (whole frames); the bytes taken. */
+/* Copies as much of the buffer as fits (whole frames); the bytes taken. Never waits on the sending thread, and the
+ * sending thread never waits on it (see count). */
 static jint impl_write(JNIEnv *env, jclass c, jlong h, jobject buf, jint off, jint len) {
     Stream *s = (Stream *)(intptr_t)h;
     if (!s || !atomic_load(&s->running)) return -1;
     uint8_t *src = (uint8_t *)(*env)->GetDirectBufferAddress(env, buf);
     if (!src) return -1;
-    pthread_mutex_lock(&s->mu);
-    size_t room = s->cap - s->count;
+    pthread_mutex_lock(&s->wmu);
+    size_t room = s->cap - atomic_load_explicit(&s->count, memory_order_acquire);
     size_t n = (size_t)len < room ? (size_t)len : room;
     n -= n % (size_t)s->frameBytes;
     size_t first = s->cap - s->head; if (first > n) first = n;
     memcpy(s->ring + s->head, src + off, first);
     memcpy(s->ring, src + off + first, n - first);
-    s->head = (s->head + n) % s->cap; s->count += n;
-    pthread_mutex_unlock(&s->mu);
+    s->head = (s->head + n) % s->cap;
+    atomic_fetch_add_explicit(&s->count, n, memory_order_release);   /* only now can the sending thread see it */
+    pthread_mutex_unlock(&s->wmu);
     return (jint)n;
 }
 
@@ -280,7 +303,7 @@ static jlong impl_played(JNIEnv *env, jclass c, jlong h) {
 /* Music frames not heard yet: in the ring and in queued URBs. */
 static jlong impl_pending(JNIEnv *env, jclass c, jlong h) {
     Stream *s = (Stream *)(intptr_t)h; if (!s) return 0;
-    pthread_mutex_lock(&s->mu); size_t n = s->count; pthread_mutex_unlock(&s->mu);
+    size_t n = atomic_load_explicit(&s->count, memory_order_acquire);
     return (jlong)(n / (size_t)s->frameBytes) + atomic_load(&s->inflight);
 }
 
@@ -310,15 +333,19 @@ static jint impl_error(JNIEnv *env, jclass c, jlong h) {
 /* The music in the ring not sent yet (for a stream set up again: it goes on in the new one, nothing skipped). */
 static jbyteArray impl_unsent(JNIEnv *env, jclass c, jlong h) {
     Stream *s = (Stream *)(intptr_t)h; if (!s) return NULL;
+    /* Where it starts and how much, read in a moment under mu; copied after it's let go (with the writers held off,
+     * nothing in it can be written over meanwhile), so the sending thread isn't held up by the copy */
+    pthread_mutex_lock(&s->wmu);
     pthread_mutex_lock(&s->mu);
-    size_t n = s->count;
+    size_t n = atomic_load(&s->count), t = s->tail;
+    pthread_mutex_unlock(&s->mu);
     jbyteArray out = (*env)->NewByteArray(env, (jsize)n);
     if (out && n) {
-        size_t first = s->cap - s->tail; if (first > n) first = n;
-        (*env)->SetByteArrayRegion(env, out, 0, (jsize)first, (const jbyte *)(s->ring + s->tail));
+        size_t first = s->cap - t; if (first > n) first = n;
+        (*env)->SetByteArrayRegion(env, out, 0, (jsize)first, (const jbyte *)(s->ring + t));
         if (n > first) (*env)->SetByteArrayRegion(env, out, (jsize)first, (jsize)(n - first), (const jbyte *)s->ring);
     }
-    pthread_mutex_unlock(&s->mu);
+    pthread_mutex_unlock(&s->wmu);
     return out;
 }
 
@@ -340,11 +367,13 @@ static void impl_setMuted(JNIEnv *env, jclass c, jlong h, jboolean m) {
 /* Throws away what's waiting (a seek, a new song): the queued URBs finish as they are but no longer count. */
 static void impl_flush(JNIEnv *env, jclass c, jlong h) {
     Stream *s = (Stream *)(intptr_t)h; if (!s) return;
+    pthread_mutex_lock(&s->wmu);
     pthread_mutex_lock(&s->mu);
-    s->head = s->tail = s->count = 0;
+    s->head = s->tail = 0; atomic_store(&s->count, 0);
     atomic_fetch_add(&s->gen, 1);
     atomic_store(&s->played, 0);
     pthread_mutex_unlock(&s->mu);
+    pthread_mutex_unlock(&s->wmu);
 }
 
 JNIEXPORT void JNICALL Java_org_omarchy_music_UsbNative_stop(JNIEnv *env, jclass c, jlong h) {
@@ -374,7 +403,7 @@ JNIEXPORT void JNICALL Java_org_omarchy_music_UsbNative_stop(JNIEnv *env, jclass
     if (atomic_load(&s->outstanding) > 0) return;
     for (int i = 0; i < NURB; i++) { free(s->slots[i].urb); free(s->slots[i].buf); }
     for (int i = 0; i < NFB; i++) { free(s->fb[i]); free(s->fbBuf[i]); }
-    pthread_mutex_destroy(&s->mu);
+    pthread_mutex_destroy(&s->mu); pthread_mutex_destroy(&s->wmu);
     free(s->ring); free(s);
 }
 

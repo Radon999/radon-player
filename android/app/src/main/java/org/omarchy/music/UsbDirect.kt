@@ -459,9 +459,15 @@ object UsbDirect {
                     }
                     // Nothing back from the DAC for STALL_MS: set up again (sending the transfers again only got it going for a
                     // moment). It was 0.15 s: Android slowing the app for a moment (opening the recent apps, the screen going
-                    // off) was taken for the DAC stopping, and each restart was a gap, the DAC set up again (22 Nov 2026)
+                    // off) was taken for the DAC stopping, and each restart was a gap, the DAC set up again (22 Nov 2026).
+                    // And only when the DAC's feedback still comes back (v[10]) with the music not: both are collected by
+                    // the one sending thread, so neither coming back is that thread not being run for a moment (the phone
+                    // busy opening an app), which ends by itself; a restart then only added a gap (23 Nov 2026). A DAC
+                    // with no feedback (v[3], none ever seen) can't be told apart: as before.
                     if (v.size < 14 || v[9] < STALL_MS) { if (v.size >= 14 && v[9] < 50) kicks = 0; continue }
+                    if (v[3] > 0 && v[10] >= STALL_MS / 2) continue
                     if (++kicks > 40) break
+                    restartWhy = "the DAC stopped taking music (nothing back for ${v[9]} ms, its feedback ${v[10]} ms ago)"
                     restartWanted = h
                 }
             } finally { watching.remove(h) }
@@ -501,6 +507,8 @@ object UsbDirect {
 
     /** The watch's ask for the stream to be set up from scratch (its handle), done by the player's own thread. */
     @Volatile var restartWanted = 0L
+    /** Why the stream was last set up again, for the note when one song needs it again and again (UsbAudioSink). */
+    @Volatile var restartWhy = ""
     /** The music a stream set up again still had to send: the new one sends it first (see UsbAudioSink). */
     @Volatile var carry: ByteArray? = null
     /** (playback thread) The stream stopped and its setting forgotten, so the next begin sets the DAC up afresh. */

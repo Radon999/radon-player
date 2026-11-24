@@ -78,11 +78,13 @@ class UsbAudioSink(inner: AudioSink) : ForwardingAudioSink(inner) {
         // The stream stopped on its own (its transfers refused: "AudioTrack write failed: 32") while the DAC's still
         // plugged in: set up again and carried on, not a failed song
         if (h != 0L && h == mine && UsbNative.error(h).let { it != 0 && it != 19 } && UsbDirect.device() != null) {
+            UsbDirect.restartWhy = "the phone's USB refused the music (error ${UsbNative.error(h)})"
             UsbDirect.restartStream(); h = UsbDirect.handle
         }
         // The stream isn't this player's any more (another player, a preview, took the DAC, or it was stopped): set up
         // again for this song and carried on where it was, rather than failing ("AudioTrack write failed: -1")
         if (h != mine && UsbDirect.wanted()) {
+            if (h != 0L) UsbDirect.restartWhy = "another player took the DAC"
             val f = format
             val again = f?.let { UsbDirect.begin(rate, channels, when (inEnc) { C.ENCODING_PCM_16BIT -> 16; C.ENCODING_PCM_32BIT -> 32; else -> 24 }) }
             if (again != null && again.subslot == outSlot && UsbDirect.handle != 0L) {
@@ -98,7 +100,8 @@ class UsbAudioSink(inner: AudioSink) : ForwardingAudioSink(inner) {
                 }
                 startUs = presentationTimeUs - (UsbNative.played(h) + carried) * 1_000_000L / rate
                 // Set up again quietly (it just carries on); one song needing it again and again is noted, once
-                if (++restarts == 4) Crashes.note("USB DAC: the stream kept stopping on this song and was set up again ${restarts} times · ${UsbDirect.lastSetup}")
+                if (++restarts == 4) Crashes.note("USB DAC: the stream kept stopping on this song and was set up again ${restarts} times " +
+                    "(the last: ${UsbDirect.restartWhy.ifEmpty { "the stream ended" }}) · ${UsbDirect.lastSetup}")
             }
         }
         if (h == 0L || h != mine || UsbNative.error(h) != 0) {
