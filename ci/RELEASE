@@ -1,0 +1,8 @@
+v4.5.11
+Radon Player 4.5.11: The Android Auto button works every time, Auto mono explained, and battery
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.11.msi` (Windows), `radon-player_4.5.11_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **The Android Auto button works every time (the phone):** in 4.5.10 a tap did nothing without headphones connected, and from the notification you weren't told why. Now every tap switches it, headphones or not ("Android Auto off: tap to connect" / "Android Auto on: tap to disconnect"), and a message says what it is now, from the notification too. If Shizuku can't do it (not running, the app not allowed in it), the message, Settings and Problems say why; a truck name not found among your paired devices is said too, with the names that are.
+- **Auto mono says what it is:** it's the app's own mono, so Android's Mono audio setting (in Accessibility) isn't changed and still shows off, but the music does play in mono.
+- **Easier on the battery:** while music plays, the app no longer wakes the phone every second to look for a call (Android 12 and newer tell it the moment a call starts; the music still pauses for the call and plays again a second after it ends). Loudness compensation no longer wakes the app for every settings change while it's off.
