@@ -1792,13 +1792,17 @@ private fun AutoMonoLines() {
     val P = org.omarchy.music.Prefs
     val auto = P.on(P.AUTO_MONO)
     val picked = P.text(P.AUTO_MONO_DEVICE)
+    // The app's own mono (its sound processing), not Android's Mono audio: said, as Android's switch stays off and that
+    // looked like it hadn't worked
+    val own = ". This is the app's own mono: Android's Mono audio setting (in Accessibility) isn't changed and still " +
+        "shows off, but the music does play in mono"
     Line("Auto mono", when {
         !auto -> "Turns mono on by itself (both sides of the music in each ear, for when you only have one " +
             "earbud in) while the Bluetooth earbuds you pick are connected, and off again when they disconnect. Now playing's Mono " +
-            "button still works by hand"
-        picked.isEmpty() -> "Connect your Bluetooth earbuds, then pick them below so mono turns on whenever they're connected"
-        org.omarchy.music.AutoMono.active -> "$picked is connected, so mono is on"
-        else -> "Mono turns on whenever $picked connects, and off again when it disconnects"
+            "button still works by hand$own"
+        picked.isEmpty() -> "Connect your Bluetooth earbuds, then pick them below so mono turns on whenever they're connected$own"
+        org.omarchy.music.AutoMono.active -> "$picked is connected, so mono is on$own"
+        else -> "Mono turns on whenever $picked connects, and off again when it disconnects$own"
     }, auto) {
         Switch(auto, { Music.setOpt(P.AUTO_MONO, it) }, colors = swColors())
     }
@@ -1895,7 +1899,8 @@ private fun SeamlessBtLines(device: String?, here: String) {
             "stays on your headphones.\n" +
             "• Tap it off again when you leave the truck, or the stutter comes back as you walk away and come back near it. " +
             "(It also goes off by itself once the truck disconnects.)\n" +
-            "With no headphones connected, the truck connects and plays the music as usual (the button then says on).",
+            "With no headphones connected, the truck connects and plays the music as usual (the button then says on); " +
+            "the button still switches Android Auto off and on then, it just can't keep the music off the truck.",
             style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 8.dp))
     }
     if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +

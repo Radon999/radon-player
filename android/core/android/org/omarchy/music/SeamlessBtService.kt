@@ -52,8 +52,12 @@ class SeamlessBtService @JvmOverloads constructor(private val ctx: Context? = nu
     @SuppressLint("MissingPermission")   // the shell has BLUETOOTH_CONNECT and BLUETOOTH_PRIVILEGED
     @Synchronized private fun set(name: String, policy: Int, profile: Int): Answer {
         val p = proxy(profile) ?: return Answer(ERROR, -1, "Bluetooth's connection ($profile) couldn't be reached")
-        val dev = adapter?.bondedDevices?.firstOrNull { (runCatching { it.alias }.getOrNull() ?: it.name) == name || it.name == name }
-            ?: return Answer(NOT_PAIRED, -1, "no paired device is called $name")
+        // By the name Android lists it under (its own, or the one you gave it), as the app's list of devices has it
+        val all = adapter?.bondedDevices.orEmpty()
+        fun names(d: BluetoothDevice) = listOfNotNull(runCatching { d.alias }.getOrNull(), runCatching { d.name }.getOrNull()).map { it.trim() }
+        val dev = all.firstOrNull { d -> names(d).any { it.equals(name.trim(), ignoreCase = true) } }
+            ?: return Answer(NOT_PAIRED, -1, "no paired device is called $name (paired: " +
+                all.mapNotNull { names(it).firstOrNull() }.joinToString(", ").ifEmpty { "none" } + ")")
         // (system calls, not in the apps' SDK: by name)
         val get = p.javaClass.getMethod("getConnectionPolicy", BluetoothDevice::class.java)
         val put = p.javaClass.getMethod("setConnectionPolicy", BluetoothDevice::class.java, Int::class.javaPrimitiveType)

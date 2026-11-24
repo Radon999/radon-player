@@ -92,16 +92,19 @@ class BtIgnoreRulesTest {
         assertEquals("Chevy" to BtIgnoreRules.A2DP, BtIgnoreRules.parseOff("Chevy"))   // kept before calls were switched too
     }
 
-    @Test fun keptOffWholeUnlessAndroidAutoOrConnected() {
+    @Test fun keptOffByHeadphonesAndTheAndroidAutoButton() {
+        val truck = listOf("Chevy")
         val calls = BtIgnoreRules.CALL_PROFILES.map { BtIgnoreRules.offKey("Chevy", it) }
-        // earbuds on, the truck not connected: kept off entirely
-        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(listOf("Chevy"), emptySet(), autoAllowed = false))
-        // Connect Android Auto tapped: only its Media audio stays off
-        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(listOf("Chevy"), emptySet(), autoAllowed = true))
-        // already connected for calls (Android Auto on): left connected
-        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(listOf("Chevy"), setOf("Chevy"), autoAllowed = false))
-        // ... unless Disconnect Android Auto was tapped
-        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(listOf("Chevy"), setOf("Chevy"), autoAllowed = false, forced = true))
-        assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), emptySet(), false))
+        // earbuds on, button not tapped, the truck not connected: kept off entirely
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(truck, truck, emptySet(), autoOn = null))
+        // ... but a truck already connected (driving, Android Auto on) is left connected
+        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, setOf("Chevy"), autoOn = null))
+        // button on: only its Media audio stays off (the music on the earbuds)
+        assertEquals(listOf("Chevy"), BtIgnoreRules.keptOff(truck, truck, emptySet(), autoOn = true))
+        // button off: its calls off even while connected, and even with no earbuds (its Media audio is then its own)
+        assertEquals(listOf("Chevy") + calls, BtIgnoreRules.keptOff(truck, truck, setOf("Chevy"), autoOn = false))
+        assertEquals(calls, BtIgnoreRules.keptOff(emptyList(), truck, emptySet(), autoOn = false))
+        // no earbuds, not tapped: nothing kept off
+        assertEquals(emptyList<String>(), BtIgnoreRules.keptOff(emptyList(), truck, emptySet(), autoOn = null))
     }
 }

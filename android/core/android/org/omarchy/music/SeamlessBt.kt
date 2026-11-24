@@ -47,7 +47,10 @@ object SeamlessBt {
     private var listening = false
     private var service: IBinder? = null
     private var binding = false
+    private var bindingAt = 0L
     private var working = false
+    private var workingAt = 0L
+    private val notedAt = HashMap<String, Long>()   // failures put in Problems, and when (once an hour each)
     private var wasElsewhere = false
     private var goneAt = 0L                          // when the last thing else to listen on went (elapsed ms)
     private val failedAt = HashMap<String, Long>()   // "name:policy" that failed, and when (tried again a minute later)
@@ -102,37 +105,45 @@ object SeamlessBt {
     }
 
     /** The player notification's button while Ignore Bluetooth devices and this are both on, saying how it stands now:
-     *  "Android Auto off: tap to connect" while the truck is kept off, "Android Auto on: tap to disconnect" while it may
-     *  connect; "" (no button) otherwise. [autoOn]: which of the two. */
+     *  "Android Auto off: tap to connect" while the truck's calls connection is kept off, "Android Auto on: tap to
+     *  disconnect" while it may connect; "" (no button) otherwise. [autoOn]: which of the two. */
     var autoButton by mutableStateOf("")
         private set
     val autoOn: Boolean get() = autoButton.isNotEmpty() && !callsOff
-    private var autoAllowed = false   // Connect Android Auto was tapped: the truck may connect for calls and Android Auto
-    private var forced = false        // Disconnect Android Auto was tapped: kept off even while connected
-    private var sawCar = false        // ... and it has since
+    /** The button as you last set it: null not tapped (your headphones decide: off while they're connected), true on,
+     *  false off (headphones or not). */
+    private var autoState: Boolean? = null
+    private var sawCar = false        // on, and the truck has connected since
     private var callsOff = false      // the truck's calls connection is meant to be off now
 
-    /** The notification's button. While off, a tap turns Android Auto on: the truck may connect for calls and Android
-     *  Auto, which then starts as usual; its Media audio stays off, so the music stays on your headphones. While on, a
-     *  tap turns it off: the truck is cut off at once. It goes off by itself only once the truck has come and gone
-     *  again (you left it: walking away it'd otherwise connect and drop at the edge of its range, the cutting in and
-     *  out this is for). Each tap says what it is now. */
+    /** The button: a tap always switches it, and says what it is now (on the screen, or as Android's own message from
+     *  the notification, where the app's messages don't show), and why nothing changes yet if Shizuku can't do it. On:
+     *  the truck may connect for calls and Android Auto (its map); its Media audio stays off while your headphones are
+     *  connected, so the music stays on them. Off: the truck's calls connection is cut off at once. On goes back by
+     *  itself once the truck has connected and disconnected again (you left it: walking away it'd otherwise connect and
+     *  drop at the edge of its range, the cutting in and out this is for). */
     fun toggleAuto() {
         if (autoButton.isEmpty()) return
-        if (!allowed()) { Music.toast("Shizuku isn't running: open it and tap Start"); return }
-        if (callsOff) {
-            autoAllowed = true; forced = false; sawCar = false
-            Music.toast("Android Auto on: the truck can connect for its map and calls. The music stays on your headphones")
-            SoundLog.note("Connect Android Auto: the truck may connect for calls and Android Auto")
-        } else if (!wasElsewhere) {   // (no headphones, as update last saw)
-            Music.toast("Android Auto is on: no headphones are connected, so the truck can connect and play the music")
-            return
-        } else {
-            autoAllowed = false; forced = true
-            Music.toast("Android Auto off: the truck is kept disconnected while your headphones are connected")
-            SoundLog.note("Disconnect Android Auto: the truck is kept off")
+        autoState = callsOff   // off: now on; on: now off
+        sawCar = false
+        val nowOn = autoState == true
+        val what = if (nowOn) "Android Auto on: the truck can connect for its map and calls" +
+            (if (wasElsewhere) ", the music stays on your headphones" else "")
+            else "Android Auto off: the truck is kept disconnected"
+        val problem = when {
+            !running() -> "Shizuku isn't running, so the truck can't be switched yet: open Shizuku and tap Start"
+            !allowed() -> "Radon Player isn't allowed in Shizuku yet (Settings › Playback)"
+            else -> ""
         }
+        tell(if (problem.isEmpty()) what else "$what. But $problem")
+        SoundLog.note("Android Auto button: ${if (nowOn) "on" else "off"}" + if (problem.isNotEmpty()) " ($problem)" else "")
         update()
+    }
+
+    /** A message you see: the app's own while it's on the screen, Android's otherwise (a tap in the notification). */
+    private fun tell(text: String) {
+        if (AppVisible.on) Music.toast(text)
+        else runCatching { android.widget.Toast.makeText(Music.ctx, text, android.widget.Toast.LENGTH_LONG).show() }
     }
 
     /** Look again (BtRoute.check calls it whenever the outputs or the lists change): switch connections off or on
@@ -151,16 +162,15 @@ object SeamlessBt {
         // only the calls device in use, which may be the earbuds)
         val auto = Outputs.carProjecting
         val forCalls = BtRoute.callsHere + (if (auto) ignored else emptyList())
-        if (autoAllowed) {
+        if (autoState == true) {
             val carHere = ignored.any { it in forCalls }
             if (carHere) sawCar = true
-            if (mediaOff.isEmpty() || (sawCar && !carHere)) {
-                autoAllowed = false
-                SoundLog.note("Connect Android Auto over: the truck is kept off again while your headphones are connected")
+            if (sawCar && !carHere) {
+                autoState = null
+                SoundLog.note("Android Auto button back off by itself: the truck disconnected (you left it)")
             }
         }
-        if (mediaOff.isEmpty()) forced = false   // headphones gone: the next time they come, as at first
-        val want = BtIgnoreRules.keptOff(mediaOff, forCalls, autoAllowed, forced)
+        val want = if (on && supported) BtIgnoreRules.keptOff(mediaOff, ignored, forCalls, autoState) else emptyList()
         callsOff = want.any { BtIgnoreRules.parseOff(it).second == BtIgnoreRules.HEADSET }
         autoButton = if (on && IgnoreBt.on && ignored.isNotEmpty())
             (if (callsOff) "Android Auto off: tap to connect" else "Android Auto on: tap to disconnect") else ""
@@ -182,9 +192,10 @@ object SeamlessBt {
             }
             return
         }
-        val s = service ?: run { bind(); return }
-        if (working) return
-        working = true
+        val s = service ?: run { bind(now); return }
+        // (a switch still under way: waited for, unless it's been stuck half a minute, then tried again)
+        if (working && now - workingAt < 30_000L) return
+        working = true; workingAt = now
         val jobs = off.map { it to SeamlessBtService.FORBIDDEN } + back.map { it to SeamlessBtService.ALLOWED }
         Music.scope.launch(Dispatchers.IO) {
             val answers = jobs.map { (key, policy) ->
@@ -223,13 +234,21 @@ object SeamlessBt {
         return failedAt["$key:$policy"]?.let { now - it >= if (minor) 30 * RETRY_MS else RETRY_MS } ?: true
     }
 
-    /** A switch that didn't work: tried again a minute later. Only Media audio and calls are said in Settings (the
-     *  phonebook and messages are switched as well as the phone lets them, quietly). */
+    /** A switch that didn't work: tried again a minute later. Media audio and calls are said in Settings and put in
+     *  Problems (once an hour each), with why; the phonebook and messages are switched as well as the phone lets them,
+     *  quietly. */
     private fun fail(key: String, policy: Int, now: Long, why: String, profile: Int) {
         failedAt["$key:$policy"] = now
         val name = BtIgnoreRules.parseOff(key).first
-        if (profile == BtIgnoreRules.A2DP || profile == BtIgnoreRules.HEADSET) failure = "$name: $why"
-        SoundLog.note("Shizuku couldn't switch $name's connection $profile: $why")
+        val what = if (profile == BtIgnoreRules.A2DP) "Media audio" else "calls connection ($profile)"
+        SoundLog.note("Shizuku couldn't switch $name's $what: $why")
+        if (profile != BtIgnoreRules.A2DP && profile != BtIgnoreRules.HEADSET) return
+        failure = "$name: $why"
+        if ((notedAt[key] ?: 0L).let { it == 0L || now - it >= 60 * RETRY_MS }) {
+            notedAt[key] = now
+            Crashes.note("Ignore Bluetooth devices: no stutter at all couldn't switch $name's $what " +
+                (if (policy == SeamlessBtService.FORBIDDEN) "off" else "on") + ": $why")
+        }
     }
 
     private fun say(mine: List<String>, want: List<String>) {
@@ -246,10 +265,10 @@ object SeamlessBt {
             !IgnoreBt.on -> "Ready, but Ignore Bluetooth devices is off: switch it on above (this only takes away its stutter)" to ""
             IgnoreBt.ignored().none { it != BtRoute.AUTO } -> "Ready: pick the device to ignore above (your truck's Bluetooth)" to ""
             failure.isNotEmpty() -> "Shizuku couldn't switch it: $failure" to ""
-            autoAllowed -> "Android Auto allowed: $names may connect for calls and Android Auto, the music stays on your " +
-                "headphones. Kept off again once it disconnects" to ""
-            whole -> "Working: $names is kept disconnected while your headphones are connected, so it can't cut the music " +
-                "in and out. In the truck, tap Connect Android Auto in the player's notification" to ""
+            autoState == true -> "Android Auto on: ${IgnoreBt.ignored().filter { it != BtRoute.AUTO }.joinToString(", ")} may connect for its map and calls, the music stays on your " +
+                "headphones. Tap the Android Auto button again when you leave" to ""
+            whole -> "Working: $names is kept disconnected, so it can't cut the music in and out. For its GPS, tap the " +
+                "Android Auto button (in the player's notification, or below)" to ""
             mine.isNotEmpty() -> "Working: $names has Media audio off while your headphones are connected" to ""
             want.isNotEmpty() -> "Working: keeping ${want.map { BtIgnoreRules.parseOff(it).first }.distinct().joinToString(", ")} off…" to ""
             else -> "Ready: an ignored device is kept disconnected whenever your headphones are connected" to ""
@@ -257,9 +276,10 @@ object SeamlessBt {
         status = s; step = next
     }
 
-    private fun bind() {
-        if (binding) return
-        binding = true
+    private fun bind(now: Long) {
+        // (asked already: waited for, unless Shizuku never answered in twenty seconds, then asked again)
+        if (binding && now - bindingAt < 20_000L) return
+        binding = true; bindingAt = now
         runCatching {
             val args = Shizuku.UserServiceArgs(ComponentName(Music.ctx.packageName, SeamlessBtService::class.java.name))
                 .daemon(false).processNameSuffix("bt").debuggable(false).version(VERSION).tag("seamless-bt")
