@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 4.5.15: Bit-perfect with shorter gaps while switching apps (Android)
+- **Bit-perfect: shorter gaps while switching apps (the phone):** when the phone is busy opening apps it sometimes makes the app wait its turn on the DAC's USB connection, though the DAC is still taking music. 4.5.13 and 4.5.14 took that wait for the USB having stopped and set the stream up again, which added a second gap. Now the app looks first: with music waiting to be collected it simply carries on the moment the phone lets go, and it's only set up again when the USB really has stopped. The note in Settings › Problems says which it was.
+
 ## 4.5.14: Bit-perfect gaps pinned down (Android)
 - **Bit-perfect gaps pinned down (the phone):** the note in Settings › Problems after a gap now says correctly whether the phone's USB stopped for a moment or the phone held the app back from music the USB had already taken (4.5.13 counted that in whole milliseconds and got it wrong). This tells what's left to fix.
 
