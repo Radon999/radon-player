@@ -3522,9 +3522,8 @@ private fun TidalNotice(ui: Ui) {
     fun done() { tidalNoticeShown = true; show = false }
     AlertDialog(onDismissRequest = { done() }, containerColor = C.light,
         title = { Text("Streaming without Tidal", style = T.title) },
-        text = { Text("You're not signed in to Tidal, so songs you stream play in YouTube's quality (about 160 kbps Opus, " +
-            "which sounds about like a 320 kbps MP3). Sign in to Tidal to stream in FLAC. Your own music files always " +
-            "play in their full quality.", style = T.body) },
+        text = { Text("You're not signed in to Tidal, so songs you stream play in YouTube's quality (Opus at about 160 kbps). " +
+            "Sign in to Tidal to stream in FLAC. Your own music files always play in their full quality.", style = T.body) },
         confirmButton = { TextButton({ done(); ui.sheet = "tidal-login" }) { Text("Sign in to Tidal", color = C.accent) } },
         dismissButton = { Row {
             TextButton({ done(); org.omarchy.music.Prefs.set(never, true) }) { Text("Don't show again", color = C.muted) }
