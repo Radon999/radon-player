@@ -1,11 +1,20 @@
-commit 110418e8b8ea2cd633b22628c9c1f01aa01b8b8f · run 45502214394 · Tue Nov 24 22:39:24 UTC 2026
-LINUX INSTALL-OVER: made, radon-player_4.5.19_amd64.deb, 91M, needs: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45502214394/artifacts/14969894528
+commit 0ef1f33050e77a35219f394eb49ea58c44d8541c · run 45503704459 · Tue Nov 24 22:48:25 UTC 2026
+LINUX INSTALL-OVER: made, radon-player_3.3.0_amd64.deb, 91M, needs: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45503704459/artifacts/14973610797
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+e: The daemon has terminated unexpectedly on startup attempt #2 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+Problems may have occurred during auto-selection of GC. The preferred GC is Parallel GC.
+If the problems persist, try adding the JVM option to the Kotlin daemon JVM arguments: -XX:-UseParallelGC.
+GC auto-selection logic is disabled temporary for the next daemon startup.
+
+> Task :ui-common:assembleDesktopMainResources
 --- the end of the log
-> Task :desktop:jar
+
 > Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.5.19_amd64.deb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_3.3.0_amd64.deb
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -13,5 +22,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 4m 2s
+BUILD SUCCESSFUL in 3m 28s
 15 actionable tasks: 15 executed
