@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.0.2: The DJ skips between sets at once (Android, Windows and Linux)
+- **The DJ skips between sets at once (the phone and the PC):** now and then, skipping past the end of a set left the song playing for half a minute or so, until the next set had been picked. Now the next set is lined up as soon as a set starts, and if you skip past the end before it's ready, one of the sets the DJ keeps ready plays straight away. Switch it up and asking the DJ for something aren't held up while it picks the next set either.
+
 ## 5.0.1: Ignore Bluetooth devices without Shizuku, and your own files first in playlists (Android, Windows and Linux)
 - **Your own files first in playlists (the phone and the PC):** a streaming song in a playlist that you have as your own file or download is swapped for your file, or taken out where your file is in the playlist already (each time your music is read). Adding a streaming song you have puts your file in instead. They came in as streams from the other device's copy of a synced playlist, from a service's list, or from before you had the song.
 - **Ignore Bluetooth devices: no stutter at all is gone (the phone):** the Shizuku setting, its Android Auto button in the player's notification and its notes are taken out; it never worked reliably. **Ignore Bluetooth devices** works as before: the car still doesn't take the music, with at most a moment's stutter as it connects or drops. For no stutter at all, Settings shows how to switch the car's Media audio off in Android's Bluetooth settings yourself (Calls stay on).
