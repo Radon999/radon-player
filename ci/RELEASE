@@ -1,7 +1,0 @@
-v5.0.2
-Radon Player 5.0.2: The DJ skips between sets at once
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.0.2.msi` (Windows), `radon-player_5.0.2_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
-
-**What is new**
-- **The DJ skips between sets at once (the phone and the PC):** now and then, skipping past the end of a set left the song playing for half a minute or so, until the next set had been picked. Now the next set is lined up as soon as a set starts, and if you skip past the end before it's ready, one of the sets the DJ keeps ready plays straight away. Switch it up and asking the DJ for something aren't held up while it picks the next set either.
-
