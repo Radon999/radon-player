@@ -12,7 +12,6 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,7 +44,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,37 +51,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.omarchy.music.LastFm
 import org.omarchy.music.LAYOUTS
 import org.omarchy.music.Music
 import org.omarchy.music.Remote
 import org.omarchy.music.SEARCH_IN
 import org.omarchy.music.SOURCES
 import org.omarchy.music.Track
-import org.omarchy.music.fmtTime
 import org.omarchy.music.liveSearchWait
 
 // The layout, after Stellio: the player is the main screen. ☰ (top left) slides out the menu of
@@ -123,7 +112,7 @@ fun App() {
         val same = rgb != null && old != null && kotlin.math.abs(Rgb.red(rgb) - Rgb.red(old)) +
             kotlin.math.abs(Rgb.green(rgb) - Rgb.green(old)) +
             kotlin.math.abs(Rgb.blue(rgb) - Rgb.blue(old)) < 18
-        if (!same || rgb == null) { Music.coverRgb = rgb; Music.applyLook() }
+        if (!same) { Music.coverRgb = rgb; Music.applyLook() }
     }
     // The playing song's cover colour, for "Album cover's colour" (a visualizer in it under any look)
     LaunchedEffect(cur?.id, Music.savedVersion) {

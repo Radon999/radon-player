@@ -214,7 +214,7 @@ class Tidal(ctx: Ctx) : Source {
         return best
     }
 
-    // ---- clean and explicit (Your music › Clean or explicit; Scanner › Clean and explicit versions) ----
+    // ---- clean and explicit (Your music › Clean or explicit; Utilities › Queued clean/explicit changes) ----
 
     /** Every version Tidal has of song t, clean and explicit alike (its name, artist and length agree; not a live
      *  recording, a remix or the like), the closest first. */

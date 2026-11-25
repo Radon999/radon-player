@@ -179,8 +179,8 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
             } catch (e: Exception) { if (trouble == null) trouble = e }
             break
         }
-        // Played from YouTube though Tidal is connected, because Tidal couldn't be reached: said in Settings › Problems
-        trouble?.let { Crashes.note("“${t.title}” by ${t.artist} plays from YouTube this time: Tidal didn't answer (${it.message?.take(120)})") }
+        // Played from YouTube though Tidal is connected, because Tidal couldn't be reached (it plays all the same)
+        trouble?.let { logWarn("“${t.title}” by ${t.artist} plays from YouTube this time: Tidal didn't answer (${it.message?.take(120)})") }
         val soon = trouble != null
         val yt = try { YouTubeAudio.find(t) } catch (e: Exception) {
             throw IOException(if (trouble != null) "Tidal: ${trouble.message}; YouTube: ${e.message}" else "YouTube: ${e.message}", e)
@@ -379,7 +379,7 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         for (pick in picks) {
             try { return fromYouTube(t, root, pick) } catch (e: Exception) {
                 last = e
-                Crashes.caught(e, "YouTube download (${pick.label}) of ${t.artist} – ${t.title}")
+                logWarn("YouTube download (${pick.label}) of ${t.artist} – ${t.title}", e)   // (the next way is tried; the download says if none worked)
             }
         }
         throw last ?: IllegalStateException("YouTube wouldn't send the audio")

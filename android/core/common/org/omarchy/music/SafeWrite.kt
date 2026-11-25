@@ -151,7 +151,7 @@ object SafeWrite {
         runCatching {
             if (key.isNotEmpty() && copy.isFile && FileWhole.sound(copy)) {
                 put(ctx, key, copy)
-                Crashes.note("A tag write that was interrupted was finished from its copy (${key.substringAfterLast('/')})")
+                logWarn("A tag write that was interrupted was finished from its copy (${key.substringAfterLast('/')})")
             }
         }.onFailure { return@synchronized }   // (still can't be written: kept for the next start)
         j.delete(); copy.delete()

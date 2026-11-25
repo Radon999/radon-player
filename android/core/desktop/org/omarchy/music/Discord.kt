@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -195,7 +194,7 @@ object Discord {
         val msg = e.message ?: e.javaClass.simpleName
         if (msg == "Discord isn't open" || msg == logged) return
         logged = msg
-        Crashes.caught(e, "Discord Rich Presence (application $appId)")
+        logWarn("Discord Rich Presence (application $appId)", e)
     }
 
     private fun setActivity(want: JsonObject?) {

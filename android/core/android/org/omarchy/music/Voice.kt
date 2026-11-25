@@ -34,12 +34,12 @@ object Voice {
     /** How the line went to the DAC (UsbDirect.lastSpeak), for the note below. */
     @Volatile var dacReport: () -> String = { "" }
     private var dacNotes = 0
-    /** With bit-perfect on, the first few lines each leave a note in Problems saying how they went to the DAC, so a
-     *  voice that isn't heard can be told apart (sent but not heard, or never sent and why). */
+    /** With bit-perfect on, the first few lines each leave a note in Settings › Details (Sound lately) saying how they
+     *  went to the DAC, so a voice that isn't heard can be told apart (sent but not heard, or never sent and why). */
     private fun dacNote(how: String, sent: Boolean) {
         if (!Music.bitPerfect || dacNotes >= 4) return
         dacNotes++
-        Crashes.note("DJ voice with bit-perfect ($how): " + (if (sent) "through the DAC · ${dacReport()}" else
+        SoundLog.note("DJ voice with bit-perfect ($how): " + (if (sent) "through the DAC · ${dacReport()}" else
             "not through the DAC (${if (dacOn()) dacReport() else "the DAC isn't the app's now"}): Android's way"))
     }
 

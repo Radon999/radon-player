@@ -150,7 +150,7 @@ fun LyricsTab(ui: Ui) {
                     org.omarchy.music.LyricsAutoSync.remove(t) { refresh++ } }
             }
         }
-        if (ui.lyricsSearch && t != null) LyricsSearch(t, searched)
+        if (ui.lyricsSearch) LyricsSearch(t, searched)
         if (mode == "synced") Synced(lines) else Plain(g.plain!!, notes, g.url)
     }
 }

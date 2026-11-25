@@ -22,7 +22,6 @@ import org.omarchy.music.Music
 import org.omarchy.music.SignalRules
 import org.omarchy.music.Signals
 import org.omarchy.music.TasteService
-import org.omarchy.music.statsKey
 
 private var tasteShow by mutableStateOf("phases")
 

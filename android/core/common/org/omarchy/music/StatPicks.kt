@@ -14,7 +14,6 @@ object StatPicks {
     }
 
     fun addSongPicks(more: Map<String, String>) { Music.songPicks = Music.songPicks + more; Music.saveState(); Stats.refresh(force = true) }
-    fun addAlbumPicks(more: Map<String, String>) { Music.albumPicks = Music.albumPicks + more; Music.saveState(); Stats.refresh(force = true) }
 
     fun keepApart(from: String, to: String) {
         val k = StatPickRules.apartKey(from, to)

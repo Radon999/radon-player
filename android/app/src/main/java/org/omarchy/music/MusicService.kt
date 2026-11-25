@@ -9,11 +9,8 @@ import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.compose.runtime.snapshotFlow
@@ -95,8 +92,8 @@ class MusicService : MediaLibraryService() {
                 SoundLog.hiccup("the sound output ran dry (not fed for $elapsedSinceLastFeedMs ms, buffer $bufferSizeMs ms)")
             }
             override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
-                SoundLog.note("the sound output failed: ${audioSinkError.message?.take(80)}")
-                Crashes.note("The sound output reported a fault while “${Music.current()?.title}” played: ${audioSinkError.message?.take(120)}")
+                // (the player gets over it by itself: a hiccup, a problem only if the sound keeps cutting out)
+                SoundLog.hiccup("the sound output reported a fault: ${audioSinkError.message?.take(100)}")
             }
             override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, c: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
                 // (a second one for the same song is the output made again mid-song: a gap you can hear)
@@ -214,7 +211,7 @@ class MusicService : MediaLibraryService() {
                         val path = t?.file?.let { FileTags.pathOf(it) } ?: Music.lib.items[id]?.file?.let { FileTags.pathOf(it) }
                         val f = path?.let { java.io.File(it) }?.takeIf { it.isFile && it.canWrite() && it.extension.equals("flac", true) }
                         val done = f?.let { SafeWrite.alone { FlacRepair.repair(it, java.io.File(filesDir, "repaired/${it.name}.${System.currentTimeMillis()}.front")) } }
-                        if (done != null && f != null && t != null) {
+                        if (done != null && t != null) {
                             Crashes.note("“${t.title}” was a damaged file (its tags and cover no longer led to its music, as a tag write cut short leaves it): " +
                                 "put right in place, the music untouched" + (if (done.tagsKept) ", its tags kept" else ", its title and artist written back") +
                                 ". Its cover may be gone: Songs without covers, or a Sync, brings it back. What was in front of the music is saved in the app's folder (repaired/)")
@@ -302,8 +299,7 @@ class MusicService : MediaLibraryService() {
                     if (exo.playWhenReady && heals < 2) {
                         heals++
                         val at = exo.currentPosition
-                        Crashes.note("“${t?.title}” went silent at ${at / 1000}s though it was playing: the sound stopped $where. Started again from the same place.")
-                        SoundLog.note("silent at ${at / 1000}s, the sound stopped $where: started again in place (time $heals)")
+                        SoundLog.hiccup("silent at ${at / 1000}s, the sound stopped $where: started again in place (time $heals)")
                         exo.seekTo(at)
                     }
                 }
@@ -421,7 +417,7 @@ class MusicService : MediaLibraryService() {
             override fun onCastSessionUnavailable() = Music.castStopped()
         })
         cp
-    }.onFailure { Crashes.note("Cast isn't available: ${it.message}") }.getOrNull()
+    }.onFailure { logWarn("Cast isn't available: ${it.message}") }.getOrNull()
 
     /** The session's buttons: next and previous always there, and they go to our queue (or the desktop's). */
     private fun queueAware(p: Player) = object : ForwardingPlayer(p) {
@@ -441,7 +437,6 @@ class MusicService : MediaLibraryService() {
         private val own get() = p is androidx.media3.exoplayer.ExoPlayer
         private fun outside(what: String) {
             org.omarchy.music.SoundLog.note("from outside the app: $what")
-            Crashes.note("Something outside the app (the earbuds, a watch, the lock screen or the system) told the player: $what")
         }
 
         override fun stop() { if (own) { outside("Stop (taken as Pause)"); pause() } else super.stop() }

@@ -38,11 +38,4 @@ class DjTest {
         assertEquals("A and B", Dj.names(listOf(song("a", "A"), song("b", "B"), song("c", "C"))))
         assertEquals("A, B and C", Dj.names(listOf(song("a", "A"), song("b", "B"), song("c", "C")), 3))
     }
-
-    @Test fun greetingByHour() {
-        assertEquals("Good morning", Dj.greeting(8))
-        assertEquals("Good afternoon", Dj.greeting(13))
-        assertEquals("Good evening", Dj.greeting(20))
-        assertEquals("Hey, night owl", Dj.greeting(2))
-    }
 }

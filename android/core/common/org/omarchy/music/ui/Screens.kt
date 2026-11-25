@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
@@ -905,8 +904,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
     val open = ui.openMine?.let { Music.lists.get(it) }?.takeIf { it.smart == null }   // smart ones open in Smart playlists
     val folder = ui.openFolder?.let { Music.playlistFolders.get(it) }
     if (open != null) { minePlaylist(ui, open); return }
-    if (open == null && folder != null) { folderView(ui, folder); return }
-    if (open == null) {
+    if (folder != null) { folderView(ui, folder); return }
+    run {   // your playlists and their folders
         // A new playlist syncs (⇄: the same on the phone and the PC) unless Settings › Your files › New playlists sync is
         // off; the second row makes the other kind
         item { ActionRow("＋  New playlist") { ui.askName = Triple("New playlist", "") { n -> Music.newPlaylist(n) } } }
@@ -1737,7 +1736,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         when {
             i == null && failed == null -> if (!onlyMine) item { Section("LOADING…") }
             i == null -> if (!onlyMine && mine.isEmpty() && albums.isEmpty()) item { Empty("Couldn't find them", failed ?: "") }
-            i != null && top.isNotEmpty() -> {
+            top.isNotEmpty() -> {
                 item { ArtistFold(if (onlyMine) "Your copies of their top songs"
                     else "Top songs" + (if (i.topSource != i.source) " · ${SOURCES[i.topSource]}" else ""), "%,d".format(top.size), isOpen("top")) { toggle("top") } }
                 if (isOpen("top")) tracks(top, ui, "artist", radio = true, section = "artist-top")

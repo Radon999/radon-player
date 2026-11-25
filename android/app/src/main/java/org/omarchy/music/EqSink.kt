@@ -109,9 +109,9 @@ class EqSink(sink: AudioSink, private val eq: EqProcessor, private val core: Aud
             pending = false
             lastPts = C.TIME_UNSET; lastDone = true
             val cleared = forget()
-            Crashes.note("The sound output was holding an old buffer while “${Music.current()?.title}” played ($how): " +
-                (if (cleared) "let go, and the song carried on" else "it couldn't be let go"))
-            SoundLog.note("the sound output held an old buffer ($how): ${if (cleared) "let go" else "not let go"}")
+            // (got over: a hiccup; only a buffer that couldn't be let go stops the song, and is a problem)
+            SoundLog.hiccup("the sound output held an old buffer ($how): ${if (cleared) "let go" else "not let go"}")
+            if (!cleared) Crashes.note("The sound output was holding an old buffer while “${Music.current()?.title}” played ($how) and it couldn't be let go")
             if (!cleared) throw e
             // (what comes next isn't where the old buffer left off: told so, so the output lines its clock up quietly
             // and doesn't report the jump as a fault)

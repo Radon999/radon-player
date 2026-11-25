@@ -138,8 +138,6 @@ fun toJpeg(b: ByteArray): ByteArray? {
     return java.io.ByteArrayOutputStream().also { javax.imageio.ImageIO.write(rgb, "jpg", it) }.toByteArray()
 }
 
-fun imageMinSide(b: ByteArray): Int = runCatching { javax.imageio.ImageIO.read(b.inputStream())?.let { minOf(it.width, it.height) } }.getOrNull() ?: 0
-
 /** The folder a song of yours is in, as files: for the cover beside it. */
 fun songFolder(uri: String): File? = (if (!uri.startsWith("file:")) File(uri)
     else runCatching { File(java.net.URI(uri)) }.getOrNull() ?: File(uri.removePrefix("file://").removePrefix("file:"))).parentFile

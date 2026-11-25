@@ -107,16 +107,6 @@ object YourFolders {
         }
     }
 
-    /** Clean and explicit versions: song old replaced by new (just downloaded): the new one takes its place in the
-     *  queue, your playlists and favorites, and the old one is out of your music. */
-    fun versionReplaced(old: Track, new: Track) {
-        relink(mapOf(old.id to new))
-        local.files = local.files.filter { it.id != old.id }
-        // Its plays here go to the new one (Most played already counts both as one song: their names agree)
-        Music.bg({ Music.plays.merge(setOf(old.id), new.slim()) })
-        Music.savedVersion++; Music.musicVersion++
-    }
-
     /** Songs whose files moved: each old one (by id) becomes the new one in the queue, your playlists and favorites. */
     fun relink(moved: Map<String, Track>) {
         if (moved.isEmpty()) return
@@ -158,7 +148,7 @@ object YourFolders {
                 // null: can't tell now (no connection): it stays, to be looked for at the next read of your folders
                 val found = runCatching { Music.matchSong(src, t.artist, withoutTrackNumber(t.title), t.duration.toInt()) }.getOrNull() ?: continue
                 found.first?.let { streams[t.id] = it } ?: nowhere.add(t)
-            } else if (left.isNotEmpty()) Crashes.note("Songs whose files are gone: ${left.size} of ${songs.size} left as they are " +
+            } else if (left.isNotEmpty()) logWarn("Songs whose files are gone: ${left.size} of ${songs.size} left as they are " +
                 if (src == null) "(the streaming services weren't ready)" else "(too many at once: a folder that isn't there for now?)")
             Triple(moved, streams, nowhere)
         }) { res, _ ->

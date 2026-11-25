@@ -3,7 +3,6 @@ package org.omarchy.music
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.coroutines.launch
-import java.time.LocalTime
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
@@ -154,17 +153,6 @@ object Dj {
     /** A set of what you play at this time of day, made in another part of the day: no longer right, to be let go. */
     fun stale(b: Built): Boolean = b.kind == "hour" && b.timeKey.isNotEmpty() && b.timeKey != timeKey()
 
-    /** The four types of set a kind belongs to (docs/rebuild/RADON_REBUILD_PLAN.md, 2.3): how its break is framed.
-     *  Every kind keeps its own rule for picking songs; none is added or taken away. */
-    enum class SetType { TIME_AND_MOOD, NOSTALGIA_PULL, SONIC_BRIDGE, FRESH_DROP }
-
-    fun typeOf(kind: String): SetType = when {
-        kind.startsWith("mood:") || kind in setOf("hour", "repeat", "streak", "mood", "moodmix", "loops", "loopsmonth") -> SetType.TIME_AND_MOOD
-        kind in setOf("like", "genre", "ask", "likeloops") -> SetType.SONIC_BRIDGE
-        kind in setOf("fresh", "deep", "discover", "unplayed") -> SetType.FRESH_DROP
-        else -> SetType.NOSTALGIA_PULL
-    }
-
     /** A set about to be queued behind the song after, with the thread from that song to its first one said before
      *  its line, when there is one that's known of both songs (see [thread]) and the break stays within MOST_WORDS.
      *  Not for the first set (it has its hello) nor a set that opens with a word about the day. */
@@ -195,9 +183,6 @@ object Dj {
         }
         return ""
     }
-
-    fun greeting(h: Int = clock().hour) =
-        if (h in 5..11) "Good morning" else if (h in 12..16) "Good afternoon" else if (h in 17..22) "Good evening" else "Hey, night owl"
 
     /** The DJ's hello on the first set, for the time of day, a different one each time. */
     fun hello(h: Int = clock().hour): String = dayHello(h) ?: hourHello(h)

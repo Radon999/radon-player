@@ -136,7 +136,6 @@ object FileCheck {
             if (r == null) { Music.toast("Couldn't look at your files: ${err?.message?.take(80)}"); return@bg }
             result = r
             Music.toast(r.said)
-            if (r.damaged.isNotEmpty()) runCatching { Crashes.note("Damaged files found: " + r.damaged.take(40).joinToString("; ") { "${it.first}: ${it.second}" }) }
         }
     }
 

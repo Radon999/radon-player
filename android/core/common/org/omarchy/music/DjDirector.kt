@@ -558,7 +558,7 @@ object DjDirector {
                 if (index == at && streaming && i < 2) continue   // a stream that broke being got back
                 if (!(p.state == Engine.ENDED || p.state == Engine.IDLE || !p.hasItem)) return@launch   // playing, or paused by you
                 step("the DJ's watchdog went on (state ${p.state}, hasItem ${p.hasItem})")
-                Crashes.note("DJ: the music had stopped after a song (${if (index == at) "still on it" else "the next one hadn't started"}); went on")
+                SoundLog.note("DJ: the music had stopped after a song (${if (index == at) "still on it" else "the next one hadn't started"}); went on")
                 if (index == at) next() else loadCurrent()
                 return@launch
             }

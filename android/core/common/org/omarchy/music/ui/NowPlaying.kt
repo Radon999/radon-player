@@ -4,11 +4,8 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.requiredSize
 
-import androidx.compose.ui.graphics.drawscope.translate
 
-import androidx.compose.ui.layout.positionInRoot
 
-import androidx.compose.ui.layout.boundsInRoot
 
 import androidx.compose.ui.layout.onGloballyPositioned
 
@@ -18,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -54,7 +50,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -313,7 +308,7 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
         }
         if (!cover && lock != null) LookEffects(LookFx.over(C.fx))   // rain and snow over the buttons too (the lock screen)
         // On top of it all, over the cover: a plain Canvas takes no taps, so the buttons under it still work
-        if (fullOver && vis != null) NowVisFull(visStyle, vis, visCol, strength,
+        if (fullOver) NowVisFull(visStyle, vis, visCol, strength,
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(16.dp))
     }
 }

@@ -27,15 +27,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.onSizeChanged
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.verticalScroll as composeVerticalScroll
 
 // The PC's scroll bars: every list and long screen that scrolls has one on its right edge, to drag like File

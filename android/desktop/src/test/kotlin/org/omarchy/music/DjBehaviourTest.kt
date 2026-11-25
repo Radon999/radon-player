@@ -78,26 +78,13 @@ class DjBehaviourTest {
         assertTrue("sets were made ($built)", built > 5)
     }
 
-    /** Every kind of set belongs to one of the four types of set, and only one; no kind was added or taken away. */
-    @Test fun everyKindOfSetHasItsType() {
-        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("hour"))
-        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("repeat"))
-        assertEquals(Dj.SetType.TIME_AND_MOOD, Dj.typeOf("mood:Sad"))
+    /** The kinds of set there are: none added or taken away. */
+    @Test fun theKindsOfSetAreAllThere() {
         // Only the high-energy moods share a set: every other mood is a set of its own (the owner, 2026-11-14)
         assertEquals(listOf("mood:Energetic+Party+Hype", "mood:Happy", "mood:Chill", "mood:Calm", "mood:Dreamy", "mood:Focus",
             "mood:Romantic", "mood:Sad", "mood:Dark", "mood:Intense"), Dj.MOOD_KINDS)
-        assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("throwback"))
-        assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("rediscover"))
-        assertEquals(Dj.SetType.NOSTALGIA_PULL, Dj.typeOf("album"))
-        assertEquals(Dj.SetType.SONIC_BRIDGE, Dj.typeOf("like"))
-        assertEquals(Dj.SetType.SONIC_BRIDGE, Dj.typeOf("genre"))
-        assertEquals(Dj.SetType.FRESH_DROP, Dj.typeOf("fresh"))
-        assertEquals(Dj.SetType.FRESH_DROP, Dj.typeOf("unplayed"))
-        val kinds = Dj.ORDER + Dj.FROM_ORDER + Dj.FROM_NEW_ORDER + "ask"
         // 29 as in 3.2.28 (26 and 3), and three more since the mood sets were split (7 mood sets then, 10 now)
         assertEquals("the kinds there are", 26 + 4 + 3 + 3, (Dj.ORDER + listOf("unplayed", "artist", "mix")).distinct().size)
-        val byType = kinds.distinct().groupBy { Dj.typeOf(it) }
-        assertEquals("all four types have kinds", 4, byType.size)
     }
 
     /** A set queued behind a song by the same artist as its first song says so before its line (the thread between

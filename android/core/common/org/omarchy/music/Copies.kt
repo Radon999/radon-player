@@ -222,17 +222,6 @@ object Copies {
     /** Where a song is, for the Duplicates list. */
     fun whereIs(t: Track): String = lib.items[t.id]?.let { "Downloaded here" } ?: local.paths[t.file ?: ""]?.trimEnd('/') ?: ""
 
-    /** Delete one copy of a song in Duplicates: the copy kept takes its place in playlists. */
-    fun deleteDupe(group: List<Track>, t: Track) {
-        val keep = group.firstOrNull { it.id != t.id } ?: return
-        if (current()?.id == t.id) { toast("That copy is playing: skip it first"); return }
-        if (lib.has(t.id)) {
-            lib.remove(t.id); retarget(listOf(t.id), keep)
-            dupes = dupes?.map { g -> g.filter { it.id != t.id } }?.filter { it.size > 1 }
-            toast("Deleted the downloaded copy of “${t.title}”"); savedVersion++; musicVersion++
-        } else queueTrash(TrashJob(listOf(t), mapOf(t.id to keep), "a copy of “${t.title}”"))
-    }
-
     /** Duplicates' Keep / Remove: in each group the copies picked go (downloads at once, files to the bin together),
      *  the first one kept taking their place in playlists. A group with every copy picked keeps its best. */
     fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) {

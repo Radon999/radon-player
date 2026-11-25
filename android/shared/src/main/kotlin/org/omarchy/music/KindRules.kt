@@ -115,24 +115,11 @@ object KindRules {
         else -> "at this hour" to "late night"
     }
 
-    /** A mood's set: the moods to pick from, each with its weight, the heaviest first: the plays of each mood lately,
-     *  and the ones around this hour counted double; the top three, and only moods with a weight of three or more. */
-    fun moodsToPick(lately: Map<String, Int>, thisHour: Map<String, Int>): List<Pair<String, Int>> {
-        val weight = HashMap<String, Int>()
-        lately.forEach { (m, n) -> weight.merge(m, n, Int::plus) }
-        thisHour.forEach { (m, n) -> weight.merge(m, 2 * n, Int::plus) }
-        return weight.entries.sortedByDescending { it.value }.take(3).filter { it.value >= 3 }.map { it.key to it.value }
-    }
-
     /** One of a few things, the heavier likelier: roll is a number from 0 up to (not with) the weights' sum. */
     fun <T> weighted(choices: List<Pair<T, Int>>, roll: Int): T {
         var r = roll
         return choices.first { r -= it.second; r < 0 }.first
     }
-
-    /** A mood is said to be this hour's (not just lately's) when its plays around this hour, doubled, reach its
-     *  plays lately. */
-    fun moodByHour(mood: String, lately: Map<String, Int>, thisHour: Map<String, Int>): Boolean = (thisHour[mood] ?: 0) * 2 >= (lately[mood] ?: 0)
 
     /** New for you: what each seed song brought, taken in turns (the first of each, then the second of each…), so no
      *  one seed fills the set. */

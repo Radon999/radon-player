@@ -12,9 +12,7 @@ import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.media.AudioManager
 import android.os.Build
-import kotlin.math.log10
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /** The native half: streams to the DAC's endpoint (usbaudio.c). */
 object UsbNative {
@@ -469,7 +467,7 @@ object UsbDirect {
                             "${v[28]} ms handing over, ${if (back < 0) "?" else "$back"} transfers already back after it$meaning · " +
                             "kept in RAM: ${when (v[30]) { 3L -> "yes"; 0L -> "no"; else -> "partly" }}) · set up again only when the USB has stopped: " +
                             "$heldSkipped× left alone as the phone held it" else ""
-                        Crashes.note("USB DAC: a gap in the sound on “${Music.current()?.title ?: "?"}” · the phone didn't run the sending in time " +
+                        SoundLog.hiccup("USB DAC: a gap in the sound on “${Music.current()?.title ?: "?"}” · the phone didn't run the sending in time " +
                             "${v[14]}× (longest ${v[15]} ms; ${STREAM_URBS_MS} ms queued)$where · the music ran out ${v[16]}× (longest ${v[17]} ms) · " +
                             "the sending's priority ${v.getOrNull(18) ?: "?"} (-19 best, 0 normal) · $lastSetup")
                     }
@@ -677,7 +675,7 @@ object UsbDirect {
                     if (w > 0) stuck = 0
                     if (off < len) {
                         Thread.sleep(10)
-                        if (w == 0) { stuck += 10; if (stuck > 4000) { lastSpeak = "the DAC stopped taking the voice ${o * 1000L / outRate} ms in: the line was given up"; Crashes.note("USB DAC: $lastSpeak"); return true } }
+                        if (w == 0) { stuck += 10; if (stuck > 4000) { lastSpeak = "the DAC stopped taking the voice ${o * 1000L / outRate} ms in: the line was given up"; SoundLog.note("USB DAC: $lastSpeak"); return true } }
                     }
                 }
                 o += n

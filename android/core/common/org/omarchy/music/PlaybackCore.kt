@@ -347,9 +347,10 @@ object PlaybackCore {
         val there = p != null && p.isPlaying && loadedFor == current()?.id && !advancing
         if (!there && took > 20_000 && !changeLate) { changeLate = true; step("still not playing: state=${p?.state} pwr=${p?.playWhenReady} hasItem=${p?.hasItem} advancing=$advancing paused=$paused") }
         if (!there && took < 120_000) return
-        if ((took > 2500 || !there) && changeNotes < 12) {
-            changeNotes++
-            Crashes.note("A song change took ${"%.1f".format(took / 1000.0)} s${if (!there) " and never played" else ""}: " + changeSteps.joinToString(" | "))
+        // A slow change got there in the end: Sound lately. One that never played is a problem.
+        if (took > 2500 || !there) {
+            val what = "A song change took ${"%.1f".format(took / 1000.0)} s${if (!there) " and never played" else ""}: " + changeSteps.joinToString(" | ")
+            if (!there && changeNotes < 12) { changeNotes++; Crashes.note(what) } else SoundLog.note(what.take(300))
         }
         changeAt = 0L
     }
@@ -590,10 +591,8 @@ object PlaybackCore {
                     paused = true; doneAdvancing()
                     return@bg
                 }
-                if (err is BeingWritten) {
-                    Music.toast(err.message ?: "")
-                    runCatching { Crashes.note(err.message + " Nothing is wrong with the file: it plays as ever the next time.") }
-                } else
+                if (err is BeingWritten) Music.toast(err.message ?: "")   // (nothing wrong with the file: it plays as ever the next time)
+                else
                 Music.toast(if (err is NoLosslessMatch) "Skipped “${t.title}”: ${err.message}" else "Couldn't get “${t.title}”: ${err?.message}")
                 if (autoplay) Music.scope.launch { delay(1500); if (seq == loadSeq) next() } else { paused = true; doneAdvancing() }
                 return@bg
@@ -792,8 +791,7 @@ object PlaybackCore {
             return
         }
         idleHeals++
-        Crashes.note("“${t.title}” was meant to be playing but the player had stopped at ${position.toInt()}s: loaded again from there")
-        SoundLog.note("the player had stopped mid-song: loaded again at ${position.toInt()}s")
+        SoundLog.hiccup("the player had stopped mid-song: loaded again at ${position.toInt()}s")
         resumeAt = position
         loadCurrent(autoplay = true)
     }
@@ -812,8 +810,7 @@ object PlaybackCore {
             else if (nowMs - lowSince > 30_000) {
                 lowSince = 0L
                 val why = "volume ${"%.2f".format(p.volume)} for half a minute (turned down for the DJ: ${djSide.musicDucked}, a crossfade's old song still there: ${fadingOut != null}, coming up: $fadeIn)"
-                Crashes.note("“${current()?.title}” was playing with its sound turned down at ${p.positionMs / 1000}s: $why. Put back to full")
-                SoundLog.note("$why: put back to full")
+                SoundLog.note("“${current()?.title}” at ${p.positionMs / 1000}s: $why: put back to full")
                 fadeIn = 0.0
                 p.volume = 1f
             }
@@ -825,8 +822,7 @@ object PlaybackCore {
         if (quietSince == 0L) { quietSince = now; return }
         if (now - quietSince < 4000) return
         quietSince = 0L
-        Crashes.note("The player's volume was left at ${"%.2f".format(p.volume)} with nothing fading: put back to full (“${current()?.title}” at ${p.positionMs / 1000}s)")
-        SoundLog.note("volume found at ${"%.2f".format(p.volume)} with nothing fading: put back to full")
+        SoundLog.note("volume found at ${"%.2f".format(p.volume)} with nothing fading: put back to full (“${current()?.title}” at ${p.positionMs / 1000}s)")
         p.volume = 1f
     }
 
@@ -851,7 +847,7 @@ object PlaybackCore {
             // Its music has all been played out, but the player hasn't said it ended: on to the next, nothing for Problems
             EndWatch.Verdict.AUDIO_DONE -> { advancing = false; endHow = "its music was all played out (the watch)"; trackEnded() }
             EndWatch.Verdict.STUCK, EndWatch.Verdict.PAST -> {
-                Crashes.note("“${t?.title}” ${if (verdict == EndWatch.Verdict.PAST) "ran on past" else "stopped at"} its end without finishing: " +
+                SoundLog.note("“${t?.title}” ${if (verdict == EndWatch.Verdict.PAST) "ran on past" else "stopped at"} its end without finishing: " +
                     (if (repeat == "one") "played again" else "moved on to the next song") +
                     " (at ${at / 1000.0}s of ${engineMs / 1000.0}s, the song says ${songMs / 1000.0}s, state ${p.state})")
                 advancing = false

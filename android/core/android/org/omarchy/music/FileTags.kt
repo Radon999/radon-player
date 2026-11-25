@@ -135,7 +135,7 @@ object FileTags {
         if (runCatching { tag.artworkList.isNotEmpty() }.getOrDefault(false)) return@runCatching
         for (p in pictures) tag.addField(p)
         af.commit()
-        Crashes.note("Put the cover back into ${f.name}: the tag write had dropped it")
+        logWarn("Put the cover back into ${f.name}: the tag write had dropped it")
     }
 
     fun write(ctx: Ctx, uri: String, changes: Map<String, String>): Boolean {

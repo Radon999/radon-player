@@ -3,7 +3,6 @@ package org.omarchy.music.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -47,7 +46,6 @@ import org.omarchy.music.Album
 import org.omarchy.music.Music
 import org.omarchy.music.Pin
 import org.omarchy.music.Track
-import org.omarchy.music.norm
 
 // 1.4: list, grid and compact grid layouts, searching the page you're on, and Pinned.
 

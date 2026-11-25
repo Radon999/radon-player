@@ -3,20 +3,12 @@ package org.omarchy.music
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
-import kotlinx.serialization.Serializable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.PI
-import kotlin.math.ceil
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.log10
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 /** Where the sound goes: the phone's speaker, wired headphones, each Bluetooth device by its name (your car,
  *  your earbuds), USB. Each is a key ("speaker", "wired", "bt:Name", "usb:Name") with a label and a kind. */
@@ -127,7 +119,6 @@ class EqProcessor : BaseAudioProcessor() {
     // while nothing goes out. Either is set right at once and noted in Settings › Problems (at most once a minute).
     private var deadFrames = 0L
     private var lostFrames = 0L
-    private var notedAt = 0L
     /** When the decoder last gave real sound (the clock's milliseconds): set by EqSink for hi-res music, 0 otherwise. */
     @Volatile var decoderLoudAt = 0L
     /** Called (from the sound's own thread) when a song has gone silent though it should be sounding: where the sound
@@ -148,12 +139,8 @@ class EqProcessor : BaseAudioProcessor() {
         } else lostFrames = 0
     }
 
-    private fun note(what: String) {
-        val now = System.currentTimeMillis()
-        if (now - notedAt < 60_000) return
-        notedAt = now
-        runCatching { Crashes.note(what) }
-    }
+    /** Set right again by itself: a hiccup (Settings › Problems hears of it only if the sound keeps cutting out). */
+    private fun note(what: String) = SoundLog.hiccup(what)
     private fun heal() {
         stages.forEach { s -> s.state.forEach { it.fill(0.0) } }
         lpL = 0.0; lpR = 0.0; env = 0.0

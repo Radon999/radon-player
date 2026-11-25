@@ -1,14 +1,8 @@
 package org.omarchy.music.desktop
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,7 +37,6 @@ import org.omarchy.music.Music
 import org.omarchy.music.ui.Back
 import org.omarchy.music.ui.C
 import org.omarchy.music.ui.Ico
-import org.omarchy.music.ui.Icon
 import org.omarchy.music.ui.OmarchyTheme
 import org.omarchy.music.ui.PcWindows
 import org.omarchy.music.ui.App

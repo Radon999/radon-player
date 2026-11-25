@@ -20,17 +20,6 @@ class DjSmallRulesTest {
         assertEquals("at this hour" to "late night", KindRules.dayPart(4))
     }
 
-    @Test fun thisHoursMoodsCountDouble() {
-        val top = KindRules.moodsToPick(lately = mapOf("Chill" to 10, "Happy" to 4, "Dark" to 2, "Calm" to 1), thisHour = mapOf("Dark" to 5, "Calm" to 1))
-        assertEquals(listOf("Dark" to 12, "Chill" to 10, "Happy" to 4), top)
-    }
-
-    @Test fun aMoodBarelyPlayedIsNotPicked() {
-        assertEquals(listOf("Chill" to 5), KindRules.moodsToPick(mapOf("Chill" to 5, "Happy" to 2), mapOf()))
-        assertTrue(KindRules.moodsToPick(mapOf("Happy" to 2), mapOf()).isEmpty())
-        assertTrue(KindRules.moodsToPick(mapOf(), mapOf()).isEmpty())
-    }
-
     @Test fun theHeavierIsTheLikelier() {
         val top = listOf("a" to 5, "b" to 3, "c" to 2)
         assertEquals("a", KindRules.weighted(top, 0))
@@ -39,12 +28,6 @@ class DjSmallRulesTest {
         assertEquals("b", KindRules.weighted(top, 7))
         assertEquals("c", KindRules.weighted(top, 8))
         assertEquals("c", KindRules.weighted(top, 9))
-    }
-
-    @Test fun aMoodIsThisHoursWhenHalfItsPlaysAreAroundNow() {
-        assertTrue(KindRules.moodByHour("Dark", lately = mapOf("Dark" to 10), thisHour = mapOf("Dark" to 5)))
-        assertFalse(KindRules.moodByHour("Dark", lately = mapOf("Dark" to 10), thisHour = mapOf("Dark" to 4)))
-        assertFalse(KindRules.moodByHour("Chill", lately = mapOf("Chill" to 3), thisHour = mapOf()))
     }
 
     @Test fun newSongsAreTakenInTurns() {

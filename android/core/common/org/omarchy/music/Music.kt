@@ -12,7 +12,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
 import java.io.File
 
 /** The app: your queue and what's playing, your music, the services and the settings.
@@ -330,7 +329,6 @@ object Music {
     fun markNotDupe(g: List<Track>) = StatPicks.markNotDupe(g)
     // Your picks in the stats (what they do when you make one) are StatPicks' own: these hand on. The picks are kept here.
     fun addSongPicks(more: Map<String, String>) = StatPicks.addSongPicks(more)
-    fun addAlbumPicks(more: Map<String, String>) = StatPicks.addAlbumPicks(more)
     fun keepApart(from: String, to: String) = StatPicks.keepApart(from, to)
     fun setArtistPick(credit: String, name: String?) = StatPicks.setArtistPick(credit, name)
     fun mergeArtist(name: String, to: String) = StatPicks.mergeArtist(name, to)
@@ -435,7 +433,6 @@ object Music {
     fun removeFolder(path: String) = YourFolders.remove(path)
     fun fileHere(t: Track): Boolean = YourFolders.fileHere(t)
     fun fileGone(): Boolean = YourFolders.fileGone()
-    fun versionReplaced(old: Track, new: Track) = YourFolders.versionReplaced(old, new)
     fun hereCopy(t: Track): Track? = YourFolders.hereCopy(t)
     internal fun standIn(t: Track, autoplay: Boolean) = YourFolders.standIn(t, autoplay)
     fun filesMoved(moved: Map<String, String>) = YourFolders.filesMoved(moved)
@@ -573,7 +570,6 @@ object Music {
     fun copyRank(t: Track): Double = Copies.copyRank(t)
     fun copyInfo(t: Track): String = Copies.copyInfo(t)
     fun whereIs(t: Track): String = Copies.whereIs(t)
-    fun deleteDupe(group: List<Track>, t: Track) = Copies.deleteDupe(group, t)
     fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) = Copies.removeDupes(picks)
     fun findPlaylistDupes(id: String) = Copies.findPlaylistDupes(id)
     fun playlistNotDupe(g: List<Int>) = Copies.playlistNotDupe(g)
