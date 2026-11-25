@@ -1,0 +1,7 @@
+v5.1.0
+Radon Player 5.1: Queued clean/explicit changes
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.1.0.msi` (Windows), `radon-player_5.1.0_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Queued clean/explicit changes (Utilities, the phone and the PC):** songs got from another service or app (DumpMedia mostly) often come as the clean version when you wanted explicit, or the other way round. Select them anywhere and pick **Queue a clean/explicit change**: they go on a list in Utilities › Queued clean/explicit changes. Pick **Change to: Explicit** or **Clean** beside **Scan**, and the scan reads each song's name, artist, album and length and finds that version on Tidal. **▶ Found version** plays it to check, and **Replace** (or **Replace all found**) downloads it, then deletes the version it replaces: a download of the app's straight away, your own file into the trash (on the phone Android asks you once, for all of them; on the PC the Recycle Bin). The new version takes the old one's place in your playlists, queue and plays. Needs Tidal; the list goes across with Sync.
+

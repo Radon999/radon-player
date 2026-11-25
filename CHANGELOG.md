@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.1: Queued clean/explicit changes (Android, Windows and Linux)
+- **Queued clean/explicit changes (Utilities, the phone and the PC):** songs got from another service or app (DumpMedia mostly) often come as the clean version when you wanted explicit, or the other way round. Select them anywhere and pick **Queue a clean/explicit change**: they go on a list in Utilities › Queued clean/explicit changes. Pick **Change to: Explicit** or **Clean** beside **Scan**, and the scan reads each song's name, artist, album and length and finds that version on Tidal. **▶ Found version** plays it to check, and **Replace** (or **Replace all found**) downloads it, then deletes the version it replaces: a download of the app's straight away, your own file into the trash (on the phone Android asks you once, for all of them; on the PC the Recycle Bin). The new version takes the old one's place in your playlists, queue and plays. Needs Tidal; the list goes across with Sync.
+
 ## 5.0.2: The DJ skips between sets at once (Android, Windows and Linux)
 - **The DJ skips between sets at once (the phone and the PC):** now and then, skipping past the end of a set left the song playing for half a minute or so, until the next set had been picked. Now the next set is lined up as soon as a set starts, and if you skip past the end before it's ready, one of the sets the DJ keeps ready plays straight away. Switch it up and asking the DJ for something aren't held up while it picks the next set either.
 
