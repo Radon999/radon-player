@@ -119,30 +119,74 @@ object VersionQueue {
     }
 
     // ---- replacing ----
-    /** The version found downloaded, then your old copy in the trash, the new one in its place in your playlists, queue and
-     *  plays (Copies.replaceCopies); the song off the list. Not the song playing now: skip it first. */
-    fun replace(i: Item) {
-        val f = found[i.key] ?: return
-        val c = f.tidal ?: return
-        val newT = f.track ?: return
-        if (state[i.key] == DOWNLOADING) return
-        val old = song(i)
-        if (old != null && Music.current()?.id == old.id) { state[i.key] = "It's the song playing now: skip it first"; return }
-        if (previewing == i.key) stopPreview()
-        state[i.key] = DOWNLOADING
-        val kind = if (c["explicit"].bool == true) "explicit" else "clean"
-        Music.bg({ Music.dl.download(newT, youtubeToo = false, final = c) }) { _, e ->
-            if (e != null) { state[i.key] = "Couldn't download it: ${e.message?.take(100)}"; return@bg }
+    /** Replace: the version found downloaded, then the version it replaces deleted ([oldGone]), the new one in its place
+     *  in your playlists, queue and plays; the song off the list. Not the song playing now: skip it first. */
+    fun replace(i: Item) = replaceMany(listOf(i))
+
+    /** Every song the scan found a version for: downloaded one after another, then the old versions deleted together
+     *  (one question from Android for all your own files, not one a song). */
+    fun replaceAll() = replaceMany(items().filter { found[it.key]?.tidal != null })
+
+    private fun replaceMany(list: List<Item>) {
+        val jobs = list.mapNotNull { i ->
+            val f = found[i.key]
+            val c = f?.tidal; val newT = f?.track
+            if (c == null || newT == null || state[i.key] == DOWNLOADING) return@mapNotNull null
+            val old = song(i)
+            if (old != null && Music.current()?.id == old.id) { state[i.key] = "It's the song playing now: skip it first"; return@mapNotNull null }
+            if (previewing == i.key) stopPreview()
+            state[i.key] = DOWNLOADING
+            Triple(i, old, c to newT)
+        }
+        if (jobs.isEmpty()) return
+        Music.bg({
+            jobs.map { (i, _, v) ->
+                runCatching { Music.dl.download(v.second, youtubeToo = false, final = v.first) }
+                    .also { r -> Music.scope.launch { if (r.isSuccess) state[i.key] = "Downloaded: deleting the old version…" } }
+            }
+        }) { res, err ->
+            val done = ArrayList<Pair<Track?, Track>>()
+            jobs.forEachIndexed { n, (i, old, v) ->
+                val r = res?.getOrNull(n)
+                if (r == null || r.isFailure) { state[i.key] = "Couldn't download it: ${(r?.exceptionOrNull() ?: err)?.message?.take(100)}"; return@forEachIndexed }
+                done += old to v.second
+                save(items().filter { it.key != i.key }); found.remove(i.key); state.remove(i.key)
+            }
+            if (done.isEmpty()) return@bg
             Music.musicVersion++; Music.savedVersion++
-            if (old != null && old.id != newT.id) Copies.replaceCopies(listOf(old), newT, "the old version of “${i.title}”")
-            save(items().filter { it.key != i.key }); found.remove(i.key); state.remove(i.key)
-            Music.toast("The $kind version of “${i.title}” is in your music" + if (old != null) "; your old one goes to the trash" else "")
+            oldGone(done)
         }
     }
     private const val DOWNLOADING = "Downloading…"
 
-    /** Every song the scan found a version for, replaced one after another. */
-    fun replaceAll() = items().filter { found[it.key]?.tidal != null }.forEach { replace(it) }
+    /** The versions replaced (old, new), deleted: a download of the app's at once; a file of yours into the trash (Android
+     *  asks you once, for all of them; on a PC the Recycle Bin), the new one taking its place everywhere as it goes. One
+     *  that can't be deleted from here (a file the app may not change) is said by name, to delete yourself; the new version
+     *  takes its place in your playlists, queue and plays all the same. */
+    internal fun oldGone(done: List<Pair<Track?, Track>>) {
+        val files = ArrayList<Track>(); val to = HashMap<String, Track>(); val stuck = ArrayList<Track>()
+        var deleted = 0
+        for ((old, new) in done) {
+            if (old == null || old.id == new.id) continue
+            when {
+                Music.lib.has(old.id) -> { Music.lib.remove(old.id); Copies.retarget(listOf(old.id), new); deleted++ }
+                Music.phoneFile(old) != null -> { files += old; to[old.id] = new }
+                else -> { stuck += old; Copies.retarget(listOf(old.id), new) }
+            }
+        }
+        if (files.isNotEmpty()) Copies.queueTrash(Music.TrashJob(files, to, "%,d old version%s".format(files.size, if (files.size != 1) "s" else "")))
+        val kind = if (explicit) "explicit" else "clean"
+        Music.toast(listOfNotNull(
+            "%,d song%s now in the %s version".format(done.size, if (done.size != 1) "s" else "", kind),
+            "%,d old download%s deleted".format(deleted, if (deleted != 1) "s" else "").takeIf { deleted > 0 },
+            "the old file${if (files.size != 1) "s" else ""} to the trash once you say yes".takeIf { files.isNotEmpty() },
+            ("couldn't delete " + stuck.take(3).joinToString(", ") { "“${it.title}”" } + (if (stuck.size > 3) " and ${stuck.size - 3} more" else "") +
+                ": delete ${if (stuck.size != 1) "them" else "it"} yourself (Settings › Problems lists where)").takeIf { stuck.isNotEmpty() }
+        ).joinToString("; "))
+        if (stuck.isNotEmpty()) Crashes.note("Queued clean/explicit changes: the old versions couldn't be deleted here: " +
+            stuck.joinToString("; ") { "${it.title} · ${it.artist} (${it.file})" })
+        Music.musicVersion++; Music.savedVersion++
+    }
 
     // ---- listening before you choose ----
     /** The song (its key) whose found version is playing beside the music (the music paused meanwhile), or null. */

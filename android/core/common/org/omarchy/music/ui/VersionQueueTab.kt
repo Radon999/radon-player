@@ -42,8 +42,9 @@ fun androidx.compose.foundation.lazy.LazyListScope.versionQueueView(ui: Ui) {
                 "mostly) often comes as the clean version when you wanted it explicit, or explicit when you wanted it clean. " +
                 "Select songs anywhere and pick Queue a clean/explicit change, choose which version you want below, and Scan: " +
                 "it reads each song's name, artist, album and length and finds that version on Tidal. Listen to it, then " +
-                "Replace: the right version is downloaded and your old file goes to the trash, the new one taking its place in " +
-                "your playlists, queue and plays.", style = T.sub)
+                "Replace: the right version is downloaded, then the version it replaces is deleted (a download of the app's at " +
+                "once; a file of yours goes to the ${if (onPhone) "trash, once you say yes to Android" else "Recycle Bin"}), and " +
+                "the new one takes its place in your playlists, queue and plays.", style = T.sub)
             if (!Music.tidal.signedIn) Text("The scan needs Tidal: sign in to it in Settings first.", style = T.sub.copy(color = C.accent),
                 modifier = Modifier.padding(top = 4.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -65,7 +66,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.versionQueueView(ui: Ui) {
                 } else if (items.isNotEmpty()) Pill("Scan") { VersionQueue.scan() }
                 val ready = items.count { VersionQueue.found[it.key]?.tidal != null }
                 if (ready > 0) Pill("Replace all found (%,d)".format(ready), quiet = true) {
-                    ui.confirm = ("Download the $want version of %,d song%s and put your old ones in the trash?").format(ready, if (ready != 1) "s" else "") to {
+                    ui.confirm = ("Download the $want version of %,d song%s and delete the versions they replace?").format(ready, if (ready != 1) "s" else "") to {
                         VersionQueue.replaceAll() }
                 }
                 if (items.isNotEmpty()) Pill("Clear the list", quiet = true) { ui.confirm = "Take every song off the list? Nothing is changed." to { VersionQueue.clear() } }
