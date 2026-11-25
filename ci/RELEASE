@@ -1,8 +1,0 @@
-v5.1.1
-Radon Player 5.1.1: Problems only for real problems, and a tidier inside
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.1.1.msi` (Windows), `radon-player_5.1.1_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
-
-**What is new**
-- **Settings › Problems only lists real problems (the phone and the PC):** a moment the app got over by itself is no longer put there: the sound output set up again as your earbuds or the car came and went, a fault the player recovered from, a volume put back to full, a song restarted in place, a song change that was slow but played, a stream from YouTube when Tidal didn't answer, a cover put back, a tag write finished from its copy, and the DJ's own notes. They're still kept in what **Details for support** copies, for when you need them. Problems now gets a note when something stops the music or a feature doesn't work: a song that couldn't play, the sound cutting out again and again (three times in a minute), bit-perfect or the DAC failing, a sync or backup that failed, files that couldn't be changed or deleted.
-- **A tidier inside:** functions and screens nothing used any more, leftovers from features taken out, and unused imports are gone. Nothing you use changes.
-
