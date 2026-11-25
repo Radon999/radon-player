@@ -29,11 +29,35 @@ object YourPlaylists {
     fun add(id: String, tracks: List<Track>) {
         val pl = lists.get(id) ?: return
         if (tracks.any { it.source == SoundCloud.KEY }) toast("SoundCloud songs can't go in your playlists: like them on SoundCloud instead")
-        val ok = tracks.filter { it.source != SoundCloud.KEY }
+        // A streaming song you have as your own file (or a download) goes in as yours: your files come first, and the
+        // same song can't be in a playlist twice, once streamed and once yours
+        val ok = tracks.filter { it.source != SoundCloud.KEY }.map { Music.localOf(it) }
         if (ok.isEmpty()) return
         val n = lists.add(id, ok)
         toast(addedText(pl.name, ok.size, n))
         changed()
+    }
+
+    /** Streaming songs in your playlists that you have as your own file or download (the same song: name, artist and
+     *  version, as [YourCopies.localOf] tells): your copy in their place, or, where your copy is in the playlist already,
+     *  the streamed one taken out. They came in as streams before you had the song, from the other device's copy of a
+     *  synced playlist, or from a service's list. Run after your folders are read; the playlists changed sync. */
+    private var localBusy = false
+    fun localFirst() {
+        if (localBusy) return
+        val streams = lists.items.flatMap { it.tracks }.filter { !it.isFile && !Music.lib.has(it.id) }.distinctBy { it.id }
+        if (streams.isEmpty()) return
+        localBusy = true
+        Music.bg({
+            streams.mapNotNull { t -> Music.localOf(t).takeIf { it.id != t.id && (it.isFile || Music.lib.has(it.id)) }?.let { t.id to it.slim() } }.toMap()
+        }) { swap, _ ->
+            localBusy = false
+            if (swap.isNullOrEmpty()) return@bg
+            val had = lists.items.sumOf { p -> p.tracks.count { it.id in swap } }
+            lists.remap({ t -> swap[t.id] ?: t }, touch = true)
+            changed()
+            toast("Your own files in place of $had streaming song${if (had != 1) "s" else ""} in your playlists")
+        }
     }
 
     fun remove(id: String, ids: Set<String>) { lists.remove(id, ids); changed() }

@@ -29,6 +29,7 @@ object YourFolders {
             if (changed == true) Music.musicVersion++
             adoptFiles()
             tidyGone()   // songs you moved: your playlists follow them; songs gone for good: out of them
+            YourPlaylists.localFirst()   // streaming songs in your playlists that you have: your own files in their place
             fillDownloadGenres()   // downloads saved without a genre: one looked up and written in
             Music.accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since

@@ -332,13 +332,15 @@ class Playlists(ctx: Ctx) {
 
     /** Every playlist's songs through f (songs whose files moved). Two that become one song are kept once, at the first
      *  one's place: a playlist holds each song once ([add]), and before, a song whose file moved beside its new file
-     *  already in the playlist (or the other device's file of it, taken as this one's) was left in it twice. */
+     *  already in the playlist (or the other device's file of it, taken as this one's) was left in it twice. touch: the
+     *  playlists changed count as changed for Sync (not when each device only puts its own files in, which would send
+     *  them back and forth). */
     @Synchronized
-    fun remap(f: (Track) -> Track) {
+    fun remap(f: (Track) -> Track, touch: Boolean = false) {
         items = items.map { p ->
             val have = HashSet<String>()
             val kept = p.tracks.map(f).filter { have.add(it.id) }
-            if (kept == p.tracks) p else p.copy(tracks = kept, updated = if (kept.size != p.tracks.size) now() else p.updated)
+            if (kept == p.tracks) p else p.copy(tracks = kept, updated = if (touch || kept.size != p.tracks.size) now() else p.updated)
         }.toMutableList()
         save()
     }

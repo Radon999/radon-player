@@ -47,6 +47,32 @@ class YourFoldersTest {
         }
     }
 
+    @Test fun aStreamingSongYouHaveIsYourFileInYourPlaylists() {
+        Harness.ctx
+        val had = Music.local.files
+        val name = "Your folders local first playlist"
+        val file = mine("lf-file", "Local First Song", "here")
+        val stream = Track("yf-lf-stream", "tidal", "Local First Song", "Folders Test Band")
+        val other = Track("yf-lf-other", "tidal", "Nobody Has This Song", "Folders Test Band")
+        try {
+            val id = Harness.ui {
+                Music.local.files = had + file; Music.musicVersion++
+                val id = Music.lists.create(name).id
+                Music.lists.add(id, listOf(stream, other))
+                YourPlaylists.localFirst()
+                id
+            }
+            Harness.until("the stream swapped for the file") { Harness.ui { Music.lists.get(id)!!.tracks.any { it.id == file.id } } }
+            Harness.ui {
+                assertEquals("your file in the stream's place; a song you don't have stays a stream", listOf(file.id, other.id), Music.lists.get(id)!!.tracks.map { it.id })
+                Music.addToPlaylist(id, listOf(stream))
+                assertEquals("adding the stream again adds nothing: your file is in it", 2, Music.lists.get(id)!!.tracks.size)
+            }
+        } finally {
+            Harness.ui { Music.local.files = had; Music.lists.all().filter { it.name == name }.forEach { Music.lists.delete(it.id) }; Music.musicVersion++ }
+        }
+    }
+
     @Test fun aFileThatIsNotHereIsKnown() {
         Harness.ctx
         assertTrue("a stream has no file to miss", YourFolders.fileHere(Track("yf-stream", "tidal", "Stream", "Folders Test Band")))

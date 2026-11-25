@@ -4,7 +4,8 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
-## 5.0.1: Ignore Bluetooth devices without Shizuku (Android)
+## 5.0.1: Ignore Bluetooth devices without Shizuku, and your own files first in playlists (Android, Windows and Linux)
+- **Your own files first in playlists (the phone and the PC):** a streaming song in a playlist that you have as your own file or download is swapped for your file, or taken out where your file is in the playlist already (each time your music is read). Adding a streaming song you have puts your file in instead. They came in as streams from the other device's copy of a synced playlist, from a service's list, or from before you had the song.
 - **Ignore Bluetooth devices: no stutter at all is gone (the phone):** the Shizuku setting, its Android Auto button in the player's notification and its notes are taken out; it never worked reliably. **Ignore Bluetooth devices** works as before: the car still doesn't take the music, with at most a moment's stutter as it connects or drops. For no stutter at all, Settings shows how to switch the car's Media audio off in Android's Bluetooth settings yourself (Calls stay on).
 - **Anything it left switched off, said once:** the first time the app runs after the update, if the old setting had switched your truck's Calls or Media audio off, or stopped Android Auto, a notification and a message say so. Tap it for Bluetooth settings, tap ⚙ by the truck and switch Calls and Audio on, and open Android Auto once. Shizuku isn't needed any more (you can uninstall it, and switch Developer options › USB debugging off if you don't use it).
 
