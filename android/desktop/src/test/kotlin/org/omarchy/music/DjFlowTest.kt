@@ -63,15 +63,13 @@ class DjFlowTest {
         assertTrue(engine.playWhenReady)
     }
 
-    @Test fun theNextSetIsQueuedBeforeThisOneRunsOutAndIntroducedWhenItStarts() {
+    @Test fun theNextSetIsQueuedAsThisOneBeginsAndIntroducedWhenItStarts() {
         startDj()
-        val first = Music.queue.count { it.dj == 1 }
-        // On to the set's last but one song: by then the next set is asked for
-        while (Music.index < first - 2) {
-            Harness.ui { Music.next() }
-            Harness.until("the next song loaded") { loaded() }
-        }
+        // Queued as the set begins (not two songs before its end), so skipping through it never waits for the next
         Harness.until("the second set queued") { Music.queue.any { it.dj == 2 } }
+        assertEquals("still on the first song", 0, Music.index)
+        val first = Music.queue.count { it.dj == 1 }
+        assertEquals("the second set right behind the first", 2, Music.queue[first].dj)
         assertEquals("no song twice in the queue", Music.queue.size, Music.queue.map { it.id }.distinct().size)
         assertEquals("1", Music.dj.shown)
         // Into the second set: its line is the one shown from its first song on
@@ -88,13 +86,16 @@ class DjFlowTest {
     @Test fun switchItUpPutsANewSetInPlaceOfTheRestOfThisOne() {
         startDj()
         val was = Music.current()?.id
+        Harness.until("the next set queued") { Music.queue.any { it.dj == 2 } }
         Harness.ui { Music.djSwitch() }
-        Harness.until("the new set playing") { Music.current()?.dj == 2 && loaded() }
+        Harness.until("the new set playing") { (Music.current()?.dj ?: 0) > 2 && loaded() }
+        val now = Music.current()!!.dj
         assertTrue(Music.dj.on)
         assertEquals(1, Music.index)
         assertEquals(was, Music.queue[0].id)
         assertEquals("the rest of the first set is gone", 1, Music.queue.count { it.dj == 1 })
-        assertTrue(Music.queue.count { it.dj == 2 } in 3..Dj.SET)
+        assertEquals("and the set that was queued after it", 0, Music.queue.count { it.dj == 2 })
+        assertTrue(Music.queue.count { it.dj == now } in 3..Dj.SET)
         assertEquals(Music.queue.size, Music.queue.map { it.id }.distinct().size)
     }
 

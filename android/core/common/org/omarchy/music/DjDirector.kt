@@ -153,6 +153,7 @@ object DjDirector {
         dj = dj.copy(on = true)
         djAnnounce(current())
         djMakeSpare()
+        djMore()   // its next set behind it at once (its first song loaded before the DJ was on, so it didn't ask)
     }
 
     fun djStop() {
@@ -214,14 +215,18 @@ object DjDirector {
      *  goes on to that set as soon as it's ready (never to ∞'s radio, which isn't the DJ's). */
     private var djWaiting = false
 
-    /** Near the end of the queue: the DJ's next set after it. */
+    /** The DJ's next set after the queue: as a set begins that is the last one queued (so it's there long before you
+     *  could skip to it), and when you skip past the end. A set made ahead is queued at once; you waiting at the end
+     *  (djWaiting) take one even while another set is being picked, and even one made in another part of the day (its
+     *  hello is made for now), rather than wait half a minute with the old song playing on. */
     private fun djMore() {
-        if (djBusy != null) return
+        if (djMoreBusy && !djWaiting) return
         djReady()
         // A set made ahead: queued at once (its line is made already)
-        if (dj.on) djSpare()?.let { spare ->
+        if (dj.on) djSpare(urgent = djWaiting)?.let { spare ->
             djSpares.remove(spare)
             val wait = djWaiting; djWaiting = false
+            if (wait && djBusy == WAITING) djBusy = null
             val songs = djTag(spare, queue.lastOrNull())
             queue = queue + songs
             afterQueueChange()
@@ -230,12 +235,18 @@ object DjDirector {
             if (wait && songs.isNotEmpty() && index + 1 < queue.size) { index++; loadCurrent() }
             return
         }
-        djBusy = "Picking the next set…"
+        // You're waiting and none is ready: the set being picked, or the next one made ahead, goes on the moment it's
+        // there (and the DJ's screen says it's picking)
+        if (djWaiting && djBusy == null) djBusy = WAITING
+        if (djMoreBusy) return
+        // (picked quietly in the background: Switch it up and asking stay free meanwhile)
+        djMoreBusy = true
         val ctxNow = context
         val avoid = djKind()
         val coming = coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
-            djBusy = null
+            djMoreBusy = false
+            if (djBusy == WAITING) djBusy = null
             val wait = djWaiting; djWaiting = false
             if (res != null && ctxNow == context && dj.on) {
                 val songs = djTag(res, queue.lastOrNull())
@@ -255,6 +266,8 @@ object DjDirector {
         }
     }
     private var djRetried = 0
+    private var djMoreBusy = false   // the next set being picked for the queue
+    private const val WAITING = "Picking the next set…"
 
     private fun djKind() = dj.sets[current()?.dj.toString()]?.kind
 
@@ -319,10 +332,13 @@ object DjDirector {
     private val djSpares = ArrayList<Dj.Built>()
 
     /** A set kept ready, to play now: of another kind than the one playing, if there is one. A set of what you play at
-     *  this time of day that was made in another part of the day is let go first (it's no longer this time of day). */
-    private fun djSpare(): Dj.Built? {
+     *  this time of day that was made in another part of the day is let go first (it's no longer this time of day),
+     *  unless you're waiting for a set now (urgent) and it's all there is: then it plays, its hello made for now. */
+    private fun djSpare(urgent: Boolean = false): Dj.Built? {
+        val fresh = djSpares.filter { !Dj.stale(it) }
+        if (urgent && fresh.isEmpty()) return djSpares.firstOrNull()
         djSpares.filter { Dj.stale(it) }.forEach { Dj.discard(it.id); djSpares.remove(it) }
-        return djSpares.firstOrNull { it.kind != djKind() } ?: djSpares.firstOrNull()
+        return fresh.firstOrNull { it.kind != djKind() } ?: fresh.firstOrNull()
     }
     private var djSpareJob = 0
     private var djSpareBusy = false
@@ -351,6 +367,7 @@ object DjDirector {
             if (res == null || !dj.on) { res?.let { Dj.discard(it.id) }; return@bg }
             djSpares += res
             djPrepareLine(res)
+            if (djWaiting) djMore()   // you skipped past the end with nothing ready: this one, now
             djFillSpares()
         }
     }
@@ -496,8 +513,13 @@ object DjDirector {
         override fun talksBefore(t: Track, next: Track) = dj.on && djVoice && ((next.dj > 0 && next.dj != t.dj) || !djComments[next.id].isNullOrEmpty())
         override fun otherSongsPicked() { dj = dj.copy(on = false) }
         override fun hush() = djHush()
-        override fun songLoading(t: Track) { djAnnounce(t); if (index >= queue.size - 2) djMore() }
-        override fun queueRanOut() { djWaiting = true; if (djBusy == null) djMore() }
+        // The next set queued as soon as the last one queued begins (not two songs before the end: skipping through a
+        // set got there before it was picked, and the old song played on until it was)
+        override fun songLoading(t: Track) {
+            djAnnounce(t)
+            if (index >= queue.size - 2 || (t.dj > 0 && queue.lastOrNull()?.dj == t.dj)) djMore()
+        }
+        override fun queueRanOut() { djWaiting = true; djMore() }
         override fun songEnded() = djKeepGoing()
         override fun loopRemark(t: Track, kind: String, run: Int, total: Int) {
             if (dj.on) djSay(Spoken.humanize(Dj.loopLine(kind, t, run, total), filler = 0.0))
@@ -510,7 +532,7 @@ object DjDirector {
     fun djPlay(p: Engine): Boolean {
         if (djTalking) djHush()   // she stops; the music (never stopped for her) carries on
         if (dj.on && current() != null && p.state == Engine.ENDED && index + 1 >= queue.size) {
-            djWaiting = true; advancing = true; if (djBusy == null) djMore(); return true
+            djWaiting = true; advancing = true; djMore(); return true
         }
         // A new set that never got its line (the skip landed while it was loading): its line, then the song
         current()?.dj?.takeIf { it > 0 && dj.on && it.toString() != dj.shown && dj.sets[it.toString()] != null }?.let {
