@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 5.1.1 · November 2026
+- **Settings › Problems only lists real problems (the phone and the PC):** a moment the app got over by itself is no longer put there: the sound output set up again as your earbuds or the car came and went, a fault the player recovered from, a volume put back to full, a song restarted in place, a song change that was slow but played, a stream from YouTube when Tidal didn't answer, a cover put back, a tag write finished from its copy, and the DJ's own notes. They're still kept in what **Details for support** copies, for when you need them. Problems now gets a note when something stops the music or a feature doesn't work: a song that couldn't play, the sound cutting out again and again (three times in a minute), bit-perfect or the DAC failing, a sync or backup that failed, files that couldn't be changed or deleted.
+- **A tidier inside:** functions and screens nothing used any more, leftovers from features taken out, and unused imports are gone. Nothing you use changes.
+
 ## 5.1 · November 2026
 - **Queued clean/explicit changes (Utilities, the phone and the PC):** songs got from another service or app (DumpMedia mostly) often come as the clean version when you wanted explicit, or the other way round. Select them anywhere and pick **Queue a clean/explicit change**: they go on a list in Utilities › Queued clean/explicit changes. Pick **Change to: Explicit** or **Clean** beside **Scan**, and the scan reads each song's name, artist, album and length and finds that version on Tidal. **▶ Found version** plays it to check, and **Replace** (or **Replace all found**) downloads it, then deletes the version it replaces: a download of the app's straight away, your own file into the trash (on the phone Android asks you once, for all of them; on the PC the Recycle Bin). The new version takes the old one's place in your playlists, queue and plays. Needs Tidal; the list goes across with Sync.
 
