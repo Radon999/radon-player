@@ -1,16 +1,8 @@
-commit cc2f1d46aecd0b1a99d977d084efd6bc68944bb4 · run 45670233267 · Wed Nov 25 18:09:45 UTC 2026
-PC TESTS ON WINDOWS: 45 suites, tests 176, failed 2
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.2 s (with loading the voice); then 4.8 s of speech in 1.8 s (2.7x real time)
-WINDOWS INSTALLER: Radon Player-5.0.1.msi, 97M
+commit a1adc8d79053375eb245cb2794ba7a3802bb48d5 · run 45672244407 · Wed Nov 25 18:31:48 UTC 2026
+PC TESTS ON WINDOWS: 45 suites, tests 176, failed 1
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.5 s of speech in 2.3 s (with loading the voice); then 4.8 s of speech in 1.6 s (2.9x real time)
+WINDOWS INSTALLER: Radon Player-5.0.2.msi, 97M
 --- errors
-org.omarchy.music.DjFlowTest > stoppingTheDjLeavesTheMusicAsItIs FAILED
-    java.lang.AssertionError: expected:<[file-library-55, file-library-70, file-library-57, file-library-23, file-library-45, file-library-17]> but was:<[file-library-55, file-library-70, file-library-57, file-library-23, file-library-45, file-library-17, file-library-74, file-library-40, file-library-69, file-library-71, file-library-73, file-library-20]>
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.failNotEquals(Assert.java:835)
-        at org.junit.Assert.assertEquals(Assert.java:120)
-        at org.junit.Assert.assertEquals(Assert.java:146)
-        at org.omarchy.music.DjFlowTest.stoppingTheDjLeavesTheMusicAsItIs(DjFlowTest.kt:165)
---
 org.omarchy.music.DjLastKindsTest > mostPlayedFromEverythingIsOnlySongsYourListeningHasPlaysOf FAILED
     java.lang.AssertionError: a mostplayed set can be made
         at org.junit.Assert.fail(Assert.java:89)
@@ -31,14 +23,14 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 6m 42s
+BUILD FAILED in 7m 28s
 21 actionable tasks: 21 executed
 --- the end of the log
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 > Task :desktop:test
 
-176 tests completed, 2 failed
+176 tests completed, 1 failed
 
 > Task :desktop:test FAILED
 
@@ -57,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m 42s
+BUILD FAILED in 7m 28s
 21 actionable tasks: 21 executed
