@@ -1,8 +1,8 @@
-commit a126a5923844d0f0b2dcd833955bd0b005dbdefa · run 45712918879 · Wed Nov 25 22:36:49 UTC 2026
+commit 9268cb2c4a10d9520d64e74fc7d7165fed65da43 · run 45712938197 · Wed Nov 25 22:55:21 UTC 2026
 SHARED TESTS: 146 suites, 691 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): 46 suites, 177 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.8 s (with loading the voice); then 5.1 s of speech in 1.8 s (2.9x real time)
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.2 s of speech in 1.1 s (with loading the voice); then 4.9 s of speech in 1.1 s (4.5x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_5.1.2_amd64.deb, 91M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -22,21 +22,21 @@ LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 --- the end of the log
-> Task :app:compileDebugJavaWithJavac
-> Task :app:processDebugJavaRes
-> Task :app:bundleDebugClassesToRuntimeJar
-> Task :app:bundleDebugClassesToCompileJar
+w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Visualizer2.kt:176:100 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1299:66 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1299:143 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1388:25 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1388:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
+w: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
 
-> Task :app:compileDebugUnitTestKotlin
-w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
-
+> Task :app:testDebugUnitTest
+> Task :desktop:compileJava NO-SOURCE
+> Task :desktop:classes
+> Task :desktop:jar
 > Task :desktop:compileTestKotlin
 > Task :desktop:packageDeb
 The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_5.1.2_amd64.deb
 
-> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
-> Task :app:processDebugUnitTestJavaRes
-> Task :app:testDebugUnitTest
 > Task :desktop:compileTestJava NO-SOURCE
 > Task :desktop:testClasses
 > Task :desktop:test
@@ -50,5 +50,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 57s
+BUILD SUCCESSFUL in 4m 23s
 59 actionable tasks: 59 executed
