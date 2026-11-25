@@ -30,8 +30,8 @@ class CopiesTest {
             song("s1", "Skit", "One", secs = 12.0), song("s2", "Skit", "Other", secs = 12.0))                           // too short to tell by length
         val groups = Copies.groupsOf(songs, { it.file }, { 0.0 }) { false }
         assertEquals(setOf(setOf("copy-n1", "copy-n2"), setOf("copy-y1", "copy-y2")), groups.map { g -> g.map { it.id }.toSet() }.toSet())
-        assertTrue("by their length alone: not sure enough to mark one Remove", !sameArtistCopies(songs.take(2)))
-        assertTrue("an artist they share: sure", sameArtistCopies(listOf(songs[3], songs[4])))
+        assertTrue("by their length alone: not sure enough to mark one Remove", !sureCopies(songs.take(2)))
+        assertTrue("an artist they share: sure", sureCopies(listOf(songs[3], songs[4])))
     }
 
     @Test fun oneFileListedTwiceIsOneCopyAndGroupsYouKeptAreLeftOut() {
@@ -41,6 +41,17 @@ class CopiesTest {
         assertEquals(1, Copies.groupsOf(two, { it.file }, { 0.0 }) { false }.size)
         assertTrue("marked Not a duplicate: not shown again", Copies.groupsOf(two, { it.file }, { 0.0 }) { true }.isEmpty())
         assertTrue("songs with no name are never grouped", Copies.groupsOf(listOf(song("n1", "…"), song("n2", "!!")), { it.file }, { 0.0 }) { false }.isEmpty())
+    }
+
+    @Test fun aPlaylistsSongsInItMoreThanOnceAreFoundWithThePlayableCopyFirst() {
+        val ruby = song("ruby", "Ruby", "twenty one pilots"); val gone = song("gone", "11 Ruby", "Unknown artist")
+        val heart = song("heart", "♡", "Coldplay"); val stream = Track("tidal-heart", "tidal", "♡", "Coldplay")
+        val list = listOf(gone, song("z", "Zebra"), heart, ruby, stream, heart)
+        val rank = mapOf("copy-ruby" to 2.0, "copy-heart" to 2.0, "tidal-heart" to 1.0, "copy-gone" to 0.0)
+        val groups = Copies.playlistGroups(list, { rank[it.id] ?: 0.0 }) { false }
+        assertEquals("each place its own copy, the one that plays from this device first",
+            listOf(listOf(2, 5, 4), listOf(3, 0)), groups)
+        assertEquals("one you marked Not a duplicate isn't shown", 1, Copies.playlistGroups(list, { 0.0 }) { g -> g.any { it.id == "copy-ruby" } }.size)
     }
 
     @Test fun theCopyKeptTakesThePlaceOfTheOnesGoingOnce() {

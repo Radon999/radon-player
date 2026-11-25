@@ -408,7 +408,9 @@ private val BRACKETS = Regex("[(\\[][^)\\]]*[)\\]]")
 private val DASH_REST = Regex("\\s[-–—]\\s.*$")
 private val FEAT_REST = Regex("\\s(?:feat|ft|featuring)\\b.*$")
 private val NOT_LETTERS = Regex("[\\W_]+")
-private val LEADING_NUMBER = Regex("^\\s*\\d{1,3}\\s*[-._)]?\\s+(\\S.*)$")
+// A track number (or a disc and track: "1-11", "01.11", "1/11"), maybe in brackets, then a sign and a space, a space,
+// or straight on after "_", "." or ")": "11 Ruby", "11. Ruby", "11 - Ruby", "(11) Ruby", "11_Ruby", "1-11 Ruby"
+private val LEADING_NUMBER = Regex("^\\s*[(\\[]?\\d{1,3}(?:\\s?[-./]\\s?\\d{1,3})?[)\\]]?(?:\\s*[-–—._:)|]\\s+|[._)\\]]|\\s+)(\\S.*)$")
 /** Where an artist credit splits into its artists (statsKey's lead is the first); any case, as names are written. */
 internal val CREDIT_SPLIT = Regex(",|;| & | x | feat\\.? | ft\\.? | featuring | with ", RegexOption.IGNORE_CASE)
 
@@ -421,9 +423,10 @@ fun looseTitle(title: String): String {
     return NOT_LETTERS.replace(t, "")
 }
 
-/** A title without the track number a file's name starts with ("11 Ruby", "03 - Intro", "13. unconditional"): what a
- *  file with no tags is called by its name alone. The title as it is when nothing but a number would be left, or when
- *  no number leads it. ("24 Hours" loses its 24 too, so this is only ever tried beside the title as it is.) */
+/** A title without the track number a file's name starts with ("11 Ruby", "03 - Intro", "13. unconditional", "11_Ruby",
+ *  "(11) Ruby", "1-11 Ruby"): what a file with no tags is called by its name alone. The title as it is when nothing but
+ *  numbers would be left ("1-800-273-8255", "12-51", "1999"), or when no number leads it. ("24 Hours" loses its 24 too,
+ *  so this is only ever tried beside the title as it is.) */
 fun withoutTrackNumber(title: String): String {
     val m = LEADING_NUMBER.find(title) ?: return title
     return m.groupValues[1].trim().takeIf { r -> r.any { it.isLetter() } } ?: title

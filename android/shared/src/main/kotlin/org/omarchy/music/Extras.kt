@@ -27,35 +27,60 @@ fun looseKey(t: Track): Pair<String, String> =
  *  name different artists (copies of one recording differ by a fraction of a second at most). */
 const val SAME_RECORDING_WITHIN = 0.5
 
-/** Your songs that are one song in more than one file, for Duplicates: the songs of one name ([looseKey]'s) that
- *  have the same lead artist, or share any artist they credit ("Arkells; K.Flay" and "KFlay"), or run to the very
- *  same length ([SAME_RECORDING_WITHIN]; nothing under [SameLengthRules.SHORTEST]) whoever each one names: a phone
- *  reads only the first artist of a file that credits two, so one file says "Young Dolph" and the other "Key Glock".
- *  Songs with no name are never grouped. */
-fun dupeClusters(songs: List<Track>): List<List<Track>> {
-    val out = ArrayList<List<Track>>()
-    for ((name, bucket) in songs.groupBy { looseKey(it).first }) {
-        if (name.isEmpty() || bucket.size < 2) continue
-        val lead = bucket.map { looseKey(it).second }
-        val credits = bucket.map { looseArtists(it.copy(artist = it.artist.replace(';', ','))) }
-        fun same(i: Int, j: Int): Boolean = lead[i] == lead[j] || credits[i].any { it in credits[j] } ||
-            (bucket[i].duration >= SameLengthRules.SHORTEST && bucket[j].duration >= SameLengthRules.SHORTEST &&
-                kotlin.math.abs(bucket[i].duration - bucket[j].duration) <= SAME_RECORDING_WITHIN)
-        val group = IntArray(bucket.size) { it }
-        fun top(i: Int): Int { var x = i; while (group[x] != x) x = group[x]; return x }
-        for (i in bucket.indices) for (j in i + 1 until bucket.size) if (top(i) != top(j) && same(i, j)) group[top(j)] = top(i)
-        bucket.indices.groupBy { top(it) }.values.filter { it.size > 1 }.forEach { g -> out += g.map { bucket[it] } }
-    }
-    return out
+/** A song's names for finding duplicates: its title squashed ([looseKey]'s), and the same without the track number a
+ *  file's name may start with ("11 Ruby", "03 - Intro", "11_Ruby": [withoutTrackNumber]) when that differs. A title of
+ *  symbols alone ("♡") is its own name as written, so two files of it are found too. None for a song with no name. */
+fun dupeNames(t: Track): List<String> {
+    val whole = squashKey(cleanTitle(t.title)).ifEmpty { t.title.trim().lowercase().replace(Regex("\\s+"), " ").let { if (it.isEmpty()) "" else "#$it" } }
+    if (whole.isEmpty()) return emptyList()
+    val bare = withoutTrackNumber(t.title).takeIf { it != t.title }?.let { squashKey(cleanTitle(it)) }
+    return if (bare.isNullOrEmpty() || bare == whole) listOf(whole) else listOf(whole, bare)
 }
 
-/** Whether the copies of a Duplicates group are one song by their artists too (each shares an artist with the first).
- *  When not, they were put together by their name and length alone: likely one recording tagged two ways, but two
- *  songs of one name can run to the same length, so none of them is marked to be removed until you say so. */
-fun sameArtistCopies(g: List<Track>): Boolean {
+/** Your songs that are one song in more than one file, for Duplicates (and a playlist's Find duplicates): the songs of
+ *  one name ([dupeNames]: punctuation, accents, (Remastered)-type notes and a leading track number don't count) that
+ *  have the same lead artist, or share any artist they credit ("Arkells; K.Flay" and "KFlay"), or of which one names
+ *  no artist at all ("11 Ruby" by Unknown artist and "Ruby" by twenty one pilots), or that run to the very same length
+ *  ([SAME_RECORDING_WITHIN]; nothing under [SameLengthRules.SHORTEST]) whoever each one names: a phone reads only the
+ *  first artist of a file that credits two, so one file says "Young Dolph" and the other "Key Glock". Songs with no
+ *  name are never grouped. Each group in the order its songs came. */
+fun dupeClusters(songs: List<Track>): List<List<Track>> = dupeClusterIndices(songs).map { g -> g.map { songs[it] } }
+
+/** [dupeClusters] as places in songs: a playlist can hold one song twice, and each place is its own copy there. */
+fun dupeClusterIndices(songs: List<Track>): List<List<Int>> {
+    val byName = HashMap<String, MutableList<Int>>()
+    songs.forEachIndexed { i, t -> for (n in dupeNames(t)) byName.getOrPut(n) { ArrayList() } += i }
+    val lead = arrayOfNulls<String>(songs.size)
+    val credits = arrayOfNulls<Set<String>>(songs.size)
+    fun lead(i: Int) = lead[i] ?: looseKey(songs[i]).second.also { lead[i] = it }
+    fun credits(i: Int) = credits[i] ?: looseArtists(songs[i].copy(artist = songs[i].artist.replace(';', ','))).also { credits[i] = it }
+    fun same(i: Int, j: Int): Boolean = lead(i) == lead(j) || credits(i).any { it in credits(j) } ||
+        noArtistNamed(songs[i].artist) || noArtistNamed(songs[j].artist) ||
+        (songs[i].duration >= SameLengthRules.SHORTEST && songs[j].duration >= SameLengthRules.SHORTEST &&
+            kotlin.math.abs(songs[i].duration - songs[j].duration) <= SAME_RECORDING_WITHIN)
+    val group = IntArray(songs.size) { it }
+    fun top(i: Int): Int { var x = i; while (group[x] != x) { group[x] = group[group[x]]; x = group[x] }; return x }
+    for (bucket in byName.values) {
+        if (bucket.size < 2) continue
+        for (a in bucket.indices) for (b in a + 1 until bucket.size) {
+            val i = bucket[a]; val j = bucket[b]
+            val ti = top(i); val tj = top(j)
+            if (ti != tj && same(i, j)) group[maxOf(ti, tj)] = minOf(ti, tj)
+        }
+    }
+    return songs.indices.groupBy { top(it) }.values.filter { it.size > 1 }
+}
+
+/** Whether the copies of a Duplicates group are surely one song: each shares an artist with the first, and each has
+ *  the first one's name as it is (not only once a leading track number is left off). When not (put together by their
+ *  name and length alone, by a file with no artist, or "24 Hours" beside "Hours"), they're likely one song but may be
+ *  two, so none of them is marked to be removed until you say so. */
+fun sureCopies(g: List<Track>): Boolean {
     fun credits(t: Track) = looseArtists(t.copy(artist = t.artist.replace(';', ','))) + looseKey(t).second
-    val first = credits(g.firstOrNull() ?: return true)
-    return g.drop(1).all { t -> credits(t).any { it in first } }
+    val head = g.firstOrNull() ?: return true
+    val first = credits(head)
+    val name = dupeNames(head).firstOrNull()
+    return g.drop(1).all { t -> credits(t).any { it in first } && dupeNames(t).firstOrNull() == name }
 }
 
 /** Whether a and b are likely the same song, to ask about: the same or nearly the same title by an

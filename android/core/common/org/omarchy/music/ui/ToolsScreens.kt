@@ -434,9 +434,10 @@ private fun NoCoversScreen(ui: Ui) {
     }
 }
 
-/** The lyrics scanner: Find lyrics (with Stop and how far it's got), how it stands, then the songs it found nothing for,
- *  each with Leave alone (remembered), Instrumental, Enter lyrics (typed in, into the file or kept in the app), Search the
- *  web (your browser, for you to read) and Search again (the lyrics sites once more, with a looser title). */
+/** The lyrics scanner: Find lyrics (with Stop and how far it's got), how it stands, the songs with words but no timing
+ *  (auto-sync, at the top so they aren't under the long list), then the songs it found nothing for, each with Leave alone
+ *  (remembered), Instrumental, Enter lyrics (typed in, into the file or kept in the app), Search the web (your browser, for
+ *  you to read) and Search again (the lyrics sites once more, with a looser title). Streamed songs aren't in it. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun LyricsScanScreen(ui: Ui) {
@@ -458,8 +459,9 @@ private fun LyricsScanScreen(ui: Ui) {
             Text("Finds each song's lyrics (the file's own, Genius, Musixmatch through Tidal, LRCLIB) and writes them into the song's " +
                 "file, timed lines when there are some, so any player shows them. " +
                 (if (onPhone) "On the phone that's the songs the app downloaded; Android keeps your other files to themselves, so their lyrics stay in the app (offline too)."
-                else "The songs in your playlists and favorites that are streamed keep theirs in the app.") +
-                " Songs with lyrics in their file already are skipped.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+                else "Songs whose file the app can't change keep theirs in the app.") +
+                " Songs with lyrics in their file already are skipped. Streamed songs aren't in this list (there's no file to write " +
+                "into): their lyrics are found when you play them and kept in the app, offline too.", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
             ls.counts?.let { c ->
                 Text("Lyrics in files: %,d · kept in the app: %,d · still to find: %,d".format(c.inFiles, c.inApp, c.toFind) +
                     (if (c.instrumental > 0) " · %,d instrumental".format(c.instrumental) else ""), style = T.sub.copy(color = C.accent))
@@ -478,11 +480,16 @@ private fun LyricsScanScreen(ui: Ui) {
                 Pill("Show them again", quiet = true) { ls.showLeftAgain() }
             }
             val f = list
-            if (progress == null && f != null) Text(if (f.isEmpty()) "No songs without lyrics: each one has them, or you've said what to do with it"
-                else "No lyrics at all: ${f.size} song${if (f.size != 1) "s" else ""}", style = T.section, modifier = Modifier.padding(bottom = 4.dp))
             LazyColumn(Modifier.weight(1f)) {
                 // Auto-sync at work (either job): how far, and Stop
                 if (progress == null && org.omarchy.music.LyricsAutoSync.progress != null) item { AutoSyncRunning() }
+                // The songs with their words but no timing, with auto-sync: first, above the (long) list of songs with none
+                if (progress == null) item { UntimedLyrics(ui) }
+                if (progress == null) item { AutoSyncDone() }
+                if (progress == null && f != null) item {
+                    Text(if (f.isEmpty()) "No songs without lyrics: each one has them, or you've said what to do with it"
+                        else "No lyrics at all: ${f.size} song${if (f.size != 1) "s" else ""}", style = T.section, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                }
                 // The songs with no lyrics: auto-sync can listen for their words
                 if (progress == null && !f.isNullOrEmpty()) item { HearLyrics(ui) }
                 items(if (progress == null) f.orEmpty() else emptyList()) { t ->
@@ -514,9 +521,6 @@ private fun LyricsScanScreen(ui: Ui) {
                         }
                     }
                 }
-                // The songs with their words but no timing: kept apart from the ones with no lyrics, with auto-sync
-                if (progress == null) item { UntimedLyrics(ui) }
-                if (progress == null) item { AutoSyncDone() }
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 Pill("Done", quiet = true) { close() }
@@ -585,14 +589,14 @@ private fun UntimedLyrics(ui: Ui) {
     LaunchedEffect(auto.version, org.omarchy.music.LyricsScan.version, running == null) {
         if (running == null) Music.bg({ auto.waiting() }) { r, _ -> waiting = r ?: emptyList() }
     }
-    Column(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
         val w = waiting
         Text(if (w == null) "Lyrics but no timing: counting…" else "Lyrics but no timing: ${w.size} song${if (w.size != 1) "s" else ""}",
             style = T.section, modifier = Modifier.padding(bottom = 4.dp))
         Text("These have their words but not the times each line is sung. Auto-sync looks each one up once more, and the " +
             "ones nobody has timed (your unreleased songs) it listens to: it hears the words being sung and when, on this " +
             "$DEVICE (nothing is sent anywhere), and times the lines itself. The timed lyrics go into the song's file like " +
-            "the lyrics above (Sync takes them to your other device), and the Lyrics tab marks them \"Timed by Radon\". " +
+            "any lyrics (Sync takes them to your other device), and the Lyrics tab marks them \"Timed by Radon\". " +
             "Songs done are kept done: each start only does the ones left. It takes a while: " +
             (if (onPhone) "about 10 to 30 seconds a song on the phone." else "a few seconds a song on the PC."),
             style = T.sub, modifier = Modifier.padding(bottom = 6.dp))

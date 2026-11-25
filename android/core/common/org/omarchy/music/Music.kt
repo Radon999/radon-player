@@ -170,6 +170,7 @@ object Music {
     var trashJob by mutableStateOf<TrashJob?>(null)   // your files Android is asked to put in its trash
     var dupes by mutableStateOf<List<List<Track>>?>(null)   // the Duplicates view's last look: copies, best first
     var dupesBusy by mutableStateOf(false)
+    var playlistDupes by mutableStateOf<Copies.PlaylistDupes?>(null)   // a playlist's Find duplicates: its last look
     var upgrading by mutableStateOf<String?>(null)   // Upgrade running: how far
     var upgradeKept by mutableStateOf<List<Pair<Track, String>>?>(null)   // kept as good already: replace anyway?
     @Volatile var upgradeStop = false
@@ -574,6 +575,9 @@ object Music {
     fun whereIs(t: Track): String = Copies.whereIs(t)
     fun deleteDupe(group: List<Track>, t: Track) = Copies.deleteDupe(group, t)
     fun removeDupes(picks: List<Pair<List<Track>, Set<String>>>) = Copies.removeDupes(picks)
+    fun findPlaylistDupes(id: String) = Copies.findPlaylistDupes(id)
+    fun playlistNotDupe(g: List<Int>) = Copies.playlistNotDupe(g)
+    fun removePlaylistDupes(picks: List<Pair<List<Int>, Set<Int>>>) = Copies.removePlaylistDupes(picks)
 
     // ---- Upgrade: your files for Tidal's FLAC where it's better ----
     fun upgradeSongs(tracks: List<Track>? = null, force: Boolean = false) = Upgrades.songs(tracks, force)

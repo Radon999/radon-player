@@ -248,9 +248,13 @@ object Lyrics {
         val dir = File(ctx.cacheDir, "lyrics").apply { mkdirs() }
         val file = File(dir, "${safeName(t.id)}.json")
         val cached = readText(file)?.let { runCatching { JSON.decodeFromString(Got.serializer(), it) }.getOrNull() }
-        if (cached != null && !refresh && (cached.has || now() - cached.time < RETRY)) return cached.takeIf { it.has }
+        if (cached != null && !refresh && (cached.has || now() - cached.time < RETRY)) {
+            if (cached.has) LyricsScan.keepStreamed(t, cached)   // found before the app kept a streamed song's
+            return cached.takeIf { it.has }
+        }
         val (got, reached) = fetch(m)
         if (reached) writeAtomic(file, JSON.encodeToString(Got.serializer(), got.copy(time = now())))   // offline: don't remember "no lyrics"
+        LyricsScan.keepStreamed(t, got)   // a streamed song's kept in the app, offline and over a restart (not the cache)
         return got.takeIf { it.has }
     }
 
@@ -267,6 +271,7 @@ object Lyrics {
         if (cached != null && (cached.synced != null || now() - cached.time < RETRY)) return cached.synced
         val (got, reached) = fetch(m)
         if (reached) writeAtomic(file, JSON.encodeToString(Got.serializer(), got.copy(time = now())))
+        if (got.synced != null) LyricsScan.keepStreamed(t, got)
         return got.synced
     }
 
@@ -276,6 +281,7 @@ object Lyrics {
         val (got, _) = fetch(m)
         if (got.has) writeAtomic(File(File(ctx.cacheDir, "lyrics").apply { mkdirs() }, "${safeName(t.id)}.json"),
             JSON.encodeToString(Got.serializer(), got.copy(time = now())))
+        LyricsScan.keepStreamed(t, got)
         return got.takeIf { it.has }
     }
 

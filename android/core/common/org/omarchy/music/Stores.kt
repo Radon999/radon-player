@@ -330,11 +330,26 @@ class Playlists(ctx: Ctx) {
     fun setSmart(id: String, name: String, smart: Smart, tracks: List<Track>) =
         edit(id) { it.copy(name = name, smart = smart, tracks = tracks.map { t -> t.slim() }, updated = now()) }
 
-    /** Every playlist's songs through f (songs whose files moved). */
+    /** Every playlist's songs through f (songs whose files moved). Two that become one song are kept once, at the first
+     *  one's place: a playlist holds each song once ([add]), and before, a song whose file moved beside its new file
+     *  already in the playlist (or the other device's file of it, taken as this one's) was left in it twice. */
     @Synchronized
     fun remap(f: (Track) -> Track) {
-        items = items.map { p -> p.copy(tracks = p.tracks.map(f)) }.toMutableList()
+        items = items.map { p ->
+            val have = HashSet<String>()
+            val kept = p.tracks.map(f).filter { have.add(it.id) }
+            if (kept == p.tracks) p else p.copy(tracks = kept, updated = if (kept.size != p.tracks.size) now() else p.updated)
+        }.toMutableList()
         save()
+    }
+
+    /** Take the songs at these places out of a playlist, if it still holds was (what you looked at); false if it changed since. */
+    @Synchronized
+    fun removeAt(id: String, was: List<Track>, at: Set<Int>): Boolean {
+        val p = get(id) ?: return false
+        if (p.tracks != was) return false
+        if (at.isNotEmpty()) edit(id) { it.copy(tracks = it.tracks.filterIndexed { i, _ -> i !in at }, updated = now()) }
+        return true
     }
 
     @Synchronized

@@ -191,8 +191,9 @@ object Copies {
         return n
     }
 
-    /** The Duplicates list: your songs that are one song ([dupeClusters]: the same name by the same artist or by one
-     *  they share, or the same name and the very same length whoever each file names) in two or
+    /** The Duplicates list: your songs that are one song ([dupeClusters]: the same name, a leading track number or
+     *  punctuation aside, by the same artist or by one they share, by a file that names no artist, or the same name and
+     *  the very same length whoever each file names) in two or
      *  more files (fileOf: one file listed twice is one copy), each group's best copy first (rank), the groups by
      *  artist then name; the groups you marked "Not a duplicate" (kept) left out. */
     fun groupsOf(songs: List<Track>, fileOf: (Track) -> String?, rank: (Track) -> Double, kept: (List<Track>) -> Boolean): List<List<Track>> =
@@ -254,5 +255,73 @@ object Copies {
         if (files.isNotEmpty()) queueTrash(TrashJob(files, to, "${files.size} duplicate cop${if (files.size != 1) "ies" else "y"}"))
         val n = gone.size + files.size
         toast((if (n > 0) "Removing $n cop${if (n != 1) "ies" else "y"}" else "Nothing to remove") + if (skipped) " · the playing one is left: skip it first" else "")
+    }
+
+    // ---- A playlist's duplicates ----
+    /** A playlist's Find duplicates as last looked: the playlist (id), its songs as they were then, the groups of one
+     *  song in it more than once (places in tracks, the copy best kept first; null: still looking), and where each of
+     *  those copies plays from. */
+    class PlaylistDupes(val id: String, val tracks: List<Track>, val groups: List<List<Int>>?, val where: Map<Int, String> = emptyMap())
+
+    /** Look through a playlist for songs in it more than once: the same song twice, or two copies of one song (as
+     *  Duplicates tells them: a leading track number, punctuation, a file with no artist…). */
+    fun findPlaylistDupes(id: String) {
+        val tracks = lists.get(id)?.tracks ?: return
+        val no = notDupes
+        val look = PlaylistDupes(id, tracks, null)
+        Music.playlistDupes = look
+        bg({
+            val state = HashMap<Track, Int>()
+            fun st(t: Track) = state.getOrPut(t) { entryState(t) }
+            val groups = playlistGroups(tracks, { st(it) * 100_000.0 + copyRank(it) }) { dupeKey(it) in no }
+            groups to groups.flatten().associateWith { i -> val t = tracks[i]
+                when (st(t)) { 2 -> whereIs(t).ifEmpty { "On this ${org.omarchy.music.ui.DEVICE}" }; 1 -> "Streaming"
+                    else -> if (t.file?.let { BackupMerge.fileHere(it, platformName == "android") } == false) "The other device's file: not on this one"
+                        else "Not on this ${org.omarchy.music.ui.DEVICE} any more: can't be played" } }
+        }) { res, err ->
+            if (Music.playlistDupes !== look) return@bg   // closed, or looked again since
+            Music.playlistDupes = PlaylistDupes(id, tracks, res?.first ?: emptyList(), res?.second ?: emptyMap())
+            if (err != null) toast("Couldn't look for duplicates: ${err.message?.take(80)}")
+        }
+    }
+
+    /** A playlist's songs that are one song more than once, as places in tracks: each group's best entry first (rank;
+     *  the playlist's order between equals), the groups by artist then name, the ones you marked "Not a duplicate"
+     *  (kept) left out. */
+    fun playlistGroups(tracks: List<Track>, rank: (Track) -> Double, kept: (List<Track>) -> Boolean): List<List<Int>> =
+        dupeClusterIndices(tracks).map { g -> g.sortedByDescending { rank(tracks[it]) } }
+            .filter { g -> !kept(g.map { tracks[it] }) }
+            .sortedBy { norm(tracks[it[0]].artist) + "|" + norm(tracks[it[0]].title) }
+
+    /** Where a playlist's song plays from, best first: 2 on this device (its file is there, or a download), 1 streaming,
+     *  0 a file that's gone (it can't be played). (blocking: the file is looked for) */
+    private fun entryState(t: Track): Int = when {
+        lib.has(t.id) -> 2
+        !t.isFile -> 1
+        runCatching { YourFolders.fileHere(t) }.getOrDefault(false) -> 2
+        else -> 0
+    }
+
+    /** A group of the playlist's Find duplicates marked "Not a duplicate": remembered, and not shown again. */
+    fun playlistNotDupe(g: List<Int>) {
+        val d = Music.playlistDupes ?: return
+        Music.markNotDupe(g.map { d.tracks[it] })
+        Music.playlistDupes = PlaylistDupes(d.id, d.tracks, d.groups?.filter { it != g })
+    }
+
+    /** The playlist's Keep / Remove: in each group the copies picked come out of the playlist (only out of it: your
+     *  files and downloads stay); a group with every copy picked keeps its best. */
+    fun removePlaylistDupes(picks: List<Pair<List<Int>, Set<Int>>>) {
+        val d = Music.playlistDupes ?: return
+        val drop = HashSet<Int>()
+        for ((g, rm) in picks) {
+            val keep = g.firstOrNull { it !in rm } ?: g.first()
+            drop += rm.filter { it in g && it != keep }
+        }
+        val name = lists.get(d.id)?.name ?: return
+        if (!lists.removeAt(d.id, d.tracks, drop)) { toast("“$name” changed since: look again"); findPlaylistDupes(d.id); return }
+        Music.playlistDupes = null
+        musicVersion++
+        toast(if (drop.isEmpty()) "Nothing to remove" else "Took ${drop.size} cop${if (drop.size != 1) "ies" else "y"} out of “$name” (your files stay)")
     }
 }

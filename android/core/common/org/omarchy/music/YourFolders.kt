@@ -28,7 +28,7 @@ object YourFolders {
             else if (err != null) toast("Couldn't read your music: ${err.message?.take(80)}")
             if (changed == true) Music.musicVersion++
             adoptFiles()
-            relinkMissing()   // songs you moved: your playlists follow them
+            tidyGone()   // songs you moved: your playlists follow them; songs gone for good: out of them
             fillDownloadGenres()   // downloads saved without a genre: one looked up and written in
             Music.accountsVersion++
             QualityCheck.scan()   // Loudness check: the songs new or changed since
@@ -126,41 +126,85 @@ object YourFolders {
         Music.saveState(); Music.musicVersion++
     }
 
-    /** (after your folders are read) Songs of yours in your playlists, the queue and favorites whose file is gone: the
-     *  same song found where it is now (you moved or renamed a folder) and linked, so nothing has to be made again. */
-    private fun relinkMissing() {
-        val songs = (Music.queue + lists.items.flatMap { it.tracks } + favorites.tracks()).filter { it.isFile && !lib.has(it.id) }
+    /** (after your folders are read) Songs of yours in your playlists, the queue and favorites whose file is gone from
+     *  this device: the same song found where it is now (you moved, renamed or tagged it anew: [hereCopy]) is linked
+     *  in its place, so nothing has to be made again; else the same song to stream (as a song not on this device plays);
+     *  else, playable nowhere, it is taken out of them, so a song you can't play isn't shown anywhere. The other
+     *  device's files (a synced playlist's, a backup's) are left to [adoptFiles]; and when many of this device's files
+     *  are gone at once ([MusicFolderRules.tooManyGone]: a card out, a drive not plugged in) only the copies are linked. */
+    private var goneBusy = false
+    private fun tidyGone() {
+        if (goneBusy || local.files.isEmpty()) return   // your folders not read (no permission yet): nothing is called gone
+        val android = platformName == "android"
+        val windows = System.getProperty("os.name").orEmpty().startsWith("Windows")
+        val songs = (Music.queue + lists.items.flatMap { it.tracks } + favorites.tracks())
+            .filter { it.isFile && !lib.has(it.id) && it.file?.let { f -> MusicFolderRules.thisDevices(f, android, windows) } == true }
             .distinctBy { it.id }
         if (songs.isEmpty()) return
+        val sources = Music.sources
+        val src = sources[MusicFolderRules.streamFrom(Music.searchIn, sources["tidal"]?.signedIn == true)] ?: sources["ytm"]
+        goneBusy = true
         Music.bg({
+            val gone = songs.filter { !fileHere(it) }
+            val find = copyFinder()
             val moved = HashMap<String, Track>()
-            for (t in songs) if (!fileHere(t)) hereCopy(t)?.takeIf { it.file != t.file && fileHere(it) }?.let { moved[t.id] = it }
-            moved
-        }) { moved, _ ->
-            if (moved.isNullOrEmpty()) return@bg
-            relink(moved)
-            toast(MusicFolderRules.movedText(moved.size))
+            val left = ArrayList<Track>()
+            for (t in gone) find(t)?.takeIf { it.file != t.file && fileHere(it) }?.let { moved[t.id] = it } ?: left.add(t)
+            val streams = HashMap<String, Track>()
+            val nowhere = ArrayList<Track>()
+            if (left.isNotEmpty() && src != null && !MusicFolderRules.tooManyGone(left.size, songs.size)) for (t in left) {
+                if (noArtistNamed(t.artist)) { nowhere += t; continue }   // a file with no tags can't be looked for
+                // null: can't tell now (no connection): it stays, to be looked for at the next read of your folders
+                val found = runCatching { Music.matchSong(src, t.artist, withoutTrackNumber(t.title), t.duration.toInt()) }.getOrNull() ?: continue
+                found.first?.let { streams[t.id] = it } ?: nowhere.add(t)
+            } else if (left.isNotEmpty()) Crashes.note("Songs whose files are gone: ${left.size} of ${songs.size} left as they are " +
+                if (src == null) "(the streaming services weren't ready)" else "(too many at once: a folder that isn't there for now?)")
+            Triple(moved, streams, nowhere)
+        }) { res, _ ->
+            goneBusy = false
+            val (moved, streams, nowhere) = res ?: return@bg
+            if (moved.isEmpty() && streams.isEmpty() && nowhere.isEmpty()) return@bg
+            relink(moved + streams)
+            moved.forEach { (old, new) -> Music.bg({ Music.plays.merge(setOf(old), new.slim()) }) }   // its plays go with it
+            if (nowhere.isNotEmpty()) {
+                val ids = nowhere.mapTo(HashSet()) { it.id }
+                lists.all().filter { p -> p.tracks.any { it.id in ids } }.forEach { lists.remove(it.id, ids) }
+                lists.smart().filter { p -> p.tracks.any { it.id in ids } }.forEach { lists.remove(it.id, ids) }
+                favorites.set(favorites.tracks().filter { it.id in ids }, false)
+                Music.unqueueMany(Music.queue.indices.filter { Music.queue[it].id in ids && it != Music.index })
+                Crashes.note("Taken out of your playlists, queue and favorites (not on this device, not found to stream): " +
+                    nowhere.take(50).joinToString("; ") { "${it.title} · ${it.artist}" } + if (nowhere.size > 50) " and ${nowhere.size - 50} more" else "")
+                Music.saveState(); Music.musicVersion++
+            }
+            toast(MusicFolderRules.goneText(moved.size, streams.size, nowhere.size))
         }
     }
 
-    /** The same song of yours on this device (a file or a download), for one of the other device's song files. */
-    fun hereCopy(t: Track): Track? {
-        val k = looseKey(t)
-        if (k.first.isEmpty()) return null
-        return Music.mySongs().firstOrNull { (it.isFile || lib.has(it.id)) && looseKey(it) == k && it.id != t.id }
+    /** The same song of yours on this device (a file or a download) for a song file that isn't here: the other
+     *  device's, or one gone from here ([MusicFolderRules.copyFinder]: a track number, signs or a missing artist aside). */
+    fun hereCopy(t: Track): Track? = copyFinder()(t)
+
+    private var finder: Pair<Int, (Track) -> Track?>? = null
+    /** [MusicFolderRules.copyFinder] over your songs as they are now (made again when your music changes). */
+    @Synchronized private fun copyFinder(): (Track) -> Track? {
+        val v = Music.musicVersion * 31 + Music.local.files.size * 7 + lib.items.size
+        finder?.takeIf { it.first == v }?.let { return it.second }
+        return MusicFolderRules.copyFinder(Music.mySongs().filter { it.isFile || lib.has(it.id) }).also { finder = v to it }
     }
 
     /** After a backup from the other device: its song files in your queue, playlists and favorites become the same
      *  songs of yours here, once this device has read its folders (until none are left to find). */
     private fun adoptFiles() {
         if (!Prefs.on("adopt_files") || local.files.isEmpty()) return
-        val here = HashMap<Pair<String, String>, Track>()
-        for (m in Music.mySongs()) if (m.isFile || lib.has(m.id)) here.putIfAbsent(looseKey(m), m)
+        val android = platformName == "android"
+        val windows = System.getProperty("os.name").orEmpty().startsWith("Windows")
+        val find = copyFinder()
         var found = 0
         var left = 0
         fun fix(t: Track): Track {
-            if (!t.isFile || BackupMerge.fileHere(t.file ?: return t, platformName == "android")) return t
-            val h = here[looseKey(t)] ?: run { left++; return t }
+            // (a Linux PC's /home/… is the other device's on the phone too: BackupMerge.fileHere took it for the phone's)
+            if (!t.isFile || MusicFolderRules.thisDevices(t.file ?: return t, android, windows)) return t
+            val h = find(t) ?: run { left++; return t }
             found++
             return h.slim().copy(queued = t.queued)
         }

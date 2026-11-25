@@ -591,8 +591,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
             item {
                 Section("${groups.size} SONG${if (groups.size != 1) "S" else ""} · ${groups.sumOf { it.size - 1 }} EXTRA COPIES · THE BEST COPY FIRST")
                 ActionRow("Look again  ›") { Music.findDupes() }
-                // (copies put together by name and length alone, under different artists: none marked Remove until you say so)
-                val picks = groups.map { g -> val sure = org.omarchy.music.sameArtistCopies(g)
+                // (copies not surely one song: none marked Remove until you say so)
+                val picks = groups.map { g -> val sure = org.omarchy.music.sureCopies(g)
                     g to g.filterIndexed { i, t -> ui.dupeRemove[t.id] ?: (sure && i != 0) }.map { it.id }.toSet() }
                 val n = picks.sumOf { (g, rm) -> if (rm.size >= g.size) g.size - 1 else rm.size }
                 if (n > 0) ActionRow("Remove the $n cop${if (n != 1) "ies" else "y"} marked Remove  ›") {
@@ -602,33 +602,88 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dupesView(ui: Ui) {
                 }
             }
             groups.forEach { g ->
-                val sure = org.omarchy.music.sameArtistCopies(g)
-                item(key = "dupe-head-${g[0].id}") {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f)) { Section(g[0].title.uppercase() + " · " + g[0].artist.uppercase()) }
-                        Pill("Not a duplicate", quiet = true) { Music.markNotDupe(g) }
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    if (!sure) Text("The same name and the same length, under different artists: likely one song tagged two ways. " +
-                        "Play both (▶) before you remove one; nothing here is marked Remove until you do it.", style = T.sub,
-                        modifier = Modifier.padding(horizontal = 12.dp))
-                }
+                val sure = org.omarchy.music.sureCopies(g)
+                item(key = "dupe-head-${g[0].id}") { DupeGroupHead(g[0], sure) { Music.markNotDupe(g) } }
                 g.forEachIndexed { i, t ->
                     item(key = "dupe-${g[0].id}-${t.id}") {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("${t.title} · ${t.artist}" + if (t.album.isNotEmpty()) " · ${t.album}" else "", style = T.body, maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis)
-                                Text((if (i == 0) "★ best · " else "") + listOf(Music.copyInfo(t), org.omarchy.music.fmtTime(t.duration))
-                                    .filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
-                                Text(Music.whereIs(t), style = T.time, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text("▶", style = T.title.copy(color = C.accent), modifier = Modifier.clickable { Music.playFrom(listOf(t), 0, false) }.padding(8.dp))
-                            val rm = ui.dupeRemove[t.id] ?: (sure && i != 0)
-                            Chip("Keep", !rm) { ui.dupeRemove[t.id] = false }
-                            Spacer(Modifier.width(4.dp))
-                            Chip("Remove", rm) { ui.dupeRemove[t.id] = true }
-                        }
+                        val rm = ui.dupeRemove[t.id] ?: (sure && i != 0)
+                        DupeCopyRow(t, best = i == 0, info = Music.copyInfo(t), where = Music.whereIs(t), remove = rm) { ui.dupeRemove[t.id] = it }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A Duplicates group's heading (the library's or a playlist's): the song, Not a duplicate, and a word when its copies
+ *  aren't surely one song. */
+@Composable
+private fun DupeGroupHead(first: Track, sure: Boolean, notDupe: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) { Section(first.title.uppercase() + " · " + first.artist.uppercase()) }
+        Pill("Not a duplicate", quiet = true, onClick = notDupe)
+        Spacer(Modifier.width(10.dp))
+    }
+    if (!sure) Text("Maybe one song: the names match once a track number or signs are left out, a file names no artist, " +
+        "or the same name and length are under different artists. Play them (▶) before you remove one; nothing here is " +
+        "marked Remove until you do it.", style = T.sub, modifier = Modifier.padding(horizontal = 12.dp))
+}
+
+/** One copy in a Duplicates group: what it is and where, ▶, Keep and Remove. */
+@Composable
+private fun DupeCopyRow(t: Track, best: Boolean, info: String, where: String, remove: Boolean, pick: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("${t.title} · ${t.artist}" + if (t.album.isNotEmpty()) " · ${t.album}" else "", style = T.body, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+            Text((if (best) "★ best · " else "") + listOf(info, org.omarchy.music.fmtTime(t.duration))
+                .filter { it.isNotEmpty() }.joinToString(" · "), style = T.sub)
+            Text(where, style = T.time, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text("▶", style = T.title.copy(color = C.accent), modifier = Modifier.clickable { Music.playFrom(listOf(t), 0, false) }.padding(8.dp))
+        Chip("Keep", !remove) { pick(false) }
+        Spacer(Modifier.width(4.dp))
+        Chip("Remove", remove) { pick(true) }
+    }
+}
+
+/** A playlist's Find duplicates: the songs in it more than once, each copy with Keep or Remove; Remove takes a copy
+ *  out of the playlist only (your files stay). Picks are kept in ui.dupeRemove under "pl:" and the copy's place. A copy
+ *  that can't be played (its file is gone) starts marked Remove; so do the extra copies of a song that is surely one. */
+private fun androidx.compose.foundation.lazy.LazyListScope.playlistDupesView(ui: Ui, d: org.omarchy.music.Copies.PlaylistDupes) {
+    val groups = d.groups
+    fun again() { ui.dupeRemove.keys.removeAll { it.startsWith("pl:") }; Music.findPlaylistDupes(d.id) }
+    item { BackRow("Duplicates in this playlist") { Music.playlistDupes = null } }
+    when {
+        groups == null -> item { Section("LOOKING FOR DUPLICATES…") }
+        groups.isEmpty() -> item {
+            Empty("No duplicates", "Every song in this playlist is in it once.")
+            ActionRow("Look again  ›") { again() }
+        }
+        else -> {
+            fun key(i: Int) = "pl:$i"
+            fun gone(i: Int) = d.where[i].orEmpty().startsWith("Not on")
+            val sure = groups.associateWith { g -> org.omarchy.music.sureCopies(g.map { d.tracks[it] }) }
+            fun marked(g: List<Int>, j: Int) = ui.dupeRemove[key(g[j])] ?: (j != 0 && (sure[g] == true || gone(g[j])))
+            item {
+                val extra = groups.sumOf { it.size - 1 }
+                Section("${groups.size} SONG${if (groups.size != 1) "S" else ""} · $extra EXTRA COP${if (extra != 1) "IES" else "Y"} · THE BEST COPY FIRST")
+                Text("Remove takes a copy out of this playlist only: your files stay.", style = T.sub, modifier = Modifier.padding(horizontal = 12.dp))
+                ActionRow("Look again  ›") { again() }
+                val picks = groups.map { g -> g to g.filterIndexed { j, _ -> marked(g, j) }.toSet() }
+                val n = picks.sumOf { (g, rm) -> if (rm.size >= g.size) g.size - 1 else rm.size }
+                if (n > 0) ActionRow("Take the $n cop${if (n != 1) "ies" else "y"} marked Remove out  ›") {
+                    ui.confirm = ("Take $n cop${if (n != 1) "ies" else "y"} out of this playlist? The copies marked Keep stay in it (a song with " +
+                        "every copy marked keeps its best). Your files stay where they are.") to {
+                        Music.removePlaylistDupes(picks); ui.dupeRemove.keys.removeAll { it.startsWith("pl:") } }
+                }
+            }
+            groups.forEach { g ->
+                item(key = "pldupe-head-${g[0]}") { DupeGroupHead(d.tracks[g[0]], sure[g] == true) { Music.playlistNotDupe(g) } }
+                g.forEachIndexed { j, i ->
+                    item(key = "pldupe-$i") {
+                        val t = d.tracks[i]
+                        DupeCopyRow(t, best = j == 0, info = Music.copyInfo(t), where = d.where[i].orEmpty(), remove = marked(g, j)) { ui.dupeRemove[key(i)] = it }
                     }
                 }
             }
@@ -954,12 +1009,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.myPlaylists(ui: Ui, i
 
 /** One of your playlists, open (from Playlists, Pinned or Discovery). */
 private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, open: org.omarchy.music.Playlist) {
+    // Find duplicates, open: its songs in it more than once, in place of the playlist's songs until Back
+    Music.playlistDupes?.takeIf { it.id == open.id }?.let { playlistDupesView(ui, it); return }
     item { BackRow(open.shown) { ui.openMine = null } }
     val sorted = Music.sortedPlaylist(open.tracks)
     item {
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
             // Its own order (the Order sort), put the way you want: drag the songs
             ("Rearrange songs" to { Music.pickPlaylistSort("order"); ui.rearrange = RearrangeWhat.Songs(open.id) }).takeIf { open.tracks.size > 1 },
+            // Songs in it more than once (the same song twice, or two copies of it): Keep or Remove each
+            ("Find duplicates" to { ui.dupeRemove.keys.removeAll { it.startsWith("pl:") }; Music.findPlaylistDupes(open.id) }).takeIf { open.tracks.size > 1 },
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
             (if (open.synced == true) "Stop syncing" else "Sync with phone and PC") to { Music.setPlaylistSynced(open.id, open.synced != true) },
             ("Send a copy to the ${if (onPhone) "PC" else "phone"}" to { org.omarchy.music.PlaylistSend.send(open) }).takeIf { org.omarchy.music.PlaylistSend.canSend },

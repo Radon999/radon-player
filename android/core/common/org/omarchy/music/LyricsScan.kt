@@ -13,13 +13,14 @@ import java.io.File
 @Serializable
 data class LyricsSong(val state: String = "", val title: String = "", val artist: String = "", val time: Double = 0.0)
 
-/** The lyrics scanner (Settings › Scanner, and the Moods tab): goes through your songs, finds each one's lyrics where
- *  the Lyrics tab finds them (the file's own, the ones kept here, Genius, Musixmatch through Tidal, LRCLIB) and writes
- *  them into the song's file (its LYRICS / USLT tag, timed lines when there are some) where the app may change the file:
- *  on the PC all of yours, on the phone its own downloads. Songs it can't write, and the songs in your playlists and
- *  favorites that are streamed, keep their lyrics in the app (offline too). Songs with lyrics in their file already are
- *  skipped. The songs it found nothing for are listed afterwards to deal with one by one (Settings › Scanner ›
- *  Lyrics › Show…): leave it alone (remembered), it's an instrumental, type the lyrics in, search the web, search again. */
+/** The lyrics scanner (Settings › Scanner, and the Moods tab): goes through your songs on this device (your files and the
+ *  app's downloads), finds each one's lyrics where the Lyrics tab finds them (the file's own, the ones kept here, Genius,
+ *  Musixmatch through Tidal, LRCLIB) and writes them into the song's file (its LYRICS / USLT tag, timed lines when there
+ *  are some) where the app may change the file: on the PC all of yours, on the phone its own downloads. Songs it can't
+ *  write keep their lyrics in the app (offline too). Streamed songs aren't scanned (no file to write into): theirs are
+ *  found when they're played and kept in the app too. Songs with lyrics in their file already are skipped. The songs it
+ *  found nothing for are listed afterwards to deal with one by one (Settings › Scanner › Lyrics › Show…): leave it alone
+ *  (remembered), it's an instrumental, type the lyrics in, search the web, search again. */
 object LyricsScan {
     const val FILE = "file"                 // its lyrics are in its file
     const val APP = "app"                   // kept in the app (a file it can't change, or a song that's streamed)
@@ -92,6 +93,17 @@ object LyricsScan {
 
     private fun keep(t: Track, g: Lyrics.Got) = runCatching { writeAtomic(keptFile(Music.ctx, t), JSON.encodeToString(Lyrics.Got.serializer(), g.copy(time = now()))) }
     private fun unkeep(t: Track) { runCatching { keptFile(Music.ctx, t).delete() } }
+
+    /** Lyrics found online for a streamed song (no file of yours, no download) kept in the app, offline and over a
+     *  restart, as the scanner keeps the ones it can't write into a file. Ones you typed in aren't replaced; timing kept
+     *  before stays when the new ones have only the words. */
+    fun keepStreamed(t: Track, g: Lyrics.Got) {
+        if (!g.has || pathOf(t) != null) return
+        val k = kept(Music.ctx, t)
+        if (k?.plain_from == "you" || k?.synced_from == "you") return
+        if (k != null && k.plain == g.plain && k.instrumental == g.instrumental && (g.synced == null || g.synced == k.synced)) return   // kept already
+        keep(t, if (g.synced == null && k?.synced != null) g.copy(synced = k.synced, synced_from = k.synced_from) else g)
+    }
 
     // ---- lyrics waiting for their song's file to be free ----
     // The song playing (or next) isn't written under the player: its new lyrics (found, timed, edited, removed) are
@@ -168,17 +180,11 @@ object LyricsScan {
 
     // ---- the scan ----
 
-    /** The songs it goes through: (song, its file or null), your songs first, then the streamed ones of your
-     *  playlists and favorites (once each, and not the ones you have as files). */
-    private fun allSongs(): List<Pair<Track, String?>> {
-        val mine = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { t to it } }.distinctBy { it.second }
-        val have = mine.mapTo(HashSet()) { songPickKey(it.first.title, it.first.artist) }
-        val streamed = (runCatching { Music.favorites.tracks() }.getOrDefault(emptyList()) +
-            runCatching { Music.lists.all().flatMap { it.tracks } }.getOrDefault(emptyList()))
-            .filter { pathOf(it) == null && songPickKey(it.title, it.artist) !in have }
-            .distinctBy { songPickKey(it.title, it.artist) }
-        return mine.map { it.first to it.second } + streamed.map { it to null }
-    }
+    /** The songs it goes through: yours on this device (your files and the app's downloads), each with its file, once.
+     *  Streamed songs aren't: there's no file to put lyrics into, and they sat in "still to find" for ever. Theirs are
+     *  found as they're played (the Lyrics tab) and kept in the app ([keepStreamed]). */
+    private fun allSongs(): List<Pair<Track, String>> =
+        runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { t to it } }.distinctBy { it.second }
 
     /** How it stands: songs with lyrics in their file, kept in the app, none found, left alone, instrumentals, of how many. */
     data class Counts(val inFiles: Int, val inApp: Int, val none: Int, val left: Int, val instrumental: Int, val total: Int) {
@@ -193,10 +199,10 @@ object LyricsScan {
      *  over from your other device with their lyrics, or another app wrote them): counted as in their file, and kept so,
      *  with nothing scanned or looked up. Before, they counted as still to find, and Lyrics asked for a scan. Each file
      *  is read once a run; one the scanner marked already is left as it is. How many were found. */
-    private fun adoptFiles(all: List<Pair<Track, String?>>): Int {
+    private fun adoptFiles(all: List<Pair<Track, String>>): Int {
         var n = 0
         for ((t, path) in all) {
-            if (path == null || !looked.add(path)) continue
+            if (!looked.add(path)) continue
             val st = synchronized(lock) { songs[keyOf(t)]?.state }.orEmpty()
             if (st == FILE || st == LEFT || st == INSTRUMENTAL) continue
             if (!inFile(path).isNullOrBlank()) { set(t, FILE); n++ }
@@ -263,9 +269,7 @@ object LyricsScan {
             if (i % 5 == 0) Music.scope.launch { progress = i to all.size }
             val st = stateOf(t)
             if (st == LEFT || st == INSTRUMENTAL) continue
-            if (path != null) {
-                if (inFile(path) != null) { if (st != FILE) set(t, FILE); continue }   // in its file already
-            } else if (st == APP && kept(Music.ctx, t) != null) continue
+            if (inFile(path) != null) { if (st != FILE) set(t, FILE); continue }   // in its file already
             Music.scope.launch { nowSong = "${t.title} · ${t.artist.split(",")[0].trim()}" }
             val got = kept(Music.ctx, t) ?: runCatching { Lyrics.get(Music.ctx, t) }.getOrNull()
             if (place(t, path, got, playing)) found++ else if (stateOf(t) == NONE) none++
@@ -297,8 +301,8 @@ object LyricsScan {
         return allSongs().map { it.first }.filter { keyOf(it) in want }
     }
 
-    /** How many songs you said to leave alone (Leave alone, Instrumental). */
-    fun leftCount(): Int { load(); return synchronized(lock) { songs.values.count { it.state == LEFT } } }
+    /** How many of your songs you said to leave alone (Leave alone; streamed songs aren't counted, see [allSongs]). */
+    fun leftCount(): Int { load(); return synchronized(lock) { songs.entries.count { it.value.state == LEFT && !it.key.startsWith("song:") } } }
 
     /** Leave it alone: not asked about again (Show them again brings it back). Instrumental: no words to find. */
     fun leave(t: Track, instrumental: Boolean = false) { set(t, if (instrumental) INSTRUMENTAL else LEFT); save(); version++ }
@@ -370,8 +374,7 @@ object LyricsScan {
      *  auto-sync goes through. The ones left alone or instrumental aren't. */
     fun untimed(): List<Pair<Track, Lyrics.Got>> {
         load()
-        return allSongs().mapNotNull { (t, path) ->
-            if (path == null) return@mapNotNull null
+        return allSongs().mapNotNull { (t, _) ->
             val st = stateOf(t)
             if (st == LEFT || st == INSTRUMENTAL) return@mapNotNull null
             val g = here(t) ?: return@mapNotNull null
