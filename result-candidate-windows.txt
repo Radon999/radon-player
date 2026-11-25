@@ -1,12 +1,19 @@
-commit 110418e8b8ea2cd633b22628c9c1f01aa01b8b8f · run 45502214394 · Tue Nov 24 22:42:39 UTC 2026
-PC INSTALL-OVER: made, Radon Player-4.5.19.msi, 215M
+commit 9132a01de8faf488d748d5e92b1d208c6ac97c29 · run 45517771144 · Wed Nov 25 00:31:45 UTC 2026
+PC INSTALL-OVER: made, Radon Player-4.5.20.msi, 215M
 BRINGS: ffmpeg.exe mpv.exe radon-media.exe 
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45502214394/artifacts/14973380498
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/45517771144/artifacts/14979452017
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
+> Task :ui-common:desktopProcessResources
+> Task :desktop:assembleMainResources
+> Task :desktop:writeBuildInfo
+> Task :desktop:processResources
 --- the end of the log
 > Task :desktop:jar
 > Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.19.msi
+The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-4.5.20.msi
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -14,5 +21,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m 26s
+BUILD SUCCESSFUL in 6m 24s
 18 actionable tasks: 18 executed
