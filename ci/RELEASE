@@ -1,0 +1,8 @@
+v4.5.20
+Radon Player 4.5.20: No stutter from the truck, never stuck, and the DJ plays the song it names
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-4.5.20.msi` (Windows), `radon-player_4.5.20_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **No stutter from the truck again (the phone, Ignore Bluetooth devices: no stutter at all):** in 4.5.19 the truck could connect for calls while Android Auto was off, and any link the truck has shares the phone's Bluetooth with your earbuds, so the stutter came back. Android Auto off now disconnects the truck completely again (music, calls, everything) and keeps it off.
+- **Never stuck when Shizuku stops (the phone):** if Shizuku stops while the truck is kept off, a notification says so. Tap it: Android Auto can start again and Bluetooth settings open, where you tap ⚙ by the truck and switch Calls and Audio on. No USB needed, and once Shizuku runs again it's all automatic. Tapping Android Auto on in Radon Player does the same.
+- **The DJ plays the song it names first (the phone and the PC):** with New music off, the DJ could name a song that the queue then left out (one you don't have), and another song played first. Those songs are now left out before the DJ writes its line, so the song it names is the one that plays. A line that names artists rather than a song starts with a song by the first artist named.
