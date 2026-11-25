@@ -93,8 +93,10 @@ private fun app(args: Array<String>) = application {
     fun bitPerfectOff(): Boolean = Music.bitPerfect.also { if (it) Music.chooseBitPerfect(false) }
     fun quit() { bitPerfectOff(); Music.player?.release(); exitApplication() }
     LaunchedEffect(Unit) {
-        val act = { a: List<String> -> org.omarchy.music.Instance.act(a, show = { shown = true; PcWindows.mini = false },
-            hide = { shown = false }, quit = { quit() }) }
+        // The main window as commands and the desktop widgets reach it (Instance.inWindow)
+        org.omarchy.music.Instance.window = org.omarchy.music.Instance.MainWindow(show = { shown = true; PcWindows.mini = false },
+            isShown = { shown && !PcWindows.mini }, hide = { shown = false }, quit = { quit() })
+        val act = { a: List<String> -> org.omarchy.music.Instance.act(a) }
         org.omarchy.music.Instance.listen(act)
         if (args.any { !it.startsWith("--") || it in setOf("--tidal-login", "--lastfm-login", "--spotify-login") }) act(args.toList())   // opened with a song file, or a command
     }
@@ -106,6 +108,13 @@ private fun app(args: Array<String>) = application {
         Separator()
         Item("Show Radon Player", onClick = { shown = true; PcWindows.mini = false })
         Item("Mini player", onClick = { PcWindows.mini = true })
+        // The desktop widgets: each its own small window (ticked: open)
+        Menu("Widgets") {
+            org.omarchy.music.DesktopWidgetRules.KINDS.forEach { (kind, name) ->
+                CheckboxItem(name, checked = org.omarchy.music.ui.DesktopWidgets.isOpen(kind),
+                    onCheckedChange = { org.omarchy.music.ui.DesktopWidgets.open(kind, it) })
+            }
+        }
         Separator()
         Item("Quit", onClick = { quit() })
     }
@@ -155,6 +164,7 @@ private fun app(args: Array<String>) = application {
         resizable = true, state = rememberWindowState(size = DpSize(380.dp, 600.dp), position = WindowPosition(Alignment.BottomEnd))) {
         OmarchyTheme { MiniWindow() }
     }
+    org.omarchy.music.ui.DesktopWidgetWindows(AppIcon)
 }
 
 /** The mini player on the PC: Now playing made small (the look, its stars and effects, the visualizer, the cover, the song

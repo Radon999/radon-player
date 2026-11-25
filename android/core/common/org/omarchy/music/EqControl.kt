@@ -38,9 +38,11 @@ object EqControl {
      *  with as many bands as you had). */
     fun moved(e: EqSettings, was: String, o: Outputs.Out): EqSettings {
         val saved = (if (was.isNotEmpty()) e.outputs + (was to e.toOutput(e.outputs[was]?.label ?: outLabel(was)).copy(at = e.outputs[was]?.at ?: 0)) else e.outputs)
-        val default = e.outputDefaults[o.key]?.let { e.outputPresets[it] }?.eq?.copy(at = saved[o.key]?.at ?: 0)
+        val defaultKey = e.outputDefaults[o.key]?.takeIf { it in e.outputPresets }
+        val default = defaultKey?.let { e.outputPresets[it] }?.eq?.copy(at = saved[o.key]?.at ?: 0)
         val mine = default ?: saved[o.key] ?: OutputEq(o.label, count = e.count, bands = List(e.count) { 0.0 }, custom = List(e.count) { 0.0 })
-        return e.copy(outputs = saved + (o.key to mine.copy(label = o.label))).withOutput(o.key, mine)
+        val from = if (defaultKey != null) e.outputFrom + (o.key to defaultKey) else e.outputFrom
+        return e.copy(outputs = saved + (o.key to mine.copy(label = o.label)), outputFrom = from).withOutput(o.key, mine)
     }
 
     // ---- an output's own presets ----
@@ -59,15 +61,35 @@ object EqControl {
             val key = e.outputPresets.entries.firstOrNull { it.value.output == out && it.value.name.equals(n, ignoreCase = true) }?.key
                 ?: "$out|${System.currentTimeMillis().toString(36)}"
             e.copy(outputPresets = e.outputPresets + (key to OutputPreset(out, n, e.toOutput("").copy(at = 0))),
-                outputDefaults = if (asDefault) e.outputDefaults + (out to key) else e.outputDefaults)
+                outputDefaults = if (asDefault) e.outputDefaults + (out to key) else e.outputDefaults,
+                outputFrom = e.outputFrom + (out to key))
         }
         toast("Saved “$n” for ${outLabel(Music.eq.output)}" + if (asDefault) ", its default" else "")
+    }
+
+    /** Save over: the output's EQ as it is now put into its preset key (the one it was put on from: [EqSettings.outputFrom]),
+     *  its name and whether it's the default kept. */
+    fun overwriteOutputPreset(key: String) {
+        val p = Music.eq.outputPresets[key] ?: return
+        set { e -> e.copy(outputPresets = e.outputPresets + (key to p.copy(eq = e.toOutput("").copy(at = 0))), outputFrom = e.outputFrom + (p.output to key)) }
+        toast("Saved over “${p.name}”")
+    }
+
+    /** Edit: a preset of an output's renamed, and made its default or not. */
+    fun editOutputPreset(key: String, name: String, asDefault: Boolean) {
+        val n = name.trim().ifEmpty { return }
+        set { e ->
+            val p = e.outputPresets[key] ?: return@set e
+            val defaults = if (asDefault) e.outputDefaults + (p.output to key)
+                else if (e.outputDefaults[p.output] == key) e.outputDefaults - p.output else e.outputDefaults
+            e.copy(outputPresets = e.outputPresets + (key to p.copy(name = n)), outputDefaults = defaults)
+        }
     }
 
     /** A preset of an output's put on that output's EQ (heard straight away if it's playing there). */
     fun useOutputPreset(key: String) = set { e ->
         val p = e.outputPresets[key] ?: return@set e
-        e.withOutput(p.output, p.eq)
+        e.withOutput(p.output, p.eq).copy(outputFrom = e.outputFrom + (p.output to key))
     }
 
     /** An output's default preset (null: none, it keeps its EQ as you left it). */
@@ -76,7 +98,8 @@ object EqControl {
     }
 
     fun deleteOutputPreset(key: String) = set { e ->
-        e.copy(outputPresets = e.outputPresets - key, outputDefaults = e.outputDefaults.filterValues { it != key })
+        e.copy(outputPresets = e.outputPresets - key, outputDefaults = e.outputDefaults.filterValues { it != key },
+            outputFrom = e.outputFrom.filterValues { it != key })
     }
 
     /** Boost as it is kept: 0 to the most there is, in half decibels. */
@@ -137,8 +160,11 @@ object EqControl {
     fun rgFactor(db: Double, peak: Double? = null): Double =
         rgFactor(db, peak, Prefs.num(Prefs.RG_TARGET, -18f).toDouble(), Prefs.on(Prefs.CLIP_GUARD))
 
+    /** A Sound preset put on. One of yours is remembered (soundFrom) so the bands changed from it can be saved over it;
+     *  a built-in one forgets it (Custom keeps it: those are the bands changed from it). */
     fun setPreset(key: String) = set { it.copy(preset = key, bands = Eq.presetOf(it, key, it.count) ?: it.custom.takeIf { c -> c.size == it.count }
-        ?: List(it.count) { 0.0 }, on = true) }
+        ?: List(it.count) { 0.0 }, on = true,
+        soundFrom = if (key.startsWith("my:")) key.removePrefix("my:") else if (key == "custom") it.soundFrom else "") }
     fun setBand(i: Int, gain: Double) = set {
         if (i !in it.bands.indices) return@set it
         val b = it.bands.toMutableList().also { l -> l[i] = Eq.clamp(gain) }

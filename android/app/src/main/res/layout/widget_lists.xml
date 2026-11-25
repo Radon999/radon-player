@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Now playing + playlists: the song with its controls on top (as the first widget's), and under it your playlists and
+     their folders. A playlist's tap plays it without opening the app; a folder's opens it in the list (ListsWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wls_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:id="@+id/wls_cover" android:layout_width="54dp" android:layout_height="54dp"
+            android:scaleType="centerCrop" android:src="@drawable/ic_launcher" android:contentDescription="Cover" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:orientation="vertical">
+            <TextView android:id="@+id/wls_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="15sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end"
+                android:text="Nothing playing" />
+            <TextView android:id="@+id/wls_artist" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="13sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" android:alpha="0.75"
+                android:text="Radon Player" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="6dp"
+        android:orientation="horizontal" android:gravity="center">
+        <ImageButton android:id="@+id/wls_shuffle" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/car_shuffle" android:contentDescription="Shuffle" />
+        <ImageButton android:id="@+id/wls_prev" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_prev" android:contentDescription="Previous" />
+        <ImageButton android:id="@+id/wls_play" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_play" android:contentDescription="Play or pause" />
+        <ImageButton android:id="@+id/wls_next" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_next" android:contentDescription="Next" />
+        <ImageButton android:id="@+id/wls_repeat" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/car_repeat_off" android:contentDescription="Repeat" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="4dp"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:id="@+id/wls_back" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp"
+            android:src="@drawable/w_back" android:visibility="gone" android:contentDescription="Back to your playlists" />
+        <TextView android:id="@+id/wls_head" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:paddingStart="4dp" android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:alpha="0.7"
+            android:letterSpacing="0.08" android:maxLines="1" android:ellipsize="end" android:text="YOUR PLAYLISTS" />
+        <TextView android:id="@+id/wls_open" android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingStart="10dp" android:paddingEnd="4dp"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:text="⤢  Open" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="2dp">
+        <ListView android:id="@+id/wls_list" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:divider="@null" android:dividerHeight="0dp" />
+        <TextView android:id="@+id/wls_empty" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.7"
+            android:text="No playlists yet: make one in the app" />
+    </FrameLayout>
+</LinearLayout>

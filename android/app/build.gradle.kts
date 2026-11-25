@@ -41,8 +41,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 50102   // major·10000 + minor·100 + patch
-        versionName = "5.1.2"
+        versionCode = 50200   // major·10000 + minor·100 + patch
+        versionName = "5.2.0"
         // sherpa-onnx's library (the DJ's natural voice, auto-sync's listening): only the phones' own processors, to keep the app small
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")

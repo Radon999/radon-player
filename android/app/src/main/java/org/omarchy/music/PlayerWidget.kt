@@ -1,18 +1,14 @@
 package org.omarchy.music
 
-import org.omarchy.music.ui.artColor
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
-import androidx.core.graphics.ColorUtils
-import androidx.core.graphics.drawable.toBitmap
 
 /** The home screen widget: like Now playing. The song and its cover, shuffle, previous, play, next and repeat, then
  *  the queue (or the cover, big), and Song / Queue / Open at the bottom. Its background is the cover's main colour,
@@ -35,7 +31,7 @@ class PlayerWidget : AppWidgetProvider() {
             QUEUE -> Prefs.setText(MODE, "queue")
             PLAY_AT -> intent.getIntExtra("at", -1).takeIf { it >= 0 }?.let { Music.playIndex(it) }
         }
-        update(ctx)
+        HomeWidgets.updateAll(ctx)   // (this one, and the others that have these buttons)
     }
 
     companion object {
@@ -45,10 +41,7 @@ class PlayerWidget : AppWidgetProvider() {
         const val SONG = PREFIX + "song"; const val QUEUE = PREFIX + "queue"; const val PLAY_AT = PREFIX + "at"
         private const val MODE = "widget_mode"
 
-        @Volatile private var cover: Pair<String, Bitmap?> = "" to null
-        @Volatile private var colour: Int = Color.rgb(40, 40, 46)
-
-        private fun pi(ctx: Context, action: String, code: Int) = PendingIntent.getBroadcast(ctx, code,
+        internal fun pi(ctx: Context, action: String, code: Int) = PendingIntent.getBroadcast(ctx, code,
             Intent(ctx, PlayerWidget::class.java).setAction(action), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
         /** Every widget on the home screen, as things stand (any thread). */
@@ -57,35 +50,14 @@ class PlayerWidget : AppWidgetProvider() {
             val ids = runCatching { mgr.getAppWidgetIds(ComponentName(ctx, PlayerWidget::class.java)) }.getOrNull() ?: return
             if (ids.isEmpty()) return
             val t = Music.current()
-            val key = t?.id ?: ""
-            if (cover.first != key) {   // the cover and its colour, once a song
-                cover = key to null
-                if (t != null) Music.bg({
-                    val res = kotlinx.coroutines.runBlocking { coil.Coil.imageLoader(ctx).execute(coil.request.ImageRequest.Builder(ctx)
-                        .data(org.omarchy.music.ui.artModel(t, 400)).size(400).allowHardware(false).build()) }
-                    (res as? coil.request.SuccessResult)?.drawable?.toBitmap()
-                }) { bmp, _ ->
-                    if (cover.first == key && bmp != null) {
-                        cover = key to bmp
-                        colour = runCatching { org.omarchy.music.ui.Tint.artColor(bmp) }.getOrDefault(colour)
-                        update(ctx)
-                    }
-                }
-            }
-            val hsl = FloatArray(3)
-            ColorUtils.colorToHSL(colour, hsl)
-            hsl[2] = hsl[2].coerceIn(0.18f, 0.42f)   // deep enough for white text, the cover's own hue
-            val bg = ColorUtils.setAlphaComponent(ColorUtils.HSLToColor(hsl), 0xD9)   // a little see-through
             val fg = Color.WHITE
             val mode = Prefs.text(MODE, "queue")
             val v = RemoteViews(ctx.packageName, R.layout.widget_player)
-            if (android.os.Build.VERSION.SDK_INT >= 31)   // the rounded background, tinted
-                v.setColorStateList(R.id.w_root, "setBackgroundTintList", android.content.res.ColorStateList.valueOf(bg))
-            else v.setInt(R.id.w_root, "setBackgroundColor", bg)
+            HomeWidgets.paint(ctx, v, R.id.w_root)   // the rounded background, in the cover's colour (HomeWidgets)
             v.setTextViewText(R.id.w_title, t?.title ?: "Nothing playing")
             v.setTextViewText(R.id.w_artist, t?.let { listOf(it.artist, it.album).filter { s -> s.isNotEmpty() }.joinToString(" — ") } ?: "Radon Player")
             for (id in listOf(R.id.w_title, R.id.w_artist, R.id.w_empty, R.id.w_tab_song, R.id.w_tab_queue, R.id.w_tab_open)) v.setTextColor(id, fg)
-            val bmp = cover.second
+            val bmp = HomeWidgets.coverOf(ctx, t)
             if (bmp != null) { v.setImageViewBitmap(R.id.w_cover, bmp); v.setImageViewBitmap(R.id.w_big, bmp) }
             else { v.setImageViewResource(R.id.w_cover, R.drawable.ic_launcher); v.setImageViewResource(R.id.w_big, R.drawable.ic_launcher) }
             v.setImageViewResource(R.id.w_play, if (Music.paused || t == null) R.drawable.w_play else R.drawable.w_pause)

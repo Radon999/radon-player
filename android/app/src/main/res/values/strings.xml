@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_description">What\'s playing, its controls and Up next</string>
+    <!-- The other home screen widgets (their names are in the manifest): what the widget picker says under each. -->
+    <string name="widget_lists_description">What\'s playing and its controls, with your playlists under it: tap one to play it</string>
+    <string name="widget_dj_description">Starts the DJ with a tap, without opening the app. Switch: only your songs, or new ones too</string>
+    <string name="widget_playlist_description">One playlist of yours: a tap plays it, in order or shuffled</string>
+    <string name="widget_pinned_description">Everything you pinned: tap one to open it</string>
+    <string name="widget_top_description">Your most played songs: a tap opens Most played</string>
+    <string name="widget_wrapped_description">Straight to your Wrapped: weekly, monthly or all time</string>
+    <string name="widget_lyrics_description">The lyrics of the song playing, the line being sung lit up</string>
 </resources>

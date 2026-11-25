@@ -50,4 +50,53 @@ class SoundPresetsTest {
             } finally { Music.setEq { was } }
         }
     }
+
+    @Test fun aPresetOfYoursChangedIsSavedOverAndRenamed() {
+        Harness.ctx
+        Harness.ui {
+            val was = Music.eq
+            try {
+                Music.setEqCount(10)
+                SoundPresets.savePreset("Presets Test Two", List(10) { 0.0 }, 10)
+                val key = "presets-test-two"
+                Music.setEqBand(2, 5.0)
+                assertEquals("moving a band makes it custom", "custom", Music.eq.preset)
+                assertEquals("but it remembers which of yours it came from", key, Music.eq.soundFrom)
+                SoundPresets.overwritePreset()
+                assertEquals("saved over: the band in it", 5.0, Music.eq.myPresets[key]!!.bands[2], 0.05)
+                assertEquals("and it's the one in use again", "my:$key", Music.eq.preset)
+                assertEquals("no copy made", was.myPresets.size + 1, Music.eq.myPresets.size)
+                SoundPresets.renamePreset("my:$key", "Renamed Two")
+                assertEquals("Renamed Two", Music.eq.myPresets[key]!!.name)
+                Music.setEqPreset("rock")
+                assertEquals("a built-in one forgets it", "", Music.eq.soundFrom)
+            } finally { Music.setEq { was } }
+        }
+    }
+
+    @Test fun anOutputsPresetChangedIsSavedOverAndEdited() {
+        Harness.ctx
+        Harness.ui {
+            val was = Music.eq
+            try {
+                Music.setEq { it.copy(perOutput = true) }
+                val out = Music.eq.output.ifEmpty { Music.outputNow.key }
+                Music.setEqCount(10)
+                Music.saveOutputPreset("Out Test", asDefault = false)
+                val key = Music.eqPresetsFor(out).first { it.second.name == "Out Test" }.first
+                assertEquals("saved as: remembered for Save over", key, Music.eq.outputFrom[out])
+                Music.setEqBand(3, -4.0)
+                Music.overwriteOutputPreset(key)
+                assertEquals("saved over: the band in it", -4.0, Music.eq.outputPresets[key]!!.eq.bands[3], 0.05)
+                assertEquals("no copy made", 1, Music.eqPresetsFor(out).count { it.second.name == "Out Test" })
+                Music.editOutputPreset(key, "Out Test Renamed", asDefault = true)
+                assertEquals("Out Test Renamed", Music.eq.outputPresets[key]!!.name)
+                assertEquals("made its default", key, Music.eq.outputDefaults[out])
+                Music.editOutputPreset(key, "Out Test Renamed", asDefault = false)
+                assertEquals("and not any more", null, Music.eq.outputDefaults[out])
+                Music.deleteOutputPreset(key)
+                assertEquals("deleted: nothing left to save over", null, Music.eq.outputFrom[out])
+            } finally { Music.setEq { was } }
+        }
+    }
 }

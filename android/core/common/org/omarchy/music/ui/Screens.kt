@@ -1524,13 +1524,26 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
         if (artistOpen.size > 300) artistOpen.clear()
         artistOpen[placeKey] = open
     }
-    // Concerts: their coming shows, asked for when the section is opened (only with a key of yours in Settings › Remote & sync)
+    // Concerts: their coming shows, asked for when the section is opened (only with a key of yours in Settings › Remote & sync);
+    // also when Setlists is, so it knows their next show
     val concertsOn = org.omarchy.music.Concerts.on
-    val concerts by androidx.compose.runtime.produceState<Pair<List<org.omarchy.music.ConcertRules.Concert>?, String>>(null to "", page.name, concertsOn, isOpen("concerts")) {
-        if (!concertsOn || !isOpen("concerts")) return@produceState
+    val concertsWanted = isOpen("concerts") || isOpen("setlists")
+    val concerts by androidx.compose.runtime.produceState<Pair<List<org.omarchy.music.ConcertRules.Concert>?, String>>(null to "", page.name, concertsOn, concertsWanted) {
+        if (!concertsOn || !concertsWanted) return@produceState
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             runCatching { org.omarchy.music.Concerts.find(page.name) to "" }.getOrElse { null to (it.message ?: "Ticketmaster couldn't be reached") } }
     }
+    // Setlists: their recent shows' songs from setlist.fm, asked for when Setlists (or Concerts, for each show's setlist) is
+    // opened, with a key of yours; a setlist opened shows over the page
+    val setlistsOn = org.omarchy.music.Setlists.on
+    val setlistsWanted = isOpen("setlists") || isOpen("concerts")
+    val setlists by androidx.compose.runtime.produceState<Pair<List<org.omarchy.music.SetlistRules.Setlist>?, String>>(null to "", page.name, setlistsOn, setlistsWanted) {
+        if (!setlistsOn || !setlistsWanted) return@produceState
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { org.omarchy.music.Setlists.find(page.name) to "" }.getOrElse { null to (it.message ?: "setlist.fm couldn't be reached") } }
+    }
+    var setlistOpen by remember(page.name) { mutableStateOf<SetlistView?>(null) }
+    setlistOpen?.let { SetlistDialog(page.name, it) { setlistOpen = null } }
     // Picking releases: what the bar at the bottom offers for the ones ticked (besides Options for all their songs).
     // Said from the page itself, not from a row of its list: a row is only there while it's on the screen, and far
     // down the list the bar was left with options made before anything was ticked (Hide did nothing). Each option
@@ -1760,10 +1773,17 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                             Text(org.omarchy.music.ConcertRules.line(sh), style = T.body)
                             Text(listOf(sh.name, sh.country).filter { it.isNotBlank() }.joinToString(" · "), style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                        if (setlistsOn) SetlistLink(page.name, sh, setlists.first) { setlistOpen = it }
                         if (sh.url.isNotEmpty()) Text("Tickets ›", style = T.sub.copy(color = C.accent))
                     }
                 }
             }
+        }
+        // Setlists: the songs of their recent shows and what they've been playing on this tour (without a key, how to get one)
+        item { ArtistFold("Setlists", setlists.first?.let { "%,d".format(it.size) } ?: "", isOpen("setlists")) { toggle("setlists") } }
+        if (isOpen("setlists")) {
+            val today = java.time.LocalDate.now().toString()
+            setlistItems(page.name, setlistsOn, setlists, concerts.first?.firstOrNull { it.date >= today }) { setlistOpen = it }
         }
         // (features hidden by you are among them, to put back)
         val leftFeats = feats?.songs.orEmpty().filter { !featShown(it) }

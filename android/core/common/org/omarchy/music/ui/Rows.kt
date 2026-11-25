@@ -65,6 +65,7 @@ class Ui {
     var songClip by mutableStateOf<org.omarchy.music.Track?>(null)        // a song's Options › Share a clip with sound: the song
     var presetEdit by mutableStateOf<List<String>?>(null)                  // Personalization's Presets menu › Edit: the ready-made presets being edited
     var songCard by mutableStateOf<org.omarchy.music.Track?>(null)        // a song's Options › Share as a picture card: the song
+    var creditsFor by mutableStateOf<org.omarchy.music.Track?>(null)      // a song's Options › Credits: the song
     var makerEdit by mutableStateOf<String?>(null)    // the look, layout or visualizer of yours being changed (null: a new one)
     var pane by mutableStateOf("art")                  // what the player shows: art, lyrics, visualizer, queue
     var musicView by mutableStateOf("all")

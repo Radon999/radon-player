@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The DJ widget: tap it and the DJ starts (or, on, a new set: Switch it up), without opening the app; under it the
+     DJ's own switch, Only my songs or New songs too. Its background is the playing song's cover colour (DjWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wd_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:gravity="center"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:id="@+id/wd_main" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:id="@+id/wd_icon" android:layout_width="44dp" android:layout_height="44dp"
+            android:src="@drawable/w_dj" android:contentDescription="DJ" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:orientation="vertical">
+            <TextView android:id="@+id/wd_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="17sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:text="DJ" />
+            <TextView android:id="@+id/wd_state" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.8" android:maxLines="2" android:ellipsize="end"
+                android:text="Tap to start the DJ" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/wd_mine" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="28dp" android:gravity="center" android:padding="4dp" android:layout_marginEnd="3dp"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="2"
+            android:background="@drawable/w_chip_off" android:text="Only my songs" />
+        <TextView android:id="@+id/wd_new" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="28dp" android:gravity="center" android:padding="4dp" android:layout_marginStart="3dp"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="2"
+            android:background="@drawable/w_chip_on" android:text="New songs too" />
+    </LinearLayout>
+</LinearLayout>

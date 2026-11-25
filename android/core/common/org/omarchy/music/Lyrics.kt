@@ -74,6 +74,14 @@ object Lyrics {
 
     /** (text, page address, song id) of the song on Genius, or null if Genius hasn't got it. */
     private fun genius(artist: String, title: String): Triple<String, String, Long?>? {
+        val best = geniusSong(artist, title)
+        val url = best["url"].str ?: return null
+        val text = degenius(geniusText(http(url, mapOf("User-Agent" to DESKTOP_UA))))
+        return if (text.isNotEmpty()) Triple(text, url, best["id"].long) else null
+    }
+
+    /** The song on Genius (its search hit: id, url, title), or null if Genius hasn't got it. Also used for its credits. */
+    internal fun geniusSong(artist: String, title: String): kotlinx.serialization.json.JsonElement? {
         val lead = artist.split(",")[0].trim()
         val want = cleanTitle(title)
         var best: kotlinx.serialization.json.JsonElement? = null
@@ -90,9 +98,7 @@ object Lyrics {
             }
             if (bestScore >= 0.9) break
         }
-        val url = best["url"].str ?: return null
-        val text = degenius(geniusText(http(url, mapOf("User-Agent" to DESKTOP_UA))))
-        return if (text.isNotEmpty()) Triple(text, url, best["id"].long) else null
+        return best
     }
 
     // ---- Genius's annotations of the words ----

@@ -51,10 +51,31 @@ object SoundPresets {
         toast("“$n” saved among your Sound presets")
     }
 
+    /** Save over: the bands as they are now put into the Sound preset of yours they were changed from (eq.soundFrom),
+     *  its name kept, and it's the one in use again. */
+    fun overwritePreset() {
+        val k = eq.soundFrom
+        val p = eq.myPresets[k] ?: return
+        val ten = Eq.resample(eq.bands, Eq.bandsFor(eq.count), 10)
+        setEq { it.copy(myPresets = it.myPresets + (k to p.copy(bands = ten))) }
+        setEqPreset("my:$k")
+        toast("Saved over “${p.name}”")
+    }
+
+    /** Edit: a Sound preset of yours renamed (it keeps its place, and stays in use if it was). */
+    fun renamePreset(key: String, name: String) {
+        val k = key.removePrefix("my:")
+        val n = name.trim().ifEmpty { return }
+        val p = eq.myPresets[k] ?: return
+        setEq { it.copy(myPresets = it.myPresets + (k to p.copy(name = n))) }
+        toast("Renamed “$n”")
+    }
+
     fun deletePreset(key: String) {
         val k = key.removePrefix("my:")
         val name = eq.myPresets[k]?.name ?: return
-        setEq { it.copy(myPresets = it.myPresets - k, preset = if (it.preset == key) "custom" else it.preset) }
+        setEq { it.copy(myPresets = it.myPresets - k, preset = if (it.preset == key) "custom" else it.preset,
+            soundFrom = if (it.soundFrom == k) "" else it.soundFrom) }
         toast("“$name” deleted")
     }
 

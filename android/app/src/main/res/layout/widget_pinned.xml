@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pinned: everything you pinned (playlists, albums, artists, genres, folders…); a tap opens it in the app (PinnedWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wp_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:id="@+id/wp_head" android:layout_width="match_parent" android:layout_height="32dp"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_pin" android:contentDescription="" />
+        <TextView android:id="@+id/wp_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:maxLines="1" android:text="Pinned" />
+        <TextView android:id="@+id/wp_open" android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingStart="10dp" android:paddingEnd="4dp"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:text="⤢  Open" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="4dp">
+        <ListView android:id="@+id/wp_list" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:divider="@null" android:dividerHeight="0dp" />
+        <TextView android:id="@+id/wp_empty" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:padding="8dp" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.75"
+            android:text="Nothing pinned yet. In the app, long-press a playlist, album, artist, genre or folder and pick Pin." />
+    </FrameLayout>
+</LinearLayout>

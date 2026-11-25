@@ -35,6 +35,7 @@ object YourFolders {
             QualityCheck.scan()   // Loudness check: the songs new or changed since
             Music.bg({ FlacDepths.scan() })   // each new song's format, for the mark on its row ("FLAC 24", "MP3")
             runCatching { Moods.auto() }   // Moods: read the songs new or changed since, in the background
+            runCatching { Credits.resume() }   // Song credits: a look through your music not finished carries on
             TagMatch.refreshSoon()   // Tags & covers match: what the new or changed songs say
         }
     }

@@ -15,7 +15,7 @@ object Startup {
 
     /** The program to start: the installed launcher (Radon Player.exe), not the Java inside it. It's the program
      *  this is running as; else the .exe beside the app's own Java (the install folder). */
-    private fun exe(): String? {
+    internal fun exe(): String? {
         fun ok(c: String?) = c?.lowercase()?.let { it.endsWith(".exe") && !it.endsWith("java.exe") && !it.endsWith("javaw.exe") } == true
         ProcessHandle.current().info().command().orElse(null)?.takeIf { ok(it) }?.let { return it }
         val home = System.getProperty("java.home")?.let { java.io.File(it) } ?: return null   // <install>\runtime
@@ -25,7 +25,7 @@ object Startup {
 
     /** On Linux: the installed launcher (/opt/radon-player/bin/radon-player), not the Java inside it: the program this
      *  is running as, else the one in the bin folder beside the app's own Java (<install>/lib/runtime). */
-    private fun linuxExe(): String? {
+    internal fun linuxExe(): String? {
         ProcessHandle.current().info().command().orElse(null)?.takeIf { StartupRules.launcher(it) && java.io.File(it).canExecute() }?.let { return it }
         val install = System.getProperty("java.home")?.let { java.io.File(it) }?.parentFile?.parentFile ?: return null
         return java.io.File(install, "bin").listFiles()?.filter { it.isFile && it.canExecute() }?.maxByOrNull { if ("radon" in it.name.lowercase()) 1 else 0 }?.path
@@ -35,7 +35,7 @@ object Startup {
         java.io.File(StartupRules.autostartDir(System.getenv("XDG_CONFIG_HOME"), System.getProperty("user.home") ?: ""), "radon-player.desktop")
 
     /** A PowerShell command run (sent encoded, so paths with spaces and quotes reach it as they are). */
-    private fun ps(cmd: String): Boolean = runCatching {
+    internal fun ps(cmd: String): Boolean = runCatching {
         val enc = java.util.Base64.getEncoder().encodeToString(cmd.toByteArray(Charsets.UTF_16LE))
         val p = ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", enc).redirectErrorStream(true).start()
         p.inputStream.bufferedReader().readText(); p.waitFor() == 0

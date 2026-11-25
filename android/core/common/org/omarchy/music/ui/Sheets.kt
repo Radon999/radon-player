@@ -223,6 +223,8 @@ private fun AccountsSheet(ui: Ui) {
             }
             if (onPhone) NotificationsLine(activity)
             if (org.omarchy.music.Startup.supported) StartupLine()
+            // The PC: its desktop widgets and Make desktop shortcuts… (PlatformSheets; nothing on the phone)
+            PcWidgetLines(ui) { name, state, ok, actions -> Line(name, state, ok, actions = actions) }
             }
             Group("Personalization", ui) {
             PersonalizationLines(ui)
@@ -256,6 +258,7 @@ private fun AccountsSheet(ui: Ui) {
             SyncIgnoreLines()
             if (org.omarchy.music.Discord.supported) DiscordLine()
             ConcertLines()
+            SetlistLines()
             }
             Group("Accounts", ui) {
             Text("Radon Player works best with a Tidal subscription and your own song files. Tidal is the only way to stream " +
@@ -401,7 +404,14 @@ private fun AccountsSheet(ui: Ui) {
                     style = T.sub, modifier = Modifier.padding(vertical = 8.dp))
                 ProtectLines()
                 SubGroup("Your files", ui) { ToolLines(ui) }
-                SubGroup("Lyrics & moods", ui) { LyricsMoodsLines(ui) }
+                SubGroup("Lyrics & moods", ui) {
+                    LyricsMoodsLines(ui)
+                    // Song credits: your songs' looked up in the background, for a name's other songs in a song's Credits
+                    Line("Song credits", "Looks up who wrote, produced and played on each of your songs (from Tidal, Genius or " +
+                        "MusicBrainz) in the background, a song every few seconds" + (if (onPhone) ", only while the phone is charging" else "") +
+                        ". Then a name in a song's Options › Credits lists your other songs they worked on. Stop keeps what's found, and it carries on from there",
+                        org.omarchy.music.Credits.progress != null, note = creditsScanSaid()) { CreditsScanButton() }
+                }
                 SubGroup("Last.fm & your stats", ui) {
             run {
                 val undecided = remember(Music.artistPicks, org.omarchy.music.Stats.songs) { jointCreditsNow().count { it.third == null } }
@@ -1104,15 +1114,29 @@ private fun StartupLine() {
 private fun DiscordLine() {
     val d = org.omarchy.music.Discord
     Line("Discord", when {
-        !d.on -> "Shows the song you're playing on your Discord profile, as Spotify does, and clears it " +
-            "when you pause. It works through the Discord app on this PC and sends nothing anywhere else"
+        !d.on -> "Shows the song you're playing on your Discord profile, as Spotify does, with how many times you've played it, " +
+            "and clears it when you pause. It works through the Discord app (or Vesktop) on this PC and sends nothing anywhere else"
         d.status == "on" -> "Showing what you play on your Discord profile; it clears while you're paused"
-        d.status.isEmpty() || d.status == "Discord isn't open" -> "On, but Discord isn't open: open the Discord app on this PC and it shows up"
+        d.status.isEmpty() || d.status == "Discord isn't open" -> "On, but Discord isn't open: open the Discord app (or Vesktop) on this PC and it shows up"
         else -> "On · ${d.status}"
     }, d.on && d.status == "on") {
         Switch(d.on, { d.setOn(it) }, colors = swColors())
     }
-    if (d.on) DiscordAppId()
+    if (!d.on) return
+    // How it shows: Discord puts the kinds in its own order (Competing, Streaming, Playing, then Listening), so only
+    // Competing stays above a game or a Go Live
+    Text("Show it as", style = T.sub, modifier = Modifier.padding(top = 4.dp))
+    Row(Modifier.padding(vertical = 4.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip("Always on top", d.kind == d.TOP) { d.setKind(d.TOP) }
+        Chip("Like a game", d.kind == d.GAME) { d.setKind(d.GAME) }
+        Chip("Listening to", d.kind == d.LISTEN) { d.setKind(d.LISTEN) }
+    }
+    Text(when (d.kind) {
+        d.TOP -> "\"Competing in Radon Player\", the song and its plays under it: nothing shows over it on Discord, not a game, not Go Live"
+        d.GAME -> "\"Playing Radon Player\": Discord shows one Playing at a time, the latest, so a game started after it takes its place"
+        else -> "\"Listening to Radon Player\", as Spotify shows: a game you play shows over it"
+    }, style = T.sub)
+    DiscordAppId()
 }
 
 /** The PC's Phone remote: the phone app plays music here, pairs with the code shown, finds the PC by itself. */
@@ -2444,20 +2468,27 @@ private fun FolderPicker(ui: Ui, item: org.omarchy.music.FolderItem) {
         confirmButton = { TextButton({ ui.folderFor = null }) { Text("Cancel", color = C.muted) } })
 }
 
-/** Your own Sound presets: Save as preset… (the bands as they are now), Import (a GraphicEQ or parametric file), Export
- *  (the Sound as a GraphicEQ file), and Delete for one of yours that's picked. */
+/** Your own Sound presets: Save as preset… (the bands as they are now), Save over the one of yours the bands were
+ *  changed from, Rename and Delete for one of yours that's picked, Import (a GraphicEQ or parametric file), Export
+ *  (the Sound as a GraphicEQ file). */
 @Composable
 private fun PresetTools(ui: Ui, eq: org.omarchy.music.EqSettings) {
     var naming by remember { mutableStateOf<String?>(null) }
     val importer = rememberOpenFile { uri -> if (uri != null) Music.importPresetFile(uri) }
     val exporter = rememberSaveFile("text/plain") { uri -> if (uri != null) Music.exportPreset(uri) }
     val label = org.omarchy.music.Eq.presets(eq)[eq.preset]?.first ?: "Sound"
+    // The preset of yours these bands were changed from (pick one of yours, move the bands): Save over puts them in it
+    val from = eq.myPresets[eq.soundFrom]?.takeIf { eq.preset == "custom" }
     Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (from != null) Pill("Save over “${from.name}”") { Music.overwritePreset() }
         Pill("Save as Sound preset…", quiet = true) { naming = if (eq.preset == "custom" || eq.preset.startsWith("my:")) "" else "$label (mine)" }
+        if (eq.preset.startsWith("my:")) Pill("Rename “$label”", quiet = true) {
+            ui.askName = Triple("Rename your preset", label) { n -> Music.renamePreset(eq.preset, n) } }
         Pill("Import", quiet = true) { importer.launch(arrayOf("text/*", "application/octet-stream")) }
         Pill("Export", quiet = true) { exporter.launch("${label.replace(Regex("[^\\w .()-]"), "")} GraphicEQ.txt") }
         if (eq.preset.startsWith("my:")) Pill("Delete “$label”", quiet = true) { ui.confirm = "Delete your preset “$label”?" to { Music.deletePreset(eq.preset) } }
     }
+    if (eq.preset.startsWith("my:")) Text("To change “$label”, move the bands, then Save over “$label”.", style = T.sub, modifier = Modifier.padding(top = 4.dp))
     naming?.let { start ->
         var name by remember { mutableStateOf(start) }
         AlertDialog(onDismissRequest = { naming = null }, containerColor = C.light,
@@ -2473,8 +2504,10 @@ private fun PresetTools(ui: Ui, eq: org.omarchy.music.EqSettings) {
 }
 
 /** The presets of the output being set (picked at the top of the Equalizer): a drop-down under its name with each one
- *  (tap: use it; ★ its default, switched in each time the sound goes to it; × delete), and Save as preset… (a name, and
- *  whether it's the default). Each one keeps the output's whole EQ. Synced and in your backups. */
+ *  (tap: use it; ✎ edit its name and whether it's the default, or put it on to change its sound; ★ its default,
+ *  switched in each time the sound goes to it; × delete), Save over (the one these settings were put on from, once
+ *  they're changed) and Save as preset… (a name, and whether it's the default). Each one keeps the output's whole EQ.
+ *  Synced and in your backups. */
 @Composable
 private fun OutputPresets(ui: Ui, eq: org.omarchy.music.EqSettings) {
     if (!eq.perOutput) return
@@ -2486,6 +2519,9 @@ private fun OutputPresets(ui: Ui, eq: org.omarchy.music.EqSettings) {
     val now = list.firstOrNull { it.second.eq.sameAs(eq.toOutput("")) }
     var open by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf<String?>(null) }
+    // The preset these settings were put on from (or last saved as), now changed: Save over puts them in it
+    val from = if (now == null) eq.outputFrom[key]?.let { k -> list.firstOrNull { it.first == k } } else null
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box {
             Chip("$label: ${now?.second?.name ?: if (list.isEmpty()) "no presets yet" else "presets"} ▾", now != null) { open = true }
@@ -2500,6 +2536,8 @@ private fun OutputPresets(ui: Ui, eq: org.omarchy.music.EqSettings) {
                             Text(if (k == default) "★" else "☆", style = T.title.copy(color = if (k == default) C.accent else C.muted),
                                 modifier = Modifier.clip(R.pill).clickable { Music.setOutputDefault(key, if (k == default) null else k) }
                                     .padding(horizontal = 8.dp, vertical = 4.dp))
+                            Text("✎", style = T.title.copy(color = C.muted), modifier = Modifier.clip(R.pill)
+                                .clickable { open = false; editing = k }.padding(horizontal = 8.dp, vertical = 4.dp))
                             Text("×", style = T.title.copy(color = C.muted), modifier = Modifier.clip(R.pill)
                                 .clickable { open = false; ui.confirm = "Delete the preset “${p.name}” of $label?" to { Music.deleteOutputPreset(k) } }
                                 .padding(horizontal = 8.dp, vertical = 4.dp))
@@ -2507,6 +2545,7 @@ private fun OutputPresets(ui: Ui, eq: org.omarchy.music.EqSettings) {
                 }
             }
         }
+        if (from != null) Pill("Save over “${from.second.name}”") { Music.overwriteOutputPreset(from.first) }
         Pill("Save as preset…", quiet = true) { naming = now?.second?.name ?: "" }
     }
     if (default != null) Text("${list.firstOrNull { it.first == default }?.second?.name ?: "Its default"} is switched in each time the sound goes to $label (★ in the list to change it)",
@@ -2529,6 +2568,28 @@ private fun OutputPresets(ui: Ui, eq: org.omarchy.music.EqSettings) {
             } },
             confirmButton = { TextButton({ if (name.isNotBlank()) { naming = null; Music.saveOutputPreset(name, asDefault) } }) { Text("Save", color = C.accent) } },
             dismissButton = { TextButton({ naming = null }) { Text("Cancel", color = C.muted) } })
+    }
+    editing?.let { k ->
+        val p = list.firstOrNull { it.first == k }?.second ?: run { editing = null; return@let }
+        var name by remember(k) { mutableStateOf(p.name) }
+        var asDefault by remember(k) { mutableStateOf(default == k) }
+        AlertDialog(onDismissRequest = { editing = null }, containerColor = C.light,
+            title = { Text("Edit “${p.name}”", style = T.title) },
+            text = { Column {
+                Field(name, "Its name") { name = it }
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Default: switched in each time the sound goes to $label", style = T.sub, modifier = Modifier.weight(1f))
+                    Switch(asDefault, { asDefault = it }, colors = swColors())
+                }
+                Text("To change its sound: put it on, set the equalizer as you like it, then tap Save over “${p.name}”.",
+                    style = T.sub, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.padding(top = 6.dp)) {
+                    Pill("Put it on to change its sound", quiet = true) {
+                        Music.editOutputPreset(k, name, asDefault); Music.useOutputPreset(k); editing = null }
+                }
+            } },
+            confirmButton = { TextButton({ if (name.isNotBlank()) { editing = null; Music.editOutputPreset(k, name, asDefault) } }) { Text("Save", color = C.accent) } },
+            dismissButton = { TextButton({ editing = null }) { Text("Cancel", color = C.muted) } })
     }
 }
 
@@ -3505,5 +3566,22 @@ private fun ConcertLines() {
     Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.weight(1.4f)) { Field(key, "Ticketmaster key", password = true) { key = it.trim(); P.setText(K.KEY, key) } }
         Box(Modifier.weight(1f)) { Field(city, "City (optional)") { city = it; P.setText(K.CITY, it.trim()) } }
+    }
+}
+
+/** Settings › Remote & sync, after Concert dates: Setlists. A setlist.fm key of your own. */
+@Composable
+private fun SetlistLines() {
+    val P = org.omarchy.music.Prefs; val K = org.omarchy.music.Setlists
+    var key by remember { mutableStateOf(K.key()) }
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
+    Line("Setlists", "Fills the Setlists section of every artist's page: the songs they played at their recent shows, from setlist.fm, and " +
+        "what they've been playing on this tour. Open one to play it or make it a playlist, with your own files first. setlist.fm asks for a key, " +
+        "which is free: make an account at setlist.fm, open its API page (Get a key), ask for a key for personal use, and paste it here yourself",
+        key.isNotBlank(), note = if (key.isBlank()) "No key yet: the Setlists section says how to get one" else "On: open an artist's page and its Setlists section") {
+        Pill("Get a key…", quiet = true) { runCatching { links.openUri("https://www.setlist.fm/settings/api") } }
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp)) {
+        Field(key, "setlist.fm API key", password = true) { key = it.trim(); P.setText(K.KEY, key) }
     }
 }

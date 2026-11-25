@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wrapped: brings you straight to your Wrapped, this week's, this month's or all time's (a tap on the name: Wrapped's own
+     choice of period) (WrappedWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ww_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:gravity="center"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:id="@+id/ww_main" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="36dp" android:layout_height="36dp" android:src="@drawable/w_sparkle" android:contentDescription="" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="17sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:text="Wrapped" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.8" android:maxLines="2" android:ellipsize="end"
+                android:text="Your listening, made into slides" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/ww_week" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="30dp" android:gravity="center" android:padding="4dp" android:layout_marginEnd="3dp"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
+            android:background="@drawable/w_chip_on" android:text="Weekly" />
+        <TextView android:id="@+id/ww_month" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="30dp" android:gravity="center" android:padding="4dp" android:layout_marginStart="3dp" android:layout_marginEnd="3dp"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
+            android:background="@drawable/w_chip_on" android:text="Monthly" />
+        <TextView android:id="@+id/ww_all" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="30dp" android:gravity="center" android:padding="4dp" android:layout_marginStart="3dp"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
+            android:background="@drawable/w_chip_on" android:text="All time" />
+    </LinearLayout>
+</LinearLayout>

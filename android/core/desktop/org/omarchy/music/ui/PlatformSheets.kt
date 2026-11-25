@@ -1,6 +1,8 @@
 package org.omarchy.music.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -162,3 +164,88 @@ const val canRemoveFiles = true
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun screenHeightDp(): Int = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp().value.toInt() }
+
+/** Settings › General on the PC: the desktop widgets (each opened or closed here, as from the tray icon's Widgets) and
+ *  Make desktop shortcuts…. line: Settings' own row (its name, what it is, lit or not, its buttons). */
+@Composable
+fun PcWidgetLines(ui: Ui, line: @Composable (String, String, Boolean, @Composable () -> Unit) -> Unit) {
+    line("Widgets", "Small windows of their own on your desktop, like the phone's widgets, in the colour of the cover playing. " +
+        "Drag one by its body to move it and by its bottom corner to size it; its ⚙ keeps it above your other windows or not. " +
+        "They come back where you left them when the app starts. Also in the tray icon's menu", DesktopWidgets.anyOpen) {}
+    org.omarchy.music.DesktopWidgetRules.KINDS.forEach { (kind, name) ->
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(name, style = T.body, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Switch(DesktopWidgets.isOpen(kind), { DesktopWidgets.open(kind, it) }, colors = swColors())
+        }
+    }
+    if (!org.omarchy.music.Shortcuts.supported) return
+    var making by remember { mutableStateOf(false) }
+    line("Desktop shortcuts", "Icons on your desktop or in the ${org.omarchy.music.Shortcuts.menuName} that do one thing in one click: play a " +
+        "playlist (in order or shuffled), start or stop the DJ, open Most played, Lyrics or Wrapped, play or pause, skip", false) {
+        Pill("Make desktop shortcuts…", quiet = true) { making = true }
+    }
+    if (making) ShortcutsDialog { making = false }
+}
+
+/** Make desktop shortcuts…: tick the ones you want (the app's, and each playlist's In order or Shuffled), and where. */
+@Composable
+private fun ShortcutsDialog(close: () -> Unit) {
+    val Rules = org.omarchy.music.DesktopWidgetRules
+    val S = org.omarchy.music.Shortcuts
+    val picked = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    var menu by remember { mutableStateOf(true) }
+    var desktop by remember { mutableStateOf(true) }
+    var busy by remember { mutableStateOf(false) }
+    val lists = remember { Music.lists.all() + Music.lists.smart() }
+    val all = remember(lists) { Rules.SHORTCUTS + lists.flatMap { listOf(Rules.playlistShortcut(it.name, false), Rules.playlistShortcut(it.name, true)) } }
+    val boxColors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.accent, uncheckedColor = C.muted, checkmarkColor = C.darker)
+    @Composable fun Tick(text: String, on: Boolean, modifier: Modifier = Modifier, change: (Boolean) -> Unit) {
+        Row(modifier.then(Modifier.clickable { change(!on) }), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(on, change, colors = boxColors)
+            Text(text, style = T.body)
+        }
+    }
+    Dialog(onDismissRequest = close) {
+        Column(Modifier.widthIn(max = 580.dp).heightIn(max = 680.dp).background(C.light, R.card).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Make desktop shortcuts", style = T.title)
+            Text("Each shortcut starts Radon Player with what it says, or tells the one already running to: one click and it's done. " +
+                "Tick the ones you want.", style = T.sub)
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f, fill = false)) {
+                item { Text("THE APP", style = T.section, modifier = Modifier.padding(top = 6.dp)) }
+                items(Rules.SHORTCUTS.size) { i -> val s = Rules.SHORTCUTS[i]; Tick(s.name, picked[s.name] == true) { picked[s.name] = it } }
+                if (lists.isNotEmpty()) item { Text("YOUR PLAYLISTS", style = T.section, modifier = Modifier.padding(top = 10.dp)) }
+                items(lists.size) { i ->
+                    val p = lists[i]
+                    val inOrder = Rules.playlistShortcut(p.name, false).name; val shuffled = Rules.playlistShortcut(p.name, true).name
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(p.name, style = T.body, maxLines = 1, modifier = Modifier.weight(1f).padding(start = 12.dp))
+                        Tick("In order", picked[inOrder] == true) { picked[inOrder] = it }
+                        Tick("Shuffled", picked[shuffled] == true) { picked[shuffled] = it }
+                    }
+                }
+            }
+            Text("WHERE", style = T.section, modifier = Modifier.padding(top = 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Tick("In the ${S.menuName}", menu) { menu = it }
+                Tick("On the desktop", desktop) { desktop = it }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
+                Pill("Take away the ones made here", quiet = true) {
+                    Music.bg({ S.removeAll() }) { msg, err -> Music.toast(msg ?: "Couldn't: ${err?.message?.take(80)}") }
+                }
+                Pill("Cancel", quiet = true) { close() }
+                Pill(if (busy) "Making…" else "Make") {
+                    if (busy) return@Pill
+                    val chosen = all.filter { picked[it.name] == true }
+                    busy = true
+                    Music.bg({ S.make(chosen, menu, desktop) }) { msg, err ->
+                        busy = false
+                        Music.toast(msg ?: "Couldn't: ${err?.message?.take(80)}")
+                        if (msg?.startsWith("Made") == true) close()
+                    }
+                }
+            }
+        }
+    }
+}

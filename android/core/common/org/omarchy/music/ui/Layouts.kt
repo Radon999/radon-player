@@ -288,7 +288,7 @@ fun openServicePlaylist(ui: Ui, id: String, title: String, thumb: String, source
 
 /** A pin's picture: the artist's, the album's cover, the first song's. */
 @Composable
-private fun pinArt(p: Pin): Any? = remember(p.key, Music.musicVersion, Music.artistsVersion, org.omarchy.music.SmartLists.version, org.omarchy.music.MoodLists.version) {
+internal fun pinArt(p: Pin): Any? = remember(p.key, Music.musicVersion, Music.artistsVersion, org.omarchy.music.SmartLists.version, org.omarchy.music.MoodLists.version) {
     when (p.kind) {
         "artist" -> artistArt(p.id, p.thumb)
         "mine" -> Music.lists.get(p.id)?.tracks?.firstOrNull { it.thumb.isNotEmpty() || it.isFile }?.let { artModel(it) }

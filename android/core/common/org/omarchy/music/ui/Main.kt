@@ -137,6 +137,8 @@ fun App() {
         ui.pages.clear(); ui.tab = "search"; ui.query = link
         runSearch(ui)
     }
+    // A place asked for by one of the phone's home screen widgets (Most played, Wrapped, the Lyrics, a pin…): opened.
+    LaunchedEffect(AppLinks.asked) { val l = AppLinks.asked ?: return@LaunchedEffect; AppLinks.asked = null; AppLinks.open(ui, l) }
     val bg by animateColorAsState(tint?.first ?: C.bg, tween(700), label = "bg")
 
     // The ☰ menu: out only when you tap ☰ (a swipe on the player is for the cover).
@@ -302,6 +304,7 @@ fun App() {
             ui.tagPreview?.let { (ids, full) -> TagPreviewDialog(ui, ids, full) }
             ui.lyricsCard?.let { (t, g) -> LyricsCardDialog(ui, t, g) }
             ui.songCard?.let { SongCardDialog(ui, it) }
+            ui.creditsFor?.let { CreditsDialog(ui, it) }
             ui.presetEdit?.let { PresetEditDialog(ui, it) }
             ui.songClip?.let { SongClipDialog(ui, it) }
             // A playlist's Set a cover…: the picture picker, opened when a playlist asks for one

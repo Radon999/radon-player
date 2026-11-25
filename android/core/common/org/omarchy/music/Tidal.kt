@@ -315,6 +315,15 @@ class Tidal(ctx: Ctx) : Source {
         return ly["subtitles"].str?.ifBlank { null } to ly["lyrics"].str?.ifBlank { null }
     }
 
+    /** (blocking) Who wrote, produced and played on the song: Tidal's credits of its recording (Tidal's own song, else the
+     *  one found as for playing it, in any quality). Empty when Tidal hasn't the song or has no credits for it. */
+    fun credits(t: Track): List<SongCreditRules.Credit> {
+        val id = t.tidal ?: resolve(t, lossy = true)?.get("id").long ?: return emptyList()
+        return try {
+            SongCreditRules.fromTidal(api("tracks/$id/credits", mapOf("includeContributors" to true)))
+        } catch (e: HttpError) { if (e.code == 404) emptyList() else throw e }
+    }
+
     // ---- as a library ----
     private fun paged(path: String, page: Int, item: Boolean): List<JsonElement> {
         val out = ArrayList<JsonElement>()

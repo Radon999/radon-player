@@ -1,0 +1,67 @@
+package org.omarchy.music
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** The phone's home screen widgets: the Lyrics widget's line and its waits, the links a widget sends, how a start is done. */
+class PhoneWidgetRulesTest {
+    private val R = PhoneWidgetRules
+    private val times = listOf(10.0, 14.5, 19.0, 25.0)
+
+    @Test fun theLineBeingSungComesAQuarterSecondEarly() {
+        assertEquals("before the first line: none", -1, R.lineAt(times, 3.0))
+        assertEquals("a quarter second before a line, it's lit", 0, R.lineAt(times, 9.75))
+        assertEquals(0, R.lineAt(times, 14.0))
+        assertEquals(1, R.lineAt(times, 14.3))
+        assertEquals("after the last line, the last stays lit", 3, R.lineAt(times, 400.0))
+    }
+
+    @Test fun theWaitEndsJustAfterTheNextLine() {
+        assertEquals("a line two seconds off: looked at once a second meanwhile, for seeks", R.MAX_WAIT, R.waitMs(times, 12.0))
+        val close = R.waitMs(times, 14.0)   // 0.25 s to go
+        assertTrue("lands just after it ($close ms)", close in 250L..300L)
+        assertEquals("long gaps are looked at once a second, for seeks", R.MAX_WAIT, R.waitMs(times, 0.0))
+        assertEquals("right on a line: not a busy loop", R.MIN_WAIT, R.waitMs(listOf(5.0, 5.01), 4.75))
+        assertEquals("after the last line", R.MAX_WAIT, R.waitMs(times, 30.0))
+    }
+
+    @Test fun theLineSungStaysInPlaceWhileTheLinesGoBy() {
+        assertEquals("before the first line: from the first", 0..8, R.window(-1, 40, 9, 2))
+        assertEquals("the first lines: from the first", 0..8, R.window(1, 40, 9, 2))
+        assertEquals("then two lines above it", 8..16, R.window(10, 40, 9, 2))
+        assertEquals("near the end: no jumping back, the slots under the last stay empty", 37..39, R.window(39, 40, 9, 2))
+        assertEquals("fewer lines than slots", 0..2, R.window(0, 3, 9, 2))
+        assertTrue("no lines", R.window(-1, 0, 9, 2).isEmpty())
+    }
+
+    @Test fun aPinsKeyKeepsItsColons() {
+        assertEquals("pin" to "mine::ab12cd", R.split("pin:mine::ab12cd"))
+        assertEquals("top" to "", R.split("top"))
+        assertEquals("wrapped" to "month", R.split("wrapped:month"))
+    }
+
+    @Test fun aPlaylistStartComesBackAsItWasWritten() {
+        assertEquals("ab12cd" to true, R.playlistOf(R.list("ab12cd", true)))
+        assertEquals("ab12cd" to false, R.playlistOf(R.list("ab12cd", false)))
+        assertEquals("no order said: in order", "ab12cd" to false, R.playlistOf("list:ab12cd"))
+        assertNull(R.playlistOf("list:"))
+        assertNull(R.playlistOf("dj"))
+        assertNull(R.playlistOf("pin:mine::ab12cd"))
+    }
+
+    @Test fun aPausedAppStartsMusicThroughItsService() {
+        assertEquals("playing: carried on in the app", "now", R.startHow(playerUp = true, playing = true, remote = false))
+        assertEquals("paused in the background: Android needs the service started first", "service", R.startHow(playerUp = true, playing = false, remote = false))
+        assertEquals("the app not running", "service", R.startHow(playerUp = false, playing = false, remote = false))
+        assertEquals("the PC's remote plays nothing here", "now", R.startHow(playerUp = false, playing = false, remote = true))
+    }
+
+    @Test fun theDjWidgetStartsCarriesOnOrSwitches() {
+        assertEquals("start", R.djTap(on = false, paused = true))
+        assertEquals("start", R.djTap(on = false, paused = false))
+        assertEquals("resume", R.djTap(on = true, paused = true))
+        assertEquals("switch", R.djTap(on = true, paused = false))
+    }
+}

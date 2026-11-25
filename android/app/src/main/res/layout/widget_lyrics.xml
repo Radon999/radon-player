@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lyrics: the song playing's lyrics, as the Lyrics tab shows them. Timed lines: the one being sung lit and kept in place
+     as they go by (a tap on a line goes there); words alone: a list to scroll. Under them previous, play and next, a
+     lyrics card to share and the Lyrics tab in the app (LyricsWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wy_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:id="@+id/wy_cover" android:layout_width="42dp" android:layout_height="42dp"
+            android:scaleType="centerCrop" android:src="@drawable/ic_launcher" android:contentDescription="Cover" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:orientation="vertical">
+            <TextView android:id="@+id/wy_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="15sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end"
+                android:text="Nothing playing" />
+            <TextView android:id="@+id/wy_artist" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="12sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" android:alpha="0.75"
+                android:text="Lyrics" />
+        </LinearLayout>
+        <TextView android:id="@+id/wy_mode" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="6dp" android:minHeight="26dp" android:gravity="center" android:paddingStart="10dp" android:paddingEnd="10dp"
+            android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:background="@drawable/w_chip_off"
+            android:visibility="gone" android:text="Genius" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="8dp">
+        <LinearLayout android:id="@+id/wy_synced" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:orientation="vertical" android:visibility="gone">
+            <TextView android:id="@+id/wy_0" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_1" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_2" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_3" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_4" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_5" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_6" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_7" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/wy_8" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingTop="3dp" android:paddingBottom="3dp" android:textSize="16sp" android:textStyle="bold"
+                android:textColor="#FFFFFFFF" android:maxLines="2" android:ellipsize="end" />
+        </LinearLayout>
+        <ListView android:id="@+id/wy_plain" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:divider="@null" android:dividerHeight="0dp" android:visibility="gone" />
+        <TextView android:id="@+id/wy_msg" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:padding="8dp" android:textSize="14sp" android:textColor="#FFFFFFFF" android:alpha="0.8"
+            android:text="The lyrics of the song playing show up here" />
+    </FrameLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="40dp" android:layout_marginTop="6dp"
+        android:orientation="horizontal" android:gravity="center">
+        <ImageButton android:id="@+id/wy_prev" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_prev" android:contentDescription="Previous" />
+        <ImageButton android:id="@+id/wy_play" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_play" android:contentDescription="Play or pause" />
+        <ImageButton android:id="@+id/wy_next" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_next" android:contentDescription="Next" />
+        <ImageButton android:id="@+id/wy_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_share" android:contentDescription="Share a lyrics card" />
+        <ImageButton android:id="@+id/wy_open" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_open" android:contentDescription="Open the Lyrics in the app" />
+    </LinearLayout>
+</LinearLayout>

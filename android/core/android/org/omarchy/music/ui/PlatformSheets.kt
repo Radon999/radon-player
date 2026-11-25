@@ -89,3 +89,8 @@ val canRemoveFiles: Boolean get() = android.os.Build.VERSION.SDK_INT >= 30
 
 @Composable
 fun screenHeightDp(): Int = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+
+/** Settings › General on the PC: its desktop widgets and Make desktop shortcuts…. The phone has neither (its widgets are
+ *  the home screen's). */
+@Composable
+fun PcWidgetLines(ui: Ui, line: @Composable (String, String, Boolean, @Composable () -> Unit) -> Unit) {}

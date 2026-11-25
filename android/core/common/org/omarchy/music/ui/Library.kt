@@ -889,6 +889,7 @@ fun OptionsSheet(ui: Ui) {
                 val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
                 if (org.omarchy.music.AudioTools.supported && picked.size == 1 && (picked[0].file ?: Music.lib.items[picked[0].id]?.file) != null)
                     add(Triple(Ico.SEARCH, "Identify by sound…") { ui.identifyFor = picked[0] })
+                if (one != null) add(Triple(Ico.PERSON, "Credits…") { ui.creditsFor = one })   // who wrote, produced and played on it
                 add(Triple(Ico.COPY, "Copy the names") {   // "Title — Artist", a line each
                     copyText("Songs", picked.joinToString("\n") { "${it.title} — ${it.artist}" }); Music.toast("Copied ${picked.size} name${if (picked.size != 1) "s" else ""}")
                 })

@@ -116,6 +116,7 @@ Short sets from your own listening, with a voice like a radio host's.
 
 - **Equalizer for each output:** speaker, wired headphones, each Bluetooth device, a USB DAC, the car, switched by itself. 3 to 31 bands, presets and your own, and **Auto EQ** headphone correction by name.
 - **Presets for each output:** under the output picked in the Equalizer (Now playing's and the tab's), a drop-down with its name lists its own presets. **Save as preset…** keeps its whole EQ (Sound, bands, correction, bass and treble, Boost) under a name, and can make it the **default** (★): switched in each time the sound goes to that output. The presets and defaults of the outputs both devices meet (Bluetooth headphones and speakers, a USB DAC, the car) sync; all of them go into backups.
+- **Edit and save over presets:** change the EQ after putting on a preset of yours (an output's, or one of your Sound presets) and a **Save over “its name”** button puts the change into it, no new copy. ✎ beside an output's preset renames it, makes it the default or not, and puts it on to change its sound; a Sound preset of yours picked has **Rename**.
 - **Boost, Crossfeed and Crossfade** (off until you set it; never inside an album that flows). **Dual volume** decides whether a song's own volume and Boost go together.
 - **Bit-perfect** to a USB DAC (phone) or the computer's sound card: each song arrives untouched at its own rate and bit depth. On phones without a bit-perfect mode (Samsung's) the app drives the DAC itself. **Bass and Treble** can stay on with it. Off, the EQ and the rest come back.
 - **Sound quality** (each its own switch): clip guard, smoothing of harsh loud masters, dither, high-quality resampling and detail (on at first), and loudness compensation (off at first). On the phone, **Android's own FLAC decoder** for phones whose maker's decoder drops sound now and then.
@@ -163,6 +164,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 
 - **Android Auto** with covers, Favorite and Shuffle, and the car's own EQ.
 - **Lock screen player, notification and home screen widget** in the song's colours, and a picture-in-picture mini player. With **Shuffle button in the notification** off, a Download button takes its place on a streamed song.
+- **Home screen widgets:** besides Now playing with the queue, add **DJ** (a tap starts it, with its Only my songs / New songs too switch), **Now playing + playlists**, **Playlist shortcut** (one playlist, picked when you add it, in order or shuffled), **Pinned**, **Most played**, **Wrapped** (weekly, monthly or all time) and a big **Lyrics** widget (the line being sung lit up, tap a line to jump there, share a lyrics card). The DJ and playlists start playing without opening the app; the others open the app straight on their place.
 - **Swipe a song** to queue, favorite or more; you choose what each side does (or nothing).
 - **Auto mono** for the earbuds you choose: the app's own mono, so Android's Mono audio setting (Accessibility) isn't changed and still shows off, but the music plays in mono.
 - **Keep playing** (Settings › Playback, on at first): no other app pauses the music, not even one that takes the sound and plays nothing (a car connecting nearby). One that takes it for a moment (voice typing, the assistant, a spoken direction) turns the music down instead, and a call pauses it until the call is over. Off: Android's way.
@@ -171,7 +173,9 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 
 - **Mini player** that stays on top, with your look, effects, visualizer and queue, and the **system tray**.
 - **Media keys** on the keyboard or a headset, and the system's own controls (Windows' media flyout; MPRIS on Linux).
-- **Start with Windows / Linux** (Settings › General), **Discord** status, and **keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the equalizer, / to search) with right-click menus everywhere.
+- **Start with Windows / Linux** (Settings › General) and **keyboard shortcuts** (Space, ←/→, W for Wrapped, E for the equalizer, / to search) with right-click menus everywhere.
+- **Discord status** (on at first; Discord or Vesktop): the song with your plays of it ("Halo - 12 plays"), the artist, cover and time. **Show it as** **Always on top** ("Competing in", above games and Go Live), **Like a game** ("Playing") or **Listening to** (the Spotify look).
+- **Desktop widgets:** from the tray icon's Widgets or Settings › General, small windows in the cover's colour that stay where you put them (Always on top if you like): Now playing with the queue or your playlists, the DJ (Only my songs or New songs too), a Playlist shortcut (in order or shuffled), Pinned, Most played, Wrapped (week, month, year, all time) and Lyrics. **Make desktop shortcuts…** puts one-click icons on the desktop or Start menu to play a playlist, start the DJ, open Most played, Lyrics or Wrapped, and play/pause or skip.
 - **Linux:** a .deb that brings mpv and ffmpeg. On desktops with no tray (Hyprland, Sway…) closing hides the window while music plays. If the window flickers or stays black, start it once with RADON_RENDER=software.
 
 ## Help
@@ -179,6 +183,8 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 - **Favorite settings:** star (☆) the settings you use most and they sit together at the top of Settings.
 - **Size of everything** (Settings › General): the whole app bigger or smaller, 80% to 250%; each device keeps its own.
 - **Concert dates** on an artist's page, with a free Ticketmaster key of your own; add your city for shows near you.
+- **Setlists** on an artist's page, with a free setlist.fm key of your own (Settings › Remote & sync › Setlists): their recent shows' songs in order (encores marked) and what they've been playing on this tour, each ready to play or to make into a playlist named after the show, your own files first and missing songs listed.
+- **Song credits:** a song's Options › **Credits** lists who wrote, produced, played on, mixed and mastered it, from Tidal when you're signed in, else Genius or MusicBrainz, kept so they show offline. Tap a name for your songs that person worked on; **Look through my music** (also in Settings › Scanner) looks up your whole library's credits in the background, gently (on the phone only while charging).
 - **Wake-up timer:** start a playlist at a time you set, while the app is open.
 - **Updates:** checked at each start; **Update** in Settings installs it, and a card says what's new.
 - **Problems** (Settings) lists anything that went wrong lately, and **Details for support** copies what someone helping you would ask for (no sign-ins or song names), with Clear for when it's fixed.

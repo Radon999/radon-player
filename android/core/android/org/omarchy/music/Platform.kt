@@ -246,6 +246,11 @@ object Discord {
     const val DEFAULT_APP_ID = ""
     val appId = ""
     val ownAppId = false
+    const val TOP = "top"
+    const val GAME = "game"
+    const val LISTEN = "listen"
+    val kind = TOP
+    fun setKind(v: String) {}
     fun setAppId(v: String) = false
 }
 

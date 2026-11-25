@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Playlist shortcut: one playlist of yours (chosen as it's added), its cover and name; a tap plays it without
+     opening the app, In order or Shuffled as the switch under it says (PlaylistWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wpl_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="10dp" android:gravity="center"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:id="@+id/wpl_main" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center">
+        <ImageView android:id="@+id/wpl_cover" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+            android:scaleType="fitCenter" android:adjustViewBounds="true" android:src="@drawable/w_playlist" android:contentDescription="Playlist" />
+        <TextView android:id="@+id/wpl_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp"
+            android:gravity="center" android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:maxLines="2" android:ellipsize="end" android:text="Your playlist" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/wpl_order" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="26dp" android:gravity="center" android:padding="3dp" android:layout_marginEnd="2dp"
+            android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
+            android:background="@drawable/w_chip_on" android:text="In order" />
+        <TextView android:id="@+id/wpl_shuffle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:minHeight="26dp" android:gravity="center" android:padding="3dp" android:layout_marginStart="2dp"
+            android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
+            android:background="@drawable/w_chip_off" android:text="Shuffled" />
+    </LinearLayout>
+</LinearLayout>

@@ -45,13 +45,48 @@ object Discord {
     /** Whether it's one of your own (not the built-in one). */
     val ownAppId: Boolean get() = idNow.isNotEmpty()
 
+    /** How it shows on Discord (Settings): "top" Competing in (on top of everything, games and Go Live too), "game"
+     *  Playing (one Playing shows at a time: the latest), "listen" Listening to (the Spotify look; games go over it).
+     *  Discord sorts the activities others see by kind (Competing, Streaming, Playing, then the rest), not the app. */
+    private var kindNow by mutableStateOf(TOP)
+    val kind: String get() = kindNow
+    const val TOP = "top"
+    const val GAME = "game"
+    const val LISTEN = "listen"
+    private const val KIND_KEY = "discord_kind"
+
     fun init() {
-        onNow = Prefs.on("discord")
+        onNow = Prefs.on("discord", true)
         idNow = Prefs.text(APP_ID_KEY).trim()
+        kindNow = Prefs.text(KIND_KEY, TOP).takeIf { it in setOf(TOP, GAME, LISTEN) } ?: TOP
         Thread({ run() }, "discord").apply { isDaemon = true }.start()
     }
 
     fun setOn(v: Boolean) { onNow = v; Prefs.set("discord", v) }
+
+    fun setKind(v: String) { if (v in setOf(TOP, GAME, LISTEN)) { kindNow = v; Prefs.setText(KIND_KEY, v) } }
+
+    /** Discord's activity type for a kind: 5 Competing, 0 Playing, 2 Listening. */
+    fun typeOf(kind: String) = when (kind) { GAME -> 0; LISTEN -> 2; else -> 5 }
+
+    /** The song's line: its title with your plays of it after a dash ("Halo - 12 plays"), cut to Discord's 128 characters
+     *  from the title's end so the plays always show; no plays yet: the title alone. */
+    fun details(title: String, plays: Int): String {
+        val t = title.trim()
+        if (plays <= 0) return t.take(128)
+        val tail = " - %,d play%s".format(plays, if (plays != 1) "s" else "")
+        return t.take(128 - tail.length).trimEnd() + tail
+    }
+
+    /** The playing song's plays (yours here and the stats', as Most played counts them), looked up again at most every
+     *  half minute or when the song changes: song id to (count, when). */
+    private var playsOf: Triple<String, Int, Long> = Triple("", 0, 0)
+    private fun plays(t: Track): Int {
+        val now = System.currentTimeMillis()
+        if (playsOf.first != t.id || now - playsOf.third > 30_000)
+            playsOf = Triple(t.id, runCatching { PlaySorts.counts()[songKey(t)] ?: 0 }.getOrDefault(0), now)
+        return playsOf.second
+    }
 
     /** Use the Discord application with this ID ("" for the built-in one): Discord shows its name. False if it isn't
      *  one (an application ID is a number of 17 to 20 digits). */
@@ -142,9 +177,9 @@ object Discord {
         // up once, as Most played does), the app's icon until it's found; the icon stays small in the corner
         val cover = coverUrl(t) ?: ICON
         val act = buildJsonObject {
-            put("type", 2)   // "Listening to …", as Spotify shows
+            put("type", typeOf(kind))
             if (!basic) put("status_display_type", 0)
-            put("details", text(t.title)); put("state", text(t.artist))
+            put("details", text(details(t.title, plays(t)))); put("state", text(t.artist))
             putJsonObject("timestamps") {
                 put("start", start)
                 if (dur > 0) put("end", start + (dur * 1000).toLong().coerceAtLeast(1000))
@@ -162,7 +197,8 @@ object Discord {
                 })
             }
         }
-        return act to "${t.id}|${start / 3000}|$cover"   // the bar a few seconds off isn't worth an update; a cover found is
+        // The bar a few seconds off isn't worth an update; a cover found, a play counted or another kind is
+        return act to "${t.id}|${start / 3000}|$cover|$kind|${playsOf.second}"
     }
 
     /** A picture's address Discord takes: on the web, 256 characters at most (a longer one makes it refuse the whole activity). */

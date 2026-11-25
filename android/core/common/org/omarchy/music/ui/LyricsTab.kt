@@ -208,8 +208,11 @@ private fun NoteCard(n: Lyrics.Noted, page: String?, modifier: Modifier, close: 
     }
 }
 
+/** The timed lines, the one being sung lit up and kept in view. ink and size: the PC's Lyrics widget draws them white
+ *  and smaller on the cover's colour. */
 @Composable
-private fun Synced(lines: List<Pair<Double, String>>) {
+internal fun Synced(lines: List<Pair<Double, String>>, ink: androidx.compose.ui.graphics.Color = LOOK_ACCENT,
+                    size: androidx.compose.ui.unit.TextUnit = 19.sp) {
     var pos by remember { mutableDoubleStateOf(Music.livePosition()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -244,9 +247,9 @@ private fun Synced(lines: List<Pair<Double, String>>) {
         items(lines.size) { i ->
             val (at, words) = lines[i]
             Text(words.ifEmpty { "♪" },
-                style = T.body.copy(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = if (i == cur) FontWeight.ExtraBold else FontWeight.Bold,
+                style = T.body.copy(fontSize = size, lineHeight = size * (26f / 19f), fontWeight = if (i == cur) FontWeight.ExtraBold else FontWeight.Bold,
                     // all in the look's colour: the line being sung full and glowing in a neon look, the rest fainter
-                    color = when { i == cur -> LOOK_ACCENT; i < cur -> LOOK_ACCENT.copy(alpha = 0.4f); else -> LOOK_ACCENT.copy(alpha = 0.62f) },
+                    color = when { i == cur -> ink; i < cur -> ink.copy(alpha = 0.4f); else -> ink.copy(alpha = 0.62f) },
                     shadow = if (i == cur) C.shadow else null),
                 modifier = Modifier.fillMaxWidth().clickable { Music.seek(at) }.padding(vertical = 7.dp))
         }

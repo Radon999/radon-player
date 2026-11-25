@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Most played: a tap brings you straight to Most played in the app; on it, your top songs over the period Most played
+     shows (TopWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wt_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="32dp"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_chart" android:contentDescription="" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:maxLines="1" android:text="Most played" />
+        <TextView android:id="@+id/wt_period" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.75" android:maxLines="1" android:text="All time" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="4dp">
+        <LinearLayout android:id="@+id/wt_rows" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:orientation="vertical">
+            <LinearLayout android:id="@+id/wt_r0" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+                <TextView android:id="@+id/wt_t0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+                <TextView android:id="@+id/wt_c0" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp" android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:maxLines="1" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/wt_r1" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+                <TextView android:id="@+id/wt_t1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+                <TextView android:id="@+id/wt_c1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp" android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:maxLines="1" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/wt_r2" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+                <TextView android:id="@+id/wt_t2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+                <TextView android:id="@+id/wt_c2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp" android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:maxLines="1" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/wt_r3" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+                <TextView android:id="@+id/wt_t3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+                <TextView android:id="@+id/wt_c3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp" android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:maxLines="1" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/wt_r4" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+                <TextView android:id="@+id/wt_t4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+                <TextView android:id="@+id/wt_c4" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp" android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:maxLines="1" />
+            </LinearLayout>
+        </LinearLayout>
+        <TextView android:id="@+id/wt_empty" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:padding="8dp" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.75"
+            android:visibility="gone" android:text="Nothing played yet" />
+    </FrameLayout>
+</LinearLayout>

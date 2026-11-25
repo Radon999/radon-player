@@ -830,6 +830,8 @@ object Music {
     // Sound presets of yours and headphones corrections (saved, imported, exported, collected) are SoundPresets' own.
     fun savePreset(name: String, bands: List<Double> = eq.bands, count: Int = eq.count) = SoundPresets.savePreset(name, bands, count)
     fun deletePreset(key: String) = SoundPresets.deletePreset(key)
+    fun overwritePreset() = SoundPresets.overwritePreset()
+    fun renamePreset(key: String, name: String) = SoundPresets.renamePreset(key, name)
     fun importPresetFile(uri: String) = SoundPresets.importPresetFile(uri)
     fun exportPreset(uri: String) = SoundPresets.exportPreset(uri)
     fun exportCorrection(uri: String) = SoundPresets.exportCorrection(uri)
@@ -852,6 +854,8 @@ object Music {
     fun useOutputPreset(key: String) = EqControl.useOutputPreset(key)
     fun setOutputDefault(out: String, key: String?) = EqControl.setOutputDefault(out, key)
     fun deleteOutputPreset(key: String) = EqControl.deleteOutputPreset(key)
+    fun overwriteOutputPreset(key: String) = EqControl.overwriteOutputPreset(key)
+    fun editOutputPreset(key: String, name: String, asDefault: Boolean) = EqControl.editOutputPreset(key, name, asDefault)
     fun outLabel(key: String) = EqControl.outLabel(key)
     var outputNow by mutableStateOf(Outputs.Out("speaker", "Built-in speaker", "speaker"))
         internal set

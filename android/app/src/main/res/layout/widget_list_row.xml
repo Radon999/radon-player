@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A row of a widget's list (a playlist, a folder of them, something pinned): its kind's icon, its name, a line under. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/wlr_row"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"
+    android:gravity="center_vertical" android:paddingTop="5dp" android:paddingBottom="5dp" android:paddingStart="4dp" android:paddingEnd="4dp">
+    <ImageView android:id="@+id/wlr_icon" android:layout_width="20dp" android:layout_height="20dp" android:alpha="0.85"
+        android:src="@drawable/w_playlist" android:contentDescription="" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="10dp" android:orientation="vertical">
+        <TextView android:id="@+id/wlr_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/wlr_sub" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="12sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" android:alpha="0.7" />
+    </LinearLayout>
+</LinearLayout>

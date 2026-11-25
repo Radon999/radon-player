@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
         ScreenRate.attach(window)   // Settings › Smoothest screen: the screen's highest refresh rate, if you chose it
         // (Notifications, with everything else that needs leave, are asked for by the screens as they start: StartupPermissions.)
         shared(intent)
+        if (savedInstanceState == null) HomeWidgets.asked(this, intent)   // a home screen widget's place, or its music to start
         androidx.core.content.ContextCompat.registerReceiver(this, miniButtons, android.content.IntentFilter(MINI),
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         setContent { OmarchyTheme { if (mini) org.omarchy.music.ui.MiniPlayer() else App() } }
@@ -129,6 +130,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (MusicApp.safeMode) return
         shared(intent)
+        HomeWidgets.asked(this, intent)
     }
 
     private fun shared(i: Intent?) {

@@ -222,6 +222,8 @@ data class EqSettings(
     val myPresets: Map<String, MyPreset> = emptyMap(),        // Sound presets you saved or imported (10 bands each)
     val outputPresets: Map<String, OutputPreset> = emptyMap(),   // presets saved for one output, by "its output key|an id"
     val outputDefaults: Map<String, String> = emptyMap(),        // an output's default preset (its outputPresets key): switched in when the sound goes there
+    val outputFrom: Map<String, String> = emptyMap(),            // the preset an output's EQ was last put on from or saved as (Save over)
+    val soundFrom: String = "",                                   // the Sound preset of yours (its myPresets key) the bands were last taken from (Save over)
 ) {
     /** These settings as one output keeps them. */
     fun toOutput(label: String) = OutputEq(label, on, headphones, preset, bands, custom, bass, treble, count, boost)

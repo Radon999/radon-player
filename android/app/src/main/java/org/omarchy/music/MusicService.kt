@@ -387,6 +387,7 @@ class MusicService : MediaLibraryService() {
         Music.scope.launch { snapshotFlow { Prefs.on(Prefs.KEEP_PLAYING, true) }.collect { keep.apply() } }
         Music.playerReady()
         LockScreen.register(this)
+        HomeWidgets.follow(this)   // the other home screen widgets: the song, the DJ, your playlists, the Lyrics widget's line
     }
 
     /** Cast: a Chromecast, Google speaker or TV picked (Now playing's Cast button) takes over from where the phone was;
@@ -523,6 +524,12 @@ class MusicService : MediaLibraryService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
+    /** A home screen widget's tap starting the DJ or a playlist with the app closed (see WidgetStart). */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == WidgetStart.ACTION) WidgetStart.begin(this, intent, session)
+        return super.onStartCommand(intent, flags, startId)
+    }
+
     /** When the music was last paused (elapsed ms). */
     private var pausedAt = 0L
     private val later = Handler(android.os.Looper.getMainLooper())
@@ -532,6 +539,11 @@ class MusicService : MediaLibraryService() {
      *  "startForegroundService() not allowed" and the music stopped), so Play from the headphones, the car or the
      *  DJ going on after a pause would fail with the screen off. After that long paused, it lets go as before. */
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        // Music started from a widget (WidgetStart): its own notification keeps the app in the foreground until the music
+        // plays (a stop of the foreground meanwhile, as the song from last time loads, would let Android stop the start);
+        // then the music's own notification takes over.
+        val fromWidget = WidgetStart.waiting()
+        if (fromWidget && !startInForegroundRequired) return
         val p = session.player
         val since = android.os.SystemClock.elapsedRealtime() - pausedAt
         val keep = startInForegroundRequired || (p.mediaItemCount > 0 && !p.playWhenReady && pausedAt > 0 && since < KEEP_PAUSED &&
@@ -541,6 +553,7 @@ class MusicService : MediaLibraryService() {
         } catch (e: Exception) {
             Crashes.note("The music's notification couldn't be shown: ${e.message}")
         }
+        if (fromWidget) WidgetStart.handedOver(this)
         if (keep && !startInForegroundRequired) {   // let go once it's been paused that long
             later.removeCallbacksAndMessages(null)
             later.postDelayed({ this.session?.let { s -> if (!s.player.playWhenReady) onUpdateNotification(s, false) } }, KEEP_PAUSED - since + 1000)
@@ -557,6 +570,7 @@ class MusicService : MediaLibraryService() {
 
     override fun onDestroy() {
         later.removeCallbacksAndMessages(null)
+        HomeWidgets.stop(this)
         LockScreen.unregister(this)
         Music.player = null
         UsbDirect.closeAll()   // the DAC back to Android
