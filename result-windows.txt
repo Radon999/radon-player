@@ -1,15 +1,15 @@
-commit 9132a01de8faf488d748d5e92b1d208c6ac97c29 · run 45517771138 · Wed Nov 25 00:44:28 UTC 2026
+commit e569a7f96ffcd1a3ef9771c97a11bb6ef419e4a2 · run 45519025270 · Wed Nov 25 01:05:10 UTC 2026
 PC TESTS ON WINDOWS: 45 suites, tests 174, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.1 s of speech in 2.1 s (with loading the voice); then 5.2 s of speech in 1.6 s (3.2x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.4 s (with loading the voice); then 4.6 s of speech in 1.5 s (3.1x real time)
 WINDOWS INSTALLER: Radon Player-4.5.20.msi, 97M
 --- errors
-org.omarchy.music.DjMoreKindsTest > notSkippedAndSecondChancesGoByWhatYouHeardOutAndWhatYouSkip FAILED
-    java.lang.AssertionError: a neverskip set can be made
+org.omarchy.music.DjMoreKindsTest > anAlbumMomentIsThreeInARowInTheAlbumsOrder FAILED
+    java.lang.AssertionError: an album moment can be made
         at org.junit.Assert.fail(Assert.java:89)
         at org.junit.Assert.assertTrue(Assert.java:42)
         at org.junit.Assert.assertNotNull(Assert.java:713)
-        at org.omarchy.music.DjMoreKindsTest.only(DjMoreKindsTest.kt:24)
-        at org.omarchy.music.DjMoreKindsTest.notSkippedAndSecondChancesGoByWhatYouHeardOutAndWhatYouSkip$lambda$11(DjMoreKindsTest.kt:42)
+        at org.omarchy.music.DjMoreKindsTest.anAlbumMomentIsThreeInARowInTheAlbumsOrder$lambda$36$lambda$35(DjMoreKindsTest.kt:104)
+        at org.omarchy.music.DjMoreKindsTest.from(DjMoreKindsTest.kt:16)
 --
 > Task :desktop:test FAILED
 
@@ -23,7 +23,7 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 6m 25s
+BUILD FAILED in 6m 28s
 21 actionable tasks: 21 executed
 --- the end of the log
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
@@ -49,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m 25s
+BUILD FAILED in 6m 28s
 21 actionable tasks: 21 executed
