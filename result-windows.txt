@@ -1,25 +1,55 @@
-commit 5609d4ed4a8276c3c6e74b340833bdb6897e7c24 · run 45698167486 · Wed Nov 25 21:07:58 UTC 2026
-PC TESTS ON WINDOWS: 46 suites, tests 177, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.3 s (with loading the voice); then 4.8 s of speech in 1.7 s (2.8x real time)
+commit 2a3018bffab3be6b302a6d4d3285e5714649f6e9 · run 45698182765 · Wed Nov 25 21:31:00 UTC 2026
+PC TESTS ON WINDOWS: 46 suites, tests 177, failed 2
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.1 s of speech in 2.1 s (with loading the voice); then 5.0 s of speech in 1.6 s (3.1x real time)
 WINDOWS INSTALLER: Radon Player-5.1.0.msi, 97M
 --- errors
+org.omarchy.music.DjFlowTest > stoppingTheDjLeavesTheMusicAsItIs FAILED
+    java.lang.AssertionError: expected:<[file-library-78, file-library-70, file-library-65, file-library-72, file-library-11, file-library-39]> but was:<[file-library-78, file-library-70, file-library-65, file-library-72, file-library-11, file-library-39, file-library-31, file-library-13, file-library-15, file-library-58, file-library-49, file-library-57]>
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.failNotEquals(Assert.java:835)
+        at org.junit.Assert.assertEquals(Assert.java:120)
+        at org.junit.Assert.assertEquals(Assert.java:146)
+        at org.omarchy.music.DjFlowTest.stoppingTheDjLeavesTheMusicAsItIs(DjFlowTest.kt:165)
+--
+org.omarchy.music.DjKindsTest > aThrowbackIsAYearsMostPlayedNotPlayedLately FAILED
+    java.lang.AssertionError: a throwback set can be made
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.junit.Assert.assertNotNull(Assert.java:713)
+        at org.omarchy.music.DjKindsTest.only(DjKindsTest.kt:45)
+        at org.omarchy.music.DjKindsTest.aThrowbackIsAYearsMostPlayedNotPlayedLately$lambda$13(DjKindsTest.kt:67)
+--
+> Task :desktop:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+--
+BUILD FAILED in 9m 12s
+21 actionable tasks: 21 executed
 --- the end of the log
-w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1392:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
-w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
-> Task :desktop:compileJava NO-SOURCE
-> Task :desktop:classes
-> Task :desktop:jar
-> Task :desktop:compileTestKotlin
-> Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-5.1.0.msi
-
-> Task :desktop:compileTestJava NO-SOURCE
-> Task :desktop:testClasses
 > Task :desktop:test
 
-D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
-OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+177 tests completed, 2 failed
+
+> Task :desktop:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///D:/a/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -27,5 +57,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 8m 44s
+BUILD FAILED in 9m 12s
 21 actionable tasks: 21 executed
