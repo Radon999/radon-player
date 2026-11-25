@@ -26,7 +26,6 @@ object Car {
     val SHUFFLE = SessionCommand("radon.shuffle", Bundle.EMPTY)
     val REPEAT = SessionCommand("radon.repeat", Bundle.EMPTY)
     val DOWNLOAD = SessionCommand("radon.download", Bundle.EMPTY)
-    val AUTO = SessionCommand("radon.android_auto", Bundle.EMPTY)   // the Android Auto button (SeamlessBt.toggleAuto)
 
     private fun folder(id: String, title: String, playable: Boolean = false) = MediaItem.Builder().setMediaId(id)
         .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setIsBrowsable(true).setIsPlayable(playable)
@@ -73,9 +72,7 @@ object Car {
     }
 
     /** Shuffle, Repeat (off, all, one) and Favorite beside the usual buttons: in the notification and on the lock
-     *  screen (Android shows the first two there, beside previous, play and next) and on the car's screen. With Ignore
-     *  Bluetooth devices: no stutter at all on, the Android Auto button comes first (SeamlessBt.autoButton): off with a
-     *  crossed-out car while the truck is kept disconnected, on with a car while it may connect; a tap switches it. */
+     *  screen (Android shows the first two there, beside previous, play and next) and on the car's screen. */
     fun buttons(): ImmutableList<CommandButton> {
         val fav = Music.current()?.let { Music.favorites.has(it) } == true
         val rep = Music.repeat
@@ -86,17 +83,12 @@ object Car {
         val download = !Prefs.on(Prefs.NOTIF_SHUFFLE, true) && Music.downloadNowNote().isEmpty()
         val first = if (download) CommandButton.Builder().setIconResId(R.drawable.car_download).setDisplayName("Download").setSessionCommand(DOWNLOAD).build()
             else CommandButton.Builder().setIconResId(R.drawable.car_shuffle).setDisplayName("Shuffle").setSessionCommand(SHUFFLE).build()
-        val auto = SeamlessBt.autoButton
-        val autoButton = if (auto.isEmpty()) null else CommandButton.Builder()
-            .setIconResId(if (SeamlessBt.autoOn) R.drawable.car_auto_on else R.drawable.car_auto_off)
-            .setDisplayName(auto).setSessionCommand(AUTO).build()
-        val rest = listOf(
+        return ImmutableList.of(
             first,
             CommandButton.Builder().setIconResId(when (rep) { "one" -> R.drawable.car_repeat_one; "all" -> R.drawable.car_repeat; else -> R.drawable.car_repeat_off })
                 .setDisplayName(when (rep) { "one" -> "Repeat one"; "all" -> "Repeat all"; else -> "Repeat off" }).setSessionCommand(REPEAT).build(),
             CommandButton.Builder().setIconResId(if (fav) R.drawable.car_star else R.drawable.car_star_line)
                 .setDisplayName(if (fav) "Unfavorite" else "Favorite").setSessionCommand(FAVORITE).build())
-        return ImmutableList.copyOf(listOfNotNull(autoButton) + rest)
     }
 
     private const val GEARHEAD = "com.google.android.projection.gearhead"   // Android Auto
@@ -106,7 +98,7 @@ object Car {
             if (controller.packageName == GEARHEAD) { Outputs.carProjecting = true; runCatching { BtRoute.check() }; Music.outputChanged() }
             val base = super.onConnect(session, controller)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).add(DOWNLOAD).add(AUTO).build())
+                .setAvailableSessionCommands(base.availableSessionCommands.buildUpon().add(FAVORITE).add(SHUFFLE).add(REPEAT).add(DOWNLOAD).build())
                 .setAvailablePlayerCommands(base.availablePlayerCommands)
                 .setCustomLayout(buttons()).build()
         }
@@ -122,7 +114,6 @@ object Car {
                 SHUFFLE.customAction -> Music.shuffle()
                 REPEAT.customAction -> Music.cycleRepeat()
                 DOWNLOAD.customAction -> Music.saveCurrent()
-                AUTO.customAction -> SeamlessBt.toggleAuto()
             }
             session.setCustomLayout(buttons())
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

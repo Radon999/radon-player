@@ -135,8 +135,6 @@ class MainActivity : ComponentActivity() {
 
     private fun shared(i: Intent?) {
         if (i?.action == Intent.ACTION_SEND) i.getStringExtra(Intent.EXTRA_TEXT)?.let { Music.shared = it }
-        // The note shown when Shizuku stopped with the truck kept off: tapped, the truck let back by hand (once)
-        if (i?.getBooleanExtra(SeamlessBt.TRUCK_BACK, false) == true) { i.removeExtra(SeamlessBt.TRUCK_BACK); SeamlessBt.truckBack() }
     }
 
     /** The volume buttons, while the phone is the desktop's remote: the desktop's volume, playing or not

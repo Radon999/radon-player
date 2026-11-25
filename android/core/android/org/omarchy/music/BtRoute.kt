@@ -51,15 +51,6 @@ object BtRoute {
     fun stirred(within: Long = BtIgnoreRules.STIR_MS): Boolean =
         stirAt > 0 && android.os.SystemClock.elapsedRealtime() - stirAt < within
 
-    /** Something not ignored to listen on is connected (Bluetooth headphones, a car that isn't ignored, wired, USB):
-     *  with Shizuku the ignored devices then have Media audio off (SeamlessBt). */
-    @Volatile var elsewhere = false
-        private set
-    /** Bluetooth devices connected for calls now, as Android lists them (it lists the one in use for calls, which may
-     *  be the earbuds rather than the truck; SeamlessBt counts Android Auto being on as the truck being here too). */
-    @Volatile var callsHere: Set<String> = emptySet()
-        private set
-
     // Letting go of a device that's still connected (the music "where Android puts it", or no longer kept from Android
     // Auto) waits HOLD_MS for a second look: Android Auto starting asks for that and, a moment later, for the opposite,
     // and every change moves the sound, a gap each time (seen on the owner's phone: three changes in one second).
@@ -72,7 +63,7 @@ object BtRoute {
 
     // Ignore Bluetooth devices switched off gives the car the music while it plays, and the truck stayed silent until
     // you paused and played: a car's stereo starts its Bluetooth sound when it sees the music start. So the first time
-    // the car is here after the switch went off (it may connect a moment later, Shizuku connecting it again), the app
+    // the car is here after the switch went off (it may connect a moment later), the app
     // pauses and plays once for it, once the car has settled. Only then: a car connecting another time is left alone.
     private const val NUDGE_WINDOW_MS = 120_000L
     private const val NUDGE_AFTER_MS = 3_000L
@@ -158,13 +149,13 @@ object BtRoute {
         }
     }
 
-    /** Look at the outputs again: remember the Bluetooth ones, keep the music off an ignored one if there's somewhere to;
-     *  then Shizuku's part (SeamlessBt). A let-go still waiting for its second look and not asked for again is dropped. */
+    /** Look at the outputs again: remember the Bluetooth ones, keep the music off an ignored one if there's somewhere to.
+     *  A let-go still waiting for its second look and not asked for again is dropped. */
     fun check() {
         asked = false
         look()
         if (holding && !asked) { holding = false; h.removeCallbacks(secondLook) }
-        runCatching { SeamlessBt.update() }
+        runCatching { BtLeftOff.check() }
     }
 
     private fun look() {
@@ -188,7 +179,7 @@ object BtRoute {
         // The car is among the ignored devices (Android Auto picked, or a name that's the car's), connected or not. Then
         // the music is kept from Android Auto (ALLOW_CAPTURE_BY_NONE) for as long as headphones have it, not only while
         // Android Auto is on: each change of that makes the player build its sound output again (a gap), and at the edge
-        // of the truck's range Android Auto comes and goes again and again (the owner's cutting in and out, Shizuku on).
+        // of the truck's range Android Auto comes and goes again and again (the owner's cutting in and out).
         val carAhead = IgnoreBt.on && (AUTO in ignored || ignored.any(isCar))
         // The switch just went off: the car, here now or within NUDGE_WINDOW_MS, gets a pause and play (see nudge)
         val nowEl = android.os.SystemClock.elapsedRealtime()
@@ -200,20 +191,18 @@ object BtRoute {
             h.removeCallbacks(nudge); h.postDelayed(nudge, NUDGE_AFTER_MS)
         }
         carWasHere = carHere
-        // The devices stirring around an ignored one (see stirAt), and whether there's something else to listen on
+        // The devices stirring around an ignored one (see stirAt)
         val ignoredHere = if (IgnoreBt.on) ((bt + calls).filter { it in ignored } + (if (carIgnored) listOf(AUTO) else emptyList())).toSet()
             else emptySet()
         val all = (bt + calls + (if (auto) listOf(AUTO) else emptyList())).toSet()
         // In Sound lately (and so in a hiccup's "just before" in Problems): every device coming and going, to put beside
         // a gap in the sound
         if (all != lastAll) SoundLog.note("connected: " + ((all - lastAll).map { "+$it" } + (lastAll - all).map { "-$it" }).joinToString(" "))
-        callsHere = calls.toSet()
         if (BtIgnoreRules.stirs(lastAll, all, lastIgnored, ignoredHere)) {
             stirAt = android.os.SystemClock.elapsedRealtime()
             onStir?.let { runCatching { it() } }
         }
         lastAll = all; lastIgnored = ignoredHere
-        elsewhere = outs.any { (it.type in BT && key(it) !in ignored) || it.type in WIRED }
         // Newest Bluetooth device wins: of the ones connected (Android Auto too), the last to come has the music. An
         // ignored one never does (Ignore Bluetooth devices first); with fewer than two left, the usual rules decide.
         val nowMs = System.currentTimeMillis()

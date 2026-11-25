@@ -70,10 +70,12 @@ object Prefs {
     const val IGNORE_BT = "ignore_bt"            // Ignore Bluetooth devices: the music stays where it was when one connects
     const val IGNORE_BT_DEVICES = "ignore_bt_devices"   // which ones (their names, one per line)
     const val IGNORE_BT_SEEN = "ignore_bt_seen"  // Bluetooth outputs seen before, to pick from (names, one per line)
-    const val IGNORE_BT_SHIZUKU = "ignore_bt_shizuku"   // the phone: ignored devices' Media audio switched off through Shizuku
-    const val IGNORE_BT_MEDIA_OFF = "ignore_bt_media_off"   // the devices whose Media audio the app switched off (given back later)
-    const val IGNORE_BT_AUTO = "ignore_bt_auto"   // the Android Auto button as you last set it: "on", "off", or "" (not tapped)
-    const val IGNORE_BT_AUTO_STOPPED = "ignore_bt_auto_stopped"   // Android Auto stopped by the button's off (let start again with on)
+    // Left from Ignore Bluetooth devices: no stutter at all (Shizuku, taken out in 5.0.1): read once by BtLeftOff (the
+    // phone), which says what to switch back on, then forgotten
+    const val IGNORE_BT_SHIZUKU = "ignore_bt_shizuku"
+    const val IGNORE_BT_MEDIA_OFF = "ignore_bt_media_off"   // the truck's connections it switched off ("name" or "name|profile")
+    const val IGNORE_BT_AUTO = "ignore_bt_auto"
+    const val IGNORE_BT_AUTO_STOPPED = "ignore_bt_auto_stopped"   // Android Auto stopped by it
     const val NEWEST_BT = "newest_bt"            // Newest Bluetooth device wins: the last one to connect has the music
     const val CAR_FIRST = "car_first"            // Car always wins (the phone): the car has the music whenever it's connected
     const val CAR_NAMES = "car_bt_names"         // the car's Bluetooth names, learnt when Android Auto starts (one per line)

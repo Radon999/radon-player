@@ -1871,15 +1871,20 @@ private fun IgnoreBtLines(ui: Ui) {
         if (names.isEmpty()) Text("No Bluetooth devices seen yet: connect one (your car) once and it shows up here to pick", style = T.sub)
     }
     // Android still connects an ignored device for music and moves the sound to it and back: a stutter each time. Said
-    // plainly; then the two ways never to have it: Shizuku doing it for you, or switching it off yourself.
+    // plainly, with the one way never to have it: switching the device's Media audio off yourself.
     if (onPhone) {
+        val device = picked.firstOrNull() ?: "the device"
         Text("Each time an ignored device connects or drops (driving or walking in and out of its range, over and over), " +
             "Android moves the sound to it and back, so the music can stutter for a moment. It always carries on by itself " +
-            "straight away. For no stutter at all, switch on Ignore Bluetooth devices: no stutter at all, below. " +
-            "Switching this off gives the car the music: the app pauses and plays once a few seconds after the car is " +
-            "connected, so the car's sound starts. If the car still plays nothing, pause and play, and the sound comes back.",
+            "straight away. Switching this off gives the car the music: the app pauses and plays once a few seconds after the " +
+            "car is connected, so the car's sound starts. If the car still plays nothing, pause and play, and the sound comes back.",
             style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
-        SeamlessBtLines(picked.firstOrNull(), ign.here)
+        Text("No stutter at all? In Android's Bluetooth settings tap ⚙ beside $device and turn off Media audio (on Samsung: " +
+            "Audio), leaving Calls on. It then never plays music, headphones or not." +
+            if (ign.here.isNotEmpty()) " ${ign.here} is connected for music right now." else "",
+            style = T.sub.copy(color = if (ign.here.isNotEmpty()) C.accent else C.muted), modifier = Modifier.padding(bottom = 6.dp))
+        Pill("Open Bluetooth settings", quiet = true) { openSystemSettings("bluetooth") }
+        Spacer(Modifier.height(8.dp))
     }
     Text(if (onPhone) "Phones decide how Bluetooth works, so this may not work on every phone. Many play to only one Bluetooth " +
         "device at a time: once the car takes over, your headphones drop out and there's nowhere else to keep the music, so it's " +
@@ -1889,76 +1894,6 @@ private fun IgnoreBtLines(ui: Ui) {
         else "The PC decides its default output; the app looks every few seconds, so the device may have the sound for a moment " +
         "first. The music goes back to the output it was on, as long as that's still there",
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
-}
-
-/** Ignore Bluetooth devices with no stutter (the phone): the Shizuku switch, its next step, how to set Shizuku up, and
- *  the way to do it by hand in Android's Bluetooth settings. */
-@Composable
-private fun SeamlessBtLines(device: String?, here: String) {
-    val s = org.omarchy.music.SeamlessBt
-    val on = s.on
-    Line("Ignore Bluetooth devices: no stutter at all", if (on || s.status.isNotEmpty()) s.status.ifEmpty { "On" }
-        else "Part of Ignore Bluetooth devices, not a setting of its own: it takes away the stutter. While your headphones " +
-            "are connected, an ignored device (your truck) is kept disconnected, so it can't take the sound or cut the music " +
-            "in and out as you come and go. The player's notification gets an Android Auto button: tap it in the truck to " +
-            "let Android Auto connect (its map and calls; the music stays on your headphones), and again when you leave. " +
-            "With no headphones the truck connects as usual. Needs Shizuku, a free app (Android 14 or newer)", on && s.step.isEmpty()) {
-        Switch(on, { s.setOn(it) }, colors = swColors())
-    }
-    if (s.step.isNotEmpty()) {
-        Pill(s.step) { s.nextStep() }
-        Spacer(Modifier.height(8.dp))
-    }
-    // The same button as the notification's, here too, and what to do with it, in plain words: it's the one thing the
-    // switch asks of you, and getting it wrong is either the stutter back or no GPS
-    if (on) {
-        if (s.autoButton.isNotEmpty()) {
-            Pill(s.autoButton) { s.toggleAuto() }
-            Spacer(Modifier.height(6.dp))
-        }
-        Text("Keep Wi-Fi switched ON. It doesn't need to be connected to anything: no network, no internet. It only has " +
-            "to be on, because wireless Android Auto links to the truck over Wi-Fi by itself (and Shizuku is started over " +
-            "Wi-Fi). Your mobile data keeps working as always.",
-            style = T.body.copy(color = C.accent), modifier = Modifier.padding(bottom = 8.dp))
-        Text("How to use the Android Auto button (in the player's notification, and here):\n" +
-            "• Off (a crossed-out car): your truck is disconnected completely (music, calls, everything Bluetooth) and " +
-            "Android Auto is stopped, so nothing reconnects it and the music never stutters as you walk near it or away " +
-            "from it. Calls come to your headphones or the phone meanwhile. Leave it off whenever you're not driving.\n" +
-            "• On (a car): tap it when you get in and need the truck's GPS or Android Auto. Android Auto may start, the " +
-            "truck connects; the music stays on your headphones while they're connected.\n" +
-            "• Tap it off again when you leave the truck, or the stutter comes back as you walk away and come back near it. " +
-            "(It also goes off by itself once the truck disconnects, while your headphones are connected.)\n" +
-            "Off stays off until you turn it on, headphones or not (with no headphones the music then plays on the phone). " +
-            "Not tapped yet, with no headphones connected the truck connects and plays as usual.\n" +
-            "• Shizuku and Wi-Fi: Shizuku started through Wireless debugging lives in Android's debugging service, which " +
-            "stops once no kind of debugging is on: when the Wi-Fi goes (turning Android Auto off ends its Wi-Fi link with " +
-            "the truck, or you walk out of range) Android switches Wireless debugging off, and Shizuku stopped with it. So " +
-            "the app switches Developer options › USB debugging on (no cable needed), which keeps that service running: " +
-            "Shizuku then carries on without Wi-Fi, on any Wi-Fi you switch to, and your mobile data works as always. If " +
-            "Shizuku stops anyway while the truck is kept off, a notification says so: tap it, and Android Auto can start " +
-            "again and Bluetooth settings open, where you tap ⚙ by the truck and switch Calls and Audio on (no USB needed; " +
-            "once Shizuku runs again it's all automatic). Settings › Problems notes each time Shizuku stops, with how " +
-            "things stood. After the phone restarts, Shizuku has to be started again (open it, tap Start).",
-            style = T.sub.copy(color = C.fg), modifier = Modifier.padding(bottom = 8.dp))
-    }
-    if (!on || s.step.isNotEmpty()) Text("Setting up Shizuku (once): " +
-        "1. Install Shizuku from Google Play (free). " +
-        "2. Turn on Developer options: Settings › About phone › Software information, tap Build number seven times. " +
-        "3. On Wi-Fi, open Shizuku and tap Pairing (under Start via Wireless debugging). In Settings › Developer options › " +
-        "Wireless debugging, switch it on, tap Pair device with pairing code, and type the code into Shizuku's notification. " +
-        "4. In Shizuku, tap Start. " +
-        "5. Flip the switch above and tap Allow when Shizuku asks. " +
-        "Keep Wi-Fi switched on from then on: nothing needs to be connected, it only has to be on. " +
-        "Shizuku doesn't need to stay open, only running. After the phone restarts it has to be started again: newer " +
-        "Shizuku can do that by itself on your home Wi-Fi (its start-on-boot setting); otherwise open it and tap Start. " +
-        "Uninstalling Radon Player? Switch this off first, so ${device ?: "the device"} connects as before.",
-        style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
-    Text("Rather do it by hand? In Android's Bluetooth settings tap ⚙ beside ${device ?: "the device"} and turn off Media " +
-        "audio (on Samsung: Audio), leaving Calls on. It then never plays music, headphones or not." +
-        if (here.isNotEmpty()) " $here is connected for music right now." else "",
-        style = T.sub.copy(color = if (here.isNotEmpty() && !on) C.accent else C.muted), modifier = Modifier.padding(bottom = 6.dp))
-    Pill("Open Bluetooth settings", quiet = true) { openSystemSettings("bluetooth") }
-    Spacer(Modifier.height(8.dp))
 }
 
 /** Car always wins (the phone): a failsafe beside Newest Bluetooth device wins. */

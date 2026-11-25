@@ -374,10 +374,9 @@ class MusicService : MediaLibraryService() {
                 s.player = if (on) remote else if (casting && cast != null) cast else local
             }
         }
-        // The notification's and lock screen's Repeat and Favorite show how they stand, and the Android Auto button
-        // (Ignore Bluetooth devices: no stutter at all) whether it's on or off.
+        // The notification's and lock screen's Repeat and Favorite show how they stand.
         Music.scope.launch {
-            snapshotFlow { listOf(Music.repeat, Music.current()?.id, Music.musicVersion, Music.savedVersion, Music.downloads.size, Prefs.on(Prefs.NOTIF_SHUFFLE, true), SeamlessBt.autoButton) }.collect { runCatching { s.setCustomLayout(Car.buttons()) } }
+            snapshotFlow { listOf(Music.repeat, Music.current()?.id, Music.musicVersion, Music.savedVersion, Music.downloads.size, Prefs.on(Prefs.NOTIF_SHUFFLE, true)) }.collect { runCatching { s.setCustomLayout(Car.buttons()) } }
         }
         // The home screen widget: the song, playing or paused, the queue.
         Music.scope.launch {

@@ -41,8 +41,8 @@ android {
         applicationId = "org.omarchy.music"
         minSdk = 29
         targetSdk = 35
-        versionCode = 50000   // major·10000 + minor·100 + patch
-        versionName = "5.0.0"
+        versionCode = 50001   // major·10000 + minor·100 + patch
+        versionName = "5.0.1"
         // sherpa-onnx's library (the DJ's natural voice, auto-sync's listening): only the phones' own processors, to keep the app small
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "TIDAL_CLIENT_ID", "\"${tidal.getProperty("client_id", "")}\"")
@@ -105,8 +105,6 @@ dependencies {
     implementation("androidx.media3:media3-session:$media3")
     implementation("androidx.media3:media3-cast:$media3")          // Cast: a Chromecast, Google speaker or TV
     implementation("androidx.mediarouter:mediarouter:1.7.0")
-    implementation("dev.rikka.shizuku:api:13.1.5")         // Ignore Bluetooth devices with no gaps (SeamlessBt)
-    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation(files(sherpaAar))                                      // the DJ's natural voice (Kokoro)
