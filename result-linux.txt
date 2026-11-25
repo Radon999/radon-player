@@ -1,8 +1,9 @@
-commit 9132a01de8faf488d748d5e92b1d208c6ac97c29 · run 45517771138 · Wed Nov 25 00:36:45 UTC 2026
+commit e569a7f96ffcd1a3ef9771c97a11bb6ef419e4a2 · run 45519025270 · Wed Nov 25 00:57:30 UTC 2026
 SHARED TESTS: 145 suites, 690 tests, 0 failed
 APP TESTS: 19 suites, 53 tests, 0 failed
-PC TESTS (the app's logic, started without a window): 45 suites, 174 tests, 0 failed
-THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.5 s of speech in 2.2 s (with loading the voice); then 5.0 s of speech in 2.0 s (2.5x real time)
+PC TESTS (the app's logic, started without a window): 45 suites, 174 tests, 1 failed
+  FAILED org.omarchy.music.DjMoreKindsTest.aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne
+THE DJ'S VOICE (Pocket TTS, made for real): POCKET VOICE: first line 2.1 s of speech in 1.9 s (with loading the voice); then 4.7 s of speech in 1.7 s (2.8x real time)
 PC COMPILES: yes
 LINUX PACKAGE: radon-player_4.5.20_amd64.deb, 91M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
@@ -21,28 +22,42 @@ LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
 LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
+org.omarchy.music.DjMoreKindsTest > aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne FAILED
+    java.lang.AssertionError: a mood:Sad set can be made
+        at org.junit.Assert.fail(Assert.java:89)
+--
+> Task :desktop:test FAILED
+
+174 tests completed, 1 failed
+--
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///home/runner/work/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+--
+BUILD FAILED in 5m 56s
+59 actionable tasks: 59 executed
 --- the end of the log
-> Task :app:compileDebugJavaWithJavac
-> Task :app:processDebugJavaRes
-> Task :app:bundleDebugClassesToRuntimeJar
-> Task :app:bundleDebugClassesToCompileJar
+        at org.omarchy.music.DjMoreKindsTest.aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne(DjMoreKindsTest.kt:55)
 
-> Task :app:compileDebugUnitTestKotlin
-w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+/home/runner/work/sherpa-onnx/sherpa-onnx/sherpa-onnx/jni/offline-tts.cc:operator():550 config:
+OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx", lm_main="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx", encoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx", decoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx", text_conditioner="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx", vocab_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json", token_scores_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
-> Task :desktop:compileTestKotlin
-> Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_4.5.20_amd64.deb
+> Task :desktop:test FAILED
+
+174 tests completed, 1 failed
 
 > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
 > Task :app:processDebugUnitTestJavaRes
 > Task :app:testDebugUnitTest
-> Task :desktop:compileTestJava NO-SOURCE
-> Task :desktop:testClasses
-> Task :desktop:test
 
-/home/runner/work/sherpa-onnx/sherpa-onnx/sherpa-onnx/jni/offline-tts.cc:operator():550 config:
-OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx", lm_main="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx", encoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx", decoder="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx", text_conditioner="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx", vocab_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json", token_scores_json="/home/runner/work/_temp/sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':desktop:test'.
+> There were failing tests. See the report at: file:///home/runner/work/radon-player/radon-player/android/desktop/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -50,5 +65,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 6m 2s
+BUILD FAILED in 5m 56s
 59 actionable tasks: 59 executed
