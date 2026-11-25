@@ -178,6 +178,7 @@ object UiLayouts {
         Slot("taste", "Taste", Ico.HEART, { it.tab == "music" && it.musicView == "taste" }) { goTo(it, "music", "taste") },
         Slot("dupes", "Duplicates", Ico.COPY, { it.tab == "music" && it.musicView == "dupes" }) { goTo(it, "music", "dupes") },
         Slot("moodqueue", "Queued mood edits", Ico.MOOD, { it.tab == "music" && it.musicView == "moodqueue" }) { goTo(it, "music", "moodqueue") },
+        Slot("versionqueue", "Queued clean/explicit changes", Ico.REFRESH, { it.tab == "music" && it.musicView == "versionqueue" }) { goTo(it, "music", "versionqueue") },
         Slot("lyrics", "Lyrics", Ico.LYRICS, { it.tab == "lyrics" }) { goTo(it, "lyrics") },
         Slot("eq", "Equalizer", Ico.EQ, { false }) { it.drawer = false; it.sheet = "eq" },
         Slot("settings", "Settings", Ico.SETTINGS, { false }) { it.drawer = false; it.openSettings() },

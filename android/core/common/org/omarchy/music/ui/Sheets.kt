@@ -1354,13 +1354,14 @@ private fun DownloadQualityLine() {
 }
 
 /** Clean or explicit: which version of a song downloads come as, where Tidal has both (a song with one version comes as
- *  it is). Scanner › Clean and explicit versions goes by it too. */
+ *  it is). Songs you have already in the wrong version: Utilities › Queued clean/explicit changes. */
 @Composable
 private fun VersionLine() {
     var v by remember { mutableStateOf(org.omarchy.music.Prefs.text(org.omarchy.music.Prefs.DL_VERSION, "explicit").ifEmpty { "explicit" }) }
     Line("Clean or explicit", "Explicit: every song you download comes as its explicit version where Tidal has a clean " +
-        "one too. Clean: the clean version where there's one (songs with only one version come as they are). Scanner › " +
-        "Clean and explicit versions finds the songs you have in the other version and replaces them, going by this", true) {
+        "one too. Clean: the clean version where there's one (songs with only one version come as they are). A song you " +
+        "already have in the wrong version: select it, pick Queue a clean/explicit change, and swap it in Utilities › Queued " +
+        "clean/explicit changes", true) {
         Box {
             var open by remember { mutableStateOf(false) }
             Pill("${if (v == "clean") "Clean" else "Explicit"} ▾", quiet = true) { open = true }

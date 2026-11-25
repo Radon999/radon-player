@@ -283,6 +283,15 @@ class Downloader(private val ctx: Ctx, private val lib: Library, val tidal: Tida
         } catch (_: NoLosslessMatch) { null }
     }
 
+    /** (blocking) Song t's explicit version (explicit) or clean one on Tidal, as a download would save it (in the quality
+     *  picked, from the artist's own release where that one has the same version); null when Tidal hasn't got that
+     *  version. Queued clean/explicit changes downloads it with [download]'s final. */
+    fun versionToSave(t: Track, explicit: Boolean): JsonElement? {
+        val aac = quality == "mp3" && !CAN_MP3
+        val v = tidal.versionOf(t, explicit, aac) ?: return null
+        return runCatching { tidal.bestRelease(v, aac, t.album) }.getOrNull()?.takeIf { it["explicit"].bool == explicit } ?: v
+    }
+
     /** final: the Tidal song to save, already chosen (and shown): saved as it is, nothing looked up again. */
     private fun fromTidal(t: Track, root: String?, exact: JsonElement? = null, final: JsonElement? = null): String {
         val q = quality

@@ -384,7 +384,8 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("Repeats", Ico.REPEAT_ONE, "music", "repeats"), Entry("Unplayed and neglected", Ico.CLOCK, "music", "neglected"),
         Entry("Milestones", Ico.SPARKLE, "music", "milestones"), Entry("Taste", Ico.HEART, "music", "taste"))),
     Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
-        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"))),
+        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
+        Entry("Queued clean/explicit changes", Ico.REFRESH, "music", "versionqueue"))),
 )
 
 /** The ☰ menu's entries you chose to hide (Settings › Personalization › Menu entries): a screen you never use needn't
