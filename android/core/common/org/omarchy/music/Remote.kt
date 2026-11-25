@@ -64,9 +64,10 @@ object Remote {
                 if (active) refresh()
                 Sync.tick()   // Sync now tapped on the PC: it waits for this phone
                 // The PC's remote: every second, as always. Otherwise only Sync's question is waiting (every 20 seconds
-                // at most, see Sync.tick): every 3 seconds on the screen; away from it, every 10 seconds when paired and
-                // a minute when not (nothing to do then), cut short the moment the app is back on the screen.
-                if (active) delay(1000) else AppVisible.nap(3000, if (paired) 10_000 else 60_000)
+                // on the screen, every 2 minutes away from it, see Sync.tick): every 3 seconds on the screen; away from it,
+                // every 30 seconds when paired and a minute when not (nothing to do then), cut short the moment the app is
+                // back on the screen.
+                if (active) delay(1000) else AppVisible.nap(3000, if (paired) 30_000 else 60_000)
             }
         }
         discover(ctx)

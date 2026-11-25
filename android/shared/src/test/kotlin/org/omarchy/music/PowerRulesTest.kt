@@ -1,5 +1,6 @@
 package org.omarchy.music
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,15 +17,20 @@ class PowerRulesTest {
         assertFalse("the app says it plays", PowerRules.clockRests(true, false, false, paused = false, advancing = false, changing = false))
     }
 
-    @Test fun thePcIsAskedLessOftenOnlyWithTheAppAwayAndTheMusicPaused() {
+    @Test fun thePcIsAskedEvery20sOnScreenAndLessOftenAway() {
         val t = 1_000_000L
-        assertTrue("wanted at once (just paired, a playlist made synced)", PowerRules.syncAskDue(t, 0L, t - 1000, shown = false, playing = false))
-        assertFalse("not time yet", PowerRules.syncAskDue(t, t + 1, t - 19_999, shown = true, playing = false))
-        assertTrue("on screen: every 20 s", PowerRules.syncAskDue(t, t, t - 20_000, shown = true, playing = false))
-        assertTrue("playing: every 20 s", PowerRules.syncAskDue(t, t, t - 20_000, shown = false, playing = true))
-        assertFalse("away and paused: not after 20 s", PowerRules.syncAskDue(t, t, t - 20_000, shown = false, playing = false))
-        assertTrue("away and paused: after a minute", PowerRules.syncAskDue(t, t, t - 60_000, shown = false, playing = false))
-        assertTrue("back on screen: on time again at once", PowerRules.syncAskDue(t, t, t - 30_000, shown = true, playing = false))
+        assertTrue("wanted at once (just paired, a playlist made synced)", PowerRules.syncAskDue(t, 0L, t - 1000, shown = false))
+        assertFalse("not time yet", PowerRules.syncAskDue(t, t + 1, t - 19_999, shown = true))
+        assertTrue("on screen: every 20 s", PowerRules.syncAskDue(t, t, t - 20_000, shown = true))
+        assertFalse("away (playing or not): not after 20 s", PowerRules.syncAskDue(t, t, t - 20_000, shown = false))
+        assertTrue("away: every 2 minutes", PowerRules.syncAskDue(t, t, t - 120_000, shown = false))
+        assertTrue("back on screen after backing off: asked within 30 s", PowerRules.syncAskDue(t, t + 200_000, t - 30_000, shown = true))
+        assertFalse("away and backing off: waits", PowerRules.syncAskDue(t, t + 1, t - 200_000, shown = false))
+    }
+
+    @Test fun aPcThatDoesNotAnswerIsAskedLessAndLessOftenAway() {
+        assertEquals(30_000L, PowerRules.syncRetryMs(5, shown = true))
+        assertEquals(listOf(120_000L, 240_000L, 300_000L, 300_000L), (1..4).map { PowerRules.syncRetryMs(it, shown = false) })
     }
 
     @Test fun wiFiIsKeptAwakeOnlyWhenTheMusicMayNeedTheNetwork() {
@@ -34,11 +40,10 @@ class PowerRulesTest {
         assertFalse(PowerRules.onPhone("https://sp-pr-fa.audio.tidal.com/x.flac"))
         assertFalse("a hi-res stream in pieces", PowerRules.onPhone("data:application/dash+xml;base64,AAAA"))
         assertFalse(PowerRules.onPhone(null))
-        assertFalse("your files, the next one yours too", PowerRules.needsNetwork("/a.flac", nextOnPhone = true, djOn = false))
-        assertTrue("your file, nothing after it yet (∞ or the DJ may look for more)", PowerRules.needsNetwork("content://m/1", nextOnPhone = null, djOn = false))
-        assertTrue("a stream", PowerRules.needsNetwork("https://x/y.flac", nextOnPhone = true, djOn = false))
-        assertTrue("the next one is a stream (fetched ahead)", PowerRules.needsNetwork("/a.flac", nextOnPhone = false, djOn = false))
-        assertTrue("the DJ is on", PowerRules.needsNetwork("/a.flac", nextOnPhone = true, djOn = true))
-        assertTrue("nothing loaded: as before", PowerRules.needsNetwork(null, nextOnPhone = null, djOn = false))
+        assertFalse("your files, the next one yours too", PowerRules.needsNetwork("/a.flac", nextOnPhone = true))
+        assertTrue("your file, nothing after it yet (∞ or the DJ may look for more)", PowerRules.needsNetwork("content://m/1", nextOnPhone = null))
+        assertTrue("a stream", PowerRules.needsNetwork("https://x/y.flac", nextOnPhone = true))
+        assertTrue("the next one is a stream (fetched ahead)", PowerRules.needsNetwork("/a.flac", nextOnPhone = false))
+        assertTrue("nothing loaded: as before", PowerRules.needsNetwork(null, nextOnPhone = null))
     }
 }

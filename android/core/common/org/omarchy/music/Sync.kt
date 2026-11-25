@@ -282,6 +282,7 @@ object Sync {
 
     private var nextCheck = 0L
     private var askedAt = 0L   // when the PC was last asked
+    private var unanswered = 0 // the questions in a row the PC didn't answer
 
     /** (the phone) Just paired with a PC: nothing synced. It's counted as met, so Auto playlist sync (when it's on)
      *  doesn't go on meeting it; Sync now, on either device, syncs. */
@@ -291,19 +292,20 @@ object Sync {
     fun soon() { if (Prefs.on(SyncPlaylists.AUTO_SYNC)) nextCheck = 0L }   // (with Auto playlist sync on; else a sync only ever starts from Sync now)
 
     /** (the phone, every few seconds) Whether the PC's Sync now is waiting for this phone: then sync. A quick question
-     *  every 20 seconds, every 30 seconds while the PC can't be reached; meeting it again syncs ([connected]). With the
-     *  app off the screen and the music paused, once a minute (the PC waits five minutes for it: [PowerRules.syncAskDue]). */
+     *  every 20 seconds with the app on the screen, every 2 minutes off it (music playing or not), less and less often
+     *  off it while the PC doesn't answer (PowerRules.syncRetryMs); meeting it again syncs ([connected]). */
     fun tick() {
         if (!Remote.paired) return
         stuckFreed()
         if (running.get()) return
         val t = System.currentTimeMillis()
-        if (!PowerRules.syncAskDue(t, nextCheck, askedAt, AppVisible.on, !Music.paused)) return
+        if (!PowerRules.syncAskDue(t, nextCheck, askedAt, AppVisible.on)) return
         nextCheck = t + PowerRules.SYNC_ASK_MS
         askedAt = t
         val host = Remote.host; val h = Remote.headers()
         Music.bg({ httpJson("http://$host/sync/wanted", h) }) { s, err ->
-            if (err != null) { met = false; nextCheck = System.currentTimeMillis() + 30_000; return@bg }
+            if (err != null) { met = false; unanswered++; nextCheck = System.currentTimeMillis() + PowerRules.syncRetryMs(unanswered, AppVisible.on); return@bg }
+            unanswered = 0
             if ((s["sent"].long ?: 0L) > 0) PlaylistSend.fetch()   // playlists the PC sent this phone (Send a playlist)
             val pcAt = s["playlistsAt"].long ?: 0L
             if (s["wanted"].bool == true) { justPaired = false; now(fromPc = true) }

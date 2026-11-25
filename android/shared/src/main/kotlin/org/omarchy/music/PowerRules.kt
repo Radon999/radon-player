@@ -18,19 +18,28 @@ object PowerRules {
     fun clockRests(hasPlayer: Boolean, isPlaying: Boolean, playWhenReady: Boolean, paused: Boolean, advancing: Boolean, changing: Boolean): Boolean =
         !hasPlayer || (!isPlaying && !playWhenReady && paused && !advancing && !changing)
 
-    /** How often the phone asks the paired PC whether its Sync now is waiting, with the app on screen or music playing. */
+    /** How often the phone asks the paired PC whether its Sync now is waiting, with the app on the screen. */
     const val SYNC_ASK_MS = 20_000L
-    /** ... and with the app off the screen and the music paused. The PC's Sync now waits five minutes for the phone,
-     *  so a minute still answers it in plenty of time. */
-    const val SYNC_ASK_IDLE_MS = 60_000L
+    /** ... and with the app off the screen, music playing or not (it asked every 20 seconds while music played: about
+     *  4,000 times a day of music, each one the radio woken, through Tailscale too). The PC's Sync now waits five
+     *  minutes for the phone, so every two minutes still answers it in time; Auto playlist sync catches up as often. */
+    const val SYNC_ASK_AWAY_MS = 120_000L
+    /** With the app on the screen, the PC not answering: asked again this much later. */
+    const val SYNC_RETRY_MS = 30_000L
+
+    /** When to ask the PC again after it didn't answer failures times in a row (it's off, or you're away from it): on the
+     *  screen after [SYNC_RETRY_MS]; off it two minutes, then four, then every five. */
+    fun syncRetryMs(failures: Int, shown: Boolean): Long =
+        if (shown) SYNC_RETRY_MS else minOf(5 * 60_000L, SYNC_ASK_AWAY_MS shl (failures - 1).coerceIn(0, 2))
 
     /** Whether to ask the PC now. nextCheck: when the next question was planned (0: one is wanted at once, as just
-     *  after pairing or a playlist made synced); askedAt: when it was last asked; shown: the app is on the screen;
-     *  playing: the phone is playing music. */
-    fun syncAskDue(now: Long, nextCheck: Long, askedAt: Long, shown: Boolean, playing: Boolean): Boolean {
+     *  after pairing or a playlist made synced; later after the PC didn't answer, see [syncRetryMs]); askedAt: when it
+     *  was last asked; shown: the app is on the screen (then never longer than [SYNC_RETRY_MS] between questions, so
+     *  coming back to it catches up at once). */
+    fun syncAskDue(now: Long, nextCheck: Long, askedAt: Long, shown: Boolean): Boolean {
         if (nextCheck == 0L) return true
-        if (now < nextCheck) return false
-        return shown || playing || now - askedAt >= SYNC_ASK_IDLE_MS
+        if (shown) return now >= nextCheck || now - askedAt >= SYNC_RETRY_MS
+        return now >= nextCheck && now - askedAt >= SYNC_ASK_AWAY_MS
     }
 
     /** A song's address that is read from the phone itself (a file, Android's content:// address) rather than over
@@ -44,10 +53,10 @@ object PowerRules {
 
     /** Whether the player should keep Wi-Fi fully awake (a Wi-Fi lock) while it plays: only when the music may need
      *  the network to go on. The song playing is a stream; or the next one isn't on the phone, or there's no next one
-     *  yet (it's fetched ahead while this one plays, or ∞ and the DJ go looking for more); or the DJ is on (its sets
-     *  and its lines come from the network). Your own files with more of your own after them need none: Wi-Fi then
-     *  keeps to its own power saving, as it does anyway with no music playing, and still works. nextOnPhone: null
-     *  when there is no next song. */
-    fun needsNetwork(currentUri: String?, nextOnPhone: Boolean?, djOn: Boolean): Boolean =
-        djOn || !onPhone(currentUri) || nextOnPhone != true
+     *  yet (it's fetched ahead while this one plays, or ∞ and the DJ go looking for more). Your own files with more of
+     *  your own after them need none, the DJ on too (its next set is queued well ahead, and its lookups go through with
+     *  Wi-Fi's power saving on): Wi-Fi then keeps to its own power saving, as it does anyway with no music playing, and
+     *  still works. nextOnPhone: null when there is no next song. */
+    fun needsNetwork(currentUri: String?, nextOnPhone: Boolean?): Boolean =
+        !onPhone(currentUri) || nextOnPhone != true
 }

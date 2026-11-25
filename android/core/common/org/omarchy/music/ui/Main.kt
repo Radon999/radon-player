@@ -86,8 +86,14 @@ fun App() {
     val ui = remember { Ui() }
     Ui.current = ui
     val snack = remember { SnackbarHostState() }
-    // Shuffle presets: a different Personalization preset every 15 minutes
-    LaunchedEffect(Unit) { while (true) { org.omarchy.music.Backup.tick(); org.omarchy.music.NewReleases.tick(); org.omarchy.music.WakeUp.tick(); MyPresets.todTick(); MyPresets.shuffleTick(); org.omarchy.music.RepeatLoops.tick(); kotlinx.coroutines.delay(30_000) } }
+    // Every half minute on the screen: a backup or the day's new releases when due, the wake-up timer, the time of
+    // day's look and Shuffle presets (a different Personalization preset every 15 minutes), repeats to work out. Off the
+    // screen nothing there needs it that often: every five minutes (cut short the moment the app is back), but every
+    // half minute still while the wake-up timer is set, so it goes off on time.
+    LaunchedEffect(Unit) { while (true) {
+        org.omarchy.music.Backup.tick(); org.omarchy.music.NewReleases.tick(); org.omarchy.music.WakeUp.tick(); MyPresets.todTick(); MyPresets.shuffleTick(); org.omarchy.music.RepeatLoops.tick()
+        org.omarchy.music.AppVisible.nap(30_000, if (org.omarchy.music.Prefs.on(org.omarchy.music.WakeUp.ON)) 30_000 else 5 * 60_000)
+    } }
     LaunchedEffect(Unit) { for (t in Music.toasts) {
         if (System.currentTimeMillis() - Music.toastAt > 6_000) continue   // made while the app was away: not shown late
         snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }

@@ -57,7 +57,11 @@ object YourFolders {
         val f = t.file ?: return true
         if (!BackupMerge.fileHere(f, platformName == "android")) return false
         if (lib.has(t.id)) return true   // a download (its own checks)
-        return if (f.startsWith("content:")) runCatching { uriExists(ctx, f) }.getOrDefault(true) else File(f).exists()
+        if (!f.startsWith("content:")) return File(f).exists()
+        // A song the last read of your music saw (every song file on the phone, by its media library number) is there:
+        // Android needn't be asked about each one (thousands, every time your playlists are looked through)
+        if (LocalFiles.mediaId(f)?.let { it in local.allPaths } == true) return true
+        return runCatching { uriExists(ctx, f) }.getOrDefault(true)
     }
 
     /** The song playing couldn't be opened (its file was moved, renamed or deleted): your copy of the same song (the
