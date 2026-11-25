@@ -1,0 +1,10 @@
+v5.1.2
+Radon Player 5.1.2: Easier on the battery
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.1.2.msi` (Windows), `radon-player_5.1.2_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Fewer questions to the PC (the phone):** it asked the PC "is Sync now waiting?" every 20 seconds the whole time music played (about 4,000 times on a day of music, each one waking the radio, through Tailscale too). It still asks every 20 seconds while the app is on the screen; off the screen every 2 minutes (Sync now on the PC waits 5 minutes for the phone, so it still arrives), and less and less often, up to every 5 minutes, while the PC can't be reached.
+- **Wi-Fi rests with the DJ on (the phone):** Wi-Fi is no longer kept fully awake just because the DJ is on: only when a stream is playing or coming next. Your own files let Wi-Fi keep to its own power saving.
+- **Reading your music is lighter (the phone):** it no longer asks Android about each of the thousands of songs in your playlists one by one: the songs it has just seen are known to be there.
+- **A quieter timer (the phone):** the half-minute timer (backups, new releases, looks, the wake-up timer) runs every 5 minutes while the app is off the screen, every half minute still while the wake-up timer is set. Nothing you hear or see changes with any of these.
+

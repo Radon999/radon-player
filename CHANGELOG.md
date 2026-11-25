@@ -4,6 +4,12 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.1.2: Easier on the battery (Android)
+- **Fewer questions to the PC (the phone):** it asked the PC "is Sync now waiting?" every 20 seconds the whole time music played (about 4,000 times on a day of music, each one waking the radio, through Tailscale too). It still asks every 20 seconds while the app is on the screen; off the screen every 2 minutes (Sync now on the PC waits 5 minutes for the phone, so it still arrives), and less and less often, up to every 5 minutes, while the PC can't be reached.
+- **Wi-Fi rests with the DJ on (the phone):** Wi-Fi is no longer kept fully awake just because the DJ is on: only when a stream is playing or coming next. Your own files let Wi-Fi keep to its own power saving.
+- **Reading your music is lighter (the phone):** it no longer asks Android about each of the thousands of songs in your playlists one by one: the songs it has just seen are known to be there.
+- **A quieter timer (the phone):** the half-minute timer (backups, new releases, looks, the wake-up timer) runs every 5 minutes while the app is off the screen, every half minute still while the wake-up timer is set. Nothing you hear or see changes with any of these.
+
 ## 5.1.1: Problems only for real problems, and a tidier inside (Android, Windows and Linux)
 - **Settings › Problems only lists real problems (the phone and the PC):** a moment the app got over by itself is no longer put there: the sound output set up again as your earbuds or the car came and went, a fault the player recovered from, a volume put back to full, a song restarted in place, a song change that was slow but played, a stream from YouTube when Tidal didn't answer, a cover put back, a tag write finished from its copy, and the DJ's own notes. They're still kept in what **Details for support** copies, for when you need them. Problems now gets a note when something stops the music or a feature doesn't work: a song that couldn't play, the sound cutting out again and again (three times in a minute), bit-perfect or the DAC failing, a sync or backup that failed, files that couldn't be changed or deleted.
 - **A tidier inside:** functions and screens nothing used any more, leftovers from features taken out, and unused imports are gone. Nothing you use changes.
