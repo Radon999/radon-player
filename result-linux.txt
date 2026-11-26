@@ -1,5 +1,5 @@
-commit 88a248bc8f28d57e659456c2229d4bf7f9f55eaa · run 45754912160 · Thu Nov 26 04:55:29 UTC 2026
-SHARED TESTS: 153 suites, 761 tests, 0 failed
+commit 2891b3f79bf121a6f712b87402e327738016eff7 · run 45760046915 · Thu Nov 26 05:26:03 UTC 2026
+SHARED TESTS: 154 suites, 767 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
@@ -25,15 +25,19 @@ org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
     java.lang.AssertionError: each looks different expected:<14> but was:<12>
         at org.junit.Assert.fail(Assert.java:89)
 --
+org.omarchy.music.DjFlowTest > withTheDjRepeatIsOneOrOffAndShuffleDoesNothing FAILED
+    java.lang.AssertionError: expected:<[file-library-62, file-library-10, file-library-17, file-library-61, file-library-24, file-library-18]> but was:<[file-library-62, file-library-10, file-library-17, file-library-61, file-library-24, file-library-18, file-library-32, file-library-64, file-library-28, file-library-22, file-library-7, file-library-57]>
+        at org.junit.Assert.fail(Assert.java:89)
+--
 > Task :desktop:test FAILED
 
-130 tests completed, 1 failed, 1 skipped
+133 tests completed, 2 failed, 1 skipped
 --
 * What went wrong:
 Execution failed for task ':desktop:test'.
 > Process 'Gradle Test Executor 3' finished with non-zero exit value 134
 --
-BUILD FAILED in 6m 19s
+BUILD FAILED in 6m 12s
 59 actionable tasks: 59 executed
 --- the end of the log
 # The crash happened outside the Java Virtual Machine in native code.
@@ -42,7 +46,7 @@ BUILD FAILED in 6m 19s
 
 > Task :desktop:test FAILED
 
-130 tests completed, 1 failed, 1 skipped
+133 tests completed, 2 failed, 1 skipped
 
 FAILURE: Build failed with an exception.
 
@@ -64,5 +68,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m 19s
+BUILD FAILED in 6m 12s
 59 actionable tasks: 59 executed
