@@ -1,5 +1,5 @@
-commit 69446861bc7a4abb552ae6d4ca0524831824ad54 · run 45765273420 · Thu Nov 26 06:25:28 UTC 2026
-SHARED TESTS: 154 suites, 767 tests, 0 failed
+commit a81b7ec1134f9645a36d7fee8d126275c93c5433 · run 45767696741 · Thu Nov 26 06:45:08 UTC 2026
+SHARED TESTS: 155 suites, 771 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
@@ -33,7 +33,7 @@ org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
 Execution failed for task ':desktop:test'.
 > Process 'Gradle Test Executor 3' finished with non-zero exit value 134
 --
-BUILD FAILED in 7m 5s
+BUILD FAILED in 6m 15s
 59 actionable tasks: 59 executed
 --- the end of the log
 # The crash happened outside the Java Virtual Machine in native code.
@@ -64,5 +64,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 7m 5s
+BUILD FAILED in 6m 15s
 59 actionable tasks: 59 executed
