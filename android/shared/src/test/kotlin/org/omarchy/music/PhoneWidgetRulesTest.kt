@@ -64,4 +64,51 @@ class PhoneWidgetRulesTest {
         assertEquals("resume", R.djTap(on = true, paused = true))
         assertEquals("switch", R.djTap(on = true, paused = false))
     }
+
+    @Test fun newReleasesAreListedOnceNewestFirst() {
+        // (key, date): the app's daily look and the screen's Refresh… can both have found the same one
+        val told = listOf("a" to "2026-11-20", "b" to "2026-10-02")
+        val found = listOf("c" to "2026-11-24", "a" to "2026-11-20", "d" to "2025-12-31")
+        val got = R.newest(told + found, { it.first }, { it.second }, 3).map { it.first }
+        assertEquals(listOf("c", "a", "b"), got)
+    }
+
+    @Test fun aReleaseSaysHowLongAgo() {
+        val today = java.time.LocalDate.of(2026, 11, 25)
+        assertEquals("Today", R.released("2026-11-25", today))
+        assertEquals("Yesterday", R.released("2026-11-24", today))
+        assertEquals("6 days ago", R.released("2026-11-19", today))
+        assertEquals("1 week ago", R.released("2026-11-18", today))
+        assertEquals("4 weeks ago", R.released("2026-10-26", today))
+        assertEquals("long ago: the date", "Oct 1", R.released("2026-10-01", today))
+        assertEquals("another year: with it", "Dec 31, 2025", R.released("2025-12-31", today))
+        assertEquals("still to come", "Out Dec 5", R.released("2026-12-05", today))
+        assertEquals("a date it can't read, as it is", "2026", R.released("2026", today))
+    }
+
+    @Test fun theVisualizerRunsOnlyWhenItCanBeSeenAndMusicPlays() {
+        assertTrue(R.vizLive(present = true, screenOn = true, appShown = false, playing = true))
+        assertTrue("no widget", !R.vizLive(false, true, false, true))
+        assertTrue("screen off", !R.vizLive(true, false, false, true))
+        assertTrue("the app in front", !R.vizLive(true, true, true, true))
+        assertTrue("paused", !R.vizLive(true, true, false, false))
+        assertTrue("about 8 frames a second at most", 1000 / R.VIZ_FRAME_MS <= 10)
+    }
+
+    @Test fun eachBarIsTheLoudestOfItsBands() {
+        val bands = FloatArray(48) { if (it == 5) 0.9f else 0.1f }
+        val b = R.bars(bands, 24)
+        assertEquals(24, b.size)
+        assertEquals("band 5 is in bar 2 (two bands a bar)", 0.9f, b[2], 0f)
+        assertEquals(0.1f, b[3], 0f)
+        assertEquals("fewer bands than bars: each bar still has one", listOf(0.2f, 0.2f, 0.7f, 0.7f), R.bars(floatArrayOf(0.2f, 0.7f), 4).toList())
+        assertEquals("nothing heard yet: flat bars", listOf(0f, 0f), R.bars(FloatArray(0), 2).toList())
+    }
+
+    @Test fun barsRiseAtOnceAndFallGently() {
+        val shown = floatArrayOf(1f, 0.2f)
+        val next = R.fall(shown, floatArrayOf(0f, 0.8f), keep = 0.5f)
+        assertEquals("a loud bar falls to half, not to nothing", 0.5f, next[0], 1e-6f)
+        assertEquals("a bar goes up with the music at once", 0.8f, next[1], 1e-6f)
+    }
 }

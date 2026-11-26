@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New releases: the newest the app found from your artists (its own daily look, or Refresh… on its screen). A tap on
+     one plays it without opening the app; the head opens New releases in the app (ReleasesWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wr_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp"
+    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+
+    <LinearLayout android:id="@+id/wr_head" android:layout_width="match_parent" android:layout_height="32dp"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_new" android:contentDescription="" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:maxLines="1" android:text="New releases" />
+        <TextView android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingStart="10dp" android:paddingEnd="4dp"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:text="⤢  Open" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="4dp">
+        <ListView android:id="@+id/wr_list" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:divider="@null" android:dividerHeight="0dp" />
+        <TextView android:id="@+id/wr_empty" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:padding="8dp" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.75"
+            android:text="No new releases from your artists yet" />
+    </FrameLayout>
+</LinearLayout>

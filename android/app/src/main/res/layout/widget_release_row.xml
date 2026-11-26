@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A row of the New releases widget: the release's cover, its name, its artist and when it came out. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/wrr_row"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"
+    android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp" android:paddingStart="2dp" android:paddingEnd="4dp">
+    <ImageView android:id="@+id/wrr_cover" android:layout_width="40dp" android:layout_height="40dp"
+        android:scaleType="centerCrop" android:src="@drawable/w_dj" android:contentDescription="" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="10dp" android:orientation="vertical">
+        <TextView android:id="@+id/wrr_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/wrr_sub" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="12sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" android:alpha="0.7" />
+    </LinearLayout>
+</LinearLayout>

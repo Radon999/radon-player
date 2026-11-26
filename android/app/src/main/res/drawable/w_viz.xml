@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Visualizer widget's bars before the music's are drawn (and in the widget picker). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="40dp"
+    android:viewportWidth="48" android:viewportHeight="20">
+    <path android:fillColor="#B3FFFFFF" android:pathData="M1,20h3v-6h-3zM6,20h3v-11h-3zM11,20h3v-15h-3zM16,20h3v-9h-3zM21,20h3v-13h-3zM26,20h3v-18h-3zM31,20h3v-10h-3zM36,20h3v-14h-3zM41,20h3v-7h-3zM46,20h2v-4h-2z"/>
+</vector>

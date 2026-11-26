@@ -57,8 +57,8 @@ class LyricsWidget : AppWidgetProvider() {
 
         // ---- what decides whether the line is followed (Compose state, so [follow] waits on it) ----
         var present by mutableStateOf(false)    // a Lyrics widget on the home screen
-        var screenOn by mutableStateOf(true)    // the screen on (HomeWidgets follows it)
-        var appShown by mutableStateOf(false)   // the app in front (its own Lyrics tab then)
+        private val screenOn get() = HomeWidgets.screenOn   // the screen on
+        private val appShown get() = HomeWidgets.appShown   // the app in front (its own Lyrics tab then)
         private var synced by mutableStateOf(false)   // timed lines showing, for the song playing
 
         // ---- the song's lyrics ----

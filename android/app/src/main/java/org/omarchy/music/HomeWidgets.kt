@@ -12,6 +12,9 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.widget.RemoteViews
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
@@ -62,6 +65,15 @@ object HomeWidgets {
         return ColorUtils.setAlphaComponent(ColorUtils.HSLToColor(hsl), 0xD9)   // a little see-through
     }
 
+    /** A light shade of the cover's own colour, for what's drawn on the background (the Visualizer widget's bars). */
+    fun accent(): Int {
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(colour, hsl)
+        hsl[1] = hsl[1].coerceIn(0.35f, 0.9f)
+        hsl[2] = 0.72f
+        return ColorUtils.HSLToColor(hsl)
+    }
+
     /** The rounded background (root), tinted. */
     fun paint(ctx: Context, v: RemoteViews, root: Int) {
         val bg = background(ctx)
@@ -102,6 +114,11 @@ object HomeWidgets {
     }
 
     // ---- keeping them up to date ----
+    /** Whether the home screen can be seen at all: the screen on (followed while the music's service runs), and the app
+     *  itself not in front. The Lyrics and Visualizer widgets move only then (Compose state: they wait on it). */
+    var screenOn by mutableStateOf(true)
+    var appShown by mutableStateOf(false)
+
     fun ids(ctx: Context, cls: Class<*>): IntArray =
         runCatching { AppWidgetManager.getInstance(ctx).getAppWidgetIds(ComponentName(ctx, cls)) }.getOrNull() ?: IntArray(0)
 
@@ -110,7 +127,8 @@ object HomeWidgets {
     fun updateAll(ctx: Context, player: Boolean = true) {
         if (player) PlayerWidget.update(ctx)
         val each = listOf<(Context) -> Unit>({ ListsWidget.update(it) }, { DjWidget.update(it) }, { PlaylistWidget.update(it) },
-            { PinnedWidget.update(it) }, { TopWidget.update(it) }, { WrappedWidget.update(it) }, { LyricsWidget.update(it) })
+            { PinnedWidget.update(it) }, { TopWidget.update(it) }, { WrappedWidget.update(it) }, { LyricsWidget.update(it) },
+            { ReleasesWidget.update(it) }, { VisualizerWidget.update(it) })
         for (u in each) runCatching { u(ctx) }
     }
 
@@ -118,13 +136,14 @@ object HomeWidgets {
     private var screenWatch: BroadcastReceiver? = null
 
     /** (MusicService, as it starts) The widgets follow the music from now: the song, played or paused, the DJ, the
-     *  lyrics' mode; your playlists and pins as they change; the Lyrics widget's line, while the screen is on. */
+     *  lyrics' mode; your playlists, pins and new releases as they change; the Lyrics widget's line and the Visualizer
+     *  widget's bars, while the home screen can be seen. */
     fun follow(svc: Service) {
         stop(svc)
         val pm = svc.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        LyricsWidget.screenOn = pm.isInteractive
+        screenOn = pm.isInteractive
         screenWatch = object : BroadcastReceiver() {
-            override fun onReceive(c: Context, i: Intent) { LyricsWidget.screenOn = i.action == Intent.ACTION_SCREEN_ON }
+            override fun onReceive(c: Context, i: Intent) { screenOn = i.action == Intent.ACTION_SCREEN_ON }
         }.also { r ->
             runCatching { androidx.core.content.ContextCompat.registerReceiver(svc, r, IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED) }
@@ -144,8 +163,16 @@ object HomeWidgets {
                     runCatching { ListsWidget.update(svc, rows = true); PinnedWidget.update(svc, rows = true); TopWidget.refresh(svc); PlaylistWidget.update(svc) }
                 }
             },
-            Music.scope.launch { AppVisible.flow.collect { LyricsWidget.appShown = it } },
+            // New releases found (the app's own look, or Refresh… on its screen): the widget's list read again
+            Music.scope.launch {
+                snapshotFlow { NewReleases.found to NewReleases.told }.drop(1).collectLatest {
+                    delay(1500)
+                    runCatching { ReleasesWidget.update(svc, rows = true) }
+                }
+            },
+            Music.scope.launch { AppVisible.flow.collect { appShown = it } },
             Music.scope.launch { LyricsWidget.follow(svc) },
+            Music.scope.launch { VisualizerWidget.follow(svc) },
         )
     }
 

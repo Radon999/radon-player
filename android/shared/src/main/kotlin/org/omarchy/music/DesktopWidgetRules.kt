@@ -6,7 +6,8 @@ package org.omarchy.music
 object DesktopWidgetRules {
     /** The widgets, in the order the tray and Settings list them: (its key, its name). */
     val KINDS = listOf("queue" to "Now playing + queue", "playlists" to "Now playing + playlists", "dj" to "DJ",
-        "playlist" to "Playlist shortcut", "pinned" to "Pinned", "top" to "Most played", "wrapped" to "Wrapped", "lyrics" to "Lyrics")
+        "playlist" to "Playlist shortcut", "pinned" to "Pinned", "top" to "Most played", "wrapped" to "Wrapped", "lyrics" to "Lyrics",
+        "releases" to "New releases", "visualizer" to "Visualizer")
 
     /** The smallest a widget can be made, so its buttons still fit (dp). */
     const val MIN_W = 200
@@ -16,7 +17,8 @@ object DesktopWidgetRules {
     fun startSize(kind: String): Pair<Int, Int> = when (kind) {
         "queue", "playlists" -> 320 to 420
         "lyrics" -> 320 to 380
-        "pinned", "top" -> 280 to 300
+        "pinned", "top", "releases" -> 280 to 300
+        "visualizer" -> 360 to 220
         "dj" -> 280 to 190
         "wrapped" -> 280 to 170
         else -> 280 to 240
@@ -85,6 +87,7 @@ object DesktopWidgetRules {
         Shortcut("Most played", listOf("show", "top")),
         Shortcut("Pinned", listOf("show", "pinned")),
         Shortcut("Lyrics", listOf("show", "lyrics")),
+        Shortcut("New releases", listOf("show", "new releases")),
         Shortcut("Wrapped this week", listOf("show", "wrapped", "week")),
         Shortcut("Wrapped this month", listOf("show", "wrapped", "month")),
         Shortcut("Wrapped all time", listOf("show", "wrapped", "all")),
@@ -92,6 +95,31 @@ object DesktopWidgetRules {
 
     fun playlistShortcut(name: String, shuffled: Boolean) = Shortcut((if (shuffled) "Shuffle " else "Play ") + name,
         listOf("play", "playlist", name) + if (shuffled) listOf("shuffle") else emptyList())
+
+    // ---- New releases ----
+
+    /** The newest first, each once (by key), at most n: dates as the catalogue writes them (2026-11-20), so the newest
+     *  sorts last as text; one with no date goes after the dated ones. */
+    fun <T> newest(items: List<T>, key: (T) -> String, date: (T) -> String, n: Int): List<T> =
+        items.distinctBy(key).sortedWith(compareByDescending<T> { date(it).isNotBlank() }.thenByDescending { date(it) }).take(n)
+
+    /** When a release came out, said as a person would: Today, Yesterday, 3 days ago, Last week, 5 weeks ago, then the
+     *  date (with its year when it isn't this year's); one still to come: "Out Dec 4". Anything not a date: as it is. */
+    fun whenOut(date: String, today: java.time.LocalDate): String {
+        val d = runCatching { java.time.LocalDate.parse(date.trim().take(10)) }.getOrNull() ?: return date
+        val days = java.time.temporal.ChronoUnit.DAYS.between(d, today)
+        val month = d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
+        val shown = "$month ${d.dayOfMonth}" + if (d.year != today.year) ", ${d.year}" else ""
+        return when {
+            days < 0 -> "Out $shown"
+            days == 0L -> "Today"
+            days == 1L -> "Yesterday"
+            days < 7 -> "$days days ago"
+            days < 14 -> "Last week"
+            days < 60 -> "${days / 7} weeks ago"
+            else -> shown
+        }
+    }
 
     // ---- Linux: a desktop entry ----
 

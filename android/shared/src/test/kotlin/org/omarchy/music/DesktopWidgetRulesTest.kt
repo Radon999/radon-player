@@ -56,6 +56,34 @@ class DesktopWidgetRulesTest {
         assertEquals("\"\"", R.execArg(""))
     }
 
+    @Test fun theNewestReleasesComeFirstEachOnce() {
+        data class Rel(val key: String, val date: String)
+        val got = R.newest(listOf(Rel("a", "2026-10-02"), Rel("b", ""), Rel("c", "2026-11-20"), Rel("a", "2026-10-02"), Rel("d", "2025-12-31")),
+            { it.key }, { it.date }, 3)
+        assertEquals("newest first, the one told twice once, none past three", listOf("c", "a", "d"), got.map { it.key })
+        assertEquals("one with no date after the dated ones", "b", R.newest(listOf(Rel("b", ""), Rel("a", "2020-01-01")), { it.key }, { it.date }, 5).last().key)
+    }
+
+    @Test fun whenAReleaseCameOutIsSaidAsAPersonWould() {
+        val today = java.time.LocalDate.of(2026, 11, 25)
+        assertEquals("Today", R.whenOut("2026-11-25", today))
+        assertEquals("Yesterday", R.whenOut("2026-11-24", today))
+        assertEquals("6 days ago", R.whenOut("2026-11-19", today))
+        assertEquals("Last week", R.whenOut("2026-11-15", today))
+        assertEquals("3 weeks ago", R.whenOut("2026-11-01", today))
+        assertEquals("Sep 2", R.whenOut("2026-09-02", today))
+        assertEquals("another year's has its year", "Dec 31, 2025", R.whenOut("2025-12-31", today))
+        assertEquals("one still to come", "Out Dec 4", R.whenOut("2026-12-04", today))
+        assertEquals("not a date: as it is", "soon", R.whenOut("soon", today))
+    }
+
+    @Test fun theTwoNewWidgetsAreListedOnce() {
+        val keys = R.KINDS.map { it.first }
+        assertEquals(keys.distinct(), keys)
+        assertTrue("releases" in keys && "visualizer" in keys)
+        assertEquals("the visualizer starts wide", true, R.startSize("visualizer").let { (w, h) -> w > h })
+    }
+
     @Test fun theDesktopFolderIsTheOneTheUserNamed() {
         assertEquals("/home/me/Desktop", R.desktopDir(null, "/home/me"))
         assertEquals("/home/me/Bureau", R.desktopDir("# made by xdg\nXDG_DESKTOP_DIR=\"\$HOME/Bureau\"\n", "/home/me"))

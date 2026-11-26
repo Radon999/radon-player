@@ -11,9 +11,10 @@ import org.omarchy.music.PhoneWidgetRules
 import org.omarchy.music.Wrapped
 
 /** A place in the app asked for from outside it (the phone's home screen widgets): the window opens straight on it.
- *  What is asked is written as [PhoneWidgetRules] says: "top" (Most played), "pinned", "playlists", "wrapped:week|month|all"
- *  (Wrapped on that period; "wrapped" alone: its own choice), "lyrics" (Now playing's Lyrics), "card" (the lyrics card maker
- *  for the song playing), "list:<id>" (a playlist of yours), "folder:<id>" (a folder of playlists), "pin:<key>" (something pinned).
+ *  What is asked is written as [PhoneWidgetRules] says: "player" (Now playing), "top" (Most played), "pinned", "playlists",
+ *  "newreleases", "wrapped:week|month|all" (Wrapped on that period; "wrapped" alone: its own choice), "lyrics" (Now playing's
+ *  Lyrics), "card" (the lyrics card maker for the song playing), "list:<id>" (a playlist of yours), "folder:<id>" (a folder
+ *  of playlists), "pin:<key>" (something pinned), "release:<key>" (a new release's page, as New releases opens it).
  *  The window takes it as it shows ([App]). */
 object AppLinks {
     var asked by mutableStateOf<String?>(null)
@@ -23,9 +24,23 @@ object AppLinks {
         // Whatever was open over the screens (Settings, a dialog) is closed, so the place asked for is the one you see
         if (kind != "wrapped") { ui.sheet = null; ui.lyricsCard = null }
         when (kind) {
+            "player" -> { goTo(ui, "player"); ui.pane = "art" }
             "top" -> goTo(ui, "music", "top")
             "pinned" -> goTo(ui, "music", "pinned")
             "playlists" -> goTo(ui, "music", "playlists")
+            "newreleases" -> goTo(ui, "music", "newreleases")
+            "release" -> {
+                goTo(ui, "music", "newreleases")
+                val nr = org.omarchy.music.NewReleases
+                val r = (nr.told + nr.found).firstOrNull { nr.key(it) == rest } ?: run { Music.toast("That release isn't in New releases any more"); return }
+                Music.toast("Opening “${r.title}”…")
+                Music.bg({ Music.releaseFind(r) }) { found, err ->
+                    if (found == null) { Music.toast("Couldn't find “${r.title}” on your services" + (err?.message?.let { ": ${it.take(80)}" } ?: "")); return@bg }
+                    val (key, al, songs) = found
+                    ui.pages += if (al != null) Ui.Page.AlbumPage(al, key)
+                        else Ui.Page.AlbumPage(org.omarchy.music.Album("single-${songs[0].id}", r.title, "${r.artist} · Single", songs[0].thumb.ifEmpty { r.cover }), key, songs)
+                }
+            }
             "wrapped" -> {
                 val now = java.time.LocalDate.now()
                 WrappedAsk.period = when (rest) {

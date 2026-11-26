@@ -65,4 +65,55 @@ object PhoneWidgetRules {
         paused -> "resume"
         else -> "switch"
     }
+
+    // ---- the New releases widget ----
+
+    /** The newest n releases of all the app found (its own daily look's and the screen's Refresh…), each once (key: the
+     *  same release found by both), the latest release date first. Dates are written year-month-day, so as text they
+     *  sort as dates do. */
+    fun <T> newest(all: List<T>, key: (T) -> String, date: (T) -> String, n: Int): List<T> =
+        all.distinctBy(key).sortedByDescending(date).take(n)
+
+    /** When a release came out, as the widget says it: Today, Yesterday, 3 days ago, 2 weeks ago, then the date (with
+     *  its year when it isn't this one); one still to come: "Out Dec 5". A date it can't read is shown as it is. */
+    fun released(date: String, today: java.time.LocalDate): String {
+        val d = runCatching { java.time.LocalDate.parse(date) }.getOrNull() ?: return date
+        val days = java.time.temporal.ChronoUnit.DAYS.between(d, today)
+        fun day() = d.format(java.time.format.DateTimeFormatter.ofPattern(if (d.year == today.year) "MMM d" else "MMM d, yyyy", java.util.Locale.ENGLISH))
+        return when {
+            days < 0 -> "Out " + day()
+            days == 0L -> "Today"
+            days == 1L -> "Yesterday"
+            days < 7 -> "$days days ago"
+            days < 35 -> (days / 7).let { w -> "$w week${if (w != 1L) "s" else ""} ago" }
+            else -> day()
+        }
+    }
+
+    // ---- the Visualizer widget ----
+
+    /** About 8 frames a second at most: smooth enough for bars on a home screen, and light. */
+    const val VIZ_FRAME_MS = 120L
+    const val VIZ_BARS = 24
+
+    /** The bars move only while all of these hold: a Visualizer widget on the home screen, the screen on, the app not
+     *  in front (its own visualizer then), and music playing. Otherwise nothing is captured or drawn at all. */
+    fun vizLive(present: Boolean, screenOn: Boolean, appShown: Boolean, playing: Boolean) = present && screenOn && !appShown && playing
+
+    /** n bars from the spectrum's bands (Spectrum.bands: low to high, 0..1): each bar the loudest of its share of them. */
+    fun bars(bands: FloatArray, n: Int): FloatArray {
+        if (n <= 0 || bands.isEmpty()) return FloatArray(maxOf(0, n))
+        return FloatArray(n) { i ->
+            val from = i * bands.size / n
+            val to = maxOf(from + 1, (i + 1) * bands.size / n).coerceAtMost(bands.size)
+            var m = 0f
+            for (k in from until to) m = maxOf(m, bands[k])
+            m.coerceIn(0f, 1f)
+        }
+    }
+
+    /** The bars shown next: a bar goes up at once with the music, and comes down gently (keep: how much of its height it
+     *  keeps each frame), so they don't flicker at a few frames a second. */
+    fun fall(shown: FloatArray, now: FloatArray, keep: Float = 0.7f): FloatArray =
+        FloatArray(now.size) { i -> maxOf(now[i], shown.getOrElse(i) { 0f } * keep) }
 }

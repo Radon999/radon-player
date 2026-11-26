@@ -4,6 +4,10 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.2.2: New releases and Visualizer widgets (Android, Windows and Linux)
+- **New releases and Visualizer widgets on the phone:** **New releases** lists the newest releases the app has found from your artists (cover, title, artist, how long ago); a tap plays one without opening the app, and the name opens New releases. **Visualizer** shows the music as bars in the cover's colours with the song, play/pause and next; it only moves while the screen is on, the app isn't in front and music plays (about 8 frames a second), and rests otherwise. Moving bars need the microphone permission the app's Visualizer already asks for; without it they sway slowly.
+- **New releases and Visualizer widgets on the PC:** **New releases** (a click plays one, the name opens New releases) and **Visualizer** (your visualizer style in the song's colours, with play/pause and next when the mouse is over it; it rests while paused), from the tray icon's Widgets or Settings › General. **Make desktop shortcuts…** can also make a New releases shortcut.
+
 ## 5.2.1: A volume for the DJ's voice (Android, Windows and Linux)
 - **A volume for the DJ's voice (the phone and the PC):** DJ › Voice settings › **Voice volume**, from 25% to 200% of how loud it's made, so the DJ can be quieter or stand out more over the music. Let go of the slider and the DJ says a line at the new level. Louder than 100%, its loudest moments are rounded off so it doesn't crackle; Windows' own voice and the phone's own voice go up to 100%.
 

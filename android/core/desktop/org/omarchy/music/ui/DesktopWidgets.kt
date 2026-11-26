@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -144,11 +147,15 @@ private fun WidgetWindow(kind: String, name: String, i: Int, icon: Painter, bg: 
 /** The widgets' background: the cover's main colour, deep enough for white text, a little see-through (the phone's
  *  widget's). Dark grey while nothing plays. */
 @Composable
-fun widgetBackdrop(): Color {
+fun widgetBackdrop(): Color = backdropOf(coverRgb())
+
+/** The main colour of the cover playing (null: nothing playing, or no cover yet). */
+@Composable
+private fun coverRgb(): Int? {
     val t = Music.current()
     var rgb by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(t?.id) { rgb = t?.let { runCatching { Tint.rgbOf(artModel(it, 200)) }.getOrNull() } }
-    return backdropOf(rgb)
+    return rgb
 }
 
 fun backdropOf(rgb: Int?): Color {
@@ -180,6 +187,8 @@ fun WidgetCard(kind: String, bg: Color, drag: @Composable (@Composable () -> Uni
                     "top" -> TopWidget()
                     "wrapped" -> WrappedWidget()
                     "lyrics" -> LyricsWidget()
+                    "releases" -> ReleasesWidget()
+                    "visualizer" -> VisualizerWidget()
                 }
             }
         }
@@ -451,6 +460,72 @@ private fun ColumnScope.LyricsWidget() {
     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (g != null && (g.plain != null || g.synced != null)) WPill("Lyrics card") { Instance.lyricsCard() }
         WPill("Open in the app") { Instance.act(listOf("lyrics")) }
+    }
+}
+
+/** (9) New releases from your artists: the newest the app has found (by its daily look, or Refresh… in New releases;
+ *  nothing is looked up for the widget itself). A click plays one (found on your services then); the name opens New
+ *  releases. */
+@Composable
+private fun ColumnScope.ReleasesWidget() {
+    val nr = org.omarchy.music.NewReleases
+    val list = remember(nr.found, nr.told) {
+        DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, 30)
+    }
+    val today = remember { java.time.LocalDate.now() }
+    val kinds = mapOf("single" to "Single", "ep" to "EP")
+    WHeader("New releases") { Instance.act(listOf("show", "new releases")) }
+    nr.status?.let { Text(it, style = wSub, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 4.dp)) }
+    if (list.isEmpty()) {
+        Text("Nothing new found yet", style = wTitle)
+        Text("Open New releases in the app and press Refresh… to look at what your artists put out lately, or switch on " +
+            "New releases by themselves in Settings › Playback to have it look once a day.", style = wSub, modifier = Modifier.padding(top = 4.dp))
+        Spacer(Modifier.weight(1f))
+        Row { WPill("Open New releases", strong = true) { Instance.act(listOf("show", "new releases")) } }
+        return
+    }
+    LazyColumn(Modifier.weight(1f)) {
+        items(list, key = { nr.key(it) }) { r ->
+            val sub = listOfNotNull(r.artist, kinds[r.type], DesktopWidgetRules.whenOut(r.date, today).takeIf { it.isNotEmpty() }).joinToString(" · ")
+            WRow(r.cover.ifEmpty { null }, r.title, sub) {
+                Music.toast("Finding “${r.title}”…")
+                Music.bg({ Music.releaseTracks(r) }) { songs, err ->
+                    if (songs.isNullOrEmpty()) Music.toast("Couldn't find “${r.title}” on your services" + (err?.message?.let { ": ${it.take(80)}" } ?: ""))
+                    else Music.playList(songs)
+                }
+            }
+        }
+    }
+}
+
+/** (10) The visualizer: the style picked in the app's Visualizer, in the colours picked there (the song's own when it's
+ *  the look's or the cover's), on the song's colour. It only runs while music plays: paused or with nothing playing it
+ *  draws nothing and the sound isn't read (the same reading the app's visualizer uses, at the same pace). Play/pause
+ *  and next show while the mouse is over it, and while it's paused. */
+@Composable
+private fun ColumnScope.VisualizerWidget() {
+    val t = Music.current()
+    val playing = t != null && !Music.paused
+    val s = rememberVis(playing)
+    val rgb = coverRgb()
+    val base = rgb?.let { androidx.compose.ui.graphics.lerp(Color(org.omarchy.music.CoverColourRules.shown(it)), W, 0.3f) } ?: W.copy(alpha = 0.9f)
+    val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    WHeader(t?.let { "${it.title} · ${it.artist}" } ?: "Visualizer")
+    Box(Modifier.weight(1f).fillMaxWidth().hoverable(hover)) {
+        if (s != null) {
+            val style = Vis.style()
+            val key = Vis.color().let { if (it == "auto" || it == "cover") "auto" else it }
+            Canvas(Modifier.fillMaxSize()) {
+                if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame it moves
+                clipRect { drawVis(style, s, VisPalette.of(style, key, base, s.phase), W, backdrop = true) }
+            }
+        } else Text(if (t == null) "Nothing playing" else "Paused", style = wSub, modifier = Modifier.align(Alignment.Center))
+        if (hovered || !playing) Row(Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.25f)),
+            verticalAlignment = Alignment.CenterVertically) {
+            IconButton(if (playing) Ico.PAUSE else Ico.PLAY, W, 22.dp, 6.dp) { Music.togglePause() }
+            IconButton(Ico.NEXT, W, 20.dp, 6.dp) { Music.next() }
+        }
     }
 }
 

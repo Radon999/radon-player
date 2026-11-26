@@ -70,7 +70,8 @@ object Instance {
   lyrics [genius|synced|card]       show the lyrics of what's playing (as written, or timed), or make a lyrics card of them
   search WORDS...                   open on a search
   show [TAB]                        open on now, search, library, music, albums, eps, singles, artists, genres,
-                                    playlists, folders, recent, top, skips, favorites, repeat, queue, lyrics, pinned or dj
+                                    playlists, folders, recent, top, skips, favorites, repeat, queue, lyrics, pinned, dj
+                                    or new releases
   show pin NAME                     open something you pinned (an artist, an album, a playlist…)
   show wrapped [week|month|all|YEAR]   Wrapped for this week, this month, every year or a year (this year without one)
   accounts                          Settings: sign-ins, folders, Last.fm, the tagger
@@ -78,8 +79,8 @@ object Instance {
   source youtube|tidal|apple|spotify|mine   switch the library you browse and search
   tag [all]                         tag the saved songs not tagged yet (or all of them) now
   dj [on|off|new|mine|switch]       start the DJ, stop it, start it with new songs too or with only yours, or a new set now
-  widget NAME [off]                 open (or close) a desktop widget: queue, playlists, dj, playlist, pinned, top, wrapped
-                                    or lyrics
+  widget NAME [off]                 open (or close) a desktop widget: queue, playlists, dj, playlist, pinned, top, wrapped,
+                                    lyrics, releases or visualizer
   status                            what's playing and what's next
   hide | quit                       hide the window, or stop the music and quit
   --tidal-login | --lastfm-login | --spotify-login   open that sign-in"""
@@ -277,6 +278,7 @@ object Instance {
             "playlists", "recent", "top", "skips", "favorites", "unfavorited", "repeat", "dj", "discovery", "newreleases", "dupes", "pinned" ->
                 org.omarchy.music.ui.goTo(ui, "music", low)
             "added" -> { Music.musicSort = "added"; org.omarchy.music.ui.goTo(ui, "music", "all") }
+            "new releases", "new-releases", "releases" -> org.omarchy.music.ui.goTo(ui, "music", "newreleases")
             "settings", "accounts" -> ui.openSettings()
             "eq", "equalizer" -> ui.sheet = "eq"
         }

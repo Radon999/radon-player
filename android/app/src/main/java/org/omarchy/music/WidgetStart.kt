@@ -14,6 +14,8 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -46,7 +48,7 @@ object WidgetStart {
     fun request(ctx: Context, what: String) {
         Music.init(ctx)
         if (PhoneWidgetRules.startHow(Music.player != null, !Music.paused, Remote.active) == "now") {
-            Music.scope.launch { perform(what) }
+            Music.scope.launch { if (!perform(what)) tellFailed(ctx.applicationContext, what) }
             return
         }
         try {
@@ -109,16 +111,27 @@ object WidgetStart {
         val nm = svc.getSystemService(NotificationManager::class.java)
         runCatching { nm.cancel(ID) }
         session?.let { s -> runCatching { svc.onUpdateNotification(s, false) } }
+        tellFailed(svc, what)
+    }
+
+    /** A note that what a widget asked for couldn't be played, and why where it's known; a tap opens the app (on the
+     *  release, for a new release: its page there). */
+    private fun tellFailed(ctx: Context, what: String) {
+        val (kind, rest) = PhoneWidgetRules.split(what)
+        val release = if (kind == "release") ReleasesWidget.find(rest) else null
         val list = PhoneWidgetRules.playlistOf(what)?.first?.let { Music.lists.get(it) }
         val (title, text) = when {
             what == "dj" -> "The DJ couldn't start" to "Tap to open Radon Player and see why"
+            kind == "release" -> (if (release == null) "That release isn't in New releases any more" else "Couldn't find “${release.title}” to play") to
+                "Tap to open it in Radon Player"
             list == null -> "That playlist was deleted" to "Tap the widget and pick another"
             list.tracks.isEmpty() -> "“${list.name}” has no songs yet" to "Add some in Radon Player"
             else -> "Couldn't play “${list.name}”" to "Tap to open Radon Player and see why"
         }
-        val open = PendingIntent.getActivity(svc, OFFER_ID, Intent(svc, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        runCatching { nm.notify(OFFER_ID, notification(svc, title, text, open, ongoing = false)) }
+        val open = if (kind == "release") HomeWidgets.open(ctx, if (release != null) what else "newreleases", 7471)
+            else PendingIntent.getActivity(ctx, OFFER_ID, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(OFFER_ID, notification(ctx, title, text, open, ongoing = false)) }
     }
 
     /** Android said no: the app opens and starts it (by itself where the phone lets it; else from a notification). */
@@ -137,7 +150,8 @@ object WidgetStart {
         Music.scope.launch { perform(what) }
     }
 
-    /** Does it (the main thread): false when it can't (no such playlist, nothing in it, the DJ with nothing to play). */
+    /** Does it (the main thread): false when it can't (no such playlist, nothing in it, the DJ with nothing to play, a
+     *  release not found on the services). */
     suspend fun perform(what: String): Boolean {
         // Just after the app started (a widget can start it): your songs are read first, so the DJ and the playlist find them
         withTimeoutOrNull(20_000L) { while (Music.local.scanning) delay(150) }
@@ -149,6 +163,18 @@ object WidgetStart {
                 else -> { Music.djStart(); Remote.active || Music.dj.on || Music.djBusy != null }
             }
         }
+        val (kind, rest) = PhoneWidgetRules.split(what)
+        if (kind == "release") {
+            // A new release: found on Tidal or YouTube Music as its page in the app is (those come up as the app starts:
+            // a few seconds are given when it was closed), and played from its first song
+            val r = ReleasesWidget.find(rest) ?: return false
+            withTimeoutOrNull(10_000L) { while (Music.sources["tidal"] == null && Music.sources["ytm"] == null) delay(200) }
+            val songs = withContext(Dispatchers.IO) { runCatching { Music.releaseTracks(r) }.getOrDefault(emptyList()) }
+            if (songs.isEmpty()) return false
+            Music.listName = r.title
+            Music.playList(songs)
+            return true
+        }
         val (id, shuffled) = PhoneWidgetRules.playlistOf(what) ?: return false
         val pl = Music.lists.get(id) ?: return false
         val songs = Music.sortedPlaylist(pl.tracks)   // in the order the playlist shows them (its sort), as its Play and Shuffle
@@ -158,9 +184,13 @@ object WidgetStart {
         return true
     }
 
-    /** What's being started, as a notification names it: the DJ, “a playlist”. */
-    private fun named(what: String): String = if (what == "dj") "the DJ" else
-        PhoneWidgetRules.playlistOf(what)?.first?.let { Music.lists.get(it) }?.let { "“${it.name}”" } ?: "the music"
+    /** What's being started, as a notification names it: the DJ, “a playlist”, “a release”. */
+    private fun named(what: String): String {
+        if (what == "dj") return "the DJ"
+        val (kind, rest) = PhoneWidgetRules.split(what)
+        if (kind == "release") return ReleasesWidget.find(rest)?.let { "“${it.title}”" } ?: "the release"
+        return PhoneWidgetRules.playlistOf(what)?.first?.let { Music.lists.get(it) }?.let { "“${it.name}”" } ?: "the music"
+    }
 
     private fun notification(ctx: Context, title: String, text: String, tap: PendingIntent?, ongoing: Boolean): Notification {
         val nm = ctx.getSystemService(NotificationManager::class.java)

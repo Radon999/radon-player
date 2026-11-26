@@ -8,5 +8,7 @@
     <string name="widget_pinned_description">Everything you pinned: tap one to open it</string>
     <string name="widget_top_description">Your most played songs: a tap opens Most played</string>
     <string name="widget_wrapped_description">Straight to your Wrapped: weekly, monthly or all time</string>
+    <string name="widget_releases_description">The newest releases from your artists: tap one to play it</string>
+    <string name="widget_visualizer_description">The music playing as bars in its cover\'s colours</string>
     <string name="widget_lyrics_description">The lyrics of the song playing, the line being sung lit up</string>
 </resources>
