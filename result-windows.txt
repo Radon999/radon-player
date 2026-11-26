@@ -1,6 +1,6 @@
-commit fb61a4e661f9362d8cc67b5ee789f457bbb5aa0d · run 45771347234 · Thu Nov 26 07:12:52 UTC 2026
-PC TESTS ON WINDOWS: 49 suites, tests 196, failed 2
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 2.6 s (with loading the voice); then 4.6 s of speech in 2.0 s (2.4x real time)
+commit d109b99bbdcacea27ea56828b8bd4a906c3bcb0a · run 45773099766 · Thu Nov 26 07:46:57 UTC 2026
+PC TESTS ON WINDOWS: 50 suites, tests 198, failed 2
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.7 s (with loading the voice); then 4.5 s of speech in 2.0 s (2.2x real time)
 WINDOWS INSTALLER: Radon Player-5.2.5.msi, 98M
 --- errors
 org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
@@ -10,13 +10,13 @@ org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
         at org.junit.Assert.assertEquals(Assert.java:120)
         at org.omarchy.music.DesktopShortcutsTest.eachShortcutHasAPictureOfItsOwn(DesktopShortcutsTest.kt:67)
 
-org.omarchy.music.DjFlowTest > withTheDjRepeatIsOneOrOffAndShuffleDoesNothing FAILED
-    java.lang.AssertionError: expected:<[file-library-35, file-library-50, file-library-73, file-library-37, file-library-45, file-library-76]> but was:<[file-library-35, file-library-50, file-library-73, file-library-37, file-library-45, file-library-76, file-library-67, file-library-80, file-library-65, file-library-33, file-library-28, file-library-16]>
+org.omarchy.music.DjMoreKindsTest > aDecadeTripIsSongsOfOneDecadeAndSaysWhichOne FAILED
+    java.lang.AssertionError: a decade set can be made
         at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.failNotEquals(Assert.java:835)
-        at org.junit.Assert.assertEquals(Assert.java:120)
-        at org.junit.Assert.assertEquals(Assert.java:146)
-        at org.omarchy.music.DjFlowTest.withTheDjRepeatIsOneOrOffAndShuffleDoesNothing(DjFlowTest.kt:111)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.junit.Assert.assertNotNull(Assert.java:713)
+        at org.omarchy.music.DjMoreKindsTest.aDecadeTripIsSongsOfOneDecadeAndSaysWhichOne$lambda$26$lambda$25(DjMoreKindsTest.kt:81)
+        at org.omarchy.music.DjMoreKindsTest.from(DjMoreKindsTest.kt:16)
 --
 > Task :desktop:test FAILED
 
@@ -30,14 +30,14 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 6m
+BUILD FAILED in 6m 7s
 21 actionable tasks: 21 executed
 --- the end of the log
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 > Task :desktop:test
 
-196 tests completed, 2 failed
+198 tests completed, 2 failed
 
 > Task :desktop:test FAILED
 
@@ -56,5 +56,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m
+BUILD FAILED in 6m 7s
 21 actionable tasks: 21 executed
