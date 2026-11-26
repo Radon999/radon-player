@@ -1,7 +1,0 @@
-v5.2.6
-Radon Player 5.2.6: Only one Radon Player on the PC, and size the visualizer and cover on their own
-**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.2.6.msi` (Windows), `radon-player_5.2.6_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
-
-**What is new**
-- **Only ever one Radon Player (the PC):** opening Radon Player while it's already running now always brings up the one that's open (and hands it the song or command you opened it with) instead of starting a second player. It works whatever version is running, and even when you click twice quickly. Versions before this one couldn't always tell, so a second copy could open.
-- **Size the visualizer and the album cover on their own (the phone and the PC):** under Size of Now playing (Settings › General), two sliders: **Now playing visualizer size** (25% to 200%: over the cover, round it and along the bottom; full screen ones still fill the screen) and **Album cover size** (30% to 100%). Once you move either, Size of Now playing switches itself off, since those parts are sized on their own; put both back to 100% and it's on again, as it was. Each device keeps its own sizes.
