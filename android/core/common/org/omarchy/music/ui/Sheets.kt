@@ -182,8 +182,8 @@ private fun AccountsSheet(ui: Ui) {
             }
             // Size of Now playing: that screen alone (its cover, words and buttons) smaller or bigger; this $DEVICE's own
             val npKept = org.omarchy.music.NowSizeRules.percent(org.omarchy.music.Prefs.text(org.omarchy.music.NowSizeRules.PREF)).toString()
-            Line("Size of Now playing", "Makes the Now playing screen smaller or bigger as a whole: the cover, the song's name and the " +
-                "buttons together, for a big screen where the cover takes more room than it needs. The rest of the app stays as Size " +
+            Line("Size of Now playing", "Makes the Now playing screen smaller or bigger as a whole: the cover, the song's name, the " +
+                "buttons and the visualizer together, for a big screen where the cover takes more room than it needs. The rest of the app stays as Size " +
                 "of everything has it. 100% is the usual size", npKept != "100") {
                 ChoicePill(org.omarchy.music.NowSizeRules.OPTIONS, npKept) { org.omarchy.music.Prefs.setText(org.omarchy.music.NowSizeRules.PREF, it) }
             }

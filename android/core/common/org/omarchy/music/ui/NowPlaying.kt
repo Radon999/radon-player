@@ -1096,13 +1096,16 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
  *  doesn't show; over it, NowVisOver), the others the bottom. strength: its opacity (Vis.nowStrength). */
 @Composable
 private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, modifier: Modifier, bottomOnly: Boolean = false) {
-    if (style == "slim") { NowBars(s.levels, s.frame, bars, modifier, strength / 0.5f); return }
+    // Size of Now playing: the ones along the bottom as much taller or shorter as the rest of the screen (the ones that
+    // fill the whole height, rain and those round a middle, keep filling it)
+    val h = nowSize()
+    if (style == "slim") { NowBars(s.levels, s.frame, bars, modifier, strength / 0.5f, heightK = h); return }
     val colorKey = Vis.color()
     val dual = Vis.dual(style)
     // Rain and Code rain fall down the whole screen, as rain does; the ones around a middle get it all too
     val rains = (MyVis.style(style)?.let { if (it.dual) it.base2 else it.base } ?: style) in RAIN_STYLES
     val tall = rains || (!(dual && bottomOnly) && (style in Vis.CENTRED || Vis.full(style)))
-    Canvas(modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier.fillMaxHeight(0.32f))
+    Canvas(modifier.fillMaxWidth().then(if (tall) Modifier.fillMaxHeight() else Modifier.fillMaxHeight((0.32f * h).coerceAtMost(1f)))
         .graphicsLayer(alpha = strength)) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
         val pal = VisPalette.of(style, colorKey, bars, s.phase)
@@ -1133,8 +1136,8 @@ private fun NowVisOver(style: String, s: VisState, col: Color, strength: Float, 
 
 /** Twice as many slim bars as bands (each between two is their mix), spread out along the bottom (k: brighter or fainter). */
 @Composable
-private fun NowBars(levels: FloatArray, frame: Int, col: Color, modifier: Modifier, k: Float = 1f) {
-    Canvas(modifier.fillMaxWidth().fillMaxHeight(0.28f)) {
+private fun NowBars(levels: FloatArray, frame: Int, col: Color, modifier: Modifier, k: Float = 1f, heightK: Float = 1f) {
+    Canvas(modifier.fillMaxWidth().fillMaxHeight((0.28f * heightK).coerceAtMost(1f))) {
         @Suppress("UNUSED_EXPRESSION") frame
         drawSlim(levels, col, k)
     }
