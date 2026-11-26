@@ -9,7 +9,9 @@ import java.net.Socket
 
 /** One Radon Player at a time, as the Python app: starting it again (or opening a song file with it, or a command
  *  like `"Radon Player.exe" next`) hands what was asked to the one already running, over a local socket that
- *  only this computer can reach, with a secret only this account can read.
+ *  only this computer can reach, with a secret only this account can read. Which one is running is told by a lock in
+ *  the data folder (every version uses the same folder) and by the port (versions from before the lock), both taken
+ *  first thing as the app starts ([claim]): a second start always ends, whatever version either is.
  *
  *  Commands (the Python app's): see [HELP]; and song files to play. */
 object Instance {
@@ -18,10 +20,52 @@ object Instance {
     private val dir: File get() = Ctx.pc.filesDir
     private val secretFile get() = File(dir, "instance.key")
 
+    /** What [claim] found as this start began. */
+    enum class Claim { MINE, RUNNING }
+
+    private var lock: java.nio.channels.FileLock? = null
+    private var lockChannel: java.nio.channels.FileChannel? = null
+    private var bound: ServerSocket? = null
+
+    /** (first thing as the app starts) Whether this is the only Radon Player: true, it carries on (it holds the lock and
+     *  the port from now on, so a start right after this one finds it); false, another is running (any version: a new
+     *  one holds the lock in the data folder, an older one at least the port), and this start must end.
+     *  The lock is the system's own: it goes when the app does, even if it crashes, so it can never be left behind. */
+    fun claim(dir: File = Ctx.pc.filesDir, port: Int = PORT): Claim {
+        val ch = runCatching {
+            dir.mkdirs()
+            java.nio.channels.FileChannel.open(File(dir, "instance.lock").toPath(),
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE)
+        }.getOrNull()
+        val got = ch?.let { c -> runCatching { c.tryLock() }.getOrNull() }   // null: another holds it (or this JVM does)
+        if (ch != null && got == null) { runCatching { ch.close() }; return Claim.RUNNING }
+        // The port: taken by an older Radon Player (from before the lock), or one starting this very moment
+        val server = runCatching { ServerSocket().apply { reuseAddress = false; bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), port), 8) } }.getOrNull()
+        if (server == null && portAnswers(port)) { runCatching { got?.release() }; runCatching { ch?.close() }; return Claim.RUNNING }
+        lock = got; lockChannel = ch; bound = server
+        return Claim.MINE
+    }
+
+    /** Something is listening on this computer at port (a Radon Player, of any version). */
+    private fun portAnswers(port: Int): Boolean = runCatching {
+        Socket().use { it.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), port), 1500); true }
+    }.getOrDefault(false)
+
+    /** (a start that found another running) What was asked handed to the one running, waiting a little for it if it's
+     *  only just starting (it holds the lock before it listens). This start ends either way. */
+    fun handOffRunning(args: Array<String>, waitMs: Long = 15_000) {
+        val until = System.currentTimeMillis() + waitMs
+        while (true) {
+            if (handOff(args)) return
+            if (System.currentTimeMillis() > until) return
+            Thread.sleep(500)
+        }
+    }
+
     /** Hand args to a running one; true if one took them (this one should then end). */
-    fun handOff(args: Array<String>): Boolean = runCatching {
+    fun handOff(args: Array<String>, port: Int = PORT): Boolean = runCatching {
         val key = secretFile.takeIf { it.isFile }?.readText()?.trim() ?: return false
-        Socket(InetAddress.getLoopbackAddress(), PORT).use { s ->
+        Socket(InetAddress.getLoopbackAddress(), port).use { s ->
             s.soTimeout = 3000
             val out = s.getOutputStream().bufferedWriter()
             out.write(key + "\n"); args.forEach { out.write(it.replace("\n", " ") + "\n") }; out.write("\n"); out.flush()
@@ -37,7 +81,8 @@ object Instance {
 
     /** Listen for others (after the app has started); act on what they ask. */
     fun listen(onArgs: (List<String>) -> Unit) {
-        val server = runCatching { ServerSocket(PORT, 8, InetAddress.getLoopbackAddress()) }.getOrNull() ?: return
+        // The port claimed as the app started ([claim]); else claimed now (a start that skipped claim)
+        val server = bound ?: runCatching { ServerSocket(PORT, 8, InetAddress.getLoopbackAddress()) }.getOrNull() ?: return
         val key = java.util.UUID.randomUUID().toString()
         runCatching { writeAtomic(secretFile, key) }
         Thread({

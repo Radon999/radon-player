@@ -54,9 +54,14 @@ private object AppIcon : Painter() {
 /** Radon Player on the PC: the phone's own screens (the shared code), played through mpv. Esc is the phone's back.
  *  Closing the window keeps the music going in the tray (Quit there ends it), as the Python app does. */
 fun main(args: Array<String>) {
-    // Already running: hand it what was asked (a song file, next, show…) and end here, as the Python app does
-    if (org.omarchy.music.Instance.handOff(args.ifEmpty { arrayOf("show") })) return
+    // (Linux on a desktop that places windows itself: started again with its one setting; that start does the rest)
     if (startedAgainForItsDesktop(args)) return
+    // One Radon Player at a time, whatever version: another running (or starting this moment) is handed what was asked
+    // (a song file, next, show…) and this start ends here, as the Python app's did. Never a second window.
+    if (org.omarchy.music.Instance.claim() == org.omarchy.music.Instance.Claim.RUNNING) {
+        org.omarchy.music.Instance.handOffRunning(args.ifEmpty { arrayOf("show") })
+        return
+    }
     org.omarchy.music.SoftwareDrawing.applyAtStart()   // Linux: drawn without the graphics card, if that's switched on
     app(args)
 }
