@@ -13,7 +13,8 @@ import java.net.Socket
  *
  *  Commands (the Python app's): see [HELP]; and song files to play. */
 object Instance {
-    private const val PORT = 8896
+    // A test build with a folder of its own (RADON_DATA) answers on a port of its own, beside the installed app
+    private val PORT = if (System.getenv("RADON_DATA").isNullOrBlank()) 8896 else 8906
     private val dir: File get() = Ctx.pc.filesDir
     private val secretFile get() = File(dir, "instance.key")
 

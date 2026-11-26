@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Visualizer: the music playing as bars in its cover's colours, moving only while it can be seen and music plays; the
      song under it, with play/pause and next. A tap on the bars opens Now playing (VisualizerWidget). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wv_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp"
-    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wv_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <!-- The rounded background, in the playing song's cover colour (HomeWidgets.paint) -->
+    <ImageView android:id="@+id/w_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_bg" android:scaleType="fitXY" android:tint="#D92B2B3C" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp">
 
     <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
         <ImageView android:id="@+id/wv_bars" android:layout_width="match_parent" android:layout_height="match_parent"
@@ -29,4 +32,5 @@
         <ImageButton android:id="@+id/wv_next" android:layout_width="44dp" android:layout_height="match_parent"
             android:background="@android:color/transparent" android:src="@drawable/w_next" android:contentDescription="Next" />
     </LinearLayout>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

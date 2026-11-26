@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The DJ widget: tap it and the DJ starts (or, on, a new set: Switch it up), without opening the app; under it the
      DJ's own switch, Only my songs or New songs too. Its background is the playing song's cover colour (DjWidget). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wd_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp" android:gravity="center"
-    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wd_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <!-- The rounded background, in the playing song's cover colour (HomeWidgets.paint) -->
+    <ImageView android:id="@+id/w_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_bg" android:scaleType="fitXY" android:tint="#D92B2B3C" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:gravity="center">
 
     <LinearLayout android:id="@+id/wd_main" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
         android:orientation="horizontal" android:gravity="center_vertical">
@@ -31,4 +34,5 @@
             android:textSize="12sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="2"
             android:background="@drawable/w_chip_on" android:text="New songs too" />
     </LinearLayout>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

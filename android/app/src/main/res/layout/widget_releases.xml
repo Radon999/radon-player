@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- New releases: the newest the app found from your artists (its own daily look, or Refresh… on its screen). A tap on
      one plays it without opening the app; the head opens New releases in the app (ReleasesWidget). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wr_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp"
-    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wr_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <!-- The rounded background, in the playing song's cover colour (HomeWidgets.paint) -->
+    <ImageView android:id="@+id/w_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_bg" android:scaleType="fitXY" android:tint="#D92B2B3C" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp">
 
     <LinearLayout android:id="@+id/wr_head" android:layout_width="match_parent" android:layout_height="32dp"
         android:orientation="horizontal" android:gravity="center_vertical">
@@ -24,4 +27,5 @@
             android:gravity="center" android:padding="8dp" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.75"
             android:text="No new releases from your artists yet" />
     </FrameLayout>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

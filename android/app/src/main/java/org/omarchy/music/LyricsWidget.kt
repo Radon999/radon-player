@@ -43,7 +43,13 @@ class LyricsWidget : AppWidgetProvider() {
                 val at = intent.getDoubleExtra("at", -1.0)
                 if (at >= 0 && (Music.player != null || Remote.active)) { Music.seek(at); tick(ctx) }
             }
-            MODE -> { Music.init(ctx); Music.setLyricsMode(if (mode() == "synced") "genius" else "synced"); draw(ctx, rows = true) }
+            MODE -> {
+                Music.init(ctx)
+                // (nothing loaded yet, as after Android closed the app: the mode as chosen, and the lyrics fetched)
+                val cur = mode().ifEmpty { Music.lyricsMode }
+                Music.setLyricsMode(if (cur == "synced") "genius" else "synced")
+                if (Music.shownTrack()?.id != forId || got == null) { forId = null; update(ctx) } else draw(ctx, rows = true)
+            }
         }
     }
 
@@ -57,7 +63,7 @@ class LyricsWidget : AppWidgetProvider() {
 
         // ---- what decides whether the line is followed (Compose state, so [follow] waits on it) ----
         var present by mutableStateOf(false)    // a Lyrics widget on the home screen
-        private val screenOn get() = HomeWidgets.screenOn   // the screen on
+        private val screenOn get() = HomeWidgets.unlocked   // the screen on and the phone unlocked
         private val appShown get() = HomeWidgets.appShown   // the app in front (its own Lyrics tab then)
         private var synced by mutableStateOf(false)   // timed lines showing, for the song playing
 
@@ -122,7 +128,7 @@ class LyricsWidget : AppWidgetProvider() {
             if (ids.isEmpty()) return
             val t = Music.shownTrack()
             val v = RemoteViews(ctx.packageName, R.layout.widget_lyrics)
-            HomeWidgets.paint(ctx, v, R.id.wy_root)
+            HomeWidgets.paint(ctx, v)
             v.setTextViewText(R.id.wy_title, t?.title ?: "Nothing playing")
             v.setTextViewText(R.id.wy_artist, t?.artist?.takeIf { it.isNotEmpty() } ?: "Lyrics")
             val bmp = if (t != null && !Remote.active) HomeWidgets.coverOf(ctx, t) else null
@@ -155,7 +161,7 @@ class LyricsWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.wy_msg, HomeWidgets.open(ctx, "lyrics", 7450))
             // The buttons: the first widget's previous, play and next; the card maker; the Lyrics tab
             v.setImageViewResource(R.id.wy_play, if (!playing() || t == null) R.drawable.w_play else R.drawable.w_pause)
-            v.setOnClickPendingIntent(R.id.wy_play, if (Music.player == null && !Remote.active) HomeWidgets.open(ctx, "lyrics", 7450) else PlayerWidget.pi(ctx, PlayerWidget.PLAY, 1))
+            v.setOnClickPendingIntent(R.id.wy_play, PlayerWidget.pi(ctx, PlayerWidget.PLAY, 1))   // (nothing loaded: it starts the music)
             v.setOnClickPendingIntent(R.id.wy_prev, PlayerWidget.pi(ctx, PlayerWidget.PREV, 2))
             v.setOnClickPendingIntent(R.id.wy_next, PlayerWidget.pi(ctx, PlayerWidget.NEXT, 3))
             v.setOnClickPendingIntent(R.id.wy_card, HomeWidgets.open(ctx, "card", 7452))
@@ -174,7 +180,9 @@ class LyricsWidget : AppWidgetProvider() {
             for ((slot, id) in SLOTS.withIndex()) {
                 val i = shown.first + slot
                 val line = lines.getOrNull(i)?.takeIf { i in shown }
-                if (line == null) { v.setTextViewText(id, ""); continue }
+                // An empty slot (under the last line): blank, and no tap left on it from a line it held before
+                if (line == null) { v.setTextViewText(id, ""); v.setViewVisibility(id, View.INVISIBLE); continue }
+                v.setViewVisibility(id, View.VISIBLE)
                 val words = line.second.ifEmpty { "♪" }
                 v.setTextViewText(id, if (i == cur) SpannableString(words).apply {
                     setSpan(StyleSpan(android.graphics.Typeface.BOLD), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)

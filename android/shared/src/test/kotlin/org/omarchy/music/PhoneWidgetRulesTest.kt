@@ -65,6 +65,12 @@ class PhoneWidgetRulesTest {
         assertEquals("switch", R.djTap(on = true, paused = false))
     }
 
+    @Test fun onlyWholeRowsAreShown() {
+        assertEquals("120 dp, 60 of head: two rows of 28, not a third cut in half", 2, R.rowsThatFit(120, 60, 28, 5))
+        assertEquals("tall: never more than there are", 5, R.rowsThatFit(400, 60, 28, 5))
+        assertEquals("smaller than its head: none", 0, R.rowsThatFit(50, 60, 28, 5))
+    }
+
     @Test fun newReleasesAreListedOnceNewestFirst() {
         // (key, date): the app's daily look and the screen's Refresh… can both have found the same one
         val told = listOf("a" to "2026-11-20", "b" to "2026-10-02")

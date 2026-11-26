@@ -374,20 +374,13 @@ class MusicService : MediaLibraryService() {
         Music.scope.launch {
             snapshotFlow { listOf(Music.repeat, Music.current()?.id, Music.musicVersion, Music.savedVersion, Music.downloads.size, Prefs.on(Prefs.NOTIF_SHUFFLE, true)) }.collect { runCatching { s.setCustomLayout(Car.buttons()) } }
         }
-        // The home screen widget: the song, playing or paused, the queue.
-        Music.scope.launch {
-            snapshotFlow { listOf(Music.current()?.id, Music.paused, Music.repeat, Music.index, Music.queue.size) }.collect {
-                kotlinx.coroutines.delay(150)
-                runCatching { PlayerWidget.update(this@MusicService) }
-            }
-        }
         Music.player = ExoEngine(exo, this, Music.eqProcessor)
         // Keep playing (Settings › Playback): the sound held by the app, not the player; set again when it's switched
         keep.apply()
         Music.scope.launch { snapshotFlow { Prefs.on(Prefs.KEEP_PLAYING, true) }.collect { keep.apply() } }
         Music.playerReady()
         LockScreen.register(this)
-        HomeWidgets.follow(this)   // the other home screen widgets: the song, the DJ, your playlists, the Lyrics widget's line
+        HomeWidgets.follow(this)   // the home screen widgets: the song, the queue, the DJ, your playlists, the Lyrics widget's line
     }
 
     /** Cast: a Chromecast, Google speaker or TV picked (Now playing's Cast button) takes over from where the phone was;
@@ -573,6 +566,8 @@ class MusicService : MediaLibraryService() {
         HomeWidgets.stop(this)
         LockScreen.unregister(this)
         Music.player = null
+        // The widgets drawn again without the player (their Play then starts the music again: see PlayerWidget)
+        runCatching { HomeWidgets.updateAll(this) }
         UsbDirect.closeAll()   // the DAC back to Android
         switching?.cancel()
         players.forEach { it.release() }

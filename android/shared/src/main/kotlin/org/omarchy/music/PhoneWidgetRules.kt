@@ -66,6 +66,11 @@ object PhoneWidgetRules {
         else -> "switch"
     }
 
+    /** How many rows of rowDp fit in a widget heightDp tall once fixedDp (its head and edges) are taken, at most max:
+     *  a row that would be cut in half is left out. */
+    fun rowsThatFit(heightDp: Int, fixedDp: Int, rowDp: Int, max: Int): Int =
+        if (rowDp <= 0) max else ((heightDp - fixedDp) / rowDp).coerceIn(0, max)
+
     // ---- the New releases widget ----
 
     /** The newest n releases of all the app found (its own daily look's and the screen's Refresh…), each once (key: the
@@ -95,9 +100,14 @@ object PhoneWidgetRules {
     /** About 8 frames a second at most: smooth enough for bars on a home screen, and light. */
     const val VIZ_FRAME_MS = 120L
     const val VIZ_BARS = 24
+    /** The longest the bars move at a time (ms): Android can't tell an app whether the home screen itself is showing
+     *  (another app may be in front with the phone unlocked), so after this they rest until the screen, the music or the
+     *  song changes. */
+    const val VIZ_RUN_MS = 10 * 60_000L
 
-    /** The bars move only while all of these hold: a Visualizer widget on the home screen, the screen on, the app not
-     *  in front (its own visualizer then), and music playing. Otherwise nothing is captured or drawn at all. */
+    /** The bars move only while all of these hold: a Visualizer widget on the home screen, the screen on and the phone
+     *  unlocked (screenOn), the app not in front (its own visualizer then), and music playing. Otherwise nothing is
+     *  captured or drawn at all. */
     fun vizLive(present: Boolean, screenOn: Boolean, appShown: Boolean, playing: Boolean) = present && screenOn && !appShown && playing
 
     /** n bars from the spectrum's bands (Spectrum.bands: low to high, 0..1): each bar the loudest of its share of them. */

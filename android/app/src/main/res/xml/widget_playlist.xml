@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Sizes: the smallest it can be made still shows all of it (its buttons and writing never cut off). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="110dp" android:minHeight="110dp" android:targetCellWidth="2" android:targetCellHeight="2"
-    android:minResizeWidth="80dp" android:minResizeHeight="90dp" android:resizeMode="horizontal|vertical"
+    android:minWidth="140dp" android:minHeight="140dp" android:targetCellWidth="2" android:targetCellHeight="2"
+    android:minResizeWidth="140dp" android:minResizeHeight="140dp" android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_playlist" android:previewLayout="@layout/widget_playlist"
     android:widgetCategory="home_screen" android:description="@string/widget_playlist_description"
     android:configure="org.omarchy.music.PlaylistWidgetSetup" android:widgetFeatures="reconfigurable" />

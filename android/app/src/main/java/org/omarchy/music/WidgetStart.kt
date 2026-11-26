@@ -36,6 +36,8 @@ object WidgetStart {
     private const val CHANNEL = "widget-start"
     private const val ID = 7302         // (the lock screen player's is 7301)
     private const val OFFER_ID = 7303
+    /** The first widget's Play, Next, Previous and queue taps with nothing loaded (PlayerWidget; "at:<place>"). */
+    private val QUEUE_KINDS = setOf("resume", "next", "prev", "at")
 
     /** Since when music asked for by a widget is awaited (elapsed ms; 0: none is). */
     @Volatile private var since = 0L
@@ -122,6 +124,7 @@ object WidgetStart {
         val list = PhoneWidgetRules.playlistOf(what)?.first?.let { Music.lists.get(it) }
         val (title, text) = when {
             what == "dj" -> "The DJ couldn't start" to "Tap to open Radon Player and see why"
+            kind in QUEUE_KINDS -> "Couldn't start the music" to "Tap to open Radon Player and see why"
             kind == "release" -> (if (release == null) "That release isn't in New releases any more" else "Couldn't find “${release.title}” to play") to
                 "Tap to open it in Radon Player"
             list == null -> "That playlist was deleted" to "Tap the widget and pick another"
@@ -164,6 +167,18 @@ object WidgetStart {
             }
         }
         val (kind, rest) = PhoneWidgetRules.split(what)
+        // The first widget's buttons with nothing loaded (PlayerWidget): the queue as it was kept, played from here
+        if (kind in QUEUE_KINDS) {
+            if (Music.current() == null) return false
+            when (kind) {
+                "resume" -> Music.sessionPlay()
+                "next" -> Music.next()
+                // (in a song's first seconds, the song before; later, its start: played from there either way)
+                "prev" -> { val was = Music.index; Music.previous(); if (Music.index == was) Music.sessionPlay() }
+                "at" -> Music.playIndex(rest.toIntOrNull() ?: return false)
+            }
+            return true
+        }
         if (kind == "release") {
             // A new release: found on Tidal or YouTube Music as its page in the app is (those come up as the app starts:
             // a few seconds are given when it was closed), and played from its first song
@@ -187,6 +202,7 @@ object WidgetStart {
     /** What's being started, as a notification names it: the DJ, “a playlist”, “a release”. */
     private fun named(what: String): String {
         if (what == "dj") return "the DJ"
+        if (PhoneWidgetRules.split(what).first in QUEUE_KINDS) return "the music"
         val (kind, rest) = PhoneWidgetRules.split(what)
         if (kind == "release") return ReleasesWidget.find(rest)?.let { "“${it.title}”" } ?: "the release"
         return PhoneWidgetRules.playlistOf(what)?.first?.let { Music.lists.get(it) }?.let { "“${it.name}”" } ?: "the music"

@@ -307,6 +307,7 @@ object Sync {
             if (err != null) { met = false; unanswered++; nextCheck = System.currentTimeMillis() + PowerRules.syncRetryMs(unanswered, AppVisible.on); return@bg }
             unanswered = 0
             if ((s["sent"].long ?: 0L) > 0) PlaylistSend.fetch()   // playlists the PC sent this phone (Send a playlist)
+            if ((s["copyWanted"].long ?: 0L) > 0) SongCopy.sendWanted()   // song files the PC asked for (Other device's songs)
             val pcAt = s["playlistsAt"].long ?: 0L
             if (s["wanted"].bool == true) { justPaired = false; now(fromPc = true) }
             // Just paired: the playlists as they are on both now are where Auto playlist sync starts from, so only a

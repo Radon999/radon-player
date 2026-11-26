@@ -63,18 +63,20 @@ class ListsWidget : AppWidgetProvider() {
             val ids = HomeWidgets.ids(ctx, ListsWidget::class.java)
             if (ids.isEmpty()) return
             Music.init(ctx)
-            val t = Music.current()
+            val t = Music.shownTrack()   // (the PC's, while this phone is its remote: the buttons work the PC then)
+            val paused = if (Remote.active) Remote.status.paused else Music.paused
+            val repeat = if (Remote.active) Remote.status.repeat else Music.repeat
             val v = RemoteViews(ctx.packageName, R.layout.widget_lists)
-            HomeWidgets.paint(ctx, v, R.id.wls_root)
+            HomeWidgets.paint(ctx, v)
             v.setTextViewText(R.id.wls_title, t?.title ?: "Nothing playing")
             v.setTextViewText(R.id.wls_artist, t?.let { listOf(it.artist, it.album).filter { s -> s.isNotEmpty() }.joinToString(" — ") } ?: "Radon Player")
             val bmp = HomeWidgets.coverOf(ctx, t)
             if (bmp != null) v.setImageViewBitmap(R.id.wls_cover, bmp) else v.setImageViewResource(R.id.wls_cover, R.drawable.ic_launcher)
-            v.setImageViewResource(R.id.wls_play, if (Music.paused || t == null) R.drawable.w_play else R.drawable.w_pause)
-            v.setImageViewResource(R.id.wls_repeat, when (Music.repeat) { "one" -> R.drawable.car_repeat_one; "all" -> R.drawable.car_repeat; else -> R.drawable.car_repeat_off })
-            val app = HomeWidgets.open(ctx, null, 7410)
-            // The same buttons as the first widget's (PlayerWidget); Play with the music not loaded opens the app, as there
-            v.setOnClickPendingIntent(R.id.wls_play, if (Music.player == null) app else PlayerWidget.pi(ctx, PlayerWidget.PLAY, 1))
+            v.setImageViewResource(R.id.wls_play, if (paused || t == null) R.drawable.w_play else R.drawable.w_pause)
+            v.setImageViewResource(R.id.wls_repeat, when (repeat) { "one" -> R.drawable.car_repeat_one; "all" -> R.drawable.car_repeat; else -> R.drawable.car_repeat_off })
+            val app = HomeWidgets.open(ctx, "player", 7410)
+            // The same buttons as the first widget's (PlayerWidget: with the music not loaded, Play starts it from here)
+            v.setOnClickPendingIntent(R.id.wls_play, PlayerWidget.pi(ctx, PlayerWidget.PLAY, 1))
             v.setOnClickPendingIntent(R.id.wls_prev, PlayerWidget.pi(ctx, PlayerWidget.PREV, 2))
             v.setOnClickPendingIntent(R.id.wls_next, PlayerWidget.pi(ctx, PlayerWidget.NEXT, 3))
             v.setOnClickPendingIntent(R.id.wls_shuffle, PlayerWidget.pi(ctx, PlayerWidget.SHUFFLE, 4))

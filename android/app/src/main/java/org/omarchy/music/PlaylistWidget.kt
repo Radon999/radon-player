@@ -117,7 +117,7 @@ class PlaylistWidget : AppWidgetProvider() {
 
         private fun views(ctx: Context, id: Int): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_playlist)
-            HomeWidgets.paint(ctx, v, R.id.wpl_root)
+            HomeWidgets.paint(ctx, v)
             val listId = Prefs.text(listKey(id))
             val pl = listId.takeIf { it.isNotEmpty() }?.let { Music.lists.get(it) }
             val shuffled = Prefs.on(shuffleKey(id))

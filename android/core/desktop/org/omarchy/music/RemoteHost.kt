@@ -124,7 +124,7 @@ object RemoteHost {
     /** On the screen's thread, waiting for the answer. */
     private fun <T> onUi(run: () -> T): T = runBlocking { withContext(Dispatchers.Main) { run() } }
 
-    private fun handle(ex: HttpExchange) {
+    internal fun handle(ex: HttpExchange) {
         val path = ex.requestURI.path
         val q = (ex.requestURI.rawQuery ?: "").split('&').filter { '=' in it }
             .associate { java.net.URLDecoder.decode(it.substringBefore('='), "UTF-8") to java.net.URLDecoder.decode(it.substringAfter('='), "UTF-8") }
@@ -138,8 +138,14 @@ object RemoteHost {
                 // switch is on (it counts on either device), and when its playlists last changed
                 "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()); put("playlistsOnly", true)
                     put("autoPlaylists", Prefs.on(SyncPlaylists.AUTO_SYNC)); put("playlistsAt", Sync.playlistsAt())
-                    put("sent", PlaylistSend.waiting()) })   // (and playlists sent from here that wait for the phone)
+                    put("sent", PlaylistSend.waiting())   // (and playlists sent from here that wait for the phone)
+                    put("copyWanted", SongCopy.wantedCount()) })   // (and song files asked of the phone: Other device's songs)
                 "/playlist/outbox" -> answer(ex, 200, PlaylistSend.handOver())
+                // Other device's songs: one of this PC's song files for the phone (only those), how much of a file the
+                // phone is sending has come, and the files asked of the phone
+                "/song-file" -> SongFiles.serve(ex, q["path"])
+                "/song-file/part" -> SongFiles.partState(ex, q)
+                "/song-file/wanted" -> answer(ex, 200, SongCopy.wantedText())
                 // The visualizer's levels for the phone's (its remote): the spectrum runs while the phone asks
                 "/levels" -> { holdSpectrum(); answer(ex, 200, kotlinx.serialization.json.JsonArray(
                     PcSpectrum.levels.map { kotlinx.serialization.json.JsonPrimitive((it * 1000).toInt() / 1000f) })) }
@@ -147,6 +153,11 @@ object RemoteHost {
             }
         }
         if (path == "/sync") return sync(ex)
+        // Other device's songs: a song file from the phone, streamed in (never read into memory)
+        if (path == "/song-file" && ex.requestMethod == "PUT") {
+            val tok = tokenOf(ex) ?: return answer(ex, 401, err("pair this phone first"))
+            return SongFiles.receive(ex, q, phones[tok] ?: "your phone")
+        }
         val raw = ex.requestBody.use { it.readNBytes(8_000_000) }
         val body = runCatching { JSON.parseToJsonElement(String(raw).ifBlank { "{}" }) as JsonObject }.getOrElse {
             return answer(ex, 400, err("that isn't JSON"))
@@ -160,6 +171,7 @@ object RemoteHost {
         if (path == "/playlist/send") return runCatching { PlaylistSend.received(body) }.fold(
             { answer(ex, 200, it) }, { answer(ex, 400, err(it.message ?: "error")) })
         if (path == "/playlist/taken") { PlaylistSend.told(body); return answer(ex, 200, buildJsonObject { put("ok", true) }) }
+        if (path == "/song-file/drop") { SongFiles.dropped(body); return answer(ex, 200, buildJsonObject { put("ok", true) }) }
         if (path == "/cmd") {
             val phoneAddr = ex.remoteAddress.address.hostAddress
             return runCatching { onUi { command(body, phoneAddr) } }.fold(

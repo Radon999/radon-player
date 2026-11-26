@@ -8,10 +8,14 @@ import android.widget.RemoteViews
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Most played: a tap brings you straight to Most played in the app (the stats). On it, your five most played songs over
- *  the period Most played shows (This week, This month, This year or All time, chosen there). */
+/** Most played: a tap brings you straight to Most played in the app (the stats). On it, your most played songs (as many
+ *  of the top five as fit) over the period Most played shows (This week, This month, This year or All time, chosen
+ *  there). It never wakes the phone by itself: it's made again when your plays or the period change, and when you
+ *  come back to the home screen after half an hour. */
 class TopWidget : AppWidgetProvider() {
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) = refresh(ctx)
+
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, options: android.os.Bundle) = update(ctx)
 
     companion object {
         private val ROWS = intArrayOf(R.id.wt_r0, R.id.wt_r1, R.id.wt_r2, R.id.wt_r3, R.id.wt_r4)
@@ -49,12 +53,27 @@ class TopWidget : AppWidgetProvider() {
             val now = System.currentTimeMillis()
             // Not made yet, made for another period, or half an hour old: made again (and shown once it's in)
             if ((made == null || made.first != Music.topPeriod || now - madeAt > 30 * 60_000L) && now - askedAt > 5_000L) refresh(ctx)
+            val mgr = AppWidgetManager.getInstance(ctx)
+            for (id in ids) runCatching { mgr.updateAppWidget(id, views(ctx, made, rowsFor(ctx, mgr, id))) }
+        }
+
+        /** How many song rows fit in the widget as it's sized (the head and the edges take the rest; larger text, taller
+         *  rows): never one cut in half. */
+        private fun rowsFor(ctx: Context, mgr: AppWidgetManager, id: Int): Int {
+            val o = mgr.getAppWidgetOptions(id)
+            val portrait = ctx.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+            val h = o.getInt(if (portrait) AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            if (h <= 0) return ROWS.size
+            return PhoneWidgetRules.rowsThatFit(h, 24 + 36, (28 * ctx.resources.configuration.fontScale).toInt(), ROWS.size)
+        }
+
+        private fun views(ctx: Context, made: Pair<String, List<Track>>?, rows: Int): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_top)
-            HomeWidgets.paint(ctx, v, R.id.wt_root)
+            HomeWidgets.paint(ctx, v)
             v.setTextViewText(R.id.wt_period, PERIODS[made?.first ?: Music.topPeriod] ?: "")
             val songs = made?.second.orEmpty()
             for (i in ROWS.indices) {
-                val t = songs.getOrNull(i)
+                val t = songs.getOrNull(i)?.takeIf { i < rows }
                 v.setViewVisibility(ROWS[i], if (t != null) View.VISIBLE else View.GONE)
                 if (t == null) continue
                 v.setTextViewText(TITLES[i], "${i + 1}.  ${t.title}" + if (t.artist.isNotEmpty()) " — ${t.artist}" else "")
@@ -62,7 +81,7 @@ class TopWidget : AppWidgetProvider() {
             }
             v.setViewVisibility(R.id.wt_empty, if (made != null && songs.isEmpty()) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.wt_root, HomeWidgets.open(ctx, "top", 7430))
-            runCatching { AppWidgetManager.getInstance(ctx).updateAppWidget(ids, v) }
+            return v
         }
     }
 }
@@ -78,7 +97,7 @@ class WrappedWidget : AppWidgetProvider() {
             if (ids.isEmpty()) return
             Music.init(ctx)
             val v = RemoteViews(ctx.packageName, R.layout.widget_wrapped)
-            HomeWidgets.paint(ctx, v, R.id.ww_root)
+            HomeWidgets.paint(ctx, v)
             v.setOnClickPendingIntent(R.id.ww_main, HomeWidgets.open(ctx, "wrapped", 7440))
             val buttons = mapOf("week" to R.id.ww_week, "month" to R.id.ww_month, "all" to R.id.ww_all)
             PhoneWidgetRules.WRAPPED.forEachIndexed { i, (key, name) ->

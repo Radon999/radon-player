@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Pinned: everything you pinned (playlists, albums, artists, genres, folders…); a tap opens it in the app (PinnedWidget). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wp_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp"
-    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wp_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <!-- The rounded background, in the playing song's cover colour (HomeWidgets.paint) -->
+    <ImageView android:id="@+id/w_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_bg" android:scaleType="fitXY" android:tint="#D92B2B3C" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp">
 
     <LinearLayout android:id="@+id/wp_head" android:layout_width="match_parent" android:layout_height="32dp"
         android:orientation="horizontal" android:gravity="center_vertical">
@@ -23,4 +26,5 @@
             android:gravity="center" android:padding="8dp" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.75"
             android:text="Nothing pinned yet. In the app, long-press a playlist, album, artist, genre or folder and pick Pin." />
     </FrameLayout>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

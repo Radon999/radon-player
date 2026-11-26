@@ -56,6 +56,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import org.omarchy.music.DesktopWidgetRules
 import org.omarchy.music.Instance
 import org.omarchy.music.Lyrics
@@ -66,15 +69,24 @@ import org.omarchy.music.Track
 import kotlin.math.roundToInt
 
 /** The PC's widgets: small windows of the app's own on the desktop (Windows and Linux have no widget board the app can
- *  join), each like a widget on the phone: the cover's colour, a little see-through, rounded, white text. Each one is
- *  opened and closed from the tray's Widgets or Settings › General, moved by dragging its body, sized by its corner,
- *  and kept (open or not, where, how big, above other windows or not) across restarts. What a widget does in the main
- *  window goes through the same commands a second launch sends ([Instance]). */
+ *  join), each like a widget on the phone: the cover's colour, white text; on Windows (and macOS) a little see-through
+ *  with rounded corners. On Linux the window is plain (a see-through window there was never shown on the screen by
+ *  Hyprland with the graphics card drawing it, and the app stalled waiting on it), and the desktop rounds its corners
+ *  if it does that. Each one is opened and closed from the tray's Widgets or Settings › General, moved by dragging its
+ *  body, sized by its corner, and kept (open or not, where, how big, above other windows or not) across restarts. On
+ *  Hyprland, which places new windows itself, it's put back where it was through hyprctl ([org.omarchy.music.Hyprland]).
+ *  What a widget does in the main window goes through the same commands a second launch sends ([Instance]). */
 object DesktopWidgets {
     private const val PREF = "pc_widget."   // pc_: kept on this PC, never synced to the phone
+    private const val TOP_OFF = "pc_widget_top_off"   // Always on top switched off once for all (it was on by itself)
     private val places by lazy {
+        val firstTime = !Prefs.on(TOP_OFF)
         mutableStateMapOf<String, DesktopWidgetRules.Place>().apply {
-            for ((k, _) in DesktopWidgetRules.KINDS) put(k, DesktopWidgetRules.decode(k, Prefs.text(PREF + k)))
+            for ((k, _) in DesktopWidgetRules.KINDS) {
+                val p = DesktopWidgetRules.decode(k, Prefs.text(PREF + k))
+                put(k, if (firstTime && p.onTop) p.copy(onTop = false).also { Prefs.setText(PREF + k, DesktopWidgetRules.encode(it)) } else p)
+            }
+            if (firstTime) Prefs.set(TOP_OFF, true)
         }
     }
 
@@ -86,78 +98,108 @@ object DesktopWidgets {
     fun isOpen(kind: String) = place(kind).open
     fun open(kind: String, on: Boolean) = save(kind, place(kind).copy(open = on))
     val anyOpen: Boolean get() = DesktopWidgetRules.KINDS.any { isOpen(it.first) }
+
+    /** The cover playing's main colour (null: none), worked out once a song for every widget (the host keeps it). */
+    var coverRgb by mutableStateOf<Int?>(null)
+        internal set
 }
 
-/** The open widgets, each its own window. In the app's own composition (desktop Main), beside the main window. */
+/** Windows and macOS draw a see-through window; Linux gets a plain one (see [DesktopWidgets]). */
+private val seeThrough = System.getProperty("os.name").lowercase().let { "win" in it || "mac" in it }
+
+/** The open widgets, each its own window. In the app's own composition (desktop Main), beside the main window. The
+ *  cover's colour is worked out here, once a song, for all of them. */
 @Composable
 fun DesktopWidgetWindows(icon: Painter) {
     if (!DesktopWidgets.anyOpen) return
-    val bg = widgetBackdrop()
+    val t = Music.current()
+    LaunchedEffect(t?.id) { DesktopWidgets.coverRgb = t?.let { runCatching { Tint.rgbOf(artModel(it, 200)) }.getOrNull() } }
+    val bg = backdropOf(DesktopWidgets.coverRgb).let { if (seeThrough) it else it.copy(alpha = 1f) }
     DesktopWidgetRules.KINDS.forEachIndexed { i, (kind, name) ->
         if (DesktopWidgets.isOpen(kind)) key(kind) { WidgetWindow(kind, name, i, icon, bg) }
     }
 }
 
-/** Where a widget goes the first time: down the right of the screen, each a little below and left of the one before. */
-private fun firstPlace(i: Int, w: Int): WindowPosition = runCatching {
+/** Where a widget goes the first time: down the right of the screen, each a little below and left of the one before.
+ *  dpPerAwt: Java's units as dp (Linux: Java counts real pixels, the window's density scales them). */
+private fun firstPlace(i: Int, w: Int, dpPerAwt: Float): WindowPosition = runCatching {
     val b = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds
-    WindowPosition((b.x + b.width - w - 24 - i * 28).dp, (b.y + 24 + i * 36).dp)
+    WindowPosition(((b.x + b.width) * dpPerAwt - w - 24 - i * 28).dp, (b.y * dpPerAwt + 24 + i * 36).dp)
 }.getOrDefault(WindowPosition(Alignment.TopEnd))
 
 @Composable
 private fun WidgetWindow(kind: String, name: String, i: Int, icon: Painter, bg: Color) {
+    val hypr = org.omarchy.music.Hyprland.on
     val start = remember { DesktopWidgets.place(kind) }
-    val x = start.x; val y = start.y
+    // A place kept elsewhere than here (Hyprland's own, or Java's) isn't used: it opens at its first place
+    val x = start.x?.takeIf { start.hypr == hypr }; val y = start.y?.takeIf { start.hypr == hypr }
     val state = rememberWindowState(
-        position = if (x != null && y != null) WindowPosition(x.dp, y.dp) else firstPlace(i, start.w),
+        position = if (x != null && y != null && !hypr) WindowPosition(x.dp, y.dp) else WindowPosition(Alignment.TopEnd),
         size = DpSize(start.w.dp, start.h.dp))
-    Window(onCloseRequest = { DesktopWidgets.open(kind, false) }, state = state, title = "Radon Player · $name", icon = icon,
-        undecorated = true, transparent = true, resizable = true, alwaysOnTop = DesktopWidgets.place(kind).onTop) {
-        // Kept where it's put and as big as it's made, half a second after it stops moving
-        LaunchedEffect(state.position, state.size) {
-            delay(500)
-            val pos = state.position
-            val p = DesktopWidgets.place(kind)
-            DesktopWidgets.save(kind, p.copy(x = if (pos.isSpecified) pos.x.value.roundToInt() else p.x,
-                y = if (pos.isSpecified) pos.y.value.roundToInt() else p.y,
-                w = state.size.width.value.roundToInt(), h = state.size.height.value.roundToInt()))
+    val title = "Radon Player · $name"
+    val onTop = DesktopWidgets.place(kind).onTop
+    Window(onCloseRequest = { DesktopWidgets.open(kind, false) }, state = state, title = title, icon = icon,
+        undecorated = true, transparent = seeThrough, resizable = true, alwaysOnTop = onTop) {
+        // Hyprland: put where it was kept, at its size, once it's on the screen (nothing is kept before that: the size
+        // and place Hyprland gives a new window aren't the widget's)
+        var placed by remember { mutableStateOf(!hypr) }
+        var placedSize by remember { mutableStateOf<DpSize?>(null) }
+        // dp to the screen's real pixels: the window's own density (Java itself draws at 1 here and leaves the scaling to it)
+        val density = androidx.compose.ui.platform.LocalDensity.current.density.toDouble()
+        val dpPerAwt = ((window.graphicsConfiguration?.defaultTransform?.scaleX ?: 1.0) / density).toFloat()
+        // Elsewhere, the first time: down the right of the screen (worked out once the window's density is known)
+        if (!hypr && (x == null || y == null)) LaunchedEffect(Unit) { state.position = firstPlace(i, start.w, dpPerAwt) }
+        if (hypr) LaunchedEffect(Unit) {
+            val scale = density
+            withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.place(title, x, y, start.w, start.h, i, scale, onTop) }
+            delay(400)
+            placedSize = state.size; placed = true
         }
-        // Its corner sizes it: by where the mouse is on the screen (the corner moves with the window as it grows)
+        if (hypr) LaunchedEffect(onTop, placed) { if (placed) withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.pin(title, onTop) } }
+        // Kept where it's put and as big as it's made, half a second after it stops moving
+        LaunchedEffect(state.position, state.size, placed) {
+            if (!placed) return@LaunchedEffect
+            delay(500)
+            val p = DesktopWidgets.place(kind)
+            // (a size within a dp or two of the one asked for is the one asked for: Hyprland counts in its own pixels)
+            val asked = placedSize
+            val same = asked != null && kotlin.math.abs((state.size.width - asked.width).value) <= 2 && kotlin.math.abs((state.size.height - asked.height).value) <= 2
+            val w = if (same) p.w else state.size.width.value.roundToInt()
+            val h = if (same) p.h else state.size.height.value.roundToInt()
+            if (hypr) {
+                val at = withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.where(title) }
+                DesktopWidgets.save(kind, DesktopWidgets.place(kind).copy(x = at?.first ?: p.x, y = at?.second ?: p.y, w = w, h = h, hypr = true))
+            } else {
+                val pos = state.position
+                DesktopWidgets.save(kind, p.copy(x = if (pos.isSpecified) pos.x.value.roundToInt() else p.x,
+                    y = if (pos.isSpecified) pos.y.value.roundToInt() else p.y, w = w, h = h, hypr = false))
+            }
+        }
+        // Its corner sizes it: by where the mouse is on the screen (the corner moves with the window as it grows), the
+        // mouse's moves in Java's units made dp (dpPerAwt: on Linux Java counts real pixels, twice the dp at a scale of 2)
         val grip = Modifier.pointerInput(Unit) {
             var from: java.awt.Point? = null
             var size0 = state.size
             var moved = Offset.Zero
             detectDragGestures(onDragStart = { from = java.awt.MouseInfo.getPointerInfo()?.location; size0 = state.size; moved = Offset.Zero }) { change, drag ->
                 change.consume()
-                moved += drag / density
+                moved += drag / this.density
                 val now = java.awt.MouseInfo.getPointerInfo()?.location
                 val f = from
-                val dx = if (now != null && f != null) (now.x - f.x).toFloat() else moved.x
-                val dy = if (now != null && f != null) (now.y - f.y).toFloat() else moved.y
+                val dx = if (now != null && f != null) (now.x - f.x) * dpPerAwt else moved.x
+                val dy = if (now != null && f != null) (now.y - f.y) * dpPerAwt else moved.y
                 state.size = DpSize((size0.width + dx.dp).coerceAtLeast(DesktopWidgetRules.MIN_W.dp),
                     (size0.height + dy.dp).coerceAtLeast(DesktopWidgetRules.MIN_H.dp))
             }
         }
         UiSized { OmarchyTheme {
-            WidgetCard(kind, bg, drag = { content -> WindowDraggableArea(Modifier.fillMaxSize()) { content() } }, grip = grip)
+            WidgetCard(kind, bg, rounded = seeThrough, drag = { content -> WindowDraggableArea(Modifier.fillMaxSize()) { content() } }, grip = grip)
         } }
     }
 }
 
 /** The widgets' background: the cover's main colour, deep enough for white text, a little see-through (the phone's
- *  widget's). Dark grey while nothing plays. */
-@Composable
-fun widgetBackdrop(): Color = backdropOf(coverRgb())
-
-/** The main colour of the cover playing (null: nothing playing, or no cover yet). */
-@Composable
-private fun coverRgb(): Int? {
-    val t = Music.current()
-    var rgb by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(t?.id) { rgb = t?.let { runCatching { Tint.rgbOf(artModel(it, 200)) }.getOrNull() } }
-    return rgb
-}
-
+ *  widget's; opaque where the window can't be see-through). Dark grey while nothing plays. */
 fun backdropOf(rgb: Int?): Color {
     val hsl = FloatArray(3)
     Rgb.toHsl(rgb ?: Rgb.rgb(40, 40, 46), hsl)
@@ -170,12 +212,12 @@ private val wTitle: TextStyle @Composable get() = T.body.copy(color = W, fontSiz
 private val wSub: TextStyle @Composable get() = T.sub.copy(color = W.copy(alpha = 0.8f))
 private val wSection: TextStyle @Composable get() = T.section.copy(color = W.copy(alpha = 0.75f))
 
-/** One widget as it's drawn: its body on the backdrop, ⚙ (its options) and ✕ at the top right, the sizing corner at the
- *  bottom right. drag: what makes the body move the window (nothing in a picture of it). */
+/** One widget as it's drawn: its body on the backdrop (rounded, or filling the window), ⚙ (its options) and ✕ at the
+ *  top right, the sizing corner at the bottom right. drag: what makes the body move the window (nothing in a picture). */
 @Composable
-fun WidgetCard(kind: String, bg: Color, drag: @Composable (@Composable () -> Unit) -> Unit = { it() }, grip: Modifier = Modifier) {
+fun WidgetCard(kind: String, bg: Color, rounded: Boolean = true, drag: @Composable (@Composable () -> Unit) -> Unit = { it() }, grip: Modifier = Modifier) {
     var options by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(bg)) {
+    Box(Modifier.fillMaxSize().then(if (rounded) Modifier.clip(RoundedCornerShape(16.dp)) else Modifier).background(bg)) {
         drag {
             Column(Modifier.fillMaxSize().padding(12.dp)) {
                 if (options) WidgetOptions(kind) { options = false } else when (kind) {
@@ -189,6 +231,7 @@ fun WidgetCard(kind: String, bg: Color, drag: @Composable (@Composable () -> Uni
                     "lyrics" -> LyricsWidget()
                     "releases" -> ReleasesWidget()
                     "visualizer" -> VisualizerWidget()
+                    "shortcuts" -> ShortcutsWidget()
                 }
             }
         }
@@ -251,7 +294,8 @@ private fun WRow(art: Any?, title: String, sub: String, lead: String = "", onCli
 private fun NowPlayingTop() {
     val t = Music.current()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.clickable { Instance.act(listOf("show", "now")) }) { ArtImage(t?.let { artModel(it, 200) }, 56.dp) }
+        val art = remember(t?.id) { t?.let { artModel(it, 200) } }   // worked out once a song (artModel looks at files)
+        Box(Modifier.clickable { Instance.act(listOf("show", "now")) }) { ArtImage(art, 56.dp) }
         Column(Modifier.weight(1f).padding(start = 10.dp, end = 52.dp)) {
             Text(t?.title ?: "Nothing playing", style = wTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(t?.let { listOf(it.artist, it.album).filter { s -> s.isNotEmpty() }.joinToString(" — ") } ?: "Radon Player",
@@ -274,6 +318,16 @@ private fun songCount(n: Int) = "%,d song%s".format(n, if (n != 1) "s" else "")
 @Composable
 private fun yourPlaylists(): List<Playlist> = remember(Music.musicVersion, org.omarchy.music.SmartLists.version) { Music.lists.all() + Music.lists.smart() }
 
+/** A song's cover, worked out once (artModel looks at files on the disk: not on every redraw). */
+@Composable
+private fun songArt(t: Track): Any? = remember(t.id, Music.musicVersion) { artModel(t) }
+
+/** A playlist's cover and its number of songs, worked out once for each change of the playlist. */
+@Composable
+private fun listLook(p: Playlist): Pair<Any?, String> = remember(p.id, p.updated, Music.musicVersion, org.omarchy.music.SmartLists.version) {
+    playlistArt(p) to songCount(playlistSongs(p).size)
+}
+
 // ---- the widgets ----
 
 /** (1) Now playing and the queue: a song in it plays from there. */
@@ -284,7 +338,7 @@ private fun ColumnScope.NowAndQueue() {
     WHeader("Up next")
     if (upNext.isEmpty()) Text("Nothing queued after this song", style = wSub)
     LazyColumn(Modifier.weight(1f)) {
-        items(upNext, key = { it.index }) { (i, s) -> WRow(artModel(s), s.title, s.artist) { Music.playIndex(i) } }
+        items(upNext, key = { it.index }) { (i, s) -> WRow(songArt(s), s.title, s.artist) { Music.playIndex(i) } }
     }
 }
 
@@ -298,7 +352,8 @@ private fun ColumnScope.NowAndPlaylists() {
     LazyColumn(Modifier.weight(1f)) {
         items(lists, key = { it.id }) { p ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { WRow(playlistArt(p), p.name, songCount(playlistSongs(p).size)) { Music.playList(playlistSongs(p)) } }
+                val (art, count) = listLook(p)
+                Box(Modifier.weight(1f)) { WRow(art, p.name, count) { Music.playList(playlistSongs(p)) } }
                 IconButton(Ico.SHUFFLE, W.copy(alpha = 0.8f), 16.dp, 6.dp, desc = "Shuffle ${p.name}") { Music.playList(playlistSongs(p), shuffled = true) }
             }
         }
@@ -339,10 +394,11 @@ private fun ColumnScope.PlaylistWidget() {
     val p = lists.firstOrNull { it.id == place.choice }
     WHeader("Playlist shortcut")
     if (p == null) { PlaylistChoice(lists); return }
-    val songs = playlistSongs(p)
+    val songs = remember(p.id, p.updated, Music.musicVersion, org.omarchy.music.SmartLists.version) { playlistSongs(p) }
+    val (art, _) = listLook(p)
     fun play() { if (songs.isEmpty()) Music.toast("“${p.name}” has no songs") else Music.playList(songs, place.shuffled) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.clickable { play() }) { ArtImage(playlistArt(p), 64.dp) }
+        Box(Modifier.clickable { play() }) { ArtImage(art, 64.dp) }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(p.name, style = wTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(songCount(songs.size), style = wSub)
@@ -367,7 +423,8 @@ private fun ColumnScope.PlaylistChoice(lists: List<Playlist>, done: () -> Unit =
     Text("Choose the playlist:", style = wSub, modifier = Modifier.padding(bottom = 4.dp))
     LazyColumn(Modifier.weight(1f)) {
         items(lists, key = { it.id }) { p ->
-            WRow(playlistArt(p), (if (p.id == place.choice) "✓ " else "") + p.name, songCount(playlistSongs(p).size)) {
+            val (art, count) = listLook(p)
+            WRow(art, (if (p.id == place.choice) "✓ " else "") + p.name, count) {
                 DesktopWidgets.save("playlist", DesktopWidgets.place("playlist").copy(choice = p.id)); done()
             }
         }
@@ -407,7 +464,7 @@ private fun ColumnScope.TopWidget() {
         songs.isEmpty() -> Text("No plays yet for this time", style = wSub)
     }
     LazyColumn(Modifier.weight(1f)) {
-        itemsIndexed(songs.orEmpty()) { i, s -> WRow(artModel(s), s.title, s.artist, lead = "${i + 1}") { Music.playFrom(songs.orEmpty(), i, radio = false) } }
+        itemsIndexed(songs.orEmpty()) { i, s -> WRow(songArt(s), s.title, s.artist, lead = "${i + 1}") { Music.playFrom(songs.orEmpty(), i, radio = false) } }
     }
 }
 
@@ -507,7 +564,7 @@ private fun ColumnScope.VisualizerWidget() {
     val t = Music.current()
     val playing = t != null && !Music.paused
     val s = rememberVis(playing)
-    val rgb = coverRgb()
+    val rgb = DesktopWidgets.coverRgb
     val base = rgb?.let { androidx.compose.ui.graphics.lerp(Color(org.omarchy.music.CoverColourRules.shown(it)), W, 0.3f) } ?: W.copy(alpha = 0.9f)
     val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
@@ -526,6 +583,47 @@ private fun ColumnScope.VisualizerWidget() {
             IconButton(if (playing) Ico.PAUSE else Ico.PLAY, W, 22.dp, 6.dp) { Music.togglePause() }
             IconButton(Ico.NEXT, W, 20.dp, 6.dp) { Music.next() }
         }
+    }
+}
+
+/** (11) Shortcuts: the one-click shortcuts you made (Settings › General › Make desktop shortcuts…), as tiles with their
+ *  pictures and plain names, as many across as fit (it reflows as it's sized); a click does it. Where the desktop shows
+ *  no icons (Hyprland and the like), this is how they're on the screen. */
+@Composable
+private fun ColumnScope.ShortcutsWidget() {
+    val kept = Prefs.text(org.omarchy.music.Shortcuts.LIST)
+    val list = remember(kept) { org.omarchy.music.Shortcuts.made() }
+    WHeader("Shortcuts")
+    if (list.isEmpty()) {
+        Text("No shortcuts yet", style = wTitle)
+        Text("Make them in Settings › General: Make desktop shortcuts…, and they show here as buttons, one click each.",
+            style = wSub, modifier = Modifier.padding(top = 4.dp))
+        Spacer(Modifier.weight(1f))
+        Row { WPill("Make shortcuts…", strong = true) { Instance.inWindow { it.openSettings("General") } } }
+        return
+    }
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(androidx.compose.foundation.lazy.grid.GridCells.Adaptive(78.dp), Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(list.size, key = { list[it].key }) { i -> ShortcutTile(list[i]) }
+    }
+}
+
+/** One shortcut: its picture (drawn once and kept, see [ShortcutIcons]) and its name under it. */
+@Composable
+private fun ShortcutTile(s: DesktopWidgetRules.Shortcut) {
+    var img by remember(s.key) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(s.key) {
+        img = withContext(Dispatchers.IO) {
+            runCatching { ShortcutIcons.png(s)?.readBytes()?.let { org.jetbrains.skia.Image.makeFromEncoded(it).toComposeImageBitmap() } }.getOrNull()
+        }
+    }
+    Column(Modifier.clip(RoundedCornerShape(10.dp)).clickable { Instance.act(s.args) }.padding(vertical = 4.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            img?.let { androidx.compose.foundation.Image(it, s.name, Modifier.size(48.dp)) } ?: Icon(Ico.NOTE, W.copy(alpha = 0.6f), 24.dp)
+        }
+        Text(s.name, style = T.sub.copy(color = W, fontSize = 11.sp), maxLines = 2, overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 3.dp))
     }
 }
 

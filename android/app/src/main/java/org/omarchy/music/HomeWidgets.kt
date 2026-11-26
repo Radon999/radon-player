@@ -1,6 +1,7 @@
 package org.omarchy.music
 
 import org.omarchy.music.ui.artColor
+import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.app.Service
 import android.appwidget.AppWidgetManager
@@ -26,7 +27,8 @@ import kotlinx.coroutines.launch
 
 /** What the home screen widgets share: their look (the playing song's cover colour, a little see-through, rounded, with
  *  white writing: the first widget's), the taps that open the app at a place (see ui.AppLinks), and keeping them all up
- *  to date while the music's service runs (the song, the DJ, your playlists and pins, the Lyrics widget's line). */
+ *  to date while the music's service runs (the song, the queue, the DJ, your playlists and pins, the Lyrics widget's line,
+ *  the Visualizer's bars). */
 object HomeWidgets {
     /** MainActivity's extra: a place to open (ui.AppLinks says which). */
     const val OPEN = "org.omarchy.music.open"
@@ -36,33 +38,44 @@ object HomeWidgets {
     @Volatile private var cover: Pair<String, Bitmap?> = "" to null
     @Volatile private var colour: Int = Color.rgb(40, 40, 46)
 
-    /** The song's cover, or null while it loads (once a song; every widget is drawn again when it's in). Any thread. */
+    /** The song's cover (the PC's song's while this phone is its remote), or null while it loads (once a song; every
+     *  widget is drawn again when it's in). Any thread. */
     fun coverOf(ctx: Context, t: Track?): Bitmap? {
         val key = t?.id ?: ""
         if (cover.first != key) {   // the cover and its colour, once a song
             cover = key to null
-            if (t != null) Music.bg({
-                val res = kotlinx.coroutines.runBlocking { coil.Coil.imageLoader(ctx).execute(coil.request.ImageRequest.Builder(ctx)
-                    .data(org.omarchy.music.ui.artModel(t, 400)).size(400).allowHardware(false).build()) }
-                (res as? coil.request.SuccessResult)?.drawable?.toBitmap()
-            }) { bmp, _ ->
-                if (cover.first == key && bmp != null) {
-                    cover = key to bmp
-                    colour = runCatching { org.omarchy.music.ui.Tint.artColor(bmp) }.getOrDefault(colour)
-                    updateAll(ctx)
+            if (t != null) {
+                val model = if (Remote.active) Remote.artModel(t) else org.omarchy.music.ui.artModel(t, 400)
+                Music.bg({
+                    val res = kotlinx.coroutines.runBlocking { coil.Coil.imageLoader(ctx).execute(coil.request.ImageRequest.Builder(ctx)
+                        .data(model).size(400).allowHardware(false).build()) }
+                    (res as? coil.request.SuccessResult)?.drawable?.toBitmap()
+                }) { bmp, _ ->
+                    if (cover.first == key && bmp != null) {
+                        cover = key to bmp
+                        colour = runCatching { org.omarchy.music.ui.Tint.artColor(bmp) }.getOrDefault(colour)
+                        updateAll(ctx)
+                    }
                 }
             }
         }
         return cover.second
     }
 
-    /** The background: the cover's own hue, deep enough for white writing, a little see-through. */
-    fun background(ctx: Context): Int {
-        coverOf(ctx, Music.current())
+    /** The background: the cover's own hue, made dark and calm enough that white writing reads well on it (a yellow
+     *  or green cover's light colour made deep), a little see-through. */
+    fun background(ctx: Context): Int = ColorUtils.setAlphaComponent(deep(ctx), 0xD9)
+
+    /** The background's colour, solid: deep enough for white writing (at least 4.5 to 1, as for text that must read). */
+    private fun deep(ctx: Context): Int {
+        coverOf(ctx, Music.shownTrack())
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(colour, hsl)
-        hsl[2] = hsl[2].coerceIn(0.18f, 0.42f)   // deep enough for white text, the cover's own hue
-        return ColorUtils.setAlphaComponent(ColorUtils.HSLToColor(hsl), 0xD9)   // a little see-through
+        hsl[1] = hsl[1].coerceAtMost(0.6f)
+        hsl[2] = hsl[2].coerceIn(0.12f, 0.42f)
+        var c = ColorUtils.HSLToColor(hsl)
+        while (hsl[2] > 0.1f && ColorUtils.calculateContrast(Color.WHITE, c) < 4.5) { hsl[2] -= 0.02f; c = ColorUtils.HSLToColor(hsl) }
+        return c
     }
 
     /** A light shade of the cover's own colour, for what's drawn on the background (the Visualizer widget's bars). */
@@ -74,12 +87,19 @@ object HomeWidgets {
         return ColorUtils.HSLToColor(hsl)
     }
 
-    /** The rounded background (root), tinted. */
-    fun paint(ctx: Context, v: RemoteViews, root: Int) {
-        val bg = background(ctx)
-        if (android.os.Build.VERSION.SDK_INT >= 31) v.setColorStateList(root, "setBackgroundTintList", android.content.res.ColorStateList.valueOf(bg))
-        else v.setInt(root, "setBackgroundColor", bg)
+    /** The rounded background in the cover's colour: every widget's layout has it as a picture behind everything
+     *  (w_bg: the rounded shape, Android 12's own corners there), coloured and made a little see-through here. A picture,
+     *  not the layout's own background, so Android 10 and 11 keep the rounded corners too. */
+    fun paint(ctx: Context, v: RemoteViews) = paint(v, deep(ctx))
+
+    /** The same, with the colour worked out already (the Visualizer's frames, off the main thread). */
+    fun paint(v: RemoteViews, solid: Int) {
+        v.setInt(R.id.w_bg, "setColorFilter", ColorUtils.setAlphaComponent(solid, 0xFF))
+        v.setInt(R.id.w_bg, "setImageAlpha", 0xD9)
     }
+
+    /** The background's solid colour (for [paint] off the main thread). */
+    fun solid(ctx: Context): Int = deep(ctx)
 
     /** One of a two-way switch's halves (the DJ's songs, a playlist's order): lit when chosen. */
     fun choice(v: RemoteViews, id: Int, on: Boolean) {
@@ -114,18 +134,18 @@ object HomeWidgets {
     }
 
     // ---- keeping them up to date ----
-    /** Whether the home screen can be seen at all: the screen on (followed while the music's service runs), and the app
-     *  itself not in front. The Lyrics and Visualizer widgets move only then (Compose state: they wait on it). */
-    var screenOn by mutableStateOf(true)
+    /** Whether the home screen can be seen at all: the screen on and the phone unlocked (followed while the music's
+     *  service runs), and the app itself not in front. The Lyrics and Visualizer widgets move only then (Compose state:
+     *  they wait on it). */
+    var unlocked by mutableStateOf(true)
     var appShown by mutableStateOf(false)
 
     fun ids(ctx: Context, cls: Class<*>): IntArray =
         runCatching { AppWidgetManager.getInstance(ctx).getAppWidgetIds(ComponentName(ctx, cls)) }.getOrNull() ?: IntArray(0)
 
-    /** Every widget of ours on the home screen, drawn again (player: the first one too; the music's service keeps that
-     *  one up to date by itself). */
+    /** Every widget of ours on the home screen, drawn again. */
     fun updateAll(ctx: Context, player: Boolean = true) {
-        if (player) PlayerWidget.update(ctx)
+        if (player) runCatching { PlayerWidget.update(ctx) }
         val each = listOf<(Context) -> Unit>({ ListsWidget.update(it) }, { DjWidget.update(it) }, { PlaylistWidget.update(it) },
             { PinnedWidget.update(it) }, { TopWidget.update(it) }, { WrappedWidget.update(it) }, { LyricsWidget.update(it) },
             { ReleasesWidget.update(it) }, { VisualizerWidget.update(it) })
@@ -135,23 +155,41 @@ object HomeWidgets {
     private var jobs = emptyList<Job>()
     private var screenWatch: BroadcastReceiver? = null
 
-    /** (MusicService, as it starts) The widgets follow the music from now: the song, played or paused, the DJ, the
-     *  lyrics' mode; your playlists, pins and new releases as they change; the Lyrics widget's line and the Visualizer
-     *  widget's bars, while the home screen can be seen. */
+    /** (MusicService, as it starts) The widgets follow the music from now: the song, played or paused, the queue, the
+     *  DJ, the lyrics' mode; your playlists, pins and new releases as they change; the Lyrics widget's line and the
+     *  Visualizer widget's bars, while the home screen can be seen. */
     fun follow(svc: Service) {
         stop(svc)
         val pm = svc.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        screenOn = pm.isInteractive
+        val km = svc.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        unlocked = pm.isInteractive && !km.isKeyguardLocked
         screenWatch = object : BroadcastReceiver() {
-            override fun onReceive(c: Context, i: Intent) { screenOn = i.action == Intent.ACTION_SCREEN_ON }
+            override fun onReceive(c: Context, i: Intent) {
+                // The screen on unlocked, or unlocked now (the lock screen's own: nothing of the home screen shows there)
+                unlocked = when (i.action) {
+                    Intent.ACTION_SCREEN_OFF -> false
+                    Intent.ACTION_USER_PRESENT -> true
+                    else -> !km.isKeyguardLocked
+                }
+            }
         }.also { r ->
             runCatching { androidx.core.content.ContextCompat.registerReceiver(svc, r, IntentFilter().apply {
-                addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED) }
+                addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_USER_PRESENT)
+            }, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED) }
         }
         jobs = listOf(
+            // The first widget: the song (the PC's, as its remote), playing or paused, repeat, and the queue itself (a song
+            // moved or the queue shuffled changes neither its length nor the place playing)
             Music.scope.launch {
-                snapshotFlow { listOf(Music.current()?.id, Music.paused, Music.repeat, Music.dj.on, Music.djBusy, Music.djNew, Music.lyricsMode,
-                    if (Remote.active) Remote.status.track?.id to Remote.status.paused else null) }.collectLatest {
+                snapshotFlow { listOf(Music.shownTrack()?.id, Music.paused, Music.repeat, Music.index, Music.queue,
+                    if (Remote.active) listOf(Remote.status.paused, Remote.status.index, Remote.status.queue, Remote.status.repeat) else null) }.collect {
+                    delay(150)
+                    runCatching { PlayerWidget.update(svc) }
+                }
+            },
+            Music.scope.launch {
+                snapshotFlow { listOf(Music.shownTrack()?.id, Music.paused, Music.repeat, Music.dj.on, Music.djBusy, Music.djNew, Music.lyricsMode,
+                    if (Remote.active) Remote.status.paused else null) }.collectLatest {
                     delay(150)
                     runCatching { updateAll(svc, player = false) }
                 }
@@ -168,6 +206,12 @@ object HomeWidgets {
                 snapshotFlow { NewReleases.found to NewReleases.told }.drop(1).collectLatest {
                     delay(1500)
                     runCatching { ReleasesWidget.update(svc, rows = true) }
+                }
+            },
+            // Back on the home screen after a while: what tells the day (New releases' "Today") and Most played made fresh
+            Music.scope.launch {
+                snapshotFlow { unlocked }.drop(1).collect { on ->
+                    if (on) runCatching { ReleasesWidget.newDay(svc); TopWidget.update(svc) }
                 }
             },
             Music.scope.launch { AppVisible.flow.collect { appShown = it } },

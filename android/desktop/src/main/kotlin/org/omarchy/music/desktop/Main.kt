@@ -78,7 +78,7 @@ private fun startedAgainForItsDesktop(args: Array<String>): Boolean = runCatchin
 
 private fun app(args: Array<String>) = application {
     remember { org.omarchy.music.PcApp.start() }
-    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.Startup.moveOld() } } }
+    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.Startup.moveOld() }; org.omarchy.music.Shortcuts.tidy() } }
     // Started with Windows (or Linux): in the tray. On a desktop with no tray (some Linux ones) its window opens
     // instead: started hidden there, nothing would show it was running.
     var shown by remember { mutableStateOf("--tray" !in args || !runCatching { java.awt.SystemTray.isSupported() }.getOrDefault(true)) }

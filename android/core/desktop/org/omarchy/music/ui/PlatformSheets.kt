@@ -171,7 +171,8 @@ fun screenHeightDp(): Int = with(LocalDensity.current) { LocalWindowInfo.current
 fun PcWidgetLines(ui: Ui, line: @Composable (String, String, Boolean, @Composable () -> Unit) -> Unit) {
     line("Widgets", "Small windows of their own on your desktop, like the phone's widgets, in the colour of the cover playing. " +
         "Drag one by its body to move it and by its bottom corner to size it; its ⚙ keeps it above your other windows or not. " +
-        "They come back where you left them when the app starts. Also in the tray icon's menu", DesktopWidgets.anyOpen) {}
+        "They come back where you left them when the app starts. Shortcuts shows the shortcuts you made as buttons. Also in the " +
+        "tray icon's menu", DesktopWidgets.anyOpen) {}
     org.omarchy.music.DesktopWidgetRules.KINDS.forEach { (kind, name) ->
         Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text(name, style = T.body, modifier = Modifier.weight(1f))
@@ -180,24 +181,37 @@ fun PcWidgetLines(ui: Ui, line: @Composable (String, String, Boolean, @Composabl
     }
     if (!org.omarchy.music.Shortcuts.supported) return
     var making by remember { mutableStateOf(false) }
-    line("Desktop shortcuts", "Icons on your desktop or in the ${org.omarchy.music.Shortcuts.menuName} that do one thing in one click: play a " +
-        "playlist (in order or shuffled), start or stop the DJ, open Most played, Lyrics or Wrapped, play or pause, skip", false) {
+    line("Desktop shortcuts", "One-click shortcuts, each with its own picture, in the ${org.omarchy.music.Shortcuts.menuName}" +
+        (if (org.omarchy.music.Shortcuts.desktopWorks) ", on your desktop" else "") + " and on the Shortcuts widget: play a " +
+        "playlist (in order or shuffled), start or stop the DJ, open Most played, Lyrics, New releases or Wrapped, play or pause, skip", false) {
         Pill("Make desktop shortcuts…", quiet = true) { making = true }
     }
     if (making) ShortcutsDialog { making = false }
 }
 
-/** Make desktop shortcuts…: tick the ones you want (the app's, and each playlist's In order or Shuffled), and where. */
+/** Make desktop shortcuts…: tick the ones you want (the app's, and each playlist's In order or Shuffled), and where; and
+ *  (Linux, a taskbar the app can add to) 📌 puts one on the taskbar or takes it off, the app itself too. On Windows, which
+ *  lets no app pin itself, it says how to pin one by hand and opens their folder. */
 @Composable
 private fun ShortcutsDialog(close: () -> Unit) {
     val Rules = org.omarchy.music.DesktopWidgetRules
     val S = org.omarchy.music.Shortcuts
-    val picked = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    val picked = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }   // by each one's key (its command)
     var menu by remember { mutableStateOf(true) }
-    var desktop by remember { mutableStateOf(true) }
+    var desktop by remember { mutableStateOf(S.desktopWorks) }
+    var widget by remember { mutableStateOf(!S.desktopWorks) }
     var busy by remember { mutableStateOf(false) }
     val lists = remember { Music.lists.all() + Music.lists.smart() }
     val all = remember(lists) { Rules.SHORTCUTS + lists.flatMap { listOf(Rules.playlistShortcut(it.name, false), Rules.playlistShortcut(it.name, true)) } }
+    // The taskbar: whether there's one to add to, what's on it now (read back), and what you've asked for
+    var pinnedNow by remember { mutableStateOf<Set<String>?>(null) }   // null: no taskbar the app can add to (or not read yet)
+    var appId by remember { mutableStateOf<String?>(null) }
+    val pinWant = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }   // by key; the app's: "app"
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            if (org.omarchy.music.Taskbar.supported) { appId = S.appTaskbarId(); pinnedNow = org.omarchy.music.Taskbar.pinned().toSet() }
+        }
+    }
     val boxColors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = C.accent, uncheckedColor = C.muted, checkmarkColor = C.darker)
     @Composable fun Tick(text: String, on: Boolean, modifier: Modifier = Modifier, change: (Boolean) -> Unit) {
         Row(modifier.then(Modifier.clickable { change(!on) }), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -205,44 +219,83 @@ private fun ShortcutsDialog(close: () -> Unit) {
             Text(text, style = T.body)
         }
     }
+    /** 📌: on the taskbar (lit) or not; a click turns it the other way, done with Make. */
+    @Composable fun Pin(key: String, id: String) {
+        val now = pinnedNow ?: return
+        val on = pinWant[key] ?: (id in now)
+        IconButton(Ico.PIN, if (on) C.accent else C.muted.copy(alpha = 0.45f), 16.dp, 6.dp, desc = if (on) "On the taskbar" else "Add to the taskbar") { pinWant[key] = !on }
+    }
     Dialog(onDismissRequest = close) {
-        Column(Modifier.widthIn(max = 580.dp).heightIn(max = 680.dp).background(C.light, R.card).padding(20.dp),
+        Column(Modifier.widthIn(max = 600.dp).heightIn(max = 700.dp).background(C.light, R.card).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Make desktop shortcuts", style = T.title)
             Text("Each shortcut starts Radon Player with what it says, or tells the one already running to: one click and it's done. " +
-                "Tick the ones you want.", style = T.sub)
+                "Tick the ones you want." + if (pinnedNow != null) " The pin puts one on the taskbar (lit: it's there); click it again to take it off." else "", style = T.sub)
             androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f, fill = false)) {
+                appId?.let { id -> if (pinnedNow != null) item {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("Radon Player itself", style = T.body, modifier = Modifier.weight(1f).padding(start = 12.dp, top = 6.dp, bottom = 6.dp))
+                        Pin("app", id)
+                    }
+                } }
                 item { Text("THE APP", style = T.section, modifier = Modifier.padding(top = 6.dp)) }
-                items(Rules.SHORTCUTS.size) { i -> val s = Rules.SHORTCUTS[i]; Tick(s.name, picked[s.name] == true) { picked[s.name] = it } }
+                items(Rules.SHORTCUTS.size) { i ->
+                    val s = Rules.SHORTCUTS[i]
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Tick(s.name, picked[s.key] == true, Modifier.weight(1f)) { picked[s.key] = it }
+                        Pin(s.key, S.taskbarId(s))
+                    }
+                }
                 if (lists.isNotEmpty()) item { Text("YOUR PLAYLISTS", style = T.section, modifier = Modifier.padding(top = 10.dp)) }
                 items(lists.size) { i ->
                     val p = lists[i]
-                    val inOrder = Rules.playlistShortcut(p.name, false).name; val shuffled = Rules.playlistShortcut(p.name, true).name
+                    val inOrder = Rules.playlistShortcut(p.name, false); val shuffled = Rules.playlistShortcut(p.name, true)
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Text(p.name, style = T.body, maxLines = 1, modifier = Modifier.weight(1f).padding(start = 12.dp))
-                        Tick("In order", picked[inOrder] == true) { picked[inOrder] = it }
-                        Tick("Shuffled", picked[shuffled] == true) { picked[shuffled] = it }
+                        Tick("In order", picked[inOrder.key] == true) { picked[inOrder.key] = it }
+                        Pin(inOrder.key, S.taskbarId(inOrder))
+                        Tick("Shuffled", picked[shuffled.key] == true) { picked[shuffled.key] = it }
+                        Pin(shuffled.key, S.taskbarId(shuffled))
                     }
                 }
             }
             Text("WHERE", style = T.section, modifier = Modifier.padding(top = 6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Tick("In the ${S.menuName}", menu) { menu = it }
-                Tick("On the desktop", desktop) { desktop = it }
+                // (Hyprland and the like show nothing on the desktop: the Shortcuts widget puts them on the screen instead)
+                if (S.desktopWorks) Tick("On the desktop", desktop) { desktop = it }
+            }
+            Tick("Show them on the desktop as a Shortcuts widget", widget) { widget = it }
+            // Windows lets no app pin itself to the taskbar: done by hand, from the Start menu's folder of them
+            if (S.menuName == "Start menu") Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("On the taskbar: right-click a shortcut › Pin to taskbar, or drag it onto the taskbar.", style = T.sub, modifier = Modifier.weight(1f))
+                Pill("Open the shortcuts folder", quiet = true) { S.openStartFolder() }
             }
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
                 Pill("Take away the ones made here", quiet = true) {
-                    Music.bg({ S.removeAll() }) { msg, err -> Music.toast(msg ?: "Couldn't: ${err?.message?.take(80)}") }
+                    Music.bg({ S.removeAll() }) { msg, err ->
+                        Music.toast(msg ?: "Couldn't: ${err?.message?.take(80)}")
+                        pinWant.clear(); Music.bg({ org.omarchy.music.Taskbar.pinned().toSet() }) { p, _ -> if (p != null && pinnedNow != null) pinnedNow = p }
+                    }
                 }
                 Pill("Cancel", quiet = true) { close() }
                 Pill(if (busy) "Making…" else "Make") {
                     if (busy) return@Pill
-                    val chosen = all.filter { picked[it.name] == true }
+                    val chosen = all.filter { picked[it.key] == true }
+                    val pins = all.filter { pinWant.containsKey(it.key) }.associateWith { pinWant.getValue(it.key) }
+                    val app = pinWant["app"]
+                    if (chosen.isEmpty() && pins.isEmpty() && app == null) { Music.toast("Pick at least one shortcut"); return@Pill }
                     busy = true
-                    Music.bg({ S.make(chosen, menu, desktop) }) { msg, err ->
+                    val id = appId
+                    Music.bg({
+                        val made = if (chosen.isNotEmpty()) S.make(chosen, menu, desktop, widget) else ""
+                        val bar = S.taskbar(pins, app, id)
+                        made to bar
+                    }) { res, err ->
                         busy = false
-                        Music.toast(msg ?: "Couldn't: ${err?.message?.take(80)}")
-                        if (msg?.startsWith("Made") == true) close()
+                        val (made, bar) = res ?: ("Couldn't: ${err?.message?.take(80)}" to "")
+                        Music.toast(listOf(made, bar).filter { it.isNotEmpty() }.joinToString(". ").ifEmpty { "Nothing to change" })
+                        if (made.startsWith("Made") || (made.isEmpty() && bar.isNotEmpty() && !bar.startsWith("Couldn't"))) close()
                     }
                 }
             }

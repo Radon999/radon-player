@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Now playing + playlists: the song with its controls on top (as the first widget's), and under it your playlists and
      their folders. A playlist's tap plays it without opening the app; a folder's opens it in the list (ListsWidget). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/wls_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp"
-    android:background="@drawable/widget_bg" android:backgroundTint="#D92B2B3C">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wls_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <!-- The rounded background, in the playing song's cover colour (HomeWidgets.paint) -->
+    <ImageView android:id="@+id/w_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_bg" android:scaleType="fitXY" android:tint="#D92B2B3C" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp">
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:gravity="center_vertical">
@@ -54,4 +57,5 @@
             android:gravity="center" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.7"
             android:text="No playlists yet: make one in the app" />
     </FrameLayout>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

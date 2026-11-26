@@ -31,7 +31,7 @@ class PinnedWidget : AppWidgetProvider() {
             if (ids.isEmpty()) return
             Music.init(ctx)
             val v = RemoteViews(ctx.packageName, R.layout.widget_pinned)
-            HomeWidgets.paint(ctx, v, R.id.wp_root)
+            HomeWidgets.paint(ctx, v)
             v.setViewVisibility(R.id.wp_empty, if (Music.pins.isEmpty()) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.wp_head, HomeWidgets.open(ctx, "pinned", 7420))
             v.setOnClickPendingIntent(R.id.wp_empty, HomeWidgets.open(ctx, "pinned", 7420))

@@ -52,7 +52,7 @@ class DjWidget : AppWidgetProvider() {
                 else -> "Tap to start the DJ"
             }
             val v = RemoteViews(ctx.packageName, R.layout.widget_dj)
-            HomeWidgets.paint(ctx, v, R.id.wd_root)
+            HomeWidgets.paint(ctx, v)
             v.setTextViewText(R.id.wd_state, state)
             HomeWidgets.choice(v, R.id.wd_mine, !Music.djNew)
             HomeWidgets.choice(v, R.id.wd_new, Music.djNew)

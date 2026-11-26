@@ -27,11 +27,13 @@ object LibraryMatch {
     val at: Long get() = loaded().at
 
     /** (blocking) Every song on this device, for the other one: what is needed to tell songs apart and to find one
-     *  again (a download's own address on its service goes along, so the very same song is downloaded there). */
+     *  again (a download's own address on its service goes along, so the very same song is downloaded there), and where
+     *  its file is here (so the other can ask for that file: [SongCopy]; only files of your music are ever handed out). */
     fun mine(): String {
         val songs = runCatching { Music.mySongs() }.getOrDefault(emptyList()).map { t ->
             val streamed = t.source != "file" && !t.isFile
-            Track(if (streamed) t.id else "", if (streamed) t.source else "file", t.title, t.artist, t.album, t.duration)
+            Track(if (streamed) t.id else "", if (streamed) t.source else "file", t.title, t.artist, t.album, t.duration,
+                file = t.file ?: Music.lib.items[t.id]?.file?.takeIf { it.isNotEmpty() })
         }
         return JSON.encodeToString(Theirs.serializer(), Theirs("", System.currentTimeMillis() / 1000, songs))
     }
@@ -45,18 +47,28 @@ object LibraryMatch {
         return runCatching { missing().size }.getOrDefault(0)
     }
 
+    /** The other device's own song (with where its file is there) behind each song [missing] lists, by the listed
+     *  song's id: for copying the file across ([SongCopy]). */
+    @Volatile private var refs: Map<String, Track> = emptyMap()
+    fun theirsOf(id: String): Track? = refs[id]
+
     /** (blocking) The other device's songs this one hasn't got (and you haven't left out), as songs to download: the
-     *  one it downloaded, by its own address; one of its files, by name (found on Tidal or YouTube when it's downloaded). */
+     *  one it downloaded, by its own address; one of its files, by name (found on Tidal or YouTube when it's downloaded).
+     *  Where the file is on the other device is never on the songs listed (it isn't a file here): [theirsOf] has it. */
     fun missing(): List<Track> {
         val t = loaded()
         if (t.songs.isEmpty()) return emptyList()
         val mine = runCatching { Music.mySongs() }.getOrDefault(emptyList())
         val lacking = LibraryMatchRules.missing(t.songs, mine, left(), { it.title }, { it.artist })
         val index = runCatching { Music.songIndex() }.getOrDefault(emptyMap())
-        return lacking.map { s ->
-            if (s.id.isNotEmpty() && s.source != "file") s
-            else runCatching { Music.fmSong(s.title, s.artist, "", index, s.album) }.getOrDefault(s).let { f -> if (f.duration <= 0.0) f.copy(duration = s.duration) else f }
+        val found = HashMap<String, Track>()
+        val out = lacking.map { s ->
+            (if (s.id.isNotEmpty() && s.source != "file") s.copy(file = null)
+            else runCatching { Music.fmSong(s.title, s.artist, "", index, s.album) }.getOrDefault(s.copy(file = null))
+                .let { f -> if (f.duration <= 0.0) f.copy(duration = s.duration) else f }).also { found.putIfAbsent(it.id, s) }
         }.filter { !it.isFile && !Music.lib.has(it.id) }.distinctBy { it.id }
+        refs = found
+        return out
     }
 
     /** Leave these out: they aren't offered again (until Bring back the ones left out). */

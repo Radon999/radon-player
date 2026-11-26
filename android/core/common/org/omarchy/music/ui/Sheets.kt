@@ -237,6 +237,7 @@ private fun AccountsSheet(ui: Ui) {
             }
             Group("Remote & sync", ui) {
             OtherDeviceSongsLine(ui)
+            CopyFromOtherLine()
             if (org.omarchy.music.RemoteHost.supported) PhoneRemoteLines()
             // ---- play on ----
             else Line("Play on", if (Remote.active) "Music plays on the desktop (${Remote.name}), and this phone is its remote" +
@@ -3234,10 +3235,10 @@ private fun OtherDeviceSongsLine(ui: Ui) {
     }
     val count = lacking?.size
     Line("Other device's songs", when {
-        dev.isEmpty() -> "Keeps your phone's and your PC's music the same. At each Sync the two tell each other every song they have (names only); " +
-            "the ones the other has that this $DEVICE hasn't are listed for you to tick and download, or leave out. Sync once to start (both need this version)"
+        dev.isEmpty() -> "Keeps your phone's and your PC's music the same. At each Sync the two tell each other every song they have (the list only: files cross only when you ask); " +
+            "the ones the other has that this $DEVICE hasn't are listed for you to tick and get (downloaded, or copied from the other), or leave out. Sync once to start (both need this version)"
         count == null -> "Counting what $dev has that this $DEVICE hasn't…"
-        else -> org.omarchy.music.LibraryMatchRules.heading(count, dev) + ", as of the last Sync. Review them to tick the ones to download here; nothing is downloaded by itself"
+        else -> org.omarchy.music.LibraryMatchRules.heading(count, dev) + ", as of the last Sync. Review them to tick the ones to get here; nothing comes by itself"
     }, ok = dev.isNotEmpty() && count == 0) {
         if (dev.isNotEmpty()) Pill(if ((count ?: 0) > 0) "Review %,d…".format(count) else "Review…", quiet = (count ?: 0) == 0) {
             ui.sheet = null
@@ -3249,6 +3250,29 @@ private fun OtherDeviceSongsLine(ui: Ui) {
     if (dev.isNotEmpty() && some.isNotEmpty()) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
         some.take(8).forEach { t -> Text("${t.title} · ${t.artist}", style = T.sub, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
         if (some.size > 8) Text("…and %,d more: tap Review".format(some.size - 8), style = T.sub.copy(color = C.accent))
+    }
+}
+
+/** Settings › Remote & sync › Copy the file from your other device: for Other device's songs, whether a song is copied
+ *  from the other device (its own file, over the same connection as Sync) or downloaded from the streaming service. */
+@Composable
+private fun CopyFromOtherLine() {
+    val copy = org.omarchy.music.SongCopy
+    val R = org.omarchy.music.SongTransferRules
+    val other = copy.other
+    // (in Favorite settings only when starred, its choices with it)
+    if (LocalFavOnly.current && "Copy the file from your other device" !in SettingFavs.of()) return
+    Line("Copy the file from your other device", "For Other device's songs: the song's own file copied from $other, or downloaded from your " +
+        "streaming service. Each song in the list shows which (↓ downloaded, ⇄ copied)", ok = copy.current != R.NEVER) {}
+    Column(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf(R.ALWAYS to "Always when it has the file", R.NOT_FOUND to "Only when it can't be found on a streaming service",
+            R.NEVER to "Never (always download from streaming)").forEach { (k, l) -> Chip(l, copy.current == k) { copy.choose(k) } }
+        Text(R.NEEDS + if (org.omarchy.music.RemoteHost.supported) ". Your phone sends the songs you ask for the next time it checks in" else "",
+            style = T.sub, modifier = Modifier.padding(top = 2.dp))
+        if (copy.busy) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(copy.note, style = T.sub.copy(color = C.accent), modifier = Modifier.weight(1f, fill = false))
+            Pill("Stop", quiet = true) { copy.cancel() }
+        }
     }
 }
 
