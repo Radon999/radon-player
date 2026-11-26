@@ -544,10 +544,11 @@ object Sync {
     }
 
     /** Personalization stays each device's own at a sync (the phone can wear another look, theme or layout than the
-     *  PC): the one in use of each, the visualizer's colour and Now playing's, and the effects picked. What you made
+     *  PC): the one in use of each, the visualizer's colour and Now playing's, the effects picked, and the widgets' own choices. What you made
      *  (looks, layouts, visualizers) still comes across, added to the other device's (MadeSync). */
     private val PERSONAL = setOf("ui_theme", "ui_layout", "vis_color", "vis_color_for", "np_vis", "np_bg", "np_vis_strength", "look_fx_own", "look_fx_pick",
-        "np_vis_dual", "np_vis_bottom", "np_vis_around", "lyric_card_style")
+        "np_vis_dual", "np_vis_bottom", "np_vis_around", "lyric_card_style",
+        "widget_vis_style", "widget_vis_color", "widget_look")
 
     private fun applySwitches(text: String) {
         val now = Prefs.all()

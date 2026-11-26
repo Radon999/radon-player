@@ -169,7 +169,7 @@ fun screenHeightDp(): Int = with(LocalDensity.current) { LocalWindowInfo.current
  *  Make desktop shortcuts…. line: Settings' own row (its name, what it is, lit or not, its buttons). */
 @Composable
 fun PcWidgetLines(ui: Ui, line: @Composable (String, String, Boolean, @Composable () -> Unit) -> Unit) {
-    line("Widgets", "Small windows of their own on your desktop, like the phone's widgets, in the colour of the cover playing. " +
+    line("Widgets", "Small windows of their own on your desktop, like the phone's widgets, in the colour of the cover playing (or the app's look: Settings › Personalization › Widgets). " +
         "Drag one by its body to move it and by its bottom corner to size it; its ⚙ keeps it above your other windows or not. " +
         "They come back where you left them when the app starts. Shortcuts shows the shortcuts you made as buttons. Also in the " +
         "tray icon's menu", DesktopWidgets.anyOpen) {}

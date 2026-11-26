@@ -6,16 +6,13 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.Shader
 import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.asImageBitmap
+import org.omarchy.music.ui.drawWidgetVis
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -27,16 +24,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Visualizer: the music playing as bars, in its cover's colours, with the song under them and play/pause and next; a
- *  tap on the bars opens Now playing.
+/** Visualizer: the music playing as Now playing's visualizer (Settings › Personalization › Widgets: or the Visualizer
+ *  tab's, or one of its own), changing with it, in the colours the app draws it in (the cover's, or the look's with
+ *  Widgets in the app's look), with the song under it and play/pause and next; a tap on it opens Now playing.
  *
  *  The bars move only while they can be seen and there's music: a Visualizer widget on the home screen, the screen on
  *  and the phone unlocked, the app not in front (its own visualizer then) and the music playing ([follow]); and for ten
  *  minutes at a time at most (Android can't tell an app whether the home screen itself is showing, so after that they
  *  rest until the screen goes off and on, the music is paused and played, or the song changes). Then Android's
  *  visualizer is opened on the app's own sound (as the app's Visualizer tab does, the same leave needed) and read about
- *  8 times a second, off the music's own threads; each frame is a picture of the bars at the widget's own size (one
- *  shade, tinted on the home screen), and only that picture is sent. Otherwise nothing is read or drawn at all, and
+ *  8 times a second, off the music's own threads; each frame is a picture of the visualizer at the widget's own size,
+ *  drawn by the app's own drawing of that style ([drawWidgetVis]), and only that picture is sent. Otherwise nothing is read or drawn at all, and
  *  Android's visualizer is let go. Bit-perfect straight to a USB DAC: the bars come from the app's own output
  *  (AudioTap), as in the app. When the music can't be heard that way (the leave not given, a cast device, a phone that
  *  gives nothing), the bars sway slowly instead, a frame every second and a half. */
@@ -51,19 +49,20 @@ class VisualizerWidget : AppWidgetProvider() {
 
     companion object {
         private const val BARS = PhoneWidgetRules.VIZ_BARS
-        /** The picture's largest size (pixels): the bars drawn at the widget's own size up to this, so they're sharp
-         *  without each frame growing heavy on a big widget. */
-        private const val MAX_W = 420
-        private const val MAX_H = 150
+        /** The picture's largest size (pixels): drawn at the widget's own size up to this, so it's sharp without each
+         *  frame (in full colour) growing heavy on a big widget. */
+        private const val MAX_W = 360
+        private const val MAX_H = 200
 
         /** A Visualizer widget on the home screen (Compose state: [follow] waits on it). */
         var present by mutableStateOf(false)
 
         /** What the widget shows besides the bars, made on the main thread ([update]). */
-        private class Face(val title: String, val artist: String, val playing: Boolean, val solid: Int, val bar: Int, val hint: String?,
+        private class Face(val title: String, val artist: String, val playing: Boolean, val solid: Int, val ink: Int, val hint: String?,
                            val open: PendingIntent, val play: PendingIntent, val next: PendingIntent)
         @Volatile private var running = false
-        @Volatile private var shown = FloatArray(BARS)
+        /** The visualizer as it moves (the app's own: its levels eased, its sparks, rings, history), stepped each frame. */
+        @Volatile private var state = org.omarchy.music.ui.VisState()
 
         private fun playing() = !Remote.active && !Music.paused && Music.player != null
         private fun live() = PhoneWidgetRules.vizLive(present, HomeWidgets.unlocked, HomeWidgets.appShown, playing())
@@ -78,21 +77,21 @@ class VisualizerWidget : AppWidgetProvider() {
             Music.init(ctx)
             val t = Music.shownTrack()
             val f = Face(t?.title ?: "Nothing playing", t?.artist?.takeIf { it.isNotEmpty() } ?: "Visualizer",
-                if (Remote.active) !Remote.status.paused else !Music.paused, HomeWidgets.solid(ctx), HomeWidgets.accent(),
+                if (Remote.active) !Remote.status.paused else !Music.paused, HomeWidgets.solid(ctx), HomeWidgets.ink(),
                 if (heard(ctx)) null else "For moving bars, open the Visualizer in the app once and allow what it asks",
                 HomeWidgets.open(ctx, "player", 7480), PlayerWidget.pi(ctx, PlayerWidget.PLAY, 1), PlayerWidget.pi(ctx, PlayerWidget.NEXT, 3))
-            // Still: the bars as they last were while they move (the frames carry on from them), else at rest
-            val (w, h) = size(ctx, ids)
-            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8)
-            draw(Canvas(bmp), Paint(Paint.ANTI_ALIAS_FLAG), if (running) shown else rest(0f), w, h)
+            // Still: as it last was while it moves (the frames carry on from it), else at rest
+            val (w, h, dens) = size(ctx, ids)
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            draw(bmp, if (running) state else resting(), dens)
             runCatching { AppWidgetManager.getInstance(ctx).updateAppWidget(ids, views(ctx, f, bmp)) }
         }
 
         private fun views(ctx: Context, f: Face, bars: Bitmap): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_visualizer)
-            HomeWidgets.paint(v, f.solid)
+            HomeWidgets.paint(ctx, v, f.solid, f.ink)
             v.setImageViewBitmap(R.id.wv_bars, bars)
-            v.setInt(R.id.wv_bars, "setColorFilter", f.bar)   // the one-shade picture in the cover's colour
+            v.setInt(R.id.wv_bars, "setColorFilter", 0)   // drawn in its own colours (the one-shade bars were tinted here)
             v.setTextViewText(R.id.wv_title, f.title)
             v.setTextViewText(R.id.wv_artist, f.artist)
             v.setImageViewResource(R.id.wv_play, if (f.playing) R.drawable.w_pause else R.drawable.w_play)
@@ -105,9 +104,10 @@ class VisualizerWidget : AppWidgetProvider() {
             return v
         }
 
-        /** The bars' picture size (pixels): the bars' place in the largest widget as it's sized now (its edges and the
-         *  song's line under it taken off), at the screen's own pixels, up to [MAX_W] by [MAX_H]. */
-        private fun size(ctx: Context, ids: IntArray): Pair<Int, Int> {
+        /** The picture's size (pixels): the visualizer's place in the largest widget as it's sized now (its edges and
+         *  the song's line under it taken off), at the screen's own pixels, up to [MAX_W] by [MAX_H]; and its pixels to a
+         *  dp (the screen's density, less where the picture is made smaller), for the lines' widths in the drawing. */
+        private fun size(ctx: Context, ids: IntArray): Triple<Int, Int, Float> {
             val mgr = AppWidgetManager.getInstance(ctx)
             val portrait = ctx.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
             var wDp = 0; var hDp = 0
@@ -120,26 +120,33 @@ class VisualizerWidget : AppWidgetProvider() {
             val d = ctx.resources.displayMetrics.density
             val w = ((wDp - 24) * d).toInt().coerceIn(48, MAX_W)
             val h = ((hDp - 24 - 46) * d).toInt().coerceIn(16, MAX_H)
-            return w to h
+            return Triple(w, h, minOf(d, w / maxOf(1f, wDp - 24f), h / maxOf(1f, hDp - 70f)).coerceAtLeast(0.5f))
         }
 
-        /** The bars at rest, or swaying slowly (phase moves them along): gentle, low. */
-        private fun rest(phase: Float): FloatArray =
-            FloatArray(BARS) { i -> 0.18f + 0.14f * kotlin.math.sin(i * 0.55f + phase) + 0.06f * kotlin.math.sin(i * 1.7f - phase * 0.7f) }
+        /** The levels at rest, or swaying slowly (phase moves them along): gentle, low. */
+        private fun rest(phase: Float): FloatArray = FloatArray(org.omarchy.music.Spectrum.BANDS) { i ->
+            val x = i * BARS.toFloat() / org.omarchy.music.Spectrum.BANDS
+            0.18f + 0.14f * kotlin.math.sin(x * 0.55f + phase) + 0.06f * kotlin.math.sin(x * 1.7f - phase * 0.7f)
+        }
 
-        /** The bars into the picture (w by h pixels): on whole pixels, so they're sharp, a little fainter at their foot. */
-        private fun draw(c: Canvas, p: Paint, levels: FloatArray, w: Int, h: Int) {
-            c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-            p.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), Color.argb(255, 0, 0, 0), Color.argb(140, 0, 0, 0), Shader.TileMode.CLAMP)
-            val gap = maxOf(2, w / 90)
-            val bar = maxOf(1, (w - gap * (levels.size - 1)) / levels.size)
-            val left = (w - (bar * levels.size + gap * (levels.size - 1))) / 2   // what's left over, either side
-            val r = minOf(bar / 3f, 4f)
-            for (i in levels.indices) {
-                val top = h - maxOf(2, (levels[i].coerceIn(0f, 1f) * (h - 1)).toInt())
-                val x = left + i * (bar + gap)
-                c.drawRoundRect(x.toFloat(), top.toFloat(), (x + bar).toFloat(), h.toFloat(), r, r, p)
-            }
+        /** The visualizer at rest: eased up to the resting levels, as it would be after a second of them. */
+        private fun resting(): org.omarchy.music.ui.VisState = org.omarchy.music.ui.VisState().apply {
+            val r = rest(0f)
+            repeat(30) { step(r, false, 1f / 30f) }
+        }
+
+        /** The visualizer into the picture, by the app's own drawing ([drawWidgetVis]): the style picked for the widget,
+         *  in its colours ("Look's colour": the cover's light shade, or the look's accent), on nothing (the widget's
+         *  background shows through). dens: the picture's pixels to a dp. */
+        private fun draw(bmp: Bitmap, s: org.omarchy.music.ui.VisState, dens: Float) {
+            bmp.eraseColor(Color.TRANSPARENT)
+            val base = androidx.compose.ui.graphics.Color(HomeWidgets.accent())
+            val fg = androidx.compose.ui.graphics.Color(HomeWidgets.ink())
+            runCatching {
+                androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(androidx.compose.ui.unit.Density(dens),
+                    androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(bmp.asImageBitmap()),
+                    androidx.compose.ui.geometry.Size(bmp.width.toFloat(), bmp.height.toFloat())) { drawWidgetVis(s, base, fg) }
+            }.onFailure { logWarn("The Visualizer widget couldn't draw: ${it.message}") }
         }
 
         /** (the music's service, for as long as it runs) The bars moved while they can be seen and music plays; nothing
@@ -165,7 +172,7 @@ class VisualizerWidget : AppWidgetProvider() {
                     } == null
                     frames.cancelAndJoin()
                     running = false
-                    shown = FloatArray(BARS)
+                    state = org.omarchy.music.ui.VisState()
                     runCatching { update(ctx) }   // at rest
                     // Ran its time: at rest until the screen, the music or the song changes
                     if (tooLong) snapshotFlow { !live() || Music.shownTrack()?.id != song }.first { it }
@@ -177,13 +184,14 @@ class VisualizerWidget : AppWidgetProvider() {
 
         /** (off the main thread) Frame after frame until cancelled: the levels read, the bars drawn and sent. */
         private suspend fun frames(ctx: Context) {
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             val cap = Capture()
             val mgr = AppWidgetManager.getInstance(ctx)
             var ids = IntArray(0)
             var bmp: Bitmap? = null
-            var canvas = Canvas()
+            var dens = 1f
             var n = 0
+            var last = SystemClock.uptimeMillis()
+            val quiet = FloatArray(org.omarchy.music.Spectrum.BANDS)
             var heardAt = SystemClock.uptimeMillis()
             var phase = 0f
             try {
@@ -191,24 +199,27 @@ class VisualizerWidget : AppWidgetProvider() {
                     val start = SystemClock.uptimeMillis()
                     if (n++ % 25 == 0) {   // every 3 seconds or so: the widgets and their size, and the player's sound (a new session)
                         ids = HomeWidgets.ids(ctx, VisualizerWidget::class.java)
-                        val (w, h) = size(ctx, ids)
-                        if (bmp == null || bmp.width != w || bmp.height != h) { bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8); canvas = Canvas(bmp) }
+                        val (w, h, d) = size(ctx, ids)
+                        dens = d
+                        if (bmp == null || bmp.width != w || bmp.height != h) bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                         val session = withContext(Dispatchers.Main) { sessionNow() }
                         cap.follow(session, heard(ctx))
                     }
                     val bands = cap.bands()
-                    val now = bands?.takeIf { b -> b.any { it > 0.02f } }?.let { PhoneWidgetRules.bars(it, BARS) }
+                    val now = bands?.takeIf { b -> b.any { it > 0.02f } }
                     if (now != null) heardAt = start
                     // Nothing to hear for a few seconds (no leave, a cast device, a phone that gives nothing): swaying slowly
                     val slow = now == null && start - heardAt > 4000
-                    shown = when {
-                        now != null -> PhoneWidgetRules.fall(shown, now)
+                    val dt = ((start - last) / 1000f).coerceIn(0.02f, 0.2f)
+                    last = start
+                    state.step(when {
+                        now != null -> now
                         slow -> rest(phase.also { phase += 0.5f })
-                        else -> PhoneWidgetRules.fall(shown, FloatArray(BARS))
-                    }
+                        else -> quiet
+                    }, false, if (slow) 0.2f else dt)
                     val b = bmp
                     if (b != null && ids.isNotEmpty()) {
-                        draw(canvas, paint, shown, b.width, b.height)
+                        draw(b, state, dens)
                         // Only the bars' picture goes to the home screen each frame (the rest stays as last drawn)
                         val v = RemoteViews(ctx.packageName, R.layout.widget_visualizer)
                         v.setImageViewBitmap(R.id.wv_bars, b)

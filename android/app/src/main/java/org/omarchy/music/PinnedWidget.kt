@@ -61,10 +61,11 @@ class PinnedWidgetRows : RemoteViewsService() {
             val p = pins.getOrNull(position) ?: return RemoteViews(packageName, R.layout.widget_list_row)
             return RemoteViews(packageName, R.layout.widget_list_row).apply {
                 setImageViewResource(R.id.wlr_icon, PinnedWidget.icon(p.kind))
+                HomeWidgets.ink().let { if (it != Color.WHITE) setInt(R.id.wlr_icon, "setColorFilter", it) }   // the look's writing colour
                 setTextViewText(R.id.wlr_title, p.title)
                 setTextViewText(R.id.wlr_sub, PinnedWidget.sub(p))
-                setTextColor(R.id.wlr_title, Color.WHITE)
-                setTextColor(R.id.wlr_sub, Color.WHITE)
+                setTextColor(R.id.wlr_title, HomeWidgets.ink())
+                setTextColor(R.id.wlr_sub, HomeWidgets.ink())
                 setOnClickFillInIntent(R.id.wlr_row, Intent().putExtra(HomeWidgets.OPEN, "pin:" + p.key))
             }
         }

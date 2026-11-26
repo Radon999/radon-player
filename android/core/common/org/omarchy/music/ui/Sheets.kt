@@ -1137,6 +1137,8 @@ private fun DiscordLine() {
         d.GAME -> "\"Playing Radon Player\": Discord shows one Playing at a time, the latest, so a game started after it takes its place"
         else -> "\"Listening to Radon Player\", as Spotify shows: a game you play shows over it"
     }, style = T.sub)
+    if (d.fellBack && d.kind != d.LISTEN) Text("Your Discord didn't take this one, so it shows as \"Listening to\" instead. " +
+        "Pick it again to try once more", style = T.sub.copy(color = C.accent))
     DiscordAppId()
 }
 
@@ -1654,6 +1656,7 @@ private fun PersonalizationBody(ui: Ui) {
             EffectsLines()
             ColoursLines(ui)
             NowPlayingLookLines()
+            WidgetLines()
             MenuEntriesLines()
             MakerLines(ui)
 }
@@ -1757,6 +1760,36 @@ private fun lookDesc(k: String): String = Looks.describe(k).ifEmpty {
     if (k == Looks.NOW_PLAYING) "Every screen takes the colours of the cover of the song that's playing" else "" }
 
 /** Settings › Look for Now playing: its background, and the visualizer behind it. */
+/** Settings › Personalization › Widgets: the Visualizer widget's visualizer and colour, and every widget in the app's
+ *  look (the phone's home screen widgets and the PC's desktop ones alike). See [WidgetLook]. */
+@Composable
+private fun WidgetLines() {
+    var vis by remember { mutableStateOf(org.omarchy.music.Prefs.text(WidgetLook.VIS)) }
+    var colour by remember { mutableStateOf(org.omarchy.music.Prefs.text(WidgetLook.VIS_COLOR)) }
+    var look by remember { mutableStateOf(WidgetLook.copyLook()) }
+    val widgets = if (onPhone) "home screen widgets" else "desktop widgets"
+    Line("Widgets in the app's look", "On: every one of your $widgets wears the app's look: the preset's when one is on, " +
+        "else the look you picked (its background, writing and accent; the Now playing look in the cover's colours). Only " +
+        "the look: no effects or moving backgrounds. Off: the colour of the cover playing, as always", look) {
+        Switch(look, { look = it; org.omarchy.music.Prefs.set(WidgetLook.LOOK, it) }, colors = swColors())
+    }
+    Line("Visualizer widget", "What the Visualizer widget shows. Same as Now playing (the first choice) follows Now playing's " +
+        "visualizer, and its Dual bottom one, whenever you change it there; Now playing's Off shows the Visualizer tab's. " +
+        "Or pick one for the widget alone", false) {
+        val group: (String) -> String = { k -> if (k == org.omarchy.music.WidgetVisRules.TAB) "Basics" else MenuGroups.vis(k) }
+        ChoicePill(WidgetLook.VIS_CHOICES, vis, group = group, preview = { k -> if (k.isNotEmpty() && k != org.omarchy.music.WidgetVisRules.TAB) VisPages(k) }) {
+            vis = it; org.omarchy.music.Prefs.setText(WidgetLook.VIS, it)
+        }
+    }
+    Line("Visualizer widget's colour", "Same as the app draws it, or a colour for the widget alone", false) {
+        val accent = C.accent
+        ChoicePill(WidgetLook.COLOR_CHOICES, colour, group = { k -> if (k.isEmpty()) "Basics" else MenuGroups.visColour(k) },
+            swatch = { k -> if (k.isEmpty()) null else visSwatch(k, accent) }) {
+            colour = it; org.omarchy.music.Prefs.setText(WidgetLook.VIS_COLOR, it)
+        }
+    }
+}
+
 @Composable
 private fun NowPlayingLookLines() {
     // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button). With it on,

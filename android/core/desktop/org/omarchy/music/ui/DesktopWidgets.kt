@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,6 +112,10 @@ object DesktopWidgets {
     /** The cover playing's main colour (null: none), worked out once a song for every widget (the host keeps it). */
     var coverRgb by mutableStateOf<Int?>(null)
         internal set
+
+    /** The app's look as the widgets wear it, with Widgets in the app's look on (Settings › Personalization); null: the
+     *  cover's colour. Follows the look, the preset and the cover as they change. */
+    val copied by androidx.compose.runtime.derivedStateOf { WidgetLook.colors(coverRgb) }
 
     // ---- the saved layout ----
 
@@ -225,7 +228,8 @@ fun DesktopWidgetWindows(icon: Painter) {
     if (!DesktopWidgets.anyOpen) return
     val t = Music.current()
     LaunchedEffect(t?.id) { DesktopWidgets.coverRgb = t?.let { runCatching { Tint.rgbOf(artModel(it, 200)) }.getOrNull() } }
-    val bg = backdropOf(DesktopWidgets.coverRgb).let { if (seeThrough) it else it.copy(alpha = 1f) }
+    val look = DesktopWidgets.copied
+    val bg = (look?.bg?.copy(alpha = 0xD9 / 255f) ?: backdropOf(DesktopWidgets.coverRgb)).let { if (seeThrough) it else it.copy(alpha = 1f) }
     DesktopWidgetRules.KINDS.forEachIndexed { i, (kind, name) ->
         if (DesktopWidgets.isOpen(kind)) key(kind) { WidgetWindow(kind, name, i, icon, bg) }
     }
@@ -340,7 +344,10 @@ fun backdropOf(rgb: Int?): Color {
     return Color(Rgb.fromHsl(hsl)).copy(alpha = 0xD9 / 255f)
 }
 
-private val W = Color.White
+/** The widgets' writing and icons: the look's writing with Widgets in the app's look on (dark on a light look), else white. */
+private val W: Color get() = DesktopWidgets.copied?.fg ?: Color.White
+/** What's written on [W] (a main button's word, a switch's knob): the background's colour. */
+private val INK: Color get() = DesktopWidgets.copied?.bg?.copy(alpha = 1f) ?: Color(0xFF16161A)
 private val wTitle: TextStyle @Composable get() = T.body.copy(color = W, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
 private val wSub: TextStyle @Composable get() = T.sub.copy(color = W.copy(alpha = 0.8f))
 private val wSection: TextStyle @Composable get() = T.section.copy(color = W.copy(alpha = 0.75f))
@@ -350,7 +357,10 @@ private val wSection: TextStyle @Composable get() = T.section.copy(color = W.cop
 @Composable
 fun WidgetCard(kind: String, bg: Color, rounded: Boolean = true, drag: @Composable (@Composable () -> Unit) -> Unit = { it() }, grip: Modifier = Modifier) {
     var options by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().then(if (rounded) Modifier.clip(RoundedCornerShape(16.dp)) else Modifier).background(bg)) {
+    // In the app's look: its gradient over the background, when it has one (as see-through as the background)
+    val grad = DesktopWidgets.copied?.gradient?.map { it.copy(alpha = bg.alpha) }
+    Box(Modifier.fillMaxSize().then(if (rounded) Modifier.clip(RoundedCornerShape(16.dp)) else Modifier)
+        .then(if (grad != null) Modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(grad)) else Modifier.background(bg))) {
         drag {
             Column(Modifier.fillMaxSize().padding(12.dp)) {
                 if (options) WidgetOptions(kind) { options = false } else when (kind) {
@@ -386,7 +396,7 @@ fun WidgetCard(kind: String, bg: Color, rounded: Boolean = true, drag: @Composab
 /** A button on a widget: white on the colour (strong: the main one, solid white). */
 @Composable
 private fun WPill(text: String, strong: Boolean = false, onClick: () -> Unit) {
-    Text(text, style = T.tab.copy(color = if (strong) Color(0xFF16161A) else W, fontWeight = FontWeight.SemiBold), maxLines = 1,
+    Text(text, style = T.tab.copy(color = if (strong) INK else W, fontWeight = FontWeight.SemiBold), maxLines = 1,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (strong) W.copy(alpha = 0.92f) else W.copy(alpha = 0.16f))
             .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp))
 }
@@ -543,7 +553,7 @@ private fun ColumnScope.PlaylistWidget() {
         WChip("Shuffled", place.shuffled) { DesktopWidgets.save("playlist", place.copy(shuffled = true)) }
         Spacer(Modifier.weight(1f))
         Box(Modifier.clip(RoundedCornerShape(50)).background(W.copy(alpha = 0.92f)).clickable { play() }.padding(8.dp)) {
-            Icon(if (place.shuffled) Ico.SHUFFLE else Ico.PLAY, Color(0xFF16161A), 22.dp)
+            Icon(if (place.shuffled) Ico.SHUFFLE else Ico.PLAY, INK, 22.dp)
         }
     }
 }
@@ -688,27 +698,28 @@ private fun ColumnScope.ReleasesWidget() {
     }
 }
 
-/** (10) The visualizer: the style picked in the app's Visualizer, in the colours picked there (the song's own when it's
- *  the look's or the cover's), on the song's colour. It only runs while music plays: paused or with nothing playing it
- *  draws nothing and the sound isn't read (the same reading the app's visualizer uses, at the same pace). Play/pause
- *  and next show while the mouse is over it, and while it's paused. */
+/** (10) The visualizer: Now playing's visualizer (Settings › Personalization › Widgets: or the Visualizer tab's, or one
+ *  of its own), changing with it; in the colours the app draws it in (the song's own when it's the look's or the cover's;
+ *  the look's accent in the app's look), or the widget's own colour. It only runs while music plays: paused or with
+ *  nothing playing it draws nothing and the sound isn't read (the same reading the app's visualizer uses, at the same
+ *  pace). Play/pause and next show while the mouse is over it, and while it's paused. */
 @Composable
 private fun ColumnScope.VisualizerWidget() {
     val t = Music.current()
     val playing = t != null && !Music.paused
     val s = rememberVis(playing)
     val rgb = DesktopWidgets.coverRgb
-    val base = rgb?.let { androidx.compose.ui.graphics.lerp(Color(org.omarchy.music.CoverColourRules.shown(it)), W, 0.3f) } ?: W.copy(alpha = 0.9f)
+    val base = DesktopWidgets.copied?.accent
+        ?: rgb?.let { androidx.compose.ui.graphics.lerp(Color(org.omarchy.music.CoverColourRules.shown(it)), W, 0.3f) } ?: W.copy(alpha = 0.9f)
     val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     WHeader(t?.let { "${it.title} · ${it.artist}" } ?: "Visualizer")
     Box(Modifier.weight(1f).fillMaxWidth().hoverable(hover)) {
         if (s != null) {
-            val style = Vis.style()
-            val key = Vis.color().let { if (it == "auto" || it == "cover") "auto" else it }
+            val fg = W
             Canvas(Modifier.fillMaxSize()) {
                 if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame it moves
-                clipRect { drawVis(style, s, VisPalette.of(style, key, base, s.phase), W, backdrop = true) }
+                drawWidgetVis(s, base, fg)
             }
         } else Text(if (t == null) "Nothing playing" else "Paused", style = wSub, modifier = Modifier.align(Alignment.Center))
         if (hovered || !playing) Row(Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.25f)),
@@ -771,13 +782,27 @@ private fun ColumnScope.WidgetOptions(kind: String, done: () -> Unit) {
             Text("Always on top", style = wTitle.copy(fontSize = 14.sp))
             Text(if (place.onTop) "Stays above your other windows" else "Sits with your other windows", style = wSub.copy(fontSize = 12.sp))
         }
-        Switch(place.onTop, { DesktopWidgets.save(kind, place.copy(onTop = it)) }, colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF16161A),
+        Switch(place.onTop, { DesktopWidgets.save(kind, place.copy(onTop = it)) }, colors = SwitchDefaults.colors(checkedThumbColor = INK,
+            checkedTrackColor = W.copy(alpha = 0.9f), uncheckedThumbColor = W.copy(alpha = 0.8f), uncheckedTrackColor = W.copy(alpha = 0.15f),
+            uncheckedBorderColor = W.copy(alpha = 0.4f)))
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("In the app's look", style = wTitle.copy(fontSize = 14.sp))
+            Text(if (WidgetLook.copyLook()) "Every widget wears the app's look (no effects)" else "In the cover's colour", style = wSub.copy(fontSize = 12.sp))
+        }
+        Switch(WidgetLook.copyLook(), { Prefs.set(WidgetLook.LOOK, it) }, colors = SwitchDefaults.colors(checkedThumbColor = INK,
             checkedTrackColor = W.copy(alpha = 0.9f), uncheckedThumbColor = W.copy(alpha = 0.8f), uncheckedTrackColor = W.copy(alpha = 0.15f),
             uncheckedBorderColor = W.copy(alpha = 0.4f)))
     }
     Spacer(Modifier.height(8.dp))
     when (kind) {
         "playlist" -> PlaylistChoice(yourPlaylists(), done)
+        "visualizer" -> {
+            val choice = WidgetLook.VIS_CHOICES.firstOrNull { it.first == Prefs.text(WidgetLook.VIS) }?.second ?: "Same as Now playing"
+            Text("Shows: $choice", style = wSub)
+            Row(Modifier.padding(top = 6.dp)) { WPill("Change it…") { Instance.inWindow { it.openSettings("Personalization") } } }
+        }
         "top" -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TOP_PERIODS.forEach { (k, name) -> WChip(name.removePrefix("This ").replaceFirstChar { it.uppercase() }, (place.choice.ifEmpty { "all" }) == k) { DesktopWidgets.save(kind, place.copy(choice = k)) } }
         }

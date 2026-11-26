@@ -242,7 +242,7 @@ class LyricsWidgetRows : RemoteViewsService() {
             return RemoteViews(packageName, R.layout.widget_lyrics_row).apply {
                 val head = section.matches(line)
                 setTextViewText(R.id.wyr_line, if (head) line.trim().uppercase() else line)
-                setTextColor(R.id.wyr_line, Color.WHITE)
+                setTextColor(R.id.wyr_line, HomeWidgets.ink())
                 setFloat(R.id.wyr_line, "setAlpha", if (head) 0.6f else 1f)
                 setTextViewTextSize(R.id.wyr_line, android.util.TypedValue.COMPLEX_UNIT_SP, if (head) 11f else 15f)
                 setOnClickFillInIntent(R.id.wyr_line, Intent().putExtra(HomeWidgets.OPEN, "lyrics"))

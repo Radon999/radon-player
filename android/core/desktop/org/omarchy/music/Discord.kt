@@ -47,8 +47,11 @@ object Discord {
 
     /** How it shows on Discord (Settings): "top" Competing in (on top of everything, games and Go Live too), "game"
      *  Playing (one Playing shows at a time: the latest), "listen" Listening to (the Spotify look; games go over it).
-     *  Discord sorts the activities others see by kind (Competing, Streaming, Playing, then the rest), not the app. */
-    private var kindNow by mutableStateOf(TOP)
+     *  Discord sorts the activities others see by kind (Competing, Streaming, Playing, then the rest), not the app.
+     *  Listening to is the one at first: it's what showed before 5.2.3, and 5.2.3's Competing at first left some
+     *  Discords showing nothing. A kind Discord won't take (it refuses it, or keeps another kind) falls back to
+     *  Listening to by itself ([fellBack]), and Settings says so. */
+    private var kindNow by mutableStateOf(LISTEN)
     val kind: String get() = kindNow
     const val TOP = "top"
     const val GAME = "game"
@@ -58,13 +61,30 @@ object Discord {
     fun init() {
         onNow = Prefs.on("discord", true)
         idNow = Prefs.text(APP_ID_KEY).trim()
-        kindNow = Prefs.text(KIND_KEY, TOP).takeIf { it in setOf(TOP, GAME, LISTEN) } ?: TOP
+        kindNow = Prefs.text(KIND_KEY, LISTEN).takeIf { it in setOf(TOP, GAME, LISTEN) } ?: LISTEN
         Thread({ run() }, "discord").apply { isDaemon = true }.start()
     }
 
     fun setOn(v: Boolean) { onNow = v; Prefs.set("discord", v) }
 
-    fun setKind(v: String) { if (v in setOf(TOP, GAME, LISTEN)) { kindNow = v; Prefs.setText(KIND_KEY, v) } }
+    fun setKind(v: String) { if (v in setOf(TOP, GAME, LISTEN)) { kindNow = v; Prefs.setText(KIND_KEY, v); fellBackNow = false } }
+
+    /** Discord wouldn't show the kind picked (it refused it, or kept another kind), so it shows as Listening to, the one
+     *  every Discord takes; tried again when the kind, the application or the connection changes. */
+    private var fellBackNow by mutableStateOf(false)
+    val fellBack: Boolean get() = fellBackNow
+    /** The kind sent: the one picked, or Listening to after a fall back. */
+    private val shownKind: String get() = if (fellBackNow) LISTEN else kindNow
+
+    /** Whether Discord took the activity's kind: its answer to SET_ACTIVITY gives back the activity it keeps, with its
+     *  type; another type there (or none kept at all) means it won't show as sent. An answer without the activity
+     *  can't tell, and counts as taken. */
+    fun kindTaken(sentType: Int, answer: JsonObject): Boolean {
+        val data = answer["data"] as? JsonObject ?: return true
+        if (data.isEmpty()) return true
+        val back = (data["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: return true
+        return back == sentType
+    }
 
     /** Discord's activity type for a kind: 5 Competing, 0 Playing, 2 Listening. */
     fun typeOf(kind: String) = when (kind) { GAME -> 0; LISTEN -> 2; else -> 5 }
@@ -94,7 +114,7 @@ object Discord {
         val id = v.trim()
         if (id.isNotEmpty() && !Regex("\\d{17,20}").matches(id)) return false
         idNow = id; Prefs.setText(APP_ID_KEY, id)
-        redo = true; plain = false; status = ""
+        redo = true; plain = false; status = ""; fellBackNow = false
         return true
     }
 
@@ -177,7 +197,7 @@ object Discord {
         // up once, as Most played does), the app's icon until it's found; the icon stays small in the corner
         val cover = coverUrl(t) ?: ICON
         val act = buildJsonObject {
-            put("type", typeOf(kind))
+            put("type", typeOf(shownKind))
             if (!basic) put("status_display_type", 0)
             put("details", text(details(t.title, plays(t)))); put("state", text(t.artist))
             putJsonObject("timestamps") {
@@ -198,7 +218,7 @@ object Discord {
             }
         }
         // The bar a few seconds off isn't worth an update; a cover found, a play counted or another kind is
-        return act to "${t.id}|${start / 3000}|$cover|$kind|${playsOf.second}"
+        return act to "${t.id}|${start / 3000}|$cover|$shownKind|${playsOf.second}"
     }
 
     /** A picture's address Discord takes: on the web, 256 characters at most (a longer one makes it refuse the whole activity). */
@@ -233,12 +253,19 @@ object Discord {
         logWarn("Discord Rich Presence (application $appId)", e)
     }
 
-    private fun setActivity(want: JsonObject?) {
+    /** Sends the activity (null: clears it); Discord's answer back (the activity as it keeps it). */
+    private fun setActivity(want: JsonObject?): JsonObject {
         send(1, buildJsonObject {
             put("cmd", "SET_ACTIVITY"); put("nonce", java.util.UUID.randomUUID().toString())
             putJsonObject("args") { put("pid", ProcessHandle.current().pid()); want?.let { put("activity", it) } }
         })
-        reply()
+        return reply()
+    }
+
+    /** Shows as Listening to from now on (see [fellBack]; Settings › Discord says so). */
+    private fun fallBack(why: String) {
+        logWarn("Discord didn't show “${kindNow}” ($why): showing as Listening to instead")
+        fellBackNow = true
     }
 
     private fun run() {
@@ -255,11 +282,28 @@ object Discord {
             last = System.currentTimeMillis()
             try {
                 if (pipe == null && sock == null) { if (want == null) { sentKey = key; continue }; connect() }
-                try { setActivity(want) } catch (e: Refused) {
-                    if (want == null || plain) throw e
-                    // Refused the full one (a newer field, a button, a picture): the basic one, from now on
-                    log(e); plain = true
-                    setActivity(wanted(true).first)
+                val type = typeOf(shownKind)
+                try {
+                    val answer = setActivity(want)
+                    // Taken, but kept as another kind (or dropped): Listening to, at once
+                    if (want != null && shownKind != LISTEN && !kindTaken(type, answer)) {
+                        fallBack("it kept another kind"); setActivity(wanted(plain).first)
+                    }
+                } catch (e: Refused) {
+                    if (want == null) throw e
+                    if (shownKind != LISTEN) {
+                        // Refused this kind: Listening to (what every Discord takes), then the basic one if need be
+                        fallBack(e.message ?: "refused")
+                        try { setActivity(wanted(plain).first) } catch (e2: Refused) {
+                            if (plain) throw e2
+                            log(e2); plain = true; setActivity(wanted(true).first)
+                        }
+                    } else {
+                        if (plain) throw e
+                        // Refused the full one (a newer field, a button, a picture): the basic one, from now on
+                        log(e); plain = true
+                        setActivity(wanted(true).first)
+                    }
                 }
                 sent = want; sentKey = key; status = "on"
             } catch (e: Exception) {

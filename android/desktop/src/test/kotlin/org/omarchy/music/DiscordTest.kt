@@ -24,4 +24,21 @@ class DiscordTest {
         assertEquals(0, Discord.typeOf(Discord.GAME))
         assertEquals(2, Discord.typeOf(Discord.LISTEN))
     }
+
+    private fun answer(json: String) = kotlinx.serialization.json.Json.parseToJsonElement(json) as kotlinx.serialization.json.JsonObject
+
+    @Test fun aKindDiscordKeptIsTaken() {
+        assertTrue(Discord.kindTaken(5, answer("""{"cmd":"SET_ACTIVITY","data":{"type":5,"details":"Halo"},"evt":null}""")))
+        assertTrue(Discord.kindTaken(2, answer("""{"cmd":"SET_ACTIVITY","data":{"type":2},"evt":null}""")))
+    }
+
+    @Test fun anotherKindKeptMeansFallingBack() {
+        assertEquals(false, Discord.kindTaken(5, answer("""{"cmd":"SET_ACTIVITY","data":{"type":0,"details":"Halo"},"evt":null}""")))
+    }
+
+    @Test fun anAnswerWithoutTheActivityCantTell() {
+        assertTrue(Discord.kindTaken(5, answer("""{"cmd":"SET_ACTIVITY","data":{},"evt":null}""")))
+        assertTrue(Discord.kindTaken(5, answer("""{"cmd":"SET_ACTIVITY","evt":null}""")))
+        assertTrue(Discord.kindTaken(5, answer("""{"cmd":"SET_ACTIVITY","data":{"details":"Halo"},"evt":null}""")))
+    }
 }

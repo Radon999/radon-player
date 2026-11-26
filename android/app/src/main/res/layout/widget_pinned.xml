@@ -10,7 +10,7 @@
 
     <LinearLayout android:id="@+id/wp_head" android:layout_width="match_parent" android:layout_height="32dp"
         android:orientation="horizontal" android:gravity="center_vertical">
-        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_pin" android:contentDescription="" />
+        <ImageView android:id="@+id/w_head_icon" android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_pin" android:contentDescription="" />
         <TextView android:id="@+id/wp_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:layout_marginStart="8dp" android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFFFF"
             android:maxLines="1" android:text="Pinned" />

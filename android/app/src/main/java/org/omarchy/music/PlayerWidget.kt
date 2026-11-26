@@ -66,7 +66,7 @@ class PlayerWidget : AppWidgetProvider() {
             val t = Music.shownTrack()
             val paused = if (Remote.active) Remote.status.paused else Music.paused
             val repeat = if (Remote.active) Remote.status.repeat else Music.repeat
-            val fg = Color.WHITE
+            val fg = HomeWidgets.ink()   // white, or the look's writing (Widgets in the app's look)
             val mode = Prefs.text(MODE, "queue")
             val v = RemoteViews(ctx.packageName, R.layout.widget_player)
             HomeWidgets.paint(ctx, v)   // the rounded background, in the cover's colour (HomeWidgets)
@@ -123,8 +123,8 @@ class PlayerWidgetRows : RemoteViewsService() {
             return RemoteViews(packageName, R.layout.widget_row).apply {
                 setTextViewText(R.id.wr_title, t.title)
                 setTextViewText(R.id.wr_artist, t.artist)
-                setTextColor(R.id.wr_title, Color.WHITE)
-                setTextColor(R.id.wr_artist, Color.WHITE)
+                setTextColor(R.id.wr_title, HomeWidgets.ink())
+                setTextColor(R.id.wr_artist, HomeWidgets.ink())
                 setOnClickFillInIntent(R.id.wr_row, Intent().putExtra("at", i).putExtra("id", t.id))
             }
         }

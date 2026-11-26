@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Job
@@ -62,6 +63,13 @@ object HomeWidgets {
         return cover.second
     }
 
+    /** The app's look as the widgets wear it, with Widgets in the app's look on (Settings › Personalization; a preset's
+     *  look when one is on, the Now playing look in this cover's colours); null: off, the cover's colour as always. */
+    fun copied(): org.omarchy.music.ui.WidgetLook.Copied? = org.omarchy.music.ui.WidgetLook.colors(colour.takeIf { cover.first.isNotEmpty() })
+
+    /** The writing and icons' colour: the look's writing (dark on a light look), else white. */
+    fun ink(): Int = copied()?.fg?.toArgb() ?: Color.WHITE
+
     /** The background: the cover's own hue, made dark and calm enough that white writing reads well on it (a yellow
      *  or green cover's light colour made deep), a little see-through. */
     fun background(ctx: Context): Int = ColorUtils.setAlphaComponent(deep(ctx), 0xD9)
@@ -69,6 +77,7 @@ object HomeWidgets {
     /** The background's colour, solid: deep enough for white writing (at least 4.5 to 1, as for text that must read). */
     private fun deep(ctx: Context): Int {
         coverOf(ctx, Music.shownTrack())
+        copied()?.let { return it.solid.toArgb() or 0xFF000000.toInt() }   // the look's own background
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(colour, hsl)
         hsl[1] = hsl[1].coerceAtMost(0.6f)
@@ -80,6 +89,7 @@ object HomeWidgets {
 
     /** A light shade of the cover's own colour, for what's drawn on the background (the Visualizer widget's bars). */
     fun accent(): Int {
+        copied()?.let { return it.accent.toArgb() }
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(colour, hsl)
         hsl[1] = hsl[1].coerceIn(0.35f, 0.9f)
@@ -90,12 +100,48 @@ object HomeWidgets {
     /** The rounded background in the cover's colour: every widget's layout has it as a picture behind everything
      *  (w_bg: the rounded shape, Android 12's own corners there), coloured and made a little see-through here. A picture,
      *  not the layout's own background, so Android 10 and 11 keep the rounded corners too. */
-    fun paint(ctx: Context, v: RemoteViews) = paint(v, deep(ctx))
+    fun paint(ctx: Context, v: RemoteViews) = paint(ctx, v, deep(ctx), ink())
 
-    /** The same, with the colour worked out already (the Visualizer's frames, off the main thread). */
-    fun paint(v: RemoteViews, solid: Int) {
+    /** The same, with the colours worked out already (the Visualizer's, off the main thread): the background, and the
+     *  writing and icons in ink (white, or the look's writing). */
+    fun paint(ctx: Context, v: RemoteViews, solid: Int, ink: Int) {
         v.setInt(R.id.w_bg, "setColorFilter", ColorUtils.setAlphaComponent(solid, 0xFF))
         v.setInt(R.id.w_bg, "setImageAlpha", 0xD9)
+        inked(ctx, v, ink)
+    }
+
+    /** Every piece of writing and every icon in a widget's layout (or a row's) in ink. White is how the layouts are
+     *  drawn, so that's left as it is. The pieces are read once from the layout itself: its TextViews, its buttons, and
+     *  the icons named in [ICONS] (never a cover: some covers stand in an icon's place until they're in). */
+    fun inked(ctx: Context, v: RemoteViews, ink: Int = ink()) {
+        if (ink == Color.WHITE) return
+        val (texts, icons) = pieces(ctx, v.layoutId)
+        for (id in texts) v.setTextColor(id, ink)
+        for (id in icons) v.setInt(id, "setColorFilter", ink)
+    }
+
+    /** The icons drawn white on a widget that aren't buttons: these ImageViews (by their names). */
+    private val ICONS = setOf("wd_icon", "wlr_icon", "wls_back", "w_head_icon")
+    private val piecesOf = java.util.concurrent.ConcurrentHashMap<Int, Pair<IntArray, IntArray>>()
+    private fun pieces(ctx: Context, layout: Int): Pair<IntArray, IntArray> = piecesOf.getOrPut(layout) {
+        val texts = ArrayList<Int>(); val icons = ArrayList<Int>()
+        val ns = "http://schemas.android.com/apk/res/android"
+        runCatching {
+            val x = ctx.resources.getLayout(layout)
+            try {
+                while (x.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                    if (x.eventType != org.xmlpull.v1.XmlPullParser.START_TAG) continue
+                    val id = x.getAttributeResourceValue(ns, "id", 0)
+                    if (id == 0) continue
+                    when (x.name.substringAfterLast('.')) {
+                        "TextView" -> texts += id
+                        "ImageButton" -> icons += id
+                        "ImageView" -> if (runCatching { ctx.resources.getResourceEntryName(id) }.getOrNull() in ICONS) icons += id
+                    }
+                }
+            } finally { x.close() }
+        }
+        texts.toIntArray() to icons.toIntArray()
     }
 
     /** The background's solid colour (for [paint] off the main thread). */
@@ -103,9 +149,11 @@ object HomeWidgets {
 
     /** One of a two-way switch's halves (the DJ's songs, a playlist's order): lit when chosen. */
     fun choice(v: RemoteViews, id: Int, on: Boolean) {
-        v.setInt(id, "setBackgroundResource", if (on) R.drawable.w_chip_on else R.drawable.w_chip_off)
+        val dark = copied()?.light == true   // a light look: dark pills under dark writing
+        v.setInt(id, "setBackgroundResource", if (on) (if (dark) R.drawable.w_chip_on_dark else R.drawable.w_chip_on)
+            else if (dark) R.drawable.w_chip_off_dark else R.drawable.w_chip_off)
         v.setFloat(id, "setAlpha", if (on) 1f else 0.7f)
-        v.setTextColor(id, Color.WHITE)
+        v.setTextColor(id, ink())
     }
 
     // ---- taps ----
@@ -215,6 +263,15 @@ object HomeWidgets {
                 }
             },
             Music.scope.launch { AppVisible.flow.collect { appShown = it } },
+            // Widgets in the app's look: drawn again as the look changes (a preset put on, another look picked, the
+            // switch itself), and as the Visualizer widget's choices change
+            Music.scope.launch {
+                snapshotFlow { listOf(org.omarchy.music.ui.WidgetLook.copyLook(), copied()?.let { listOf(it.bg, it.fg, it.accent, it.gradient) },
+                    Prefs.text(org.omarchy.music.ui.WidgetLook.VIS), Prefs.text(org.omarchy.music.ui.WidgetLook.VIS_COLOR)) }.drop(1).collectLatest {
+                    delay(300)
+                    runCatching { updateAll(svc) }
+                }
+            },
             Music.scope.launch { LyricsWidget.follow(svc) },
             Music.scope.launch { VisualizerWidget.follow(svc) },
         )

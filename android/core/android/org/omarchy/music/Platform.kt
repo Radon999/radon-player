@@ -251,6 +251,7 @@ object Discord {
     const val GAME = "game"
     const val LISTEN = "listen"
     val kind = TOP
+    val fellBack = false
     fun setKind(v: String) {}
     fun setAppId(v: String) = false
 }

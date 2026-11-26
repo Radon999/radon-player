@@ -119,10 +119,11 @@ class ListsWidgetRows : RemoteViewsService() {
             val r = rows.getOrNull(position) ?: return RemoteViews(packageName, R.layout.widget_list_row)
             return RemoteViews(packageName, R.layout.widget_list_row).apply {
                 setImageViewResource(R.id.wlr_icon, if (r.kind == "folder") R.drawable.w_folder else R.drawable.w_playlist)
+                HomeWidgets.ink().let { if (it != Color.WHITE) setInt(R.id.wlr_icon, "setColorFilter", it) }   // the look's writing colour
                 setTextViewText(R.id.wlr_title, r.title)
                 setTextViewText(R.id.wlr_sub, r.sub)
-                setTextColor(R.id.wlr_title, Color.WHITE)
-                setTextColor(R.id.wlr_sub, Color.WHITE)
+                setTextColor(R.id.wlr_title, HomeWidgets.ink())
+                setTextColor(R.id.wlr_sub, HomeWidgets.ink())
                 setOnClickFillInIntent(R.id.wlr_row, Intent().putExtra("kind", r.kind).putExtra("id", r.id))
             }
         }

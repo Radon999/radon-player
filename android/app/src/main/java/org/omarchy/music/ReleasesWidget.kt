@@ -142,8 +142,8 @@ class ReleasesWidgetRows : RemoteViewsService() {
             return RemoteViews(packageName, R.layout.widget_release_row).apply {
                 setTextViewText(R.id.wrr_title, r.title)
                 setTextViewText(R.id.wrr_sub, ReleasesWidget.sub(r))
-                setTextColor(R.id.wrr_title, Color.WHITE)
-                setTextColor(R.id.wrr_sub, Color.WHITE)
+                setTextColor(R.id.wrr_title, HomeWidgets.ink())
+                setTextColor(R.id.wrr_sub, HomeWidgets.ink())
                 val bmp = r.cover.takeIf { it.isNotEmpty() }?.let { ReleasesWidget.cover(it) }
                 if (bmp != null) setImageViewBitmap(R.id.wrr_cover, bmp) else setImageViewResource(R.id.wrr_cover, R.drawable.w_dj)
                 setOnClickFillInIntent(R.id.wrr_row, Intent().putExtra("key", NewReleases.key(r)))

@@ -495,6 +495,19 @@ object Looks {
     fun swatch(look: String): Pair<Color, Color> = styledLook(look)?.let { Color(it.grad?.getOrNull(1) ?: it.bg) to Color(it.accent) }
         ?: (Color(0xFF6B2E5A) to Color(0xFFFFB46B))
 
+    /** The Now playing look's colours for a cover's main colour, as [applyCover] puts them on (the widgets' copy of the
+     *  look, worked out for their own cover without changing the app's). */
+    fun coverColors(rgb: Int): LookColors {
+        val hsl = FloatArray(3)
+        colorToHsl(rgb, hsl)
+        val grey = hsl[1] <= 0.08f
+        val s = if (grey) hsl[1] else hsl[1].coerceIn(0.25f, 0.75f)
+        fun shade(l: Float, sat: Float = s) = Color(hslToColor(hsl[0], sat, l))
+        val fg = Color(0xFFF5F5F7)
+        return LookColors(shade(0.20f), shade(0.26f), fg, lerp(fg, shade(0.12f), 0.42f),
+            if (grey) Color(0xFFFA2D48) else shade(0.74f, kotlin.math.min(1f, s + 0.15f)), listOf(shade(0.34f), shade(0.12f)), false, false)
+    }
+
     /** The Now playing look: from a cover's main colour (null: none), else the fallback look. */
     fun applyCover(rgb: Int?, fallback: String) {
         if (rgb == null) { apply(fallback); return }
