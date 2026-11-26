@@ -1,0 +1,6 @@
+v5.2.5
+Radon Player 5.2.5: Size of Now playing
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.2.5.msi` (Windows), `radon-player_5.2.5_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Size of Now playing (the phone and the PC):** a new setting under Size of everything (Settings › General) makes the Now playing screen smaller or bigger as a whole, from 50% to 125%: the cover, the song's name, the buttons and the visualizer together, for a big monitor where the cover takes more room than it needs. The visualizers over, around and along the bottom of the cover change with it; full screen ones still fill the screen. The rest of the app stays as Size of everything has it, and each device keeps its own size.

@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 5.2.5 · November 2026
+- **Size of Now playing (the phone and the PC):** a new setting under Size of everything (Settings › General) makes the Now playing screen smaller or bigger as a whole, from 50% to 125%: the cover, the song's name, the buttons and the visualizer together, for a big monitor where the cover takes more room than it needs. The visualizers over, around and along the bottom of the cover change with it; full screen ones still fill the screen. The rest of the app stays as Size of everything has it, and each device keeps its own size.
+
 ## 5.2.4 · November 2026
 - **The Visualizer widget follows Now playing (the phone and the PC):** it now shows the visualizer you picked for Now playing (with Dual, its bottom one too) and changes the moment you change it there, instead of always being bars; on the phone it's drawn in full colour, the way the app draws it. With Now playing's visualizer Off it shows the Visualizer tab's. In **Settings › Personalization › Widgets** you can instead give it the Visualizer tab's style or one of its own, and a colour of its own.
 - **Widgets in the app's look (the phone and the PC):** a new switch (Settings › Personalization › Widgets, and in each PC widget's ⚙) dresses every widget in the look you're using instead of the cover's colour: the preset's look when one is on, else the look you picked, with the Now playing look in the cover's colours. Only the look is copied (background, writing and accent), never its effects; light looks get dark writing and icons. On the phone a look with a gradient uses its middle colour (home screen widgets take one colour); the PC's widgets show the whole gradient.
