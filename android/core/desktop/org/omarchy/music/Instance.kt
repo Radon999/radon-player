@@ -257,6 +257,13 @@ object Instance {
             ui.sheet = null   // (Settings, if it is open, would be in the way)
             org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
         }
+        // "show now 70": Size of Now playing set to that (Settings › General), with Now playing in front
+        if (low.startsWith("now ") || low.startsWith("nowplaying ")) {
+            val pc = rest.substringAfter(' ').trim().removeSuffix("%")
+            org.omarchy.music.Prefs.setText(org.omarchy.music.NowSizeRules.PREF, org.omarchy.music.NowSizeRules.percent(pc).toString())
+            ui.sheet = null
+            org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
+        }
         // "show vis blocks": that visualizer alone along Now playing's bottom, at full strength, with Now playing in
         // front (the checks film it for the website)
         if (low.startsWith("vis ")) {

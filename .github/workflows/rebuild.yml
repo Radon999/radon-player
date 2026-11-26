@@ -189,6 +189,17 @@ jobs:
                   DISPLAY=:99 timeout 20 "$exe" show vis slim >/dev/null 2>&1 || true
                 fi
                 DISPLAY=:99 timeout 20 "$exe" show preset "preset-1" >/dev/null 2>&1 || true
+                # Size of Now playing: Now playing at 100% and at 70%, side by side (linux-nowsize.jpg), then back to 100%
+                mkdir -p "$RUNNER_TEMP/nshots"
+                for pc in 100 70; do
+                  DISPLAY=:99 timeout 20 "$exe" show now "$pc" >/dev/null 2>&1 || true
+                  sleep 4
+                  DISPLAY=:99 import -window root "$RUNNER_TEMP/nshots/$pc.png" 2>/dev/null || true
+                done
+                if montage "$RUNNER_TEMP/nshots/100.png" "$RUNNER_TEMP/nshots/70.png" -tile 2x -geometry 640x400+6+6 -background '#202020' "$RUNNER_TEMP/nsheet.png" 2>/dev/null && convert "$RUNNER_TEMP/nsheet.png" -quality 72 "$RUNNER_TEMP/linux-nowsize.jpg" 2>/dev/null; then
+                  echo "LINUX NOW PLAYING SIZE: Now playing at 100% and 70% pictured side by side (linux-nowsize.jpg)"
+                fi
+                DISPLAY=:99 timeout 20 "$exe" show now 100 >/dev/null 2>&1 || true
                 # A sign-in page (Tidal's), asked for the way its button asks: what the desktop's opener was handed
                 DISPLAY=:99 timeout 20 "$exe" --tidal-login >/dev/null 2>&1 || true
                 sleep 6
@@ -257,6 +268,7 @@ jobs:
           cp "$RUNNER_TEMP/linux-settings.jpg" linux-settings.jpg 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-presets.jpg" linux-presets.jpg 2>/dev/null || true
           cp "$RUNNER_TEMP/linux-vis.mp4" linux-vis.mp4 2>/dev/null || true
+          cp "$RUNNER_TEMP/linux-nowsize.jpg" linux-nowsize.jpg 2>/dev/null || true
           # The app's own compiled code (three small jars, made from this branch's source and nothing else: no keys, no
           # installer), so a test build already on the PC can be brought up to date without a download that needs signing in
           rm -rf jars && mkdir jars
