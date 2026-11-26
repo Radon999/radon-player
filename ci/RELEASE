@@ -1,0 +1,7 @@
+v5.2.3
+Radon Player 5.2.3: Save your widget layout, and the PC's pairing address
+**Install or update:** `RadonPlayer-Next.apk` (Android), `Radon-Player-5.2.3.msi` (Windows), `radon-player_5.2.3_amd64.deb` (Linux). Each installs over the version you have and keeps your settings and stats.
+
+**What is new**
+- **Save your widget layout (the PC):** arrange the widgets just how you like them, then **Save widget layout** (Settings › General). It keeps each widget's exact place, size, workspace and what it shows (and the app's own window). With **Open this layout when the app starts** on, they all come back exactly that way every time, and **Put widgets back** restores it whenever you like; moving a widget afterwards doesn't change the saved layout until you save again. On Hyprland the widgets now open straight in their place, on their own workspace, without taking the keyboard away from what you're doing. The mini player opens where it was last.
+- **The PC shows its address for pairing (the PC):** under Phone remote, below the code, the PC lists the address to type on the phone if it doesn't find the PC by itself: the home network's, and Tailscale's for when you're away from home.
