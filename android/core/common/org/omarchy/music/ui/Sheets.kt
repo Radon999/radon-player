@@ -182,11 +182,17 @@ private fun AccountsSheet(ui: Ui) {
             }
             // Size of Now playing: that screen alone (its cover, words and buttons) smaller or bigger; this $DEVICE's own
             val npKept = org.omarchy.music.NowSizeRules.percent(org.omarchy.music.Prefs.text(org.omarchy.music.NowSizeRules.PREF)).toString()
-            Line("Size of Now playing", "Makes the Now playing screen smaller or bigger as a whole: the cover, the song's name, the " +
+            // Off once the album cover's or the visualizer's slider (below) is moved: they size those parts themselves
+            val npOn = org.omarchy.music.NowSizeRules.overallOn((npVisSize() * 100).roundToInt(), (npCoverSize() * 100).roundToInt())
+            Line("Size of Now playing", if (npOn) "Makes the Now playing screen smaller or bigger as a whole: the cover, the song's name, the " +
                 "buttons and the visualizer together, for a big screen where the cover takes more room than it needs. The rest of the app stays as Size " +
-                "of everything has it. 100% is the usual size", npKept != "100") {
-                ChoicePill(org.omarchy.music.NowSizeRules.OPTIONS, npKept) { org.omarchy.music.Prefs.setText(org.omarchy.music.NowSizeRules.PREF, it) }
+                "of everything has it. 100% is the usual size"
+                else "Off: the album cover's or the visualizer's size is set below instead. Put both sliders back to 100% to use it again " +
+                    "(it's kept at $npKept%)", npOn && npKept != "100") {
+                if (npOn) ChoicePill(org.omarchy.music.NowSizeRules.OPTIONS, npKept) { org.omarchy.music.Prefs.setText(org.omarchy.music.NowSizeRules.PREF, it) }
+                else Text("Off", style = T.sub.copy(color = C.muted))
             }
+            NowPartSizes()
             // Everything someone helping would ask for, in one go: the version, the device, how the app is set up and Problems
             val problems = org.omarchy.music.Crashes.last
             Line("Details for support", "One block of text to paste into a message when something is wrong: the version, this $DEVICE, how many " +
@@ -1767,6 +1773,32 @@ private fun lookDesc(k: String): String = Looks.describe(k).ifEmpty {
     if (k == Looks.NOW_PLAYING) "Every screen takes the colours of the cover of the song that's playing" else "" }
 
 /** Settings › Look for Now playing: its background, and the visualizer behind it. */
+/** Settings › General, under Size of Now playing: two sliders, Now playing's visualizer size and the album cover's size,
+ *  each on its own (on top of Size of Now playing); this device's own, like the other sizes. */
+@Composable
+private fun NowPartSizes() {
+    val R = org.omarchy.music.NowSizeRules
+    val P = org.omarchy.music.Prefs
+    val vis = R.visPercent(P.num(R.VIS_PREF, 100f))
+    val cover = R.coverPercent(P.num(R.COVER_PREF, 100f))
+    @Composable
+    fun slider(value: Int, min: Int, max: Int, pref: String) = Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Slider(value.toFloat(), { P.setNum(pref, (Math.round(it / R.STEP) * R.STEP).toFloat()) }, valueRange = min.toFloat()..max.toFloat(),
+            steps = (max - min) / R.STEP - 1,
+            colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+            modifier = Modifier.weight(1f))
+        Text("$value%", style = T.time, modifier = Modifier.width(52.dp).padding(start = 8.dp))
+        if (value != 100) Pill("100%", quiet = true) { P.setNum(pref, 100f) }
+    }
+    Line("Now playing visualizer size", "The visualizers on Now playing alone, smaller or bigger: over the cover, round it and " +
+        "along the bottom (full screen ones still fill the screen). 100% is the usual size", vis != 100) {}
+    slider(vis, R.VIS_MIN, R.VIS_MAX, R.VIS_PREF)
+    Line("Album cover size", "The album cover on Now playing alone, smaller: 100% fills the room it has (as it always did)",
+        cover != 100) {}
+    slider(cover, R.COVER_MIN, R.COVER_MAX, R.COVER_PREF)
+}
+
 /** Settings › Personalization › Widgets: the Visualizer widget's visualizer and colour, and every widget in the app's
  *  look (the phone's home screen widgets and the PC's desktop ones alike). See [WidgetLook]. */
 @Composable

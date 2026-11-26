@@ -183,7 +183,14 @@ fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
 }
 
 /** Size of Now playing, as a factor (1: the usual size). Read in Compose: it changes the moment the setting does. */
-internal fun nowSize(): Float = org.omarchy.music.NowSizeRules.factor(org.omarchy.music.Prefs.text(org.omarchy.music.NowSizeRules.PREF))
+internal fun nowSize(): Float = org.omarchy.music.NowSizeRules.overall(org.omarchy.music.Prefs.text(org.omarchy.music.NowSizeRules.PREF),
+    (npVisSize() * 100).roundToInt(), (npCoverSize() * 100).roundToInt())   // off once either slider is moved
+
+/** Now playing's visualizer size (its slider), as a factor: over the cover, round it and along the bottom. */
+internal fun npVisSize(): Float = org.omarchy.music.NowSizeRules.visPercent(org.omarchy.music.Prefs.num(org.omarchy.music.NowSizeRules.VIS_PREF, 100f)) / 100f
+
+/** The album cover's size on Now playing (its slider), as a factor: 1 fills the room it has. */
+internal fun npCoverSize(): Float = org.omarchy.music.NowSizeRules.coverPercent(org.omarchy.music.Prefs.num(org.omarchy.music.NowSizeRules.COVER_PREF, 100f)) / 100f
 
 @Composable
 private fun NowPlayingScreen(ui: Ui, lock: (() -> Unit)?) {
@@ -502,12 +509,12 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
     Box(modifier.fillMaxWidth()) {
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = if (bleed) 0.dp else 24.dp, vertical = if (bleed) 0.dp else 14.dp),
             contentAlignment = if (bleed) Alignment.TopCenter else Alignment.Center) {
-            val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK * nowSize())
+            val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK * nowSize() * npCoverSize())
             // Around the cover: drawn under it, round its edges and out from them, in the cover's shape and size; it moves
             // with the cover's swipe and takes no taps
             val aroundStyle = Around.style()
             if (around != null && aroundStyle.isNotEmpty()) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
-                AroundTheCover(aroundStyle, around, visCol, strength, side, if (bleed) 0.dp else coverCorner(lay.x("artShape"), side))
+                AroundTheCover(aroundStyle, around, visCol, strength, side, if (bleed) 0.dp else coverCorner(lay.x("artShape"), side), reachK = npVisSize())
             }
             Box(Modifier.size(side)
                 .onGloballyPositioned { val p = it.positionInWindow(); coverCenter = androidx.compose.ui.geometry.Offset(p.x + it.size.width / 2f, p.y + it.size.height / 2f) }   // where a full screen visualizer centres
@@ -535,7 +542,7 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
             if (over != null) Box(Modifier.size(side).graphicsLayer(translationX = dx * 0.6f), contentAlignment = Alignment.Center) {
                 // Starfield's stars fly out over the whole screen from the cover's middle, Full screen on or not
                 if (Vis.full(visStyle) || (MyVis.style(visStyle)?.base ?: visStyle) == "starfield") NowVisFullMiddle(visStyle, over, visCol, strength)
-                else NowVisOver(visStyle, over, visCol, strength, Modifier.size(side * 0.8f))   // always in the cover's exact middle
+                else NowVisOver(visStyle, over, visCol, strength, Modifier.requiredSize(side * 0.8f * npVisSize()))   // always in the cover's exact middle (bigger than the cover if you like)
             }
         }
     }
@@ -1098,7 +1105,7 @@ fun rememberLevels(on: Boolean): Pair<FloatArray, Int>? {
 private fun NowVis(style: String, s: VisState, bars: Color, strength: Float, modifier: Modifier, bottomOnly: Boolean = false) {
     // Size of Now playing: the ones along the bottom as much taller or shorter as the rest of the screen (the ones that
     // fill the whole height, rain and those round a middle, keep filling it)
-    val h = nowSize()
+    val h = nowSize() * npVisSize()
     if (style == "slim") { NowBars(s.levels, s.frame, bars, modifier, strength / 0.5f, heightK = h); return }
     val colorKey = Vis.color()
     val dual = Vis.dual(style)

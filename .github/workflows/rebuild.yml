@@ -189,15 +189,18 @@ jobs:
                   DISPLAY=:99 timeout 20 "$exe" show vis slim >/dev/null 2>&1 || true
                 fi
                 DISPLAY=:99 timeout 20 "$exe" show preset "preset-1" >/dev/null 2>&1 || true
-                # Size of Now playing: Now playing at 100% and at 70%, side by side (linux-nowsize.jpg), then back to 100%
+                # Size of Now playing: at 100%, at 70%, and at 100% with the cover at 60% and the visualizer at 150%, side by
+                # side (linux-nowsize.jpg), then back to 100%
                 mkdir -p "$RUNNER_TEMP/nshots"
-                for pc in 100 70; do
-                  DISPLAY=:99 timeout 20 "$exe" show now "$pc" >/dev/null 2>&1 || true
+                n=1
+                for sizes in "100" "70" "100 cover 60 vis 150"; do
+                  DISPLAY=:99 timeout 20 "$exe" show now $sizes >/dev/null 2>&1 || true
                   sleep 4
-                  DISPLAY=:99 import -window root "$RUNNER_TEMP/nshots/$pc.png" 2>/dev/null || true
+                  DISPLAY=:99 import -window root "$RUNNER_TEMP/nshots/$n.png" 2>/dev/null || true
+                  n=$((n+1))
                 done
-                if montage "$RUNNER_TEMP/nshots/100.png" "$RUNNER_TEMP/nshots/70.png" -tile 2x -geometry 640x400+6+6 -background '#202020' "$RUNNER_TEMP/nsheet.png" 2>/dev/null && convert "$RUNNER_TEMP/nsheet.png" -quality 72 "$RUNNER_TEMP/linux-nowsize.jpg" 2>/dev/null; then
-                  echo "LINUX NOW PLAYING SIZE: Now playing at 100% and 70% pictured side by side (linux-nowsize.jpg)"
+                if montage "$RUNNER_TEMP"/nshots/*.png -tile 3x -geometry 640x400+6+6 -background '#202020' "$RUNNER_TEMP/nsheet.png" 2>/dev/null && convert "$RUNNER_TEMP/nsheet.png" -quality 72 "$RUNNER_TEMP/linux-nowsize.jpg" 2>/dev/null; then
+                  echo "LINUX NOW PLAYING SIZE: Now playing at 100%, 70%, and with the cover at 60% and the visualizer at 150% (linux-nowsize.jpg)"
                 fi
                 DISPLAY=:99 timeout 20 "$exe" show now 100 >/dev/null 2>&1 || true
                 # A sign-in page (Tidal's), asked for the way its button asks: what the desktop's opener was handed

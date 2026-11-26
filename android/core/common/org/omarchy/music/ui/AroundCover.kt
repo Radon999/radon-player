@@ -64,6 +64,8 @@ object Around {
     var makeNext = false
     /** How far round the cover they reach, as a share of the cover's side (each side). */
     const val REACH = 0.32f
+    /** How much farther (or less far) than [REACH] they reach while one is drawn: Now playing's visualizer size. */
+    var reachScale = 1f
 }
 
 /** The cover's edge: a rounded rectangle (a circle when its corners are half its side), walked round clockwise from
@@ -144,7 +146,7 @@ private fun DrawScope.drawAroundStyle(style: String, spin: Float, amp: Float, s:
     val cx = size.width / 2f; val cy = size.height / 2f
     val rim = Rim(cx, cy, side / 2f, corner)
     rim.turn = s.phase * spin * 0.08f
-    val reach = side * Around.REACH
+    val reach = side * Around.REACH * Around.reachScale
     val p = FloatArray(4); val q = FloatArray(4)
     val ph = s.phase
     val bass = (s.bass * amp).coerceIn(0f, 1f)   // (the bass is the visualizer's own: scaled here, not changed)
@@ -233,12 +235,17 @@ private fun DrawScope.drawAroundStyle(style: String, spin: Float, amp: Float, s:
 /** Around the cover on Now playing: a space bigger than the cover (it reaches out round it), centred on it, drawn under
  *  it. side: the cover's size; corner: its corner radius (side / 2 for a circle). It takes no taps. */
 @Composable
-fun AroundTheCover(style: String, s: VisState, col: Color, strength: Float, side: Dp, corner: Dp, modifier: Modifier = Modifier) {
+fun AroundTheCover(style: String, s: VisState, col: Color, strength: Float, side: Dp, corner: Dp, modifier: Modifier = Modifier,
+                   reachK: Float = 1f) {
     val colorKey = Vis.color()
-    Canvas(modifier.requiredSize(side * (1f + 2f * Around.REACH))) {
+    // reachK: how far out from the cover's edge it reaches, as a part of the usual (Now playing's visualizer size); the
+    // cover's edge stays where it is
+    Canvas(modifier.requiredSize(side * (1f + 2f * Around.REACH * reachK))) {
         if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
         val pal = VisPalette.of(style, colorKey, col, s.phase)
-        drawAround(style, s, pal, side.toPx(), corner.toPx(), (0.55f + strength * 0.6f).coerceIn(0.5f, 1f))
+        Around.reachScale = reachK
+        try { drawAround(style, s, pal, side.toPx(), corner.toPx(), (0.55f + strength * 0.6f).coerceIn(0.5f, 1f)) }
+        finally { Around.reachScale = 1f }
     }
 }
 

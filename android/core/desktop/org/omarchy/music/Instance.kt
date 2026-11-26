@@ -302,10 +302,15 @@ object Instance {
             ui.sheet = null   // (Settings, if it is open, would be in the way)
             org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
         }
-        // "show now 70": Size of Now playing set to that (Settings › General), with Now playing in front
+        // "show now 70 [cover 60] [vis 150]": Size of Now playing set to that (Settings › General), and the album cover's
+        // and the visualizer's sliders if given, with Now playing in front
         if (low.startsWith("now ") || low.startsWith("nowplaying ")) {
-            val pc = rest.substringAfter(' ').trim().removeSuffix("%")
-            org.omarchy.music.Prefs.setText(org.omarchy.music.NowSizeRules.PREF, org.omarchy.music.NowSizeRules.percent(pc).toString())
+            val w = rest.substringAfter(' ').trim().split(Regex("\\s+")).map { it.removeSuffix("%") }
+            val R = org.omarchy.music.NowSizeRules
+            org.omarchy.music.Prefs.setText(R.PREF, R.percent(w.firstOrNull().orEmpty()).toString())
+            fun after(k: String) = w.indexOf(k).takeIf { it >= 0 }?.let { w.getOrNull(it + 1)?.toFloatOrNull() }
+            org.omarchy.music.Prefs.setNum(R.COVER_PREF, R.coverPercent(after("cover")).toFloat())
+            org.omarchy.music.Prefs.setNum(R.VIS_PREF, R.visPercent(after("vis")).toFloat())
             ui.sheet = null
             org.omarchy.music.ui.goTo(ui, "player"); ui.pane = "art"; return
         }

@@ -28,4 +28,31 @@ class NowSizeRulesTest {
     @Test fun keptOnEachDevice() {
         assertTrue("never synced between the phone and the PC", !SyncRules.prefSyncs(NowSizeRules.PREF))
     }
+
+    @Test fun theSlidersStartAtTheUsualSize() {
+        assertEquals(100, NowSizeRules.visPercent(null))
+        assertEquals(100, NowSizeRules.coverPercent(null))
+        assertEquals(100, NowSizeRules.coverPercent(Float.NaN))
+    }
+
+    @Test fun theSlidersKeepToTheirStepsAndRange() {
+        assertEquals(75, NowSizeRules.visPercent(73f))
+        assertEquals(200, NowSizeRules.visPercent(900f))
+        assertEquals(25, NowSizeRules.visPercent(0f))
+        assertEquals("the cover never bigger than its room", 100, NowSizeRules.coverPercent(140f))
+        assertEquals(30, NowSizeRules.coverPercent(5f))
+        assertEquals(60, NowSizeRules.coverPercent(61f))
+    }
+
+    @Test fun theSlidersAreKeptOnEachDevice() {
+        assertTrue(!SyncRules.prefSyncs(NowSizeRules.VIS_PREF))
+        assertTrue(!SyncRules.prefSyncs(NowSizeRules.COVER_PREF))
+    }
+
+    @Test fun movingASliderSwitchesTheOverallSizeOff() {
+        assertEquals("both sliders at 100%: the overall size is used", 0.7f, NowSizeRules.overall("70", 100, 100), 0.0001f)
+        assertEquals("the cover's slider moved: off", 1f, NowSizeRules.overall("70", 100, 60), 0f)
+        assertEquals("the visualizer's slider moved: off", 1f, NowSizeRules.overall("70", 150, 100), 0f)
+        assertTrue("back at 100%: on again, as it was", NowSizeRules.overallOn(100, 100))
+    }
 }
