@@ -507,8 +507,8 @@ fun MusicTab(ui: Ui) {
                                 // The checklist: every one ticked to start with; untick what you don't want, then Options ›
                                 // Get (or Leave out, for the ones never to be offered again). Each row says how it will come.
                                 val copy = org.omarchy.music.SongCopy
-                                Text("Tick the ones you want on this device and get them: each is downloaded from your streaming service or copied from " +
-                                    "${copy.other} (as Settings › Remote & sync › Copy the file says, and as each row shows), into My music. " +
+                                Text("The songs ${copy.other} has as files that this $DEVICE hasn't. Tick the ones you want and copy them: each one's own " +
+                                    "file comes from ${copy.other} into My music, never a download from streaming. " +
                                     "The ones you leave out aren't offered again. Nothing comes by itself. " + org.omarchy.music.SongTransferRules.NEEDS + ".", style = T.sub,
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp))
                                 if (copy.busy) Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -519,8 +519,8 @@ fun MusicTab(ui: Ui) {
                                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Pill("Tick them all") { ui.startSelecting(tracks, RowPlace(tracks, 0, "theirs"), null); ui.selectAllHere() }
-                                    Pill("Get all %,d".format(tracks.size), quiet = true) {
-                                        ui.confirm = "Get all %,d song%s on this device?".format(tracks.size, if (tracks.size != 1) "s" else "") to { copy.get(tracks) } }
+                                    Pill("Copy all %,d".format(tracks.size), quiet = true) {
+                                        ui.confirm = "Copy all %,d song%s from ${copy.other} to this $DEVICE?".format(tracks.size, if (tracks.size != 1) "s" else "") to { copy.get(tracks) } }
                                     if (org.omarchy.music.LibraryMatch.leftOutCount > 0) Pill("Bring back the %,d left out".format(org.omarchy.music.LibraryMatch.leftOutCount), quiet = true) {
                                         org.omarchy.music.LibraryMatch.bringBack() }
                                     SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "As on the other device"))
@@ -570,7 +570,7 @@ fun MusicTab(ui: Ui) {
                                 "top" -> "${t.plays} play${if (t.plays != 1) "s" else ""}"
                                 "skips" -> skipInfo[org.omarchy.music.songKey(t)]?.let { (k, f) ->
                                     (if (k > 0) "$k skip${if (k != 1) "s" else ""}" else "never skipped") + if (f > 0) " · heard out ${f}×" else "" } ?: ""
-                                "theirs" -> org.omarchy.music.SongCopy.how(t)   // ↓ Tidal, or ⇄ from your PC
+                                "theirs" -> org.omarchy.music.SongCopy.how(t)   // ⇄ from your PC
                                 else -> ""
                             }
                         }

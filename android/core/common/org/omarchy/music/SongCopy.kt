@@ -30,17 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  are waiting in the answer to the question Sync already asks every 20 seconds while the app is on its screen (every 2
  *  minutes away from it), and sends them then: nothing is asked more often for this, and nothing moves unless you asked.
  *  Each file goes across in pieces it can carry on from after a drop, never whole in memory, and is checked against
- *  its checksum and size before it's saved, as downloads are (by artist and album), into the download folder. */
+ *  its checksum and size before it's saved, as downloads are (by artist and album), into the download folder. Never a
+ *  download from a streaming service: only the file you have over there. */
 object SongCopy {
-    /** Prefs: Copy the file from your other device: [SongTransferRules.ALWAYS], NOT_FOUND (the default) or NEVER. */
-    const val PREF = "copy_from_other"
-
-    private var picked by mutableStateOf(0)   // bumps when the setting is changed here (the screens follow it)
-    private fun modeNow(): String { picked; return SongTransferRules.mode(Prefs.text(PREF)) }
-    fun choose(m: String) { Prefs.setText(PREF, SongTransferRules.mode(m)); picked++ }
-    /** The setting as it is. */
-    val current: String get() = modeNow()
-
     /** The line shown while files go across ("Copying from your PC · 2 of 5 · 40%"); "" when none are. */
     var note by mutableStateOf("")
         internal set
@@ -51,12 +43,11 @@ object SongCopy {
     private val isPc get() = RemoteHost.supported
     /** The other device, as the rows say it. */
     val other: String get() = if (isPc) "your phone" else "your PC"
-    private val service get() = if (Music.tidal.connected) "Tidal" else "YouTube"
+    /** A row's mark: the song is a file on the other device, not a stream ("On your phone"). */
+    val badge: String get() = SongTransferRules.badge(other)
 
     /** What is happening to a listed song now, by its id: "copying", "waiting" (the PC: asked the phone), "failed: …". */
     private val state = ConcurrentHashMap<String, String>()
-    /** Songs to copy if the streaming service hasn't got them (only when it can't be found), by the listed song's id. */
-    private val fallback = ConcurrentHashMap<String, Track>()
 
     private fun changed() = Music.scope.launch { version++ }
 
@@ -73,29 +64,22 @@ object SongCopy {
         }
         if (isPc && wantedNow().any { it.id == t.id }) return "⇄ asked $other: it sends it when it next checks in"
         val theirs = LibraryMatch.theirsOf(t.id)?.takeIf { !it.file.isNullOrEmpty() }
-        return SongTransferRules.label(SongTransferRules.way(modeNow(), theirs != null), service, other)
+        return SongTransferRules.label(SongTransferRules.way(theirs != null), other)
     }
 
-    /** Get these songs here, each the way the setting says: copied from the other device, or downloaded (and copied
-     *  only if the streaming service hasn't got it). */
+    /** Get these songs here: each one's own file copied from the other device. Never a download from a streaming
+     *  service: this is for the files you have on the other device (Download is for streaming). A song the other device
+     *  didn't say a file for is left, and you're told. */
     fun get(tracks: List<Track>) {
-        val m = modeNow()
-        val copy = ArrayList<Pair<Track, Track>>(); val dl = ArrayList<Track>()
+        val copy = ArrayList<Pair<Track, Track>>(); var noFile = 0
         for (t in tracks) {
             val theirs = LibraryMatch.theirsOf(t.id)?.takeIf { !it.file.isNullOrEmpty() }
-            when (SongTransferRules.way(m, theirs != null)) {
+            when (SongTransferRules.way(theirs != null)) {
                 SongTransferRules.Way.COPY -> copy += t to theirs!!
-                SongTransferRules.Way.DOWNLOAD -> dl += t
-                SongTransferRules.Way.DOWNLOAD_ELSE_COPY -> { fallback[t.id] = theirs!!; dl += t }
+                SongTransferRules.Way.NO_FILE -> { noFile++; state[t.id] = "failed: ${other.replaceFirstChar { it.uppercase() }} didn't say where its file is (Sync again)" }
             }
         }
-        if (dl.isNotEmpty()) Music.download(dl, checked = true)
-        if (copy.isNotEmpty()) copy(copy)
-    }
-
-    /** (Downloads, after a batch) The songs the streaming service hadn't got: the ones waiting to be copied instead are. */
-    fun notFound(missing: List<Track>) {
-        val copy = missing.mapNotNull { t -> fallback.remove(t.id)?.let { t to it } }
+        if (noFile > 0) { changed(); Music.toast(SongTransferRules.noFile(noFile, other)) }
         if (copy.isNotEmpty()) copy(copy)
     }
 
@@ -111,7 +95,7 @@ object SongCopy {
         synchronized(queue) { queue.clear() }
         cancelledAt = System.currentTimeMillis()
         if (isPc) { wanted = emptyList(); runCatching { wantedFile.delete() } }
-        state.clear(); fallback.clear()
+        state.clear()
         note = ""; changed()
         Music.toast("Copying stopped")
     }

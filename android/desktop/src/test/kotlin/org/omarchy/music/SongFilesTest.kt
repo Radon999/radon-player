@@ -154,8 +154,7 @@ class SongFilesTest {
         val shown = LibraryMatch.missing().single { it.title == "Wanted Song" }
         assertEquals("never a file here", null, shown.file)
         Harness.ui {
-            SongCopy.choose(SongTransferRules.ALWAYS)
-            assertEquals("⇄ from your phone", SongCopy.how(shown))
+            assertEquals("always copied, never streamed: ⇄ from your phone", "⇄ from your phone", SongCopy.how(shown))
             SongCopy.get(listOf(shown))
         }
         assertTrue(call("GET", "/sync/wanted").text.contains("\"copyWanted\":1"))
@@ -166,6 +165,25 @@ class SongFilesTest {
         assertTrue("asked no more", call("GET", "/sync/wanted").text.contains("\"copyWanted\":0"))
         assertArrayEquals(data, File(dl, "Want Band/Want Album/Wanted Song.mp3").readBytes())
         Harness.until("off the list") { LibraryMatch.missing().none { it.title == "Wanted Song" } }
-        Harness.ui { SongCopy.choose(SongTransferRules.NOT_FOUND) }
+    }
+
+    @Test fun aSongWithoutAFileOverThereIsNeverDownloaded() {
+        val theirs = "{\"songs\":[{\"id\":\"\",\"source\":\"file\",\"title\":\"Fileless Song\",\"artist\":\"Nofile Band\",\"album\":\"Gone\"}]}"
+        LibraryMatch.take(theirs, "Test phone")
+        val shown = LibraryMatch.missing().single { it.title == "Fileless Song" }
+        val before = Music.downloads.size
+        Harness.ui {
+            SongCopy.get(listOf(shown))
+            assertEquals("nothing is sent to Downloads", before, Music.downloads.size)
+            assertTrue(SongCopy.how(shown), SongCopy.how(shown).contains("Sync again"))
+        }
+    }
+
+    @Test fun aSongYouHaveHereAsAFileIsntOffered() {
+        // The other device has it as a Tidal download; this one has the same song as its own file under another name
+        val mine = Music.mySongs().firstOrNull { it.isFile } ?: return
+        val theirs = "{\"songs\":[{\"id\":\"123456\",\"source\":\"tidal\",\"title\":\"${mine.title}\",\"artist\":\"${mine.artist}\",\"album\":\"${mine.album}\",\"file\":\"content://x/1\"}]}"
+        LibraryMatch.take(theirs, "Test phone")
+        assertTrue("yours already: not listed as a streaming song to get", LibraryMatch.missing().none { it.title == mine.title })
     }
 }

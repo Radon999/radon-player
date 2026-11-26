@@ -2,35 +2,30 @@ package org.omarchy.music
 
 /** Other device's songs: copying the song's own file from your other device, over the same connection Sync uses (the
  *  phone always starts it: it fetches files from the PC, and sends its own to the PC when the PC has asked for them).
- *  Here: which way each song comes (copied or downloaded), which files the PC may hand out, and where a copied file is
- *  saved. */
+ *  Always the file itself: never a download from a streaming service. Here: what each row says, which files the PC may
+ *  hand out, and where a copied file is saved. */
 object SongTransferRules {
-    /** Settings › Remote & sync › Copy the file from your other device: when. */
-    const val ALWAYS = "always"
-    const val NOT_FOUND = "notfound"
-    const val NEVER = "never"
-    val MODES = listOf(ALWAYS, NOT_FOUND, NEVER)
-
-    /** A setting's value as one of the three (anything else: the default, only when it can't be found). */
-    fun mode(v: String?): String = v?.takeIf { it in MODES } ?: NOT_FOUND
-
-    /** How one song comes: its file copied from the other device, downloaded from the streaming service, or downloaded
-     *  and copied only if the service hasn't got it. */
-    enum class Way { COPY, DOWNLOAD, DOWNLOAD_ELSE_COPY }
+    /** How one song comes: always its own file, copied from the other device. Other device's songs never download
+     *  from a streaming service (that's what Download is for): a song the other device has no file for can't be got
+     *  this way ([Way.NO_FILE]: Sync again, the other device tells where its files are). */
+    enum class Way { COPY, NO_FILE }
 
     /** hasFile: the other device has the song as a file (and said where it is). */
-    fun way(mode: String, hasFile: Boolean): Way = when {
-        !hasFile || mode(mode) == NEVER -> Way.DOWNLOAD
-        mode(mode) == ALWAYS -> Way.COPY
-        else -> Way.DOWNLOAD_ELSE_COPY
+    fun way(hasFile: Boolean): Way = if (hasFile) Way.COPY else Way.NO_FILE
+
+    /** What a song's row says about the way it will come: "⇄ from your PC", or why it can't. */
+    fun label(way: Way, device: String): String = when (way) {
+        Way.COPY -> "⇄ from $device"
+        Way.NO_FILE -> "⇄ $device didn't say where its file is: Sync again"
     }
 
-    /** What a song's row says about the way it will come: "↓ Tidal", "⇄ from your PC", "↓ Tidal, else ⇄ from your PC". */
-    fun label(way: Way, service: String, device: String): String = when (way) {
-        Way.COPY -> "⇄ from $device"
-        Way.DOWNLOAD -> "↓ $service"
-        Way.DOWNLOAD_ELSE_COPY -> "↓ $service, else ⇄ from $device"
-    }
+    /** A row's mark: the song is a file on the other device ("On your phone"), not a stream. */
+    fun badge(device: String): String = "On $device"
+
+    /** What's said when some of the songs picked have no file to copy. */
+    fun noFile(n: Int, device: String): String =
+        "%,d song%s couldn't be copied: $device didn't say where %s file%s %s. Sync again, then get %s".format(n,
+            if (n != 1) "s" else "", if (n != 1) "their" else "its", if (n != 1) "s" else "", if (n != 1) "are" else "is", if (n != 1) "them" else "it")
 
     /** The song types a copied file may be (anything else isn't taken). */
     val AUDIO = setOf("flac", "mp3", "m4a", "aac", "ogg", "opus", "wav", "aiff", "aif", "wma", "alac", "dsf")

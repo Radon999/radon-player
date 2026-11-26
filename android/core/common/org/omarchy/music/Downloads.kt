@@ -83,8 +83,6 @@ object Downloads {
         Music.bg({ Music.dl.sync(batch, force = true, workers = Downloader.SONGS_AT_ONCE) { n -> Music.scope.launch { Music.savedVersion++; Music.downloadNote = "Downloading · $n of ${batch.size}" } } }) { out, err ->
             Music.downloads = Music.downloads.filter { d -> batch.none { it.id == d.id } }
             toast(out?.summary() ?: "Couldn't download: ${err?.message?.take(90)}")
-            // Other device's songs: the ones the streaming service hadn't got are copied from the other device instead
-            out?.missing?.let { runCatching { SongCopy.notFound(it) } }
             next()
         }
     }

@@ -356,6 +356,8 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             if (fmt != null) Badge(fmt)
             // ...and where it plays from when there is no format to show: a song that isn't on this device says so
             // (not the other device's queue: its songs are that device's)
+            // Other device's songs: a file over there (it's copied, never streamed or downloaded), not "Streaming"
+            else if (place.kind == "theirs") Badge(org.omarchy.music.SongCopy.badge, true)
             else if (!remoteQueue) { val here = onThisDevice(own); Badge(if (here) "Local" else STREAMING, here) }
             if (saved != null) Icon(Ico.DOWNLOAD, C.accent, 16.dp, Modifier.padding(start = 4.dp))
             else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)

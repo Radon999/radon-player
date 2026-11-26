@@ -52,9 +52,10 @@ object LibraryMatch {
     @Volatile private var refs: Map<String, Track> = emptyMap()
     fun theirsOf(id: String): Track? = refs[id]
 
-    /** (blocking) The other device's songs this one hasn't got (and you haven't left out), as songs to download: the
-     *  one it downloaded, by its own address; one of its files, by name (found on Tidal or YouTube when it's downloaded).
-     *  Where the file is on the other device is never on the songs listed (it isn't a file here): [theirsOf] has it. */
+    /** (blocking) The other device's songs this one hasn't got (and you haven't left out): never one you have here as a
+     *  file or a download, whatever it's called on the other device. Each is listed as the song it is (one it
+     *  downloaded, by its own address; one of its files, by name), and got by copying the other device's own file
+     *  ([SongCopy]): where that file is, is never on the songs listed (it isn't a file here): [theirsOf] has it. */
     fun missing(): List<Track> {
         val t = loaded()
         if (t.songs.isEmpty()) return emptyList()
@@ -62,10 +63,15 @@ object LibraryMatch {
         val lacking = LibraryMatchRules.missing(t.songs, mine, left(), { it.title }, { it.artist })
         val index = runCatching { Music.songIndex() }.getOrDefault(emptyMap())
         val found = HashMap<String, Track>()
-        val out = lacking.map { s ->
+        val out = lacking.mapNotNull { s ->
+            // Your own copy of it, found the way the rest of the app finds one (the title tidied, the artist written
+            // another way, the same album): it's on this device, so it isn't offered, even when the other device has it
+            // as a download of a streaming song and yours is a file
+            val local = runCatching { Music.fmSong(s.title, s.artist, "", index, s.album) }.getOrNull()
+            if (local != null && (local.isFile || Music.lib.has(local.id))) return@mapNotNull null
             (if (s.id.isNotEmpty() && s.source != "file") s.copy(file = null)
-            else runCatching { Music.fmSong(s.title, s.artist, "", index, s.album) }.getOrDefault(s.copy(file = null))
-                .let { f -> if (f.duration <= 0.0) f.copy(duration = s.duration) else f }).also { found.putIfAbsent(it.id, s) }
+            else (local ?: s.copy(file = null)).let { f -> if (f.duration <= 0.0) f.copy(duration = s.duration) else f })
+                .also { found.putIfAbsent(it.id, s) }
         }.filter { !it.isFile && !Music.lib.has(it.id) }.distinctBy { it.id }
         refs = found
         return out

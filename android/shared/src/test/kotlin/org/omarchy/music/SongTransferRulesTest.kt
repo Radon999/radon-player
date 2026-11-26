@@ -7,29 +7,25 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Other device's songs: copying the file from the other device, or downloading it. */
+/** Other device's songs: always the file copied from the other device, never a download from streaming. */
 class SongTransferRulesTest {
     private val R = SongTransferRules
 
-    @Test fun theSettingStartsOnOnlyWhenItCantBeFound() {
-        assertEquals(R.NOT_FOUND, R.mode(null))
-        assertEquals(R.NOT_FOUND, R.mode(""))
-        assertEquals(R.NOT_FOUND, R.mode("something else"))
-        assertEquals(R.ALWAYS, R.mode("always"))
-        assertEquals(R.NEVER, R.mode("never"))
-    }
-
-    @Test fun whichWayEachSongComes() {
-        assertEquals("always: the file is copied", W.COPY, R.way(R.ALWAYS, hasFile = true))
-        assertEquals("only when not found: downloaded, copied if the service hasn't got it", W.DOWNLOAD_ELSE_COPY, R.way(R.NOT_FOUND, hasFile = true))
-        assertEquals("never: always downloaded", W.DOWNLOAD, R.way(R.NEVER, hasFile = true))
-        for (m in R.MODES) assertEquals("no file over there (an old app, or a song it streams): downloaded", W.DOWNLOAD, R.way(m, hasFile = false))
+    @Test fun aSongIsAlwaysCopiedNeverDownloaded() {
+        assertEquals("the other device has the file: it's copied", W.COPY, R.way(hasFile = true))
+        assertEquals("no file over there: nothing is downloaded instead", W.NO_FILE, R.way(hasFile = false))
+        assertEquals("only two ways, neither of them streaming", listOf(W.COPY, W.NO_FILE), W.values().toList())
     }
 
     @Test fun whatEachRowSays() {
-        assertEquals("⇄ from your PC", R.label(W.COPY, "Tidal", "your PC"))
-        assertEquals("↓ Tidal", R.label(W.DOWNLOAD, "Tidal", "your PC"))
-        assertEquals("↓ YouTube, else ⇄ from your phone", R.label(W.DOWNLOAD_ELSE_COPY, "YouTube", "your phone"))
+        assertEquals("⇄ from your PC", R.label(W.COPY, "your PC"))
+        assertEquals("⇄ your phone didn't say where its file is: Sync again", R.label(W.NO_FILE, "your phone"))
+        assertEquals("On your phone", R.badge("your phone"))
+    }
+
+    @Test fun songsWithoutAFileAreSaidSo() {
+        assertEquals("1 song couldn't be copied: your PC didn't say where its file is. Sync again, then get it", R.noFile(1, "your PC"))
+        assertEquals("3 songs couldn't be copied: your phone didn't say where their files are. Sync again, then get them", R.noFile(3, "your phone"))
     }
 
     @Test fun onlyFilesOfYourOwnMusicAreHandedOut() {

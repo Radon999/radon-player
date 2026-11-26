@@ -845,8 +845,8 @@ fun OptionsSheet(ui: Ui) {
                     add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
                     add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
                 }
-                // Other device's songs: downloaded, or the file copied from the other device (as the setting says)
-                if (place?.kind == "theirs") add(Triple(Ico.DOWNLOAD, "Get (download or copy from ${org.omarchy.music.SongCopy.other})") { org.omarchy.music.SongCopy.get(picked) })
+                // Other device's songs: the file copied from the other device (never downloaded from streaming)
+                if (place?.kind == "theirs") add(Triple(Ico.DOWNLOAD, "Copy from ${org.omarchy.music.SongCopy.other}") { org.omarchy.music.SongCopy.get(picked) })
                 else if (one == null || (!one.isFile && !Music.lib.has(one.id))) add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
                 if (one != null && Music.lib.has(one.id)) add(Triple(Ico.TRASH, "Remove download") {
                     ui.confirm = "Delete the downloaded copy of “${one.title}”?" to { Music.removeDownload(one.id) } })
