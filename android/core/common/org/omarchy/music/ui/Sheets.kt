@@ -180,6 +180,13 @@ private fun AccountsSheet(ui: Ui) {
                 "or too big. 100% is the usual size" + (if (onPhone) ". The screen is drawn again when you change it" else ""), sizeKept != "100") {
                 ChoicePill(org.omarchy.music.UiSizeRules.OPTIONS, sizeKept) { org.omarchy.music.Prefs.setText(org.omarchy.music.UiSizeRules.PREF, it); uiSizeChanged() }
             }
+            // Size of Now playing: that screen alone (its cover, words and buttons) smaller or bigger; this $DEVICE's own
+            val npKept = org.omarchy.music.NowSizeRules.percent(org.omarchy.music.Prefs.text(org.omarchy.music.NowSizeRules.PREF)).toString()
+            Line("Size of Now playing", "Makes the Now playing screen smaller or bigger as a whole: the cover, the song's name and the " +
+                "buttons together, for a big screen where the cover takes more room than it needs. The rest of the app stays as Size " +
+                "of everything has it. 100% is the usual size", npKept != "100") {
+                ChoicePill(org.omarchy.music.NowSizeRules.OPTIONS, npKept) { org.omarchy.music.Prefs.setText(org.omarchy.music.NowSizeRules.PREF, it) }
+            }
             // Everything someone helping would ask for, in one go: the version, the device, how the app is set up and Problems
             val problems = org.omarchy.music.Crashes.last
             Line("Details for support", "One block of text to paste into a message when something is wrong: the version, this $DEVICE, how many " +

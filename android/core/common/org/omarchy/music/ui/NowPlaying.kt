@@ -173,6 +173,20 @@ private suspend fun loadNowColors(model: Any?): NowColors? = Tint.rgbOf(model)?.
  *  lock screen instead, which lock() goes to. */
 @Composable
 fun ApplePlayer(ui: Ui, lock: (() -> Unit)? = null) {
+    // Size of Now playing (Settings › General): the whole screen drawn smaller or bigger, its words and buttons through
+    // the density, its cover through nowSize() (it fills the room it's given, so it's made that much smaller itself)
+    val f = nowSize()
+    if (f == 1f) { NowPlayingScreen(ui, lock); return }
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(d.density * f, d.fontScale)) { NowPlayingScreen(ui, lock) }
+}
+
+/** Size of Now playing, as a factor (1: the usual size). Read in Compose: it changes the moment the setting does. */
+internal fun nowSize(): Float = org.omarchy.music.NowSizeRules.factor(org.omarchy.music.Prefs.text(org.omarchy.music.NowSizeRules.PREF))
+
+@Composable
+private fun NowPlayingScreen(ui: Ui, lock: (() -> Unit)?) {
     val n = now()
     val t = n.t
     val art = t?.let { if (n.remote) Remote.artModel(it) else artModel(it, 1200) }
@@ -488,7 +502,7 @@ private fun BigCover(ui: Ui, art: Any?, playing: Boolean, modifier: Modifier, ov
     Box(modifier.fillMaxWidth()) {
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = if (bleed) 0.dp else 24.dp, vertical = if (bleed) 0.dp else 14.dp),
             contentAlignment = if (bleed) Alignment.TopCenter else Alignment.Center) {
-            val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK)
+            val side = (if (maxWidth < maxHeight) maxWidth else maxHeight) * scale * (if (bleed) 1f else sizeK * nowSize())
             // Around the cover: drawn under it, round its edges and out from them, in the cover's shape and size; it moves
             // with the cover's swipe and takes no taps
             val aroundStyle = Around.style()

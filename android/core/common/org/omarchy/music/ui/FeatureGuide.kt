@@ -191,6 +191,7 @@ val FEATURE_GUIDE: String = listOf(
     "",
     "- **Favorite settings:** star (☆) the settings you use most and they sit together at the top of Settings.",
     "- **Size of everything** (Settings › General): the whole app bigger or smaller, 80% to 250%; each device keeps its own.",
+    "- **Size of Now playing** (Settings › General): the Now playing screen alone smaller or bigger, 50% to 125%: its cover, the song's name and its buttons together (for a big monitor where the cover takes more room than it needs). Each device keeps its own.",
     "- **Concert dates** on an artist's page, with a free Ticketmaster key of your own; add your city for shows near you.",
     "- **Setlists** on an artist's page, with a free setlist.fm key of your own (Settings › Remote & sync › Setlists): their recent shows' songs in order (encores marked) and what they've been playing on this tour, each ready to play or to make into a playlist named after the show, your own files first and missing songs listed.",
     "- **Song credits:** a song's Options › **Credits** lists who wrote, produced, played on, mixed and mastered it, from Tidal when you're signed in, else Genius or MusicBrainz, kept so they show offline. Tap a name for your songs that person worked on; **Look through my music** (also in Settings › Scanner) looks up your whole library's credits in the background, gently (on the phone only while charging).",
