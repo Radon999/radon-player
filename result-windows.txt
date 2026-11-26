@@ -1,6 +1,6 @@
-commit 88a248bc8f28d57e659456c2229d4bf7f9f55eaa · run 45754912160 · Thu Nov 26 05:02:08 UTC 2026
-PC TESTS ON WINDOWS: 49 suites, tests 191, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 1.9 s of speech in 1.7 s (with loading the voice); then 5.0 s of speech in 1.4 s (3.5x real time)
+commit 2891b3f79bf121a6f712b87402e327738016eff7 · run 45760046915 · Thu Nov 26 05:33:02 UTC 2026
+PC TESTS ON WINDOWS: 49 suites, tests 194, failed 2
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.2 s of speech in 1.8 s (with loading the voice); then 4.9 s of speech in 1.2 s (4.0x real time)
 WINDOWS INSTALLER: Radon Player-5.2.3.msi, 98M
 --- errors
 org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
@@ -10,6 +10,13 @@ org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
         at org.junit.Assert.assertEquals(Assert.java:120)
         at org.omarchy.music.DesktopShortcutsTest.eachShortcutHasAPictureOfItsOwn(DesktopShortcutsTest.kt:67)
 
+org.omarchy.music.DjMoreKindsTest > aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne FAILED
+    java.lang.AssertionError: a mood:Energetic+Party+Hype set can be made
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.junit.Assert.assertNotNull(Assert.java:713)
+        at org.omarchy.music.DjMoreKindsTest.only(DjMoreKindsTest.kt:24)
+        at org.omarchy.music.DjMoreKindsTest.aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne$lambda$15(DjMoreKindsTest.kt:58)
 --
 > Task :desktop:test FAILED
 
@@ -23,14 +30,14 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 5m 19s
+BUILD FAILED in 5m 44s
 21 actionable tasks: 21 executed
 --- the end of the log
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
 
 > Task :desktop:test
 
-191 tests completed, 1 failed
+194 tests completed, 2 failed
 
 > Task :desktop:test FAILED
 
@@ -49,5 +56,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 5m 19s
+BUILD FAILED in 5m 44s
 21 actionable tasks: 21 executed
