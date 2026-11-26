@@ -79,7 +79,7 @@ Everything is in the ☰ menu, and **Menu entries** (Settings) takes out what yo
 - **Quality:** FLAC 24-bit, FLAC 16-bit or 320 kbps, set separately for streaming and downloads, and **Clean or explicit** where Tidal has both. Not signed in to Tidal, the app says so when it starts (streams are YouTube's audio, about 160 kbps Opus, until you sign in), with **Sign in to Tidal**, **Not now** and **Don't show again** for using it with your own files only.
 - **No waiting between songs:** the next streamed song is fetched while this one plays (**Fetch the next song ahead**, Settings › Playback; switch it off to save data).
 - **New releases** from the artists you have, for the last week, month or year (streaming services only). **New releases by themselves** (Settings › Playback) checks once a day while the app is open and shows a count on the bell; no notification.
-- **Other device's songs** (Settings › Remote & sync): after a Sync, the songs your other device has and this one hasn't, as a checklist to download or leave out.
+- **Other device's songs** (Settings › Remote & sync): after a Sync, the songs your other device has and this one hasn't, as a checklist to copy across (the file itself, phone to PC or PC to phone, never from streaming) or leave out.
 
 ## Moods
 
