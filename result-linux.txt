@@ -1,10 +1,10 @@
-commit a81b7ec1134f9645a36d7fee8d126275c93c5433 · run 45767696741 · Thu Nov 26 06:45:08 UTC 2026
+commit fb61a4e661f9362d8cc67b5ee789f457bbb5aa0d · run 45771347234 · Thu Nov 26 07:05:30 UTC 2026
 SHARED TESTS: 155 suites, 771 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
 PC COMPILES: yes
-LINUX PACKAGE: radon-player_5.2.4_amd64.deb, 92M
+LINUX PACKAGE: radon-player_5.2.5_amd64.deb, 92M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
@@ -33,7 +33,7 @@ org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
 Execution failed for task ':desktop:test'.
 > Process 'Gradle Test Executor 3' finished with non-zero exit value 134
 --
-BUILD FAILED in 6m 15s
+BUILD FAILED in 5m 13s
 59 actionable tasks: 59 executed
 --- the end of the log
 # The crash happened outside the Java Virtual Machine in native code.
@@ -64,5 +64,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m 15s
+BUILD FAILED in 5m 13s
 59 actionable tasks: 59 executed
