@@ -3,6 +3,9 @@ package org.omarchy.music.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -10,11 +13,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.omarchy.music.DjVoices
 import org.omarchy.music.Music
 import org.omarchy.music.Spoken
 import org.omarchy.music.Voice
+import org.omarchy.music.VoiceVolume
+import org.omarchy.music.Prefs
 
 /** The natural voice's download, while it runs ("Getting the voice… 40%"). */
 private var naturalStatus by mutableStateOf<String?>(null)
@@ -44,6 +50,16 @@ fun DjVoiceLines(ui: Ui) {
     Pill(if (open) "Voice settings  ▴" else "Voice settings  ▾", quiet = true) { open = !open }
     if (!open) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // How loud the DJ is over the music (a quarter to twice as loud as it's made); let go to hear it
+        val level = VoiceVolume.clamp(Prefs.num(VoiceVolume.KEY, 1f))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Voice volume", style = T.sub, modifier = Modifier.width(100.dp))
+            Slider(level, { Prefs.setNum(VoiceVolume.KEY, Math.round(it * 20) / 20f) }, valueRange = VoiceVolume.MIN..VoiceVolume.MAX,
+                onValueChangeFinished = { if (Voice.canSpeak) Voice.say(Spoken.humanize(DjVoices.SAMPLE, 0.0)) },
+                colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+                modifier = Modifier.weight(1f))
+            Text(VoiceVolume.label(level), style = T.time, modifier = Modifier.width(52.dp))
+        }
         // Why the natural voice didn't speak last time (stays here so it can be read, unlike the pop-up)
         val err = Voice.lastError
         if (err.isNotEmpty()) Text("The natural voice couldn't speak last time: $err", style = T.sub.copy(color = C.red))

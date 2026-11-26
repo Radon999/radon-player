@@ -2,6 +2,9 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 5.2.1 · November 2026
+- **A volume for the DJ's voice (the phone and the PC):** DJ › Voice settings › **Voice volume**, from 25% to 200% of how loud it's made, so the DJ can be quieter or stand out more over the music. Let go of the slider and the DJ says a line at the new level. Louder than 100%, its loudest moments are rounded off so it doesn't crackle; Windows' own voice and the phone's own voice go up to 100%.
+
 ## 5.2 · November 2026
 - **Widgets on the phone's home screen:** besides Now playing with the queue there are now **DJ** (a tap starts the DJ without opening the app, with its Only my songs / New songs too switch), **Now playing + playlists** (tap a playlist to play it), **Playlist shortcut** (pick a playlist when you add it, In order or Shuffled; a tap plays it without opening the app; long-press to pick again), **Pinned**, **Most played**, **Wrapped** (Weekly, Monthly or All time) and a big **Lyrics** widget: the line being sung lit up, tap a line to jump there, Synced or Genius, and a button to share a lyrics card. If Android won't let music start in the background, the app opens and starts it.
 - **Widgets on the PC (Windows and Linux):** from the tray icon's **Widgets** or Settings › General, small windows on your desktop in the cover's colour that stay where you put them (Always on top if you like): Now playing with the queue or your playlists, the DJ, a playlist shortcut, Pinned, Most played, Wrapped and Lyrics. **Make desktop shortcuts…** puts one-click icons on your desktop or Start menu to play a playlist, start the DJ, open Most played, Lyrics or Wrapped, and play/pause or skip. A command sent while the window was closed to the tray ("show wrapped") now does what was asked, not only open the window.

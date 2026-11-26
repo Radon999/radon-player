@@ -34,6 +34,9 @@ object Voice {
     /** How the line went to the DAC (UsbDirect.lastSpeak), for the note below. */
     @Volatile var dacReport: () -> String = { "" }
     private var dacNotes = 0
+    /** How loud the voice is (the DJ's Voice settings): 1 as it's made. */
+    private fun gain() = VoiceVolume.clamp(Prefs.num(VoiceVolume.KEY, 1f))
+
     /** With bit-perfect on, the first few lines each leave a note in Settings › Details (Sound lately) saying how they
      *  went to the DAC, so a voice that isn't heard can be told apart (sent but not heard, or never sent and why). */
     private fun dacNote(how: String, sent: Boolean) {
@@ -89,7 +92,7 @@ object Voice {
     /** (blocking) A voice file heard through the DAC; false when it couldn't be (then Android's way). */
     private fun dacFile(path: String, mine: Long): Boolean {
         val (s, rate, ch) = decode(path) ?: return false
-        return dac?.invoke(s, rate, ch) { turn == mine } == true
+        return dac?.invoke(VoiceVolume.apply(s, gain()), rate, ch) { turn == mine } == true
     }
 
     // ---- Pocket TTS (Kyutai's, CC BY 4.0), through sherpa-onnx (Apache-2.0): the voice the PC uses ----
@@ -255,7 +258,7 @@ object Voice {
         // it goes through the DAC (so nothing there has to change its rate), else the phone's own
         val rate = (if (dacOn()) dacRate() else android.media.AudioTrack.getNativeOutputSampleRate(android.media.AudioManager.STREAM_MUSIC))
             .takeIf { it in 8000..768000 } ?: 48000
-        val samples = DjVoiceProcessor.process(audio.samples, audio.sampleRate, rate)
+        val samples = VoiceVolume.apply(DjVoiceProcessor.process(audio.samples, audio.sampleRate, rate), gain())
         began(onStart)
         if (turn != mine) return@runCatching true
         if (dacOn() && dac?.invoke(samples, rate, 1) { turn == mine } == true) { dacNote("natural voice", true); lastError = ""; return@runCatching true }
@@ -318,10 +321,16 @@ object Voice {
                     BtRoute.voiceDevice()?.let { runCatching { mp.setPreferredDevice(it) } }
                     mp.setDataSource(f.path)
                     var finished = false
-                    val end = { if (!finished) { finished = true; runCatching { mp.release() }; if (player === mp) player = null; onDone() } }
+                    var louder: android.media.audiofx.LoudnessEnhancer? = null
+                    val end = { if (!finished) { finished = true; runCatching { louder?.release() }; runCatching { mp.release() }; if (player === mp) player = null; onDone() } }
                     mp.setOnCompletionListener { end() }
                     mp.setOnErrorListener { _, _, _ -> end(); true }
                     mp.prepare()
+                    // Its level: quieter by the player's own volume; louder (past 100%) by a loudness enhancer on it
+                    val g = gain()
+                    mp.setVolume(minOf(1f, g), minOf(1f, g))
+                    if (g > 1f) louder = runCatching { android.media.audiofx.LoudnessEnhancer(mp.audioSessionId).apply {
+                        setTargetGain(Math.round(2000 * kotlin.math.log10(g.toDouble())).toInt()); enabled = true } }.getOrNull()
                     player = mp
                     elevenEnd = end
                     runCatching(onStart)
@@ -423,7 +432,10 @@ object Voice {
         synchronized(done) { done[id] = onDone }
         val st = onStart
         synchronized(starts) { starts[id] = st }
-        val p = android.os.Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_MUSIC) }
+        val p = android.os.Bundle().apply {
+            putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_MUSIC)
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, minOf(1f, gain()))   // as loud as Android's voice goes at most
+        }
         if (tts?.speak(text, TextToSpeech.QUEUE_FLUSH, p, id) != TextToSpeech.SUCCESS) finish(id)
     }
 

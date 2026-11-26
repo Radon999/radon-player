@@ -170,6 +170,9 @@ object Voice {
 
     private fun main(f: () -> Unit) { Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { f() } }
 
+    /** How loud the voice is (the DJ's Voice settings): 1 as it's made. */
+    private fun gain() = VoiceVolume.clamp(Prefs.num(VoiceVolume.KEY, 1f))
+
     private fun finish(mine: Long) {
         if (turn != mine) return
         onDone?.let { d -> onDone = null; main(d) }
@@ -180,6 +183,7 @@ object Voice {
         val fmt = javax.sound.sampled.AudioFormat(rate, 16, 1, true, false)
         val l = javax.sound.sampled.AudioSystem.getSourceDataLine(fmt)
         l.open(fmt); line = l
+        VoiceVolume.apply16(pcm, gain())
         try {
             l.start()
             var i = 0
@@ -249,7 +253,7 @@ object Voice {
                 // The best English voice installed: a newer female one (Aria, Jenny…) first, then any female voice
                 "\$v = \$s.GetInstalledVoices() | ? { \$_.Enabled -and \$_.VoiceInfo.Culture.Name -like 'en*' } | " +
                 "Sort-Object { if (\$_.VoiceInfo.Name -match 'Aria|Jenny|Natural') { 0 } elseif (\$_.VoiceInfo.Gender -eq 'Female') { 1 } else { 2 } } | Select-Object -First 1; " +
-                "if (\$v) { \$s.SelectVoice(\$v.VoiceInfo.Name) }; \$s.Rate = 1; \$s.Speak('$said')")
+                "if (\$v) { \$s.SelectVoice(\$v.VoiceInfo.Name) }; \$s.Rate = 1; \$s.Volume = ${Math.round(minOf(1f, gain()) * 100)}; \$s.Speak('$said')")
         }.getOrNull() ?: return
         proc = p
         runCatching { p.inputStream.readBytes(); p.waitFor() }
