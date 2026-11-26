@@ -1151,7 +1151,20 @@ private fun PhoneRemoteLines() {
         "skip, the volume and the DJ. Switch on to get a pairing code; the phone finds this PC on your home network by itself", h.running) {
         Switch(h.running, { h.setOn(it) }, colors = swColors())
     }
-    if (h.running) Text(h.code, style = T.title.copy(fontSize = 28.sp, color = C.accent), modifier = Modifier.padding(bottom = 6.dp))
+    if (h.running) {
+        Text(h.code, style = T.title.copy(fontSize = 28.sp, color = C.accent), modifier = Modifier.padding(bottom = 6.dp))
+        // The address to type on the phone when it doesn't find this PC by itself (another network, Tailscale)
+        val addrs = remember(h.running) { h.addresses() }
+        if (addrs.isEmpty()) Text("This PC isn't on a network the phone can reach right now", style = T.sub, modifier = Modifier.padding(bottom = 6.dp))
+        else {
+            Text("If the phone doesn't list this PC, type its address under Desktop address on the phone:", style = T.sub)
+            for (a in addrs) Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(a.ip, style = T.title.copy(color = C.accent), modifier = Modifier.width(170.dp))
+                Text(org.omarchy.music.PairAddressRules.label(a), style = T.sub)
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+    }
     for ((tok, name) in h.phones) Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Paired: $name", style = T.sub, modifier = Modifier.weight(1f))
         Pill("Forget", quiet = true) { h.forget(tok) }

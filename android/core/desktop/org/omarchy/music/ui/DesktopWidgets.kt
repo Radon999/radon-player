@@ -58,6 +58,7 @@ import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import org.omarchy.music.DesktopWidgetRules
 import org.omarchy.music.Instance
@@ -75,18 +76,27 @@ import kotlin.math.roundToInt
  *  if it does that. Each one is opened and closed from the tray's Widgets or Settings › General, moved by dragging its
  *  body, sized by its corner, and kept (open or not, where, how big, above other windows or not) across restarts. On
  *  Hyprland, which places new windows itself, it's put back where it was through hyprctl ([org.omarchy.music.Hyprland]).
+ *  Save widget layout keeps the whole arrangement (each widget's place, size, workspace, choices; the main window's and
+ *  the mini player's places), and the app opens it again as it starts (or now, with Put widgets back).
  *  What a widget does in the main window goes through the same commands a second launch sends ([Instance]). */
 object DesktopWidgets {
     private const val PREF = "pc_widget."   // pc_: kept on this PC, never synced to the phone
     private const val TOP_OFF = "pc_widget_top_off"   // Always on top switched off once for all (it was on by itself)
+    /** The layout saved with Save widget layout, and whether the app opens it as it starts. */
+    const val LAYOUT = "pc_widget_layout"
+    const val LAYOUT_ON = "pc_widget_layout_on"
     private val places by lazy {
         val firstTime = !Prefs.on(TOP_OFF)
+        val last = DesktopWidgetRules.KINDS.associate { (k, _) ->
+            val p = DesktopWidgetRules.decode(k, Prefs.text(PREF + k))
+            k to (if (firstTime && p.onTop) p.copy(onTop = false) else p)
+        }
+        if (firstTime) Prefs.set(TOP_OFF, true)
+        // As the app starts, the saved layout wins (with Open this layout when the app starts on) over where the widgets
+        // were last dragged
+        val start = DesktopWidgetRules.atStart(last, layout(), Prefs.on(LAYOUT_ON))
         mutableStateMapOf<String, DesktopWidgetRules.Place>().apply {
-            for ((k, _) in DesktopWidgetRules.KINDS) {
-                val p = DesktopWidgetRules.decode(k, Prefs.text(PREF + k))
-                put(k, if (firstTime && p.onTop) p.copy(onTop = false).also { Prefs.setText(PREF + k, DesktopWidgetRules.encode(it)) } else p)
-            }
-            if (firstTime) Prefs.set(TOP_OFF, true)
+            for ((k, p) in start) { put(k, p); if (p != DesktopWidgetRules.decode(k, Prefs.text(PREF + k))) Prefs.setText(PREF + k, DesktopWidgetRules.encode(p)) }
         }
     }
 
@@ -98,10 +108,111 @@ object DesktopWidgets {
     fun isOpen(kind: String) = place(kind).open
     fun open(kind: String, on: Boolean) = save(kind, place(kind).copy(open = on))
     val anyOpen: Boolean get() = DesktopWidgetRules.KINDS.any { isOpen(it.first) }
+    fun title(kind: String) = "Radon Player · " + (DesktopWidgetRules.KINDS.firstOrNull { it.first == kind }?.second ?: kind)
 
     /** The cover playing's main colour (null: none), worked out once a song for every widget (the host keeps it). */
     var coverRgb by mutableStateOf<Int?>(null)
         internal set
+
+    // ---- the saved layout ----
+
+    /** The layout saved (null: none yet). Read in Compose: it changes when one's saved. */
+    fun layout(): DesktopWidgetRules.Layout? = DesktopWidgetRules.decodeLayout(Prefs.text(LAYOUT))
+    /** Put widgets back pressed: open windows go back to their saved places (each window follows it). */
+    var putBack by mutableStateOf(0)
+        private set
+    /** The app's own windows open now (main, mini), for Save widget layout. */
+    internal val windows = mutableMapOf<String, androidx.compose.ui.window.WindowState>()
+    const val MAIN_TITLE = "Radon Player"
+    private const val MAIN_RULE = "radon-player-layout-main"
+    /** The main window's target, when the app started with its saved place set up for Hyprland (see [atAppStart]). */
+    @Volatile private var mainTarget: DesktopWidgetRules.Hypr.Target? = null
+    private var mainDone = false
+
+    /** Java's own scale (dp to real pixels before a window is there to ask: what its density will be). */
+    internal fun awtScale(): Double = runCatching {
+        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.defaultConfiguration.defaultTransform.scaleX
+    }.getOrDefault(1.0)
+
+    /** (blocking, once as the app starts, before its window opens) With Open this layout when the app starts on: on
+     *  Hyprland the main window opens at its saved place (a window rule set for it now; not when it starts in the tray). */
+    fun atAppStart(mainShown: Boolean) {
+        places.size   // the widgets' places worked out now (the layout's, if it wins)
+        if (!mainShown || !org.omarchy.music.Hyprland.on || !Prefs.on(LAYOUT_ON)) return
+        val p = layout()?.windows?.get("main") ?: return
+        mainTarget = runCatching { org.omarchy.music.Hyprland.prepare(MAIN_RULE, MAIN_TITLE, p, 0, awtScale()) }.getOrNull()
+    }
+
+    /** (off the main thread) Save widget layout: every widget open now as it is (its place, size, workspace and monitor
+     *  as Hyprland has them, its choices), and the main window and the mini player if they're open. What to tell you. */
+    fun saveLayout(): String {
+        val hypr = org.omarchy.music.Hyprland.on
+        val widgets = LinkedHashMap<String, DesktopWidgetRules.Place>()
+        for ((k, _) in DesktopWidgetRules.KINDS) {
+            val p = place(k).takeIf { it.open } ?: continue
+            widgets[k] = if (hypr) org.omarchy.music.Hyprland.kept(title(k), p) ?: p else p
+        }
+        val wins = LinkedHashMap<String, DesktopWidgetRules.Place>()
+        for ((role, st) in windows.toMap()) {
+            val pos = st.position
+            val p = DesktopWidgetRules.Place(open = true, x = if (pos.isSpecified) pos.x.value.roundToInt() else null,
+                y = if (pos.isSpecified) pos.y.value.roundToInt() else null, w = st.size.width.value.roundToInt(), h = st.size.height.value.roundToInt())
+            wins[role] = if (hypr) org.omarchy.music.Hyprland.kept(MAIN_TITLE, p) ?: p else p
+        }
+        val l = DesktopWidgetRules.Layout(System.currentTimeMillis(), widgets, wins)
+        Music.scope.launch(Dispatchers.Main) {
+            val first = Prefs.text(LAYOUT).isBlank()
+            Prefs.setText(LAYOUT, DesktopWidgetRules.encodeLayout(l))
+            if (first) Prefs.set(LAYOUT_ON, true)
+            for ((k, p) in widgets) save(k, p)
+        }
+        return "Saved the widget layout: ${widgets.size} widget${if (widgets.size != 1) "s" else ""}" +
+            if (wins.isNotEmpty()) " and the app's window" else ""
+    }
+
+    /** Put widgets back: the saved ones opened, the others closed, each (and the app's windows) put back exactly. */
+    fun putBackLayout() {
+        val l = layout() ?: run { Music.toast("No widget layout saved yet"); return }
+        for ((k, _) in DesktopWidgetRules.KINDS) save(k, l.widgets[k]?.copy(open = true) ?: place(k).copy(open = false))
+        putBack++
+    }
+
+    /** The saved place of the main window or the mini player, when it's to be put there: at the start (with the switch
+     *  on; the main window's only once a run) or after Put widgets back. */
+    internal fun windowPlace(role: String, afterPutBack: Boolean): DesktopWidgetRules.Place? {
+        val p = layout()?.windows?.get(role) ?: return null
+        if (afterPutBack) return p
+        if (!Prefs.on(LAYOUT_ON)) return null
+        if (role == "main") { if (mainDone) return null; mainDone = true }
+        return p
+    }
+    internal fun takeMainTarget() = mainTarget.also { mainTarget = null }
+    internal const val MAIN_RULE_NAME = MAIN_RULE
+}
+
+/** The main window and the mini player in a saved layout: kept track of while open (Save widget layout takes their
+ *  places), and put at their saved places as the app starts (with Open this layout when the app starts on) and after Put
+ *  widgets back. On Hyprland through hyprctl (the main window opens straight there: see [DesktopWidgets.atAppStart]);
+ *  elsewhere through the window itself. */
+@Composable
+fun LayoutWindow(role: String, state: androidx.compose.ui.window.WindowState) {
+    androidx.compose.runtime.DisposableEffect(role, state) {
+        DesktopWidgets.windows[role] = state
+        onDispose { DesktopWidgets.windows.remove(role) }
+    }
+    val tick = DesktopWidgets.putBack
+    LaunchedEffect(tick) {
+        val p = DesktopWidgets.windowPlace(role, afterPutBack = tick > 0)
+        if (org.omarchy.music.Hyprland.on) withContext(Dispatchers.IO) {
+            val t = if (role == "main" && tick == 0) DesktopWidgets.takeMainTarget() else null
+            if (t != null) org.omarchy.music.Hyprland.settle(DesktopWidgets.MAIN_RULE_NAME, DesktopWidgets.MAIN_TITLE, t, false)
+            else if (p != null) org.omarchy.music.Hyprland.moveTo(DesktopWidgets.MAIN_TITLE, p, 0, DesktopWidgets.awtScale(), false)
+        } else if (p != null && !p.hypr) {
+            val x = p.x; val y = p.y
+            if (x != null && y != null) state.position = WindowPosition(x.dp, y.dp)
+            state.size = DpSize(p.w.dp, p.h.dp)
+        }
+    }
 }
 
 /** Windows and macOS draw a see-through window; Linux gets a plain one (see [DesktopWidgets]). */
@@ -131,17 +242,27 @@ private fun firstPlace(i: Int, w: Int, dpPerAwt: Float): WindowPosition = runCat
 private fun WidgetWindow(kind: String, name: String, i: Int, icon: Painter, bg: Color) {
     val hypr = org.omarchy.music.Hyprland.on
     val start = remember { DesktopWidgets.place(kind) }
+    val title = DesktopWidgets.title(kind)
+    // Hyprland: where it goes worked out, and a window rule set for it, before it opens, so it opens straight there (at
+    // its size, on its workspace) rather than where Hyprland puts a new window, then jumping
+    val rule = "radon-player-widget-$kind"
+    var target by remember { mutableStateOf<DesktopWidgetRules.Hypr.Target?>(null) }
+    var ready by remember { mutableStateOf(!hypr) }
+    if (hypr) LaunchedEffect(Unit) {
+        target = withContext(Dispatchers.IO) { runCatching { org.omarchy.music.Hyprland.prepare(rule, title, start, i, DesktopWidgets.awtScale(), focus = false) }.getOrNull() }
+        ready = true
+    }
+    if (!ready) return
     // A place kept elsewhere than here (Hyprland's own, or Java's) isn't used: it opens at its first place
     val x = start.x?.takeIf { start.hypr == hypr }; val y = start.y?.takeIf { start.hypr == hypr }
     val state = rememberWindowState(
         position = if (x != null && y != null && !hypr) WindowPosition(x.dp, y.dp) else WindowPosition(Alignment.TopEnd),
         size = DpSize(start.w.dp, start.h.dp))
-    val title = "Radon Player · $name"
     val onTop = DesktopWidgets.place(kind).onTop
     Window(onCloseRequest = { DesktopWidgets.open(kind, false) }, state = state, title = title, icon = icon,
         undecorated = true, transparent = seeThrough, resizable = true, alwaysOnTop = onTop) {
-        // Hyprland: put where it was kept, at its size, once it's on the screen (nothing is kept before that: the size
-        // and place Hyprland gives a new window aren't the widget's)
+        // Hyprland: once it's on the screen, anything the rule didn't do is put right (nothing is kept before that: the
+        // size and place Hyprland gives a new window aren't the widget's)
         var placed by remember { mutableStateOf(!hypr) }
         var placedSize by remember { mutableStateOf<DpSize?>(null) }
         // dp to the screen's real pixels: the window's own density (Java itself draws at 1 here and leaves the scaling to it)
@@ -150,29 +271,41 @@ private fun WidgetWindow(kind: String, name: String, i: Int, icon: Painter, bg: 
         // Elsewhere, the first time: down the right of the screen (worked out once the window's density is known)
         if (!hypr && (x == null || y == null)) LaunchedEffect(Unit) { state.position = firstPlace(i, start.w, dpPerAwt) }
         if (hypr) LaunchedEffect(Unit) {
-            val scale = density
-            withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.place(title, x, y, start.w, start.h, i, scale, onTop) }
-            delay(400)
-            placedSize = state.size; placed = true
+            val t = target
+            withContext(Dispatchers.IO) { if (t != null) org.omarchy.music.Hyprland.settle(rule, title, t, onTop) }
+            delay(300)
+            placed = true
         }
         if (hypr) LaunchedEffect(onTop, placed) { if (placed) withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.pin(title, onTop) } }
-        // Kept where it's put and as big as it's made, half a second after it stops moving
+        // Put widgets back: back to its saved place now
+        val putBack = DesktopWidgets.putBack
+        LaunchedEffect(putBack) {
+            if (putBack == 0) return@LaunchedEffect
+            val p = DesktopWidgets.place(kind)
+            if (hypr) withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.moveTo(title, p, i, density, p.onTop) }
+            else if (!p.hypr) {
+                val px = p.x; val py = p.y
+                if (px != null && py != null) state.position = WindowPosition(px.dp, py.dp)
+                state.size = DpSize(p.w.dp, p.h.dp); placedSize = state.size
+            }
+        }
+        // Kept where it's put and as big as it's made, half a second after it stops moving: on Hyprland exactly as
+        // Hyprland has it (its place, its size in its own pixels, its workspace and monitor)
         LaunchedEffect(state.position, state.size, placed) {
             if (!placed) return@LaunchedEffect
             delay(500)
             val p = DesktopWidgets.place(kind)
-            // (a size within a dp or two of the one asked for is the one asked for: Hyprland counts in its own pixels)
-            val asked = placedSize
-            val same = asked != null && kotlin.math.abs((state.size.width - asked.width).value) <= 2 && kotlin.math.abs((state.size.height - asked.height).value) <= 2
-            val w = if (same) p.w else state.size.width.value.roundToInt()
-            val h = if (same) p.h else state.size.height.value.roundToInt()
+            val w = state.size.width.value.roundToInt(); val h = state.size.height.value.roundToInt()
             if (hypr) {
-                val at = withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.where(title) }
-                DesktopWidgets.save(kind, DesktopWidgets.place(kind).copy(x = at?.first ?: p.x, y = at?.second ?: p.y, w = w, h = h, hypr = true))
+                val kept = withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.kept(title, p.copy(w = w, h = h)) }
+                if (kept != null) DesktopWidgets.save(kind, DesktopWidgets.place(kind).let { now -> kept.copy(open = now.open, onTop = now.onTop, choice = now.choice, shuffled = now.shuffled) })
             } else {
+                // (a size within a dp or two of the one asked for is the one asked for)
+                val asked = placedSize
+                val same = asked != null && kotlin.math.abs((state.size.width - asked.width).value) <= 2 && kotlin.math.abs((state.size.height - asked.height).value) <= 2
                 val pos = state.position
                 DesktopWidgets.save(kind, p.copy(x = if (pos.isSpecified) pos.x.value.roundToInt() else p.x,
-                    y = if (pos.isSpecified) pos.y.value.roundToInt() else p.y, w = w, h = h, hypr = false))
+                    y = if (pos.isSpecified) pos.y.value.roundToInt() else p.y, w = if (same) p.w else w, h = if (same) p.h else h, hypr = false))
             }
         }
         // Its corner sizes it: by where the mouse is on the screen (the corner moves with the window as it grows), the

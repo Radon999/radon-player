@@ -179,6 +179,21 @@ fun PcWidgetLines(ui: Ui, line: @Composable (String, String, Boolean, @Composabl
             androidx.compose.material3.Switch(DesktopWidgets.isOpen(kind), { DesktopWidgets.open(kind, it) }, colors = swColors())
         }
     }
+    // The layout: where every open widget is (and the app's window), kept to come back to
+    val layout = DesktopWidgets.layout()
+    line("Widget layout", (layout?.let { org.omarchy.music.DesktopWidgetRules.savedLabel(it.saved, System.currentTimeMillis(),
+            java.time.ZoneId.systemDefault(), it.widgets.size) } ?: "Not saved yet") +
+        ". Save widget layout keeps every open widget exactly where it is, at its size, on its workspace, with what it shows " +
+        "(and the app's window); Put widgets back puts them all back", layout != null) {
+        Pill("Save widget layout", quiet = true) { Music.bg({ DesktopWidgets.saveLayout() }) { m, err -> Music.toast(m ?: "Couldn't: ${err?.message?.take(80)}") } }
+        if (layout != null) { androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 6.dp)); Pill("Put widgets back", quiet = true) { DesktopWidgets.putBackLayout() } }
+    }
+    Text("Moving a widget afterwards doesn't change the saved layout until you press Save widget layout again.", style = T.sub,
+        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
+    if (layout != null) Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text("Open this layout when the app starts", style = T.body, modifier = Modifier.weight(1f))
+        androidx.compose.material3.Switch(org.omarchy.music.Prefs.on(DesktopWidgets.LAYOUT_ON), { org.omarchy.music.Prefs.set(DesktopWidgets.LAYOUT_ON, it) }, colors = swColors())
+    }
     if (!org.omarchy.music.Shortcuts.supported) return
     var making by remember { mutableStateOf(false) }
     line("Desktop shortcuts", "One-click shortcuts, each with its own picture, in the ${org.omarchy.music.Shortcuts.menuName}" +

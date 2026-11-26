@@ -235,6 +235,7 @@ object RemoteHost {
     val phones = emptyMap<String, String>()
     fun setOn(on: Boolean) {}
     fun forget(token: String) {}
+    fun addresses(): List<PairAddressRules.Address> = emptyList()
 }
 
 /** Discord's Rich Presence talks to the Discord app on a computer: the PC's. */

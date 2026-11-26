@@ -28,16 +28,24 @@ object DesktopWidgetRules {
     /** A widget's place: open or not, where on the screen (null: not moved yet), its size (dp), whether it stays above
      *  the other windows (off unless you switch it on), and its own choice (Playlist shortcut: the playlist and In order
      *  or Shuffled; Most played: the period). hypr: x and y are Hyprland's own (its layout's), kept there, as Hyprland
-     *  places the window itself; anywhere else they're the window's place as Java has it. */
+     *  places the window itself; anywhere else they're the window's place as Java has it. On Hyprland its size there
+     *  too, exactly as Hyprland has it (hw, hh: its layout's pixels, whatever the monitor's scale), and the workspace
+     *  and monitor it was on (ws, mon: their names), so it comes back pixel for pixel where it was. */
     data class Place(val open: Boolean = false, val x: Int? = null, val y: Int? = null, val w: Int, val h: Int,
-                     val onTop: Boolean = false, val choice: String = "", val shuffled: Boolean = false, val hypr: Boolean = false)
+                     val onTop: Boolean = false, val choice: String = "", val shuffled: Boolean = false, val hypr: Boolean = false,
+                     val hw: Int? = null, val hh: Int? = null, val ws: String = "", val mon: String = "")
 
     fun start(kind: String) = startSize(kind).let { (w, h) -> Place(w = w, h = h) }
+
+    /** A name kept between ";" and "=": those two left out. */
+    private fun word(s: String) = s.filter { it != ';' && it != '=' && it != '\n' && it != '\t' }.trim()
 
     /** How a place is kept in the settings: one line of key=value pairs, the choice last (it may hold any letters). */
     fun encode(p: Place): String = listOfNotNull("open=" + (if (p.open) 1 else 0), p.x?.let { "x=$it" }, p.y?.let { "y=$it" },
         "w=${p.w}", "h=${p.h}", "top=" + (if (p.onTop) 1 else 0), "shuffle=" + (if (p.shuffled) 1 else 0),
-        if (p.hypr) "hypr=1" else null, "choice=${p.choice}").joinToString(";")
+        if (p.hypr) "hypr=1" else null, p.hw?.let { "hw=$it" }, p.hh?.let { "hh=$it" },
+        word(p.ws).takeIf { it.isNotEmpty() }?.let { "ws=$it" }, word(p.mon).takeIf { it.isNotEmpty() }?.let { "mon=$it" },
+        "choice=${p.choice}").joinToString(";")
 
     /** A kept place read back. Anything missing or garbled takes the first-time value; the size is kept to what fits
      *  on a screen, never smaller than the smallest. */
@@ -51,7 +59,61 @@ object DesktopWidgetRules {
         fun num(k: String) = m[k]?.toIntOrNull()
         return Place(open = m["open"] == "1", x = num("x"), y = num("y"),
             w = (num("w") ?: d.w).coerceIn(MIN_W, 4000), h = (num("h") ?: d.h).coerceIn(MIN_H, 4000),
-            onTop = m["top"]?.let { it == "1" } ?: d.onTop, choice = choice, shuffled = m["shuffle"] == "1", hypr = m["hypr"] == "1")
+            onTop = m["top"]?.let { it == "1" } ?: d.onTop, choice = choice, shuffled = m["shuffle"] == "1", hypr = m["hypr"] == "1",
+            hw = num("hw")?.takeIf { it > 0 }, hh = num("hh")?.takeIf { it > 0 }, ws = m["ws"].orEmpty(), mon = m["mon"].orEmpty())
+    }
+
+    // ---- a saved layout (Save widget layout) ----
+
+    /** The layout saved with Save widget layout: when, each widget open then (its place, as [Place]), and the main
+     *  window's and the mini player's places if they were open ("main", "mini"). */
+    data class Layout(val saved: Long, val widgets: Map<String, Place>, val windows: Map<String, Place> = emptyMap())
+
+    /** How a layout is kept: its time, then a line for each widget ("w:" and its kind) and window ("x:" and its role),
+     *  a tab, and its place. */
+    fun encodeLayout(l: Layout): String = (listOf("saved=${l.saved}") +
+        l.widgets.map { (k, p) -> "w:$k\t" + encode(p) } + l.windows.map { (k, p) -> "x:$k\t" + encode(p) }).joinToString("\n")
+
+    /** A kept layout read back; null when there's none (or it's unreadable). Widgets no longer in the app are left out. */
+    fun decodeLayout(text: String): Layout? {
+        val lines = text.lines().filter { it.isNotBlank() }
+        val saved = lines.firstOrNull()?.takeIf { it.startsWith("saved=") }?.removePrefix("saved=")?.toLongOrNull() ?: return null
+        val kinds = KINDS.map { it.first }.toSet()
+        val widgets = LinkedHashMap<String, Place>(); val windows = LinkedHashMap<String, Place>()
+        for (l in lines.drop(1)) {
+            val key = l.substringBefore('\t'); val p = l.substringAfter('\t', "")
+            when {
+                key.startsWith("w:") && key.drop(2) in kinds -> widgets[key.drop(2)] = decode(key.drop(2), p).copy(open = true)
+                key.startsWith("x:") && key.drop(2) in setOf("main", "mini") -> windows[key.drop(2)] = decodeWindow(p)
+            }
+        }
+        return Layout(saved, widgets, windows)
+    }
+
+    /** A main or mini window's place (its size isn't held to a widget's smallest). */
+    private fun decodeWindow(text: String): Place = decode("main", text).let { p ->
+        val m = text.substringBefore("choice=").split(';').mapNotNull { kv -> kv.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
+        p.copy(w = m["w"]?.toIntOrNull() ?: p.w, h = m["h"]?.toIntOrNull() ?: p.h)
+    }
+
+    /** The widgets' places as the app starts: with a saved layout and Open this layout when the app starts on, the
+     *  layout's (the ones in it open, where they were saved; the others closed), whatever was moved since; else as they
+     *  were last left. */
+    fun atStart(last: Map<String, Place>, layout: Layout?, useLayout: Boolean): Map<String, Place> =
+        if (!useLayout || layout == null) last
+        else last.mapValues { (k, p) -> layout.widgets[k]?.copy(open = true) ?: p.copy(open = false) }
+
+    /** "Saved today 9:41 PM · 7 widgets" (yesterday, or the date). */
+    fun savedLabel(saved: Long, now: Long, zone: java.time.ZoneId, widgets: Int): String {
+        val at = java.time.Instant.ofEpochMilli(saved).atZone(zone)
+        val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val day = when (at.toLocalDate()) {
+            today -> "today"
+            today.minusDays(1) -> "yesterday"
+            else -> at.format(java.time.format.DateTimeFormatter.ofPattern(if (at.year == today.year) "MMM d" else "MMM d, yyyy", java.util.Locale.ENGLISH))
+        }
+        val time = at.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH))
+        return "Saved $day $time · $widgets widget${if (widgets != 1) "s" else ""}"
     }
 
     // ---- commands ----
@@ -390,15 +452,16 @@ object DesktopWidgetRules {
     // place), so a widget is put back where it was kept, at its size, once it's on the screen ----
     object Hypr {
         /** A window as hyprctl clients -j says it: where (Hyprland's layout), how big (its logical pixels), on which
-         *  monitor (its id). */
+         *  monitor (its id) and workspace (its name). */
         data class Client(val address: String, val pid: Long, val title: String, val x: Int, val y: Int, val w: Int, val h: Int,
-                          val monitor: Int, val floating: Boolean, val pinned: Boolean)
+                          val monitor: Int, val floating: Boolean, val pinned: Boolean, val workspace: String = "")
         /** A monitor as hyprctl monitors -j says it: its place in the layout, its size in real pixels, its scale, and the
          *  edges bars keep (left, top, right, bottom). */
         data class Monitor(val id: Int, val x: Int, val y: Int, val w: Int, val h: Int, val scale: Double, val focused: Boolean,
-                           val reserved: List<Int> = listOf(0, 0, 0, 0)) {
+                           val reserved: List<Int> = listOf(0, 0, 0, 0), val name: String = "", val activeWs: String = "") {
             val logicalW get() = (w / scale).toInt()
             val logicalH get() = (h / scale).toInt()
+            fun holds(px: Int, py: Int) = px >= x - 40 && px < x + logicalW && py >= y - 40 && py < y + logicalH
         }
 
         private fun json(text: String) = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(text) as kotlinx.serialization.json.JsonArray }.getOrNull()
@@ -411,14 +474,16 @@ object DesktopWidgetRules {
             val at = o["at"].arr(); val size = o["size"].arr()
             Client(o["address"].str() ?: return@mapNotNull null, o["pid"].int()?.toLong() ?: -1, o["title"].str().orEmpty(),
                 at?.getOrNull(0).int() ?: 0, at?.getOrNull(1).int() ?: 0, size?.getOrNull(0).int() ?: 0, size?.getOrNull(1).int() ?: 0,
-                o["monitor"].int() ?: -1, o["floating"].str() == "true", o["pinned"].str() == "true")
+                o["monitor"].int() ?: -1, o["floating"].str() == "true", o["pinned"].str() == "true",
+                (o["workspace"] as? kotlinx.serialization.json.JsonObject)?.get("name").str().orEmpty())
         }
 
         fun monitors(text: String): List<Monitor> = json(text).orEmpty().mapNotNull { e ->
             val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
             Monitor(o["id"].int() ?: return@mapNotNull null, o["x"].int() ?: 0, o["y"].int() ?: 0, o["width"].int() ?: 0, o["height"].int() ?: 0,
                 (o["scale"].str()?.toDoubleOrNull() ?: 1.0).takeIf { it > 0 } ?: 1.0, o["focused"].str() == "true",
-                o["reserved"].arr()?.map { it.int() ?: 0 }?.takeIf { it.size == 4 } ?: listOf(0, 0, 0, 0))
+                o["reserved"].arr()?.map { it.int() ?: 0 }?.takeIf { it.size == 4 } ?: listOf(0, 0, 0, 0), o["name"].str().orEmpty(),
+                (o["activeWorkspace"] as? kotlinx.serialization.json.JsonObject)?.get("name").str().orEmpty())
         }
 
         /** Our window of that title (the installed app's widgets, in another process, have the same titles). */
@@ -438,13 +503,55 @@ object DesktopWidgetRules {
         }
 
         /** Whether a kept place is on a monitor that's there (one unplugged since: no, it opens at its first place). */
-        fun onSomeMonitor(x: Int, y: Int, monitors: List<Monitor>): Boolean =
-            monitors.any { x >= it.x - 40 && x < it.x + it.logicalW && y >= it.y - 40 && y < it.y + it.logicalH }
+        fun onSomeMonitor(x: Int, y: Int, monitors: List<Monitor>): Boolean = monitors.any { it.holds(x, y) }
 
-        /** The hyprctl dispatches that float it, size it and put it in place, and pin it or not (Always on top: Hyprland
-         *  keeps a floating window above tiled ones anyway; pinned, it also stays in view on every workspace). */
-        fun dispatches(c: Client, x: Int, y: Int, w: Int, h: Int, onTop: Boolean): List<String> = listOfNotNull(
+        /** Where a widget goes, worked out before its window opens: the monitor, the place and size in Hyprland's layout
+         *  (its pixels), and the workspace (null: wherever it opens). */
+        data class Target(val mon: Monitor, val x: Int, val y: Int, val w: Int, val h: Int, val ws: String?)
+
+        /** A widget's target from its kept place. Kept by Hyprland (hypr), on a monitor still there: exactly there, the
+         *  size Hyprland had (hw, hh; a place kept before those were: its dp at javaScale on that monitor), on its
+         *  workspace. Otherwise: its first place on the focused monitor, at its size in dp. i: its place in the list. */
+        fun target(p: Place, monitors: List<Monitor>, javaScale: Double, i: Int): Target? {
+            val focused = monitors.firstOrNull { it.focused } ?: monitors.firstOrNull() ?: return null
+            val x = p.x; val y = p.y
+            val kept = p.hypr && x != null && y != null && onSomeMonitor(x, y, monitors)
+            val mon = if (!kept) focused else monitors.firstOrNull { it.name.isNotEmpty() && it.name == p.mon && it.holds(x!!, y!!) }
+                ?: monitors.first { it.holds(x!!, y!!) }
+            val w = p.hw?.takeIf { kept } ?: logical(p.w, javaScale, mon.scale)
+            val h = p.hh?.takeIf { kept } ?: logical(p.h, javaScale, mon.scale)
+            val (px, py) = if (kept) x!! to y!! else firstPlace(mon, w, h, i)
+            // On its workspace; kept before workspaces were (5.2.2): the one showing on its monitor, so it's on the
+            // monitor it's placed on (not on the workspace in front, half off its monitor)
+            return Target(mon, px, py, w, h, p.ws.ifBlank { mon.activeWs }.takeIf { kept && it.isNotBlank() })
+        }
+
+        /** Whether a window is where its target says (a pixel or two either way: Hyprland rounds). */
+        fun at(c: Client, t: Target): Boolean = kotlin.math.abs(c.x - t.x) <= 2 && kotlin.math.abs(c.y - t.y) <= 2 &&
+            kotlin.math.abs(c.w - t.w) <= 2 && kotlin.math.abs(c.h - t.h) <= 2 && (t.ws == null || c.workspace == t.ws)
+
+        /** A Lua string, quoted. */
+        private fun q(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        /** A title as a whole-title pattern (its signs taken as they are). */
+        private fun exactly(title: String) = "^" + title.replace(Regex("[\\\\^$.|?*+()\\[\\]{}]")) { "\\" + it.value } + "$"
+
+        /** The Lua (hyprctl eval) for a window rule that opens the window of this title straight at its target, floating
+         *  (not at the size and place a floating workspace's rule gives every new window, then moved: no jump). A rule's
+         *  place is counted from its monitor's corner. focus: whether it takes the keyboard as it opens (a widget
+         *  doesn't: opening on the other monitor, it would take you there). */
+        fun ruleLua(name: String, title: String, t: Target, focus: Boolean = true): String =
+            "hl.window_rule({ name = ${q(name)}, enabled = true, match = { title = ${q(exactly(title))} }, float = true, " +
+                "size = ${q("${t.w} ${t.h}")}, move = ${q("${t.x - t.mon.x} ${t.y - t.mon.y}")}" +
+                (t.ws?.let { ", workspace = ${q("$it silent")}" } ?: "") + (if (focus) "" else ", no_initial_focus = true") + " })"
+        /** …and the rule switched off again once the window's open (another window of that title is its own). */
+        fun ruleOffLua(name: String) = "hl.window_rule({ name = ${q(name)}, enabled = false })"
+
+        /** The hyprctl dispatches that float it, put it on its workspace (without going there), size it and put it in
+         *  place, and pin it or not (Always on top: Hyprland keeps a floating window above tiled ones anyway; pinned, it
+         *  also stays in view on every workspace). */
+        fun dispatches(c: Client, x: Int, y: Int, w: Int, h: Int, onTop: Boolean, ws: String? = null): List<String> = listOfNotNull(
             if (!c.floating) "setfloating address:${c.address}" else null,
+            if (ws != null && ws != c.workspace) "movetoworkspacesilent $ws,address:${c.address}" else null,
             "resizewindowpixel exact $w $h,address:${c.address}",
             "movewindowpixel exact $x $y,address:${c.address}",
             if (onTop != c.pinned) "pin address:${c.address}" else null)
@@ -459,6 +566,7 @@ object DesktopWidgetRules {
                 "setfloating" -> "hl.dsp.window.float({ action = \"on\", $who })"
                 "resizewindowpixel" -> "hl.dsp.window.resize({ x = ${nums[0]}, y = ${nums[1]}, relative = false, $who })"
                 "movewindowpixel" -> "hl.dsp.window.move({ x = ${nums[0]}, y = ${nums[1]}, relative = false, $who })"
+                "movetoworkspacesilent" -> "hl.dsp.window.move({ workspace = ${q(cmd.substringAfter(' ').substringBefore(",address:"))}, follow = false, $who })"
                 "pin" -> "hl.dsp.window.pin({ action = \"${if (pinned) "off" else "on"}\", $who })"
                 else -> cmd
             }

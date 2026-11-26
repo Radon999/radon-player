@@ -83,6 +83,7 @@ private fun app(args: Array<String>) = application {
     // instead: started hidden there, nothing would show it was running.
     var shown by remember { mutableStateOf("--tray" !in args || !runCatching { java.awt.SystemTray.isSupported() }.getOrDefault(true)) }
     val tray = androidx.compose.ui.window.rememberTrayState()
+    remember { org.omarchy.music.ui.DesktopWidgets.atAppStart(shown) }   // a saved widget layout opened as the app starts
     // A new song while the window is closed: a note by the clock, as the phone's notification
     val cur = Music.current()
     LaunchedEffect(cur?.id) {
@@ -114,6 +115,9 @@ private fun app(args: Array<String>) = application {
                 CheckboxItem(name, checked = org.omarchy.music.ui.DesktopWidgets.isOpen(kind),
                     onCheckedChange = { org.omarchy.music.ui.DesktopWidgets.open(kind, it) })
             }
+            Separator()
+            Item("Save widget layout", onClick = { Music.bg({ org.omarchy.music.ui.DesktopWidgets.saveLayout() }) { m, _ -> m?.let { Music.toast(it) } } })
+            Item("Put widgets back", onClick = { org.omarchy.music.ui.DesktopWidgets.putBackLayout() })
         }
         Separator()
         Item("Quit", onClick = { quit() })
@@ -158,10 +162,13 @@ private fun app(args: Array<String>) = application {
             if (M.folders == listOf("Music/") && Library.folders().isNotEmpty())   // the Python app's folders, at the first start
                 M.setFolders(Library.folders().map { it.path })
         }
+        org.omarchy.music.ui.LayoutWindow("main", mainWindow)
         org.omarchy.music.ui.UiSized { OmarchyTheme { App() } }
     }
+    val miniWindow = rememberWindowState(size = DpSize(380.dp, 600.dp), position = WindowPosition(Alignment.BottomEnd))
     if (PcWindows.mini) Window(onCloseRequest = { PcWindows.mini = false }, title = "Radon Player", icon = AppIcon, alwaysOnTop = true,
-        resizable = true, state = rememberWindowState(size = DpSize(380.dp, 600.dp), position = WindowPosition(Alignment.BottomEnd))) {
+        resizable = true, state = miniWindow) {
+        org.omarchy.music.ui.LayoutWindow("mini", miniWindow)
         OmarchyTheme { MiniWindow() }
     }
     org.omarchy.music.ui.DesktopWidgetWindows(AppIcon)

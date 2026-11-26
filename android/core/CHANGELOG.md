@@ -2,6 +2,10 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 5.2.3 · November 2026
+- **Save your widget layout (the PC):** arrange the widgets just how you like them, then **Save widget layout** (Settings › General). It keeps each widget's exact place, size, workspace and what it shows (and the app's own window). With **Open this layout when the app starts** on, they all come back exactly that way every time, and **Put widgets back** restores it whenever you like; moving a widget afterwards doesn't change the saved layout until you save again. On Hyprland the widgets now open straight in their place, on their own workspace, without taking the keyboard away from what you're doing. The mini player opens where it was last.
+- **The PC shows its address for pairing (the PC):** under Phone remote, below the code, the PC lists the address to type on the phone if it doesn't find the PC by itself: the home network's, and Tailscale's for when you're away from home.
+
 ## 5.2.2 · November 2026
 - **New releases and Visualizer widgets on the phone:** **New releases** lists the newest releases the app has found from your artists (cover, title, artist, how long ago); a tap plays one without opening the app, and the name opens New releases. **Visualizer** shows the music as bars in the cover's colours with the song, play/pause and next; it only moves while the screen is on, the app isn't in front and music plays (about 8 frames a second), and rests otherwise. Moving bars need the microphone permission the app's Visualizer already asks for; without it they sway slowly.
 - **New releases and Visualizer widgets on the PC:** **New releases** (a click plays one, the name opens New releases) and **Visualizer** (your visualizer style in the song's colours, with play/pause and next when the mouse is over it; it rests while paused), from the tray icon's Widgets or Settings › General. **Make desktop shortcuts…** can also make a New releases shortcut.

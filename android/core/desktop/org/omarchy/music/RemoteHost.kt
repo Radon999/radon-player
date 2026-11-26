@@ -57,6 +57,13 @@ object RemoteHost {
 
     fun forget(token: String) { phones = phones - token; saveTokens() }
 
+    /** This PC's addresses the phone can pair with (Settings shows them): its home network's, then Tailscale's. */
+    fun addresses(): List<PairAddressRules.Address> = runCatching {
+        PairAddressRules.pick(java.net.NetworkInterface.getNetworkInterfaces().toList()
+            .filter { runCatching { it.isUp && !it.isLoopback }.getOrDefault(false) }
+            .flatMap { n -> n.inetAddresses.toList().filterIsInstance<java.net.Inet4Address>().map { n.name to it.hostAddress } })
+    }.getOrDefault(emptyList())
+
     private fun start() {
         if (server != null) return
         newCode()

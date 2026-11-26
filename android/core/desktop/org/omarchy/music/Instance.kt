@@ -81,7 +81,8 @@ object Instance {
   tag [all]                         tag the saved songs not tagged yet (or all of them) now
   dj [on|off|new|mine|switch]       start the DJ, stop it, start it with new songs too or with only yours, or a new set now
   widget NAME [off]                 open (or close) a desktop widget: queue, playlists, dj, playlist, pinned, top, wrapped,
-                                    lyrics, releases or visualizer
+                                    lyrics, releases, visualizer or shortcuts
+  widgets save | widgets back       save the widgets' layout as they are now, or put them back as it was saved
   status                            what's playing and what's next
   hide | quit                       hide the window, or stop the music and quit
   --tidal-login | --lastfm-login | --spotify-login   open that sign-in"""
@@ -227,6 +228,11 @@ object Instance {
             }
             // A desktop widget opened (or closed: widget lyrics off)
             "widget", "widgets" -> {
+                // The saved layout: kept now, or put back
+                when (rest.lowercase()) {
+                    "save" -> { Music.bg({ org.omarchy.music.ui.DesktopWidgets.saveLayout() }) { m, _ -> m?.let { Music.toast(it) } }; return }
+                    "back", "restore" -> { org.omarchy.music.ui.DesktopWidgets.putBackLayout(); return }
+                }
                 val off = rest.lowercase().endsWith(" off")
                 val w = if (off) rest.dropLast(4) else rest
                 val kinds = DesktopWidgetRules.KINDS

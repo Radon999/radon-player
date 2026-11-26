@@ -106,8 +106,8 @@ class DesktopWidgetRulesTest {
     }
 
     // What this PC's Hyprland says (two monitors: DP-1 scaled 1.6 at x 1920, HDMI-A-1 scaled 2 at x 0, y 270)
-    private val monitorsJson = """[{"id":1,"name":"DP-1","x":1920,"y":0,"width":3840,"height":2160,"scale":1.6,"reserved":[0,22,0,40],"focused":true},
-        {"id":0,"name":"HDMI-A-1","x":0,"y":270,"width":3840,"height":2160,"scale":2,"reserved":[0,0,0,0],"focused":false}]"""
+    private val monitorsJson = """[{"id":1,"name":"DP-1","x":1920,"y":0,"width":3840,"height":2160,"scale":1.6,"reserved":[0,22,0,40],"focused":true,"activeWorkspace":{"id":11,"name":"11"}},
+        {"id":0,"name":"HDMI-A-1","x":0,"y":270,"width":3840,"height":2160,"scale":2,"reserved":[0,0,0,0],"focused":false,"activeWorkspace":{"id":1,"name":"1"}}]"""
     private val clientsJson = """[{"address":"0x560d687df270","pid":341605,"title":"Radon Player · DJ","at":[2618,343],"size":[1100,760],"monitor":1,"floating":true,"pinned":false},
         {"address":"0x560d68926360","pid":4242,"title":"Radon Player · DJ","at":[2594,319],"size":[1100,760],"monitor":1,"floating":false,"pinned":false}]"""
 
@@ -139,6 +139,70 @@ class DesktopWidgetRulesTest {
         assertEquals("hl.dsp.window.resize({ x = 400, y = 300, relative = false, window = \"address:0x560d68926360\" })",
             H.lua("resizewindowpixel exact 400 300,address:0x560d68926360", false))
         assertEquals("hl.dsp.window.pin({ action = \"off\", window = \"address:0x1\" })", H.lua("pin address:0x1", pinned = true))
+    }
+
+    // The owner's arrangement on HDMI-A-1 (scale 2), as hyprctl had it and as 5.2.2 kept it (sizes in Java's real pixels)
+    private val ownersLyrics = "open=1;x=1372;y=322;w=1094;h=1959;top=0;shuffle=0;hypr=1;choice="
+
+    @Test fun aWidgetKeptOnHyprlandComesBackPixelForPixel() {
+        val H = DesktopWidgetRules.Hypr
+        val mons = H.monitors(monitorsJson)
+        // Kept by 5.2.2 (no Hyprland size yet): its dp at Java's scale (1 here) over HDMI-A-1's 2 is what Hyprland had
+        val old = R.decode("lyrics", ownersLyrics)
+        val t0 = H.target(old, mons, 1.0, 7)!!
+        assertEquals("HDMI-A-1", t0.mon.name)
+        assertEquals(listOf(1372, 322, 547, 980), listOf(t0.x, t0.y, t0.w, t0.h))
+        assertEquals("kept before workspaces were: the one showing on its own monitor, not the one in front", "1", t0.ws)
+        // Kept now: Hyprland's own numbers, its workspace and monitor
+        val now = old.copy(hw = 547, hh = 980, ws = "1", mon = "HDMI-A-1")
+        assertEquals(now, R.decode("lyrics", R.encode(now)))
+        val t = H.target(now, mons, 2.0, 7)!!
+        assertEquals("whatever Java's scale, exactly as Hyprland had it", listOf(1372, 322, 547, 980, "1"), listOf(t.x, t.y, t.w, t.h, t.ws))
+        // A monitor gone: its first place on the focused one, at its size in dp
+        val gone = H.target(now.copy(x = 9000), mons, 1.0, 0)!!
+        assertEquals("DP-1", gone.mon.name); assertNull(gone.ws)
+    }
+
+    @Test fun hyprlandOpensItStraightThereAndOnItsWorkspace() {
+        val H = DesktopWidgetRules.Hypr
+        val t = H.target(R.decode("queue", "open=1;x=162;y=317;w=1222;h=1996;hypr=1;hw=611;hh=998;ws=1;mon=HDMI-A-1;choice="), H.monitors(monitorsJson), 1.0, 0)!!
+        assertEquals("a rule's place counts from its monitor's corner (HDMI-A-1 is at 0, 270)",
+            "hl.window_rule({ name = \"radon-player-widget-queue\", enabled = true, match = { title = \"^Radon Player · Now playing \\\\+ queue$\" }, " +
+                "float = true, size = \"611 998\", move = \"162 47\", workspace = \"1 silent\", no_initial_focus = true })",
+            H.ruleLua("radon-player-widget-queue", "Radon Player · Now playing + queue", t, focus = false))
+        assertEquals("hl.window_rule({ name = \"radon-player-widget-queue\", enabled = false })", H.ruleOffLua("radon-player-widget-queue"))
+        val c = H.clients(clientsJson)[1]
+        assertEquals("on its workspace without going there", "movetoworkspacesilent 1,address:0x560d68926360",
+            H.dispatches(c, t.x, t.y, t.w, t.h, false, t.ws)[1])
+        assertEquals("hl.dsp.window.move({ workspace = \"1\", follow = false, window = \"address:0x560d68926360\" })",
+            H.lua("movetoworkspacesilent 1,address:0x560d68926360", false))
+        assertFalse(H.at(c, t))
+        assertTrue(H.at(c.copy(x = 162, y = 318, w = 611, h = 997, workspace = "1"), t))
+    }
+
+    @Test fun aSavedLayoutIsKeptWholeAndWinsAtTheStart() {
+        val lyrics = R.decode("lyrics", ownersLyrics).copy(hw = 547, hh = 980, ws = "1", mon = "HDMI-A-1")
+        val top = R.decode("top", "open=1;x=-2;y=445;w=316;h=1722;hypr=1;hw=158;hh=861;ws=1;mon=HDMI-A-1;choice=week")
+        val main = DesktopWidgetRules.Place(open = true, x = 2618, y = 343, w = 1760, h = 1216, hypr = true, hw = 1100, hh = 760, ws = "11", mon = "DP-1")
+        val l = DesktopWidgetRules.Layout(1_795_000_000_000, linkedMapOf("lyrics" to lyrics, "top" to top), mapOf("main" to main))
+        val back = R.decodeLayout(R.encodeLayout(l))!!
+        assertEquals(l, back)
+        assertEquals("Most played's period comes back too", "week", back.widgets["top"]!!.choice)
+        assertNull(R.decodeLayout("")); assertNull(R.decodeLayout("not a layout"))
+        // As the app starts: the layout's open where saved, the rest closed, whatever was dragged since
+        val last = mapOf("lyrics" to lyrics.copy(x = 50, y = 60), "dj" to R.start("dj").copy(open = true), "top" to R.start("top"))
+        val start = R.atStart(last, l, useLayout = true)
+        assertEquals(lyrics, start["lyrics"]); assertEquals(top, start["top"]); assertFalse(start["dj"]!!.open)
+        assertEquals("switched off: as they were left", last, R.atStart(last, l, useLayout = false))
+        assertEquals("none saved: as they were left", last, R.atStart(last, null, useLayout = true))
+    }
+
+    @Test fun whenTheLayoutWasSavedIsSaidPlainly() {
+        val zone = java.time.ZoneId.of("Europe/Amsterdam")
+        val at = java.time.ZonedDateTime.of(2026, 11, 25, 21, 41, 0, 0, zone).toInstant().toEpochMilli()
+        assertEquals("Saved today 9:41 PM · 7 widgets", R.savedLabel(at, at + 3_600_000, zone, 7))
+        assertEquals("Saved yesterday 9:41 PM · 1 widget", R.savedLabel(at, at + 86_400_000, zone, 1))
+        assertEquals("Saved Nov 25 9:41 PM · 2 widgets", R.savedLabel(at, at + 5 * 86_400_000L, zone, 2))
     }
 
     @Test fun theTaskbarIsOmarchysDockOrGnomesDashOrNone() {
