@@ -184,6 +184,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 ## Help
 
 - **Favorite settings:** star (☆) the settings you use most and they sit together at the top of Settings.
+- **One player at a time:** opening Radon Player while it's running brings up the one that's open (with the song or command you opened it with), whatever version it is; never a second player.
 - **Size of everything** (Settings › General): the whole app bigger or smaller, 80% to 250%; each device keeps its own.
 - **Size of Now playing** (Settings › General): the Now playing screen alone smaller or bigger, 50% to 125%: its cover, the song's name, its buttons and its visualizer together (over the cover, around it and along the bottom; full screen ones still fill the screen), for a big monitor where the cover takes more room than it needs. Under it, two sliders: **Now playing visualizer size** (25% to 200%: over the cover, round it and along the bottom) and **Album cover size** (30% to 100%), each on its own; once either is moved, Size of Now playing switches itself off (both back at 100% and it's on again, as it was). On the phone and the PC; each device keeps its own.
 - **Concert dates** on an artist's page, with a free Ticketmaster key of your own; add your city for shows near you.

@@ -4,6 +4,10 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.2.6: Only one Radon Player on the PC, and size the visualizer and cover on their own (Android, Windows and Linux)
+- **Only ever one Radon Player (the PC):** opening Radon Player while it's already running now always brings up the one that's open (and hands it the song or command you opened it with) instead of starting a second player. It works whatever version is running, and even when you click twice quickly. Versions before this one couldn't always tell, so a second copy could open.
+- **Size the visualizer and the album cover on their own (the phone and the PC):** under Size of Now playing (Settings › General), two sliders: **Now playing visualizer size** (25% to 200%: over the cover, round it and along the bottom; full screen ones still fill the screen) and **Album cover size** (30% to 100%). Once you move either, Size of Now playing switches itself off, since those parts are sized on their own; put both back to 100% and it's on again, as it was. Each device keeps its own sizes.
+
 ## 5.2.5: Size of Now playing (Android, Windows and Linux)
 - **Size of Now playing (the phone and the PC):** a new setting under Size of everything (Settings › General) makes the Now playing screen smaller or bigger as a whole, from 50% to 125%: the cover, the song's name, the buttons and the visualizer together, for a big monitor where the cover takes more room than it needs. The visualizers over, around and along the bottom of the cover change with it; full screen ones still fill the screen. The rest of the app stays as Size of everything has it, and each device keeps its own size.
 
