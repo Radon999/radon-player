@@ -559,7 +559,7 @@ private class WPicks {
  *  if it's one of them, else for that one. Those that open something (a dialog, a page) open it in the app's window. */
 @Composable
 private fun SongMenu(menu: Pair<Track?, List<Track>>?, place: RowPlace, picks: WPicks, close: () -> Unit,
-                     queueAt: ((Int) -> Int)? = null) {
+                     queueAt: ((Int) -> Int)? = null, select: (() -> Unit)? = null) {
     val (one, picked) = menu ?: return
     val opts = remember(menu) {
         songOptions(Ui.current ?: Ui(), one, picked, place).filter { it.second != "Select…" &&
@@ -573,7 +573,9 @@ private fun SongMenu(menu: Pair<Track?, List<Track>>?, place: RowPlace, picks: W
             IconButton(Ico.CLOSE, C.muted, 18.dp, 6.dp, desc = "Close") { close() }
         }
         if (one != null) androidx.compose.material3.DropdownMenuItem({ Text("Select…", style = T.body) },
-            { close(); picks.at.clear(); picks.at += place.index; picks.from = place.index }, leadingIcon = { Icon(Ico.SELECT, C.accent, 18.dp) })
+            // Picking starts in the widget itself (ticks on its rows), never in the app's window: this row first
+            { close(); if (select != null) select() else { picks.at.clear(); picks.at += place.index; picks.from = place.index } },
+            leadingIcon = { Icon(Ico.SELECT, C.accent, 18.dp) })
         // Several picked in the queue: those rows out of it (the app's own option goes by its own picking)
         if (one == null && queueAt != null) androidx.compose.material3.DropdownMenuItem({ Text("Remove from the queue", style = T.body) }, {
             close(); Music.unqueueMany(picks.at.map(queueAt)); picks.at.clear() }, leadingIcon = { Icon(Ico.CLOSE, C.accent, 18.dp) })
@@ -974,7 +976,9 @@ private fun ColumnScope.ReleasesWidget() {
                     }
                 }
                 val m = menu
-                if (menuAt == i && m != null) SongMenu(m, RowPlace(m.second, 0, "releases"), WPicks(), { menu = null; menuAt = -1; picks.at.clear() })
+                // (Select… picks this release in the widget's own picking: ticked here, not in the app)
+                if (menuAt == i && m != null) SongMenu(m, RowPlace(m.second, 0, "releases"), picks, { menu = null; menuAt = -1 },
+                    select = { picks.at.clear(); picks.at += i; picks.from = i })
             }
         }
     }

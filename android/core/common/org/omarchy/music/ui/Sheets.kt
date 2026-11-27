@@ -181,6 +181,23 @@ private fun AccountsSheet(ui: Ui) {
                 "unfollow stays unfollowed. See them all in Utilities › Followed artists", org.omarchy.music.Follows.autoOn()) {
                 Switch(org.omarchy.music.Follows.autoOn(), { org.omarchy.music.Follows.setAuto(it) }, colors = swColors())
             }
+            // All at once, whatever the switch: every artist of your songs on this device and your Radon Player playlists
+            Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill("Follow all my artists", quiet = true) {
+                    Music.bg({ org.omarchy.music.Follows.libraryArtists() }) { names, _ ->
+                        val n = names.orEmpty()
+                        if (n.isEmpty()) Music.toast("No artists in your songs or playlists yet") else org.omarchy.music.Follows.follow(n)
+                    }
+                }
+                Pill("Unfollow all my artists", quiet = true) {
+                    Music.bg({ org.omarchy.music.Follows.libraryArtists() }) { names, _ ->
+                        val n = names.orEmpty()
+                        if (n.isEmpty()) Music.toast("No artists in your songs or playlists yet")
+                        else ui.confirm = "Unfollow all ${n.size} artists of your songs and playlists? Their new releases won't show, and " +
+                            "following by themselves leaves them unfollowed (follow anyone again from their menu)." to { org.omarchy.music.Follows.unfollow(n) }
+                    }
+                }
+            }
             // Size of everything: text and all the rest bigger or smaller together
             val sizeKept = org.omarchy.music.UiSizeRules.percent(org.omarchy.music.Prefs.text(org.omarchy.music.UiSizeRules.PREF)).toString()
             Line("Size of everything", "Makes the app's text and everything else bigger or smaller together, for a screen where it all comes out too small " +
