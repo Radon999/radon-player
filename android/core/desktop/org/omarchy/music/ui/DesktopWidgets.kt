@@ -896,10 +896,12 @@ private fun ColumnScope.ReleasesWidget() {
     val kind = place.choice.substringAfter('|', "all").takeIf { it in setOf("all", "album", "ep", "single") } ?: "all"
     fun choose(r: String = range, k: String = kind) = DesktopWidgets.save("releases", place.copy(choice = "$r|$k"))
     val today = remember { java.time.LocalDate.now() }
-    val list = remember(nr.found, nr.told, range, kind) {
+    val hideDeezer = nr.hideDeezer()
+    org.omarchy.music.ReleaseLookup.version   // (read: a release found only on Deezer goes as soon as that's known)
+    val list = remember(nr.found, nr.told, range, kind, hideDeezer, org.omarchy.music.ReleaseLookup.version) {
         val since = today.minusDays(nr.RANGES[range] ?: 30L)
         DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, 200)
-            .filter { r -> (kind == "all" || r.type == kind) && runCatching { !java.time.LocalDate.parse(r.date.take(10)).isBefore(since) }.getOrDefault(true) }
+            .filter { r -> (kind == "all" || r.type == kind) && nr.shown(r) && runCatching { !java.time.LocalDate.parse(r.date.take(10)).isBefore(since) }.getOrDefault(true) }
             .take(60)
     }
     val kinds = mapOf("single" to "Single", "ep" to "EP", "album" to "Album")
@@ -909,6 +911,9 @@ private fun ColumnScope.ReleasesWidget() {
         listOf("week" to "Week", "month" to "Month", "year" to "Year").forEach { (k, l) -> WChip(l, range == k) { choose(r = k) } }
         Spacer(Modifier.width(6.dp))
         listOf("all" to "All", "album" to "Albums", "ep" to "EPs", "single" to "Singles").forEach { (k, l) -> WChip(l, kind == k) { choose(k = k) } }
+        Spacer(Modifier.width(6.dp))
+        // Only what you can play, or the Deezer-only ones too (the same switch as the app's New releases)
+        WChip("Hide Deezer-only", hideDeezer) { nr.setHideDeezer(!hideDeezer) }
     }
     // The app last looked back less far than asked: said, as what's shown can't go further back than that
     if ((nr.RANGES[range] ?: 0L) > (nr.RANGES[nr.range] ?: 0L))
@@ -935,7 +940,7 @@ private fun ColumnScope.ReleasesWidget() {
         }
     }
     // The first few looked up ahead, quietly, so a click plays at once instead of searching first
-    LaunchedEffect(list) { withContext(Dispatchers.IO) { runCatching { org.omarchy.music.ReleaseLookup.warm(list, 20) } } }
+    LaunchedEffect(nr.found, nr.told, range, kind, hideDeezer) { withContext(Dispatchers.IO) { runCatching { org.omarchy.music.ReleaseLookup.warm(if (hideDeezer) nr.told + nr.found else list, if (hideDeezer) 400 else 20) } } }
     val picks = remember { WPicks() }
     var menu by remember { mutableStateOf<Pair<Track?, List<Track>>?>(null) }
     var menuAt by remember { mutableStateOf(-1) }

@@ -93,12 +93,49 @@ object NewReleases {
         return got
     }
 
-    private fun artistId(name: String): Long {
-        val k = norm(name)
-        ids[k]?.takeIf { it != 0L }?.let { return it }   // not found before: look again
+    /** Which artist of this name on Deezer is yours ([ArtistMatchRules]): each of that very name looked at, and the one
+     *  whose releases and songs share titles with yours (mine: your titles and albums by that name, made plain) taken;
+     *  0 if none is yours, or none is on Deezer. Kept once worked out ("2|": the ones kept before this was checked,
+     *  by the name alone, are worked out again). */
+    private fun artistId(name: String, mine: Set<String>): Long {
+        val k = "2|" + norm(name)
+        ids[k]?.let { return it }
         val got = deezer("https://api.deezer.com/search/artist?q=${enc(name)}&limit=10")
-        val hit = got["data"].list.firstOrNull { bare(it["name"].str).let { b -> b.isNotEmpty() && b == bare(name) } }
-        return (hit?.get("id").long ?: 0L).also { ids[k] = it }
+        val same = got["data"].list.filter { bare(it["name"].str).let { b -> b.isNotEmpty() && b == bare(name) } }.take(4)
+        if (same.isEmpty()) return 0L   // not on Deezer (yet): looked for again next time
+        val candidates = same.map { a ->
+            val id = a["id"].long ?: 0L
+            id to (if (mine.isEmpty() || same.size == 1 && mine.size < ArtistMatchRules.ENOUGH) emptySet() else titlesOf(id))
+        }.filter { it.first != 0L }
+        return ArtistMatchRules.pick(candidates, mine).also { ids[k] = it }
+    }
+
+    /** (blocking) An artist's release and song titles on Deezer, made plain (as [plain]). */
+    private fun titlesOf(id: Long): Set<String> {
+        val out = HashSet<String>()
+        runCatching { deezer("https://api.deezer.com/artist/$id/albums?limit=100")["data"].list.forEach { a -> a["title"].str?.let { out += plain(it) } } }
+        Thread.sleep(120)
+        runCatching { deezer("https://api.deezer.com/artist/$id/top?limit=50")["data"].list.forEach { t ->
+            t["title"].str?.let { out += plain(it) }; t["album"]["title"].str?.let { out += plain(it) } } }
+        Thread.sleep(120)
+        return out
+    }
+
+    /** A title made plain, to tell the same release or song written two ways ("Warm (Deluxe)" = "warm"). */
+    private fun plain(t: String): String = norm(cleanTitle(t))
+
+    /** Your titles and albums by each artist (by [FollowRules.key] of the lead artist), made plain: what tells which
+     *  artist of a name is yours. */
+    private fun mineByArtist(songs: List<Track>): Map<String, Set<String>> {
+        val out = HashMap<String, MutableSet<String>>()
+        for (t in songs) {
+            val a = splitArtists(t.artist).firstOrNull()?.trim().orEmpty()
+            if (a.isEmpty()) continue
+            val set = out.getOrPut(FollowRules.key(a)) { HashSet() }
+            if (t.title.isNotBlank()) set += plain(t.title)
+            if (t.album.isNotBlank()) set += plain(t.album)
+        }
+        return out
     }
 
     /** Look at each artist's releases from the last week, month or year (in the background). */
@@ -127,6 +164,15 @@ object NewReleases {
         Music.bg({ save() })
     }
 
+    /** Hide Deezer-only (the New releases tab and its widget, one switch for both): the releases no service you can play
+     *  from has (only on Deezer so far) aren't shown. Off at first: seeing them tells you there's something new to get
+     *  some other way. */
+    const val HIDE_DEEZER = "new_releases_hide_deezer"
+    fun hideDeezer(): Boolean = Prefs.on(HIDE_DEEZER)
+    fun setHideDeezer(on: Boolean) = Prefs.set(HIDE_DEEZER, on)
+    /** Whether a release shows as the switch says (one not looked up yet shows until it is). Read in Compose. */
+    fun shown(r: Release): Boolean { ReleaseLookup.version; return !hideDeezer() || ReleaseLookup.where(r) != "none" }
+
     /** Releases of these artists taken out of what was found (they were unfollowed). */
     fun dropArtists(names: List<String>) {
         val out = names.mapTo(HashSet()) { FollowRules.key(it) }
@@ -143,7 +189,9 @@ object NewReleases {
 
     fun scan(period: String, quiet: Boolean = false) {
         if (status != null) return
-        readArtists(yours())   // read again each time (how many songs of each: the order they're looked at in)
+        val mine = yours()
+        readArtists(mine)   // read again each time (how many songs of each: the order they're looked at in)
+        val titles = mineByArtist(mine)   // which artist of a name is yours
         // Whose releases: the artists you follow (yours followed by themselves, with Follow artists by themselves on;
         // anyone you followed; never anyone you unfollowed)
         Follows.refreshNow()
@@ -161,7 +209,7 @@ object NewReleases {
                 if (stop) break
                 val line = "Looking at $name · ${i + 1} of ${names.size}"
                 Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = line }
-                val aid = runCatching { artistId(name) }.getOrDefault(0L)
+                val aid = runCatching { artistId(name, titles[FollowRules.key(name)].orEmpty()) }.getOrDefault(0L)
                 if (aid == 0L) continue
                 val got = runCatching { deezer("https://api.deezer.com/artist/$aid/albums?limit=100") }.getOrNull() ?: continue
                 for (al in got["data"].list) {

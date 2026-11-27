@@ -2047,12 +2047,16 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("album" to "Albums", "single" to "Singles", "ep" to "EPs", "artists" to "Artists").forEach { (k, l) -> Chip(l, nr.kind == k) { nr.kind = k } }
+            // Only the ones you can play (on Tidal or YouTube Music), or the Deezer-only ones too
+            Chip("Hide Deezer-only", nr.hideDeezer()) { nr.setHideDeezer(!nr.hideDeezer()) }
         }
     }
     val whenText = mapOf("week" to "THE LAST WEEK", "month" to "THE LAST MONTH", "year" to "THE LAST YEAR")[nr.range] ?: ""
     // The newest looked up ahead (Tidal first, then YouTube Music), so each says where it plays from and starts at once
-    item { LaunchedEffect(nr.found) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        runCatching { org.omarchy.music.ReleaseLookup.warm(nr.found.sortedByDescending { it.date }, 20) } } } }
+    // (With Hide Deezer-only on, every one is looked up, so all those only on Deezer go)
+    val hideDeezer = nr.hideDeezer()
+    item { LaunchedEffect(nr.found, hideDeezer) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching { org.omarchy.music.ReleaseLookup.warm(nr.found.sortedByDescending { it.date }, if (hideDeezer) nr.found.size else 20) } } } }
     // A release: its own page on Tidal or YouTube Music, straight away (your files aren't looked through).
     fun find(r: org.omarchy.music.NewReleases.Release) {
         if (nr.selecting) { nr.toggle(nr.key(r), r to r.artist); return }
@@ -2073,7 +2077,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
                 ui.confirm = "Hide $a from New releases? They're unfollowed (Utilities › Followed artists brings them back)." to { org.omarchy.music.Follows.unfollow(listOf(a)) } } })
     }
     if (nr.bell) {
-        val told = nr.told.filter { fits(ui, it.artist, it.title) }
+        val told = nr.told.filter { fits(ui, it.artist, it.title) && nr.shown(it) }
         val kinds = mapOf("album" to "Album", "single" to "Single", "ep" to "EP")
         item {
             Section(if (told.isEmpty()) "THE BELL · NOTHING NEW FOUND YET" else "THE BELL · ${told.size} FOUND FOR YOU · NEWEST FIRST")
@@ -2090,7 +2094,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         return
     }
     if (nr.kind == "artists") {
-        val by = nr.found.filter { fits(ui, it.artist, it.title) }.groupBy { it.artist }.toList()
+        val by = nr.found.filter { fits(ui, it.artist, it.title) && nr.shown(it) }.groupBy { it.artist }.toList()
         item { Section("${by.size} ARTISTS WITH NEW MUSIC · $whenText") }
         items(by.size, key = { "nra-${by[it].first}" }) { i ->
             val (artist, rs) = by[i]
@@ -2104,7 +2108,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         }
         return
     }
-    val rows = nr.found.filter { it.type == nr.kind && fits(ui, it.artist, it.title) }
+    val rows = nr.found.filter { it.type == nr.kind && fits(ui, it.artist, it.title) && nr.shown(it) }
     val name = mapOf("album" to "ALBUMS", "single" to "SINGLES", "ep" to "EPS")[nr.kind] ?: ""
     item { Section("${rows.size} ${if (rows.size == 1) name.dropLast(1) else name} · $whenText · NEWEST FIRST") }
     if (rows.isEmpty()) item { Empty("None in this time", "Refresh… a longer time, or look at the other tabs.") }
