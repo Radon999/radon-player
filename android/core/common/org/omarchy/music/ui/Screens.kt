@@ -2073,6 +2073,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         ui.choices = title to listOfNotNull("Discovery playlist…" to { ui.releasePick = rs },
             if (!nr.selecting) "Select" to { nr.selecting = true; nr.toggle(key, pick) } else null,
             // Not an artist of yours (a name a scan once got wrong, someone you're done with): unfollowed, their releases gone
+            // Someone else of the same name: that artist hidden for good, yours of the name still followed
+            pick.first?.takeIf { nr.canSayNotMine(it) }?.let { r -> "Not my ${r.artist} (someone else of that name)" to {
+                ui.confirm = "Is the ${r.artist} who made “${r.title}” someone else, not the ${r.artist} you listen to? Their releases go, " +
+                    "and yours of that name stays followed." to { nr.notMine(r) } } },
             pick.second.takeIf { it.isNotBlank() }?.let { a -> "Hide $a (unfollow)" to {
                 ui.confirm = "Hide $a from New releases? They're unfollowed (Utilities › Followed artists brings them back)." to { org.omarchy.music.Follows.unfollow(listOf(a)) } } })
     }

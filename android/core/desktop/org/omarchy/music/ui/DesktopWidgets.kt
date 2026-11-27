@@ -559,19 +559,23 @@ private class WPicks {
  *  if it's one of them, else for that one. Those that open something (a dialog, a page) open it in the app's window. */
 @Composable
 private fun SongMenu(menu: Pair<Track?, List<Track>>?, place: RowPlace, picks: WPicks, close: () -> Unit,
-                     queueAt: ((Int) -> Int)? = null, select: (() -> Unit)? = null) {
+                     queueAt: ((Int) -> Int)? = null, select: (() -> Unit)? = null, extra: List<Pair<String, () -> Unit>> = emptyList()) {
     val (one, picked) = menu ?: return
     val opts = remember(menu) {
-        songOptions(Ui.current ?: Ui(), one, picked, place).filter { it.second != "Select…" &&
+        if (picked.isEmpty()) emptyList()   // (a release with no songs to be had: only the list's own, Not my artist…)
+        else songOptions(Ui.current ?: Ui(), one, picked, place).filter { it.second != "Select…" &&
             !(one == null && it.second == "Remove from the queue") }   // (the app's own picking: done here instead)
     }
     androidx.compose.material3.DropdownMenu(true, close, containerColor = C.light) {
         // Its name, and ✕ at the top right to close it (a small widget is all list: nowhere else to click)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (one != null) "“${one.title}”" else "${picked.size} songs picked", style = T.title.copy(fontSize = 13.sp), maxLines = 1,
+            Text(if (one != null) "“${one.title}”" else if (picked.isEmpty()) "This release" else "${picked.size} songs picked", style = T.title.copy(fontSize = 13.sp), maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 14.dp, top = 6.dp, bottom = 6.dp))
             IconButton(Ico.CLOSE, C.muted, 18.dp, 6.dp, desc = "Close") { close() }
         }
+        // The list's own (a release's: Not my artist…), first
+        extra.forEach { (label, act) -> androidx.compose.material3.DropdownMenuItem({ Text(label, style = T.body) }, { close(); act() },
+            leadingIcon = { Icon(Ico.PERSON, C.accent, 18.dp) }) }
         if (one != null) androidx.compose.material3.DropdownMenuItem({ Text("Select…", style = T.body) },
             // Picking starts in the widget itself (ticks on its rows), never in the app's window: this row first
             { close(); if (select != null) select() else { picks.at.clear(); picks.at += place.index; picks.from = place.index } },
@@ -950,7 +954,12 @@ private fun ColumnScope.ReleasesWidget() {
         val rs = if (i in picks.at && picks.at.size > 1) picks.at.sorted().mapNotNull { list.getOrNull(it) } else listOf(list[i])
         DesktopWidgets.say("Finding the songs of " + if (rs.size == 1) "“${rs[0].title}”…" else "${rs.size} releases…")
         Music.bg({ rs.flatMap { r -> runCatching { Music.releaseTracks(r) }.getOrNull().orEmpty() } }) { songs, _ ->
-            if (songs.isNullOrEmpty()) { DesktopWidgets.say(if (rs.size == 1) org.omarchy.music.ReleaseLookup.whyNot(rs[0]) else "None of them could be found on your services"); return@bg }
+            if (songs.isNullOrEmpty()) {
+                DesktopWidgets.say(if (rs.size == 1) org.omarchy.music.ReleaseLookup.whyNot(rs[0]) else "None of them could be found on your services")
+                // Still its own options (Not my artist…), for a release that can't be played
+                if (rs.size == 1 && nr.canSayNotMine(rs[0])) { menuAt = i; menu = null to emptyList() }
+                return@bg
+            }
             menuAt = i; menu = (if (songs.size == 1) songs[0] else null) to songs
         }
     }
@@ -983,7 +992,9 @@ private fun ColumnScope.ReleasesWidget() {
                 val m = menu
                 // (Select… picks this release in the widget's own picking: ticked here, not in the app)
                 if (menuAt == i && m != null) SongMenu(m, RowPlace(m.second, 0, "releases"), picks, { menu = null; menuAt = -1 },
-                    select = { picks.at.clear(); picks.at += i; picks.from = i })
+                    select = { picks.at.clear(); picks.at += i; picks.from = i },
+                    // Someone else of the same name (not the artist you listen to): hidden for good, yours still followed
+                    extra = if (picks.at.size <= 1 && nr.canSayNotMine(r)) listOf("Not my ${r.artist} (someone else of that name)" to { nr.notMine(r) }) else emptyList())
             }
         }
     }

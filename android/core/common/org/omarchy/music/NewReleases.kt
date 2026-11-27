@@ -13,7 +13,8 @@ import java.time.LocalDate
  *  Nothing is checked on its own: Scan looks, for the last week, month or year, when you press it. */
 object NewReleases {
     @Serializable
-    data class Release(val title: String, val artist: String, val date: String, val type: String, val cover: String = "", val link: String = "")
+    data class Release(val title: String, val artist: String, val date: String, val type: String, val cover: String = "", val link: String = "",
+                       val aid: Long = 0L)   // aid: the Deezer artist it's by (0: found before this was kept)
 
     @Serializable
     private data class Saved(val artists: List<String> = emptyList(), val ids: Map<String, Long> = emptyMap(),
@@ -102,12 +103,36 @@ object NewReleases {
         ids[k]?.let { return it }
         val got = deezer("https://api.deezer.com/search/artist?q=${enc(name)}&limit=10")
         val same = got["data"].list.filter { bare(it["name"].str).let { b -> b.isNotEmpty() && b == bare(name) } }.take(4)
+        val notMine = notMineIds()
         if (same.isEmpty()) return 0L   // not on Deezer (yet): looked for again next time
         val candidates = same.map { a ->
             val id = a["id"].long ?: 0L
             id to (if (mine.isEmpty() || same.size == 1 && mine.size < ArtistMatchRules.ENOUGH) emptySet() else titlesOf(id))
-        }.filter { it.first != 0L }
+        }.filter { it.first != 0L && it.first !in notMine }   // (never one you said isn't yours)
         return ArtistMatchRules.pick(candidates, mine).also { ids[k] = it }
+    }
+
+    /** Not my artist: the Deezer artists you said aren't the one of that name you follow (one with your name, but someone
+     *  else), by id. Their releases are never shown and they're never picked for the name again; the name itself stays
+     *  followed (your own artist of that name goes on showing). Kept with the settings, so both devices know. */
+    const val NOT_MINE = "new_releases_not_mine"
+    private fun notMineIds(): Set<Long> = Prefs.text(NOT_MINE).lines().mapNotNull { it.substringBefore('|').trim().toLongOrNull() }.toSet()
+    /** The Deezer artist a release is by: kept with it, or (found before that was kept) the one its name stands for now. */
+    private fun artistOf(r: Release): Long = r.aid.takeIf { it != 0L } ?: ids["2|" + norm(r.artist)] ?: 0L
+    /** Whether "Not my …" can be offered for it (which artist it's by is known). */
+    fun canSayNotMine(r: Release): Boolean = artistOf(r) != 0L
+
+    /** This release's artist isn't yours (someone else of the same name): their releases go now and never come again,
+     *  and the next look finds yours of that name, if Deezer has them. */
+    fun notMine(r: Release) {
+        val id = artistOf(r)
+        if (id == 0L) { Music.toast("Refresh New releases once, then try again (which ${r.artist} it is isn't known yet)"); return }
+        Prefs.setText(NOT_MINE, (Prefs.text(NOT_MINE).lines().filter { it.isNotBlank() } + "$id|${r.artist}").distinct().joinToString("\n"))
+        ids.remove("2|" + norm(r.artist))   // worked out again, without them
+        fun keep(x: Release) = artistOf(x) != id && !(x.aid == 0L && x == r)
+        found = found.filter(::keep); told = told.filter(::keep)
+        Music.bg({ save() })
+        Music.toast("Hidden: that ${r.artist} isn't yours. Yours stays followed")
     }
 
     /** (blocking) An artist's release and song titles on Deezer, made plain (as [plain]). */
@@ -210,12 +235,12 @@ object NewReleases {
                 val line = "Looking at $name · ${i + 1} of ${names.size}"
                 Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = line }
                 val aid = runCatching { artistId(name, titles[FollowRules.key(name)].orEmpty()) }.getOrDefault(0L)
-                if (aid == 0L) continue
+                if (aid == 0L || aid in notMineIds()) continue
                 val got = runCatching { deezer("https://api.deezer.com/artist/$aid/albums?limit=100") }.getOrNull() ?: continue
                 for (al in got["data"].list) {
                     val date = al["release_date"].str ?: ""
                     if (date >= since) out += Release(al["title"].str ?: "", name, date, kindOf(al["record_type"].str),
-                        al["cover_medium"].str ?: al["cover"].str ?: "", al["link"].str ?: "")
+                        al["cover_medium"].str ?: al["cover"].str ?: "", al["link"].str ?: "", aid)
                 }
                 Thread.sleep(120)   // Deezer takes 50 asks every 5 seconds
             }
