@@ -4,6 +4,15 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.2.7: Volume and right-click on the widgets, where new releases play from, and widgets out of the taskbar (Android, Windows and Linux)
+- **Volume on every widget that plays (the phone and the PC):** Now playing, Now playing + playlists, Lyrics and Visualizer have the volume with play/pause: a slider on the PC, a bar with − and + on the phone (a home screen widget can't be dragged).
+- **Songs in the PC's widgets, as in the app:** right-click a song in Up next, Most played or New releases for the app's own options; ctrl- or shift-click to pick several. A song's artist and album, and a new release's artist and Single/EP/Album, open their pages in the app.
+- **Where each new release plays from (the phone and the PC):** new releases are found on Deezer, then looked for on Tidal first and YouTube Music next, whatever service you browse with. Each one says which (Tidal, YouTube Music, or "Deezer only: can't play yet"), in New releases and on its widget.
+- **Why a song can't play, said (the PC):** a widget now says at its foot what it's doing and, if a song can't play, why (only on Deezer so far, Tidal not signed in, no connection). The newest releases are looked up ahead, so they start at once.
+- **Periods on the widgets (the phone and the PC):** Most played (week, month, year, all time) and New releases (week, month, year; and albums, EPs or singles on the PC) choose right on the widget.
+- **Widgets stay out of the taskbar (Windows):** only Radon Player itself is in the taskbar and Alt+Tab, widgets layer like any other window, and a widget's Lyrics card (or anything it opens in the app) brings the app's window to the front.
+- **Widget settings kept and synced:** the widgets' choices (Widgets in the app's look, the Visualizer widget's) now sync between your phone and PC, and Settings says which look the widgets copy (with the Now playing look, that's the cover's colours).
+
 ## 5.2.6: Only one Radon Player on the PC, and size the visualizer and cover on their own (Android, Windows and Linux)
 - **Only ever one Radon Player (the PC):** opening Radon Player while it's already running now always brings up the one that's open (and hands it the song or command you opened it with) instead of starting a second player. It works whatever version is running, and even when you click twice quickly. Versions before this one couldn't always tell, so a second copy could open.
 - **Size the visualizer and the album cover on their own (the phone and the PC):** under Size of Now playing (Settings › General), two sliders: **Now playing visualizer size** (25% to 200%: over the cover, round it and along the bottom; full screen ones still fill the screen) and **Album cover size** (30% to 100%). Once you move either, Size of Now playing switches itself off, since those parts are sized on their own; put both back to 100% and it's on again, as it was. Each device keeps its own sizes.
