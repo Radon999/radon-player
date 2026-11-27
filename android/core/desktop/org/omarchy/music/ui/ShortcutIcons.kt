@@ -1,5 +1,6 @@
 package org.omarchy.music.ui
 
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Canvas
@@ -84,21 +85,21 @@ object ShortcutIcons {
                 val g = GLYPHS[kind] ?: Ico.NOTE
                 if (words == null) glyph(g, Offset(SIZE / 2f, SIZE / 2f), SIZE * 0.56f)
                 else glyph(g, Offset(SIZE / 2f, SIZE * 0.42f), SIZE * 0.46f)
+                // Wrapped's period (and the DJ's kind) in words under the icon: in the app's own text engine (a font
+                // looked up by hand came back empty on Windows and Linux, so the words were missing)
+                if (words != null) {
+                    val m = androidx.compose.ui.text.TextMeasurer(androidx.compose.ui.text.font.createFontFamilyResolver(), Density(1f), LayoutDirection.Ltr)
+                    val laid = m.measure(words, androidx.compose.ui.text.TextStyle(color = Color.White,
+                        fontSize = androidx.compose.ui.unit.TextUnit(if (words.length > 5) 30f else 36f, androidx.compose.ui.unit.TextUnitType.Sp),
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                    drawText(laid, topLeft = Offset((SIZE - laid.size.width) / 2f, SIZE * 0.86f - laid.size.height * 0.8f))
+                }
                 if (kind == "dj-off") drawLine(Color.White, Offset(SIZE * 0.24f, SIZE * 0.24f), Offset(SIZE * 0.76f, SIZE * 0.76f), SIZE * 0.05f)
             }
             // A faint white edge, so it stands out on a background of its own colour (a purple cover's widget)
             val e = SIZE * 0.02f
             drawRoundRect(Color.White.copy(alpha = 0.35f), Offset(e / 2, e / 2), androidx.compose.ui.geometry.Size(SIZE - e, SIZE - e),
                 CornerRadius(SIZE * 0.22f - e / 2), style = Stroke(e))
-        }
-        // Wrapped's period (and the DJ's kind) in words under the icon
-        WORDS[DesktopWidgetRules.iconKind(s.args)]?.takeIf { cover == null }?.let { w ->
-            val sk = org.jetbrains.skia.Canvas(bmp.asSkiaBitmap())
-            val tf = org.jetbrains.skia.FontMgr.default.matchFamilyStyle(null, org.jetbrains.skia.FontStyle.BOLD)
-            val font = org.jetbrains.skia.Font(tf, if (w.length > 5) 30f else 36f)
-            val paint = org.jetbrains.skia.Paint().apply { color = 0xFFFFFFFF.toInt(); isAntiAlias = true }
-            val width = font.measureTextWidth(w, paint)
-            sk.drawString(w, (SIZE - width) / 2f, SIZE * 0.86f, font, paint)
         }
         return org.jetbrains.skia.Image.makeFromBitmap(bmp.asSkiaBitmap()).encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes
     }
