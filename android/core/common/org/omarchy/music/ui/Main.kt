@@ -365,12 +365,9 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Moods", Ico.MOOD, "moods"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
         add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
-        add(Entry("Folders", Ico.FOLDER, "folders"))
-        add(Entry("Unreleased", Ico.FOLDER, "unreleased"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
         if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
-        add(Entry("New releases", Ico.SPARKLE, "music", "newreleases"))
         add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
         add(Entry("Listen later", Ico.CLOCK, "music", "later"))   // what you put aside to hear another time
     }),
@@ -387,7 +384,10 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("Repeats", Ico.REPEAT_ONE, "music", "repeats"), Entry("Unplayed and neglected", Ico.CLOCK, "music", "neglected"),
         Entry("Milestones", Ico.SPARKLE, "music", "milestones"), Entry("Taste", Ico.HEART, "music", "taste"))),
     Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
-        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Followed artists", Ico.PERSON, "music", "followed"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
+        Entry("DJ", Ico.DISC, "music", "dj"),
+        // New releases beside whose releases it looks for; your folders and unreleased songs (moved here from Music)
+        Entry("New releases", Ico.SPARKLE, "music", "newreleases"), Entry("Followed artists", Ico.PERSON, "music", "followed"),
+        Entry("Folders", Ico.FOLDER, "folders"), Entry("Unreleased", Ico.FOLDER, "unreleased"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
         Entry("Queued clean/explicit changes", Ico.REFRESH, "music", "versionqueue"))),
 )
 
