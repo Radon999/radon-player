@@ -1,4 +1,4 @@
-commit 6daebba97d8ccf4005f2180bac323841c3f91bbc · run 46066172965 · Fri Nov 27 20:56:22 UTC 2026
+commit 2beef6742557c8baf5de39ce5706ebc69f50cb11 · run 46066348607 · Fri Nov 27 21:06:38 UTC 2026
 PC TESTS ON WINDOWS: 0 suites, tests 0, failed 0
 THE DJ'S VOICE ON WINDOWS: not made (skipped or failed)
 WINDOWS INSTALLER: not built
@@ -6,9 +6,9 @@ WINDOWS INSTALLER: not built
 e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:594:46 Unresolved reference 'isCtrlPressed'.
 e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:594:68 Unresolved reference 'isMetaPressed'.
 e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:594:88 Unresolved reference 'isShiftPressed'.
-e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:940:45 Unresolved reference 'isCtrlPressed'.
-e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:940:67 Unresolved reference 'isMetaPressed'.
-e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:940:87 Unresolved reference 'isShiftPressed'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:45 Unresolved reference 'isCtrlPressed'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:67 Unresolved reference 'isMetaPressed'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:87 Unresolved reference 'isShiftPressed'.
 
 > Task :desktop:compileKotlin FAILED
 
@@ -22,10 +22,10 @@ Execution failed for task ':desktop:compileKotlin'.
 * Try:
 > Run with --stacktrace option to get the stack trace.
 --
-BUILD FAILED in 4m 9s
+BUILD FAILED in 4m 33s
 17 actionable tasks: 17 executed
 --- the end of the log
-e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:940:87 Unresolved reference 'isShiftPressed'.
+e: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:87 Unresolved reference 'isShiftPressed'.
 
 > Task :desktop:compileKotlin FAILED
 
@@ -48,5 +48,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 4m 9s
+BUILD FAILED in 4m 33s
 17 actionable tasks: 17 executed
