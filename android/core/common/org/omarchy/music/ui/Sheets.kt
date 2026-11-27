@@ -174,6 +174,13 @@ private fun AccountsSheet(ui: Ui) {
                 else Updater.checkError.ifEmpty { "You have ${Updater.version}, the latest version. Tap Check to look again for a newer one" }.let { if (it.startsWith("couldn't")) "${Updater.version} · $it" else it }, false) {
                 if (!Updater.checking) Pill("Check", quiet = true) { Updater.check(quiet = false) }
             }
+            // Follow artists by themselves: the artists of your songs and Radon Player playlists followed (New releases)
+            Line("Follow artists by themselves", "On: the artists of the songs on this $DEVICE and of the playlists you keep in Radon Player " +
+                "(not a streaming service's own) are followed as they come, so their new releases show. Off: no one new is followed " +
+                "by themselves, and no one is unfollowed; turned on again, those added meanwhile are followed at once. Anyone you " +
+                "unfollow stays unfollowed. See them all in Utilities › Followed artists", org.omarchy.music.Follows.autoOn()) {
+                Switch(org.omarchy.music.Follows.autoOn(), { org.omarchy.music.Follows.setAuto(it) }, colors = swColors())
+            }
             // Size of everything: text and all the rest bigger or smaller together
             val sizeKept = org.omarchy.music.UiSizeRules.percent(org.omarchy.music.Prefs.text(org.omarchy.music.UiSizeRules.PREF)).toString()
             Line("Size of everything", "Makes the app's text and everything else bigger or smaller together, for a screen where it all comes out too small " +

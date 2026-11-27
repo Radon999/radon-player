@@ -25,7 +25,7 @@ enum class Ico { PLAY, PAUSE, NEXT, PREV, SHUFFLE, REPEAT, REPEAT_ONE, HEART, HE
     QUEUE, MORE, BACK, DOWN, UP, SEARCH, MENU, NOTE, PERSON, CLOCK, CHART, MOOD, SKIP, COPY, DISC, PLAYLIST, SPARKLE, LIBRARY,
     FOLDER, CHECK, CLOSE, PLUS, DOWNLOAD, CLOUD, ART, SETTINGS, EDIT, SELECT, SHARE, TRASH, GENRE, HEADPHONES, CAR, BLUETOOTH,
     SPEAKER, INFINITY, GRIP, PIN, COMPASS, GRID, GRID_SMALL, GRID_LARGE, GRID_HUGE, LIST, FOLDER_OPEN, CAST, VOLUME_ALERT, MIC,
-    BLUETOOTH_OFF, PALETTE, REFRESH, BELL }
+    BLUETOOTH_OFF, PALETTE, REFRESH, BELL, FULLSCREEN }
 
 @Composable
 fun Icon(ico: Ico, color: Color = C.fg, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -151,6 +151,8 @@ fun DrawScope.drawIco(ico: Ico, color: Color) {
         Ico.LIST -> { line(8.5f, 6.5f, 20f, 6.5f); line(8.5f, 12f, 20f, 12f); line(8.5f, 17.5f, 20f, 17.5f); dot(4.5f, 6.5f, 1.3f); dot(4.5f, 12f, 1.3f); dot(4.5f, 17.5f, 1.3f) }
         Ico.FOLDER_OPEN -> { line(3f, 18.5f, 3f, 5.5f, 9f, 5.5f, 11f, 8f, 19f, 8f, 19f, 10.5f); line(3f, 18.5f, 6f, 10.5f, 21.5f, 10.5f, 18.5f, 18.5f, 3f, 18.5f) }
         Ico.CLOSE -> { line(5.5f, 5.5f, 18.5f, 18.5f); line(18.5f, 5.5f, 5.5f, 18.5f) }
+        // Full screen: four corners, pointing out
+        Ico.FULLSCREEN -> { line(4f, 9.5f, 4f, 4f, 9.5f, 4f); line(14.5f, 4f, 20f, 4f, 20f, 9.5f); line(20f, 14.5f, 20f, 20f, 14.5f, 20f); line(9.5f, 20f, 4f, 20f, 4f, 14.5f) }
         Ico.PLUS -> { line(12f, 4.5f, 12f, 19.5f); line(4.5f, 12f, 19.5f, 12f) }
         Ico.DOWNLOAD -> { line(12f, 3.5f, 12f, 15f); line(7f, 10.5f, 12f, 15.5f, 17f, 10.5f); line(4.5f, 20f, 19.5f, 20f) }
         Ico.CLOUD -> {

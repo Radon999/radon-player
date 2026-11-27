@@ -893,6 +893,14 @@ fun songOptions(ui: Ui, one: Track?, picked: List<Track>, place: RowPlace?): Lis
         })
         if (picked.any { Music.deletable(it) } && !(one != null && Music.lib.has(one.id)))
             add(Triple(Ico.TRASH, "Delete permanently…") { ui.deleteFor = picked })
+        // The songs' artists followed or not (New releases looks for the followed): picked artists' songs do them all at once
+        val leads = picked.mapNotNull { org.omarchy.music.splitArtists(it.artist).firstOrNull()?.trim() }.filter { it.isNotBlank() }
+            .distinctBy { org.omarchy.music.FollowRules.key(it) }
+        val notYet = leads.filter { !org.omarchy.music.Follows.isFollowed(it) }; val already = leads - notYet.toSet()
+        if (notYet.isNotEmpty()) add(Triple(Ico.PERSON, if (notYet.size == 1) "Follow ${notYet[0]} (new releases)" else "Follow ${notYet.size} artists (new releases)") {
+            org.omarchy.music.Follows.follow(notYet) })
+        if (already.isNotEmpty()) add(Triple(Ico.PERSON, if (already.size == 1) "Unfollow ${already[0]}" else "Unfollow ${already.size} artists") {
+            org.omarchy.music.Follows.unfollow(already) })
         if (one != null && place != null) add(Triple(Ico.SELECT, "Select…") { ui.startSelecting(place.group, place, one) })
     
     }
@@ -909,9 +917,14 @@ fun OptionsSheet(ui: Ui) {
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = { close() }, sheetState = sheet, containerColor = C.light) {
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
-            item { Text(if (one != null) "“${one.title}”" else "Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}",
-                style = T.head, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
+            // Its name, and ✕ at the top right to close it (on a small window there's nowhere else to click)
+            item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (one != null) "“${one.title}”" else "Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}",
+                    style = T.head, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
+                IconButton(Ico.CLOSE, C.muted, 22.dp, desc = "Close") { close() }
+                androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+            } }
             val opts = songOptions(ui, one, picked, place)
             items(opts.size) { i ->
                 val (ico, label, act) = opts[i]

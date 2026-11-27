@@ -120,6 +120,11 @@ fun App() {
             kotlin.math.abs(Rgb.blue(rgb) - Rgb.blue(old)) < 18
         if (!same) { Music.coverRgb = rgb; Music.applyLook() }
     }
+    // Follow artists by themselves: anyone new in your songs or playlists followed, a little after they change
+    LaunchedEffect(Music.musicVersion) {
+        kotlinx.coroutines.delay(4000)
+        Music.bg({ org.omarchy.music.Follows.refresh() }) { _, _ -> }
+    }
     // The playing song's cover colour, for "Album cover's colour" (a visualizer in it under any look)
     LaunchedEffect(cur?.id, Music.savedVersion) {
         CoverColour.rgb = if (cur == null) null else runCatching { Tint.rgbOf(if (Remote.active) Remote.artModel(cur) else artModel(cur)) }.getOrNull()
@@ -382,7 +387,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("Repeats", Ico.REPEAT_ONE, "music", "repeats"), Entry("Unplayed and neglected", Ico.CLOCK, "music", "neglected"),
         Entry("Milestones", Ico.SPARKLE, "music", "milestones"), Entry("Taste", Ico.HEART, "music", "taste"))),
     Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
-        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
+        Entry("DJ", Ico.DISC, "music", "dj"), Entry("Followed artists", Ico.PERSON, "music", "followed"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
         Entry("Queued clean/explicit changes", Ico.REFRESH, "music", "versionqueue"))),
 )
 

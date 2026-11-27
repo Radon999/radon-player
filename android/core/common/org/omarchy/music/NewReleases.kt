@@ -127,6 +127,14 @@ object NewReleases {
         Music.bg({ save() })
     }
 
+    /** Releases of these artists taken out of what was found (they were unfollowed). */
+    fun dropArtists(names: List<String>) {
+        val out = names.mapTo(HashSet()) { FollowRules.key(it) }
+        fun keep(r: Release) = FollowRules.key(r.artist) !in out
+        found = found.filter(::keep); told = told.filter(::keep)
+        Music.bg({ save() })
+    }
+
     /** Whose releases are looked for: the artists of the songs you have as files (yours and downloads) and of the songs in
      *  the playlists you keep in Radon Player (streamed ones too). A playlist that only exists on a streaming service, and
      *  the playlists the app makes itself (discovery, New releases, smart ones), don't count. */
@@ -135,7 +143,11 @@ object NewReleases {
 
     fun scan(period: String, quiet: Boolean = false) {
         if (status != null) return
-        readArtists(yours())   // read again each time
+        readArtists(yours())   // read again each time (how many songs of each: the order they're looked at in)
+        // Whose releases: the artists you follow (yours followed by themselves, with Follow artists by themselves on;
+        // anyone you followed; never anyone you unfollowed)
+        Follows.refreshNow()
+        artists = Follows.list().sortedByDescending { a -> songCounts[a] ?: songCounts.entries.firstOrNull { FollowRules.key(it.key) == FollowRules.key(a) }?.value ?: 0 }
         status = "Looking…"
         stop = false
         val since = LocalDate.now().minusDays(RANGES[period] ?: 30).toString()

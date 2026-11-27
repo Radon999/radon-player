@@ -411,6 +411,7 @@ fun MusicTab(ui: Ui) {
                 "dj" -> djView(ui, ask) { ask = it }
                 "dupes" -> dupesView(ui)
                 "pinned" -> pinnedView(ui)
+                "followed" -> followedView(ui)
                 "newreleases" -> newReleasesView(ui)
                 "discovery" -> discoveryView(ui)
                 "repeat" -> repeatView(ui)
@@ -1116,6 +1117,9 @@ fun PageScreen(ui: Ui, page: Ui.Page) {
 /** A long-press on an artist (Most played, Artists): Pin, a picture of them to pick, or Merge into…. */
 fun artistMenu(ui: Ui, name: String, thumb: String) {
     ui.choices = name to listOf(pinChoice(org.omarchy.music.Pin("artist", name, name, thumb = thumb)),
+        // New releases looks for the artists you follow
+        if (org.omarchy.music.Follows.isFollowed(name)) "Unfollow (no new releases)" to { org.omarchy.music.Follows.unfollow(listOf(name)) }
+        else "Follow (their new releases)" to { org.omarchy.music.Follows.follow(listOf(name)) },
         "Change picture…" to { ui.artistPictureFor = name }, "Merge into…" to { ui.mergeArtist = name },
         if (org.omarchy.music.StatHides.artist(name)) "Show in stats again" to { org.omarchy.music.StatHides.show(org.omarchy.music.StatHideRules.artist(name)) }
         else "Hide from stats" to { org.omarchy.music.StatHides.hideArtist(name); Music.toast("$name is hidden from the stats lists. Settings › Hidden from stats brings it back") })
@@ -2023,6 +2027,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
                     if (nr.picked.isEmpty()) Music.toast("Pick some releases or artists first (on any tab)")
                     else { ui.releasePick = nr.pickedReleases(); nr.picked.clear(); nr.selecting = false }
                 }
+                if (nr.picked.isNotEmpty()) Pill("Hide these artists", quiet = true) {
+                    val names = nr.picked.values.map { it.second }.filter { it.isNotBlank() }.distinct()
+                    ui.confirm = "Hide ${names.size} artist${if (names.size != 1) "s" else ""} from New releases? They're unfollowed (Utilities › Followed artists)." to {
+                        org.omarchy.music.Follows.unfollow(names); nr.picked.clear(); nr.selecting = false }
+                }
                 if (nr.picked.isNotEmpty()) Pill("Clear", quiet = true) { nr.picked.clear() }
             }
             Section(if (nr.picked.isEmpty()) "PICK RELEASES OR ARTISTS, ON ANY TAB" else "${nr.picked.size} PICKED (ON ANY TAB)")
@@ -2058,7 +2067,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     // Long-press: a discovery playlist of it (its songs picked first), or Select to pick several.
     fun menu(title: String, rs: List<org.omarchy.music.NewReleases.Release>, key: String, pick: Pair<org.omarchy.music.NewReleases.Release?, String>) {
         ui.choices = title to listOfNotNull("Discovery playlist…" to { ui.releasePick = rs },
-            if (!nr.selecting) "Select" to { nr.selecting = true; nr.toggle(key, pick) } else null)
+            if (!nr.selecting) "Select" to { nr.selecting = true; nr.toggle(key, pick) } else null,
+            // Not an artist of yours (a name a scan once got wrong, someone you're done with): unfollowed, their releases gone
+            pick.second.takeIf { it.isNotBlank() }?.let { a -> "Hide $a (unfollow)" to {
+                ui.confirm = "Hide $a from New releases? They're unfollowed (Utilities › Followed artists brings them back)." to { org.omarchy.music.Follows.unfollow(listOf(a)) } } })
     }
     if (nr.bell) {
         val told = nr.told.filter { fits(ui, it.artist, it.title) }

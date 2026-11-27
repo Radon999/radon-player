@@ -247,6 +247,23 @@ internal fun winToolWindow(w: java.awt.Window) {
     }.onFailure { org.omarchy.music.logWarn("a widget as a tool window", it) }
 }
 
+/** A widget's full screen: its own place in the app's window, brought to the front. */
+private fun fullScreen(kind: String) {
+    when (kind) {
+        "queue" -> Instance.act(listOf("show", "now"))
+        "playlists", "playlist" -> Instance.act(listOf("show", "playlists"))
+        "dj" -> Instance.act(listOf("show", "dj"))
+        "pinned" -> Instance.act(listOf("show", "pinned"))
+        "top" -> Instance.act(listOf("show", "top"))
+        "wrapped" -> Instance.act(listOf("show", "wrapped"))
+        "lyrics" -> Instance.act(listOf("show", "lyrics"))
+        "releases" -> Instance.act(listOf("show", "new releases"))
+        "visualizer" -> Instance.act(listOf("show", "visualizer"))
+        "shortcuts" -> Instance.inWindow { it.openSettings("General") }
+        else -> Instance.window.show()
+    }
+}
+
 /** A window brought in front of every other one and given the keyboard. Windows won't let an app put itself in front
  *  while another has the keyboard (it only flashes in the taskbar), so there it's made "always on top" for a moment and
  *  asked for the front through Windows itself, then let go: it stays in front until another window is clicked. */
@@ -439,6 +456,8 @@ fun WidgetCard(kind: String, bg: Color, rounded: Boolean = true, drag: @Composab
                     .clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 10.dp, vertical = 6.dp))
         }
         Row(Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+            // Full screen: the widget's own place in the app, in front (Lyrics: Now playing's lyrics of the song playing)
+            IconButton(Ico.FULLSCREEN, W.copy(alpha = 0.7f), 14.dp, 6.dp, desc = "Full screen in the app") { fullScreen(kind) }
             IconButton(Ico.SETTINGS, W.copy(alpha = if (options) 1f else 0.7f), 14.dp, 6.dp, desc = "Widget options") { options = !options }
             IconButton(Ico.CLOSE, W.copy(alpha = 0.7f), 14.dp, 6.dp, desc = "Close the widget") { DesktopWidgets.open(kind, false) }
         }
@@ -474,7 +493,7 @@ private fun WChip(text: String, on: Boolean, onClick: () -> Unit) {
 @Composable
 private fun WHeader(text: String, open: (() -> Unit)? = null) {
     Text(text.uppercase(), style = wSection, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(end = 56.dp, bottom = 6.dp).then(if (open != null) Modifier.clickable(onClick = open) else Modifier))
+        modifier = Modifier.padding(end = 84.dp, bottom = 6.dp).then(if (open != null) Modifier.clickable(onClick = open) else Modifier))
 }
 
 /** A song or a playlist in a widget's list: its cover, its name and what's under it. parts: what's under it as pieces,
@@ -547,8 +566,12 @@ private fun SongMenu(menu: Pair<Track?, List<Track>>?, place: RowPlace, picks: W
             !(one == null && it.second == "Remove from the queue") }   // (the app's own picking: done here instead)
     }
     androidx.compose.material3.DropdownMenu(true, close, containerColor = C.light) {
-        Text(if (one != null) "“${one.title}”" else "${picked.size} songs picked", style = T.title.copy(fontSize = 13.sp), maxLines = 1,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp).widthIn(max = 280.dp))
+        // Its name, and ✕ at the top right to close it (a small widget is all list: nowhere else to click)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (one != null) "“${one.title}”" else "${picked.size} songs picked", style = T.title.copy(fontSize = 13.sp), maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 14.dp, top = 6.dp, bottom = 6.dp))
+            IconButton(Ico.CLOSE, C.muted, 18.dp, 6.dp, desc = "Close") { close() }
+        }
         if (one != null) androidx.compose.material3.DropdownMenuItem({ Text("Select…", style = T.body) },
             { close(); picks.at.clear(); picks.at += place.index; picks.from = place.index }, leadingIcon = { Icon(Ico.SELECT, C.accent, 18.dp) })
         // Several picked in the queue: those rows out of it (the app's own option goes by its own picking)
@@ -854,7 +877,6 @@ private fun ColumnScope.LyricsWidget() {
     }
     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (g != null && (g.plain != null || g.synced != null)) WPill("Lyrics card") { Instance.lyricsCard() }
-        WPill("Open in the app") { Instance.act(listOf("lyrics")) }
     }
 }
 
