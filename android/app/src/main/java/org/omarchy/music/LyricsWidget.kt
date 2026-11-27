@@ -129,6 +129,7 @@ class LyricsWidget : AppWidgetProvider() {
             val t = Music.shownTrack()
             val v = RemoteViews(ctx.packageName, R.layout.widget_lyrics)
             HomeWidgets.paint(ctx, v)
+            HomeWidgets.volume(ctx, v)   // the volume row (as every widget with play/pause has)
             v.setTextViewText(R.id.wy_title, t?.title ?: "Nothing playing")
             v.setTextViewText(R.id.wy_artist, t?.artist?.takeIf { it.isNotEmpty() } ?: "Lyrics")
             val bmp = if (t != null && !Remote.active) HomeWidgets.coverOf(ctx, t) else null

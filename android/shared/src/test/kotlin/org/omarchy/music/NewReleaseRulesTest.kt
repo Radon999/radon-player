@@ -31,4 +31,14 @@ class NewReleaseRulesTest {
         assertFalse(WakeUpRules.due(false, 450, 450, 322, 321))
         assertEquals("7:05", WakeUpRules.shown(425))
     }
+
+    @Test fun whyANewReleaseCantPlay() {
+        val R = NewReleaseRules
+        assertEquals("Couldn't play “Hollow” by June: it's listed on Deezer, where new releases are found, but isn't on YouTube Music yet. Signing in to Tidal (Settings) may find it",
+            R.whyNot("Hollow", "June", listOf("YouTube Music"), emptyList(), tidalOff = true))
+        assertEquals("Couldn't play “Hollow” by June: it's listed on Deezer, where new releases are found, but isn't on Tidal or YouTube Music yet",
+            R.whyNot("Hollow", "June", listOf("Tidal", "YouTube Music"), emptyList(), tidalOff = false))
+        assertEquals("Couldn't play “Hollow” by June: couldn't reach Tidal (timeout). Check your internet and try again",
+            R.whyNot("Hollow", "June", emptyList(), listOf("Tidal (timeout)"), tidalOff = false))
+    }
 }

@@ -34,6 +34,9 @@ class PlayerWidget : AppWidgetProvider() {
             SONG -> Prefs.setText(MODE, "song")
             QUEUE -> Prefs.setText(MODE, "queue")
             PLAY_AT -> queueAt(intent)?.let { at -> if (idle) WidgetStart.request(ctx, "at:$at") else Music.playIndex(at) }
+            // The volume row: the media volume a step down or up (as the volume keys do, without their panel)
+            VOL_DOWN, VOL_UP -> (ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager).adjustStreamVolume(
+                android.media.AudioManager.STREAM_MUSIC, if (act == VOL_UP) android.media.AudioManager.ADJUST_RAISE else android.media.AudioManager.ADJUST_LOWER, 0)
         }
         HomeWidgets.updateAll(ctx)   // (this one, and the others that have these buttons)
     }
@@ -53,6 +56,7 @@ class PlayerWidget : AppWidgetProvider() {
         const val PREV = PREFIX + "prev"; const val NEXT = PREFIX + "next"; const val PLAY = PREFIX + "play"
         const val SHUFFLE = PREFIX + "shuffle"; const val REPEAT = PREFIX + "repeat"
         const val SONG = PREFIX + "song"; const val QUEUE = PREFIX + "queue"; const val PLAY_AT = PREFIX + "at"
+        const val VOL_DOWN = PREFIX + "voldown"; const val VOL_UP = PREFIX + "volup"
         private const val MODE = "widget_mode"
 
         internal fun pi(ctx: Context, action: String, code: Int) = PendingIntent.getBroadcast(ctx, code,
@@ -70,6 +74,7 @@ class PlayerWidget : AppWidgetProvider() {
             val mode = Prefs.text(MODE, "queue")
             val v = RemoteViews(ctx.packageName, R.layout.widget_player)
             HomeWidgets.paint(ctx, v)   // the rounded background, in the cover's colour (HomeWidgets)
+            HomeWidgets.volume(ctx, v)   // the volume row (as every widget with play/pause has)
             v.setTextViewText(R.id.w_title, t?.title ?: "Nothing playing")
             v.setTextViewText(R.id.w_artist, t?.let { listOf(it.artist, it.album).filter { s -> s.isNotEmpty() }.joinToString(" — ") } ?: "Radon Player")
             for (id in listOf(R.id.w_title, R.id.w_artist, R.id.w_empty, R.id.w_tab_song, R.id.w_tab_queue, R.id.w_tab_open)) v.setTextColor(id, fg)

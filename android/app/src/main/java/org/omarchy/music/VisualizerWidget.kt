@@ -90,6 +90,7 @@ class VisualizerWidget : AppWidgetProvider() {
         private fun views(ctx: Context, f: Face, bars: Bitmap): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_visualizer)
             HomeWidgets.paint(ctx, v, f.solid, f.ink)
+            HomeWidgets.volume(ctx, v)   // the volume row (as every widget with play/pause has)
             v.setImageViewBitmap(R.id.wv_bars, bars)
             v.setInt(R.id.wv_bars, "setColorFilter", 0)   // drawn in its own colours (the one-shade bars were tinted here)
             v.setTextViewText(R.id.wv_title, f.title)
@@ -119,8 +120,8 @@ class VisualizerWidget : AppWidgetProvider() {
             if (wDp <= 0 || hDp <= 0) { wDp = 250; hDp = 110 }
             val d = ctx.resources.displayMetrics.density
             val w = ((wDp - 24) * d).toInt().coerceIn(48, MAX_W)
-            val h = ((hDp - 24 - 46) * d).toInt().coerceIn(16, MAX_H)
-            return Triple(w, h, minOf(d, w / maxOf(1f, wDp - 24f), h / maxOf(1f, hDp - 70f)).coerceAtLeast(0.5f))
+            val h = ((hDp - 24 - 46 - 32) * d).toInt().coerceIn(16, MAX_H)   // (the song's line, and the volume row under it)
+            return Triple(w, h, minOf(d, w / maxOf(1f, wDp - 24f), h / maxOf(1f, hDp - 102f)).coerceAtLeast(0.5f))
         }
 
         /** The levels at rest, or swaying slowly (phase moves them along): gentle, low. */

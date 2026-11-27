@@ -17,7 +17,22 @@ class TopWidget : AppWidgetProvider() {
 
     override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, options: android.os.Bundle) = update(ctx)
 
+    /** A tap on the period (This week…): the next one, as Most played's own choices go round. */
+    override fun onReceive(ctx: Context, intent: android.content.Intent) {
+        super.onReceive(ctx, intent)
+        if (intent.action != CYCLE) return
+        Music.init(ctx)
+        val keys = PERIODS.keys.toList()
+        Prefs.setText(PERIOD_KEY, keys[(keys.indexOf(period()) + 1) % keys.size])
+        top = null
+        refresh(ctx); update(ctx)
+    }
+
     companion object {
+        private const val CYCLE = "org.omarchy.music.widget.top.period"
+        /** The widget's own period (a tap on it changes it): at first, the one Most played shows in the app. */
+        private const val PERIOD_KEY = "widget_top_period"
+        private fun period(): String = Prefs.text(PERIOD_KEY).takeIf { it in PERIODS } ?: Music.topPeriod
         private val ROWS = intArrayOf(R.id.wt_r0, R.id.wt_r1, R.id.wt_r2, R.id.wt_r3, R.id.wt_r4)
         private val TITLES = intArrayOf(R.id.wt_t0, R.id.wt_t1, R.id.wt_t2, R.id.wt_t3, R.id.wt_t4)
         private val COUNTS = intArrayOf(R.id.wt_c0, R.id.wt_c1, R.id.wt_c2, R.id.wt_c3, R.id.wt_c4)
@@ -34,7 +49,7 @@ class TopWidget : AppWidgetProvider() {
             if (HomeWidgets.ids(ctx, TopWidget::class.java).isEmpty()) return
             Music.init(ctx)
             askedAt = System.currentTimeMillis()
-            val period = Music.topPeriod
+            val period = period()
             Music.bg({ Music.mostPlayed(period).filter { !StatHides.song(it) }.take(ROWS.size) }) { songs, _ ->
                 if (songs == null) return@bg
                 top = period to songs
@@ -52,7 +67,7 @@ class TopWidget : AppWidgetProvider() {
             val made = top
             val now = System.currentTimeMillis()
             // Not made yet, made for another period, or half an hour old: made again (and shown once it's in)
-            if ((made == null || made.first != Music.topPeriod || now - madeAt > 30 * 60_000L) && now - askedAt > 5_000L) refresh(ctx)
+            if ((made == null || made.first != period() || now - madeAt > 30 * 60_000L) && now - askedAt > 5_000L) refresh(ctx)
             val mgr = AppWidgetManager.getInstance(ctx)
             for (id in ids) runCatching { mgr.updateAppWidget(id, views(ctx, made, rowsFor(ctx, mgr, id))) }
         }
@@ -70,7 +85,8 @@ class TopWidget : AppWidgetProvider() {
         private fun views(ctx: Context, made: Pair<String, List<Track>>?, rows: Int): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_top)
             HomeWidgets.paint(ctx, v)
-            v.setTextViewText(R.id.wt_period, PERIODS[made?.first ?: Music.topPeriod] ?: "")
+            v.setTextViewText(R.id.wt_period, (PERIODS[made?.first ?: period()] ?: "") + "  ▾")   // a tap: the next period
+            v.setOnClickPendingIntent(R.id.wt_period, HomeWidgets.tap(ctx, TopWidget::class.java, CYCLE, 7431))
             val songs = made?.second.orEmpty()
             for (i in ROWS.indices) {
                 val t = songs.getOrNull(i)?.takeIf { i < rows }

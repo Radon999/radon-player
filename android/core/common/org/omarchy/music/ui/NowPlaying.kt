@@ -644,9 +644,9 @@ private fun Seek(n: Now) {
     }
 }
 
-/** A slim bar (the seek bar, the volume): tap or drag along it. */
+/** A slim bar (the seek bar, the volume, the PC widgets' volume): tap or drag along it. */
 @Composable
-private fun SlimBar(frac: Float, onMove: (Float) -> Unit, onDone: (Float) -> Unit, modifier: Modifier = Modifier, thick: Float = 1f,
+internal fun SlimBar(frac: Float, onMove: (Float) -> Unit, onDone: (Float) -> Unit, modifier: Modifier = Modifier, thick: Float = 1f,
                     bar: Color = WHITE) {
     var dragging by remember { mutableStateOf(false) }
     Canvas(modifier.fillMaxWidth().height(24.dp)

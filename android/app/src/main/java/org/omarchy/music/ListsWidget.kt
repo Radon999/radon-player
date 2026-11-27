@@ -68,6 +68,7 @@ class ListsWidget : AppWidgetProvider() {
             val repeat = if (Remote.active) Remote.status.repeat else Music.repeat
             val v = RemoteViews(ctx.packageName, R.layout.widget_lists)
             HomeWidgets.paint(ctx, v)
+            HomeWidgets.volume(ctx, v)   // the volume row (as every widget with play/pause has)
             v.setTextViewText(R.id.wls_title, t?.title ?: "Nothing playing")
             v.setTextViewText(R.id.wls_artist, t?.let { listOf(it.artist, it.album).filter { s -> s.isNotEmpty() }.joinToString(" — ") } ?: "Radon Player")
             val bmp = HomeWidgets.coverOf(ctx, t)

@@ -31,6 +31,8 @@ class ReleasesWidget : AppWidgetProvider() {
         when (intent.action) {
             PLAY -> WidgetStart.request(ctx, "release:" + (intent.getStringExtra("key") ?: return))
             NEW_DAY -> { Music.init(ctx); update(ctx, rows = true) }
+            // A tap on its name: the next period (this week, this month, this year, everything found)
+            CYCLE -> { Music.init(ctx); val k = PERIODS.keys.toList(); Prefs.setText(PERIOD_KEY, k[(k.indexOf(period()) + 1) % k.size]); update(ctx, rows = true) }
         }
     }
 
@@ -38,6 +40,11 @@ class ReleasesWidget : AppWidgetProvider() {
         private const val PLAY = "org.omarchy.music.releaseswidget.play"
         private const val NEW_DAY = "org.omarchy.music.releaseswidget.newday"
         private const val SHOWN = 15
+        private const val CYCLE = "org.omarchy.music.releaseswidget.period"
+        /** The widget's own period (a tap on its name changes it): how far back what it shows goes. */
+        private const val PERIOD_KEY = "widget_releases_period"
+        private val PERIODS = linkedMapOf("week" to "This week", "month" to "This month", "year" to "This year", "all" to "Everything found")
+        private fun period(): String = Prefs.text(PERIOD_KEY).takeIf { it in PERIODS } ?: "all"
         private val KINDS = mapOf("single" to "Single", "ep" to "EP")
 
         /** The covers, by address, once they're in (fetched off the list's own thread: [fetchCovers]). */
@@ -50,7 +57,11 @@ class ReleasesWidget : AppWidgetProvider() {
         private fun all() = NewReleases.told + NewReleases.found
 
         /** The newest ones, each once, the latest first. */
-        fun newest(): List<NewReleases.Release> = PhoneWidgetRules.newest(all(), { NewReleases.key(it) }, { it.date }, SHOWN)
+        fun newest(): List<NewReleases.Release> {
+            val days = NewReleases.RANGES[period()]
+            val since = days?.let { java.time.LocalDate.now().minusDays(it).toString() }
+            return PhoneWidgetRules.newest(all().filter { since == null || it.date.take(10) >= since }, { NewReleases.key(it) }, { it.date }, SHOWN)
+        }
 
         /** A release by its key (NewReleases.key). */
         fun find(key: String): NewReleases.Release? = all().firstOrNull { NewReleases.key(it) == key }
@@ -76,6 +87,9 @@ class ReleasesWidget : AppWidgetProvider() {
             HomeWidgets.paint(ctx, v)
             v.setViewVisibility(R.id.wr_empty, if (list.isEmpty()) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.wr_head, HomeWidgets.open(ctx, "newreleases", 7470))
+            // Its name says the period, and a tap on it goes round them
+            v.setTextViewText(R.id.w_t1, "New releases · ${PERIODS[period()]}  ▾")
+            v.setOnClickPendingIntent(R.id.w_t1, HomeWidgets.tap(ctx, ReleasesWidget::class.java, CYCLE, 7471))
             v.setOnClickPendingIntent(R.id.wr_empty, HomeWidgets.open(ctx, "newreleases", 7470))
             @Suppress("DEPRECATION") v.setRemoteAdapter(R.id.wr_list, Intent(ctx, ReleasesWidgetRows::class.java))
             v.setPendingIntentTemplate(R.id.wr_list, PendingIntent.getBroadcast(ctx, 0, Intent(ctx, ReleasesWidget::class.java).setAction(PLAY),

@@ -22,6 +22,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -131,6 +132,11 @@ object HomeWidgets {
             try {
                 while (x.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
                     if (x.eventType != org.xmlpull.v1.XmlPullParser.START_TAG) continue
+                    if (x.name == "include") {   // a shared part (the volume row): its pieces too
+                        val inner = x.getAttributeResourceValue(null, "layout", 0)
+                        if (inner != 0) pieces(ctx, inner).let { (t, i) -> texts += t.toList(); icons += i.toList() }
+                        continue
+                    }
                     val id = x.getAttributeResourceValue(ns, "id", 0)
                     if (id == 0) continue
                     when (x.name.substringAfterLast('.')) {
@@ -146,6 +152,20 @@ object HomeWidgets {
 
     /** The background's solid colour (for [paint] off the main thread). */
     fun solid(ctx: Context): Int = deep(ctx)
+
+    /** The volume row (widget_volume) on a widget with play/pause: the media volume now as the bar, and its buttons a
+     *  step down and up (PlayerWidget does them). Home screen widgets can't hold a slider that's dragged. */
+    fun volume(ctx: Context, v: RemoteViews) {
+        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        v.setProgressBar(R.id.w_vol_bar, max, am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC), false)
+        v.setOnClickPendingIntent(R.id.w_vol_down, PlayerWidget.pi(ctx, PlayerWidget.VOL_DOWN, 11))
+        v.setOnClickPendingIntent(R.id.w_vol_up, PlayerWidget.pi(ctx, PlayerWidget.VOL_UP, 12))
+        // The bar in the look's writing colour, where Android lets a widget change it (12 and up); white elsewhere
+        val ink = ink()
+        if (ink != Color.WHITE && android.os.Build.VERSION.SDK_INT >= 31)
+            v.setColorStateList(R.id.w_vol_bar, "setProgressTintList", android.content.res.ColorStateList.valueOf(ink))
+    }
 
     /** One of a two-way switch's halves (the DJ's songs, a playlist's order): lit when chosen. */
     fun choice(v: RemoteViews, id: Int, on: Boolean) {
@@ -263,6 +283,16 @@ object HomeWidgets {
                 }
             },
             Music.scope.launch { AppVisible.flow.collect { appShown = it } },
+            // The volume rows follow the volume keys (and anything else that changes the media volume)
+            Music.scope.launch {
+                val changes = kotlinx.coroutines.flow.callbackFlow {
+                    val r = object : BroadcastReceiver() { override fun onReceive(c: Context, i: Intent) { trySend(Unit) } }
+                    androidx.core.content.ContextCompat.registerReceiver(svc, r, IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
+                        androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+                    awaitClose { runCatching { svc.unregisterReceiver(r) } }
+                }
+                changes.collectLatest { delay(250); runCatching { updateAll(svc) } }
+            },
             // Widgets in the app's look: drawn again as the look changes (a preset put on, another look picked, the
             // switch itself), and as the Visualizer widget's choices change
             Music.scope.launch {

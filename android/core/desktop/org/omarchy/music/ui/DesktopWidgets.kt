@@ -49,6 +49,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
@@ -109,13 +111,19 @@ object DesktopWidgets {
     val anyOpen: Boolean get() = DesktopWidgetRules.KINDS.any { isOpen(it.first) }
     fun title(kind: String) = "Radon Player · " + (DesktopWidgetRules.KINDS.firstOrNull { it.first == kind }?.second ?: kind)
 
+    /** A line the widgets show at their foot for a few seconds (what's happening, or why something can't play): the
+     *  app's own messages appear in its window, which may well be hidden in the tray while a widget is used. */
+    var note by mutableStateOf<Pair<String, Long>?>(null)
+        private set
+    fun say(text: String) { note = text to System.currentTimeMillis(); Music.toast(text) }
+
     /** The cover playing's main colour (null: none), worked out once a song for every widget (the host keeps it). */
     var coverRgb by mutableStateOf<Int?>(null)
         internal set
 
     /** The app's look as the widgets wear it, with Widgets in the app's look on (Settings › Personalization); null: the
      *  cover's colour. Follows the look, the preset and the cover as they change. */
-    val copied by androidx.compose.runtime.derivedStateOf { WidgetLook.colors(coverRgb) }
+    val copied by androidx.compose.runtime.derivedStateOf { WidgetLook.colors(coverRgb, live = true) }
 
     // ---- the saved layout ----
 
@@ -218,6 +226,43 @@ fun LayoutWindow(role: String, state: androidx.compose.ui.window.WindowState) {
     }
 }
 
+/** Windows: the window made a tool window (no taskbar button or Alt+Tab entry of its own; it stays where the other
+ *  windows put it, in front only while it's the one used, unless Always on top is on). Elsewhere: nothing. */
+internal fun winToolWindow(w: java.awt.Window) {
+    if (!System.getProperty("os.name").lowercase().contains("win")) return
+    runCatching {
+        val u = com.sun.jna.platform.win32.User32.INSTANCE
+        val hwnd = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Native.getWindowPointer(w) ?: return)
+        val gwl = com.sun.jna.platform.win32.WinUser.GWL_EXSTYLE
+        val ex = u.GetWindowLong(hwnd, gwl)
+        val want = (ex or 0x00000080 /* WS_EX_TOOLWINDOW */) and 0x00040000.inv() /* WS_EX_APPWINDOW */
+        if (want == ex) return
+        // The taskbar only looks again when the window is shown: hidden and shown again (without taking the focus)
+        u.ShowWindow(hwnd, com.sun.jna.platform.win32.WinUser.SW_HIDE)
+        u.SetWindowLong(hwnd, gwl, want)
+        u.ShowWindow(hwnd, 4 /* SW_SHOWNOACTIVATE */)
+    }.onFailure { org.omarchy.music.logWarn("a widget as a tool window", it) }
+}
+
+/** A window brought in front of every other one and given the keyboard. Windows won't let an app put itself in front
+ *  while another has the keyboard (it only flashes in the taskbar), so there it's made "always on top" for a moment and
+ *  asked for the front through Windows itself, then let go: it stays in front until another window is clicked. */
+fun bringToFront(w: java.awt.Window) {
+    runCatching {
+        w.isVisible = true
+        if (System.getProperty("os.name").lowercase().contains("win")) {
+            val was = w.isAlwaysOnTop
+            w.isAlwaysOnTop = true
+            w.toFront(); w.requestFocus()
+            runCatching {
+                val hwnd = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Native.getWindowPointer(w))
+                com.sun.jna.platform.win32.User32.INSTANCE.SetForegroundWindow(hwnd)
+            }
+            w.isAlwaysOnTop = was
+        } else { w.toFront(); w.requestFocus() }
+    }
+}
+
 /** Windows and macOS draw a see-through window; Linux gets a plain one (see [DesktopWidgets]). */
 private val seeThrough = System.getProperty("os.name").lowercase().let { "win" in it || "mac" in it }
 
@@ -281,6 +326,9 @@ private fun WidgetWindow(kind: String, name: String, i: Int, icon: Painter, bg: 
             placed = true
         }
         if (hypr) LaunchedEffect(onTop, placed) { if (placed) withContext(Dispatchers.IO) { org.omarchy.music.Hyprland.pin(title, onTop) } }
+        // Windows: a widget is a tool window, so the taskbar and Alt+Tab show only Radon Player itself (each widget had a
+        // button of its own there, and it was hard to tell which was the player)
+        LaunchedEffect(Unit) { delay(150); winToolWindow(window) }
         // Put widgets back: back to its saved place now
         val putBack = DesktopWidgets.putBack
         LaunchedEffect(putBack) {
@@ -378,6 +426,15 @@ fun WidgetCard(kind: String, bg: Color, rounded: Boolean = true, drag: @Composab
                 }
             }
         }
+        // The widgets' own line (DesktopWidgets.say): for 8 seconds, over the foot of the widget
+        DesktopWidgets.note?.let { (text, at) ->
+            val fresh = System.currentTimeMillis() - at < 8000
+            var shown by remember(at) { mutableStateOf(fresh) }
+            LaunchedEffect(at) { delay(8000 - (System.currentTimeMillis() - at).coerceIn(0, 8000)); shown = false }
+            if (shown) Text(text, style = T.sub.copy(color = Color.White, fontSize = 12.sp), maxLines = 3, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 22.dp, bottom = 8.dp)
+                    .clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 10.dp, vertical = 6.dp))
+        }
         Row(Modifier.align(Alignment.TopEnd).padding(4.dp)) {
             IconButton(Ico.SETTINGS, W.copy(alpha = if (options) 1f else 0.7f), 14.dp, 6.dp, desc = "Widget options") { options = !options }
             IconButton(Ico.CLOSE, W.copy(alpha = 0.7f), 14.dp, 6.dp, desc = "Close the widget") { DesktopWidgets.open(kind, false) }
@@ -417,19 +474,136 @@ private fun WHeader(text: String, open: (() -> Unit)? = null) {
         modifier = Modifier.padding(end = 56.dp, bottom = 6.dp).then(if (open != null) Modifier.clickable(onClick = open) else Modifier))
 }
 
-/** A song or a playlist in a widget's list: its cover, its name and what's under it. */
+/** A song or a playlist in a widget's list: its cover, its name and what's under it. parts: what's under it as pieces,
+ *  each one a click away when it has somewhere to go (the artist's page, the album's, the release's), in place of sub;
+ *  onRight: a right-click (the song's options); picked: lit, as picked songs are in the app. */
 @Composable
-private fun WRow(art: Any?, title: String, sub: String, lead: String = "", onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(vertical = 4.dp, horizontal = 2.dp),
+private fun WRow(art: Any?, title: String, sub: String, lead: String = "", parts: List<Pair<String, (() -> Unit)?>>? = null,
+                 picked: Boolean = false, onRight: (() -> Unit)? = null, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (picked) W.copy(alpha = 0.2f) else Color.Transparent)
+        .then(if (onRight != null) Modifier.rightClick(onRight) else Modifier)
+        .clickable(onClick = onClick).padding(vertical = 4.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically) {
+        if (picked) Icon(Ico.CHECK, W, 14.dp, Modifier.padding(end = 4.dp))
         if (lead.isNotEmpty()) Text(lead, style = wSub.copy(fontWeight = FontWeight.Bold), modifier = Modifier.width(22.dp))
         ArtImage(art, 36.dp)
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(title, style = T.body.copy(color = W, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (sub.isNotEmpty()) Text(sub, style = wSub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (parts != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                parts.filter { it.first.isNotEmpty() }.forEachIndexed { i, (text, go) ->
+                    if (i > 0) Text(" · ", style = wSub.copy(fontSize = 12.sp))
+                    Text(text, style = wSub.copy(fontSize = 12.sp, textDecoration = if (go != null) androidx.compose.ui.text.style.TextDecoration.Underline else null),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).then(if (go != null) Modifier.clickable(onClick = go) else Modifier))
+                }
+            } else if (sub.isNotEmpty()) Text(sub, style = wSub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
+
+// ---- songs in the widgets: their options (right-click), picking several, and going to the artist or the album ----
+
+/** The app's main window, with what's on its screens closed, for something to open there (an artist, an album). */
+private fun inApp(block: (Ui) -> Unit) = Instance.inWindow { ui -> ui.sheet = null; block(ui) }
+
+/** An artist's page in the app (each of a song's artists is its own link). */
+private fun goArtist(name: String, source: String = "") = inApp { ui -> ui.pages += Ui.Page.Artist(name, source.ifEmpty { null }) }
+
+/** A song's artists and album, as WRow's parts: each one opens its page in the app. */
+private fun songParts(t: Track, extra: String = ""): List<Pair<String, (() -> Unit)?>> = buildList {
+    if (extra.isNotEmpty()) add(extra to null)
+    org.omarchy.music.splitArtists(t.artist).ifEmpty { listOf(t.artist) }.filter { it.isNotBlank() }.forEach { a -> add(a to { goArtist(a, t.source) }) }
+    if (t.album.isNotBlank()) add(t.album to { inApp { ui -> goToAlbum(ui, t) } })
+}
+
+/** The songs picked in a widget (by their place in its list): ctrl-click picks one more, shift-click all between, and a
+ *  right-click on one of them gives the options for all of them. Each widget's own. */
+private class WPicks {
+    val at = androidx.compose.runtime.mutableStateListOf<Int>()
+    var from = -1
+    /** A click on row i with the keys held: true if it picked (and the click does nothing else). */
+    fun click(i: Int, ctrl: Boolean, shift: Boolean): Boolean {
+        when {
+            shift && from >= 0 -> { (minOf(from, i)..maxOf(from, i)).forEach { if (it !in at) at += it } }
+            ctrl -> { if (i in at) at.remove(i) else at += i; from = i }
+            at.isNotEmpty() -> { if (i in at) at.remove(i) else at += i; from = i }   // picking: a click picks or unpicks
+            else -> return false
+        }
+        return true
+    }
+}
+
+/** The options a right-click opens on a widget's song: the app's own (the same list as in the app), for the songs picked
+ *  if it's one of them, else for that one. Those that open something (a dialog, a page) open it in the app's window. */
+@Composable
+private fun SongMenu(menu: Pair<Track?, List<Track>>?, place: RowPlace, picks: WPicks, close: () -> Unit,
+                     queueAt: ((Int) -> Int)? = null) {
+    val (one, picked) = menu ?: return
+    val opts = remember(menu) {
+        songOptions(Ui.current ?: Ui(), one, picked, place).filter { it.second != "Select…" &&
+            !(one == null && it.second == "Remove from the queue") }   // (the app's own picking: done here instead)
+    }
+    androidx.compose.material3.DropdownMenu(true, close, containerColor = C.light) {
+        Text(if (one != null) "“${one.title}”" else "${picked.size} songs picked", style = T.title.copy(fontSize = 13.sp), maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp).widthIn(max = 280.dp))
+        if (one != null) androidx.compose.material3.DropdownMenuItem({ Text("Select…", style = T.body) },
+            { close(); picks.at.clear(); picks.at += place.index; picks.from = place.index }, leadingIcon = { Icon(Ico.SELECT, C.accent, 18.dp) })
+        // Several picked in the queue: those rows out of it (the app's own option goes by its own picking)
+        if (one == null && queueAt != null) androidx.compose.material3.DropdownMenuItem({ Text("Remove from the queue", style = T.body) }, {
+            close(); Music.unqueueMany(picks.at.map(queueAt)); picks.at.clear() }, leadingIcon = { Icon(Ico.CLOSE, C.accent, 18.dp) })
+        opts.forEach { (ico, label, _) ->
+            androidx.compose.material3.DropdownMenuItem({ Text(label, style = T.body.copy(color = if (label.startsWith("Delete")) C.red else C.fg)) }, {
+                close()
+                // Those that open something open it in the app's window, with its screens; the rest are done here
+                val inWindow = label.endsWith("…") || label.startsWith("Go to") || label.startsWith("Remove download") ||
+                    label.startsWith("Remove from this playlist")
+                if (inWindow) inApp { ui -> songOptions(ui, one, picked, place).firstOrNull { it.second == label }?.third?.invoke() }
+                else opts.firstOrNull { it.second == label }?.third?.invoke()
+                if (one == null) picks.at.clear()
+            }, leadingIcon = { Icon(ico, if (label.startsWith("Delete")) C.red else C.accent, 18.dp) })
+        }
+    }
+}
+
+/** A widget's list of songs: a click plays from there (or picks, with ctrl or shift held, or while some are picked), a
+ *  right-click gives the song's options, and its artist and album are links. A bar says how many are picked. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -> String = { "" }, queueAt: ((Int) -> Int)? = null,
+                                 art: @Composable (Track) -> Any? = { songArt(it) }, play: (Int) -> Unit) {
+    val picks = remember(kind) { WPicks() }
+    var menu by remember { mutableStateOf<Pair<Track?, List<Track>>?>(null) }
+    var menuAt by remember { mutableStateOf(-1) }
+    val mods = androidx.compose.ui.platform.LocalWindowInfo.current.keyboardModifiers
+    LaunchedEffect(songs) { picks.at.removeAll { it >= songs.size } }
+    if (picks.at.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("${picks.at.size} picked", style = wSub.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+        WPill("Options", strong = true) { menuAt = picks.at.first(); menu = null to picks.at.sorted().mapNotNull { songs.getOrNull(it) } }
+        WPill("Clear") { picks.at.clear() }
+    }
+    LazyColumn(Modifier.weight(1f)) {
+        items(songs.size, key = { i -> "$i:${songs[i].id}" }) { i ->
+            val s = songs[i]
+            Box {
+                WRow(art(s), s.title, s.artist, lead = lead(i), parts = songParts(s), picked = i in picks.at,
+                    onRight = {
+                        menuAt = i
+                        menu = if (i in picks.at && picks.at.size > 1) null to picks.at.sorted().mapNotNull { songs.getOrNull(it) } else s to listOf(s)
+                    }) {
+                    if (!picks.click(i, mods.isCtrlPressed || mods.isMetaPressed, mods.isShiftPressed)) {
+                        // A stream takes a moment to start: said at once, so it doesn't look like nothing happened
+                        if (!s.isFile && s.file == null && !Music.lib.has(s.id)) DesktopWidgets.say("Loading “${s.title}” (streaming)…")
+                        play(i)
+                    }
+                }
+                if (menuAt == i && menu != null)
+                    SongMenu(menu, RowPlace(songs, i, kind, queueIndex = queueAt?.invoke(i) ?: -1), picks, { menu = null; menuAt = -1 }, queueAt)
+            }
+        }
+    }
+}
+
 
 /** Now playing, as the phone's widget has it: the cover (a click opens Now playing), the song, then shuffle, previous,
  *  play, next and repeat. */
@@ -451,6 +625,22 @@ private fun NowPlayingTop() {
         IconButton(if (Music.paused || t == null) Ico.PLAY else Ico.PAUSE, W, 30.dp, 6.dp) { Music.togglePause() }
         IconButton(Ico.NEXT, W, 22.dp, 6.dp) { Music.next() }
         IconButton(if (Music.repeat == "one") Ico.REPEAT_ONE else Ico.REPEAT, if (Music.repeat == "off") W.copy(alpha = 0.5f) else W, 18.dp, 6.dp) { Music.cycleRepeat() }
+    }
+    WVolume()
+}
+
+/** The volume, as Now playing's: a slim bar to tap or drag, between a quiet and a loud speaker. Every widget with play
+ *  and pause has it. It follows the volume however it's changed (Now playing, the keys, another widget). */
+@Composable
+private fun WVolume(modifier: Modifier = Modifier) {
+    var v by remember { mutableStateOf(SysVolume.get()) }
+    var held by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { while (true) { delay(500); if (!held) v = SysVolume.get() } }
+    fun set(f: Float) { v = f; SysVolume.set(f) }
+    Row(modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(Ico.SPEAKER, W.copy(alpha = 0.7f), 14.dp, 4.dp, desc = "Quieter") { set((v - 0.05f).coerceAtLeast(0f)) }
+        SlimBar(v, onMove = { held = true; set(it) }, onDone = { held = false; set(it) }, modifier = Modifier.weight(1f).padding(horizontal = 6.dp), bar = W)
+        IconButton(Ico.SPEAKER, W, 18.dp, 4.dp, desc = "Louder") { set((v + 0.05f).coerceAtMost(1f)) }
     }
 }
 
@@ -480,9 +670,8 @@ private fun ColumnScope.NowAndQueue() {
     val upNext = Music.queue.withIndex().drop(Music.index + 1).take(300)
     WHeader("Up next")
     if (upNext.isEmpty()) Text("Nothing queued after this song", style = wSub)
-    LazyColumn(Modifier.weight(1f)) {
-        items(upNext, key = { it.index }) { (i, s) -> WRow(songArt(s), s.title, s.artist) { Music.playIndex(i) } }
-    }
+    val songs = remember(upNext) { upNext.map { it.value } }
+    SongList(songs, "queue", queueAt = { upNext[it].index }) { Music.playIndex(upNext[it].index) }
 }
 
 /** (2) Now playing and your playlists: a playlist plays from the top; its ⤨ shuffled. */
@@ -601,14 +790,17 @@ private fun ColumnScope.TopWidget() {
         Music.bg({ Music.mostPlayed(period).take(25) }) { r, _ -> top = r.orEmpty() }
     }
     WHeader("Most played · " + TOP_PERIODS.first { it.first == period }.second) { Instance.act(listOf("show", "top")) }
+    // The period, as Most played in the app has it (week, month, year, all time): on the widget, a click away
+    Row(Modifier.padding(bottom = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        TOP_PERIODS.forEach { (k, name) -> WChip(name.removePrefix("This ").replaceFirstChar { it.uppercase() }, period == k) {
+            DesktopWidgets.save("top", DesktopWidgets.place("top").copy(choice = k)) } }
+    }
     val songs = top
     when {
         songs == null -> Text("Adding up your plays…", style = wSub)
         songs.isEmpty() -> Text("No plays yet for this time", style = wSub)
     }
-    LazyColumn(Modifier.weight(1f)) {
-        itemsIndexed(songs.orEmpty()) { i, s -> WRow(songArt(s), s.title, s.artist, lead = "${i + 1}") { Music.playFrom(songs.orEmpty(), i, radio = false) } }
-    }
+    SongList(songs.orEmpty(), "top", lead = { "${it + 1}" }) { i -> Music.playFrom(songs.orEmpty(), i, radio = false) }
 }
 
 /** (7) Wrapped: opened in the app for this week, this month, this year or every year. */
@@ -664,35 +856,97 @@ private fun ColumnScope.LyricsWidget() {
 }
 
 /** (9) New releases from your artists: the newest the app has found (by its daily look, or Refresh… in New releases;
- *  nothing is looked up for the widget itself). A click plays one (found on your services then); the name opens New
- *  releases. */
+ *  nothing is looked up for the widget itself), from the last week, month or year, all of them or only albums, EPs or
+ *  singles (the widget's own choice, kept). A click plays one (found on your services then); a right-click gives its
+ *  songs' options (the app's own), ctrl or shift picks several; its artist opens the artist's page and its kind (Single,
+ *  EP, Album) the release's own page. The name opens New releases. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun ColumnScope.ReleasesWidget() {
     val nr = org.omarchy.music.NewReleases
-    val list = remember(nr.found, nr.told) {
-        DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, 30)
-    }
+    val place = DesktopWidgets.place("releases")
+    val range = place.choice.substringBefore('|').takeIf { it in nr.RANGES } ?: "month"
+    val kind = place.choice.substringAfter('|', "all").takeIf { it in setOf("all", "album", "ep", "single") } ?: "all"
+    fun choose(r: String = range, k: String = kind) = DesktopWidgets.save("releases", place.copy(choice = "$r|$k"))
     val today = remember { java.time.LocalDate.now() }
-    val kinds = mapOf("single" to "Single", "ep" to "EP")
+    val list = remember(nr.found, nr.told, range, kind) {
+        val since = today.minusDays(nr.RANGES[range] ?: 30L)
+        DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, 200)
+            .filter { r -> (kind == "all" || r.type == kind) && runCatching { !java.time.LocalDate.parse(r.date.take(10)).isBefore(since) }.getOrDefault(true) }
+            .take(60)
+    }
+    val kinds = mapOf("single" to "Single", "ep" to "EP", "album" to "Album")
     WHeader("New releases") { Instance.act(listOf("show", "new releases")) }
-    nr.status?.let { Text(it, style = wSub, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 4.dp)) }
+    // From when, and which kind: as the app's New releases has them
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("week" to "Week", "month" to "Month", "year" to "Year").forEach { (k, l) -> WChip(l, range == k) { choose(r = k) } }
+        Spacer(Modifier.width(6.dp))
+        listOf("all" to "All", "album" to "Albums", "ep" to "EPs", "single" to "Singles").forEach { (k, l) -> WChip(l, kind == k) { choose(k = k) } }
+    }
+    // The app last looked back less far than asked: said, as what's shown can't go further back than that
+    if ((nr.RANGES[range] ?: 0L) > (nr.RANGES[nr.range] ?: 0L))
+        Text("The last Refresh… looked back a ${nr.range}: refresh in New releases for the whole ${range}", style = wSub, maxLines = 2,
+            modifier = Modifier.padding(top = 4.dp))
+    nr.status?.let { Text(it, style = wSub, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp)) }
+    Spacer(Modifier.height(4.dp))
     if (list.isEmpty()) {
-        Text("Nothing new found yet", style = wTitle)
+        Text("Nothing new found for this", style = wTitle)
         Text("Open New releases in the app and press Refresh… to look at what your artists put out lately, or switch on " +
             "New releases by themselves in Settings › Playback to have it look once a day.", style = wSub, modifier = Modifier.padding(top = 4.dp))
         Spacer(Modifier.weight(1f))
         Row { WPill("Open New releases", strong = true) { Instance.act(listOf("show", "new releases")) } }
         return
     }
+    // A release's page in the app (an album, an EP or a single), as New releases opens it
+    fun open(r: org.omarchy.music.NewReleases.Release) {
+        DesktopWidgets.say("Opening “${r.title}”…")
+        Music.bg({ Music.releaseFind(r) }) { found, _ ->
+            if (found == null) { DesktopWidgets.say(org.omarchy.music.ReleaseLookup.whyNot(r)); return@bg }
+            val (key, al, songs) = found
+            inApp { ui -> ui.pages += if (al != null) Ui.Page.AlbumPage(al, key)
+                else Ui.Page.AlbumPage(org.omarchy.music.Album("single-${songs[0].id}", r.title, "${r.artist} · Single", songs[0].thumb.ifEmpty { r.cover }), key, songs) }
+        }
+    }
+    // The first few looked up ahead, quietly, so a click plays at once instead of searching first
+    LaunchedEffect(list) { withContext(Dispatchers.IO) { runCatching { org.omarchy.music.ReleaseLookup.warm(list) } } }
+    val picks = remember { WPicks() }
+    var menu by remember { mutableStateOf<Pair<Track?, List<Track>>?>(null) }
+    var menuAt by remember { mutableStateOf(-1) }
+    val mods = androidx.compose.ui.platform.LocalWindowInfo.current.keyboardModifiers
+    // A right-click: the songs of the release (or of every release picked) looked up, then their options
+    fun options(i: Int) {
+        val rs = if (i in picks.at && picks.at.size > 1) picks.at.sorted().mapNotNull { list.getOrNull(it) } else listOf(list[i])
+        DesktopWidgets.say("Finding the songs of " + if (rs.size == 1) "“${rs[0].title}”…" else "${rs.size} releases…")
+        Music.bg({ rs.flatMap { r -> runCatching { Music.releaseTracks(r) }.getOrNull().orEmpty() } }) { songs, _ ->
+            if (songs.isNullOrEmpty()) { DesktopWidgets.say(if (rs.size == 1) org.omarchy.music.ReleaseLookup.whyNot(rs[0]) else "None of them could be found on your services"); return@bg }
+            menuAt = i; menu = (if (songs.size == 1) songs[0] else null) to songs
+        }
+    }
+    if (picks.at.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("${picks.at.size} picked", style = wSub.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+        WPill("Options", strong = true) { options(picks.at.first()) }
+        WPill("Clear") { picks.at.clear() }
+    }
     LazyColumn(Modifier.weight(1f)) {
-        items(list, key = { nr.key(it) }) { r ->
-            val sub = listOfNotNull(r.artist, kinds[r.type], DesktopWidgetRules.whenOut(r.date, today).takeIf { it.isNotEmpty() }).joinToString(" · ")
-            WRow(r.cover.ifEmpty { null }, r.title, sub) {
-                Music.toast("Finding “${r.title}”…")
-                Music.bg({ Music.releaseTracks(r) }) { songs, err ->
-                    if (songs.isNullOrEmpty()) Music.toast("Couldn't find “${r.title}” on your services" + (err?.message?.let { ": ${it.take(80)}" } ?: ""))
-                    else Music.playList(songs)
+        items(list.size, key = { nr.key(list[it]) }) { i ->
+            val r = list[i]
+            val parts = listOfNotNull<Pair<String, (() -> Unit)?>>(
+                r.artist to { goArtist(r.artist) },
+                kinds[r.type]?.let { it to { open(r) } },
+                DesktopWidgetRules.whenOut(r.date, today).takeIf { it.isNotEmpty() }?.let { it to null })
+            Box {
+                WRow(r.cover.ifEmpty { null }, r.title, "", parts = parts, picked = i in picks.at, onRight = { options(i) }) {
+                    if (picks.click(i, mods.isCtrlPressed || mods.isMetaPressed, mods.isShiftPressed)) return@WRow
+                    DesktopWidgets.say("Finding “${r.title}”…")
+                    Music.bg({ Music.releaseTracks(r) }) { songs, _ ->
+                        // Can't be played: said, and why (not on your services, Tidal not signed in, no connection)
+                        if (songs.isNullOrEmpty()) DesktopWidgets.say(org.omarchy.music.ReleaseLookup.whyNot(r))
+                        else { DesktopWidgets.say("Playing “${r.title}”"); Music.playList(songs) }
+                    }
                 }
+                val m = menu
+                if (menuAt == i && m != null) SongMenu(m, RowPlace(m.second, 0, "releases"), WPicks(), { menu = null; menuAt = -1; picks.at.clear() })
             }
         }
     }
@@ -722,10 +976,11 @@ private fun ColumnScope.VisualizerWidget() {
                 drawWidgetVis(s, base, fg)
             }
         } else Text(if (t == null) "Nothing playing" else "Paused", style = wSub, modifier = Modifier.align(Alignment.Center))
-        if (hovered || !playing) Row(Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.25f)),
-            verticalAlignment = Alignment.CenterVertically) {
+        if (hovered || !playing) Row(Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp).clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.25f)).widthIn(max = 360.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(if (playing) Ico.PAUSE else Ico.PLAY, W, 22.dp, 6.dp) { Music.togglePause() }
             IconButton(Ico.NEXT, W, 20.dp, 6.dp) { Music.next() }
+            WVolume(Modifier.weight(1f))   // the volume, with play/pause, as on every widget that has them
         }
     }
 }

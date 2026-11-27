@@ -2,6 +2,20 @@ package org.omarchy.music
 
 /** New releases found by themselves, and the wake-up timer: what is said, and when. */
 object NewReleaseRules {
+    /** Why a new release (found on Deezer, where the app looks for them) can't be played: the services it was looked
+     *  for on (looked), those that couldn't be reached (failed: "Tidal (why)"), and whether Tidal isn't signed in. */
+    fun whyNot(title: String, artist: String, looked: List<String>, failed: List<String>, tidalOff: Boolean): String {
+        val what = "“$title” by $artist"
+        return when {
+            looked.isEmpty() && failed.isNotEmpty() -> "Couldn't play $what: couldn't reach ${failed.joinToString(" or ")}. Check your internet and try again"
+            looked.isEmpty() -> "Couldn't play $what: no streaming service is set up (sign in to Tidal in Settings)"
+            else -> "Couldn't play $what: it's listed on Deezer, where new releases are found, but isn't on " +
+                looked.joinToString(" or ") + " yet" +
+                (if (failed.isNotEmpty()) " (and ${failed.joinToString(" or ")} couldn't be reached)" else "") +
+                (if (tidalOff) ". Signing in to Tidal (Settings) may find it" else "")
+        }
+    }
+
     /** Of the releases a look found (its key, then its title and artist), the ones not told about before, each once. */
     fun fresh(found: List<Pair<String, Pair<String, String>>>, seen: Set<String>): List<Pair<String, Pair<String, String>>> {
         val once = HashSet<String>()

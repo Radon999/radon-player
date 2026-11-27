@@ -782,6 +782,121 @@ private fun BarButton(ico: Ico, label: String, onClick: () -> Unit) {
     }
 }
 
+/** The options for songs (one, or picked several): the same everywhere they're offered, the options sheet and the PC's
+ *  widgets (right-click there). place: where they were picked (a playlist, the queue, an artist's page…); ui: the main
+ *  window's screens, for the options that open something there. */
+fun songOptions(ui: Ui, one: Track?, picked: List<Track>, place: RowPlace?): List<Triple<Ico, String, () -> Unit>> =
+    buildList {
+        if (one != null && place?.kind == "queue" && place.queueIndex != Music.shownIndex()) {
+            add(Triple(Ico.PLAY, "Play now") { Music.playIndex(place.queueIndex) })
+            add(Triple(Ico.CLOSE, "Remove from the queue") { Music.unqueueMany(listOf(place.queueIndex)) })
+        }
+        add(Triple(Ico.PLAY, "Play") { Music.playList(picked) })
+        add(Triple(Ico.SHUFFLE, "Shuffle play") { Music.playList(picked, shuffled = true) })
+        if (picked.size == 1 && !org.omarchy.music.Remote.active) add(Triple(Ico.SPARKLE, "Song radio (songs like this)") { Music.songRadio(picked[0]) })
+        // Your word on it, for autoplay, radios and the DJ (Signals): more like it, less like it, or never put in
+        if (one != null) {
+            val sig = org.omarchy.music.Signals.of(one)
+            when (org.omarchy.music.SignalRules.thumb(sig)) {
+                1 -> add(Triple(Ico.HEART, "More like this: on (tap to undo)") { org.omarchy.music.Signals.thumb(one, null) })
+                -1 -> add(Triple(Ico.CLOSE, "Less like this: on (tap to undo)") { org.omarchy.music.Signals.thumb(one, null) })
+                else -> {
+                    add(Triple(Ico.HEART_LINE, "More like this") { org.omarchy.music.Signals.thumb(one, true) })
+                    add(Triple(Ico.CLOSE, "Less like this") { org.omarchy.music.Signals.thumb(one, false) })
+                }
+            }
+            if ((sig?.noAuto ?: 0) > 0) add(Triple(Ico.INFINITY, "Let autoplay, radios and the DJ put it in again") { org.omarchy.music.Signals.noAuto(one, false) })
+            else add(Triple(Ico.INFINITY, "Not for autoplay, radios or the DJ") { org.omarchy.music.Signals.noAuto(one, true) })
+        }
+        add(Triple(Ico.NEXT, "Play after the current song") { Music.enqueue(picked, "next") })
+        add(Triple(Ico.QUEUE, "Add to the queue") { Music.enqueue(picked) })
+        add(Triple(Ico.PLAYLIST, "Add to a playlist…") { ui.pickPlaylistFor = picked })
+        add(Triple(Ico.MOOD, "Queue a mood edit (look at its moods later)") { org.omarchy.music.MoodQueue.add(picked) })
+        add(Triple(Ico.REFRESH, "Queue a clean/explicit change (swap it for the other version)") { org.omarchy.music.VersionQueue.add(picked) })
+        // Listen later: what's picked (songs, or the songs of the albums and EPs picked) put aside for another time
+        // Other device's songs: the ones ticked that you don't want here, never offered again
+        if (place?.kind == "theirs") add(Triple(Ico.CLOSE, "Leave out (don't offer again)") { org.omarchy.music.LibraryMatch.leaveOut(picked) })
+        // A stats list (Most played, Repeats, Skips, Unplayed and neglected): hide what's picked from all of them
+        if (place?.kind in setOf("top", "repeats", "skips", "neglected")) add(Triple(Ico.CLOSE, "Hide from stats") {
+            org.omarchy.music.StatHides.hideSongs(picked)
+            Music.toast((if (picked.size == 1) "“${picked[0].title}” is" else "${picked.size} songs are") + " hidden from the stats lists. Settings › Hidden from stats brings " + (if (picked.size == 1) "it" else "them") + " back") })
+        if (place?.kind == "later") add(Triple(Ico.CLOSE, "Remove from Listen later") { org.omarchy.music.ListenLater.remove(picked) })
+        else add(Triple(Ico.CLOCK, "Add to Listen later playlist") { org.omarchy.music.ListenLater.add(picked) })
+        // …or only what you haven't got of the album (or EP) the picked songs are from: a small Discovery of one album
+        if (place?.kind != "later" && picked.any { it.album.isNotBlank() })
+            add(Triple(Ico.CLOCK, "Listen later: the album's songs I don't have") { org.omarchy.music.AlbumMissing.laterRest(picked) })
+        if (one != null) {
+            if (Music.favorites.has(one)) add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
+            else add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
+            org.omarchy.music.splitArtists(one.artist).take(3).forEach { n ->
+                add(Triple(Ico.PERSON, "Go to $n") { ui.pages += Ui.Page.Artist(n, one.source) }) }
+        } else {
+            add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
+            add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
+        }
+        // Other device's songs: the file copied from the other device (never downloaded from streaming)
+        if (place?.kind == "theirs") add(Triple(Ico.DOWNLOAD, "Copy from ${org.omarchy.music.SongCopy.other}") { org.omarchy.music.SongCopy.get(picked) })
+        else if (one == null || (!one.isFile && !Music.lib.has(one.id))) add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
+        if (one != null && Music.lib.has(one.id)) add(Triple(Ico.TRASH, "Remove download") {
+            ui.confirm = "Delete the downloaded copy of “${one.title}”?" to { Music.removeDownload(one.id) } })
+        // Tags, cover, the files' details, lyrics: of your own songs only (the Tagger works on files). Streaming
+        // songs in what's picked (an album you have part of) are skipped, and it says so.
+        add(Triple(Ico.EDIT, "Tagger…") {
+            val (local, streaming) = picked.partition { it.isFile || it.file != null || Music.lib.has(it.id) }
+            org.omarchy.music.TaggerPickRules.skipped(streaming.size, local.size).takeIf { it.isNotEmpty() }?.let { Music.toast(it) }
+            if (local.isNotEmpty()) ui.taggerFor = local
+        })
+        add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
+        add(Triple(Ico.EQ, "Custom EQ…") { ui.songEqFor = picked })
+        add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
+        if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })
+            add(Triple(Ico.SPARKLE, "Upgrade to FLAC…") { ui.upgradeFor = picked.filter { org.omarchy.music.upgradable(it) } })
+        picked.filter { it.album.isNotBlank() }.distinctBy { org.omarchy.music.norm(org.omarchy.music.bareTitle(it.album)) }
+            .takeIf { it.size in 1..3 }?.forEach { t ->   // the albums the songs are on (up to 3): go to one
+                add(Triple(Ico.DISC, "Go to album “${t.album.trim()}”") { goToAlbum(ui, t) }) }
+        if (picked.size == 1) {   // one song: the options about a single song
+            val one = picked[0]
+            org.omarchy.music.splitArtists(one.artist).firstOrNull()?.let { lead ->
+                add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
+            if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
+            // A song a history has under a name your file doesn't have: you say which of yours it is
+            if (!one.isFile && one.file == null && !Music.lib.has(one.id)) add(Triple(Ico.CHECK, "This is a song of mine…") { ui.mySongFor = one })
+            else org.omarchy.music.YourCopies.linkedTo(one).takeIf { it.isNotEmpty() }?.let { keys ->
+                add(Triple(Ico.CLOSE, "Undo: ${keys.size} other song${if (keys.size != 1) "s" else ""} counted as this one") {
+                    org.omarchy.music.YourCopies.unlink(one); Music.toast("Undone: counted on their own again") }) }
+        }
+        // On an artist's page: hide songs from it yourself (two bands under one name), or put left-out ones back
+        (ui.pages.lastOrNull() as? Ui.Page.Artist)?.let { ap ->
+            if (place?.kind == "artist-left") add(Triple(Ico.CHECK, "Show on ${ap.name}'s page") { org.omarchy.music.ArtistShown.songs(ap.name, picked, hide = false) })
+            else if (place?.kind == "artist") add(Triple(Ico.CLOSE, "Hide from ${ap.name}'s page") { org.omarchy.music.ArtistShown.songs(ap.name, picked, hide = true) })
+        }
+        if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
+            val ids = picked.map { it.id }.toSet()
+            ui.confirm = "Take ${ids.size} song${if (ids.size != 1) "s" else ""} out of this playlist? They stay in your music." to {
+                Music.removeFromPlaylist(place.playlistId, ids) } })
+        if (place?.kind == "queue" && one == null) add(Triple(Ico.CLOSE, "Remove from the queue") {
+            // Only the rows picked: of a song waiting twice, the one you picked stays out, the other stays in
+            Music.unqueueMany(org.omarchy.music.SelectRules.queuePlaces(ui.selected.keys.toList(), Music.queue.map { it.id })) })
+        val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
+        if (org.omarchy.music.AudioTools.supported && picked.size == 1 && (picked[0].file ?: Music.lib.items[picked[0].id]?.file) != null)
+            add(Triple(Ico.SEARCH, "Identify by sound…") { ui.identifyFor = picked[0] })
+        if (one != null) add(Triple(Ico.PERSON, "Credits…") { ui.creditsFor = one })   // who wrote, produced and played on it
+        add(Triple(Ico.COPY, "Copy the names") {   // "Title — Artist", a line each
+            copyText("Songs", picked.joinToString("\n") { "${it.title} — ${it.artist}" }); Music.toast("Copied ${picked.size} name${if (picked.size != 1) "s" else ""}")
+        })
+        if (one != null) add(Triple(Ico.SHARE, "Share as a picture card…") { ui.songCard = one })
+        if (one != null) add(Triple(Ico.SHARE, "Share a clip with sound…") { ui.songClip = one })
+        if (org.omarchy.music.PlaylistSend.canSend) add(Triple(Ico.CLOUD, "Send to the ${if (onPhone) "PC" else "phone"} (as a playlist there)") {
+            org.omarchy.music.PlaylistSend.sendSongs(picked) })
+        if (files.isNotEmpty()) add(Triple(Ico.SHARE, "Share") {
+            shareFiles(files, "Share ${files.size} songs")
+        })
+        if (picked.any { Music.deletable(it) } && !(one != null && Music.lib.has(one.id)))
+            add(Triple(Ico.TRASH, "Delete permanently…") { ui.deleteFor = picked })
+        if (one != null && place != null) add(Triple(Ico.SELECT, "Select…") { ui.startSelecting(place.group, place, one) })
+    
+    }
+
 /** Options for the songs picked: any of them, one after another if "close after an option" is off. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -797,115 +912,7 @@ fun OptionsSheet(ui: Ui) {
             item { Text(if (one != null) "“${one.title}”" else "Options for ${picked.size} selected song${if (picked.size != 1) "s" else ""}",
                 style = T.head, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
-            val opts = buildList<Triple<Ico, String, () -> Unit>> {
-                if (one != null && place?.kind == "queue" && place.queueIndex != Music.shownIndex()) {
-                    add(Triple(Ico.PLAY, "Play now") { Music.playIndex(place.queueIndex) })
-                    add(Triple(Ico.CLOSE, "Remove from the queue") { Music.unqueueMany(listOf(place.queueIndex)) })
-                }
-                add(Triple(Ico.PLAY, "Play") { Music.playList(picked) })
-                add(Triple(Ico.SHUFFLE, "Shuffle play") { Music.playList(picked, shuffled = true) })
-                if (picked.size == 1 && !org.omarchy.music.Remote.active) add(Triple(Ico.SPARKLE, "Song radio (songs like this)") { Music.songRadio(picked[0]) })
-                // Your word on it, for autoplay, radios and the DJ (Signals): more like it, less like it, or never put in
-                if (one != null) {
-                    val sig = org.omarchy.music.Signals.of(one)
-                    when (org.omarchy.music.SignalRules.thumb(sig)) {
-                        1 -> add(Triple(Ico.HEART, "More like this: on (tap to undo)") { org.omarchy.music.Signals.thumb(one, null) })
-                        -1 -> add(Triple(Ico.CLOSE, "Less like this: on (tap to undo)") { org.omarchy.music.Signals.thumb(one, null) })
-                        else -> {
-                            add(Triple(Ico.HEART_LINE, "More like this") { org.omarchy.music.Signals.thumb(one, true) })
-                            add(Triple(Ico.CLOSE, "Less like this") { org.omarchy.music.Signals.thumb(one, false) })
-                        }
-                    }
-                    if ((sig?.noAuto ?: 0) > 0) add(Triple(Ico.INFINITY, "Let autoplay, radios and the DJ put it in again") { org.omarchy.music.Signals.noAuto(one, false) })
-                    else add(Triple(Ico.INFINITY, "Not for autoplay, radios or the DJ") { org.omarchy.music.Signals.noAuto(one, true) })
-                }
-                add(Triple(Ico.NEXT, "Play after the current song") { Music.enqueue(picked, "next") })
-                add(Triple(Ico.QUEUE, "Add to the queue") { Music.enqueue(picked) })
-                add(Triple(Ico.PLAYLIST, "Add to a playlist…") { ui.pickPlaylistFor = picked })
-                add(Triple(Ico.MOOD, "Queue a mood edit (look at its moods later)") { org.omarchy.music.MoodQueue.add(picked) })
-                add(Triple(Ico.REFRESH, "Queue a clean/explicit change (swap it for the other version)") { org.omarchy.music.VersionQueue.add(picked) })
-                // Listen later: what's picked (songs, or the songs of the albums and EPs picked) put aside for another time
-                // Other device's songs: the ones ticked that you don't want here, never offered again
-                if (place?.kind == "theirs") add(Triple(Ico.CLOSE, "Leave out (don't offer again)") { org.omarchy.music.LibraryMatch.leaveOut(picked) })
-                // A stats list (Most played, Repeats, Skips, Unplayed and neglected): hide what's picked from all of them
-                if (place?.kind in setOf("top", "repeats", "skips", "neglected")) add(Triple(Ico.CLOSE, "Hide from stats") {
-                    org.omarchy.music.StatHides.hideSongs(picked)
-                    Music.toast((if (picked.size == 1) "“${picked[0].title}” is" else "${picked.size} songs are") + " hidden from the stats lists. Settings › Hidden from stats brings " + (if (picked.size == 1) "it" else "them") + " back") })
-                if (place?.kind == "later") add(Triple(Ico.CLOSE, "Remove from Listen later") { org.omarchy.music.ListenLater.remove(picked) })
-                else add(Triple(Ico.CLOCK, "Add to Listen later playlist") { org.omarchy.music.ListenLater.add(picked) })
-                // …or only what you haven't got of the album (or EP) the picked songs are from: a small Discovery of one album
-                if (place?.kind != "later" && picked.any { it.album.isNotBlank() })
-                    add(Triple(Ico.CLOCK, "Listen later: the album's songs I don't have") { org.omarchy.music.AlbumMissing.laterRest(picked) })
-                if (one != null) {
-                    if (Music.favorites.has(one)) add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
-                    else add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
-                    org.omarchy.music.splitArtists(one.artist).take(3).forEach { n ->
-                        add(Triple(Ico.PERSON, "Go to $n") { ui.pages += Ui.Page.Artist(n, one.source) }) }
-                } else {
-                    add(Triple(Ico.STAR, "Add to favorites") { Music.setFavorite(picked, true) })
-                    add(Triple(Ico.STAR_LINE, "Remove from favorites") { Music.setFavorite(picked, false) })
-                }
-                // Other device's songs: the file copied from the other device (never downloaded from streaming)
-                if (place?.kind == "theirs") add(Triple(Ico.DOWNLOAD, "Copy from ${org.omarchy.music.SongCopy.other}") { org.omarchy.music.SongCopy.get(picked) })
-                else if (one == null || (!one.isFile && !Music.lib.has(one.id))) add(Triple(Ico.DOWNLOAD, "Download") { Music.download(picked) })
-                if (one != null && Music.lib.has(one.id)) add(Triple(Ico.TRASH, "Remove download") {
-                    ui.confirm = "Delete the downloaded copy of “${one.title}”?" to { Music.removeDownload(one.id) } })
-                // Tags, cover, the files' details, lyrics: of your own songs only (the Tagger works on files). Streaming
-                // songs in what's picked (an album you have part of) are skipped, and it says so.
-                add(Triple(Ico.EDIT, "Tagger…") {
-                    val (local, streaming) = picked.partition { it.isFile || it.file != null || Music.lib.has(it.id) }
-                    org.omarchy.music.TaggerPickRules.skipped(streaming.size, local.size).takeIf { it.isNotEmpty() }?.let { Music.toast(it) }
-                    if (local.isNotEmpty()) ui.taggerFor = local
-                })
-                add(Triple(Ico.EQ, "Volume…") { ui.volumeFor = picked })
-                add(Triple(Ico.EQ, "Custom EQ…") { ui.songEqFor = picked })
-                add(Triple(Ico.CLOCK, "Speed…") { ui.speedFor = picked })
-                if (Music.upgrading == null && picked.any { org.omarchy.music.upgradable(it) })
-                    add(Triple(Ico.SPARKLE, "Upgrade to FLAC…") { ui.upgradeFor = picked.filter { org.omarchy.music.upgradable(it) } })
-                picked.filter { it.album.isNotBlank() }.distinctBy { org.omarchy.music.norm(org.omarchy.music.bareTitle(it.album)) }
-                    .takeIf { it.size in 1..3 }?.forEach { t ->   // the albums the songs are on (up to 3): go to one
-                        add(Triple(Ico.DISC, "Go to album “${t.album.trim()}”") { goToAlbum(ui, t) }) }
-                if (picked.size == 1) {   // one song: the options about a single song
-                    val one = picked[0]
-                    org.omarchy.music.splitArtists(one.artist).firstOrNull()?.let { lead ->
-                        add(Triple(Ico.COMPASS, "Discovery playlist for $lead") { Music.makeDiscovery(lead) }) }
-                    if (one.isFile || Music.lib.has(one.id)) add(Triple(Ico.FOLDER_OPEN, "File location") { showLocation(ui, one) })
-                    // A song a history has under a name your file doesn't have: you say which of yours it is
-                    if (!one.isFile && one.file == null && !Music.lib.has(one.id)) add(Triple(Ico.CHECK, "This is a song of mine…") { ui.mySongFor = one })
-                    else org.omarchy.music.YourCopies.linkedTo(one).takeIf { it.isNotEmpty() }?.let { keys ->
-                        add(Triple(Ico.CLOSE, "Undo: ${keys.size} other song${if (keys.size != 1) "s" else ""} counted as this one") {
-                            org.omarchy.music.YourCopies.unlink(one); Music.toast("Undone: counted on their own again") }) }
-                }
-                // On an artist's page: hide songs from it yourself (two bands under one name), or put left-out ones back
-                (ui.pages.lastOrNull() as? Ui.Page.Artist)?.let { ap ->
-                    if (place?.kind == "artist-left") add(Triple(Ico.CHECK, "Show on ${ap.name}'s page") { org.omarchy.music.ArtistShown.songs(ap.name, picked, hide = false) })
-                    else if (place?.kind == "artist") add(Triple(Ico.CLOSE, "Hide from ${ap.name}'s page") { org.omarchy.music.ArtistShown.songs(ap.name, picked, hide = true) })
-                }
-                if (place?.playlistId != null) add(Triple(Ico.CLOSE, "Remove from this playlist") {
-                    val ids = picked.map { it.id }.toSet()
-                    ui.confirm = "Take ${ids.size} song${if (ids.size != 1) "s" else ""} out of this playlist? They stay in your music." to {
-                        Music.removeFromPlaylist(place.playlistId, ids) } })
-                if (place?.kind == "queue" && one == null) add(Triple(Ico.CLOSE, "Remove from the queue") {
-                    // Only the rows picked: of a song waiting twice, the one you picked stays out, the other stays in
-                    Music.unqueueMany(org.omarchy.music.SelectRules.queuePlaces(ui.selected.keys.toList(), Music.queue.map { it.id })) })
-                val files = picked.mapNotNull { it.file ?: Music.lib.items[it.id]?.file }.filter { sharable(it) }
-                if (org.omarchy.music.AudioTools.supported && picked.size == 1 && (picked[0].file ?: Music.lib.items[picked[0].id]?.file) != null)
-                    add(Triple(Ico.SEARCH, "Identify by sound…") { ui.identifyFor = picked[0] })
-                if (one != null) add(Triple(Ico.PERSON, "Credits…") { ui.creditsFor = one })   // who wrote, produced and played on it
-                add(Triple(Ico.COPY, "Copy the names") {   // "Title — Artist", a line each
-                    copyText("Songs", picked.joinToString("\n") { "${it.title} — ${it.artist}" }); Music.toast("Copied ${picked.size} name${if (picked.size != 1) "s" else ""}")
-                })
-                if (one != null) add(Triple(Ico.SHARE, "Share as a picture card…") { ui.songCard = one })
-                if (one != null) add(Triple(Ico.SHARE, "Share a clip with sound…") { ui.songClip = one })
-                if (org.omarchy.music.PlaylistSend.canSend) add(Triple(Ico.CLOUD, "Send to the ${if (onPhone) "PC" else "phone"} (as a playlist there)") {
-                    org.omarchy.music.PlaylistSend.sendSongs(picked) })
-                if (files.isNotEmpty()) add(Triple(Ico.SHARE, "Share") {
-                    shareFiles(files, "Share ${files.size} songs")
-                })
-                if (picked.any { Music.deletable(it) } && !(one != null && Music.lib.has(one.id)))
-                    add(Triple(Ico.TRASH, "Delete permanently…") { ui.deleteFor = picked })
-                if (one != null && place != null) add(Triple(Ico.SELECT, "Select…") { ui.startSelecting(place.group, place, one) })
-            }
+            val opts = songOptions(ui, one, picked, place)
             items(opts.size) { i ->
                 val (ico, label, act) = opts[i]
                 Row(Modifier.fillMaxWidth().clickable {

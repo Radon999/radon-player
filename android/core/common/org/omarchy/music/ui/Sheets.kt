@@ -1809,7 +1809,8 @@ private fun WidgetLines() {
     val widgets = if (onPhone) "home screen widgets" else "desktop widgets"
     Line("Widgets in the app's look", "On: every one of your $widgets wears the app's look: the preset's when one is on, " +
         "else the look you picked (its background, writing and accent; the Now playing look in the cover's colours). Only " +
-        "the look: no effects or moving backgrounds. Off: the colour of the cover playing, as always", look) {
+        "the look: no effects or moving backgrounds. Off: the colour of the cover playing, as always. Your phone and PC share " +
+        "this and the Visualizer widget's choices", look, note = if (look) WidgetLook.copying() else "") {
         Switch(look, { look = it; org.omarchy.music.Prefs.set(WidgetLook.LOOK, it) }, colors = swColors())
     }
     Line("Visualizer widget", "What the Visualizer widget shows. Same as Now playing (the first choice) follows Now playing's " +

@@ -86,6 +86,8 @@ private fun app(args: Array<String>) = application {
     LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.omarchy.music.Startup.moveOld() }; org.omarchy.music.Shortcuts.tidy() } }
     // Started with Windows (or Linux): in the tray. On a desktop with no tray (some Linux ones) its window opens
     // instead: started hidden there, nothing would show it was running.
+    // Each time something asks for the window (a widget's Lyrics card, a command, the tray): it comes to the front
+    var raise by remember { mutableStateOf(0) }
     var shown by remember { mutableStateOf("--tray" !in args || !runCatching { java.awt.SystemTray.isSupported() }.getOrDefault(true)) }
     val tray = androidx.compose.ui.window.rememberTrayState()
     remember { org.omarchy.music.ui.DesktopWidgets.atAppStart(shown) }   // a saved widget layout opened as the app starts
@@ -100,19 +102,19 @@ private fun app(args: Array<String>) = application {
     fun quit() { bitPerfectOff(); Music.player?.release(); exitApplication() }
     LaunchedEffect(Unit) {
         // The main window as commands and the desktop widgets reach it (Instance.inWindow)
-        org.omarchy.music.Instance.window = org.omarchy.music.Instance.MainWindow(show = { shown = true; PcWindows.mini = false },
+        org.omarchy.music.Instance.window = org.omarchy.music.Instance.MainWindow(show = { shown = true; PcWindows.mini = false; raise++ },
             isShown = { shown && !PcWindows.mini }, hide = { shown = false }, quit = { quit() })
         val act = { a: List<String> -> org.omarchy.music.Instance.act(a) }
         org.omarchy.music.Instance.listen(act)
         if (args.any { !it.startsWith("--") || it in setOf("--tidal-login", "--lastfm-login", "--spotify-login") }) act(args.toList())   // opened with a song file, or a command
     }
     Tray(icon = AppIcon, state = tray, tooltip = Music.current()?.let { "${it.title} · ${it.artist}" } ?: "Radon Player",
-        onAction = { shown = true; PcWindows.mini = false }) {
+        onAction = { shown = true; PcWindows.mini = false; raise++ }) {
         Item(if (Music.paused) "Play" else "Pause", onClick = { Music.togglePause() })
         Item("Next", onClick = { Music.next() })
         Item("Previous", onClick = { Music.previous() })
         Separator()
-        Item("Show Radon Player", onClick = { shown = true; PcWindows.mini = false })
+        Item("Show Radon Player", onClick = { shown = true; PcWindows.mini = false; raise++ })
         Item("Mini player", onClick = { PcWindows.mini = true })
         // The desktop widgets: each its own small window (ticked: open)
         Menu("Widgets") {
@@ -162,6 +164,14 @@ private fun app(args: Array<String>) = application {
                 (Back.press() || (org.omarchy.music.ui.Ui.current?.tab == "player").also { if (it) { if (hasTray || noMinimize) shown = false else mainWindow.isMinimized = true } })
         },
         onKeyEvent = { e -> shortcut(e) { quit() } }) {
+        // Asked for (Instance.window.show: a widget, a command, the tray): out of the taskbar if minimized, and in front
+        // of every other window, with the keyboard, even when it was open behind them already
+        LaunchedEffect(raise) {
+            if (raise == 0) return@LaunchedEffect
+            mainWindow.isMinimized = false
+            kotlinx.coroutines.delay(60)
+            org.omarchy.music.ui.bringToFront(window)
+        }
         LaunchedEffect(Unit) {
             val M = Music
             if (M.folders == listOf("Music/") && Library.folders().isNotEmpty())   // the Python app's folders, at the first start
