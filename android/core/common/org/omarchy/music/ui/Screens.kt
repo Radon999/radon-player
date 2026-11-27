@@ -2062,7 +2062,8 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         if (nr.selecting) { nr.toggle(nr.key(r), r to r.artist); return }
         Music.toast("Opening “${r.title}”…")
         Music.bg({ Music.releaseFind(r) }) { found, err ->
-            if (found == null) { Music.toast("Couldn't find “${r.title}” on your services" + (err?.message?.let { ": ${it.take(80)}" } ?: "")); return@bg }
+            // Can't be opened: why (only on Deezer so far, Tidal not signed in, no connection), as the widgets say it
+            if (found == null) { Music.toast(org.omarchy.music.ReleaseLookup.whyNot(r)); return@bg }
             val (key, al, songs) = found
             ui.pages += if (al != null) Ui.Page.AlbumPage(al, key)
                 else Ui.Page.AlbumPage(Album("single-${songs[0].id}", r.title, "${r.artist} · Single", songs[0].thumb.ifEmpty { r.cover }), key, songs)

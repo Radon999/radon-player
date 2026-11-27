@@ -957,7 +957,7 @@ private fun ColumnScope.ReleasesWidget() {
             if (songs.isNullOrEmpty()) {
                 DesktopWidgets.say(if (rs.size == 1) org.omarchy.music.ReleaseLookup.whyNot(rs[0]) else "None of them could be found on your services")
                 // Still its own options (Not my artist…), for a release that can't be played
-                if (rs.size == 1 && nr.canSayNotMine(rs[0])) { menuAt = i; menu = null to emptyList() }
+                if (rs.size == 1) { menuAt = i; menu = null to emptyList() }   // (Not my artist…, Hide the artist)
                 return@bg
             }
             menuAt = i; menu = (if (songs.size == 1) songs[0] else null) to songs
@@ -994,7 +994,13 @@ private fun ColumnScope.ReleasesWidget() {
                 if (menuAt == i && m != null) SongMenu(m, RowPlace(m.second, 0, "releases"), picks, { menu = null; menuAt = -1 },
                     select = { picks.at.clear(); picks.at += i; picks.from = i },
                     // Someone else of the same name (not the artist you listen to): hidden for good, yours still followed
-                    extra = if (picks.at.size <= 1 && nr.canSayNotMine(r)) listOf("Not my ${r.artist} (someone else of that name)" to { nr.notMine(r) }) else emptyList())
+                    extra = if (picks.at.size > 1) {
+                        // Several picked: their artists hidden together, as the app's Hide these artists
+                        val names = picks.at.mapNotNull { list.getOrNull(it)?.artist }.filter { it.isNotBlank() }.distinct()
+                        listOf("Hide these ${names.size} artists (unfollow)" to { org.omarchy.music.Follows.unfollow(names); picks.at.clear() })
+                    } else listOfNotNull(
+                        if (nr.canSayNotMine(r)) "Not my ${r.artist} (someone else of that name)" to { nr.notMine(r) } else null,
+                        "Hide ${r.artist} (unfollow)" to { org.omarchy.music.Follows.unfollow(listOf(r.artist)) }))
             }
         }
     }

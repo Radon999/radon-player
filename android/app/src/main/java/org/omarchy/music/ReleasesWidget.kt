@@ -60,14 +60,16 @@ class ReleasesWidget : AppWidgetProvider() {
         fun newest(): List<NewReleases.Release> {
             val days = NewReleases.RANGES[period()]
             val since = days?.let { java.time.LocalDate.now().minusDays(it).toString() }
-            return PhoneWidgetRules.newest(all().filter { since == null || it.date.take(10) >= since }, { NewReleases.key(it) }, { it.date }, SHOWN)
+            // (Hide Deezer-only, as the app's New releases has it: only the ones you can play)
+            return PhoneWidgetRules.newest(all().filter { (since == null || it.date.take(10) >= since) && NewReleases.shown(it) }, { NewReleases.key(it) }, { it.date }, SHOWN)
         }
 
         /** A release by its key (NewReleases.key). */
         fun find(key: String): NewReleases.Release? = all().firstOrNull { NewReleases.key(it) == key }
 
         fun sub(r: NewReleases.Release): String = listOfNotNull(r.artist.takeIf { it.isNotEmpty() }, KINDS[r.type],
-            PhoneWidgetRules.released(r.date, java.time.LocalDate.now()).takeIf { it.isNotEmpty() }).joinToString(" · ")
+            PhoneWidgetRules.released(r.date, java.time.LocalDate.now()).takeIf { it.isNotEmpty() },
+            ReleaseLookup.whereLabel(r).takeIf { it.isNotEmpty() }).joinToString(" · ")   // where it plays from, as in the app
 
         fun cover(url: String): Bitmap? = covers[url]
 
@@ -102,6 +104,21 @@ class ReleasesWidget : AppWidgetProvider() {
             }
             fetchCovers(ctx, list)
             afterMidnight(ctx)
+            lookAhead(ctx)
+        }
+
+        /** The releases looked up ahead in the background (where each plays from, and quick to play), and the rows drawn
+         *  again once anything new is known: all of them with Hide Deezer-only on (so the Deezer-only ones go), else the
+         *  ones shown. Never more than one look at a time. */
+        private val looking = java.util.concurrent.atomic.AtomicBoolean(false)
+        private fun lookAhead(ctx: Context) {
+            if (!looking.compareAndSet(false, true)) return
+            val before = ReleaseLookup.version
+            val want = if (NewReleases.hideDeezer()) all() else newest()
+            Music.bg({ ReleaseLookup.warm(want, want.size.coerceAtMost(400)) }) { _, _ ->
+                looking.set(false)
+                if (ReleaseLookup.version != before) update(ctx, rows = true)
+            }
         }
 
         /** The covers not in yet, fetched in the background (each given 8 seconds at most), and the rows drawn again with

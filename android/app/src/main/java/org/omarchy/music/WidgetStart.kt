@@ -125,7 +125,7 @@ object WidgetStart {
         val (title, text) = when {
             what == "dj" -> "The DJ couldn't start" to "Tap to open Radon Player and see why"
             kind in QUEUE_KINDS -> "Couldn't start the music" to "Tap to open Radon Player and see why"
-            kind == "release" -> (if (release == null) "That release isn't in New releases any more" else "Couldn't find “${release.title}” to play") to
+            kind == "release" -> (if (release == null) "That release isn't in New releases any more" else ReleaseLookup.whyNot(release)) to
                 "Tap to open it in Radon Player"
             list == null -> "That playlist was deleted" to "Tap the widget and pick another"
             list.tracks.isEmpty() -> "“${list.name}” has no songs yet" to "Add some in Radon Player"
