@@ -166,6 +166,7 @@ class LyricsWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.wy_prev, PlayerWidget.pi(ctx, PlayerWidget.PREV, 2))
             v.setOnClickPendingIntent(R.id.wy_next, PlayerWidget.pi(ctx, PlayerWidget.NEXT, 3))
             v.setOnClickPendingIntent(R.id.wy_card, HomeWidgets.open(ctx, "card", 7452))
+            v.setOnClickPendingIntent(R.id.wy_edit, HomeWidgets.open(ctx, "lyrics_edit", 7453))
             v.setOnClickPendingIntent(R.id.wy_open, HomeWidgets.open(ctx, "lyrics", 7450))
             v.setOnClickPendingIntent(R.id.wy_cover, HomeWidgets.open(ctx, "lyrics", 7450))
             runCatching {

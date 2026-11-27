@@ -13,7 +13,7 @@ import org.omarchy.music.Wrapped
 /** A place in the app asked for from outside it (the phone's home screen widgets): the window opens straight on it.
  *  What is asked is written as [PhoneWidgetRules] says: "player" (Now playing), "top" (Most played), "pinned", "playlists",
  *  "newreleases", "wrapped:week|month|all" (Wrapped on that period; "wrapped" alone: its own choice), "lyrics" (Now playing's
- *  Lyrics), "card" (the lyrics card maker for the song playing), "list:<id>" (a playlist of yours), "folder:<id>" (a folder
+ *  Lyrics), "card" (the lyrics card maker for the song playing), "lyrics_edit" (Lyrics, in Edit), "list:<id>" (a playlist of yours), "folder:<id>" (a folder
  *  of playlists), "pin:<key>" (something pinned), "release:<key>" (a new release's page, as New releases opens it).
  *  The window takes it as it shows ([App]). */
 object AppLinks {
@@ -55,6 +55,7 @@ object AppLinks {
                 ui.sheet = "wrapped"
             }
             "lyrics" -> { goTo(ui, "player"); ui.pane = "lyrics" }
+            "lyrics_edit" -> { goTo(ui, "player"); ui.pane = "lyrics"; ui.lyricsEditAsk = true }
             "card" -> {
                 goTo(ui, "player"); ui.pane = "lyrics"
                 val t = Music.shownTrack() ?: run { Music.toast("Nothing is playing to make a lyrics card of"); return }

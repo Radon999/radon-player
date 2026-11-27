@@ -103,6 +103,13 @@ fun LyricsTab(ui: Ui) {
     val auto = org.omarchy.music.LyricsAutoSync.isAuto(g.synced)
     val heard = org.omarchy.music.LyricsAutoSync.isHeard(g.synced)
     val local = !org.omarchy.music.Remote.active   // the song's file is on this device
+    // The Lyrics widget's ✎ (the phone's home screen can't type): straight into Edit
+    LaunchedEffect(ui.lyricsEditAsk, g) {
+        if (!ui.lyricsEditAsk) return@LaunchedEffect
+        ui.lyricsEditAsk = false
+        if (local) editing = if (synced) g.synced!!.lines().filterNot { it.trim().startsWith("[re:Radon Player") }.joinToString("\n").trim()
+            else g.plain.orEmpty().trim()
+    }
     editing?.let { text ->
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
             Text("EDIT THE LYRICS", style = T.section)

@@ -59,6 +59,7 @@ class Ui {
     var drawer by mutableStateOf(false)                // the ☰ menu is out
     var showQueues by mutableStateOf(false)            // the queues switcher is open
     var lyricsSearch by mutableStateOf(false)          // the lyrics' search box is open
+    var lyricsEditAsk by mutableStateOf(false)         // the phone's Lyrics widget's ✎: open the Lyrics tab's Edit
     var lyricsCard by mutableStateOf<Pair<org.omarchy.music.Track, org.omarchy.music.Lyrics.Got>?>(null)   // Card: making one of this song's
     var rearrange by mutableStateOf<RearrangeWhat?>(null)       // Rearrange: your playlists, or a playlist's songs, being put in order
     var playlistCoverFor by mutableStateOf<String?>(null)       // a playlist's menu › Set a cover…: the playlist a picture is being picked for

@@ -118,7 +118,9 @@ object DesktopWidgets {
      *  app's own messages appear in its window, which may well be hidden in the tray while a widget is used. */
     var note by mutableStateOf<Pair<String, Long>?>(null)
         private set
-    fun say(text: String) { note = text to System.currentTimeMillis(); Music.toast(text) }
+    fun say(text: String) { show(text); Music.toast(text) }
+    /** Only at the widgets' foot (the app already said it in its window). */
+    fun show(text: String) { note = text to System.currentTimeMillis() }
 
     /** The cover playing's main colour (null: none), worked out once a song for every widget (the host keeps it). */
     var coverRgb by mutableStateOf<Int?>(null)
@@ -869,6 +871,36 @@ private fun ColumnScope.LyricsWidget() {
     WHeader(t?.let { "${it.title} · ${it.artist}" } ?: "Lyrics")
     val g = got
     val lines = remember(g) { Lyrics.parseLrc(g?.synced) }
+    // Edit: as the Lyrics tab's Edit, in the widget: the timed lines (their times too) when it has them, else the words;
+    // Save puts them into the song's file (a streamed one's are kept in the app). Lyrics the app timed keep their mark.
+    var editing by remember(t?.id) { mutableStateOf<String?>(null) }
+    val synced = lines.isNotEmpty()
+    if (t != null && editing != null) {
+        val text = editing!!
+        Text((if (synced) "Each line starts with when it's sung [minutes:seconds]: change the words or the times. " else "") +
+            if (org.omarchy.music.LyricsScan.pathOf(t) == null) "Streamed: saved in the app" else "Saved into the song's file",
+            style = wSub, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        androidx.compose.foundation.text.BasicTextField(text, { editing = it },
+            textStyle = T.body.copy(color = W, fontSize = 14.sp, lineHeight = 21.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(W),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(10.dp))
+                .background(Color.Black.copy(alpha = 0.22f)).padding(10.dp))
+        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            WPill("Save", strong = true) {
+                val mark = g?.synced?.lines()?.filter { it.trim().startsWith("[re:Radon Player") }.orEmpty()
+                val body = if (synced && Lyrics.parseLrc(text).isNotEmpty()) (mark + text.trim()).joinToString("\n") else text
+                org.omarchy.music.LyricsScan.edit(t, body) { ok ->
+                    if (ok) {
+                        editing = null
+                        Music.bg({ Lyrics.get(Music.ctx, t) }) { g2, _ -> if (Music.current()?.id == t.id && g2 != null) got = g2 }
+                        DesktopWidgets.show("Lyrics saved")
+                    }
+                }
+            }
+            WPill("Cancel") { editing = null }
+        }
+        return
+    }
     Box(Modifier.weight(1f).fillMaxWidth()) {
         when {
             t == null -> Text("The lyrics of the song playing show here", style = wSub)
@@ -883,6 +915,11 @@ private fun ColumnScope.LyricsWidget() {
     }
     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (g != null && (g.plain != null || g.synced != null)) WPill("Lyrics card") { Instance.lyricsCard() }
+        // Edit (or write them, when none were found), only for a song on this computer's app (not a remote's)
+        if (t != null && state != "loading" && !org.omarchy.music.Remote.active) WPill(if (g?.plain != null || synced) "Edit" else "Write lyrics") {
+            editing = if (synced) g!!.synced!!.lines().filterNot { it.trim().startsWith("[re:Radon Player") }.joinToString("\n").trim()
+                else g?.plain.orEmpty().trim()
+        }
     }
 }
 

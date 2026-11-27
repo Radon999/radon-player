@@ -77,6 +77,8 @@
             android:background="@android:color/transparent" android:src="@drawable/w_next" android:contentDescription="Next" />
         <ImageButton android:id="@+id/wy_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
             android:background="@android:color/transparent" android:src="@drawable/w_share" android:contentDescription="Share a lyrics card" />
+        <ImageButton android:id="@+id/wy_edit" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+            android:background="@android:color/transparent" android:src="@drawable/w_edit" android:contentDescription="Edit the lyrics in the app" />
         <ImageButton android:id="@+id/wy_open" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
             android:background="@android:color/transparent" android:src="@drawable/w_open" android:contentDescription="Open the Lyrics in the app" />
     </LinearLayout>
