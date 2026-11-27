@@ -391,7 +391,9 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("DJ", Ico.DISC, "music", "dj"),
         // New releases beside whose releases it looks for; your folders and unreleased songs (moved here from Music)
         Entry("New releases", Ico.SPARKLE, "music", "newreleases"), Entry("Followed artists", Ico.PERSON, "music", "followed"),
-        Entry("Folders", Ico.FOLDER, "folders"), Entry("Unreleased", Ico.FOLDER, "unreleased"), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
+        Entry("Folders", Ico.FOLDER, "folders"), Entry("Unreleased", Ico.FOLDER, "unreleased"),
+        // (not pages: the equalizer opens over the screen, the mini player takes the app's place)
+        Entry("Equalizer", Ico.EQ, "eq"), *(if (hasMiniPlayer) arrayOf(Entry("Mini player", Ico.VIS, "mini")) else emptyArray()), Entry("Duplicates", Ico.COPY, "music", "dupes"), Entry("Queued mood edits", Ico.MOOD, "music", "moodqueue"),
         Entry("Queued clean/explicit changes", Ico.REFRESH, "music", "versionqueue"))),
 )
 
@@ -432,10 +434,13 @@ private fun DrawerSheet(ui: Ui, right: Boolean = false) {
             }
             Spacer(Modifier.height(8.dp))
             val here = ui.pages.isEmpty()
+            val act = currentActivity()   // (Utilities' Mini player)
             @Composable fun item(e: Entry) {
                 val on = here && ui.tab == e.tab && (e.view == null || e.view == ui.musicView)
                 DrawerItem(e.label, e.ico, on) {
                     if (e.tab == "wrapped") { ui.drawer = false; ui.sheet = "wrapped" }
+                    else if (e.tab == "eq") { ui.drawer = false; ui.sheet = "eq" }
+                    else if (e.tab == "mini") { ui.drawer = false; enterMiniPlayer(act) }
                     else { goTo(ui, e.tab, e.view); if (e.tab == "player") ui.pane = "art" }
                 }
             }
@@ -451,13 +456,8 @@ private fun DrawerSheet(ui: Ui, right: Boolean = false) {
             }
             androidx.compose.material3.HorizontalDivider(color = C.line, modifier = Modifier.padding(vertical = 8.dp))
             DrawerItem("Settings", Ico.SETTINGS, false, quiet = true) { ui.drawer = false; ui.openSettings() }
-            DrawerItem("Equalizer", Ico.EQ, false, quiet = true) { ui.drawer = false; ui.sheet = "eq" }
             DrawerItem("Changelog", Ico.CLOCK, false, quiet = true) { ui.drawer = false; ui.changelog = true }
             DrawerItem("Features", Ico.LYRICS, false, quiet = true) { ui.drawer = false; ui.guide = true }
-            if (hasMiniPlayer) {
-                val act = currentActivity()
-                DrawerItem("Mini player", Ico.VIS, false, quiet = true) { ui.drawer = false; enterMiniPlayer(act) }
-            }
         }
     }
 }
