@@ -1,5 +1,9 @@
 package org.omarchy.music
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+
 /** Where a new release is on the streaming services (Tidal, YouTube Music; never your files), for New releases:
  *  opening one, and a discovery playlist of its songs. [Music] keeps the names the screens call and hands on. */
 object ReleaseLookup {
@@ -8,11 +12,24 @@ object ReleaseLookup {
 
     /** A release's songs found already (an album's asked for once), by [NewReleases.key]: a second play is at once. */
     private val songsOf = java.util.concurrent.ConcurrentHashMap<String, List<Track>>()
+    /** Where each release looked up plays from, by [NewReleases.key]: "tidal", "ytm", or "none" (only on Deezer so far). */
+    private val whereOf = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** Bumps as releases are looked up (the screens showing where each plays from follow it). */
+    var version by androidx.compose.runtime.mutableIntStateOf(0)
+        private set
+    private fun found(ck: String, where: String) { whereOf[ck] = where; Music.scope.launch { version++ } }
+
+    /** Where a release plays from, if it's been looked up: "tidal", "ytm" or "none"; null: not yet. */
+    fun where(r: NewReleases.Release): String? = whereOf[NewReleases.key(r)]
+    /** The same, said: "Tidal", "YouTube Music", "Deezer only: can't play yet", or "" before it's looked up. New
+     *  releases are found on Deezer; they play from Tidal first, else YouTube Music. */
+    fun whereLabel(r: NewReleases.Release): String = NewReleaseRules.whereLabel(where(r))
+
     /** Why a release couldn't be found, in plain words, by [NewReleases.key] (see [whyNot]). */
     private val why = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /** In a test: what was found is forgotten. */
-    internal fun forget() { found.clear(); songsOf.clear(); why.clear() }
+    internal fun forget() { found.clear(); songsOf.clear(); why.clear(); whereOf.clear() }
 
     private fun wanted(r: NewReleases.Release) = norm(cleanTitle(r.title))
 
@@ -36,22 +53,24 @@ object ReleaseLookup {
     fun find(r: NewReleases.Release): Triple<String, Album?, List<Track>>? {
         val ck = NewReleases.key(r)
         found[ck]?.let { return it }
+        // Tidal always first (signed in), then YouTube Music: whichever service you browse with
         var single: Triple<String, Album?, List<Track>>? = null
         var last: Throwable? = null
         val looked = ArrayList<String>(); val failed = ArrayList<String>(); var tidalOff = false
-        for (key in listOf(Music.source, "tidal", "ytm").distinct()) {
+        for (key in listOf("tidal", "ytm")) {
             val src = Music.sources[key]
             if (key == "tidal" && (src == null || !src.signedIn)) { tidalOff = true; continue }
             if (src == null || key !in setOf("tidal", "ytm")) continue
             val name = if (key == "tidal") "Tidal" else "YouTube Music"
             val res = try { src.find("${r.artist} ${r.title}") } catch (e: Exception) { last = e; failed += "$name (${e.message?.take(60) ?: "no answer"})"; continue }
             looked += name
-            albumIn(res, r)?.let { al -> return Triple(key, al, emptyList<Track>()).also { found[ck] = it } }
+            albumIn(res, r)?.let { al -> return Triple(key, al, emptyList<Track>()).also { found[ck] = it; found(ck, key) } }
             if (single == null) songIn(res, r)?.let { single = Triple(key, null, listOf(it)) }
         }
-        single?.let { found[ck] = it; return it }
+        single?.let { found[ck] = it; found(ck, it.first); return it }
         last?.let { logWarn("release ${r.title}", it) }
         why[ck] = NewReleaseRules.whyNot(r.title, r.artist, looked, failed, tidalOff)
+        if (failed.isEmpty()) found(ck, "none")   // (not when a service couldn't be reached: it may well be there)
         return null
     }
 

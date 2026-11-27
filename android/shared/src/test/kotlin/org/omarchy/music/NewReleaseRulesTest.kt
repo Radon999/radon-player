@@ -41,4 +41,11 @@ class NewReleaseRulesTest {
         assertEquals("Couldn't play “Hollow” by June: couldn't reach Tidal (timeout). Check your internet and try again",
             R.whyNot("Hollow", "June", emptyList(), listOf("Tidal (timeout)"), tidalOff = false))
     }
+
+    @Test fun eachReleaseSaysWhereItPlaysFrom() {
+        assertEquals("Tidal", NewReleaseRules.whereLabel("tidal"))
+        assertEquals("YouTube Music", NewReleaseRules.whereLabel("ytm"))
+        assertEquals("Deezer only: can't play yet", NewReleaseRules.whereLabel("none"))
+        assertEquals("not looked up yet: nothing said", "", NewReleaseRules.whereLabel(null))
+    }
 }

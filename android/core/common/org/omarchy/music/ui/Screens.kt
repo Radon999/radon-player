@@ -2041,6 +2041,9 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         }
     }
     val whenText = mapOf("week" to "THE LAST WEEK", "month" to "THE LAST MONTH", "year" to "THE LAST YEAR")[nr.range] ?: ""
+    // The newest looked up ahead (Tidal first, then YouTube Music), so each says where it plays from and starts at once
+    item { LaunchedEffect(nr.found) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching { org.omarchy.music.ReleaseLookup.warm(nr.found.sortedByDescending { it.date }, 20) } } } }
     // A release: its own page on Tidal or YouTube Music, straight away (your files aren't looked through).
     fun find(r: org.omarchy.music.NewReleases.Release) {
         if (nr.selecting) { nr.toggle(nr.key(r), r to r.artist); return }
@@ -2069,7 +2072,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         }
         items(told.size, key = { "nrb-${nr.key(told[it])}-$it" }) { i ->
             val r = told[i]
-            PlaylistRow(Album(r.link, r.title, "${r.artist} · ${kinds[r.type] ?: "Album"} · ${r.date}", r.cover), onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
+            PlaylistRow(Album(r.link, r.title, "${r.artist} · ${kinds[r.type] ?: "Album"} · ${r.date}" + releaseWhere(r), r.cover), onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
                 checked = if (nr.selecting) nr.key(r) in nr.picked else null) { find(r) }
         }
         return
@@ -2095,12 +2098,12 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
     if (rows.isEmpty()) item { Empty("None in this time", "Refresh… a longer time, or look at the other tabs.") }
     laidOutItems(rows, ui, key = { "nr-${rows[it].link}-${rows[it].title}-$it" }, names = { rows[it].title }, otherNames = listOf({ rows[it].artist }), row = { i ->
         val r = rows[i]
-        PlaylistRow(Album(r.link, r.title, "${r.artist} · ${r.date}", r.cover), onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
+        PlaylistRow(Album(r.link, r.title, "${r.artist} · ${r.date}" + releaseWhere(r), r.cover), onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
             checked = if (nr.selecting) nr.key(r) in nr.picked else null) { find(r) }
     }) { i, mod, compact ->
         val r = rows[i]
         val on = nr.selecting && nr.key(r) in nr.picked
-        Tile(r.cover.ifEmpty { null }, r.title, r.artist, mod, compact, extra = r.date, ico = Ico.DISC, lit = on,
+        Tile(r.cover.ifEmpty { null }, r.title, r.artist, mod, compact, extra = r.date + releaseWhere(r), ico = Ico.DISC, lit = on,
             onLongClick = { menu(r.title, listOf(r), nr.key(r), r to r.artist) },
             over = { if (nr.selecting) Tick(on, Modifier.align(Alignment.TopEnd).padding(6.dp)) }) { find(r) }
     }
@@ -2661,4 +2664,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.topArtistsItems(ui: Ui) {
         val a = artists[i]
         Tile(artistArt(a.name, a.thumb), a.name, plays(a.plays), mod, compact, round = true, ico = Ico.PERSON, onLongClick = { artistMenu(ui, a.name, a.thumb) }) { ui.pages += Ui.Page.Artist(a.name) }
     }
+}
+
+/** Where a new release plays from, after its date: " · Tidal", " · YouTube Music", " · Deezer only: can't play yet", or
+ *  nothing before it's been looked up. Read in Compose: it shows as soon as it's known. */
+internal fun releaseWhere(r: org.omarchy.music.NewReleases.Release): String {
+    org.omarchy.music.ReleaseLookup.version
+    return org.omarchy.music.ReleaseLookup.whereLabel(r).let { if (it.isEmpty()) "" else " · $it" }
 }

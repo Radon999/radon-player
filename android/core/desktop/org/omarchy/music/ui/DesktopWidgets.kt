@@ -908,7 +908,7 @@ private fun ColumnScope.ReleasesWidget() {
         }
     }
     // The first few looked up ahead, quietly, so a click plays at once instead of searching first
-    LaunchedEffect(list) { withContext(Dispatchers.IO) { runCatching { org.omarchy.music.ReleaseLookup.warm(list) } } }
+    LaunchedEffect(list) { withContext(Dispatchers.IO) { runCatching { org.omarchy.music.ReleaseLookup.warm(list, 20) } } }
     val picks = remember { WPicks() }
     var menu by remember { mutableStateOf<Pair<Track?, List<Track>>?>(null) }
     var menuAt by remember { mutableStateOf(-1) }
@@ -931,10 +931,13 @@ private fun ColumnScope.ReleasesWidget() {
     LazyColumn(Modifier.weight(1f)) {
         items(list.size, key = { nr.key(list[it]) }) { i ->
             val r = list[i]
+            org.omarchy.music.ReleaseLookup.version   // (read: the row says where it plays from as soon as that's known)
             val parts = listOfNotNull<Pair<String, (() -> Unit)?>>(
                 r.artist to { goArtist(r.artist) },
                 kinds[r.type]?.let { it to { open(r) } },
-                DesktopWidgetRules.whenOut(r.date, today).takeIf { it.isNotEmpty() }?.let { it to null })
+                DesktopWidgetRules.whenOut(r.date, today).takeIf { it.isNotEmpty() }?.let { it to null },
+                // Where it plays from: Tidal first, else YouTube Music, else only on Deezer so far
+                org.omarchy.music.ReleaseLookup.whereLabel(r).takeIf { it.isNotEmpty() }?.let { it to null })
             Box {
                 WRow(r.cover.ifEmpty { null }, r.title, "", parts = parts, picked = i in picks.at, onRight = { options(i) }) {
                     if (picks.click(i, mods.isCtrlPressed || mods.isMetaPressed, mods.isShiftPressed)) return@WRow

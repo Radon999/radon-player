@@ -2,6 +2,14 @@ package org.omarchy.music
 
 /** New releases found by themselves, and the wake-up timer: what is said, and when. */
 object NewReleaseRules {
+    /** Where a new release plays from, said (where: "tidal", "ytm", "none", or null before it's looked up). */
+    fun whereLabel(where: String?): String = when (where) {
+        "tidal" -> "Tidal"
+        "ytm" -> "YouTube Music"
+        "none" -> "Deezer only: can't play yet"
+        else -> ""
+    }
+
     /** Why a new release (found on Deezer, where the app looks for them) can't be played: the services it was looked
      *  for on (looked), those that couldn't be reached (failed: "Tidal (why)"), and whether Tidal isn't signed in. */
     fun whyNot(title: String, artist: String, looked: List<String>, failed: List<String>, tidalOff: Boolean): String {
