@@ -1,33 +1,44 @@
-commit 2beef6742557c8baf5de39ce5706ebc69f50cb11 · run 46066348607 · Fri Nov 27 21:00:42 UTC 2026
+commit 19040098674ca927e66b83cac82bf5e9d1848be8 · run 46068204596 · Fri Nov 27 21:18:10 UTC 2026
 SHARED TESTS: 155 suites, 777 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
 PC COMPILES: yes
-LINUX PACKAGE: not built
-LINUX START: no package to start
+LINUX PACKAGE: radon-player_5.2.6_amd64.deb, 92M
+LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
+LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+LINUX START: the installed app started and was still running after 45 s
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:08 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
+LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
+LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
+LINUX MEDIA KEYS: after the Pause key: (<'Paused'>,)  · the app: Paused: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX MEDIA KEYS: after the Play/Pause key: (<'Playing'>,)  · the app: Playing: Linux test tone · Radon checks (0:17 of 0:40)
+LINUX MEDIA KEYS: the player's name: (<'Radon Player'>,) 
+LINUX START: a picture of its window was taken (linux-start.jpg)
+LINUX SCREENS: pictures of 12 tabs on one sheet (linux-screens.jpg): music albums singles artists folders unreleased downloads playlists top skips queue settings
+LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
+LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
+LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
-> Task :desktop:compileKotlin FAILED
-e: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:594:46 Unresolved reference 'isCtrlPressed'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:594:68 Unresolved reference 'isMetaPressed'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:594:88 Unresolved reference 'isShiftPressed'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:45 Unresolved reference 'isCtrlPressed'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:67 Unresolved reference 'isMetaPressed'.
-e: file:///home/runner/work/radon-player/radon-player/android/core/desktop/org/omarchy/music/ui/DesktopWidgets.kt:943:87 Unresolved reference 'isShiftPressed'.
+org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
+    java.lang.AssertionError: each looks different expected:<14> but was:<12>
+        at org.junit.Assert.fail(Assert.java:89)
+--
+> Task :desktop:test FAILED
 
-> Task :app:compileDebugKotlin
+135 tests completed, 1 failed, 1 skipped
 --
 * What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+Execution failed for task ':desktop:test'.
+> Process 'Gradle Test Executor 2' finished with non-zero exit value 134
 --
-BUILD FAILED in 3m 39s
-55 actionable tasks: 55 executed
+BUILD FAILED in 4m 16s
+59 actionable tasks: 59 executed
 --- the end of the log
-> Task :app:bundleDebugClassesToRuntimeJar
+> Task :desktop:test FAILED
 
-> Task :app:compileDebugUnitTestKotlin
-w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+135 tests completed, 1 failed, 1 skipped
 
 > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
 > Task :app:processDebugUnitTestJavaRes
@@ -36,9 +47,10 @@ w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement ma
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':desktop:compileKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+Execution failed for task ':desktop:test'.
+> Process 'Gradle Test Executor 2' finished with non-zero exit value 134
+  This problem might be caused by incorrect test process configuration.
+  For more on test execution, please refer to https://docs.gradle.org/8.7/userguide/java_testing.html#sec:test_execution in the Gradle documentation.
 
 * Try:
 > Run with --stacktrace option to get the stack trace.
@@ -52,5 +64,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 3m 39s
-55 actionable tasks: 55 executed
+BUILD FAILED in 4m 16s
+59 actionable tasks: 59 executed
