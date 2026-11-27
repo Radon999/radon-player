@@ -19,6 +19,8 @@ import org.omarchy.music.Music
 object FollowedPicks {
     val names = mutableStateListOf<String>()
     var on by mutableStateOf(false)
+    /** Only the favorite artists for New releases shown (★ Favorites only). */
+    var favOnly by mutableStateOf(false)
     fun toggle(n: String) { if (n in names) names.remove(n) else names += n }
     fun done() { on = false; names.clear() }
 }
@@ -28,9 +30,10 @@ object FollowedPicks {
  *  (right-click an artist anywhere). With Follow artists by themselves on (Settings › General), the artists of your songs
  *  and of your Radon Player playlists are followed as they come; an unfollow always stays. */
 fun LazyListScope.followedView(ui: Ui) {
-    val all = Follows.list().sortedBy { it.lowercase() }
-    val shown = all.filter { fits(ui, it) }
     val P = FollowedPicks
+    val NR = org.omarchy.music.NewReleases
+    val all = Follows.list().sortedBy { it.lowercase() }
+    val shown = all.filter { fits(ui, it) && (!P.favOnly || NR.isFavorite(it)) }
     item {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (P.on) {
@@ -38,12 +41,17 @@ fun LazyListScope.followedView(ui: Ui) {
                     if (P.names.isEmpty()) Music.toast("Pick the artists to unfollow first")
                     else { val n = P.names.toList(); ui.confirm = "Unfollow ${n.size} artist${if (n.size != 1) "s" else ""}? Their new releases won't show." to { Follows.unfollow(n); P.done() } }
                 }
+                // The picked made favorites for New releases (a shorter list with its own bell), or not any more
+                if (P.names.isNotEmpty()) Pill("Add to favorites (${P.names.size})", quiet = true) { NR.setFavorite(P.names.toList(), true); P.done() }
+                if (P.names.any { NR.isFavorite(it) }) Pill("Remove from favorites", quiet = true) {
+                    NR.setFavorite(P.names.filter { NR.isFavorite(it) }, false); P.done() }
                 Pill("Done", quiet = true) { P.done() }
             } else if (all.isNotEmpty()) Pill("Select", quiet = true) { P.on = true }
+            Chip("★ Favorites only", P.favOnly) { P.favOnly = !P.favOnly }
         }
     }
     item {
-        Section(if (P.on) "${P.names.size} PICKED" else "${all.size} FOLLOWED" +
+        Section(if (P.on) "${P.names.size} PICKED" else if (P.favOnly) "${shown.size} FAVORITE ARTISTS FOR NEW RELEASES" else "${all.size} FOLLOWED" +
             if (Follows.autoOn()) " · YOUR ARTISTS FOLLOWED BY THEMSELVES" else " · FOLLOWED BY HAND ONLY (SETTINGS › GENERAL)")
     }
     if (all.isEmpty()) {
