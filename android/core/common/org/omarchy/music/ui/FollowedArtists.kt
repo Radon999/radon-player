@@ -61,7 +61,7 @@ fun LazyListScope.followedView(ui: Ui) {
     }
     items(shown, key = { "follow-$it" }) { n ->
         val fav = org.omarchy.music.NewReleases.isFavorite(n)
-        PlaylistRow(Album(n, n, if (P.on) (if (n in P.names) "Picked" else "") else if (fav) "★ Favorite · new releases looked for" else "New releases looked for", ""), artistArt(n),
+        PlaylistRow(Album(n, n, if (P.on) (if (n in P.names) "Picked" else "") else if (fav) "★ New releases looked for and prioritized" else "New releases looked for", ""), artistArt(n),
             checked = if (P.on) n in P.names else null,
             onLongClick = { ui.choices = n to listOf(
                 if (fav) "Remove from favorite artists" to { org.omarchy.music.NewReleases.setFavorite(listOf(n), false) }
