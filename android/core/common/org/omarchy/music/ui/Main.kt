@@ -361,16 +361,20 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("EPs", Ico.DISC, "eps"))
         add(Entry("Singles", Ico.DISC, "singles"))
         add(Entry("Artists", Ico.PERSON, "artists"))
-        add(Entry("Genres", Ico.GENRE, "genres"))
-        add(Entry("Moods", Ico.MOOD, "moods"))
         add(Entry("Playlists", Ico.PLAYLIST, "music", "playlists"))
         add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
-        if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
-        add(Entry("Discovery", Ico.COMPASS, "music", "discovery"))
-        add(Entry("Listen later", Ico.CLOCK, "music", "later"))   // what you put aside to hear another time
     }),
+    // Your songs by what they are
+    Triple("categories", "Categories", listOf(Entry("Genres", Ico.GENRE, "genres"), Entry("Moods", Ico.MOOD, "moods"))),
+    // The library of the streaming service picked (none while you browse your own music)
+    Triple("streaming", "Streaming", buildList {
+        if (!Music.browseLocal) add(Entry("${SOURCES[Music.source] ?: "Service"} library", Ico.CLOUD, "library"))
+    }),
+    // Going through an artist's whole discography: the songs to hear, and the ones put aside for later
+    Triple("diving", "Discography diving", listOf(Entry("Discovery", Ico.COMPASS, "music", "discovery"),
+        Entry("Listen later", Ico.CLOCK, "music", "later"))),   // what you put aside to hear another time
     // Your songs by the kind of file they are: to look at one kind when it has a fault or needs tagging
     Triple("filetypes", "File type", buildList {
         add(Entry("FLACs", Ico.NOTE, "type-flac"))
