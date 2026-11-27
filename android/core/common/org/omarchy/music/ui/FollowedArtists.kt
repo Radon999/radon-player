@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -59,15 +58,26 @@ fun LazyListScope.followedView(ui: Ui) {
             "themselves in Settings › General to follow the artists of your songs and playlists.") }
         return
     }
-    items(shown, key = { "follow-$it" }) { n ->
-        val fav = org.omarchy.music.NewReleases.isFavorite(n)
-        PlaylistRow(Album(n, n, if (P.on) (if (n in P.names) "Picked" else "") else if (fav) "★ New releases looked for and prioritized" else "New releases looked for", ""), artistArt(n),
-            checked = if (P.on) n in P.names else null,
-            onLongClick = { ui.choices = n to listOf(
-                if (fav) "Remove from favorite artists" to { org.omarchy.music.NewReleases.setFavorite(listOf(n), false) }
-                else "Add to favorite artists" to { org.omarchy.music.NewReleases.setFavorite(listOf(n), true) },
-                "Unfollow" to { Follows.unfollow(listOf(n)) }, "Select" to { P.on = true; P.toggle(n) }) }) {
-            if (P.on) P.toggle(n) else ui.pages += Ui.Page.Artist(n)
-        }
+    fun menu(n: String, fav: Boolean) {
+        ui.choices = n to listOf(
+            if (fav) "Remove from favorite artists" to { NR.setFavorite(listOf(n), false) }
+            else "Add to favorite artists" to { NR.setFavorite(listOf(n), true) },
+            "Unfollow" to { Follows.unfollow(listOf(n)) }, "Select" to { P.on = true; P.toggle(n) })
+    }
+    fun open(n: String) { if (P.on) P.toggle(n) else ui.pages += Ui.Page.Artist(n) }
+    // As a list (each with whether its new releases are looked for, and prioritized), or a grid of pictures (the
+    // favorites' names with a ★), as the page's layout says
+    laidOutItems(shown, ui, key = { "follow-${shown[it]}" }, names = { shown[it] }, row = { i ->
+        val n = shown[i]
+        val fav = NR.isFavorite(n)
+        PlaylistRow(Album(n, n, if (P.on) (if (n in P.names) "Picked" else "") else if (fav) "★ New releases looked for and prioritized" else "New releases looked for", ""),
+            artistArt(n), checked = if (P.on) n in P.names else null, onLongClick = { menu(n, fav) }) { open(n) }
+    }) { i, mod, compact ->
+        val n = shown[i]
+        val fav = NR.isFavorite(n)
+        val on = P.on && n in P.names
+        Tile(artistArt(n), if (fav) "★ $n" else n, "", mod, compact, round = true, ico = Ico.PERSON, lit = on,
+            onLongClick = { menu(n, fav) },
+            over = { if (P.on) Tick(on, androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(6.dp)) }) { open(n) }
     }
 }
