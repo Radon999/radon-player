@@ -55,4 +55,22 @@ object FollowRules {
     }
 
     fun isFollowed(followed: List<String>, name: String): Boolean = followed.any { key(it) == key(name) }
+
+    /** Favorite artists for New releases: a shorter list of your own, kept beside the followed (who stay followed).
+     *  The favorites as written, one per line. */
+    const val FAVORITES = "new_releases_favorites"
+
+    /** Favorites after adding names (each once, however it's written) or taking them away. */
+    fun favorites(now: List<String>, names: List<String>, add: Boolean): List<String> {
+        val ks = names.mapTo(HashSet()) { key(it) }
+        if (!add) return now.filter { key(it) !in ks }
+        val have = now.mapTo(HashSet()) { key(it) }
+        return now + names.map { it.trim() }.filter { it.isNotEmpty() && have.add(key(it)) }
+    }
+
+    /** Of new releases' artists (one per new release), how many are favorites: the favorites' bell counts only those. */
+    fun favoriteCount(artists: List<String>, favorites: List<String>): Int {
+        val fs = favorites.mapTo(HashSet()) { key(it) }
+        return artists.count { key(it) in fs }
+    }
 }

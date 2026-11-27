@@ -2008,9 +2008,11 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
             // The bell: what the app's own daily look found (Settings › Playback › New releases by themselves), with how
             // many are new since it was last opened. Tap it again to go back to the tabs
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.TopEnd) {
-                IconButton(Ico.BELL, color = if (nr.bell || nr.unseen > 0) C.accent else C.fg, pad = 6.dp,
-                    desc = if (nr.unseen > 0) "${nr.unseen} new releases found for you" else "New releases found for you") { nr.openBell(!nr.bell) }
-                if (nr.unseen > 0) Text(if (nr.unseen > 99) "99+" else "${nr.unseen}",
+                // The bell of the view shown: in Favorites, only your favorite artists' new releases and their count
+                val bellN = nr.bellCount()
+                IconButton(Ico.BELL, color = if (nr.bell || bellN > 0) C.accent else C.fg, pad = 6.dp,
+                    desc = if (bellN > 0) "$bellN new releases found for you" else "New releases found for you") { nr.openBell(!nr.bell) }
+                if (bellN > 0) Text(if (bellN > 99) "99+" else "$bellN",
                     style = T.sub.copy(color = C.darker, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     modifier = Modifier.background(C.accent, androidx.compose.foundation.shape.CircleShape).padding(horizontal = 4.dp))
             }
@@ -2020,6 +2022,8 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
             } else Pill("Stop", quiet = true) { nr.stop = true }
             if (nr.scanned > 0 && nr.found.isNotEmpty())
                 Pill(if (nr.selecting) "Done" else "Select", quiet = true) { nr.selecting = !nr.selecting; if (!nr.selecting) nr.picked.clear() }
+            // Your favorite artists only (a shorter list, with its own bell), or every artist you follow
+            Pill(if (nr.favView()) "★ Favorites" else "All artists", quiet = !nr.favView()) { nr.setFavView(!nr.favView()) }
         }
         if (nr.selecting) {   // picks kept across Albums, Singles, EPs and Artists
             Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2027,6 +2031,8 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
                     if (nr.picked.isEmpty()) Music.toast("Pick some releases or artists first (on any tab)")
                     else { ui.releasePick = nr.pickedReleases(); nr.picked.clear(); nr.selecting = false }
                 }
+                if (nr.picked.isNotEmpty()) Pill("Add to favorite artists", quiet = true) {
+                    nr.setFavorite(nr.picked.values.map { it.second }.filter { it.isNotBlank() }.distinct(), true); nr.picked.clear(); nr.selecting = false }
                 if (nr.picked.isNotEmpty()) Pill("Hide these artists", quiet = true) {
                     val names = nr.picked.values.map { it.second }.filter { it.isNotBlank() }.distinct()
                     ui.confirm = "Hide ${names.size} artist${if (names.size != 1) "s" else ""} from New releases? They're unfollowed (Utilities › Followed artists)." to {
@@ -2078,14 +2084,17 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
             pick.first?.takeIf { nr.canSayNotMine(it) }?.let { r -> "Not my ${r.artist} (someone else of that name)" to {
                 ui.confirm = "Is the ${r.artist} who made “${r.title}” someone else, not the ${r.artist} you listen to? Their releases go, " +
                     "and yours of that name stays followed." to { nr.notMine(r) } } },
+            // Favorites: a shorter list of artists you really want to hear about (they stay in the whole list too)
+            pick.second.takeIf { it.isNotBlank() }?.let { a -> if (nr.isFavorite(a)) "Remove $a from favorite artists" to { nr.setFavorite(listOf(a), false) }
+                else "Add $a to favorite artists" to { nr.setFavorite(listOf(a), true) } },
             pick.second.takeIf { it.isNotBlank() }?.let { a -> "Hide $a (unfollow)" to {
                 ui.confirm = "Hide $a from New releases? They're unfollowed (Utilities › Followed artists brings them back)." to { org.omarchy.music.Follows.unfollow(listOf(a)) } } })
     }
     if (nr.bell) {
-        val told = nr.told.filter { fits(ui, it.artist, it.title) && nr.shown(it) }
+        val told = nr.told.filter { fits(ui, it.artist, it.title) && nr.shown(it) && nr.inView(it) }
         val kinds = mapOf("album" to "Album", "single" to "Single", "ep" to "EP")
         item {
-            Section(if (told.isEmpty()) "THE BELL · NOTHING NEW FOUND YET" else "THE BELL · ${told.size} FOUND FOR YOU · NEWEST FIRST")
+            Section((if (nr.favView()) "FAVORITES' BELL" else "THE BELL") + if (told.isEmpty()) " · NOTHING NEW FOUND YET" else " · ${told.size} FOUND FOR YOU · NEWEST FIRST")
             if (told.isEmpty()) Empty("Nothing under the bell yet", "With New releases by themselves switched on (Settings › Playback), the app looks once a day, " +
                 "while it is open, at what your artists put out in the last week: the artists of the songs you have as files or downloads, and of the songs in " +
                 "your Radon Player playlists. What it finds is listed here, each release once, and the bell shows how many are new. ${TAP.cap()} the bell again for the tabs.")
@@ -2099,7 +2108,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         return
     }
     if (nr.kind == "artists") {
-        val by = nr.found.filter { fits(ui, it.artist, it.title) && nr.shown(it) }.groupBy { it.artist }.toList()
+        val by = nr.found.filter { fits(ui, it.artist, it.title) && nr.shown(it) && nr.inView(it) }.groupBy { it.artist }.toList()
         item { Section("${by.size} ARTISTS WITH NEW MUSIC · $whenText") }
         items(by.size, key = { "nra-${by[it].first}" }) { i ->
             val (artist, rs) = by[i]
@@ -2113,7 +2122,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.newReleasesView(ui: Ui) {
         }
         return
     }
-    val rows = nr.found.filter { it.type == nr.kind && fits(ui, it.artist, it.title) && nr.shown(it) }
+    val rows = nr.found.filter { it.type == nr.kind && fits(ui, it.artist, it.title) && nr.shown(it) && nr.inView(it) }
+    // Favorites with none yet: how to add one
+    if (nr.favView() && nr.favorites().isEmpty()) item { Empty("No favorite artists yet", "Right-click (or hold) a release and pick " +
+        "Add to favorite artists: Favorites then shows only theirs, with a bell of its own. Your whole list stays as it is.") }
     val name = mapOf("album" to "ALBUMS", "single" to "SINGLES", "ep" to "EPS")[nr.kind] ?: ""
     item { Section("${rows.size} ${if (rows.size == 1) name.dropLast(1) else name} · $whenText · NEWEST FIRST") }
     if (rows.isEmpty()) item { Empty("None in this time", "Refresh… a longer time, or look at the other tabs.") }

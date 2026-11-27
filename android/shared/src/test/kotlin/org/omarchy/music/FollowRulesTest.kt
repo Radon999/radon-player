@@ -39,4 +39,12 @@ class FollowRulesTest {
         assertEquals("Radiohead\nClairo", R.write(f))
         assertEquals(f, R.parse(R.write(f)))
     }
+
+    @Test fun favoritesAreAShorterListBesideTheFollowed() {
+        var fav = R.favorites(emptyList(), listOf("Forrest", "Radiohead", "forrest"), add = true)
+        assertEquals(listOf("Forrest", "Radiohead"), fav)
+        fav = R.favorites(fav, listOf("radiohead"), add = false)
+        assertEquals(listOf("Forrest"), fav)
+        assertEquals("the favorites' bell counts only theirs", 2, R.favoriteCount(listOf("Forrest", "June", "FORREST"), fav))
+    }
 }

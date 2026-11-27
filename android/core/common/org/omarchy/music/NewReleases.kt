@@ -19,7 +19,7 @@ object NewReleases {
     @Serializable
     private data class Saved(val artists: List<String> = emptyList(), val ids: Map<String, Long> = emptyMap(),
                              val found: List<Release> = emptyList(), val scanned: Double = 0.0, val range: String = "month",
-                             val told: List<Release> = emptyList(), val unseen: Int = 0)
+                             val told: List<Release> = emptyList(), val unseen: Int = 0, val favUnseen: Int = 0)
 
     val RANGES = linkedMapOf("week" to 7L, "month" to 30L, "year" to 365L)
     var artists by mutableStateOf(listOf<String>()); private set
@@ -33,9 +33,41 @@ object NewReleases {
     var told by mutableStateOf(listOf<Release>()); private set
     var unseen by mutableStateOf(0); private set
     var bell by mutableStateOf(false); private set
-    /** The bell opened (its count is then seen) or closed. */
-    fun openBell(on: Boolean) { bell = on; if (on && unseen > 0) { unseen = 0; Music.bg({ save() }) } }
-    fun clearBell() { told = emptyList(); unseen = 0; Music.bg({ save() }) }
+    /** The favorites' own bell: how many of what came since it was last opened are your favorite artists'. */
+    var favUnseen by mutableStateOf(0); private set
+    /** The bell opened (its count is then seen: the favorites' in Favorites, else the whole one's) or closed. */
+    fun openBell(on: Boolean) {
+        bell = on
+        if (!on) return
+        if (favView()) { if (favUnseen > 0) { favUnseen = 0; Music.bg({ save() }) } }
+        else if (unseen > 0) { unseen = 0; Music.bg({ save() }) }
+    }
+    fun clearBell() { told = emptyList(); unseen = 0; favUnseen = 0; Music.bg({ save() }) }
+    /** The count on the bell in the view shown (Favorites: only theirs). */
+    fun bellCount(): Int = if (favView()) favUnseen else unseen
+
+    // ---- Favorites: a shorter list of artists you really want to hear about (beside all you follow) ----
+    private const val FAV_VIEW = "new_releases_fav_view"
+    /** The favorite artists for New releases, as written. Read in Compose. */
+    fun favorites(): List<String> = FollowRules.parse(Prefs.text(FollowRules.FAVORITES))
+    fun isFavorite(name: String): Boolean = FollowRules.key(name) in favorites().map { FollowRules.key(it) }
+    /** Favorites added (and followed, so their releases are looked for) or taken away (still followed: they stay in the
+     *  whole list). */
+    fun setFavorite(names: List<String>, add: Boolean) {
+        Prefs.setText(FollowRules.FAVORITES, FollowRules.write(FollowRules.favorites(favorites(), names, add)))
+        if (add) Follows.follow(names, quiet = true)
+        Music.toast(when {
+            add && names.size == 1 -> "${names[0]} is a favorite artist: in New releases' Favorites"
+            add -> "${names.size} favorite artists added"
+            names.size == 1 -> "${names[0]} is no longer a favorite (still in the whole list)"
+            else -> "${names.size} taken out of the favorites (still in the whole list)"
+        })
+    }
+    /** New releases showing only your favorites (and their own bell), or every artist you follow. */
+    fun favView(): Boolean = Prefs.on(FAV_VIEW)
+    fun setFavView(on: Boolean) { Prefs.set(FAV_VIEW, on); bell = false }
+    /** In the view shown: everyone's, or (Favorites) a favorite's. Read in Compose. */
+    fun inView(r: Release): Boolean = !favView() || isFavorite(r.artist)
     @Volatile var stop = false
     private val ids = HashMap<String, Long>()
     private lateinit var file: File
@@ -43,11 +75,11 @@ object NewReleases {
     fun init(c: Ctx) {
         file = File(c.filesDir, "new-releases.json")
         Music.bg({ readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
-            if (s != null) { artists = s.artists; found = s.found; scanned = s.scanned; range = s.range; ids.putAll(s.ids); told = s.told; unseen = s.unseen }
+            if (s != null) { artists = s.artists; found = s.found; scanned = s.scanned; range = s.range; ids.putAll(s.ids); told = s.told; unseen = s.unseen; favUnseen = s.favUnseen }
         }
     }
 
-    private fun save() = writeAtomic(file, JSON.encodeToString(Saved.serializer(), Saved(artists, HashMap(ids), found, scanned, range, told, unseen)))
+    private fun save() = writeAtomic(file, JSON.encodeToString(Saved.serializer(), Saved(artists, HashMap(ids), found, scanned, range, told, unseen, favUnseen)))
 
     /** The artists to look for: the lead artist of every song of yours, the ones you have most songs of first. */
     fun readArtists(songs: List<Track>): Int {
@@ -185,7 +217,9 @@ object NewReleases {
         Prefs.setText(SEEN, (new.map { it.first } + seen).take(600).joinToString("\n"))
         val keys = new.map { it.first }.toSet()
         told = (res.filter { key(it) in keys } + told).distinctBy { key(it) }.sortedByDescending { it.date }.take(300)
-        unseen = if (bell) 0 else unseen + new.size
+        unseen = if (bell && !favView()) 0 else unseen + new.size
+        val favNew = FollowRules.favoriteCount(new.map { it.second.second }, favorites())
+        favUnseen = if (bell && favView()) 0 else favUnseen + favNew
         Music.bg({ save() })
     }
 

@@ -896,16 +896,21 @@ private fun ColumnScope.LyricsWidget() {
 private fun ColumnScope.ReleasesWidget() {
     val nr = org.omarchy.music.NewReleases
     val place = DesktopWidgets.place("releases")
-    val range = place.choice.substringBefore('|').takeIf { it in nr.RANGES } ?: "month"
-    val kind = place.choice.substringAfter('|', "all").takeIf { it in setOf("all", "album", "ep", "single") } ?: "all"
-    fun choose(r: String = range, k: String = kind) = DesktopWidgets.save("releases", place.copy(choice = "$r|$k"))
+    // The widget's own choices, kept: "range|kind|fav" (fav: only your favorite artists)
+    val parts0 = place.choice.split('|')
+    val range = parts0.getOrNull(0)?.takeIf { it in nr.RANGES } ?: "month"
+    val kind = parts0.getOrNull(1)?.takeIf { it in setOf("all", "album", "ep", "single") } ?: "all"
+    val favOnly = parts0.getOrNull(2) == "fav"
+    fun choose(r: String = range, k: String = kind, f: Boolean = favOnly) =
+        DesktopWidgets.save("releases", place.copy(choice = "$r|$k" + if (f) "|fav" else ""))
     val today = remember { java.time.LocalDate.now() }
     val hideDeezer = nr.hideDeezer()
     org.omarchy.music.ReleaseLookup.version   // (read: a release found only on Deezer goes as soon as that's known)
-    val list = remember(nr.found, nr.told, range, kind, hideDeezer, org.omarchy.music.ReleaseLookup.version) {
+    val favs = nr.favorites()
+    val list = remember(nr.found, nr.told, range, kind, hideDeezer, favOnly, favs, org.omarchy.music.ReleaseLookup.version) {
         val since = today.minusDays(nr.RANGES[range] ?: 30L)
         DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, 200)
-            .filter { r -> (kind == "all" || r.type == kind) && nr.shown(r) && runCatching { !java.time.LocalDate.parse(r.date.take(10)).isBefore(since) }.getOrDefault(true) }
+            .filter { r -> (kind == "all" || r.type == kind) && nr.shown(r) && (!favOnly || nr.isFavorite(r.artist)) && runCatching { !java.time.LocalDate.parse(r.date.take(10)).isBefore(since) }.getOrDefault(true) }
             .take(60)
     }
     val kinds = mapOf("single" to "Single", "ep" to "EP", "album" to "Album")
@@ -918,6 +923,9 @@ private fun ColumnScope.ReleasesWidget() {
         Spacer(Modifier.width(6.dp))
         // Only what you can play, or the Deezer-only ones too (the same switch as the app's New releases)
         WChip("Hide Deezer-only", hideDeezer) { nr.setHideDeezer(!hideDeezer) }
+        Spacer(Modifier.width(6.dp))
+        // Only your favorite artists (as the app's New releases' Favorites)
+        WChip("★ Favorites", favOnly) { choose(f = !favOnly) }
     }
     // The app last looked back less far than asked: said, as what's shown can't go further back than that
     if ((nr.RANGES[range] ?: 0L) > (nr.RANGES[nr.range] ?: 0L))
@@ -997,8 +1005,11 @@ private fun ColumnScope.ReleasesWidget() {
                     extra = if (picks.at.size > 1) {
                         // Several picked: their artists hidden together, as the app's Hide these artists
                         val names = picks.at.mapNotNull { list.getOrNull(it)?.artist }.filter { it.isNotBlank() }.distinct()
-                        listOf("Hide these ${names.size} artists (unfollow)" to { org.omarchy.music.Follows.unfollow(names); picks.at.clear() })
+                        listOf("Add ${names.size} artists to favorite artists" to { nr.setFavorite(names, true); picks.at.clear() },
+                            "Hide these ${names.size} artists (unfollow)" to { org.omarchy.music.Follows.unfollow(names); picks.at.clear() })
                     } else listOfNotNull(
+                        if (nr.isFavorite(r.artist)) "Remove ${r.artist} from favorite artists" to { nr.setFavorite(listOf(r.artist), false) }
+                        else "Add ${r.artist} to favorite artists" to { nr.setFavorite(listOf(r.artist), true) },
                         if (nr.canSayNotMine(r)) "Not my ${r.artist} (someone else of that name)" to { nr.notMine(r) } else null,
                         "Hide ${r.artist} (unfollow)" to { org.omarchy.music.Follows.unfollow(listOf(r.artist)) }))
             }

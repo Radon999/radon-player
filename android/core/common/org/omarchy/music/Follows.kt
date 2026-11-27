@@ -21,9 +21,9 @@ object Follows {
     fun autoOn(): Boolean = Prefs.on(R.AUTO, true)
     fun setAuto(on: Boolean) { Prefs.set(R.AUTO, on); if (on) Music.bg({ refresh() }) { _, _ -> } }
 
-    fun follow(names: List<String>) {
+    fun follow(names: List<String>, quiet: Boolean = false) {
         put(R.follow(list(), seen(), names))
-        Music.toast(if (names.size == 1) "Following ${names[0]}: their new releases show in New releases" else "Following ${names.size} artists")
+        if (!quiet) Music.toast(if (names.size == 1) "Following ${names[0]}: their new releases show in New releases" else "Following ${names.size} artists")
     }
 
     fun unfollow(names: List<String>) {
