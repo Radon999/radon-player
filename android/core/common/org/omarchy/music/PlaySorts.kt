@@ -23,7 +23,7 @@ object PlaySorts {
     fun counts(): Map<Pair<String, String>, Int> = merged(
         Music.plays.items.values.map { PlaysApart.playKey(it.track) to it.plays },
         // (two different songs of one name: each its own count, by its album: PlaysApart)
-        Stats.songs.map { s -> PlaysApart.key(songKey(Track("", title = s.title, artist = s.artist)), s.title, s.artist, s.album) to s.plays })
+        Stats.songs.map { s -> PlaysApart.key(Stats.statsKey(s.title, s.artist), s.title, s.artist, s.album) to s.plays })
 
     /** The plays here and the stats' as one count per song: where both know a song, the higher of the two (the
      *  stats hold the plays here too, so they are not added up). */

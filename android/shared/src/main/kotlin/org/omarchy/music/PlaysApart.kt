@@ -50,6 +50,8 @@ object PlaysApart {
         return if (v == versions[0][0]) base else base.first to base.second + "\u0001" + v
     }
 
-    /** A song's key in the play counts (Music.playCounts): [songKey], told apart where it's another song of that name. */
-    fun playKey(t: Track): Pair<String, String> = key(songKey(t), t.title, t.artist, t.album)
+    /** A song's key in the play counts (Music.playCounts): [statsKey], as the stats count it (the lead artist, whatever
+     *  else is credited: "Quinn XCII & Jeremy Zucker" is Quinn XCII's), told apart where it's another song of that
+     *  name. (It was [songKey], which splits only at commas: your file's "A & B" missed the plays counted under A.) */
+    fun playKey(t: Track): Pair<String, String> = key(statsKey(t.title, t.artist), t.title, t.artist, t.album)
 }

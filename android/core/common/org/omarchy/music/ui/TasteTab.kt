@@ -81,10 +81,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.phases(ui: Ui) {
     }
 }
 
+/** The skips as the Skips page counts them (the counts since they began again, your imported ones too, less what you hid
+ *  from your stats), one row a song of yours. They had been read straight from the file: old skips counted again. */
+private fun skipCounts(): List<Triple<org.omarchy.music.Track, Int, Int>> = runCatching { Music.songStats.rows(0) }.getOrDefault(emptyList())
+    .map { (t, k, f) -> Triple(Music.mineOf(t), k, f) }.filter { !org.omarchy.music.StatHides.song(it.first) }
+    .groupBy { org.omarchy.music.songKey(it.first) }.values.map { g -> Triple(g.first().first, g.sumOf { it.second }, g.sumOf { it.third }) }
+
 private fun androidx.compose.foundation.lazy.LazyListScope.skipsByArtist(ui: Ui) {
-    val rows = runCatching { Music.songStats.kept() }.getOrDefault(emptyList()).filter { it.track != null }
-        .groupBy { it.track!!.artist.split(",")[0].trim() }
-        .map { (a, es) -> Triple(a, es.sumOf { it.skips }, es.sumOf { it.full }) }
+    // (by the lead artist, as the stats count them: "A & B" is A's)
+    val rows = skipCounts().groupBy { org.omarchy.music.splitArtists(it.first.artist).firstOrNull()?.ifEmpty { null } ?: it.first.artist }
+        .map { (a, es) -> Triple(a, es.sumOf { it.second }, es.sumOf { it.third }) }
         .filter { it.second + it.third >= 10 }.sortedByDescending { it.second.toDouble() / (it.second + it.third) }.take(60)
     val early = Signals.all().values.filter { it.early.isNotEmpty() && it.title.isNotEmpty() }.sortedByDescending { it.early.size }.take(30)
     if (rows.isEmpty() && early.isEmpty()) { item { Empty("Not enough skips yet", "An artist shows here after ten of their songs were skipped or heard out.") }; return }
@@ -100,13 +106,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.skipsByArtist(ui: Ui)
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.finished() {
-    val rows = runCatching { Music.songStats.kept() }.getOrDefault(emptyList()).filter { it.track != null && it.full >= 3 }
-        .sortedWith(compareByDescending<org.omarchy.music.SkipEntry> { it.full * 1.0 / (it.full + it.skips) }.thenByDescending { it.full }).take(80)
+    val rows = skipCounts().filter { it.third >= 3 }
+        .sortedWith(compareByDescending<Triple<org.omarchy.music.Track, Int, Int>> { it.third * 1.0 / (it.third + it.second) }.thenByDescending { it.third }).take(80)
     if (rows.isEmpty()) { item { Empty("Nothing yet", "Songs you hear to the end three times or more show here.") }; return }
     item { Section("ALWAYS HEARD TO THE END") }
-    for (e in rows) item {
-        val t = e.track!!
-        Line("“${t.title}”", "${t.artist} · heard out %,d× · skipped %,d×".format(e.full, e.skips)) { Music.playList(listOf(Music.mineOf(t))) }
+    for ((t, skips, full) in rows) item {
+        Line("“${t.title}”", "${t.artist} · heard out %,d× · skipped %,d×".format(full, skips)) { Music.playList(listOf(t)) }
     }
 }
 

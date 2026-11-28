@@ -21,7 +21,10 @@ import java.util.zip.ZipInputStream
  *  Wrapped count these with your scrobbles and Spotify's, each play once. */
 object AppleHistory {
     @Serializable
-    data class Row(val t: Long, val artist: String, val title: String, val album: String = "", val ms: Long = 0, val count: Int = 1)
+    /** end: how a play ended, where the Play Activity file says (1 heard to its end, 2 skipped; 0 not said). A skip
+     *  that was too short to be a play has count 0: it's a skip only (for the Skips page), never a play. */
+    data class Row(val t: Long, val artist: String, val title: String, val album: String = "", val ms: Long = 0, val count: Int = 1,
+                   val end: Int = 0)
 
     @Serializable
     private data class Saved(val rows: List<Row> = emptyList())
@@ -75,6 +78,32 @@ object AppleHistory {
                 .groupBy({ statsKey(it.title, it.artist) }, { it.ms })
                 .mapValues { SameLengthRules.usual(it.value) }.filterValues { it > 0 }.also { lengthsRead = true }
         }.getOrDefault(emptyMap())
+    }
+
+    // ---- how plays ended, for the Skips page (Spotify's history's skips are counted there too) ----
+    private val endsFile get() = File(file.parentFile, "apple-skips.json")
+    private var endsKept: Saved? = null
+    @Synchronized private fun endsStored(): Saved = endsKept ?: (runCatching { readText(endsFile) }.getOrNull()?.let {
+        runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } ?: Saved()).also { endsKept = it }
+    @Synchronized private fun keepEnds(rows: List<Row>) {
+        val s = Saved((endsStored().rows + rows).distinctBy { Triple(it.t, norm(it.artist), norm(cleanTitle(it.title))) }.sortedBy { it.t })
+        endsKept = s; skipsMade = null
+        writeAtomic(endsFile, JSON.encodeToString(Saved.serializer(), s))
+    }
+    @Volatile private var skipsMade: Pair<Saved, List<SkipEntry>>? = null
+
+    /** Apple Music's skips and songs heard out (its Play Activity file's), one entry a song, as Spotify's are. */
+    fun skipEntries(): List<SkipEntry> {
+        if (!::file.isInitialized) return emptyList()
+        val s = endsStored()
+        skipsMade?.takeIf { it.first === s }?.let { return it.second }
+        val made = s.rows.groupBy { statsKey(it.title, it.artist) }.map { (k, l) ->
+            val sk = l.filter { it.end == 2 }.map { it.t }; val fu = l.filter { it.end == 1 }.map { it.t }
+            val p = l.last()
+            SkipEntry(sk.size, fu.size, (sk.maxOrNull() ?: 0L).toDouble(), Track("am-skip:${k.first}|${k.second}", "lastfm", p.title, p.artist, album = p.album), sk, fu)
+        }
+        skipsMade = s to made
+        return made
     }
 
     @Synchronized private fun keepExact(plays: List<Row>) {
@@ -207,9 +236,16 @@ object AppleHistory {
                 val length = r.col("Media Duration In Milliseconds").toDoubleOrNull()?.toLong() ?: 0
                 // A row without its artist is kept (artist ""): many downloads leave it out of this file, and it is found by the title afterwards
                 if (title.isEmpty() || played <= 0) return@csvRows
-                if (if (length > 0) played < length / 2 else played < 30_000) return@csvRows   // a play counts from half the song
+                // How it ended (for the Skips page, as Spotify's history tells it): skipped on, or heard to its end
+                val why = r.col("End Reason Type").uppercase()
+                val end = when { "SKIP" in why -> 2; "NATURAL_END" in why -> 1; else -> 0 }
                 val t = stamp(r.col("Event Start Timestamp", "Event Received Timestamp", "Event End Timestamp"))
-                if (t > 0) out += Row(t, artist, title, r.col("Album Name", "Container Album Name"), played, 1)
+                val album = r.col("Album Name", "Container Album Name")
+                if (if (length > 0) played < length / 2 else played < 30_000) {   // a play counts from half the song
+                    if (end == 2 && t > 0) out += Row(t, artist, title, album, played, count = 0, end = 2)   // a skip, not a play
+                    return@csvRows
+                }
+                if (t > 0) out += Row(t, artist, title, album, played, 1, end)
             }
             "daily tracks" in low -> {
                 val (artist, title) = split(r.col("Track Description"))
@@ -292,18 +328,23 @@ object AppleHistory {
             }
             // The most detailed file wins: each play over each day's over the list. (A play that came without its artist
             // can't be counted here: it is only kept for Repeats, below.)
+            // (a skip too short to be a play, count 0, is never a play: only the Skips page's)
             val rows = listOf("play activity", "daily tracks", "track play history")
-                .firstNotNullOfOrNull { k -> found.filterKeys { k in it.lowercase() }.values.flatten().filter { it.artist.isNotEmpty() }.ifEmpty { null } }
-                ?: found.values.flatten().filter { it.artist.isNotEmpty() }
+                .firstNotNullOfOrNull { k -> found.filterKeys { k in it.lowercase() }.values.flatten().filter { it.artist.isNotEmpty() && it.count > 0 }.ifEmpty { null } }
+                ?: found.values.flatten().filter { it.artist.isNotEmpty() && it.count > 0 }
             // For Repeats: every play of the Play Activity file, its artist found by the title where the file left it out
             // (from this download's other files, and from what was imported before)
-            val activity = found.filterKeys { "play activity" in it.lowercase() }.values.flatten()
+            val activityAll = found.filterKeys { "play activity" in it.lowercase() }.values.flatten()
+            val activity = activityAll.filter { it.count > 0 }
             if (activity.isNotEmpty()) {
                 busy = "Reading when each play began…"
                 val named = found.filterKeys { "play activity" !in it.lowercase() }.values.flatten() + activity.filter { it.artist.isNotEmpty() } + stored().rows
                 val by = AppleArtistRules.byTitle(named.map { Triple(it.title, it.artist, it.count) })
                 val exact = activity.mapNotNull { r -> if (r.artist.isNotEmpty()) r else AppleArtistRules.artist(by, r.title).takeIf { it.isNotEmpty() }?.let { r.copy(artist = it) } }
                 if (exact.isNotEmpty()) keepExact(exact)
+                // For the Skips page: how each play ended (skipped, or heard out), the artist found the same way
+                val ends = activityAll.filter { it.end != 0 }.mapNotNull { r -> if (r.artist.isNotEmpty()) r else AppleArtistRules.artist(by, r.title).takeIf { it.isNotEmpty() }?.let { r.copy(artist = it) } }
+                if (ends.isNotEmpty()) keepEnds(ends)
             }
             if (rows.isEmpty()) error("no plays in it. Apple's download has Apple Music Play Activity.csv (or Play History Daily " +
                 "Tracks.csv); or export your library from the Music app (File › Library › Export Library…)")

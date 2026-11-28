@@ -40,7 +40,15 @@ object Stats {
                              val periods: Map<String, List<Song>> = emptyMap(),
                              val time: Map<String, Time> = emptyMap(), val milestones: List<Milestone> = emptyList(),
                              // Songs of one name told apart (PlaysApart): "title\u0000artist" (their key) -> versions, the main one first
-                             val apart: Map<String, List<List<String>>> = emptyMap())
+                             val apart: Map<String, List<List<String>>> = emptyMap(),
+                             // when each song was last played, under the key its plays are counted under ("title\u0000artist")
+                             val lastAt: Map<String, Long> = emptyMap())
+
+    /** When each song was last played, anywhere (Last.fm, your imports, here), under the very key its plays are counted
+     *  under (your merges, your copies' names, the album split: [PlaysApart.playKey] finds your song's). */
+    @Volatile var lastAt: Map<Pair<String, String>, Long> = emptyMap()
+        private set
+    private fun lastOf(saved: Map<String, Long>) = saved.entries.associate { (k, v) -> (k.substringBefore('\u0000') to k.substringAfter('\u0000')) to v }
 
     private fun apartOf(saved: Map<String, List<List<String>>>) = saved.entries.associate { (k, v) -> k.substringBefore('\u0000') to k.substringAfter('\u0000') to v }
 
@@ -71,7 +79,7 @@ object Stats {
         ctx = appCtx(c)
         Music.bg({ readText(file)?.let { runCatching { JSON.decodeFromString(Saved.serializer(), it) }.getOrNull() } }) { s, _ ->
             if (s != null && songs.isEmpty()) { songs = s.songs; artists = s.artists; periods = s.periods; built = s.built; sig = s.sig
-                time = s.time; milestones = s.milestones; PlaysApart.split = apartOf(s.apart) }
+                time = s.time; milestones = s.milestones; PlaysApart.split = apartOf(s.apart); lastAt = lastOf(s.lastAt) }
         }
     }
 
@@ -96,7 +104,7 @@ object Stats {
             busy = false
             if (s != null) {
                 songs = s.songs; artists = s.artists; periods = s.periods; built = s.built; sig = s.sig; time = s.time; milestones = s.milestones
-                PlaysApart.split = apartOf(s.apart)
+                PlaysApart.split = apartOf(s.apart); lastAt = lastOf(s.lastAt)
                 runCatching { Music.prunePictures() }
             }
             else {
@@ -133,17 +141,27 @@ object Stats {
             val start = (now() - days * 86400L).toLong()
             combine(scrobbles.filter { it.t >= start }, spotify.filter { it.t >= start },
                 hereEntries.mapNotNull { e -> e.at.count { it >= start }.takeIf { it > 0 }?.let { e.track to it } }, apple.filter { it.t >= start },
-                deezer = deezer.filter { it.t >= start }, asYours = asYours, versions = versions, mains = mains).first
-                .take(5000).map { if (it.thumb.isEmpty()) it.copy(thumb = thumbs[statsKey(it.title, it.artist)] ?: "") else it }
+                deezer = deezer.filter { it.t >= start }, asYours = asYours, versions = versions, mains = mains).first   // (every song: past 5,000 a year's artist and mood totals had come out short)
+                .map { if (it.thumb.isEmpty()) it.copy(thumb = thumbs[statsKey(it.title, it.artist)] ?: "") else it }
         }
         val lengths = runCatching { Music.mySongs().filter { it.duration > 0 }.associate { statsKey(it.title, it.artist) to it.duration } }.getOrDefault(emptyMap())
         val time = listenTime(scrobbles + spotify + apple + deezer + hereTimed, lengths)
         // Each milestone dated by the play that got it there (Wrapped shows a year's).
         val timedPlays = scrobbles + spotify + apple + deezer + hereTimed
-        val songTimes = timedPlays.groupBy({ statsKey(it.title, it.artist) }, { it.t })
-        val artistTimes = timedPlays.groupBy({ artistKey(leadArtist(it.artist)) }, { it.t })
-        val out = Saved(s, a, now(), sig, periods, time, newMilestones(s, a, milestones, songTimes, artistTimes),
-            apart.entries.associate { (k, v) -> "${k.first}\u0000${k.second}" to v })
+        // (each play under the very key it was counted under: your merges, your copies' names, the album it's on, the
+        // artist it's counted for. They were grouped by the plays' own names, so a merged song's or artist's times were
+        // short and its milestones came out undated, or dated today)
+        val keys = countKeys(asYours, apart)
+        val songTimes = HashMap<Pair<String, String>, MutableList<Long>>(); val artistTimes = HashMap<String, MutableList<Long>>()
+        for (p in timedPlays) {
+            if (p.t <= 0) continue
+            val (sk, ak) = keys(p.title, p.artist, p.album)
+            songTimes.getOrPut(sk) { ArrayList() } += p.t
+            artistTimes.getOrPut(ak) { ArrayList() } += p.t
+        }
+        val out = Saved(s, a, now(), sig, periods, time, newMilestones(s, a, milestones, songTimes, artistTimes, apart),
+            apart.entries.associate { (k, v) -> "${k.first}\u0000${k.second}" to v },
+            songTimes.entries.associate { (k, ts) -> "${k.first}\u0000${k.second}" to ts.max() })
         writeAtomic(file, JSON.encodeToString(Saved.serializer(), out))
         return out
     }
@@ -170,7 +188,8 @@ object Stats {
      *  own times, so Wrapped can show a year's). One reached by plays with no time is dated now, or 0 on the first count. */
     internal fun newMilestones(songs: List<Song>, artists: List<ArtistPlays>, old: List<Milestone>,
                                songTimes: Map<Pair<String, String>, List<Long>> = emptyMap(),
-                               artistTimes: Map<String, List<Long>> = emptyMap()): List<Milestone> {
+                               artistTimes: Map<String, List<Long>> = emptyMap(),
+                               apart: Map<Pair<String, String>, List<List<String>>> = emptyMap()): List<Milestone> {
         val seen = old.associateBy { Triple(it.what, it.key, it.plays) }
         val first = old.isEmpty()
         val nowS = now().toLong()
@@ -184,16 +203,24 @@ object Stats {
         }
         // Every song and artist: one under the first level (100 plays) has none, so this is all that reached one
         songs.filter { it.plays >= MILESTONES.first() }.forEach {
-            val k = statsKey(it.title, it.artist)
+            // (a song of one name on two albums: each its own, PlaysApart)
+            val k = PlaysApart.key(statsKey(it.title, it.artist), it.title, it.artist, it.album, apart)
             check("song", k.toList().joinToString("|"), it.title, it.artist, it.plays, songTimes[k].orEmpty())
         }
-        artists.filter { it.plays >= MILESTONES.first() }.forEach { check("artist", artistKey(it.name), it.name, "", it.plays, artistTimes[artistKey(it.name)].orEmpty()) }
+        artists.filter { it.plays >= MILESTONES.first() }.forEach {
+            check("artist", artistKey(it.name), it.name, "", it.plays, (artistTimes[resolvedKey(it.name)] ?: artistTimes[artistKey(it.name)]).orEmpty())
+        }
         return out.sortedWith(compareBy({ -it.at }, { -it.plays }))
+    }
+
+    /** The milestones you haven't hidden from your stats (a song, its artist or the artist hidden: left out). */
+    fun shownMilestones(): List<Milestone> = if (!StatHides.any) milestones else milestones.filter {
+        if (it.what == "artist") !StatHides.artist(it.name) else !StatHides.play(it.name, it.artist, "")
     }
 
     /** The milestones reached from start to end (start 0: ever), the highest of each song's and artist's, biggest first. */
     fun periodMilestones(start: Long, end: Long, n: Int = 6): List<Milestone> =
-        milestones.filter { if (start == 0L) true else it.at in start until end }
+        shownMilestones().filter { if (start == 0L) true else it.at in start until end }
             .groupBy { it.what to it.key }.values.map { g -> g.maxBy { it.plays } }
             .sortedWith(compareBy({ -it.plays }, { it.what != "artist" }, { -it.at })).take(n)
 
@@ -314,6 +341,23 @@ object Stats {
     }
 
     private fun apartKey(k: Pair<String, String>, version: String) = k.first to k.second + "\u0001" + version
+
+    /** (title, artist, album) of a play -> the keys combine counts it under: its song's (after your Duplicates merges,
+     *  your copies' names, your artist merges, the album split) and its artist's. For the milestones' dates. */
+    internal fun countKeys(asYours: (String, String) -> Pair<String, String>?, apart: Map<Pair<String, String>, List<List<String>>>):
+            (String, String, String) -> Pair<Pair<String, String>, String> {
+        val picks = runCatching { Music.artistPicks }.getOrDefault(emptyMap())
+        fun moved(a: String) = if (picks.isEmpty()) a else picks[pairKey(a)]?.ifEmpty { null } ?: a
+        val resolve = resolver()
+        val seen = HashMap<Triple<String, String, String>, Pair<Pair<String, String>, String>>()
+        return { title, artist, album -> seen.getOrPut(Triple(title, artist, album)) {
+            val (t, a0) = sameSong(title, artist).let { asYours(it.first, it.second) ?: it }
+            val a = moved(a0)
+            val song = PlaysApart.key(statsKey(t, a), t, a, onto(title, artist, album), apart)
+            val lead = resolve(a).ifEmpty { leadArtist(a).ifEmpty { a } }
+            song to resolvedKey(lead)
+        } }
+    }
 
     /** The song a song's plays count as: the one you merged it into (Duplicates in Most played), else itself. */
     private fun sameSong(title: String, artist: String): Pair<String, String> {

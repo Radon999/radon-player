@@ -51,14 +51,21 @@ object Repeat {
         } else for (e in Music.plays.items.values.toList()) for (x in e.at) if (x >= since) rows += SpotifyHistory.Play(x, e.track.artist, e.track.title, e.track.album)
         val extra = (SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()).filter { it.t >= since }
         rows += extra   // Spotify's and Apple Music's plays, added up
+        // Counted as Most played counts them: your Duplicates and artist merges, your copies' names, the album a song of one
+        // name is on (PlaysApart), and less what you hid from your stats; one row per song of yours
+        val keys = Stats.countKeys(runCatching { YourCopies.renamer() }.getOrNull() ?: { _: String, _: String -> null }, PlaysApart.split)
         val counts = LinkedHashMap<Pair<String, String>, Pair<SpotifyHistory.Play, Int>>()
         for (r in rows) {
-            val k = Stats.statsKey(r.title, r.artist)
+            if (StatHides.any && StatHides.play(r.title, r.artist, r.album)) continue
+            val k = keys(r.title, r.artist, r.album).first
             counts[k] = (counts[k]?.first ?: r) to ((counts[k]?.second ?: 0) + 1)
         }
         val mine = Music.songIndex()
-        return counts.values.sortedByDescending { it.second }.take(n).map { (p, c) ->
-            Music.fmSong(p.title, p.artist, "", mine, p.album).copy(plays = c)
+        val bySong = LinkedHashMap<String, Track>()
+        for ((p, c) in counts.values) {
+            val t = Music.fmSong(p.title, p.artist, "", mine, p.album)
+            bySong[t.id] = bySong[t.id]?.let { it.copy(plays = it.plays + c) } ?: t.copy(plays = c)
         }
+        return bySong.values.sortedByDescending { it.plays }.take(n)
     }
 }

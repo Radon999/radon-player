@@ -440,7 +440,8 @@ fun MusicTab(ui: Ui) {
                                 else -> skipRows.sortedWith(compareBy<Triple<Track, Int, Int>>({ -it.second }, { -r(it.second, it.third) }))
                             }.map { it.first }
                         }
-                        else -> Music.mostPlayed(Music.topPeriod).filter { !org.omarchy.music.StatHides.song(it) }
+                        // (less what you hid: a song, its album or its artist)
+                        else -> Music.mostPlayed(Music.topPeriod).filter { !org.omarchy.music.StatHides.play(it.title, it.artist, it.album) }
                     }
                     if (tracks.isEmpty() && !(ui.musicView == "skips" && Music.skipPeriod != "all") && !(ui.musicView == "top" && Music.topPeriod != "all")) item {   // (a period with none: its chips stay)
                         val (t, b) = when (ui.musicView) {
@@ -2205,7 +2206,8 @@ fun androidx.compose.foundation.lazy.LazyListScope.repeatsView(ui: Ui) {
             .mapIndexed { i, p -> TopArt.withCover(Music.mineOf(p.first.track)) to RR.line(i + 1, p.second, p.first.best) }
             .filter { !org.omarchy.music.StatHides.song(it.first) }
         item {
-            Section(RR.summary(top.size, RR.total(saved, since)).uppercase())
+            // (every song repeated: the list shows 200 at most, the count is all of them)
+            Section(RR.summary(saved.songs.values.count { RR.count(it, since) > 0 }, RR.total(saved, since)).uppercase())
             LaunchedEffect(top.size, Music.repeatsPeriod, Music.musicVersion) { TopArt.lookUp { rows.map { it.first } } }
         }
         val lines = rows.associate { it.first.id to it.second }
@@ -2221,7 +2223,7 @@ private var milestonesBiggest by mutableStateOf(false)
  *  plays, each dated by the play that got it there (Most played shows the last month's five). Songs, artists or both;
  *  newest first (by year) or biggest first (by how many plays). A song of yours plays when tapped; an artist opens. */
 fun androidx.compose.foundation.lazy.LazyListScope.milestonesView(ui: Ui) {
-    val all = org.omarchy.music.Stats.milestones
+    val all = org.omarchy.music.Stats.shownMilestones()   // (less what you hid from your stats)
     item {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {

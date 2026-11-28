@@ -40,7 +40,7 @@ object Music {
      *  owner asked for when what counts as a skip was put right, and with the skips your Spotify history tells of. */
     fun newSongStats(file: File) = SongStats(file).also {
         it.skipsFrom = SKIPS_COUNTED_FROM
-        it.imported = { SpotifyHistory.skipEntries() }
+        it.imported = { SpotifyHistory.skipEntries() + AppleHistory.skipEntries() }   // (Apple Music's Play Activity says too)
     }
     /** The app's own skips are counted from here (21 November 2026): see SongStats.skipsFrom. */
     const val SKIPS_COUNTED_FROM = 1795270178L

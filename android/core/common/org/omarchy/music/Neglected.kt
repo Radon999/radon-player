@@ -86,10 +86,19 @@ object Neglected {
     /** (blocking) */
     private fun build(): List<Row> {
         val counts = runCatching { PlaySorts.counts() }.getOrDefault(emptyMap())
-        val last = HashMap(lastNow())
+        val hereLast = lastNow()
+        val last = HashMap(hereLast)
         runCatching { TasteService.lastHeard() }.getOrNull()?.forEach { (k, t) -> if (t > (last[k] ?: 0L)) last[k] = t }
+        // …and when it was last played as the stats count it (a song counted under your file's name, or one of two of
+        // one name: it had shown its plays but "when isn't known", or "Never played" never came)
+        val lastCounted = Stats.lastAt
         val seen = HashSet<Pair<String, String>>()
-        return Music.mySongs().filter { seen.add(PlaysApart.playKey(it)) }.map { Row(it, counts[PlaysApart.playKey(it)] ?: it.plays, last[key(it)] ?: 0L) }
+        return Music.mySongs().filter { seen.add(PlaysApart.playKey(it)) }.map {
+            val k = PlaysApart.playKey(it)
+            val counted = lastCounted[k]
+            // the stats' own when there's one (it's the right song of the name); else what's heard here or anywhere
+            Row(it, counts[k] ?: it.plays, if (counted != null && counted > 0) maxOf(counted, hereLast[key(it)] ?: 0L) else last[key(it)] ?: 0L)
+        }
     }
 
     /** The chip's songs: never played (in name order), or not played for its time (the longest ago first). */

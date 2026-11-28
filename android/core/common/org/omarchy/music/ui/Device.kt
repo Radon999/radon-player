@@ -1,5 +1,6 @@
 package org.omarchy.music.ui
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.composed
 import androidx.compose.ui.input.pointer.pointerInput
 
@@ -26,7 +27,7 @@ fun androidx.compose.ui.Modifier.pressable(onClick: () -> Unit, onLongClick: (()
 fun androidx.compose.ui.Modifier.holdOnly(onHold: () -> Unit): androidx.compose.ui.Modifier = this.composed {
     val hold = androidx.compose.runtime.rememberUpdatedState(onHold)   // (the latest, without starting the touch over)
     rightClick { hold.value() }.then(androidx.compose.ui.Modifier.pointerInput(Unit) {
-        androidx.compose.foundation.gestures.detectTapGestures(onLongPress = { hold.value() }, onTap = { })
+        detectTapGestures(onLongPress = { hold.value() }, onTap = { })
     })
 }
 
