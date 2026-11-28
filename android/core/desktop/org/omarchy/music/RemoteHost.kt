@@ -145,6 +145,7 @@ object RemoteHost {
                 // Sync now, tapped here; and for Auto playlist sync: that this PC can sync the playlists alone, whether its
                 // switch is on (it counts on either device), and when its playlists last changed
                 "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()); put("preview", Sync.previewWanted()); put("playlistsOnly", true)
+                    put("covers", TagMatch.covers)   // Sync album covers, as this PC has it (for a Sync now tapped here)
                     put("autoPlaylists", Prefs.on(SyncPlaylists.AUTO_SYNC)); put("playlistsAt", Sync.playlistsAt())
                     put("sent", PlaylistSend.waiting())   // (and playlists sent from here that wait for the phone)
                     put("copyWanted", SongCopy.wantedCount()) })   // (and song files asked of the phone: Other device's songs)

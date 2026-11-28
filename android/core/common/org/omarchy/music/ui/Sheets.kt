@@ -1284,6 +1284,14 @@ private fun SyncLines(ui: Ui) {
         ": " + s.lastText.removePrefix("Synced: ") else "Not synced yet"
     val note = s.busy ?: if (pc && s.waiting) "Waiting for the phone: open Radon Player on it (on the same network) and it syncs " +
         "within 20 seconds" else last
+    // Sync album covers: off, a sync skips the covers (quick once they already match); on for the sync you need them in
+    var covers by remember { mutableStateOf(org.omarchy.music.TagMatch.covers) }
+    Line("Sync album covers", if (covers) "On: a sync compares every album cover with the $other's and sends the ones that differ " +
+            "(Tags & covers match, when that is on). It can take a while, even when they already match. Turn it off once they do"
+        else "Off: a sync leaves album covers alone, so it's done much sooner. Turn it on for one sync when you've changed covers. " +
+            "The switch of the device where you tap Sync now is the one that counts", covers) {
+        Switch(covers, { covers = it; org.omarchy.music.Prefs.set(org.omarchy.music.CoverSyncRules.PREF_OFF, !it) }, colors = swColors())
+    }
     Line("Sync with $other", "Syncs only when you tap Sync now (here or on the $other): never by itself. " +
         "The app's own stats go across so both show the same: plays, skips, songs heard out and " +
         "the listening diary (time listened, playlists, outputs, searches), each counted once however often you sync. Imports " +

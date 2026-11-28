@@ -44,6 +44,13 @@ object TagMatch {
     private const val ART_BUDGET = 24_000_000
 
     val on: Boolean get() = Prefs.on(ON)
+    /** Sync album covers (the switch): on until you turn it off. */
+    val covers: Boolean get() = !Prefs.on(CoverSyncRules.PREF_OFF)
+    /** Whether the sync going on now carries covers (set as it begins: [CoverSyncRules.carries]). */
+    @Volatile var coversNow = true
+    /** (the PC) What the phone sent says about covers for this sync (it decided; one from before the switch: yes). */
+    fun coversIn(text: String?): Boolean = text.isNullOrBlank() ||
+        runCatching { JSON.decodeFromString(Sent.serializer(), text).covers }.getOrDefault(true)
     val main: String get() = Prefs.text(MAIN, "pc")
     val here: String get() = if (platformName == "android") "phone" else "pc"
     val isMain: Boolean get() = main == here
@@ -73,7 +80,9 @@ object TagMatch {
     data class Sent(val main: String = "", val entries: List<Entry> = emptyList(), val art: Map<String, String> = emptyMap(),
                     val have: Map<String, String> = emptyMap(),
                     /** The main device has covers left that didn't fit in this sync: the phone syncs again by itself. */
-                    val more: Boolean = false)
+                    val more: Boolean = false,
+                    /** Sync album covers, as the phone goes by for this sync (CoverSyncRules): the PC follows it. */
+                    val covers: Boolean = true)
 
     /** The main device's covers sent in this run of syncs (song and picture), so a round never sends one twice and
      *  the rounds come to an end even when the other device can't take a picture (Prevent album cover changes). */
@@ -206,7 +215,7 @@ object TagMatch {
             val ap = applied()
             // (a cover the main device's was put in: said as the main device knows it, so it isn't sent again)
             val have = list.associate { (t, f, r) -> "${TagChanges.key(t.title, t.artist)}#${nameOf(f)}" to (synchronized(lock) { ap[f] } ?: r.art) }
-            return JSON.encodeToString(Sent.serializer(), Sent(main = main, have = have))
+            return JSON.encodeToString(Sent.serializer(), Sent(main = main, have = have, covers = coversNow))
         }
         // Which covers the other device has: from what it sent now, else what it sent last time
         val peer = theirs?.let { runCatching { JSON.decodeFromString(Sent.serializer(), it) }.getOrNull() }?.have?.takeIf { it.isNotEmpty() }
@@ -223,7 +232,8 @@ object TagMatch {
         var size = 0
         var more = false
         synchronized(sentThisRun) { if (System.currentTimeMillis() - sentAt > 20 * 60_000L) sentThisRun.clear(); sentAt = System.currentTimeMillis() }
-        for ((t, f, r) in list) {
+        // (Sync album covers off: none are sent, and nothing is left over for another round)
+        if (coversNow) for ((t, f, r) in list) {
             if (r.art.isEmpty() || r.art in art) continue
             val songKey = "${TagChanges.key(t.title, t.artist)}#${nameOf(f)}"
             if (peer[songKey] == r.art) continue
@@ -237,7 +247,7 @@ object TagMatch {
             synchronized(sentThisRun) { sentThisRun += "$songKey|${r.art}" }
         }
         lastMore = more
-        return JSON.encodeToString(Sent.serializer(), Sent(main = main, entries = entries, art = art, more = more))
+        return JSON.encodeToString(Sent.serializer(), Sent(main = main, entries = entries, art = art, more = more, covers = coversNow))
     }
 
     /** (blocking) The other device's songs made the same here, when it's the main device; what it says it has kept for
@@ -333,7 +343,7 @@ object TagMatch {
                 }
                 // No cover on the main device's copy: this one's is taken off too
                 // (only when the main device knows for certain its copy has none: a cover it couldn't read stays here)
-                if (e.art.isEmpty() && e.artRead && now.art.isNotEmpty() && CoverGuard.allowed()) {
+                if (coversNow && e.art.isEmpty() && e.artRead && now.art.isNotEmpty() && CoverGuard.allowed()) {
                     val off = runCatching {
                         if (Music.lib.items.values.any { it.file == f && it.format == "flac" }) { Covers.write(Music.ctx, f, ByteArray(0)); true }
                         else FileTags.writeCover(Music.ctx, f, ByteArray(0))
@@ -341,7 +351,7 @@ object TagMatch {
                     if (off) did = true
                 }
                 // The cover: the main device's picture when this copy's isn't it (Prevent album cover changes stops it)
-                if (e.art.isNotEmpty() && e.art != now.art && synchronized(lock) { applied()[f] } != e.art && CoverGuard.allowed()) {
+                if (coversNow && e.art.isNotEmpty() && e.art != now.art && synchronized(lock) { applied()[f] } != e.art && CoverGuard.allowed()) {
                     val jpeg = got.art[e.art]?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() }
                     if (jpeg != null) {
                         val wrote = runCatching {

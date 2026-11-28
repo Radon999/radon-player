@@ -125,7 +125,7 @@ object Sync {
     // ---- the phone: Sync now ----
 
     /** (the phone) Sync with the paired PC. fromPc: the PC's Sync now asked, so its changes win a tie. */
-    fun now(fromPc: Boolean = false, auto: Boolean = false, round: Int = 0) {
+    fun now(fromPc: Boolean = false, auto: Boolean = false, round: Int = 0, pcCovers: Boolean? = null) {
         if (!Remote.paired) { if (!auto) Music.toast("Pair with the PC first (Settings › Play on)"); return }
         stuckFreed()
         if (!begin()) { if (!auto && !fromPc) Music.toast("A sync is already going: it finishes, or is let go after ${STUCK_MS / 60_000} minutes"); return }
@@ -134,6 +134,8 @@ object Sync {
         // Tags match: covers left over that didn't fit in this sync (either way): it goes on by itself, round after round
         var moreCovers = false
         var answer = ""   // the PC's answer (its "made"), noted once it's in place here
+        // Sync album covers: the switch of the device where Sync now was tapped (the PC follows what this phone sends)
+        TagMatch.coversNow = CoverSyncRules.carries(fromPc, pcCovers, TagMatch.covers)
         val songs = songsOn
         // The screen's state, read on its thread. Should it fail, the sync is let go and says why (before, the phone's
         // syncing stayed held and every Sync now after it waited for nothing)
@@ -176,7 +178,7 @@ object Sync {
             markSynced()
             finished(d.summary, with, quiet = (auto && d.nothing && got == 0) || moreCovers)
             // More covers to go across: the next round, by itself (a few hundred covers a round; stops when none are left)
-            if (moreCovers && round < 400) Music.scope.launch { kotlinx.coroutines.delay(1500); now(fromPc, auto = true, round = round + 1) }
+            if (moreCovers && round < 400) Music.scope.launch { kotlinx.coroutines.delay(1500); now(fromPc, auto = true, round = round + 1, pcCovers = pcCovers) }
             else if (round > 0) Music.toast("Tags match: every cover has gone across")
             // The PC's songs this phone hasn't got: counted, and said (nothing is downloaded by itself)
             Music.bg({ LibraryMatch.take(d.songsThere, with) }) { n, _ ->
@@ -318,7 +320,7 @@ object Sync {
             if ((s["sent"].long ?: 0L) > 0) PlaylistSend.fetch()   // playlists the PC sent this phone (Send a playlist)
             if ((s["copyWanted"].long ?: 0L) > 0) SongCopy.sendWanted()   // song files the PC asked for (Other device's songs)
             val pcAt = s["playlistsAt"].long ?: 0L
-            if (s["wanted"].bool == true) { justPaired = false; now(fromPc = true) }
+            if (s["wanted"].bool == true) { justPaired = false; now(fromPc = true, pcCovers = s["covers"].bool) }
             else if (s["preview"].bool == true) previewNow(forPc = true)   // the PC's Preview: this phone's data, to look at
             // Just paired: the playlists as they are on both now are where Auto playlist sync starts from, so only a
             // change after this syncs by itself (nothing syncs on pairing)
@@ -449,6 +451,7 @@ object Sync {
             val mine = if (only) playlistFiles() else files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
             val myMoods = if (only) null else runCatching { Moods.backup() }.getOrNull()
             theirs[DIARY]?.let { runCatching { ListenLog.mergeIn(it) } }   // the phone's stretches (each one once)
+            TagMatch.coversNow = TagMatch.coversIn(theirs[TagMatch.FILE])   // Sync album covers, as the phone goes by for this sync
             val tagged = if (only) 0 else (theirs[TAGS]?.let { runCatching { TagSync.take(it) }.getOrDefault(0) } ?: 0) +   // the phone's tag changes
                 runCatching { TagMatch.take(theirs[TagMatch.FILE]) }.getOrDefault(0)   // Tags & covers match: the phone's, when it's the main one
             val local = parse(mine)

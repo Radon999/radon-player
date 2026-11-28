@@ -167,6 +167,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 - **Playlists that sync:** a switch for each playlist (smart playlists and Listen later too), marked ⇄ SYNCED, CHANGES WAITING or THIS DEVICE ONLY. New playlists sync by themselves unless you switch that off. **Auto playlist sync** does it whenever both apps are open.
 - **Send a playlist** to the other device once, without syncing it.
 - **Preview a sync:** **Preview**, beside Sync now, shows what a sync would change on each device before anything is changed.
+- **Sync album covers:** a switch above Sync now. Off, a sync skips the album covers and is done much sooner; turn it on for the sync where you changed covers (the switch where you tap Sync now counts).
 - **Tags match** and **Moods match:** pick a main device, and the other device's copies of your songs are made the same (title, artist, album, genre, year, lyrics, moods, cover). Only what's certain is changed; nothing is guessed.
 - **Phone remote:** play, queue, skip and set the volume on the computer from the phone (switch it on on the computer and enter its code). The computer shows its addresses to type on the phone if it isn't found by itself: the home network's and, away from home, Tailscale's.
 - **Continue where you left off** on the other device, and **back up and restore** everything in one file (**Back up by itself** daily or weekly, if you like).
