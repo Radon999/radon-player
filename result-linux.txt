@@ -1,4 +1,4 @@
-commit 733dbb27bc1b13a2e28f2da82599a1c80e1f4f73 · run 46096467901 · Sat Nov 28 02:11:42 UTC 2026
+commit a00983f829b01a6f1bf44c31e194e32921ce7666 · run 46096730730 · Sat Nov 28 02:20:26 UTC 2026
 SHARED TESTS: 159 suites, 789 tests, 0 failed
 APP TESTS: no results (it didn't get that far)
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
@@ -7,8 +7,9 @@ PC COMPILES: yes
 LINUX PACKAGE: not built
 LINUX START: no package to start
 --- errors
-> Task :desktop:compileKotlin FAILED
 e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Device.kt:29:46 Unresolved reference 'detectTapGestures'.
+
+> Task :desktop:compileKotlin FAILED
 
 > Task :app:compileDebugKotlin FAILED
 e: file:///home/runner/work/radon-player/radon-player/android/core/common/org/omarchy/music/ui/Device.kt:29:46 Unresolved reference 'detectTapGestures'.
@@ -23,7 +24,7 @@ Execution failed for task ':desktop:compileKotlin'.
 Execution failed for task ':app:compileDebugKotlin'.
 > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
 --
-BUILD FAILED in 2m 38s
+BUILD FAILED in 2m 48s
 48 actionable tasks: 48 executed
 --- the end of the log
 
@@ -54,5 +55,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 2m 38s
+BUILD FAILED in 2m 48s
 48 actionable tasks: 48 executed
