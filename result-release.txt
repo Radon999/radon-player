@@ -1,6 +1,6 @@
-commit 8f80a18d7a2a4b8fa1e9a571093fcc0098ed73cd · run 46088188989 · Sat Nov 28 00:39:53 UTC 2026
-RELEASE: made, v5.2.9: https://github.com/Radon999/radon-player/releases/tag/v5.2.9
-RUN: https://github.com/Radon999/radon-player/actions/runs/46088188989
--rw-r--r-- 1 runner runner 225930949 Nov 28 00:39 Radon-Player-5.2.9.msi
--rw-r--r-- 1 runner runner  88729672 Nov 28 00:39 RadonPlayer-Next.apk
--rw-r--r-- 1 runner runner  95861208 Nov 28 00:39 radon-player_5.2.9_amd64.deb
+commit 6991c1ef18630e3023a6699f95da5fb406163316 · run 46100043862 · Sat Nov 28 03:00:33 UTC 2026
+RELEASE: made, v5.2.10: https://github.com/Radon999/radon-player/releases/tag/v5.2.10
+RUN: https://github.com/Radon999/radon-player/actions/runs/46100043862
+-rw-r--r-- 1 runner runner 225910474 Nov 28 03:00 Radon-Player-5.2.10.msi
+-rw-r--r-- 1 runner runner  88713377 Nov 28 03:00 RadonPlayer-Next.apk
+-rw-r--r-- 1 runner runner  95848206 Nov 28 03:00 radon-player_5.2.10_amd64.deb
