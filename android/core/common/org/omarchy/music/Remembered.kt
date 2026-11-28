@@ -26,7 +26,8 @@ object Remembered {
         val drawer_folds: Map<String, Boolean> = mapOf("music" to true),
         val pins: List<Pin> = emptyList(), val layouts: Map<String, String> = emptyMap(), val mic_asked: Boolean = false,
         val skip_period: String = "all", val bit_perfect: Boolean = false, val replay_gain: String = "off",
-        val dj_new: Boolean = true, val top_mine_only: Boolean = true, val top_period: String = "all",
+        val dj_new: Boolean = true, val top_mine_only: Boolean = false,   // (Most played's "Only songs on this device", taken out in 5.3.1: kept so older files still read)
+        val top_period: String = "all",
         val top_kind: String = "songs", val collage_size: Int = 25, val artist_picks: Map<String, String> = emptyMap(),
         val similar_kept: List<String> = emptyList(), val album_picks: Map<String, String> = emptyMap(),
         val song_picks: Map<String, String> = emptyMap(), val not_dupes: List<String> = emptyList(),
@@ -67,7 +68,6 @@ object Remembered {
         skipPeriod = RememberedRules.period(st.skip_period)
         bitPerfect = st.bit_perfect
         djNew = st.dj_new
-        topMineOnly = st.top_mine_only
         topPeriod = RememberedRules.period(st.top_period)
         topKind = RememberedRules.topKind(st.top_kind)
         collageSize = RememberedRules.collage(st.collage_size)
@@ -118,6 +118,6 @@ object Remembered {
         State(q.queue, q.index, q.radioFrom, q.repeat, eq, source, syncSources.toMap(), lyricsMode, folders, artColors, keepPlayed, musicSort, searchIn, dj, apiKeys, q.shuffled, playlistSort,
             browseLocal, searchBeforeLocal, look, visPreset, wrappedStyle, skipOrder, downloadDir, dupeAction,
             q.queues, q.queueName, q.queueId, q.multiQueue, true, lyricsToFiles, true, autoplay, npFallback, drawerFolds.toMap(), pins.toList(), layouts.toMap(), micAsked, skipPeriod,
-            bitPerfect, replayGain, djNew, topMineOnly, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
+            bitPerfect, replayGain, djNew, false, topPeriod, topKind, collageSize, artistPicks, similarKept, albumPicks, songPicks, notDupes.toList(), tabSorts.toMap(), tabPicks.toMap())
     }
 }

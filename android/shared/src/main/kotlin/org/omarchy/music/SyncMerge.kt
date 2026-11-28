@@ -39,7 +39,7 @@ object SyncRules {
 
     /** state.json's settings that sync: how lists are sorted and shown, the looks, the DJ's "new songs too", tabs you put
      *  releases in, what you kept apart or told never to show again, pins, and the equalizer's presets and outputs. */
-    val STATE_VALUES = listOf("lyrics_mode", "music_sort", "playlist_sort", "skip_order", "skip_period", "top_mine_only",
+    val STATE_VALUES = listOf("lyrics_mode", "music_sort", "playlist_sort", "skip_order", "skip_period",
         "top_period", "top_kind", "collage_size", "look", "np_fallback", "vis_preset", "wrapped_style", "autoplay",
         "multi_queue", "lyrics_to_files", "dupe_action", "dj_new")
     val STATE_MAPS = listOf("tab_sorts", "tab_picks", "artist_picks", "album_picks", "song_picks", "stat_hides", "damaged_left")

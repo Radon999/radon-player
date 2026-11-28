@@ -579,7 +579,7 @@ object PythonImport {
                 e("pins", arr(st["pins"].list.mapNotNull { pin(it) }.distinctBy { it["kind"].str + ":" + it["source"].str + ":" + it["id"].str }))
                 (st["layouts"] as? JsonObject)?.let { e("layouts", strMap(it)) }
                 s("skip_period", text(st["skip_period"])); b("bit_perfect", flag(st["bitperfect"])); s("replay_gain", text(st["replaygain"]))
-                b("dj_new", flag(st["dj_new"])); b("top_mine_only", flag(st["top_mine_only"])); s("top_period", text(st["top_period"]))
+                b("dj_new", flag(st["dj_new"])); s("top_period", text(st["top_period"]))
                 s("top_kind", text(st["top_kind"])); i("collage_size", int(st["collage_size"]))
                 (st["artist_picks"] as? JsonObject)?.let { e("artist_picks", strMap(it)) }
                 e("similar_kept", arr(strings(st["similar_kept"]).map(::JsonPrimitive)))

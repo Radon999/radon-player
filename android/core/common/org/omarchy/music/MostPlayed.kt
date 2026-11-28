@@ -3,8 +3,9 @@ package org.omarchy.music
 /** Most played's lists: the songs, artists and albums you played most over a period. Every play is added up by
  *  [Stats] (Last.fm's, your Spotify and Apple history's and, without Last.fm, the plays here); this turns the
  *  counts into your own songs where you have them ([YourCopies]) and adds them up by artist and by album. Until
- *  the counts are in, the plays here stand in. What you chose (the period, "only songs on this phone") is
- *  [Music]'s, which hands on to here. */
+ *  the counts are in, the plays here stand in. Every song you played is there, whether or not you have it on this
+ *  device (the "only songs on this device" choice was taken out in 5.3.1: your whole history, always). The period you
+ *  chose is [Music]'s, which hands on to here. */
 object MostPlayed {
     data class TopArtist(val name: String, val plays: Int, val thumb: String)
     data class TopAlbum(val key: String, val title: String, val artist: String, val plays: Int, val tracks: List<Track>)
@@ -13,7 +14,7 @@ object MostPlayed {
      *  reader off the main thread (the DJ) never sees one period's songs with another's counts. */
     @Volatile private var made: Pair<List<Stats.Song>, List<Track>>? = null
 
-    /** What you chose changed (the period, only songs on this phone): the songs are made again. */
+    /** What you chose changed (the period): the songs are made again. */
     fun forget() { made = null }
 
     /** Whether Most played's counts come from somewhere other than the plays here. */
@@ -23,14 +24,14 @@ object MostPlayed {
         val counts = if (period == "all") Stats.songs else Stats.periods[period] ?: emptyList()
         if (Stats.songs.isEmpty()) return if (period == "all") Music.plays.top(Int.MAX_VALUE) else emptyList()   // Most played: every song
         made?.let { if (it.first === counts) return it.second }
-        val songs = songsOf(counts, Music.songIndex(), Music.topMineOnly)
+        val songs = songsOf(counts, Music.songIndex())
         made = counts to songs
         return songs
     }
 
-    /** The counted songs as songs to play, most played first: your own copy where you have one (mine: [YourCopies.songIndex]);
-     *  mineOnly leaves out the ones you have no copy of. */
-    fun songsOf(counts: List<Stats.Song>, mine: Map<Pair<String, String>, Track>, mineOnly: Boolean): List<Track> {
+    /** The counted songs as songs to play, most played first: your own copy where you have one (mine: [YourCopies.songIndex]),
+     *  and the ones you have no copy of as themselves. */
+    fun songsOf(counts: List<Stats.Song>, mine: Map<Pair<String, String>, Track>): List<Track> {
         // Two names for one song of yours (a remaster's, a feat.'s): one row, its plays added up.
         val at = LinkedHashMap<String, Track>()
         for (c in counts) {
@@ -40,7 +41,7 @@ object MostPlayed {
             if (c.album.isNotBlank() && t.album.isNotBlank() && !sameAlbum(t.album, c.album)) t = standIn(c)
             at[t.id] = at[t.id]?.let { it.copy(plays = it.plays + c.plays) } ?: t.copy(plays = c.plays)
         }
-        return at.values.filter { !mineOnly || it.isFile || Music.lib.has(it.id) }.sortedByDescending { it.plays }
+        return at.values.sortedByDescending { it.plays }
     }
 
     private fun sameAlbum(a: String, b: String) = PlaysApart.versionOf(a, listOf(listOf(PlaysApart.albumKey(b)))) != null
@@ -73,7 +74,7 @@ object MostPlayed {
         return out.map { (k, x) -> x.copy(name = called[k]?.maxByOrNull { it.value }?.key ?: x.name) }.sortedByDescending { it.plays }
     }
 
-    /** Most played albums: Most played's songs (the same period, the same "only songs on this phone") added up by album. */
+    /** Most played albums: Most played's songs (the same period) added up by album. */
     fun albums(period: String = "all"): List<TopAlbum> {
         val songs = songs(period)
         if (songs.isNotEmpty() && YourCopies.localCopies.isEmpty()) Music.songIndex()

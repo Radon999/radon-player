@@ -555,7 +555,6 @@ fun MusicTab(ui: Ui) {
                                     if (!st.busy) st.refresh(force = true)
                                 }
                                 Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Chip("Only songs on this $DEVICE", Music.topMineOnly) { Music.chooseTopMineOnly(!Music.topMineOnly) }
                                     if (!Music.topKind.startsWith("time") && Music.topKind != "moods") Chip("Collage…", false) { ui.collageFor = Music.topKind }
                                     if (Music.topKind != "moods") Chip("Share card…", false) { ui.cardFor = Music.topKind }
                                 }
@@ -2398,7 +2397,7 @@ class TimeItem(val title: String, val artist: String, val secs: Long, val tracks
 /** Listening time's songs or albums, each with your songs (or one to find), longest first. The desktop's time_items.
  *  Kept until the listening, your music or the choices change: the list redraws often, and this reads all your songs. */
 fun timeItemsOf(what: String, t: org.omarchy.music.Stats.Time): List<TimeItem> {
-    val stamp = listOf<Any>(what, Music.topPeriod, Music.musicVersion, Music.topMineOnly)
+    val stamp = listOf<Any>(what, Music.topPeriod, Music.musicVersion)
     TimeItemsMemo.get(t, stamp)?.let { return it }
     val out = buildTimeItems(what, t)
     TimeItemsMemo.put(t, stamp, out)

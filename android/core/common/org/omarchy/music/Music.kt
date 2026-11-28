@@ -138,8 +138,6 @@ object Music {
     var wrappedStyle by mutableStateOf("classic")   // Wrapped's look
     var artistSort by mutableStateOf("album")   // an artist's page: their songs by album (unless you pick another: kept), most played, least, title, newest
     var skipOrder by mutableStateOf("most")    // how Skips is sorted: most, least, heard
-    var topMineOnly by mutableStateOf(true)   // Most played: only the songs on the phone (plays from everywhere)
-    fun chooseTopMineOnly(on: Boolean) { topMineOnly = on; MostPlayed.forget(); musicVersion++; saveState() }
     var skipPeriod by mutableStateOf("all")    // …and over which time: week, month, year, all
     var bitPerfect by mutableStateOf(false)    // the DAC gets each song as it is: no EQ, no song volume, no speed
     var replayGain by mutableStateOf("off")    // off, track or album: the files' ReplayGain tags (not in bit-perfect)

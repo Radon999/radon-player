@@ -592,7 +592,7 @@ object Sync {
             put("similar_kept", list(m.similarKept))
             put("not_dupes", list(m.notDupes.map { SyncPaths.outDupeKey(it, roots) }))
             put("lyrics_mode", m.lyricsMode); put("music_sort", m.musicSort); put("playlist_sort", m.playlistSort)
-            put("skip_order", m.skipOrder); put("skip_period", m.skipPeriod); put("top_mine_only", m.topMineOnly)
+            put("skip_order", m.skipOrder); put("skip_period", m.skipPeriod)
             put("top_period", m.topPeriod); put("top_kind", m.topKind); put("collage_size", m.collageSize)
             put("look", m.look); put("np_fallback", m.npFallback); put("vis_preset", m.visPreset); put("wrapped_style", m.wrappedStyle)
             put("autoplay", m.autoplay); put("multi_queue", m.multiQueue); put("lyrics_to_files", m.lyricsToFiles)
@@ -711,7 +711,6 @@ object Sync {
         s("playlist_sort")?.let { m.playlistSort = it }
         s("skip_order")?.let { m.skipOrder = it }
         s("skip_period")?.let { m.skipPeriod = it }
-        b("top_mine_only")?.let { m.topMineOnly = it }
         s("top_period")?.let { m.topPeriod = it }
         s("top_kind")?.let { m.topKind = it }
         st["collage_size"]?.long?.toInt()?.let { m.collageSize = it }

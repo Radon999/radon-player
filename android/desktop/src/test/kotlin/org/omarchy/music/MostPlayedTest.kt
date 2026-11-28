@@ -11,7 +11,7 @@ class MostPlayedTest {
     private fun played(id: String, title: String, artist: String, album: String, plays: Int) =
         Track("top-$id", "ytm", title, artist).copy(album = album, plays = plays)
 
-    @Test fun twoNamesForOneSongOfYoursAreOneRowAndOnlyYourSongsLeavesOutTheRest() {
+    @Test fun twoNamesForOneSongOfYoursAreOneRowAndSongsYouHaveNotGotAreThereToo() {
         val mineEntry = LibEntry(id = "top-mine", source = "ytm", title = "Top Song", artist = "Top Band", album = "Top Record",
             file = "/music/test/top-mine.flac", format = "flac", added = 1.0)
         Harness.ctx
@@ -20,10 +20,7 @@ class MostPlayedTest {
             val counts = listOf(counted("Elsewhere Song", "Far Band", 50), counted("Top Song", "Top Band", 30),
                 counted("Top Song (feat. Some Guest)", "Top Band", 5))
             val mine = Music.songIndex()
-            val only = MostPlayed.songsOf(counts, mine, mineOnly = true)
-            assertEquals("only the song you have", listOf("top-mine"), only.map { it.id })
-            assertEquals("both names' plays", 35, only[0].plays)
-            val all = MostPlayed.songsOf(counts, mine, mineOnly = false)
+            val all = MostPlayed.songsOf(counts, mine)
             assertEquals("most played first", listOf(50, 35), all.map { it.plays })
             assertEquals("Elsewhere Song", all[0].title)
             assertEquals("top-mine", all[1].id)
