@@ -1309,10 +1309,11 @@ private fun SyncLines(ui: Ui) {
     s.preview?.let { p ->
         val R = org.omarchy.music.SyncPreviewRules
         AlertDialog(onDismissRequest = { s.preview = null }, containerColor = C.light,
-            title = { Text(R.title(p.here, p.there), style = T.head) },
+            title = { Text(if (p.failed.isNotEmpty()) "Couldn't look" else R.title(p.here, p.there), style = T.head) },
             text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                Text(R.body(p.here, p.there, "this $DEVICE", p.with), style = T.sub) } },
-            confirmButton = { TextButton({ s.preview = null; if (pc) s.ask() else s.now() }) { Text("Sync now", color = C.accent) } },
+                Text(p.failed.ifEmpty { R.body(p.here, p.there, "this $DEVICE", p.with) }, style = T.sub) } },
+            confirmButton = { if (p.failed.isEmpty()) TextButton({ s.preview = null; if (pc) s.ask() else s.now() }) { Text("Sync now", color = C.accent) }
+                else TextButton({ s.preview = null; if (pc) s.askPreview() else s.previewNow() }) { Text("Try again", color = C.accent) } },
             dismissButton = { TextButton({ s.preview = null }) { Text("Close", color = C.muted) } })
     }
     // What the last sync changed here, a line each: which playlists gained or lost songs, favorites, the rest

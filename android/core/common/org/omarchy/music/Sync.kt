@@ -339,17 +339,30 @@ object Sync {
 
     // ---- Preview: what a Sync now would change on each device, with nothing changed ----
     /** What a sync would change here and on the other device (each a line a change), and who the other is. */
-    data class Preview(val here: List<String>, val there: List<String>, val with: String)
+    data class Preview(val here: List<String>, val there: List<String>, val with: String, val failed: String = "")   // failed: why it couldn't look
     var preview by mutableStateOf<Preview?>(null)
     var previewAskedAt by mutableStateOf(0L)   // the PC: when Preview asked the phone (0: not waiting)
     val previewWaiting get() = previewAskedAt > 0 && secs() - previewAskedAt < SyncPreviewRules.WAIT
     /** (the PC) Preview: the phone is asked to look (it brings its data; nothing is changed on either). */
-    fun askPreview() { previewAskedAt = secs() }
+    fun askPreview() {
+        val at = secs(); previewAskedAt = at
+        // The phone never came: said, in the box the preview comes in (the wait used to end without a word)
+        Music.scope.launch {
+            kotlinx.coroutines.delay(SyncPreviewRules.WAIT * 1000 + 500)
+            if (previewAskedAt == at) {
+                previewAskedAt = 0L
+                preview = Preview(emptyList(), emptyList(), "the phone", SyncPreviewRules.failed(
+                    "the phone didn't answer. Open Radon Player on it, on the same network, and try again"))
+            }
+        }
+    }
     /** For GET /sync/wanted. */
     fun previewWanted(): Boolean {
         if (previewAskedAt > 0 && !previewWaiting) Music.scope.launch { previewAskedAt = 0L }
         return previewWaiting
     }
+
+    private class OldPc : Exception()
 
     /** (the phone) Look at what a sync would change: its data goes to the PC, which merges and answers but keeps
      *  nothing; nothing is put in place here either. forPc: the PC asked, and shows it. */
@@ -367,14 +380,21 @@ object Sync {
         Music.bg({
             val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
             val (back, theirs) = post(host, headers, head("phone", songs, preview = if (forPc) "pc" else "phone"), mine)
-            if (back["preview"].str == null) error("update the PC app first: it doesn't know Preview yet")
+            if (back["preview"].str == null) throw OldPc()
             val here = parse(mine)
             val result = SyncMerge.mergeAll(here, here, parse(theirs), preferLocal = false)
             Preview(runCatching { SyncChangesRules.lines(here, result) }.getOrDefault(emptyList()),
                 (back["changes"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it.str }, with)
         }) { p, err ->
             running.set(false); busy = null
-            if (p == null) { if (!forPc) Music.toast(failed(err).replace("Couldn't sync", "Couldn't look")); return@bg }
+            // Couldn't look: said in the same box the preview comes in (a passing message was easy to miss, and it looked
+            // as if the look had ended with nothing to say)
+            if (p == null) {
+                if (!forPc) preview = Preview(emptyList(), emptyList(), with, SyncPreviewRules.failed(
+                    if (err is OldPc) "the PC's Radon Player is an older version that can't preview. Update it first (☰ → Update there)"
+                    else failed(err).removePrefix("Couldn't sync: ")))
+                return@bg
+            }
             if (!forPc) preview = p
         }
     }

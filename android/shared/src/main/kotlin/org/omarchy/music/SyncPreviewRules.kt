@@ -5,6 +5,10 @@ object SyncPreviewRules {
     /** How long the PC waits for the phone to answer a preview asked from the PC (seconds). */
     const val WAIT = 60L
 
+    /** Why the look couldn't be made, as a sentence for the box. */
+    fun failed(why: String): String = why.trim().replaceFirstChar { it.uppercase() }.let { if (it.endsWith(".") || it.endsWith("?") || it.endsWith(")")) it else "$it." } +
+        "\n\nNothing was changed."
+
     fun title(here: List<String>, there: List<String>): String {
         val n = here.size + there.size
         return if (n == 0) "A sync would change nothing" else "A sync would change $n thing${if (n != 1) "s" else ""}"
