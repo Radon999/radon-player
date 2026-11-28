@@ -17,12 +17,14 @@ class LocalFiles(private val ctx: Ctx) {
 
     @Serializable
     data class Seen(val modified: Long, val added: Double, val title: String = "", val artist: String = "", val album: String = "",
-                    val duration: Double = 0.0, val genre: String = "")
+                    val duration: Double = 0.0, val genre: String = "", val albumArtist: String = "", val track: Int = 0, val disc: Int = 0)
 
     @Volatile var files: List<Track> = emptyList()
     @Volatile var paths: Map<String, String> = emptyMap(); private set
     @Volatile var genres: Map<String, String> = emptyMap(); private set
     @Volatile var allPaths: Map<String, String> = emptyMap(); private set
+    /** Each song file's album artist, track and disc numbers, as its tags have them. */
+    @Volatile var extras: Map<String, SongExtra> = emptyMap(); private set
     @Volatile var scanning = false
     var scanned = 0.0
 
@@ -48,6 +50,7 @@ class LocalFiles(private val ctx: Ctx) {
         val out = ArrayList<Track>()
         val where = HashMap<String, String>()
         val genre = HashMap<String, String>()
+        val extra = HashMap<String, SongExtra>()
         for (folder in folders.map(::dirOf).filter { it.isDirectory }) {
             folder.walkTopDown().filter { it.isFile && it.extension.lowercase() in AUDIO }.forEach { f ->
                 val path = f.path
@@ -58,14 +61,15 @@ class LocalFiles(private val ctx: Ctx) {
                 keep[path] = s
                 where[path] = shown(f.parentFile)
                 if (s.genre.isNotEmpty()) genre[path] = s.genre
+                if (s.albumArtist.isNotEmpty() || s.track > 0 || s.disc > 0) extra[path] = SongExtra(s.albumArtist, s.track, s.disc)
                 out += Track(id = "f" + path.hashCode().toUInt().toString(16), source = "file", title = s.title, artist = s.artist,
                     album = s.album, duration = s.duration, file = path, added = s.added)
             }
         }
         out.sortBy { norm(it.title) }
         // A file whose tags were edited elsewhere counts as a change too (the lists showed the old words until a restart).
-        val changed = out.map { listOf(it.file, it.title, it.artist, it.album) } != files.map { listOf(it.file, it.title, it.artist, it.album) }
-        files = out; paths = where; genres = genre; allPaths = where
+        val changed = out.map { listOf(it.file, it.title, it.artist, it.album) } != files.map { listOf(it.file, it.title, it.artist, it.album) } || extra != extras
+        files = out; paths = where; genres = genre; allPaths = where; extras = extra
         if (keep != seen) writeAtomic(index, JSON.encodeToString(ser, keep))
         if (again) runCatching { reread.createNewFile() }
         scanned = now()
@@ -92,7 +96,9 @@ class LocalFiles(private val ctx: Ctx) {
             fun tag(k: org.jaudiotagger.tag.FieldKey) = runCatching { t?.getFirst(k) }.getOrNull().orEmpty().trim()
             Seen(mod, added, tag(org.jaudiotagger.tag.FieldKey.TITLE).ifEmpty { nameTitle },
                 artists(t).ifEmpty { nameArtist.ifEmpty { "Unknown artist" } },
-                tag(org.jaudiotagger.tag.FieldKey.ALBUM), (a.audioHeader?.trackLength ?: 0).toDouble(), tag(org.jaudiotagger.tag.FieldKey.GENRE))
+                tag(org.jaudiotagger.tag.FieldKey.ALBUM), (a.audioHeader?.trackLength ?: 0).toDouble(), tag(org.jaudiotagger.tag.FieldKey.GENRE),
+                tag(org.jaudiotagger.tag.FieldKey.ALBUM_ARTIST), SongExtraRules.number(tag(org.jaudiotagger.tag.FieldKey.TRACK)),
+                SongExtraRules.number(tag(org.jaudiotagger.tag.FieldKey.DISC_NO)))
         } catch (e: Exception) {
             Seen(mod, added, nameTitle, nameArtist.ifEmpty { "Unknown artist" })
         }

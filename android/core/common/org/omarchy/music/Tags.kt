@@ -102,7 +102,12 @@ object Tags {
 object Covers {
     /** Which album a song is from: its lead artist and album, tidied; a song without an album is one of its own. */
     internal fun albumKey(t: Track): Pair<String, String> =
-        norm(t.artist.split(",")[0]) to albumBase(t.album).ifEmpty { "#" + t.id }
+        norm(albumOwner(t)) to albumBase(t.album).ifEmpty { "#" + t.id }
+
+    /** Whose album the song is on: its file's album artist where the read of your music found one (a compilation is
+     *  then one album, not one for each of its artists), else its own lead artist. */
+    internal fun albumOwner(t: Track): String =
+        SongExtraRules.albumOwner(t.file?.let { f -> runCatching { Music.local.extras[f]?.albumArtist }.getOrNull() }, t.artist)
 
     internal fun isJpeg(b: ByteArray) = b.size > 3 && b[0] == 0xff.toByte() && b[1] == 0xd8.toByte() && b[2] == 0xff.toByte()
 

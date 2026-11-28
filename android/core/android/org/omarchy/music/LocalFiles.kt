@@ -32,6 +32,9 @@ class LocalFiles(private val ctx: Context) {
     /** Every song's folder on the phone (downloads too), by its media library number. */
     @Volatile var allPaths: Map<String, String> = emptyMap()
         private set
+    /** Each song's album artist, track and disc numbers, as the media library has them (by its address). */
+    @Volatile var extras: Map<String, SongExtra> = emptyMap()
+        private set
     @Volatile var scanning = false
     var scanned = 0.0
 
@@ -54,6 +57,7 @@ class LocalFiles(private val ctx: Context) {
         val where = HashMap<String, String>()
         val genre = HashMap<String, String>()
         val everyPath = HashMap<String, String>()
+        val extra = HashMap<String, SongExtra>()
         val gCol = if (android.os.Build.VERSION.SDK_INT >= 30) "genre" else null
         query { c, uri, path, modified ->
             if (gCol != null) c.getColumnIndex(gCol).takeIf { it >= 0 }?.let { i -> c.getString(i)?.trim()?.takeIf { it.isNotEmpty() }
@@ -61,6 +65,11 @@ class LocalFiles(private val ctx: Context) {
             everyPath[mediaId(uri) ?: uri] = path.trimEnd('/') + "/"
             if (mediaId(uri) in saved || (!path.startsWith(DOWNLOADS) && folders.none { path.startsWith(it) })) return@query
             where[uri] = path.trimEnd('/') + "/"
+            runCatching {
+                val aa = c.getColumnIndex("album_artist").takeIf { it >= 0 }?.let { c.getString(it) }?.trim().orEmpty()
+                val (no, disc) = SongExtraRules.fromAndroid(c.getColumnIndex(MediaStore.Audio.Media.TRACK).takeIf { it >= 0 }?.let { c.getInt(it) } ?: 0)
+                if (aa.isNotEmpty() || no > 0 || disc > 0) extra[uri] = SongExtra(aa, no, disc)
+            }
             val old = seen[uri]
             val added = old?.added ?: if (first) modified.toDouble() else now()
             // A WAV: Android's library reads no tags from one (its name is the file's, its album the folder's, its artist
@@ -74,7 +83,8 @@ class LocalFiles(private val ctx: Context) {
             out += if (wav == null) t else t.copy(title = wav.getOrNull(0).orEmpty().ifBlank { t.title },
                 artist = wav.getOrNull(1).orEmpty().ifBlank { t.artist }, album = wav.getOrNull(2).orEmpty().ifBlank { t.album })
         }
-        val changed = out != files   // (a song named anew counts: a WAV whose tags were just written)
+        val changed = out != files || extra != extras   // (a song named anew counts: a WAV whose tags were just written)
+        extras = extra
         files = out
         paths = where
         genres = genre
@@ -119,8 +129,9 @@ class LocalFiles(private val ctx: Context) {
     private fun query(each: (android.database.Cursor, String, String, Long) -> Unit) {
         val cols = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.RELATIVE_PATH,
-            MediaStore.Audio.Media.DATE_MODIFIED, MediaStore.Audio.Media.DISPLAY_NAME, @Suppress("DEPRECATION") MediaStore.MediaColumns.DATA) +
-            (if (android.os.Build.VERSION.SDK_INT >= 30) arrayOf("genre") else emptyArray())
+            MediaStore.Audio.Media.DATE_MODIFIED, MediaStore.Audio.Media.DISPLAY_NAME, @Suppress("DEPRECATION") MediaStore.MediaColumns.DATA,
+            MediaStore.Audio.Media.TRACK) +
+            (if (android.os.Build.VERSION.SDK_INT >= 30) arrayOf("genre", "album_artist") else emptyArray())
         ctx.contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cols,
             "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE")?.use { c ->
             val idCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)

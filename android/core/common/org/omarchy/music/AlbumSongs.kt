@@ -18,6 +18,8 @@ object AlbumSongs {
     fun number(t: Track): Int {
         numberStandIn?.let { return it(t) }
         val f = fileOf(t) ?: return 9999
+        // (the read of your music has it already for most files: no file is opened then, and an album page opens at once)
+        runCatching { Music.local.extras[f]?.track }.getOrNull()?.takeIf { it > 0 }?.let { return it }
         return numbers.getOrPut(f) { runCatching { trackNo(FileTags.read(Music.ctx, f)?.get("tracknumber")) }.getOrDefault(9999) }
     }
 
@@ -25,6 +27,7 @@ object AlbumSongs {
     fun disc(t: Track): Int {
         if (numberStandIn != null) return 0
         val f = fileOf(t) ?: return 0
+        runCatching { Music.local.extras[f] }.getOrNull()?.takeIf { it.track > 0 }?.let { return it.disc }
         return discs.getOrPut(f) { runCatching { FileTags.disc(Music.ctx, f) }.getOrDefault(0) }
     }
 

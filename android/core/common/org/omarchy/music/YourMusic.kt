@@ -20,7 +20,8 @@ object YourMusic {
     /** Your songs by album, the albums in name order (each with its songs in their order). */
     fun albums(): List<Pair<Album, List<Track>>> = songs().groupBy { Covers.albumKey(it) }.values.map { songs ->
         val t = songs.first()
-        val artist = songs.groupingBy { it.artist.split(",")[0].trim() }.eachCount().maxByOrNull { it.value }?.key ?: t.artist
+        // (billed to its album artist where the files name one; else to whoever most of its songs are by)
+        val artist = songs.groupingBy { Covers.albumOwner(it) }.eachCount().maxByOrNull { it.value }?.key ?: t.artist
         Album("album:" + Covers.albumKey(t), t.album.ifEmpty { "Unknown album" }, artist, count = songs.size.toString()) to songs
     }.sortedBy { norm(it.first.title) }
 
