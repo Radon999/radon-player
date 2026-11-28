@@ -2,6 +2,13 @@
 
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
+## 5.2.12 · November 2026
+- **Long lists and playlists open smoothly again (the phone and the PC):** since 5.2.10 every row, and every step of a sort by plays, worked out its song's play count key afresh; each is worked out once now, and the play counts are kept until they change.
+- **The phone's Lyrics and Visualizer widgets follow the music again:** the app checks every few seconds whether the screen is on and unlocked and whether the app is in front, rather than only waiting for Android to say. A missed unlock had left the Lyrics widget on "Nothing playing", and music started without opening the app (from a widget, the lock screen or headphones) had kept the Visualizer widget still.
+- **The phone's Visualizer widget looks as it does in the app:** drawn in the widget's own shape. It had been made 360 by 200 whatever the widget's shape and stretched to fill it, far more up than across on a tall widget, so its bars were fat, a circle came out an oval, and it all looked blurred and faded.
+- **Plays on the PC's Most played widget:** each song's plays beside it, as on the phone's widget.
+- **Favorite artists sync name by name (the phone and the PC):** your favorite artists for New releases, the artists you follow and the "Not my artist"s are merged a name at a time when the phone and the PC sync, so one added on each before a sync are both kept (one of them was lost), and one taken off on either stays off.
+
 ## 5.2.11 · November 2026
 - **A song's plays are its album's (the phone and the PC):** a play counts for a song only when its title, its artist and its album are the song's, from every service (Last.fm, Spotify, Apple Music, Deezer, YouTube Music, Tidal). Imagine Dragons' two "Yesterday"s each have their own plays; so do a song's single, its album's copy and a compilation's. A play that came with no album goes to the album played most. **Plays on singles and albums** (Settings) still puts a single's or an EP's plays on the album you pick.
 - **Every edition of an album is the one album:** Deluxe, Anniversary, Expanded, Super Deluxe, Remastered…, however it's written ("Night Visions (Deluxe)", "Night Visions: 10th Anniversary Edition", "Night Visions Deluxe Edition"), so a new edition keeps every play of the old one, in your songs' plays and in Top albums. "Night Visions Live" stays its own album.
