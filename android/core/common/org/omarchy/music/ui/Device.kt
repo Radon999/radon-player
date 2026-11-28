@@ -1,5 +1,8 @@
 package org.omarchy.music.ui
 
+import androidx.compose.ui.composed
+import androidx.compose.ui.input.pointer.pointerInput
+
 import androidx.compose.foundation.combinedClickable
 
 /** Which one this is: the phone's app (Android) or the PC's. The screens are the same; a few lines differ. */
@@ -16,6 +19,16 @@ val DEVICE_NAME: String get() = if (onPhone) "Phone" else "This PC"
 fun androidx.compose.ui.Modifier.pressable(onClick: () -> Unit, onLongClick: (() -> Unit)? = null): androidx.compose.ui.Modifier =
     (if (onLongClick != null) this.rightClick(onLongClick) else this)
         .then(androidx.compose.ui.Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick))
+
+/** Only a long press (on the PC also a right-click), for the menu: a tap or a left click does nothing at all, with no
+ *  press shown (Wrapped's songs: a tap there lit the row and shook the slide). A tap is still taken, so it doesn't
+ *  turn the slide either. */
+fun androidx.compose.ui.Modifier.holdOnly(onHold: () -> Unit): androidx.compose.ui.Modifier = this.composed {
+    val hold = androidx.compose.runtime.rememberUpdatedState(onHold)   // (the latest, without starting the touch over)
+    rightClick { hold.value() }.then(androidx.compose.ui.Modifier.pointerInput(Unit) {
+        androidx.compose.foundation.gestures.detectTapGestures(onLongPress = { hold.value() }, onTap = { })
+    })
+}
 
 /** What the PC's words are for a touch: "tap"/"click", "long-press"/"right-click". */
 val TAP: String get() = if (onPhone) "tap" else "click"

@@ -768,7 +768,7 @@ private fun Ranked(items: List<Triple<String, String, Int>>, art: List<Any?>? = 
                 cover != null -> ({ WrappedPick.ask = cover })
                 else -> null
             }
-            Row((if (hold != null) Modifier.pressable({}, hold) else Modifier), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row((if (hold != null) Modifier.holdOnly(hold) else Modifier), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${i + start}", style = W.rank, modifier = Modifier.widthIn(min = 26.dp))
                 art?.let { Pic(WrappedPick.over(name, sub) ?: it.getOrNull(i), if (items.size > 10) 34.dp else if (items.size > 6) 38.dp else 44.dp) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1280,7 +1280,7 @@ private fun releaseSlides(d: Wrapped.Data): List<Slide> {
         if (list.isNotEmpty()) out += Slide(color) {
             Text(head, style = W.kicker)
             if (list.size <= 6) {   // a few: the top one big
-                Box(Modifier.pressable({}, { WrappedPick.ask = WrappedPick.Ask(list[0].name, list[0].artist, list[0].file.ifEmpty { null }) })) {
+                Box(Modifier.holdOnly({ WrappedPick.ask = WrappedPick.Ask(list[0].name, list[0].artist, list[0].file.ifEmpty { null }) })) {
                     Pic(WrappedPick.over(list[0].name, list[0].artist) ?: list[0].pic, 150.dp) }
                 Text(list[0].name, style = W.big)
                 Text("${list[0].artist} · ${n(list[0].plays)} plays", style = W.sub)
@@ -1462,7 +1462,7 @@ private fun loopSlides(d: Wrapped.Data): List<Slide> {
         Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             l.months.takeLast(12).forEach { (month, loop, count) ->
                 // held: hide it from stats, and the month's next most repeated song takes its place
-                Row(Modifier.pressable({}, { WrappedPick.held = WrappedPick.Held(loop.track.title, loop.track.artist, "song", null) }),
+                Row(Modifier.holdOnly({ WrappedPick.held = WrappedPick.Held(loop.track.title, loop.track.artist, "song", null) }),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Wrapped.MONTHS.getOrElse((month.drop(5).toIntOrNull() ?: 1) - 1) { "" }, style = W.rank, modifier = Modifier.widthIn(min = 42.dp))
                     // the song, then whose it is and how often it went round that month

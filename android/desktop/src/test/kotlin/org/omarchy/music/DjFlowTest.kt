@@ -157,12 +157,16 @@ class DjFlowTest {
 
     @Test fun stoppingTheDjLeavesTheMusicAsItIs() {
         startDj()
-        val playing = Music.current()?.id
-        val queue = Music.queue.map { it.id }
-        Harness.ui { Music.djStop() }
+        // (the queue as it is the moment the DJ stops: it may still be adding its next songs just before)
+        var playing: String? = null
+        var queue = emptyList<String>()
+        Harness.ui { playing = Music.current()?.id; queue = Music.queue.map { it.id }; Music.djStop() }
         assertFalse(Music.dj.on)
         assertEquals(playing, Music.current()?.id)
         assertEquals(queue, Music.queue.map { it.id })
+        // and nothing the DJ was still finding is added once it's stopped
+        Thread.sleep(1500)
+        assertEquals("nothing added after it stopped", queue, Harness.ui { Music.queue.map { it.id } })
         assertTrue(engine.playWhenReady)
     }
 }
