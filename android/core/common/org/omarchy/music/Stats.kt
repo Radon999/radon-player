@@ -301,7 +301,8 @@ object Stats {
             val (t, a) = sameSong(title, artist).let { asYours(it.first, it.second) ?: it }
             val on = onto(title, artist, album)
             val k0 = statsKey(t, moved(a))
-            val v = PlaysApart.albumKey(on)
+            // (a single named after the song itself is no album to keep it apart by: its plays are the song's own)
+            val v = if (PlaysApart.ownSingle(title, on)) "" else PlaysApart.albumKey(on)
             if (v.isNotEmpty()) albumsOf.getOrPut(k0) { LinkedHashSet() } += v
             songs.count(t, moved(a), on, thumb, n, source, if (v.isNotEmpty()) apartKey(k0, v) else k0)
         }

@@ -31,4 +31,13 @@ class PlaysApartTest {
         assertEquals("one short word more", sessions[0][0], PlaysApart.versionOf("It's Time Sessions", sessions))
         assertNull("not a whole other album of the same first words", PlaysApart.versionOf("It's Time", sessions))
     }
+
+    @Test fun aSingleNamedAfterItsSongIsNoAlbumOfItsOwn() {
+        org.junit.Assert.assertTrue(PlaysApart.ownSingle("Next Semester", "Next Semester"))
+        org.junit.Assert.assertTrue(PlaysApart.ownSingle("Next Semester", "Next Semester - Single"))
+        org.junit.Assert.assertTrue(PlaysApart.ownSingle("Sunflower (feat. Swae Lee)", "Sunflower"))
+        org.junit.Assert.assertFalse(PlaysApart.ownSingle("Next Semester", "Clancy"))
+        org.junit.Assert.assertFalse("two songs of one name stay apart by their albums", PlaysApart.ownSingle("Yesterday", "Evolve"))
+        org.junit.Assert.assertFalse(PlaysApart.ownSingle("Yesterday", ""))
+    }
 }

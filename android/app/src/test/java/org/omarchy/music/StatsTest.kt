@@ -33,6 +33,23 @@ class StatsTest {
         assertEquals("a copy on an album never played from: none", null, lookUp("Greatest Hits"))
     }
 
+    @Test fun playsOnTheSongsOwnSingleAreTheSongs() {
+        // twenty one pilots' "Next Semester": played as its single (album "Next Semester"), and from the album Clancy
+        fun on(album: String) = SpotifyHistory.Play(1, "twenty one pilots", "Next Semester", album, 200_000)
+        val scrobbles = List(40) { on("Next Semester") } + List(5) { on("Next Semester - Single") } + List(10) { on("Clancy") }
+        val (songs, _, apart) = Stats.combine(scrobbles, emptyList(), emptyList())
+        assertEquals("one song, every play, under its album", listOf("Clancy" to 55), songs.map { it.album to it.plays })
+        val counts = songs.associate { PlaysApart.key(statsKey(it.title, it.artist), it.title, it.artist, it.album, apart) to it.plays }
+        fun lookUp(album: String) = counts[PlaysApart.key(statsKey("Next Semester", "twenty one pilots"), "Next Semester", "twenty one pilots", album, apart)]
+        assertEquals("your copy on the album", 55, lookUp("Clancy"))
+        assertEquals("your copy tagged as the single", 55, lookUp("Next Semester"))
+        // played only as the single: still the song's, whatever album your copy is on
+        val (only, _, apart2) = Stats.combine(List(7) { on("Next Semester") }, emptyList(), emptyList())
+        assertEquals(listOf(7), only.map { it.plays })
+        val k = PlaysApart.key(statsKey("Next Semester", "twenty one pilots"), "Next Semester", "twenty one pilots", "Clancy", apart2)
+        assertEquals(7, only.associate { PlaysApart.key(statsKey(it.title, it.artist), it.title, it.artist, it.album, apart2) to it.plays }[k])
+    }
+
     @Test fun oneArtistWrittenTwoWays() {
         val (songs, _) = Stats.combine(listOf(play(1, "K.Flay", "Blood in the Cut")), listOf(play(2, "kflay", "Blood In The Cut")), emptyList())
         assertEquals(listOf(2), songs.map { it.plays })

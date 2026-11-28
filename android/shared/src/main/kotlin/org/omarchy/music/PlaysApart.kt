@@ -8,7 +8,12 @@ package org.omarchy.music
  *  Remastered…, are one). For each song the stats keep its albums ([split]), the one played most first: that one keeps
  *  the song's own key (with the plays that came with no album), the others are marked with their album. A song of
  *  yours on an album none of its plays were on is a song of its own, not played yet. "Plays on singles and albums"
- *  (Settings) still puts a single's or an EP's plays on the album you pick. */
+ *  (Settings) still puts a single's or an EP's plays on the album you pick.
+ *
+ *  One exception (the owner's, 5.3.1): a single named after its own song ("Next Semester" on "Next Semester", or
+ *  "Next Semester - Single") says nothing about which album the song is on, so its plays are the song's own: they
+ *  count for your copy on its album (the one played most). Two songs of one name stay apart whenever their albums
+ *  really differ. */
 object PlaysApart {
     /** Each song's albums: statsKey -> its albums (each a list, of one), the one played most first. Set by the stats
      *  as they're added up (and read back with them). */
@@ -28,6 +33,12 @@ object PlaysApart {
         albumKeys[album]?.let { return it }
         if (albumKeys.size > 50_000) albumKeys.clear()
         return (norm(albumBase(album)).ifEmpty { norm(album) }).also { albumKeys[album] = it }
+    }
+
+    /** Whether the album is only the song's own single: named as the song is ("- Single" and editions aside). */
+    fun ownSingle(title: String, album: String): Boolean {
+        val a = albumKey(album)
+        return a.isNotEmpty() && (a == norm(cleanTitle(title)) || a == norm(title) || a == norm(bareTitle(title)))
     }
 
     /** Which of a song's albums album is: the same album (its editions as one), else one written a little another way
@@ -58,6 +69,8 @@ object PlaysApart {
         val versions = split[statsKey(title, artist)] ?: return base
         val a = albumKey(album)
         if (a.isEmpty()) return base
+        // Its own single: the song itself (its main album's), unless that single is one of the albums counted apart
+        if (ownSingle(title, album) && versions.none { a in it }) return base
         val v = versionOf(album, versions) ?: a
         return if (v == versions[0][0]) base else base.first to base.second + "\u0001" + v
     }

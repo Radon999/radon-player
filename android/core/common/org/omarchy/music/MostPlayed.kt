@@ -38,7 +38,9 @@ object MostPlayed {
             var t = YourCopies.fmSong(c.title, c.artist, c.thumb, mine, c.album)
             // A song is its album's too: plays on an album your copy isn't on are another song's (one you haven't got),
             // never added to your copy from another album
-            if (c.album.isNotBlank() && t.album.isNotBlank() && !sameAlbum(t.album, c.album)) t = standIn(c)
+            // (plays on the song's own single are the song's: your copy's, whichever album it's on)
+            if (c.album.isNotBlank() && t.album.isNotBlank() && !sameAlbum(t.album, c.album) &&
+                !PlaysApart.ownSingle(c.title, c.album) && !PlaysApart.ownSingle(t.title, t.album)) t = standIn(c)
             at[t.id] = at[t.id]?.let { it.copy(plays = it.plays + c.plays) } ?: t.copy(plays = c.plays)
         }
         return at.values.sortedByDescending { it.plays }
