@@ -165,6 +165,7 @@ object DjDirector {
         if (djBehind && (djSpares.isNotEmpty() || !djSpareBusy)) { djBehind = false; djMore() }   // (one ready already, or none being made)
     }
     private var djBehind = false
+    private var spareRetries = 0
 
     fun djStop() {
         if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
@@ -385,6 +386,12 @@ object DjDirector {
             if (mine != djSpareJob) { res?.let { Dj.discard(it.id) }; return@bg }   // started again meanwhile
             djSpareBusy = false
             if (res == null || !dj.on) { res?.let { Dj.discard(it.id) }; if (djBehind && dj.on) { djBehind = false; djMore() }; return@bg }
+            // What's coming changed while it was being picked (Switch it up, a set queued meanwhile) and it has some of
+            // the same songs: not kept, and picked again against what's coming now (a few times at most). Kept, the set
+            // after next repeated songs of the next one.
+            val now = (coming() + djSpares.flatMap { b -> b.songs.map { songKey(it) } }).toSet()
+            if (res.songs.any { songKey(it) in now } && spareRetries < 3) { spareRetries++; Dj.discard(res.id); djFillSpares(); return@bg }
+            spareRetries = 0
             djSpares += res
             djPrepareLine(res)
             if (djWaiting || djBehind) { djBehind = false; djMore() }   // you skipped past the end with nothing ready (or the DJ just began): this one, now
