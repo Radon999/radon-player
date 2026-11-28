@@ -10,11 +10,20 @@ object PlayButtons {
         if (Remote.active) { Remote.cmd("play"); return }
         val p = Music.player ?: return
         if (DjDirector.djPlay(p)) return   // the DJ's part of Play: it is never left stuck
-        if (p.state == Engine.IDLE || !p.hasItem) {
+        if (p.state == Engine.ENDED) {
+            // The queue ran out and its last song is over: Play starts that song again (on the phone the player's own
+            // play() did nothing there: the button said playing, in silence)
+            Music.loadCurrent()
+        } else if (p.state == Engine.IDLE || !p.hasItem) {
             // The player let go of the song it was playing: it goes on from where it was, not from its beginning
             if (PlaybackCore.loadedFor == Music.current()?.id && Music.position > 1.0) PlaybackCore.resumeAt = Music.position
             Music.loadCurrent()
-        } else p.play()
+        } else {
+            // Playing on, so the queue isn't "ended" any more (Next on the last song had left it marked ended: the next
+            // song added to the queue then cut this one off)
+            PlaybackCore.ended = false
+            p.play()
+        }
     }
 
     /** Next from your headphones, the car, the lock screen or the PC's media keys. With the DJ on and the music paused

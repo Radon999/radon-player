@@ -68,7 +68,15 @@ object Car {
         val i = if (':' in id) id.substringAfterLast(':').toIntOrNull() ?: 0 else 0
         val ts = tracks(list)
         if (ts.isEmpty()) return
-        if (list == "queue") Music.playIndex(i.coerceIn(0, ts.size - 1)) else Music.playFrom(ts, i.coerceIn(0, ts.size - 1), false)
+        if (list == "queue") { Music.playIndex(i.coerceIn(0, ts.size - 1)); return }
+        // The queue it starts is named after the list picked in the car, as a list picked in the app names its own (it
+        // took the name of whatever screen the phone last showed, and with Queues on went into that one's queue)
+        Music.listName = when {
+            list == "favorites" -> "Favorites"; list == "recent" -> "Recently played"; list == "mine" -> "Your music"
+            list.startsWith("pl.") -> Music.lists.get(list.removePrefix("pl."))?.name ?: "Playlist"
+            else -> Music.listName
+        }
+        Music.playFrom(ts, i.coerceIn(0, ts.size - 1), false)
     }
 
     /** Shuffle, Repeat (off, all, one) and Favorite beside the usual buttons: in the notification and on the lock

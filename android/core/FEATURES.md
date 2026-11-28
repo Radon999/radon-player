@@ -17,13 +17,13 @@ Almost everything here is a choice: where something can be switched off or chang
 - **Quality badge:** says exactly what you're hearing ("FLAC 24-bit/96 kHz", a stream's quality, "Offline"). On a stream, **⤓ FLAC** saves it.
 - **Your copy first:** wherever a song turns up (a playlist, search, a radio, the DJ), your own file plays if you have it, with its cover and tags, even when your history names it a little differently. For an unreleased song listed under another name, **This is a song of mine…** (a song's Options) links it to your file once.
 - **Streaming or on this device:** every song says where it plays from: its format ("FLAC 24", "MP3", ⤓ for a download) or **Streaming**.
-- **Shuffle, three ways** (Settings › Playback › Shuffle): **Random** is pure chance; **Smart** favours songs you love but haven't heard in a while; **Unheard and neglected** plays only what you've never played or not for a long time. Whichever you pick, a song you've heard waits until the rest of the list has had its turn, across queues and restarts; a skipped song doesn't count as heard.
-- **Repeat and Autoplay:** repeat a song or the list. Autoplay keeps similar songs coming when the queue ends; off, the music stops there. With the DJ on, only Repeat one is used.
+- **Shuffle, three ways** (Settings › Playback › Shuffle): **Random** is pure chance; **Smart** favours songs you love but haven't heard in a while; **Unheard and neglected** plays only what you've never played or not for a long time. In Unheard and neglected, a song you've heard waits until the rest of the list has had its turn, across queues and restarts; a skipped song doesn't count as heard.
+- **Repeat and Autoplay:** repeat a song or the list. Autoplay keeps similar songs coming when the queue ends; off, the music stops there (with Queues on, your next queue carries on first). Play after the last song starts it again. With the DJ on, only Repeat one is used.
 - **Autoplay that knows you:** the songs autoplay and song radios bring are put in an order that fits you: songs you often play after the one playing, artists you love and the ones you play alongside them, your own copies, songs that sound alike (tempo and loudness) or share the mood or genre, and the artists you play at this time of day and on this output (the car, earbuds, the PC). Left out: anything you heard in the last three hours, songs you keep skipping (above all in their first seconds), and what you said no to. No artist twice in a row.
 - **More like this, Less like this, Not for autoplay:** in a song's Options and an artist's menu. Autoplay, radios and the DJ follow them, and they sync between your phone and computer.
 - **Per song:** its own volume (−12 to +12 dB), EQ and speed, remembered.
 - **Mono** puts both sides in one earbud; **casting** sends music to a Chromecast, a Google speaker or a TV.
-- **It remembers** the queue, your place in the song and every setting.
+- **It remembers** the queue, your place in the song (to within a few seconds, after the app is closed too) and every setting.
 
 ### The queue
 
@@ -156,7 +156,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 
 ## Phone + computer together
 
-- **Sync now** (Settings › Remote & sync), on either device: plays, skips, favorites, EQs, downloads, tag edits, covers you picked, synced playlists, and every choice you made in the scans and stats screens (Never show included) come together, nothing counted twice, with **Undo last sync**. The main device's choices win.
+- **Sync now** (Settings › Remote & sync), on either device: plays, skips, favorites, EQs, downloads, tag edits, covers you picked, synced playlists, and every choice you made in the scans and stats screens (Never show included) come together, nothing counted twice, with **Undo last sync**. Where both devices changed the same thing, the newer change wins (or the device you tapped Sync now on, when nothing says which is newer).
 - **Playlists that sync:** a switch for each playlist (smart playlists and Listen later too), marked ⇄ SYNCED, CHANGES WAITING or THIS DEVICE ONLY. New playlists sync by themselves unless you switch that off. **Auto playlist sync** does it whenever both apps are open.
 - **Send a playlist** to the other device once, without syncing it.
 - **Tags match** and **Moods match:** pick a main device, and the other device's copies of your songs are made the same (title, artist, album, genre, year, lyrics, moods, cover). Only what's certain is changed; nothing is guessed.

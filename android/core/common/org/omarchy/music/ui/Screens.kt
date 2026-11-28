@@ -531,7 +531,7 @@ fun MusicTab(ui: Ui) {
                             if (ui.musicView == "later") Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Pill("Play") { Music.playFrom(tracks, 0, false) }
-                                Pill("Shuffle") { Music.playFrom(org.omarchy.music.shuffleSongs(tracks), 0, false) }
+                                Pill("Shuffle") { Music.playList(tracks, shuffled = true) }
                                 SortMenu(songTab, songOpts, songSort, names = mapOf("order" to "Last added first"))
                             }
                             if (ui.musicView == "favorites" || ui.musicView == "unfavorited") Row(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
@@ -1612,7 +1612,7 @@ private fun ArtistPage(ui: Ui, page: Ui.Page.Artist) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (mine.isNotEmpty()) {
                     Pill("Play") { Music.playFrom(mine, 0, false) }
-                    Pill("Shuffle") { Music.playFrom(org.omarchy.music.shuffleSongs(mine), 0, false) }
+                    Pill("Shuffle") { Music.playList(mine, shuffled = true) }
                 }
                 PinPill(org.omarchy.music.Pin("artist", page.name, page.name, thumb = i?.thumb ?: "", source = page.prefer ?: ""))
                 Pill("Change picture…", quiet = true) { ui.artistPictureFor = page.name }

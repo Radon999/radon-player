@@ -240,6 +240,7 @@ object PlaybackCore {
     /** The queue's Clear: the songs you queued by hand go (what plays on from the list stays). */
     fun clearQueued() {
         if (Remote.active) { Remote.cmd("clear_queued"); return }
+        if (queue.drop(index + 1).none { it.queued }) return   // nothing queued by hand: nothing to clear (or to undo)
         keepForUndo("clear")
         queue = queue.take(index + 1) + queue.drop(index + 1).filter { !it.queued }
         afterQueueChange()
@@ -412,7 +413,7 @@ object PlaybackCore {
         val ctxNow = context
         // the radio's songs you have play from your copies, in an order that fits you (Signals: your habits, skips, likes)
         Music.bg({ Signals.rank(t, Music.localsOf(Music.radioTracks(t))) }) { res, err ->
-            if (ctxNow != context || err != null || res.isNullOrEmpty()) { if (ended) doneAdvancing(); return@bg }
+            if (ctxNow != context || err != null || res.isNullOrEmpty()) { if (ended && ctxNow == context) stoppedAtEnd() else if (ended) doneAdvancing(); return@bg }
             var q = queue
             if (keepUntil != null) {
                 // A song picked from results: its radio replaces the rest of the results (not your queue).
@@ -427,7 +428,7 @@ object PlaybackCore {
             queue = q
             afterQueueChange()
             if (ended && index + 1 < queue.size) next()   // it had stopped at the end: on it goes
-            else if (ended) doneAdvancing()
+            else if (ended) stoppedAtEnd()
         }
     }
 
@@ -473,6 +474,7 @@ object PlaybackCore {
         if (Remote.active) { Remote.cmd("prev"); return }
         if (QueueRules.previousRestarts(position, index)) {   // ⏮: the start of the song; in its first 10 seconds, the song before
             Music.player?.seekTo(0)
+            position = 0.0   // (paused, nothing else moves it: a second ⏮ then went nowhere)
             val t = current()
             if (t != null && listen?.let { it.sent || it.counted } == true) beginListen(t)   // listening again counts again
         } else { index--; goingBack = true; loadCurrent() }
@@ -484,6 +486,16 @@ object PlaybackCore {
         advancing = false
         val p = Music.player ?: return
         if (p.state == Engine.ENDED) p.pause()   // nothing came: it stops, and Android hears it
+    }
+
+    /** Nothing came after the last song (autoplay found none, a stream couldn't be got back): stopped, and shown as
+     *  stopped, whatever the player says of itself. The PC's player goes idle at a song's end, not "ended": left as
+     *  "playing", the song was loaded again twice and called a fault; a stream that couldn't be got back stayed
+     *  "moving on" for good, with Play doing nothing. */
+    private fun stoppedAtEnd() {
+        advancing = false
+        Music.player?.pause()
+        paused = true
     }
 
     /** The player says its song ended. Ignored while it's already moving on to another song (after a crossfade the
@@ -638,10 +650,12 @@ object PlaybackCore {
         multiQueue = s.multiQueue
     }
 
-    /** The rest of what the app remembers is back too: the song from last time goes into the player, not playing. */
+    /** The rest of what the app remembers is back too: the song from last time goes into the player, not playing, at
+     *  the place in it you had got to ([keepPlace]). */
     fun restored() {
         val t = current()
-        if (t != null && (Music.lib.has(t.id) || t.isFile)) loadCurrent(autoplay = false)
+        restoreAt = t?.let { placeFor(it) } ?: 0.0
+        if (t != null && (Music.lib.has(t.id) || t.isFile)) { resumeAt = restoreAt; restoreAt = 0.0; loadCurrent(autoplay = false) }
         else if (t != null) restorePending = true   // it has to come from Tidal: wait for the player and the login
     }
 
@@ -649,8 +663,36 @@ object PlaybackCore {
     fun playerReady() {
         if (restorePending) {
             restorePending = false
+            resumeAt = restoreAt; restoreAt = 0.0
             loadCurrent(autoplay = false)
         }
+    }
+
+    // ---- your place in the song, kept between runs ----
+    // FEATURES says the app remembers "your place in the song": it kept the queue and the song, and began the song again
+    // from 0:00. A small file of its own (the song, the second), written every 15 seconds while it plays and when it's
+    // paused or moved: state.json holds the whole queue, too much to write that often.
+    private val placeFile get() = java.io.File(Music.ctx.filesDir, "place.txt")
+    private var placeKept = ""
+    private var placeAt = 0L
+    private var restoreAt = 0.0   // the place to go back to, for a song that waits for its service to load
+
+    /** Where you were in t when the app last ran (0: at its start, another song, or all but over). */
+    private fun placeFor(t: Track): Double {
+        val l = runCatching { readText(placeFile)?.lines() }.getOrNull() ?: return 0.0
+        placeKept = l.joinToString("\n")
+        val at = l.getOrNull(1)?.toDoubleOrNull() ?: return 0.0
+        return if (l.getOrNull(0) == t.id && PlaceRules.resumes(at, t.duration)) at else 0.0
+    }
+
+    private fun keepPlace(playing: Boolean) {
+        if (Remote.active || restorePending) return
+        val t = current() ?: return
+        val now = System.currentTimeMillis()
+        val text = "${t.id}\n${position.toInt()}"
+        if (text == placeKept || (playing && now - placeAt < PlaceRules.EVERY_MS)) return
+        placeKept = text; placeAt = now
+        Music.bg({ writeAtomic(placeFile, text) })
     }
 
     private fun play(t: Track, ready: Downloader.Ready, autoplay: Boolean, startAt: Double = 0.0) {
@@ -710,14 +752,14 @@ object PlaybackCore {
         val wasPlaying = Music.player?.playWhenReady == true
         if (streamRetry == seq) {
             Music.toast("Lost the stream of “${t.title}”")
-            if (wasPlaying) next()
+            if (wasPlaying) next() else stoppedAtEnd()
             return
         }
         streamRetry = seq
         Music.dl.forgetStream(t.id)
         Music.bg({ Music.dl.stream(t) }) { ready, err ->
             if (seq != loadSeq) return@bg
-            if (err != null || ready == null) { Music.toast("Couldn't get “${t.title}” back: ${err?.message}"); return@bg }
+            if (err != null || ready == null) { Music.toast("Couldn't get “${t.title}” back: ${err?.message}"); stoppedAtEnd(); return@bg }
             play(t, ready, wasPlaying, pos)
         }
     }
@@ -739,6 +781,7 @@ object PlaybackCore {
                     p.durationMs.takeIf { it > 0 }?.let { duration = maxOf(it / 1000.0, now) }   // a file longer than it says: its bar goes on to its real end
                     maybeCrossfade(p)
                 }
+                if (p != null) keepPlace(p.isPlaying)   // your place in the song, for the next start
                 if (p != null) endWatch(p)
                 if (p != null) volumeWatch(p)
                 if (p != null) idleWatch(p)
