@@ -1,15 +1,15 @@
-commit f9ecef2ed5143cdd52f87e4a8a5adddaa1dfa2ce · run 46102913923 · Sat Nov 28 03:48:05 UTC 2026
+commit e2ee3b73a12c2dc5dc7391238d6965af941dcf1f · run 46103872161 · Sat Nov 28 04:08:23 UTC 2026
 PC TESTS ON WINDOWS: 50 suites, tests 198, failed 1
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.4 s of speech in 2.5 s (with loading the voice); then 4.9 s of speech in 1.7 s (2.8x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.1 s of speech in 2.1 s (with loading the voice); then 4.6 s of speech in 1.6 s (2.8x real time)
 WINDOWS INSTALLER: Radon Player-5.2.10.msi, 98M
 --- errors
-org.omarchy.music.PlaybackBehaviourTest > leavingASongPartWayIsASkipButNotInItsLastSeconds FAILED
-    java.lang.AssertionError: waited 8 s for: the first counted as skipped (loaded: [file-skips-1, file-skips-2], index 1, at 8047 ms)
-        at org.omarchy.music.PlaybackBehaviourTest.until(PlaybackBehaviourTest.kt:76)
-        at org.omarchy.music.PlaybackBehaviourTest.until$default(PlaybackBehaviourTest.kt:73)
-        at org.omarchy.music.PlaybackBehaviourTest.leavingASongPartWayIsASkipButNotInItsLastSeconds(PlaybackBehaviourTest.kt:259)
-
-D:\a\sherpa-onnx\sherpa-onnx\sherpa-onnx\jni\offline-tts.cc:operator ():550 config:
+org.omarchy.music.DjMoreKindsTest > aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne FAILED
+    java.lang.AssertionError: a mood:Happy set can be made
+        at org.junit.Assert.fail(Assert.java:89)
+        at org.junit.Assert.assertTrue(Assert.java:42)
+        at org.junit.Assert.assertNotNull(Assert.java:713)
+        at org.omarchy.music.DjMoreKindsTest.only(DjMoreKindsTest.kt:24)
+        at org.omarchy.music.DjMoreKindsTest.aMoodsSetIsOnlySongsOfThatMoodAndTheLoudMoodsShareOne$lambda$15(DjMoreKindsTest.kt:57)
 --
 > Task :desktop:test FAILED
 
@@ -23,7 +23,7 @@ Execution failed for task ':desktop:test'.
 > Run with --scan to get full insights.
 
 --
-BUILD FAILED in 6m 12s
+BUILD FAILED in 6m 27s
 21 actionable tasks: 21 executed
 --- the end of the log
 OfflineTtsConfig(model=OfflineTtsModelConfig(vits=OfflineTtsVitsModelConfig(model="", lexicon="", tokens="", noise_scale=0.667, noise_scale_w=0.8, length_scale=1), matcha=OfflineTtsMatchaModelConfig(acoustic_model="", vocoder="", lexicon="", tokens="", data_dir="", noise_scale=1, length_scale=1), kokoro=OfflineTtsKokoroModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1, lang=""), zipvoice=OfflineTtsZipvoiceModelConfig(tokens="", encoder="", decoder="", vocoder="", data_dir="", lexicon="", feat_scale=0.1, t_shift=0.5, target_rms=0.1, guidance_scale=1), kitten=OfflineTtsKittenModelConfig(model="", voices="", tokens="", lexicon="", data_dir="", length_scale=1), pocket=OfflineTtsPocketModelConfig(lm_flow="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_flow.int8.onnx", lm_main="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\lm_main.int8.onnx", encoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\encoder.onnx", decoder="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\decoder.int8.onnx", text_conditioner="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\text_conditioner.onnx", vocab_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\vocab.json", token_scores_json="D:\a\_temp\sherpa-onnx-pocket-tts-int8-2026-01-26\token_scores.json", voice_embedding_cache_capacity=50), supertonic=OfflineTtsSupertonicModelConfig(duration_predictor="", text_encoder="", vector_estimator="", vocoder="", tts_json="", unicode_indexer="", voice_style=""), num_threads=2, debug=False, provider="cpu"), rule_fsts="", rule_fars="", max_num_sentences=1, silence_scale=0.2)
@@ -49,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m 12s
+BUILD FAILED in 6m 27s
 21 actionable tasks: 21 executed
