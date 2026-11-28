@@ -203,7 +203,7 @@ class VisualizerWidget : AppWidgetProvider() {
             try {
                 while (true) {
                     val start = SystemClock.uptimeMillis()
-                    if (n++ % 25 == 0) {   // every 3 seconds or so: the widgets and their size, and the player's sound (a new session)
+                    if (n++ % 72 == 0) {   // every 3 seconds or so: the widgets and their size, and the player's sound (a new session)
                         ids = HomeWidgets.ids(ctx, VisualizerWidget::class.java)
                         val (w, h, d) = size(ctx, ids)
                         dens = d
@@ -231,7 +231,7 @@ class VisualizerWidget : AppWidgetProvider() {
                         v.setImageViewBitmap(R.id.wv_bars, b)
                         runCatching { mgr.partiallyUpdateAppWidget(ids, v) }
                     }
-                    delay(if (slow) 1500L else (PhoneWidgetRules.VIZ_FRAME_MS - (SystemClock.uptimeMillis() - start)).coerceAtLeast(40L))
+                    delay(if (slow) 1500L else (PhoneWidgetRules.VIZ_FRAME_MS - (SystemClock.uptimeMillis() - start)).coerceAtLeast(8L))
                 }
             } finally {
                 cap.close()
