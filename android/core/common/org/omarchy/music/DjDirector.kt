@@ -157,15 +157,20 @@ object DjDirector {
         playFrom(djTag(res), 0, radio = false)
         dj = dj.copy(on = true)
         djAnnounce(current())
+        // Its next set behind it at once (its first song loaded before the DJ was on, so it didn't ask): the set made
+        // ahead, queued the moment it is there. (Both were picked at the same moment before, neither knowing the
+        // other's songs: the second and third sets could share songs, or be of one kind.)
+        djBehind = true
         djMakeSpare()
-        djMore()   // its next set behind it at once (its first song loaded before the DJ was on, so it didn't ask)
+        if (djBehind && (djSpares.isNotEmpty() || !djSpareBusy)) { djBehind = false; djMore() }   // (one ready already, or none being made)
     }
+    private var djBehind = false
 
     fun djStop() {
         if (Remote.active) { Remote.cmd("dj", "do" to "stop"); return }
         dj = dj.copy(on = false)
         djSpares.forEach { Dj.discard(it.id) }   // never played: their kinds and facts keep their turn
-        djSpares.clear(); djSpareJob++; djSpareBusy = false
+        djSpares.clear(); djSpareJob++; djSpareBusy = false; djBehind = false
         scope.launch(Dispatchers.Main) { delay(3000); runCatching { djWarm() } }   // ready for next time
         saveState()
     }
@@ -379,10 +384,10 @@ object DjDirector {
         bg({ Dj.build(avoid = avoid, coming = coming) }) { res, _ ->
             if (mine != djSpareJob) { res?.let { Dj.discard(it.id) }; return@bg }   // started again meanwhile
             djSpareBusy = false
-            if (res == null || !dj.on) { res?.let { Dj.discard(it.id) }; return@bg }
+            if (res == null || !dj.on) { res?.let { Dj.discard(it.id) }; if (djBehind && dj.on) { djBehind = false; djMore() }; return@bg }
             djSpares += res
             djPrepareLine(res)
-            if (djWaiting) djMore()   // you skipped past the end with nothing ready: this one, now
+            if (djWaiting || djBehind) { djBehind = false; djMore() }   // you skipped past the end with nothing ready (or the DJ just began): this one, now
             djFillSpares()
         }
     }
