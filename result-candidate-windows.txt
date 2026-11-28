@@ -1,12 +1,12 @@
-commit 89e760ed101ece82f1bd04d81cbcc794892d9543 · run 46112456944 · Sat Nov 28 05:37:12 UTC 2026
-PC INSTALL-OVER: made, Radon Player-5.2.12.msi, 216M
+commit 6f9c674f87935349201e9277b4c55ca20f2179e6 · run 46121466799 · Sat Nov 28 07:35:31 UTC 2026
+PC INSTALL-OVER: made, Radon Player-5.3.0.msi, 216M
 BRINGS: ffmpeg.exe mpv.exe radon-media.exe 
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/46112456944/artifacts/15250436188
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/46121466799/artifacts/15254053287
 --- errors
 --- the end of the log
 > Task :desktop:jar
 > Task :desktop:packageMsi
-The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-5.2.12.msi
+The distribution is written to D:\a\radon-player\radon-player\android\desktop\build\compose\binaries\main\msi\Radon Player-5.3.0.msi
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -14,5 +14,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 1s
+BUILD SUCCESSFUL in 4m 15s
 18 actionable tasks: 18 executed
