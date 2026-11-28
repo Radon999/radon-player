@@ -34,10 +34,22 @@ object MostPlayed {
         // Two names for one song of yours (a remaster's, a feat.'s): one row, its plays added up.
         val at = LinkedHashMap<String, Track>()
         for (c in counts) {
-            val t = YourCopies.fmSong(c.title, c.artist, c.thumb, mine, c.album)
+            var t = YourCopies.fmSong(c.title, c.artist, c.thumb, mine, c.album)
+            // A song is its album's too: plays on an album your copy isn't on are another song's (one you haven't got),
+            // never added to your copy from another album
+            if (c.album.isNotBlank() && t.album.isNotBlank() && !sameAlbum(t.album, c.album)) t = standIn(c)
             at[t.id] = at[t.id]?.let { it.copy(plays = it.plays + c.plays) } ?: t.copy(plays = c.plays)
         }
         return at.values.filter { !mineOnly || it.isFile || Music.lib.has(it.id) }.sortedByDescending { it.plays }
+    }
+
+    private fun sameAlbum(a: String, b: String) = PlaysApart.versionOf(a, listOf(listOf(PlaysApart.albumKey(b)))) != null
+
+    /** A song on an album you haven't got: itself, found on your services when it plays. */
+    private fun standIn(c: Stats.Song): Track {
+        val sha = java.security.MessageDigest.getInstance("SHA-1").digest("${norm(c.artist)}|${norm(c.title)}|${PlaysApart.albumKey(c.album)}".toByteArray())
+        return Track("lfm-" + sha.joinToString("") { "%02x".format(it) }.take(16), "lastfm", c.title, c.artist, album = c.album,
+            thumb = c.thumb.takeIf { it.isNotEmpty() && LASTFM_BLANK !in it } ?: SongCovers.known(c.title, c.artist))
     }
 
     /** Most played artists over a period: every play of theirs (every source with a time), by lead artist. All time: the Artists tab's. */

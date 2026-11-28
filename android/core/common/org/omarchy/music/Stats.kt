@@ -83,7 +83,7 @@ object Stats {
         }
     }
 
-    private fun inputs() = listOf("v11", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
+    private fun inputs() = listOf("v12", runCatching { Music.artistPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.albumPicks.toSortedMap().toString() }.getOrDefault(""),
         runCatching { Music.songPicks.toSortedMap().toString() }.getOrDefault(""), if (LastFm.connected) LastFm.user else "", SpotifyHistory.count, OtherPlays.count, AppleHistory.count,
         if (LastFm.connected) 0 else Music.plays.items.values.sumOf { it.plays }).joinToString("|")
@@ -131,9 +131,8 @@ object Stats {
         // A song a history has under someone who isn't on your file of it (an unreleased song under an uploader's name):
         // its plays are your file's, under its own name and artist. Worked out once per song.
         val asYours = YourCopies.renamer()
-        // Two different songs of one name by one artist (two "Yesterday"s): told apart by your copies of them (PlaysApart)
-        val versions = runCatching { PlaysApart.distinct(Music.mySongs()) }.getOrDefault(emptyMap())
-        val (s, a, apart) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 }, deezer, asYours, versions)
+        // Every song by its album too (PlaysApart): a play is a song's only when its title, artist and album are the song's
+        val (s, a, apart) = combine(scrobbles, spotify, here, apple, AppleHistory.rows.filter { it.t <= 0 }, deezer, asYours)
         val mains = apart.mapValues { it.value[0][0] }
         // This week's, month's and year's: the plays with a time (scrobbles, Spotify's, Apple Music's timed ones).
         val thumbs = s.associate { statsKey(it.title, it.artist) to it.thumb }
@@ -141,7 +140,7 @@ object Stats {
             val start = (now() - days * 86400L).toLong()
             combine(scrobbles.filter { it.t >= start }, spotify.filter { it.t >= start },
                 hereEntries.mapNotNull { e -> e.at.count { it >= start }.takeIf { it > 0 }?.let { e.track to it } }, apple.filter { it.t >= start },
-                deezer = deezer.filter { it.t >= start }, asYours = asYours, versions = versions, mains = mains).first   // (every song: past 5,000 a year's artist and mood totals had come out short)
+                deezer = deezer.filter { it.t >= start }, asYours = asYours, mains = mains).first   // (every song: past 5,000 a year's artist and mood totals had come out short)
                 .map { if (it.thumb.isEmpty()) it.copy(thumb = thumbs[statsKey(it.title, it.artist)] ?: "") else it }
         }
         val lengths = runCatching { Music.mySongs().filter { it.duration > 0 }.associate { statsKey(it.title, it.artist) to it.duration } }.getOrDefault(emptyMap())
@@ -280,17 +279,18 @@ object Stats {
         if (c.thumb.isEmpty()) c.thumb = thumb
     }
 
-    /** The counts from each source, put together: (songs, artists, the songs of one name told apart), most played first.
-     *  versions: songs of one name that are different songs (PlaysApart.distinct): each version's plays counted by
-     *  itself, the main one (mains' for it, else the one played most) keeping the song's own key. */
+    /** The counts from each source, put together: (songs, artists, each song's albums), most played first.
+     *  Every play counts for its song on its album (PlaysApart): one name and artist on two albums is two songs, each
+     *  with its own plays. The album played most (mains' for it, when given: the all-time one, for a period) keeps the
+     *  song's own key, with the plays that came with no album. An album's editions are one album ([albumBase]). */
     internal fun combine(scrobbles: List<SpotifyHistory.Play>, spotify: List<SpotifyHistory.Play>, here: List<Pair<Track, Int>>,
                          apple: List<SpotifyHistory.Play> = emptyList(),
                          appleTotals: List<AppleHistory.Row> = emptyList(),
                          deezer: List<SpotifyHistory.Play> = emptyList(),
                          asYours: (String, String) -> Pair<String, String>? = { _, _ -> null },
-                         versions: Map<Pair<String, String>, List<List<String>>> = emptyMap(),
                          mains: Map<Pair<String, String>, String> = emptyMap()): Triple<List<Song>, List<ArtistPlays>, Map<Pair<String, String>, List<List<String>>>> {
         val songs = LinkedHashMap<Pair<String, String>, Counts>()
+        val albumsOf = HashMap<Pair<String, String>, LinkedHashSet<String>>()   // each song's albums, as its plays have them
         // An artist you merged into another (Merge into…, Similar artists): their songs' plays go with them too.
         val picks = runCatching { Music.artistPicks }.getOrDefault(emptyMap())
         fun moved(a: String) = if (picks.isEmpty()) a else picks[pairKey(a)]?.ifEmpty { null } ?: a
@@ -299,8 +299,9 @@ object Stats {
             val (t, a) = sameSong(title, artist).let { asYours(it.first, it.second) ?: it }
             val on = onto(title, artist, album)
             val k0 = statsKey(t, moved(a))
-            val v = versions[k0]?.let { PlaysApart.versionOf(on, it) }
-            songs.count(t, moved(a), on, thumb, n, source, if (v != null) apartKey(k0, v) else null)
+            val v = PlaysApart.albumKey(on)
+            if (v.isNotEmpty()) albumsOf.getOrPut(k0) { LinkedHashSet() } += v
+            songs.count(t, moved(a), on, thumb, n, source, if (v.isNotEmpty()) apartKey(k0, v) else k0)
         }
         for (p in scrobbles) add(p.title, p.artist, p.album, "", 1, "lastfm")
         for ((t, n) in here) add(t.title, t.artist, t.album, t.thumb, n, "here")
@@ -313,12 +314,11 @@ object Stats {
         // Each song told apart: the main version (the one played most) takes the song's own key, with the plays whose
         // album isn't known; the others keep theirs
         val apart = HashMap<Pair<String, String>, List<List<String>>>()
-        for ((k0, vs) in versions) {
-            val counted = vs.map { it to songs[apartKey(k0, it[0])] }
-            if (counted.all { it.second == null }) continue
-            val main = mains[k0]?.let { m -> vs.firstOrNull { it[0] == m } } ?: counted.maxBy { it.second?.plays ?: -1 }.first
-            songs.remove(apartKey(k0, main[0]))?.let { mine -> songs.remove(k0)?.let { mine.add(it) }; songs[k0] = mine }
-            apart[k0] = listOf(main) + vs.filter { it !== main }
+        for ((k0, albums) in albumsOf) {
+            // the main album: the all-time one (a period's), else the one played most here
+            val main = mains[k0] ?: albums.maxBy { songs[apartKey(k0, it)]?.plays ?: -1 }
+            songs.remove(apartKey(k0, main))?.let { mine -> songs.remove(k0)?.let { mine.add(it) }; songs[k0] = mine }
+            apart[k0] = listOf(listOf(main)) + albums.filter { it != main }.map { listOf(it) }
         }
         val artists = LinkedHashMap<Pair<String, String>, Counts>()
         val called = HashMap<Pair<String, String>, HashMap<String, Int>>()

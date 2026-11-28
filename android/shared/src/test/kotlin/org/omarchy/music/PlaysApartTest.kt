@@ -5,36 +5,30 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** A play is a song's only when its title, artist and album are the song's. */
 class PlaysApartTest {
-    private fun song(album: String, secs: Double, title: String = "Yesterday") =
-        Track("$album-$title", title = title, artist = "Imagine Dragons", album = album, duration = secs)
+    private val k = statsKey("Yesterday", "Imagine Dragons")
+    private val split = mapOf(k to listOf(listOf(PlaysApart.albumKey("Evolve")), listOf(PlaysApart.albumKey("It's Time EP Sessions"))))
+    private fun key(album: String) = PlaysApart.key(k, "Yesterday", "Imagine Dragons", album, split)
 
-    @Test fun eachAlbumIsCountedByItself() {
-        // the same length or not: the album is always part of it
-        val split = PlaysApart.distinct(listOf(song("Evolve", 205.0), song("It's Time EP Sessions", 205.0)))
-        val versions = split[statsKey("Yesterday", "Imagine Dragons")]
-        assertEquals("two songs", 2, versions?.size)
-        assertEquals("evolve", PlaysApart.versionOf("Evolve (Deluxe)", versions!!))
-        assertEquals("a play on the sessions is theirs", PlaysApart.albumKey("It's Time EP Sessions"), PlaysApart.versionOf("It's Time EP Sessions", versions))
-        assertNull("no album: not known", PlaysApart.versionOf("", versions))
+    @Test fun eachAlbumItsOwn() {
+        assertEquals("the main album keeps the song's key", k, key("Evolve"))
+        assertEquals("its editions are the same album", k, key("Evolve (Deluxe)"))
+        assertEquals("no album: the main one", k, key(""))
+        val other = key("It's Time EP Sessions")
+        assertTrue("the other album apart", other != k)
+        assertEquals("written a little another way: the same", other, key("It's Time (EP Sessions)"))
+        val never = key("Greatest Hits")
+        assertTrue("an album none of its plays were on: its own (none counted)", never != k && never != other)
+        assertEquals("another song is left alone", statsKey("Demons", "Imagine Dragons"),
+            PlaysApart.key(statsKey("Demons", "Imagine Dragons"), "Demons", "Imagine Dragons", "Evolve", split))
     }
 
-    @Test fun editionsAndTheSongsOwnSingleStayOne() {
-        val same = listOf(song("Night Visions", 187.0, "Radioactive"), song("Night Visions (Deluxe)", 187.0, "Radioactive"),
-            song("Radioactive", 170.0, "Radioactive"))
-        assertTrue(PlaysApart.distinct(same).isEmpty())
-        // on a compilation too: that's another album, counted by itself
-        assertEquals(2, PlaysApart.distinct(same + song("Greatest Hits", 188.0, "Radioactive")).values.single().size)
-    }
-
-    @Test fun theMainOneKeepsItsKeyAndTheOtherIsMarked() {
-        val versions = listOf(listOf(PlaysApart.albumKey("Evolve")), listOf(PlaysApart.albumKey("It's Time EP Sessions")))
-        val split = mapOf(statsKey("Yesterday", "Imagine Dragons") to versions)
-        val base = songKey(song("Evolve", 205.0))
-        assertEquals(base, PlaysApart.key(base, "Yesterday", "Imagine Dragons", "Evolve", split))
-        assertEquals("not known: the main one", base, PlaysApart.key(base, "Yesterday", "Imagine Dragons", "", split))
-        val other = PlaysApart.key(base, "Yesterday", "Imagine Dragons", "It's Time EP Sessions", split)
-        assertTrue("the other one apart", other != base)
-        assertEquals("another song is left alone", base, PlaysApart.key(base, "Demons", "Imagine Dragons", "Evolve", split))
+    @Test fun aNearNameOnlyWhenItsMostlyTheSame() {
+        val vs = listOf(listOf(PlaysApart.albumKey("Night Visions Live")))
+        assertNull("Night Visions isn't Night Visions Live", PlaysApart.versionOf("Night Visions", vs))
+        val sessions = listOf(listOf(PlaysApart.albumKey("It's Time EP Sessions")))
+        assertEquals("one short word more", sessions[0][0], PlaysApart.versionOf("It's Time Sessions", sessions))
+        assertNull("not a whole other album of the same first words", PlaysApart.versionOf("It's Time", sessions))
     }
 }

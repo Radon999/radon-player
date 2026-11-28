@@ -168,7 +168,8 @@ object Wrapped {
 
     /** A song row. file: your own copy of it (its cover is drawn first, read from the file), "" if you haven't got it;
      *  art: the picture when the file has none (a cover saved for it, Last.fm's or Deezer's address). */
-    data class Song(val title: String, val artist: String, val plays: Int, val art: String, val first: Long? = null, val file: String = "")
+    data class Song(val title: String, val artist: String, val plays: Int, val art: String, val first: Long? = null, val file: String = "",
+                    val album: String = "")   // (its album: a song is its album's, PlaysApart)
     data class AlbumPlays(val name: String, val artist: String, val plays: Int, val art: String, val file: String = "")
     data class Data(
         val period: Period, val user: String, val years: List<Int>, val since: Int, val empty: Boolean = false,
@@ -308,21 +309,22 @@ object Wrapped {
      *  service, had put the play under the wrong artist: "What I Live For" by Juice WRLD shown as Lil Mboiz's, with its
      *  cover). Wrapped shows what's on your device, and only what isn't here as the history has it. */
     private class Local {
-        private val byKey = HashMap<Pair<String, String>, Track>()
+        private val byKey = HashMap<Pair<String, String>, MutableList<Track>>()   // (a song on more than one album: each copy)
         private val byTitle = HashMap<String, MutableList<Track>>()
         private val artists = HashSet<String>()
         init {
             for (t in runCatching { Music.mySongs() }.getOrDefault(emptyList())) {
                 val k = Stats.statsKey(t.title, t.artist)
-                byKey.putIfAbsent(k, t); artists += k.second
+                byKey.getOrPut(k) { ArrayList() } += t; artists += k.second
                 val l = byTitle.getOrPut(k.first) { ArrayList() }
                 if (l.none { Stats.statsKey(it.title, it.artist) == k }) l += t
             }
         }
         val empty get() = byKey.isEmpty()
-        fun of(title: String, artist: String): Track? {
+        /** Your copy of a song: the one on album, where you have it on more than one. */
+        fun of(title: String, artist: String, album: String = ""): Track? {
             val k = Stats.statsKey(title, artist)
-            byKey[k]?.let { return it }
+            byKey[k]?.let { l -> return l.firstOrNull { album.isNotBlank() && PlaysApart.versionOf(it.album, listOf(listOf(PlaysApart.albumKey(album)))) != null } ?: l[0] }
             if (k.second in artists) return null   // an artist you have: a song of theirs you haven't got
             return byTitle[k.first]?.singleOrNull()
         }
@@ -330,8 +332,9 @@ object Wrapped {
 
     /** Plays put under your own copy's name and artist (see Local). */
     private fun localRows(rows: List<Row>, local: Local): List<Row> = if (local.empty) rows else rows.map { r ->
-        val t = local.of(r.title, r.artist) ?: return@map r
-        if (t.title == r.title && t.artist == r.artist) r else r.copy(title = t.title, artist = t.artist, album = t.album.ifBlank { r.album })
+        val t = local.of(r.title, r.artist, r.album) ?: return@map r
+        // (the play's own album stays: it says which song of one name it was; your copy's only where it had none)
+        if (t.title == r.title && t.artist == r.artist) r else r.copy(title = t.title, artist = t.artist, album = r.album.ifBlank { t.album })
     }
 
     /** The top songs as your own copies (see Local): the same song counted once, its plays added up, its file kept. */
@@ -339,10 +342,11 @@ object Wrapped {
         if (local.empty) return songs
         val out = LinkedHashMap<Pair<String, String>, Song>()
         for (s in songs) {
-            val t = local.of(s.title, s.artist)
+            val t = local.of(s.title, s.artist, s.album)
             val m = if (t != null) s.copy(title = t.title, artist = t.artist, file = t.file ?: s.file,
                 art = if (Stats.statsKey(t.title, t.artist) == Stats.statsKey(s.title, s.artist)) s.art else "") else s
-            val k = Stats.statsKey(m.title, m.artist)
+            // (one row a song on its album: two songs of one name stay two)
+            val k = PlaysApart.key(Stats.statsKey(m.title, m.artist), m.title, m.artist, m.album)
             out[k] = out[k]?.let { it.copy(plays = it.plays + m.plays, first = listOfNotNull(it.first, m.first).minOrNull()) } ?: m
         }
         return out.values.sortedByDescending { it.plays }
@@ -360,15 +364,19 @@ object Wrapped {
         val months = IntArray(12); val hours = IntArray(24); val weekdays = IntArray(7); val days = LinkedHashMap<LocalDate, Int>()
         val monthArtists = Array(12) { HashMap<String, Int>() }   // each month's artists, for its top one
         val daySongs = HashMap<Pair<LocalDate, Pair<String, String>>, Int>()   // a song's plays in one day
+        val songAlbum = HashMap<Pair<String, String>, String>()   // each song's album, as its plays name it
         for ((n, r) in (rows.asSequence().map { 0 to it } + undated.asSequence().map { 1 to it })) {
             val dated = n == 0
             // The same song from Last.fm, Spotify and Apple Music counts as one (as in Most played).
-            val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
+            // (a song is its album's too, as Most played counts it: PlaysApart; the artist is the artist whatever the album)
+            val k0 = Stats.statsKey(r.title, r.artist); val ka = k0.second.ifEmpty { r.artist.lowercase() }
+            val ks = PlaysApart.key(k0, r.title, r.artist, r.album)
             artists.merge(ka, 1, Int::plus); songs.merge(ks, 1, Int::plus)
             val lead = splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist
             val had = artistName[ka]   // named as they are on their own ("Quinn XCII", not "Quinn XCII & …")
             if (had == null || (soloName(mapOf(had to 0, lead to 0)) == lead && had != lead)) artistName[ka] = lead
             songName.putIfAbsent(ks, r.title to r.artist); if (dated) firstPlay.putIfAbsent(ks, r.t)
+            if (r.album.isNotBlank()) songAlbum.putIfAbsent(ks, r.album)
             val img = picture(r.image)
             if (img.isNotEmpty()) art[ks] = img
             if (r.album.isNotEmpty()) {
@@ -411,7 +419,7 @@ object Wrapped {
             monthArtists = (0 until 12).map { m -> common(monthArtists[m]).take(5).map { artistName[it.key]!! } }, artistSongs = artistSongs,
             scrobbles = rows.size + undated.size, artistCount = artists.size, songCount = songs.size,
             artists = topArtists.map { artistName[it.key]!! to it.value },
-            songs = common(songs).take(TOP + SPARE).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k]) },
+            songs = common(songs).take(TOP + SPARE).map { (k, n) -> Song(songName[k]!!.first, songName[k]!!.second, n, art[k] ?: "", firstPlay[k], album = songAlbum[k] ?: "") },
             albums = common(albums).take(TOP + SPARE).map { (k, n) -> AlbumPlays(albumName[k]!!.first, albumName[k]!!.second, n, albumArt[k] ?: "") },
             topArtistSong = byTop?.let { songName[it.key]!!.first to it.value },
             months = months.toList(), hours = hours.toList(), weekdays = weekdays.toList(), streak = streak, days = days.size,
@@ -546,7 +554,9 @@ object Wrapped {
         class Acc(var name: String, val artist: String) { var loose = 0; val times = ArrayList<Long>() }
         val songs = LinkedHashMap<Pair<String, String>, Acc>(); val artists = LinkedHashMap<String, Acc>()
         fun add(r: Row, dated: Boolean) {
-            val ks = Stats.statsKey(r.title, r.artist); val ka = ks.second.ifEmpty { r.artist.lowercase() }
+            // (a song is its album's too, as Most played counts it: PlaysApart; the artist is the artist whatever the album)
+            val k0 = Stats.statsKey(r.title, r.artist); val ka = k0.second.ifEmpty { r.artist.lowercase() }
+            val ks = PlaysApart.key(k0, r.title, r.artist, r.album)
             val lead = splitArtists(r.artist).firstOrNull()?.ifEmpty { null } ?: r.artist
             val s = songs.getOrPut(ks) { Acc(r.title, r.artist) }; val a = artists.getOrPut(ka) { Acc(lead, "") }
             if (a.name != lead && soloName(mapOf(a.name to 0, lead to 0)) == lead) a.name = lead
