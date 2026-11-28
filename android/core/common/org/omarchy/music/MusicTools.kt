@@ -183,7 +183,7 @@ object MusicTools {
         for (t in Music.mySongs()) {
             val f = t.file ?: Music.lib.items[t.id]?.file ?: continue
             if (!FileTags.canWrite(f) || inFolders(n(f), skip)) continue
-            files.getOrPut(Music.genreOf(t)) { ArrayList() } += f
+            files.getOrPut(Music.genreTagOf(t)) { ArrayList() } += f   // (the tag as it is: this one writes them)
         }
         return genreDupes(files.mapValues { it.value.distinct().size }).filter { !ScanIgnore.has("genres", genreKey(it.first)) }
             .map { (keep, others) -> GenreGroup(keep, others, (listOf(keep) + others).associateWith { files[it].orEmpty().distinct() }) }

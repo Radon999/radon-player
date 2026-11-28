@@ -22,6 +22,9 @@ object RepeatFactsRules {
     }
 
     /** A stretch of time's repeats, for Wrapped. */
+    /** A song's length when nothing says it (3½ minutes): for the time a repeat adds. */
+    const val USUAL_SECONDS = 210.0
+
     data class Summary(
         val total: Int, val songs: Int, val secs: Double,
         val top: List<Pair<Loop, Int>>,                 // the most repeated songs, each with its count
@@ -38,8 +41,11 @@ object RepeatFactsRules {
 
     /** The repeats on days from [from] up to (not including) [to] ("2026-01-01"; "": open). limit: how many songs the
      *  list holds (as many as Wrapped's other lists). hidden: songs left out (hidden from stats), so the next ones take
-     *  their places. null: none in that time. */
-    fun summary(s: Saved, from: String, to: String, limit: Int, hidden: (Loop) -> Boolean = { false }): Summary? {
+     *  their places. length: a song's length in seconds where the repeat didn't keep it (one found in your Last.fm
+     *  history: your copy's), else a usual song's ([USUAL_SECONDS]), so the time isn't only the few that had one.
+     *  null: none in that time. */
+    fun summary(s: Saved, from: String, to: String, limit: Int, length: (Track) -> Double = { 0.0 },
+                hidden: (Loop) -> Boolean = { false }): Summary? {
         val counts = s.songs.values.filter { !hidden(it) }.map { l -> l to l.days.filterKeys { inside(it, from, to) }.values.sum() }.filter { it.second > 0 }
         if (counts.isEmpty()) return null
         val top = counts.sortedWith(compareByDescending<Pair<Loop, Int>> { it.second }.thenByDescending { it.first.last })
@@ -61,7 +67,8 @@ object RepeatFactsRules {
         val best = counts.map { it.first }.filter { it.best >= 2 && (it.bestDay.isEmpty() || inside(it.bestDay, from, to)) }.maxByOrNull { it.best }
         val artists = counts.groupBy { lead(it.first.track.artist) }.map { (a, ls) -> a to ls.sumOf { it.second } }.sortedByDescending { it.second }
         val day = byDay.maxByOrNull { it.value }
-        return Summary(total, counts.size, counts.sumOf { it.first.track.duration * it.second }, top.take(limit), best?.let { it to it.best },
+        fun secs(t: Track) = t.duration.takeIf { it > 0 } ?: length(t).takeIf { it > 0 } ?: USUAL_SECONDS
+        return Summary(total, counts.size, counts.sumOf { secs(it.first.track) * it.second }, top.take(limit), best?.let { it to it.best },
             artists.take(limit), day?.let { Triple(it.key, it.value, daySong[it.key]?.first ?: "") }, weekdays.toList(), hours.toList(),
             monthSong.entries.sortedBy { it.key }.map { Triple(it.key, it.value.first, it.value.second) },
             type(total, counts.size, best?.best ?: 0, top.first().second))

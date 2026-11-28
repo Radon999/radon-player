@@ -207,17 +207,21 @@ object Wrapped {
         val artists = d.artists.filter { !artist(it.first) }
         val loops = runCatching {
             val all = d.period == Period.All
-            RepeatFactsRules.summary(RepeatLoops.all(), if (all) "" else d.period.start().toString(), if (all) "" else d.period.end().toString(), TOP) {
+            RepeatFactsRules.summary(RepeatLoops.all(), if (all) "" else d.period.start().toString(), if (all) "" else d.period.end().toString(), TOP, loopLength) {
                 StatHides.any && StatHides.play(it.track.title, it.track.artist, it.track.album) }
         }.getOrDefault(d.loops)
-        if (!StatHides.any) return d.copy(songs = d.songs.take(TOP), albums = d.albums.take(TOP), singles = d.singles.take(TOP),
+        // Top albums: albums only. A single or an EP (one of yours tagged so, or one Deezer or Apple Music says is one,
+        // as the Top singles and EPs are made; or named "… - Single"/"… - EP") is left to its own list
+        val notAlbums = (d.singles + d.eps).map { releaseKey(it.name, it.artist) }.toSet()
+        val albumsOnly = d.albums.filter { a -> releaseKey(a.name, a.artist) !in notAlbums && !Regex("(?i)[-–(\\[]\\s*(single|ep)\\s*[)\\]]?\\s*$").containsMatchIn(a.name) }
+        if (!StatHides.any) return d.copy(songs = d.songs.take(TOP), albums = albumsOnly.take(TOP), singles = d.singles.take(TOP),
             eps = d.eps.take(TOP), discovered = d.discovered.take(TOP), newArtists = d.newArtists.take(TOP),
             log = d.log.copy(searched = d.log.searched.take(TOP)), loops = loops)
         val top = artists.firstOrNull()?.first
         return d.copy(
             artists = artists,
             songs = d.songs.filter { !song(it.title, it.artist) }.take(TOP),
-            albums = d.albums.filter { !album(it.name, it.artist) }.take(TOP),
+            albums = albumsOnly.filter { !album(it.name, it.artist) }.take(TOP),
             singles = d.singles.filter { !album(it.name, it.artist) && !song(it.name, it.artist) }.take(TOP),
             eps = d.eps.filter { !album(it.name, it.artist) }.take(TOP),
             discovered = d.discovered.filter { !song(it.title, it.artist) }.take(TOP),
@@ -255,6 +259,13 @@ object Wrapped {
     @Serializable
     private data class Saved(val rows: List<Row> = emptyList(), val until: Long = 0)
 
+    /** A release by its name and lead artist, as the top lists compare them ("Yesterday - Single" is "Yesterday"). */
+    private fun releaseKey(name: String, artist: String) =
+        norm(cleanTitle(bareRelease(name))) + "|" + norm(splitArtists(artist).firstOrNull()?.ifEmpty { null } ?: artist)
+
+    /** A repeated song's length: your copy's (a repeat found in your Last.fm history kept none). */
+    private val loopLength: (Track) -> Double = { t -> runCatching { Music.mineOf(t).duration }.getOrDefault(0.0) }
+
     private fun genreName(tag: String): String {
         val t = tag.lowercase().trim()
         return GENRE_NAMES[t] ?: t.split(" ").joinToString(" ") { w -> if (w == w.uppercase()) w else w.replaceFirstChar { it.uppercase() } }
@@ -262,7 +273,7 @@ object Wrapped {
 
     private fun isGenre(tag: String, artist: String): Boolean {
         val t = tag.lowercase().trim()
-        return t !in NOT_GENRES && t != artist.lowercase() && t.length <= 28 && !Regex("\\d+s?|\\d{2,4}s").matches(t) &&
+        return t !in NOT_GENRES && !notAGenre(t) && t != artist.lowercase() && t.length <= 28 && !Regex("\\d+s?|\\d{2,4}s").matches(t) &&
             !Regex("seen|favou?rite|vocalist|listeners|albums? i|my |best of").containsMatchIn(t)
     }
 
@@ -702,7 +713,7 @@ object Wrapped {
         data = data.copy(library = runCatching { library() }.getOrNull())
         data = data.copy(loops = runCatching {
             val all = period == Period.All
-            RepeatFactsRules.summary(RepeatLoops.all(), if (all) "" else period.start().toString(), if (all) "" else period.end().toString(), TOP)
+            RepeatFactsRules.summary(RepeatLoops.all(), if (all) "" else period.start().toString(), if (all) "" else period.end().toString(), TOP, loopLength)
         }.getOrNull())
         data = data.copy(songs = localSongs(data.songs, local))
         progress("Getting the pictures…")
@@ -779,7 +790,7 @@ object Wrapped {
         val genreCache = HashMap<String, List<String>>(); val moodCache = HashMap<String, String>(); val tabCache = HashMap<String, String>()
         for (r in rows) {
             val t = mine[Stats.statsKey(r.title, r.artist)] ?: continue
-            for (g in genreCache.getOrPut(t.id) { genreParts(Music.genreOf(t)) }) {
+            for (g in genreCache.getOrPut(t.id) { countedGenres(Music.genreOf(t)) }) {
                 val k = g.lowercase(); genres.merge(k, 1, Int::plus); genreName.putIfAbsent(k, g)
             }
             moodCache.getOrPut(t.id) { moodOf(t) ?: "" }.takeIf { it.isNotEmpty() }?.let { moods.merge(it, 1, Int::plus) }
@@ -939,7 +950,7 @@ object Wrapped {
         val artists = songs.map { norm(splitArtists(it.artist).firstOrNull() ?: it.artist) }.filter { it.isNotEmpty() }.toSet().size
         val genres = HashMap<String, Int>(); val genreName = HashMap<String, String>(); val moods = HashMap<String, Int>()
         for (t in songs) {
-            for (g in genreParts(Music.genreOf(t))) { val k = g.lowercase(); genres.merge(k, 1, Int::plus); genreName.putIfAbsent(k, g) }
+            for (g in countedGenres(Music.genreOf(t))) { val k = g.lowercase(); genres.merge(k, 1, Int::plus); genreName.putIfAbsent(k, g) }
             moodOf(t)?.let { moods.merge(it, 1, Int::plus) }
         }
         return LibraryStats(songs.size, albums, eps, singles, artists, songs.sumOf { it.duration.coerceAtLeast(0.0) },

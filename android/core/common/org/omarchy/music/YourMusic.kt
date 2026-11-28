@@ -55,7 +55,18 @@ object YourMusic {
     }
 
     /** A song's genre, as its file says (songs without one: Unknown genre). */
+    /** A song's genre as the app shows it (the Genres page, top genres, the DJ, smart playlists): its tag, less
+     *  "Singer", "Songwriter" and "Singer-Songwriter", which say nothing about how it sounds ([notAGenre]). A tag of only
+     *  those is Unknown genre. The file's tag itself stays as it is ([genreTagOf]). */
     fun genreOf(t: Track): String {
+        val tag = genreTagOf(t)
+        val parts = genreParts(tag)
+        if (parts.none { notAGenre(it) }) return tag
+        return parts.filterNot { notAGenre(it) }.joinToString("; ").ifEmpty { ReleaseTabRules.UNKNOWN_GENRE }
+    }
+
+    /** A song's genre tag just as it is in the file (or the download): for the tools that write tags back. */
+    fun genreTagOf(t: Track): String {
         val e = lib.items[t.id]
         val id = LocalFiles.idOf(t.file ?: e?.file)
         return id?.let { genreFix[it] }?.takeIf { it.isNotBlank() }   // written here since the last library read

@@ -256,6 +256,13 @@ fun renamedFile(path: String, oldTitle: String, newTitle: String): String? {
 fun genreParts(tag: String?): List<String> =
     (tag ?: "").split(';', '/', ',', '|', '\u0000').map { it.trim() }.filter { it.isNotEmpty() && !it.equals("Unknown genre", true) }
 
+/** Not a genre to count: "Singer", "Songwriter" or "Singer-Songwriter" (what "Singer/Songwriter" in a tag comes to),
+ *  which say who made a song, not what it sounds like. Left out of top genres (Wrapped, your library, the DJ's). */
+fun notAGenre(name: String): Boolean = name.lowercase().replace(Regex("[^\\p{L}]"), "") in setOf("singer", "songwriter", "singersongwriter", "singersongwriters")
+
+/** A song's genres as they're counted (top genres): its [genreParts], less the ones that aren't genres ([notAGenre]). */
+fun countedGenres(tag: String?): List<String> = genreParts(tag).filterNot { notAGenre(it) }
+
 /** Whether a genre tag is (or contains) the genre asked for: "rock" fits "Indie Rock" and "Rock"; "hip hop" fits "Hip-Hop";
  *  whole words only ("rap" doesn't fit "Trap"). */
 fun genreFits(tag: String?, asked: String): Boolean {

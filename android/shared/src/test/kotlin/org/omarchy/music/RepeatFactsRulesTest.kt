@@ -44,6 +44,16 @@ class RepeatFactsRulesTest {
         assertEquals("only days before the app's own count began", 0, RepeatLoopRules.fromHistory(listOf(a), { "2025-03-01" }, { 21 }, "2025-03-01").first.size)
     }
 
+    @Test fun repeatsWithNoLengthStillAddTime() {
+        // found in a Last.fm history: no length kept. Your copy's, else a usual song's (292 repeats were "7 minutes")
+        var s = RepeatLoopRules.Saved()
+        val a = Track("1", title = "1997", artist = "Saint Motel"); val b = Track("2", title = "Blood", artist = "K.Flay")
+        repeat(10) { s = RepeatLoopRules.add(s, a, "2026-03-07", 1, 21) }
+        repeat(4) { s = RepeatLoopRules.add(s, b, "2026-03-08", 1, 21) }
+        val y = RepeatFactsRules.summary(s, "", "", 15, length = { t -> if (t.title == "1997") 240.0 else 0.0 })!!
+        assertEquals(10 * 240.0 + 4 * RepeatFactsRules.USUAL_SECONDS, y.secs, 0.01)
+    }
+
     @Test fun aStretchOfTimeAddedUp() {
         var s = RepeatLoopRules.Saved()
         val a = Track("1", title = "1997", artist = "Saint Motel", duration = 240.0); val b = Track("2", title = "Blood", artist = "K.Flay", duration = 200.0)

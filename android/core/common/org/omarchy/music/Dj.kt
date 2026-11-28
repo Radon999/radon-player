@@ -820,7 +820,7 @@ object Dj {
      *  them), its songs from your music. Null when your songs have no genres or too few of that one. */
     private fun mineGenre(taste: Taste): Pair<List<Track>, String>? {
         val weight = HashMap<String, Int>()
-        for (t in (taste.recent + taste.all.take(100))) for (g in genreParts(genreOf(t))) weight.merge(g, 1, Int::plus)
+        for (t in (taste.recent + taste.all.take(100))) for (g in countedGenres(genreOf(t))) weight.merge(g, 1, Int::plus)
         if (weight.isEmpty()) return null
         for (g in KindRules.topThree(weight).shuffled()) {
             val songs = genreSongs(g, taste)
@@ -974,7 +974,7 @@ object Dj {
         }
         // Your genre lately, as your own files name it
         val genres = HashMap<String, Int>()
-        for (t in taste.recent) for (g in genreParts(genreOf(t))) genres.merge(g.lowercase(), maxOf(1, t.plays), Int::plus)
+        for (t in taste.recent) for (g in countedGenres(genreOf(t))) genres.merge(g.lowercase(), maxOf(1, t.plays), Int::plus)
         genres.maxByOrNull { it.value }?.takeIf { it.value >= 15 }?.let { (g, _) ->
             out["top-genre-month"] = say("v-top-genre-month", "Your top genre lately is $g. More of it than anything else this month.", "It's been a $g month for you. More of that than anything else.")
         }

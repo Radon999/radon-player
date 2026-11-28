@@ -293,6 +293,7 @@ object Music {
     fun tabOf(t: Track): String? = YourMusic.tabOf(t)
     fun setTab(tracks: List<Track>, kind: String?) = YourMusic.setTab(tracks, kind)
     fun genreOf(t: Track): String = YourMusic.genreOf(t)
+    fun genreTagOf(t: Track): String = YourMusic.genreTagOf(t)
     internal fun noteGenre(file: String, g: String) = YourMusic.noteGenre(file, g)
     fun genres(): List<Pair<String, List<Track>>> = YourMusic.genres()
     fun folderOf(t: Track): String = YourMusic.folderOf(t)
