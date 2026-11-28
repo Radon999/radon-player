@@ -174,6 +174,7 @@ Settings › Personalization (or the palette on Now playing). Every menu shows e
 
 ## Phone only
 
+- **Show on Discord** (Settings › Remote & sync, off at first): the song you're playing on your Discord profile with no computer, through the Discord app on the phone. Install or update Discord, sign in, turn on sharing your activity (Discord › Activity Privacy), then turn the switch on; the steps are under it. Radon Player never asks for your Discord sign-in.
 - **Android Auto** with covers, Favorite and Shuffle, and the car's own EQ.
 - **Lock screen player, notification and home screen widget** in the song's colours, and a picture-in-picture mini player. With **Shuffle button in the notification** off, a Download button takes its place on a streamed song.
 - **Home screen widgets:** besides Now playing with the queue, add **DJ** (a tap starts it, with its Only my songs / New songs too switch), **Now playing + playlists**, **Playlist shortcut** (one playlist, picked when you add it, in order or shuffled), **Pinned**, **Most played** (every song of the period, scrolled), **Wrapped** (weekly, monthly or all time), a big **Lyrics** widget (the line being sung lit up, tap a line to jump there, share a lyrics card, ✎ to edit them in the app) and **New releases** (every one the app found from your artists in the period picked; a tap plays one). The DJ, playlists and new releases start playing without opening the app; the others open the app straight on their place.

@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.3.2: Show on Discord, on the phone (Android, Windows and Linux)
+- **Show on Discord on the phone (Settings › Remote & sync):** the song you're playing on your Discord profile, as on the PC (“Listening to Radon Player”, with your plays of it), wherever you are and with no computer. It works through the Discord app on the phone: install or update Discord, sign in, turn on sharing your activity in Discord's Activity Privacy, then turn the switch on here. The steps are under the switch. Radon Player never asks for your Discord sign-in. Off until you turn it on. It uses a service inside the Discord app that Discord doesn't publish for other apps, so a Discord update could stop it until Radon Player is updated.
+
 ## 5.3.1: A switch for syncing album covers, and the phone's Visualizer widget taken out (Android, Windows and Linux)
 - **↓ Back works again after ↑ Top (every list, the phone and the PC):** tapping ↓ Back did nothing: the moment it was tapped both buttons went away, and they took the scroll they had just started with them.
 - **Most played always shows everything (the phone and the PC):** the “Only songs on this phone / PC” choice is gone. Most played, its artists, albums and the widget show every song you played, whether or not it's on the device, so your whole history is always there.
