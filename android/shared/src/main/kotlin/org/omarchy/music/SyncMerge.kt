@@ -18,6 +18,9 @@ object SyncRules {
 
     const val STATE = "state.json"         // the app's own settings out of state.json: only STATE_KEYS
     const val SWITCHES = "switches.json"   // the switches (Prefs): all but the device's own ([prefSyncs])
+    /** Switches that are lists, a line each, merged line by line ([Rule.Lines]): the artists you follow, the ones offered
+     *  for following already, your favorite artists for New releases, and "Not my artist"s. */
+    val LINE_SWITCHES = setOf("followed_artists", "follow_seen", "new_releases_favorites", "new_releases_not_mine")
     const val MOODS = "moods-backup.json"  // songs' moods, by song (Moods.backup): given to the same songs on the other device
 
     /** Never synced (kept for reference, and checked by the tests): your songs and where they are, sign-ins, the other
@@ -105,12 +108,17 @@ sealed class Rule {
     class Fields(val fields: Map<String, Rule> = emptyMap(), val other: Rule = Value, val ts: String? = null) : Rule()
     /** An object of items by key (songs' volumes, favorites…): added on either side kept, deleted on one side (and not
      *  changed on the other) gone, the rest merged item by item. */
-    class ByKey(val child: Rule = Value) : Rule()
+    class ByKey(val child: Rule = Value, val perKey: Map<String, Rule> = emptyMap()) : Rule() {
+        fun of(key: String): Rule = perKey[key] ?: child
+    }
     /** A list of items, each found by key (playlists by id, songs by title and artist): as [ByKey], in order. newFirst:
      *  the other side's new ones go first (pins, newest first), else last. */
     class ById(val key: (JsonObject) -> String, val child: Rule = Value, val newFirst: Boolean = false) : Rule()
     /** A list of plain values, as a set (the never-show-again lists). */
     object Bag : Rule()
+    /** A text of one item a line, as a set (the artists you follow, your favorite artists): each line added on either
+     *  side kept, one deleted on one side gone. As one value, a favorite added on each device before a sync lost one. */
+    object Lines : Rule()
     /** Counts with the times they happened (plays, skips): what each side added since the last sync, added up.
      *  counts: (count field, its times field); latest: fields that keep the larger; the rest: [Own]. */
     class Tally(val counts: List<Pair<String, String>>, val latest: List<String>, val cap: Int) : Rule()
@@ -147,7 +155,8 @@ object SyncMerge {
                 "pins" to Rule.ById(::pinKey, newFirst = true),
                 "eq" to Rule.Fields(mapOf("myPresets" to Rule.ByKey(), "profiles" to Rule.ByKey(), "devices" to Rule.ByKey(),
                     "outputs" to Rule.ByKey(), "outputPresets" to Rule.ByKey(), "outputDefaults" to Rule.ByKey())))),
-        SyncRules.SWITCHES to Rule.ByKey(),
+        // (the lists in the switches, line by line: the artists you follow and your favorites for New releases)
+        SyncRules.SWITCHES to Rule.ByKey(perKey = SyncRules.LINE_SWITCHES.associateWith { Rule.Lines }),
     )
 
     /** The listening diaries (listen-log.jsonl, one stretch of a song a line) of both devices, as one: every stretch once
@@ -188,6 +197,7 @@ object SyncMerge {
                 Rule.Value -> value(base, l, r, newer)
                 Rule.Own -> l ?: r
                 Rule.Bag -> bag(base, l, r)
+                Rule.Lines -> lines(base, l, r)
                 is Rule.Fields -> if (l is JsonObject && r is JsonObject) fields(rule, base as? JsonObject, l, r, newer) else value(base, l, r, newer)
                 is Rule.ByKey -> byKey(rule, base as? JsonObject, l as? JsonObject, r as? JsonObject, newer)
                 is Rule.ById -> byId(rule, base as? JsonArray, l as? JsonArray, r as? JsonArray, newer)
@@ -222,9 +232,9 @@ object SyncMerge {
             for (k in (lm.keys + rm.keys)) {
                 val lv = lm[k].real(); val rv = rm[k].real(); val bv = b?.get(k).real()
                 val v = when {
-                    lv != null && rv != null -> merge(rule.child, bv, lv, rv, newer)
-                    lv != null -> lv.takeUnless { gone(rule.child, bv, it) }
-                    rv != null -> rv.takeUnless { gone(rule.child, bv, it) }
+                    lv != null && rv != null -> merge(rule.of(k), bv, lv, rv, newer)
+                    lv != null -> lv.takeUnless { gone(rule.of(k), bv, it) }
+                    rv != null -> rv.takeUnless { gone(rule.of(k), bv, it) }
                     else -> null
                 }
                 if (v != null) out[k] = v
@@ -271,6 +281,12 @@ object SyncMerge {
             return JsonArray((ls + rs).distinct().filter { (it in lset && it in rset) || it !in bs })
         }
 
+        fun lines(b: JsonElement?, l: JsonElement?, r: JsonElement?): JsonElement {
+            val ls = textLines(l); val rs = textLines(r); val bs = textLines(b).toSet()
+            val lset = ls.toSet(); val rset = rs.toSet()
+            return JsonPrimitive((ls + rs).distinct().filter { (it in lset && it in rset) || it !in bs }.joinToString("\n"))
+        }
+
         fun tally(rule: Rule.Tally, b: JsonObject?, l: JsonObject, r: JsonObject): JsonObject {
             val out = LinkedHashMap<String, JsonElement>()
             for (k in (l.keys + r.keys)) (l[k] ?: r[k])?.let { out[k] = it }   // the rest: this device's (its song)
@@ -308,8 +324,9 @@ object SyncMerge {
             Rule.Value -> a == b
             Rule.Own -> true
             Rule.Bag -> (a as? JsonArray).orEmpty().toSet() == (b as? JsonArray).orEmpty().toSet()
+            Rule.Lines -> textLines(a).toSet() == textLines(b).toSet()
             is Rule.Fields -> if (a is JsonObject && b is JsonObject) (a.keys + b.keys).all { same(rule.fields[it] ?: rule.other, a[it], b[it]) } else a == b
-            is Rule.ByKey -> if (a is JsonObject && b is JsonObject) a.keys == b.keys && a.keys.all { same(rule.child, a[it], b[it]) } else a == b
+            is Rule.ByKey -> if (a is JsonObject && b is JsonObject) a.keys == b.keys && a.keys.all { same(rule.of(it), a[it], b[it]) } else a == b
             is Rule.ById -> {
                 val x = keyedFor(rule, a); val y = keyedFor(rule, b)
                 x.keys == y.keys && x.keys.all { same(rule.child, x[it], y[it]) }
@@ -323,6 +340,10 @@ object SyncMerge {
         for (x in (e as? JsonArray).orEmpty()) { val o = x as? JsonObject ?: continue; var k = rule.key(o); var n = 2; val k0 = k; while (k in out) k = "$k0#${n++}"; out[k] = o }
         return out
     }
+
+    /** A text setting's lines (empty ones left out). */
+    private fun textLines(e: JsonElement?): List<String> =
+        ((e as? JsonPrimitive)?.takeIf { it.isString }?.content ?: "").lines().map { it.trim() }.filter { it.isNotEmpty() }
 
     private fun size(e: JsonElement?): Int = when (e) { is JsonObject -> e.size; is JsonArray -> e.size; else -> 0 }
 
@@ -371,7 +392,7 @@ object SyncMerge {
     fun diffCount(rule: Rule, a: JsonElement?, b: JsonElement?): Int = when (rule) {
         is Rule.ByKey -> {
             val x = (a as? JsonObject).orNone(); val y = (b as? JsonObject).orNone()
-            (x.keys + y.keys).count { !same(rule.child, x[it], y[it]) }
+            (x.keys + y.keys).count { !same(rule.of(it), x[it], y[it]) }
         }
         is Rule.ById -> {
             val x = keyedFor(rule, a); val y = keyedFor(rule, b)

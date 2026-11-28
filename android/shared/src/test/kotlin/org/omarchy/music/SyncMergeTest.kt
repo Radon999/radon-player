@@ -15,6 +15,17 @@ class SyncMergeTest {
         SyncMerge.mergeAll(base, l, r, preferLocal)
     private fun names(e: JsonElement?) = (e as JsonArray).map { it["name"].str }
 
+    @Test fun favoriteArtistsAddedOnBothDevicesAreAllKept() {
+        // since the last sync: the phone made Lauv a favorite, the PC made Sody one, and the PC took K.Flay off
+        val base = files(SyncRules.SWITCHES to """{"new_releases_favorites":"Imagine Dragons\nK.Flay","followed_artists":"A"}""")
+        val phone = files(SyncRules.SWITCHES to """{"new_releases_favorites":"Imagine Dragons\nK.Flay\nLauv","followed_artists":"A\nB"}""")
+        val pc = files(SyncRules.SWITCHES to """{"new_releases_favorites":"Imagine Dragons\nSody","followed_artists":"A\nC"}""")
+        val m = merge(base, phone, pc)[SyncRules.SWITCHES] as JsonObject
+        assertEquals(setOf("Imagine Dragons", "Lauv", "Sody"), m["new_releases_favorites"].str!!.lines().toSet())
+        assertEquals("followed on either, kept", setOf("A", "B", "C"), m["followed_artists"].str!!.lines().toSet())
+        assertTrue(SyncRules.prefSyncs("new_releases_favorites"))
+    }
+
     @Test fun allowAndDenyLists() {
         // the device's own settings never go across; the app's do
         assertFalse(SyncRules.prefSyncs("auto_mono_device")); assertFalse(SyncRules.prefSyncs("pc_volume"))
