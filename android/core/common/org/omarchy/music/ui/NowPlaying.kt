@@ -861,16 +861,26 @@ private fun QueuePane(ui: Ui, n: Now) {
             }
             item("end") { Spacer(Modifier.height(12.dp)) }
         }
-        // ↑ Top: back to the top of the queue, once it's scrolled down from there
+        // ↑ Top: back to the top of the queue, once it's scrolled down from there; ↓ Back: then back to where you were
+        // (kept until you scroll there yourself, so you can sort the top and carry on down the list)
         val down by remember(list) { derivedStateOf { list.firstVisibleItemIndex > 0 } }
-        if (down) {
-            val scope = rememberCoroutineScope()
-            Row(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 10.dp).clip(RoundedCornerShape(50))
-                .background(Color.Black.copy(alpha = 0.5f)).clickable { scope.launch { list.animateScrollToItem(0) } }
-                .semantics { contentDescription = "Back to the top of the queue" }
-                .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Ico.UP, WHITE, 16.dp)
-                Text(" Top", style = T.body.copy(color = WHITE, fontWeight = FontWeight.SemiBold))
+        var was by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+        val above by remember(list) { derivedStateOf { was?.let { list.firstVisibleItemIndex < it.first } ?: false } }
+        LaunchedEffect(above) { if (!above && was != null && list.firstVisibleItemIndex >= was!!.first) was = null }
+        val scope = rememberCoroutineScope()
+        Column(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 10.dp), horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            @Composable fun pill(ico: Ico, text: String, desc: String, go: () -> Unit) =
+                Row(Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.5f)).clickable(onClick = go)
+                    .semantics { contentDescription = desc }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(ico, WHITE, 16.dp)
+                    Text(" $text", style = T.body.copy(color = WHITE, fontWeight = FontWeight.SemiBold))
+                }
+            if (above) was?.let { w -> pill(Ico.DOWN, "Back", "Back to where you were in the queue") {
+                scope.launch { list.animateScrollToItem(w.first, w.second); was = null } } }
+            if (down) pill(Ico.UP, "Top", "Back to the top of the queue") {
+                was = list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset
+                scope.launch { list.animateScrollToItem(0) }
             }
         }
         }

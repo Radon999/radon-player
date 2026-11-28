@@ -643,17 +643,28 @@ private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -
     }
 }
 
-/** ↑ Top: back to the top of a widget's list, once it's scrolled down from there (as Now playing's in the app). */
+/** ↑ Top: back to the top of a widget's list, once it's scrolled down from there; ↓ Back: then back to where you were
+ *  (kept until you scroll there yourself). As Now playing's in the app. */
 @Composable
 private fun BoxScope.WToTop(state: androidx.compose.foundation.lazy.LazyListState) {
     val down by remember(state) { androidx.compose.runtime.derivedStateOf { state.firstVisibleItemIndex > 0 } }
-    if (!down) return
+    var was by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val above by remember(state) { androidx.compose.runtime.derivedStateOf { was?.let { state.firstVisibleItemIndex < it.first } ?: false } }
+    LaunchedEffect(above) { if (!above && was != null && state.firstVisibleItemIndex >= was!!.first) was = null }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    Row(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 6.dp).clip(RoundedCornerShape(50))
-        .background(Color.Black.copy(alpha = 0.55f)).clickable { scope.launch { state.scrollToItem(0) } }
-        .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Ico.UP, W, 14.dp)
-        Text(" Top", style = T.tab.copy(color = W, fontWeight = FontWeight.SemiBold))
+    @Composable fun pill(ico: Ico, text: String, go: () -> Unit) =
+        Row(Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f)).clickable(onClick = go)
+            .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(ico, W, 14.dp)
+            Text(" $text", style = T.tab.copy(color = W, fontWeight = FontWeight.SemiBold))
+        }
+    Column(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 6.dp), horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (above) was?.let { w -> pill(Ico.DOWN, "Back") { scope.launch { state.scrollToItem(w.first, w.second); was = null } } }
+        if (down) pill(Ico.UP, "Top") {
+            was = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
+            scope.launch { state.scrollToItem(0) }
+        }
     }
 }
 
