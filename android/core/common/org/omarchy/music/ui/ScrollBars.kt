@@ -77,9 +77,21 @@ fun LazyColumn(
 @Composable
 fun androidx.compose.foundation.layout.BoxScope.ListJumps(state: LazyListState) {
     val down by remember(state) { androidx.compose.runtime.derivedStateOf { state.firstVisibleItemIndex > 0 } }
-    var was by remember(state) { mutableStateOf<Pair<Int, Int>?>(null) }
-    val above by remember(state) { androidx.compose.runtime.derivedStateOf { was?.let { state.firstVisibleItemIndex < it.first } ?: false } }
-    androidx.compose.runtime.LaunchedEffect(above) { if (!above && was != null && state.firstVisibleItemIndex >= was!!.first) was = null }
+    // Where you were, for this screen only: another tab or page (one list shared by several screens) starts with none.
+    // It had been kept across tabs: ↓ Back took you down a list you'd never been down, and then ↑ Top lost its place.
+    val place = LocalPlace.current
+    val wasState = remember(state, place) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var was by wasState
+    val above by remember(state, place) { androidx.compose.runtime.derivedStateOf { wasState.value?.let { state.firstVisibleItemIndex < it.first } ?: false } }
+    // Gone once you've been above it and then scrolled back down to it yourself (only then: the moment ↑ Top keeps a
+    // new place, you're still at it, and that had wiped it out again)
+    val left = remember(state, place) { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(state, place) {
+        androidx.compose.runtime.snapshotFlow { state.firstVisibleItemIndex }.collect { i ->
+            val w = wasState.value ?: return@collect
+            if (i < w.first) left.value = true else if (left.value) { wasState.value = null; left.value = false }
+        }
+    }
     if (!down && !above) return
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     @Composable fun pill(ico: Ico, text: String, desc: String, go: () -> Unit) =
@@ -92,9 +104,12 @@ fun androidx.compose.foundation.layout.BoxScope.ListJumps(state: LazyListState) 
         }
     androidx.compose.foundation.layout.Column(Modifier.align(Alignment.BottomEnd).padding(end = if (onPhone) 10.dp else 18.dp, bottom = 10.dp),
         horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (above) was?.let { w -> pill(Ico.DOWN, "Back", "Back to where you were") { scope.launch { state.animateScrollToItem(w.first, w.second); was = null } } }
+        if (above) was?.let { w -> pill(Ico.DOWN, "Back", "Back to where you were") {
+            was = null; left.value = false
+            scope.launch { state.animateScrollToItem(w.first, w.second) }
+        } }
         if (down) pill(Ico.UP, "Top", "Back to the top") {
-            was = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
+            was = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset; left.value = false
             scope.launch { state.animateScrollToItem(0) }
         }
     }

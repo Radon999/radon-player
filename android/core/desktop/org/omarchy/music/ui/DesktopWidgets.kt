@@ -658,9 +658,17 @@ private fun ColumnScope.WList(content: androidx.compose.foundation.lazy.LazyList
 @Composable
 private fun BoxScope.WToTop(state: androidx.compose.foundation.lazy.LazyListState) {
     val down by remember(state) { androidx.compose.runtime.derivedStateOf { state.firstVisibleItemIndex > 0 } }
-    var was by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    val above by remember(state) { androidx.compose.runtime.derivedStateOf { was?.let { state.firstVisibleItemIndex < it.first } ?: false } }
-    LaunchedEffect(above) { if (!above && was != null && state.firstVisibleItemIndex >= was!!.first) was = null }
+    val wasState = remember(state) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var was by wasState
+    val above by remember(state) { androidx.compose.runtime.derivedStateOf { wasState.value?.let { state.firstVisibleItemIndex < it.first } ?: false } }
+    // (gone once you've been above it and scrolled back down to it yourself: as the app's lists, ListJumps)
+    val left = remember(state) { mutableStateOf(false) }
+    LaunchedEffect(state) {
+        androidx.compose.runtime.snapshotFlow { state.firstVisibleItemIndex }.collect { i ->
+            val w = wasState.value ?: return@collect
+            if (i < w.first) left.value = true else if (left.value) { wasState.value = null; left.value = false }
+        }
+    }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     @Composable fun pill(ico: Ico, text: String, go: () -> Unit) =
         Row(Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f)).clickable(onClick = go)
@@ -670,9 +678,9 @@ private fun BoxScope.WToTop(state: androidx.compose.foundation.lazy.LazyListStat
         }
     Column(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 6.dp), horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (above) was?.let { w -> pill(Ico.DOWN, "Back") { scope.launch { state.scrollToItem(w.first, w.second); was = null } } }
+        if (above) was?.let { w -> pill(Ico.DOWN, "Back") { was = null; left.value = false; scope.launch { state.scrollToItem(w.first, w.second) } } }
         if (down) pill(Ico.UP, "Top") {
-            was = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
+            was = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset; left.value = false
             scope.launch { state.scrollToItem(0) }
         }
     }
