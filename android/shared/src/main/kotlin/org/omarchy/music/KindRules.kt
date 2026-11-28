@@ -169,3 +169,16 @@ object KindRules {
     /** Before a song: an old friend, first played two years ago or more. */
     fun oldFriend(daysSinceFirst: Int): Boolean = daysSinceFirst >= 730
 }
+
+/** "Play the 80s": which decade was asked for, when that is all that was asked. Pure. */
+object DecadeAsk {
+    private val ONLY = Regex("^\\s*(?:play |some |the |songs from |music from |from )*(?:the )?((?:19|20)?\\d0)'?s(?: music| songs| stuff)?\\s*$", RegexOption.IGNORE_CASE)
+
+    /** The decade's first year (1980 for "80s", "the 80s", "1980s"; 2000 for "00s"; 2010 for "2010s", "10s"), or null
+     *  when the words ask for more than a decade ("80s rock" is a genre's to find). */
+    fun of(text: String): Int? {
+        val d = ONLY.find(text)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+        val year = if (d >= 1900) d else if (d >= 30) 1900 + d else 2000 + d
+        return KindRules.decadeOf(year)
+    }
+}

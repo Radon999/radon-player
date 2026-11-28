@@ -38,6 +38,9 @@ object WholeArtists {
         return split(text).map { p -> TOKEN.replace(p) { m -> kept[m.groupValues[1].toInt()] } }
     }
 
+    /** The first artist of a credit written with commas ("A, B" -> A), a whole name kept whole ("Tyler, The Creator"). */
+    fun lead(credit: String): String = split(credit) { it.split(",") }[0].trim()
+
     /** Whether the name is one that stays whole. */
     fun has(name: String): Boolean = name.trim().lowercase() in names
 }

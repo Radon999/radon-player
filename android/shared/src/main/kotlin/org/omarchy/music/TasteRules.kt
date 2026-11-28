@@ -67,19 +67,20 @@ object TasteRules {
             val age = nowS - p.t
             val at = Instant.ofEpochSecond(p.t).atZone(zone)
             if (age < 30 * DAY) c.recent.merge(k, 1, Int::plus)
-            if (age < 90 * DAY) c.artists.merge(p.artist.split(",")[0].trim(), 1, Int::plus)
+            if (age < 90 * DAY) c.artists.merge(WholeArtists.lead(p.artist), 1, Int::plus)
             if (age < 365 * DAY && aroundHour(at.hour, hour)) c.hour.merge(k, 1, Int::plus)
             c.years.getOrPut(at.year) { HashMap() }.merge(k, 1, Int::plus)
             c.count.merge(k, 1, Int::plus)
             c.first[k] = minOf(c.first[k] ?: Long.MAX_VALUE, p.t)
-            val lead = p.artist.split(",")[0].trim()
+            val lead = WholeArtists.lead(p.artist)
             if (lead.isNotEmpty()) { c.artistAll.merge(lead, 1, Int::plus); if (age < 30 * DAY) c.artistMonth.merge(lead, 1, Int::plus) }
             c.hours[at.hour]++
             val d = at.toLocalDate()
             val ya = today.year - d.year
             if (ya in 1..15 && abs(ChronoUnit.DAYS.between(d.plusYears(ya.toLong()), today)) <= 3)
                 c.dayAgo.getOrPut(ya) { HashMap() }.merge(k, 1, Int::plus)
-            if (age < 7 * DAY) c.days.getOrPut(k) { HashSet() } += d.toEpochDay()
+            // (the last seven days of the calendar: seven times 24 hours touch eight of them, and the DJ said "8 of the last seven days")
+            if (d.toEpochDay() > today.toEpochDay() - 7) c.days.getOrPut(k) { HashSet() } += d.toEpochDay()
             if (lead.isNotEmpty()) c.artistFirst[lead] = minOf(c.artistFirst[lead] ?: Long.MAX_VALUE, p.t)
             if (d.year == today.year && d.month == today.month) c.monthPlays++
             // A song with no mood is asked about once too (before: at every one of its plays)
