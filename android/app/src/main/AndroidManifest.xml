@@ -29,6 +29,9 @@
         <!-- Android Auto's connection state (wired or wireless), for the truck's own equalizer -->
         <package android:name="com.google.android.projection.gearhead" />
         <provider android:authorities="androidx.car.app.connection" />
+        <!-- The Discord app's Rich Presence service (Show on Discord: what you play on your profile) -->
+        <package android:name="com.discord" />
+        <intent><action android:name="com.discord.socialsdk.rpc.IDiscordRpcService" /></intent>
     </queries>
 
     <application
