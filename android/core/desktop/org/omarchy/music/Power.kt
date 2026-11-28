@@ -14,8 +14,7 @@ object Power {
         if (windows) {
             // GetSystemPowerStatus fills 12 bytes; the first: 0 on battery, 1 on the mains, 255 not known
             val st = com.sun.jna.Memory(12)
-            if (!k32.GetSystemPowerStatus(st)) return true
-            st.getByte(0).toInt() != 0
+            !k32.GetSystemPowerStatus(st) || st.getByte(0).toInt() != 0
         } else {
             // Linux: a battery that says it is running down
             File("/sys/class/power_supply").listFiles().orEmpty()
