@@ -47,7 +47,10 @@ class TopWidget : AppWidgetProvider() {
             Music.init(ctx)
             askedAt = System.currentTimeMillis()
             val period = period()
-            Music.bg({ Music.mostPlayed(period).filter { !StatHides.song(it) } }) { songs, _ ->
+            // The plays themselves added up again when they're hours old (while the phone is in use): they were only ever
+            // added up when Most played or Artists was opened in the app, so "This week" here could be weeks old
+            if (HomeWidgets.unlocked && Stats.ageS > 6 * 3600) runCatching { Stats.refresh() }
+            Music.bg({ songsNow(period) }) { songs, _ ->
                 if (songs == null) return@bg
                 top = period to songs
                 madeAt = System.currentTimeMillis()
@@ -55,6 +58,23 @@ class TopWidget : AppWidgetProvider() {
                 // Just after the app started the plays may not be counted yet: looked at again a little later
                 if (songs.isEmpty() && tries++ < 3) Music.scope.launch { delay(5000); refresh(ctx) }
             }
+        }
+
+        /** (blocking) The period's songs, as the widget lists them. */
+        private fun songsNow(period: String): List<Track> = Music.mostPlayed(period).filter { !StatHides.play(it.title, it.artist, it.album) }
+
+        /** (blocking; the list's own thread) The songs to list: the ones made, or (the app closed by Android and started
+         *  again for the list alone: nothing made yet, and the list came up empty) made now. */
+        internal fun rowsNow(ctx: Context): List<Track> {
+            top?.second?.let { return it }
+            Music.init(ctx)
+            val period = period()
+            // (the counts are read from the phone as the app starts: a moment for them to be in)
+            var songs = runCatching { songsNow(period) }.getOrDefault(emptyList())
+            var waited = 0
+            while (Stats.songs.isEmpty() && waited++ < 20) { Thread.sleep(150); songs = runCatching { songsNow(period) }.getOrDefault(songs) }
+            if (songs.isNotEmpty()) { top = period to songs; madeAt = System.currentTimeMillis() }
+            return songs
         }
 
         fun update(ctx: Context) {
@@ -92,7 +112,7 @@ class TopWidgetRows : android.widget.RemoteViewsService() {
     override fun onGetViewFactory(intent: android.content.Intent): RemoteViewsFactory = object : RemoteViewsFactory {
         private var rows = emptyList<Track>()
         override fun onCreate() {}
-        override fun onDataSetChanged() { rows = TopWidget.top?.second.orEmpty() }
+        override fun onDataSetChanged() { rows = runCatching { TopWidget.rowsNow(applicationContext) }.getOrDefault(emptyList()) }
         override fun onDestroy() {}
         override fun getCount() = rows.size
         override fun getViewAt(position: Int): RemoteViews {

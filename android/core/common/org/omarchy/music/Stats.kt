@@ -71,6 +71,8 @@ object Stats {
     var busy by mutableStateOf(false)
         private set
     private var built = 0.0
+    /** How old the counts are, in seconds (never made: very). */
+    val ageS: Double get() = now() - built
     private var sig = ""
     private lateinit var ctx: Ctx
     private val file get() = File(ctx.filesDir, "stats.json")

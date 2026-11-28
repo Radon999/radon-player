@@ -77,6 +77,18 @@ class LyricsWidget : AppWidgetProvider() {
         private var shownCur = Int.MIN_VALUE
         private var stale = false   // something changed with the screen off: drawn as it comes back on
 
+        /** (blocking; the list's own thread) The words to list: the ones read, or (the app closed by Android and started
+         *  again for the list alone: nothing read yet, and the list came up empty) read now, from what's kept. */
+        fun plainNow(ctx: Context): List<String> {
+            if (plain.isNotEmpty()) return plain
+            Music.init(ctx)
+            val t = Music.shownTrack() ?: return plain
+            if (forId == t.id && got != null) return plain
+            val g = runCatching { Lyrics.get(Music.ctx, t) }.getOrNull() ?: return plain
+            if (forId == null || forId == t.id) { forId = t.id; got = g; lines = Lyrics.parseLrc(g.synced); times = lines.map { it.first }; plain = g.plain?.lines().orEmpty(); state = "" }
+            return plain
+        }
+
         /** Synced or Genius, as the Lyrics tab chooses it: the one chosen when the song has it, else the other. */
         private fun mode(): String {
             val g = got ?: return ""
@@ -235,7 +247,7 @@ class LyricsWidgetRows : RemoteViewsService() {
         private var lines = emptyList<String>()
         private val section = Regex("\\s*\\[[^]]+]\\s*")   // [Verse 1], [Chorus]: Genius's section names
         override fun onCreate() {}
-        override fun onDataSetChanged() { lines = LyricsWidget.plain }
+        override fun onDataSetChanged() { lines = runCatching { LyricsWidget.plainNow(applicationContext) }.getOrDefault(LyricsWidget.plain) }
         override fun onDestroy() {}
         override fun getCount() = lines.size
         override fun getViewAt(position: Int): RemoteViews {

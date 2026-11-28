@@ -2,6 +2,10 @@ package org.omarchy.music
 
 /** New releases found by themselves, and the wake-up timer: what is said, and when. */
 object NewReleaseRules {
+    /** Whether where a release plays from, looked up at (seconds), is still to be gone by: on a service, for a month;
+     *  "none" (only on Deezer so far), for half a day, then it's looked for again. */
+    fun whereKept(where: String, at: Long, now: Long): Boolean = now - at < (if (where == "none") 12 * 3600L else 30 * 86_400L)
+
     /** A look that reached nobody (no connection): asked artists, and how many of them couldn't be asked. Half or more
      *  failing, of at least three asked, is no look at all: nothing found before is touched, and the daily look tries
      *  again soon. (It had counted as a look that found nothing, and emptied the list.) */

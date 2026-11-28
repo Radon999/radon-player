@@ -29,11 +29,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  *  Widgets in the app's look), with the song under it and play/pause and next; a tap on it opens Now playing.
  *
  *  The bars move only while they can be seen and there's music: a Visualizer widget on the home screen, the screen on
- *  and the phone unlocked, the app not in front (its own visualizer then) and the music playing ([follow]); and for ten
+ *  and the phone unlocked, the app not in front (its own visualizer then) and the music playing ([follow]); and for five
  *  minutes at a time at most (Android can't tell an app whether the home screen itself is showing, so after that they
  *  rest until the screen goes off and on, the music is paused and played, or the song changes). Then Android's
  *  visualizer is opened on the app's own sound (as the app's Visualizer tab does, the same leave needed) and read about
- *  8 times a second, off the music's own threads; each frame is a picture of the visualizer at the widget's own size,
+ *  30 times a second, off the music's own threads; each frame is a picture of the visualizer at the widget's own size,
  *  drawn by the app's own drawing of that style ([drawWidgetVis]), and only that picture is sent. Otherwise nothing is read or drawn at all, and
  *  Android's visualizer is let go. Bit-perfect straight to a USB DAC: the bars come from the app's own output
  *  (AudioTap), as in the app. When the music can't be heard that way (the leave not given, a cast device, a phone that
@@ -166,7 +166,6 @@ class VisualizerWidget : AppWidgetProvider() {
                 while (true) {
                     snapshotFlow { live() }.first { it }
                     running = true
-                    val song = Music.shownTrack()?.id
                     val frames = launch(Dispatchers.Default) { frames(ctx) }
                     val tooLong = withTimeoutOrNull(PhoneWidgetRules.VIZ_RUN_MS) {
                         while (true) {
@@ -180,8 +179,13 @@ class VisualizerWidget : AppWidgetProvider() {
                     running = false
                     state = org.omarchy.music.ui.VisState()
                     runCatching { update(ctx) }   // at rest
-                    // Ran its time: at rest until the screen, the music or the song changes
-                    if (tooLong) snapshotFlow { !live() || Music.shownTrack()?.id != song }.first { it }
+                    // Ran its time: at rest until the screen, the music or the song changes. (The song as it is now, at
+                    // rest: it was the song the run began with, so any song change in those minutes started the next
+                    // run at once, and with music on and another app in front it never rested at all)
+                    if (tooLong) {
+                        val song = Music.shownTrack()?.id
+                        snapshotFlow { !live() || Music.shownTrack()?.id != song }.first { it }
+                    }
                 }
             } finally {
                 running = false

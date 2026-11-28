@@ -17,10 +17,52 @@ object ReleaseLookup {
     /** Bumps as releases are looked up (the screens showing where each plays from follow it). */
     var version by androidx.compose.runtime.mutableIntStateOf(0)
         private set
-    private fun found(ck: String, where: String) { whereOf[ck] = where; Music.scope.launch { version++ } }
+    private fun found(ck: String, where: String) {
+        whereOf[ck] = where; whenOf[ck] = System.currentTimeMillis() / 1000
+        Music.scope.launch { version++ }
+        keepSoon()
+    }
+
+    // Kept between runs (release-where.txt: key, where, when): every start looked each release up again, a Tidal and a
+    // YouTube Music search each, hundreds of them with Hide Deezer-only on. "Deezer only" is kept for half a day only
+    // ([NewReleaseRules.whereKept]): a release reaches the services hours after Deezer lists it.
+    private val whenOf = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    @Volatile private var loaded = false
+    @Volatile private var keeping = false
+    private val file get() = java.io.File(Music.ctx.filesDir, "release-where.txt")
+    private fun load() {
+        if (loaded) return
+        synchronized(whenOf) {
+            if (loaded) return
+            val now = System.currentTimeMillis() / 1000
+            runCatching { readText(file)?.lines()?.forEach { l ->
+                val p = l.split('\t')
+                val at = p.getOrNull(2)?.toLongOrNull() ?: return@forEach
+                if (p.size == 3 && NewReleaseRules.whereKept(p[1], at, now)) { whereOf.putIfAbsent(p[0], p[1]); whenOf.putIfAbsent(p[0], at) }
+            } }
+            loaded = true
+        }
+    }
+    private fun keepSoon() {
+        if (keeping) return
+        keeping = true
+        Music.scope.launch {
+            kotlinx.coroutines.delay(4000)
+            keeping = false
+            Music.bg({ writeAtomic(file, whereOf.entries.toList().takeLast(3000).joinToString("\n") { (k, w) -> "$k\t$w\t${whenOf[k] ?: 0L}" }) })
+        }
+    }
+    /** Whether a release's place is known and still good (looked up this run, or kept and not too old). */
+    private fun known(ck: String): Boolean {
+        load()
+        val w = whereOf[ck] ?: return false
+        if (NewReleaseRules.whereKept(w, whenOf[ck] ?: 0L, System.currentTimeMillis() / 1000)) return true
+        whereOf.remove(ck); found.remove(ck); why.remove(ck)   // "Deezer only" from hours ago: looked for again
+        return false
+    }
 
     /** Where a release plays from, if it's been looked up: "tidal", "ytm" or "none"; null: not yet. */
-    fun where(r: NewReleases.Release): String? = whereOf[NewReleases.key(r)]
+    fun where(r: NewReleases.Release): String? { val ck = NewReleases.key(r); return if (known(ck)) whereOf[ck] else null }
     /** The same, said: "Tidal", "YouTube Music", "Deezer only: can't play yet", or "" before it's looked up. New
      *  releases are found on Deezer; they play from Tidal first, else YouTube Music. */
     fun whereLabel(r: NewReleases.Release): String = NewReleaseRules.whereLabel(where(r))
@@ -29,7 +71,7 @@ object ReleaseLookup {
     private val why = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /** In a test: what was found is forgotten. */
-    internal fun forget() { found.clear(); songsOf.clear(); why.clear(); whereOf.clear() }
+    internal fun forget() { found.clear(); songsOf.clear(); why.clear(); whereOf.clear(); whenOf.clear(); loaded = true }
 
     private fun wanted(r: NewReleases.Release) = norm(cleanTitle(r.title))
 
@@ -69,6 +111,9 @@ object ReleaseLookup {
         }
         single?.let { found[ck] = it; found(ck, it.first); return it }
         last?.let { logWarn("release ${r.title}", it) }
+        // No service was asked at all (the app only just started: they aren't ready): nothing is known, and nothing kept.
+        // (It was kept as "Deezer only", and with Hide Deezer-only on those releases left the widget.)
+        if (looked.isEmpty() && failed.isEmpty() && Music.sources["ytm"] == null) return null
         why[ck] = NewReleaseRules.whyNot(r.title, r.artist, looked, failed, tidalOff)
         if (failed.isEmpty()) found(ck, "none")   // (not when a service couldn't be reached: it may well be there)
         return null
@@ -82,7 +127,7 @@ object ReleaseLookup {
     fun warm(rs: List<NewReleases.Release>, n: Int = 8) {
         for (r in rs.take(n)) {
             val ck = NewReleases.key(r)
-            if (songsOf.containsKey(ck) || why.containsKey(ck)) continue
+            if (songsOf.containsKey(ck) || why.containsKey(ck) || known(ck)) continue   // (known from an earlier run too)
             runCatching { tracks(r) }
         }
     }

@@ -25,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** What the home screen widgets share: their look (the playing song's cover colour, a little see-through, rounded, with
@@ -227,6 +228,8 @@ object HomeWidgets {
         me.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }.getOrDefault(true)
 
+    /** The screen came on (or the phone was unlocked): wakes the check in [follow] from its rest. */
+    private val screenOn = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
     private var jobs = emptyList<Job>()
     private var screenWatch: BroadcastReceiver? = null
 
@@ -246,6 +249,7 @@ object HomeWidgets {
                     Intent.ACTION_USER_PRESENT -> true
                     else -> !km.isKeyguardLocked
                 }
+                if (i.action != Intent.ACTION_SCREEN_OFF) screenOn.trySend(Unit)
             }
         }.also { r ->
             runCatching { androidx.core.content.ContextCompat.registerReceiver(svc, r, IntentFilter().apply {
@@ -294,13 +298,22 @@ object HomeWidgets {
             // The music started from a widget, the lock screen or headphones (the app never opened): "the app in
             // front" had stayed on, and the Visualizer widget never moved; an unlock missed: "locked" stayed on, and the
             // Lyrics widget kept "Nothing playing" and its visualizer stood still
+            // Only while it can matter: a Lyrics or Visualizer widget is on the home screen (the others don't ask), and the
+            // screen is on (off, the screen's own notice says so, and that one is reliable: nothing is asked until it's on
+            // again)
             Music.scope.launch {
                 while (true) {
-                    delay(4000)
-                    val screen = runCatching { pm.isInteractive && !km.isKeyguardLocked }.getOrDefault(unlocked)
+                    snapshotFlow { LyricsWidget.present || VisualizerWidget.present }.first { it }
+                    if (!runCatching { pm.isInteractive }.getOrDefault(true)) {
+                        if (unlocked) unlocked = false
+                        screenOn.receive()   // (the screen's coming on: sent by the receiver above)
+                        continue
+                    }
+                    val screen = runCatching { !km.isKeyguardLocked }.getOrDefault(unlocked)
                     if (screen != unlocked) unlocked = screen
                     val front = AppVisible.on && appInFront(svc)
                     if (front != appShown) appShown = front
+                    kotlinx.coroutines.withTimeoutOrNull(4000) { screenOn.receive() }
                 }
             },
             // The volume rows follow the volume keys (and anything else that changes the media volume)

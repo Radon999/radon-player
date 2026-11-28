@@ -16,6 +16,11 @@ class NewReleaseLookTest {
         assertFalse(R.lookFailed(40, 0)); assertFalse("nobody followed", R.lookFailed(0, 0))
     }
 
+    @Test fun deezerOnlyIsLookedForAgainAfterHalfADay() {
+        assertTrue(R.whereKept("none", 1000, 1000 + 3600)); assertFalse(R.whereKept("none", 1000, 1000 + 13 * 3600))
+        assertTrue("on Tidal: kept", R.whereKept("tidal", 1000, 1000 + 20 * 86_400L)); assertFalse(R.whereKept("ytm", 1000, 1000 + 31 * 86_400L))
+    }
+
     @Test fun whatStaysOfTheListFromBefore() {
         val before = listOf(Triple("a1", "lauv", "2026-11-25"), Triple("a2", "lauv", "2026-11-05"),
             Triple("b1", "sody", "2026-11-26"), Triple("c1", "muse", "2026-11-02"), Triple("old", "muse", "2026-09-01"))

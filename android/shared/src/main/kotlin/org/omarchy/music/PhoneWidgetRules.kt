@@ -100,7 +100,7 @@ object PhoneWidgetRules {
     /** The longest the bars move at a time (ms): Android can't tell an app whether the home screen itself is showing
      *  (another app may be in front with the phone unlocked), so after this they rest until the screen, the music or the
      *  song changes. */
-    const val VIZ_RUN_MS = 10 * 60_000L
+    const val VIZ_RUN_MS = 5 * 60_000L
 
     /** The bars move only while all of these hold: a Visualizer widget on the home screen, the screen on and the phone
      *  unlocked (screenOn), the app not in front (its own visualizer then), and music playing. Otherwise nothing is
