@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A song in the Most played widget: its place, title and artist, and its plays. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/wtr_row"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+    <TextView android:id="@+id/wtr_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:textSize="14sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/wtr_count" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" android:textSize="12sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:maxLines="1" />
+</LinearLayout>

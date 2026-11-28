@@ -840,7 +840,7 @@ private fun ColumnScope.TopWidget() {
     val period = DesktopWidgets.place("top").choice.takeIf { c -> TOP_PERIODS.any { it.first == c } } ?: "all"
     var top by remember { mutableStateOf<List<Track>?>(null) }
     LaunchedEffect(Music.musicVersion, period) {
-        Music.bg({ Music.mostPlayed(period).take(25) }) { r, _ -> top = r.orEmpty() }
+        Music.bg({ Music.mostPlayed(period) }) { r, _ -> top = r.orEmpty() }   // every one: the top 25 first, scrolled for the rest
     }
     WHeader("Most played · " + TOP_PERIODS.first { it.first == period }.second) { Instance.act(listOf("show", "top")) }
     // The period, as Most played in the app has it (week, month, year, all time): on the widget, a click away

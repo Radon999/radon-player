@@ -8,8 +8,8 @@ import android.widget.RemoteViews
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Most played: a tap brings you straight to Most played in the app (the stats). On it, your most played songs (as many
- *  of the top five as fit) over the period Most played shows (This week, This month, This year or All time, chosen
+/** Most played: a tap brings you straight to Most played in the app (the stats). On it, your most played songs (every
+ *  one: the top ones first, scrolled for the rest) over the period Most played shows (This week, This month, This year or All time, chosen
  *  there). It never wakes the phone by itself: it's made again when your plays or the period change, and when you
  *  come back to the home screen after half an hour. */
 class TopWidget : AppWidgetProvider() {
@@ -33,13 +33,10 @@ class TopWidget : AppWidgetProvider() {
         /** The widget's own period (a tap on it changes it): at first, the one Most played shows in the app. */
         private const val PERIOD_KEY = "widget_top_period"
         private fun period(): String = Prefs.text(PERIOD_KEY).takeIf { it in PERIODS } ?: Music.topPeriod
-        private val ROWS = intArrayOf(R.id.wt_r0, R.id.wt_r1, R.id.wt_r2, R.id.wt_r3, R.id.wt_r4)
-        private val TITLES = intArrayOf(R.id.wt_t0, R.id.wt_t1, R.id.wt_t2, R.id.wt_t3, R.id.wt_t4)
-        private val COUNTS = intArrayOf(R.id.wt_c0, R.id.wt_c1, R.id.wt_c2, R.id.wt_c3, R.id.wt_c4)
         private val PERIODS = mapOf("week" to "This week", "month" to "This month", "year" to "This year", "all" to "All time")
 
         /** The songs shown, and the period they're for (made in the background: [refresh]). */
-        @Volatile private var top: Pair<String, List<Track>>? = null
+        @Volatile internal var top: Pair<String, List<Track>>? = null
         @Volatile private var madeAt = 0L
         @Volatile private var askedAt = 0L   // when they were last asked for
         private var tries = 0
@@ -50,7 +47,7 @@ class TopWidget : AppWidgetProvider() {
             Music.init(ctx)
             askedAt = System.currentTimeMillis()
             val period = period()
-            Music.bg({ Music.mostPlayed(period).filter { !StatHides.song(it) }.take(ROWS.size) }) { songs, _ ->
+            Music.bg({ Music.mostPlayed(period).filter { !StatHides.song(it) } }) { songs, _ ->
                 if (songs == null) return@bg
                 top = period to songs
                 madeAt = System.currentTimeMillis()
@@ -69,36 +66,49 @@ class TopWidget : AppWidgetProvider() {
             // Not made yet, made for another period, or half an hour old: made again (and shown once it's in)
             if ((made == null || made.first != period() || now - madeAt > 30 * 60_000L) && now - askedAt > 5_000L) refresh(ctx)
             val mgr = AppWidgetManager.getInstance(ctx)
-            for (id in ids) runCatching { mgr.updateAppWidget(id, views(ctx, made, rowsFor(ctx, mgr, id))) }
+            runCatching {
+                mgr.updateAppWidget(ids, views(ctx, made))
+                @Suppress("DEPRECATION") mgr.notifyAppWidgetViewDataChanged(ids, R.id.wt_list)
+            }
         }
 
-        /** How many song rows fit in the widget as it's sized (the head and the edges take the rest; larger text, taller
-         *  rows): never one cut in half. */
-        private fun rowsFor(ctx: Context, mgr: AppWidgetManager, id: Int): Int {
-            val o = mgr.getAppWidgetOptions(id)
-            val portrait = ctx.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-            val h = o.getInt(if (portrait) AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-            if (h <= 0) return ROWS.size
-            return PhoneWidgetRules.rowsThatFit(h, 24 + 36, (28 * ctx.resources.configuration.fontScale).toInt(), ROWS.size)
-        }
-
-        private fun views(ctx: Context, made: Pair<String, List<Track>>?, rows: Int): RemoteViews {
+        private fun views(ctx: Context, made: Pair<String, List<Track>>?): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_top)
             HomeWidgets.paint(ctx, v)
             v.setTextViewText(R.id.wt_period, (PERIODS[made?.first ?: period()] ?: "") + "  ▾")   // a tap: the next period
             v.setOnClickPendingIntent(R.id.wt_period, HomeWidgets.tap(ctx, TopWidget::class.java, CYCLE, 7431))
             val songs = made?.second.orEmpty()
-            for (i in ROWS.indices) {
-                val t = songs.getOrNull(i)?.takeIf { i < rows }
-                v.setViewVisibility(ROWS[i], if (t != null) View.VISIBLE else View.GONE)
-                if (t == null) continue
-                v.setTextViewText(TITLES[i], "${i + 1}.  ${t.title}" + if (t.artist.isNotEmpty()) " — ${t.artist}" else "")
-                v.setTextViewText(COUNTS[i], if (t.plays > 0) "%,d".format(t.plays) else "")
-            }
+            @Suppress("DEPRECATION") v.setRemoteAdapter(R.id.wt_list, android.content.Intent(ctx, TopWidgetRows::class.java))
+            v.setPendingIntentTemplate(R.id.wt_list, HomeWidgets.openTemplate(ctx, 7432))   // a song: Most played in the app
             v.setViewVisibility(R.id.wt_empty, if (made != null && songs.isEmpty()) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.wt_root, HomeWidgets.open(ctx, "top", 7430))
             return v
         }
+    }
+}
+
+/** The Most played widget's list: every song of the period, numbered, with its plays. */
+class TopWidgetRows : android.widget.RemoteViewsService() {
+    override fun onGetViewFactory(intent: android.content.Intent): RemoteViewsFactory = object : RemoteViewsFactory {
+        private var rows = emptyList<Track>()
+        override fun onCreate() {}
+        override fun onDataSetChanged() { rows = TopWidget.top?.second.orEmpty() }
+        override fun onDestroy() {}
+        override fun getCount() = rows.size
+        override fun getViewAt(position: Int): RemoteViews {
+            val t = rows.getOrNull(position) ?: return RemoteViews(packageName, R.layout.widget_top_row)
+            return RemoteViews(packageName, R.layout.widget_top_row).apply {
+                setTextViewText(R.id.wtr_title, "${position + 1}.  ${t.title}" + if (t.artist.isNotEmpty()) " — ${t.artist}" else "")
+                setTextViewText(R.id.wtr_count, if (t.plays > 0) "%,d".format(t.plays) else "")
+                setTextColor(R.id.wtr_title, HomeWidgets.ink())
+                setTextColor(R.id.wtr_count, HomeWidgets.ink())
+                setOnClickFillInIntent(R.id.wtr_row, android.content.Intent().putExtra(HomeWidgets.OPEN, "top"))
+            }
+        }
+        override fun getLoadingView(): RemoteViews? = null
+        override fun getViewTypeCount() = 1
+        override fun getItemId(position: Int) = position.toLong()
+        override fun hasStableIds() = false
     }
 }
 
