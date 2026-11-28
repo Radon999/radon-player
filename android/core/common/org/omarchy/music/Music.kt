@@ -237,6 +237,7 @@ object Music {
         if (tidal.connected) sources["tidal"] = tidal
         bg({ lib.prune() }) { _, _ -> savedVersion++ }
         runCatching { WholeArtists.set(WholeArtists.parse(Prefs.text(WholeArtists.PREF))) }   // the artist names you said stay whole
+        runCatching { Discord.init() }   // Show on Discord, if it's on (the PC's and the phone's)
         runCatching { Downloads.restore() }   // the downloads left waiting last time, and the ones that didn't come
         rescan()
         // Headphones coming and going: their correction comes with them (see outputChanged).

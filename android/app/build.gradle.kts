@@ -81,6 +81,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        aidl = true   // the Discord app's Rich Presence service (src/main/aidl)
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"

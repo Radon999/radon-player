@@ -238,25 +238,6 @@ object RemoteHost {
     fun addresses(): List<PairAddressRules.Address> = emptyList()
 }
 
-/** Discord's Rich Presence talks to the Discord app on a computer: the PC's. */
-object Discord {
-    val supported = false
-    val on = false
-    val status = ""
-    fun setOn(v: Boolean) {}
-    const val DEFAULT_APP_ID = ""
-    val appId = ""
-    val ownAppId = false
-    const val TOP = "top"
-    const val GAME = "game"
-    const val LISTEN = "listen"
-    val kind = TOP
-    val fellBack = false
-    fun setKind(v: String) {}
-    fun setAppId(v: String) = false
-}
-
-
 /** Starting with the computer is the PC's. */
 /** Drawing the window without the graphics card: a Linux PC's setting (see the PC's side); nothing on the phone. */
 object SoftwareDrawing {

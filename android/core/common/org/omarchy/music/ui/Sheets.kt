@@ -1213,15 +1213,20 @@ private fun BatterySaverLine() {
 @Composable
 private fun DiscordLine() {
     val d = org.omarchy.music.Discord
-    Line("Discord", when {
+    Line(if (onPhone) "Show on Discord" else "Discord", when {
+        !d.on && onPhone -> "Shows the song you're playing on your Discord profile, as Spotify does, with how many times you've played it, " +
+            "wherever you are: no computer needed. It works through the Discord app on this phone and sends nothing anywhere else. " +
+            "Set it up with the steps below, then turn this on"
         !d.on -> "Shows the song you're playing on your Discord profile, as Spotify does, with how many times you've played it, " +
             "and clears it when you pause. It works through the Discord app (or Vesktop) on this PC and sends nothing anywhere else"
         d.status == "on" -> "Showing what you play on your Discord profile; it clears while you're paused"
+        onPhone && d.status.isEmpty() -> "On: it shows once a song is playing"
         d.status.isEmpty() || d.status == "Discord isn't open" -> "On, but Discord isn't open: open the Discord app (or Vesktop) on this PC and it shows up"
         else -> "On · ${d.status}"
     }, d.on && d.status == "on") {
         Switch(d.on, { d.setOn(it) }, colors = swColors())
     }
+    if (onPhone) DiscordPhoneSteps()
     if (!d.on) return
     // How it shows: Discord puts the kinds in its own order (Competing, Streaming, Playing, then Listening), so only
     // Competing stays above a game or a Go Live
@@ -1239,6 +1244,33 @@ private fun DiscordLine() {
     if (d.fellBack && d.kind != d.LISTEN) Text("Your Discord didn't take this one, so it shows as \"Listening to\" instead. " +
         "Pick it again to try once more", style = T.sub.copy(color = C.accent))
     DiscordAppId()
+}
+
+/** Under Show on Discord on the phone: what you need and the steps, always there to read (before turning it on, and
+ *  when it isn't showing). */
+@Composable
+private fun DiscordPhoneSteps() {
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
+    var open by remember { mutableStateOf(!org.omarchy.music.Discord.on || org.omarchy.music.Discord.status.let { it.isNotEmpty() && it != "on" }) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("How to set it up", style = T.body, modifier = Modifier.weight(1f))
+        Pill(if (open) "Hide" else "Show", quiet = true) { open = !open }
+    }
+    if (!open) return
+    Column(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text("You need the Discord app on this phone. Nothing else: no computer, no extra app, and Radon Player never asks for your Discord password.", style = T.sub)
+        Text("1. Install Discord from the Play Store, or update it if you have it (it needs a 2026 version).", style = T.sub)
+        Text("2. Open Discord and sign in.", style = T.sub)
+        Text("3. In Discord: tap your picture (bottom right) › the cog › Activity Privacy, and turn on sharing your activity.", style = T.sub)
+        Text("4. Back here, turn on Show on Discord and play a song. Your profile shows “Listening to Radon Player” with the song within a few seconds.", style = T.sub)
+        Text("If it stops showing with the screen off: in the phone's Settings › Apps, let both Radon Player and Discord use the battery without restriction " +
+            "(Battery › Unrestricted), so Android doesn't put them to sleep.", style = T.sub)
+        Text("This uses a service inside the Discord app that Discord made for other apps but doesn't publish. If a Discord update changes it, " +
+            "this stops showing until Radon Player is updated; nothing else is affected.", style = T.sub)
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
+            Pill("Get or update Discord", quiet = true) { runCatching { links.openUri("https://play.google.com/store/apps/details?id=com.discord") } }
+        }
+    }
 }
 
 /** The PC's Phone remote: the phone app plays music here, pairs with the code shown, finds the PC by itself. */

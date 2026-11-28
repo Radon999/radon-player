@@ -8,12 +8,15 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
-import java.io.File
-import java.io.RandomAccessFile
 
-/** What you're playing on your Discord profile, as Spotify does ("Listening to …"), through the Discord app's own Rich
- *  Presence socket on this computer (nothing goes anywhere else), as the Python app does. Paused or stopped, it's
- *  cleared. With Discord closed it looks for it again every so often, and it finds Discord again after a restart.
+/** Discord said no to what was sent (not a lost connection). */
+class DiscordRefused(msg: String) : Exception(msg)
+
+/** What you're playing on your Discord profile, as Spotify does ("Listening to …"), through the Discord app on this
+ *  device (nothing goes anywhere else, and no sign-in passes through here): on the PC its Rich Presence socket, as the
+ *  Python app does; on the phone the Rich Presence service the Discord app has for other apps ([DiscordLink] is each
+ *  device's way to it; what is said is the same). Paused or stopped, it's cleared. With Discord closed it looks for
+ *  it again every so often, and it finds Discord again after a restart.
  *  The name Discord shows ("Listening to VarMusic") is the name of the Discord application whose ID is used: it's set
  *  on Discord's developer portal, not here, so the ID is a setting ([setAppId]). */
 object Discord {
@@ -23,16 +26,12 @@ object Discord {
     private const val APP_ID_KEY = "discord_app_id"
     private const val ICON = "https://raw.githubusercontent.com/Radon999/radon-player/radon-player/docs/icon.png"
     private const val DOWNLOAD = "https://github.com/Radon999/radon-player/releases/latest"
-    private val windows = System.getProperty("os.name").lowercase().contains("win")
-
     private var onNow by mutableStateOf(false)
     val on: Boolean get() = onNow
     /** For Settings: "" (not tried yet), "on", or why not. */
     var status by mutableStateOf("")
         private set
 
-    private var pipe: RandomAccessFile? = null
-    private var sock: java.nio.channels.SocketChannel? = null
     private var sent: JsonObject? = null
     @Volatile private var sentKey = ""
     @Volatile private var redo = false          // reconnect (the application ID changed)
@@ -58,14 +57,19 @@ object Discord {
     const val LISTEN = "listen"
     private const val KIND_KEY = "discord_kind"
 
+    private var started = false
     fun init() {
-        onNow = Prefs.on("discord", true)
+        if (started) return
+        started = true
+        onNow = Prefs.on("discord", DiscordLink.DEFAULT_ON)
         idNow = Prefs.text(APP_ID_KEY).trim()
         kindNow = Prefs.text(KIND_KEY, LISTEN).takeIf { it in setOf(TOP, GAME, LISTEN) } ?: LISTEN
-        Thread({ run() }, "discord").apply { isDaemon = true }.start()
+        thread = Thread({ run() }, "discord").apply { isDaemon = true; start() }
     }
+    private var thread: Thread? = null
 
-    fun setOn(v: Boolean) { onNow = v; Prefs.set("discord", v) }
+    /** (turned on: looked at now, not at the thread's next look) */
+    fun setOn(v: Boolean) { onNow = v; Prefs.set("discord", v); status = ""; runCatching { thread?.interrupt() } }
 
     fun setKind(v: String) { if (v in setOf(TOP, GAME, LISTEN)) { kindNow = v; Prefs.setText(KIND_KEY, v); fellBackNow = false } }
 
@@ -118,61 +122,7 @@ object Discord {
         return true
     }
 
-    private fun paths(): List<String> = if (windows) (0 until 10).map { "\\\\.\\pipe\\discord-ipc-$it" } else {
-        val bases = listOf("XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP").mapNotNull { System.getenv(it) } + "/tmp"
-        val subs = listOf("", "app/com.discordapp.Discord/", "app/dev.vencord.Vesktop/", "snap.discord/")
-        (0 until 10).flatMap { i -> bases.distinct().flatMap { b -> subs.map { s -> "${b.trimEnd('/')}/${s}discord-ipc-$i" } } }
-    }
-
-    private fun connect() {
-        for (p in paths()) {
-            runCatching {
-                if (windows) pipe = RandomAccessFile(p, "rw")
-                else if (File(p).exists()) sock = java.nio.channels.SocketChannel.open(java.net.StandardProtocolFamily.UNIX)
-                    .apply { connect(java.net.UnixDomainSocketAddress.of(p)) }
-            }
-            if (pipe != null || sock != null) break
-        }
-        if (pipe == null && sock == null) throw java.io.IOException("Discord isn't open")
-        send(0, buildJsonObject { put("v", 1); put("client_id", appId) })
-        reply()   // READY, or an error (a wrong application ID: "Invalid Client ID")
-    }
-
-    private fun close() {
-        runCatching { pipe?.close() }; runCatching { sock?.close() }
-        pipe = null; sock = null; sent = null; sentKey = ""
-    }
-
-    private fun send(op: Int, data: JsonObject) {
-        val body = data.toString().toByteArray()
-        val frame = java.nio.ByteBuffer.allocate(8 + body.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-            .putInt(op).putInt(body.size).put(body).array()
-        pipe?.write(frame) ?: sock?.write(java.nio.ByteBuffer.wrap(frame))
-    }
-
-    private fun read(n: Int): ByteArray {
-        val out = ByteArray(n); var got = 0
-        while (got < n) {
-            val k = pipe?.read(out, got, n - got) ?: sock!!.read(java.nio.ByteBuffer.wrap(out, got, n - got))
-            if (k <= 0) throw java.io.IOException("Discord closed the connection")
-            got += k
-        }
-        return out
-    }
-
-    private fun reply(): JsonObject {
-        val head = java.nio.ByteBuffer.wrap(read(8)).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        val op = head.int; val n = head.int
-        val data = runCatching { JSON.parseToJsonElement(String(read(n))) as JsonObject }.getOrDefault(JsonObject(emptyMap()))
-        if (op == 2 || data["evt"].str == "ERROR") {
-            val msg = (data["data"] as? JsonObject)?.get("message").str ?: data["message"].str ?: "Discord said no"
-            throw Refused(if (op == 2) "Discord closed the connection: $msg" else msg)
-        }
-        return data
-    }
-
-    /** Discord said no to what was sent (not a lost connection). */
-    private class Refused(msg: String) : Exception(msg)
+    private fun close() { DiscordLink.close(); sent = null; sentKey = "" }
 
     private fun text(v: String?) = (v ?: "").trim().take(128).padEnd(2, '⠀')
 
@@ -248,18 +198,17 @@ object Discord {
      *  being open isn't one. */
     private fun log(e: Exception) {
         val msg = e.message ?: e.javaClass.simpleName
-        if (msg == "Discord isn't open" || msg == logged) return
+        if (msg == "Discord isn't open" || msg in DiscordLink.QUIET || msg == logged) return
         logged = msg
         logWarn("Discord Rich Presence (application $appId)", e)
     }
 
     /** Sends the activity (null: clears it); Discord's answer back (the activity as it keeps it). */
     private fun setActivity(want: JsonObject?): JsonObject {
-        send(1, buildJsonObject {
+        return DiscordLink.command(buildJsonObject {
             put("cmd", "SET_ACTIVITY"); put("nonce", java.util.UUID.randomUUID().toString())
-            putJsonObject("args") { put("pid", ProcessHandle.current().pid()); want?.let { put("activity", it) } }
+            putJsonObject("args") { put("pid", DiscordLink.pid()); want?.let { put("activity", it) } }
         })
-        return reply()
     }
 
     /** Shows as Listening to from now on (see [fellBack]; Settings › Discord says so). */
@@ -270,10 +219,20 @@ object Discord {
 
     private fun run() {
         var last = 0L
+        var quietSince = 0L
         while (true) {
-            Thread.sleep(1500)
+            // (the phone looks less often while there is nothing to show: nothing to do, and a battery to keep)
+            try {
+                Thread.sleep(when { on && !runCatching { Music.paused }.getOrDefault(true) -> 1500; on -> DiscordLink.IDLE_MS; else -> DiscordLink.IDLE_MS * 10 })
+            } catch (_: InterruptedException) {}   // the switch was turned: now
             if (redo) { redo = false; close() }   // a new application ID: a new handshake
             val (want, key) = runCatching { wanted(plain) }.getOrElse { null to "" }
+            // Nothing to show for a while: the phone lets go of the Discord app, so it isn't kept awake for nothing
+            if (want != null) quietSince = 0L
+            else if (DiscordLink.isOpen && DiscordLink.LET_GO_MS > 0 && sentKey == key) {
+                if (quietSince == 0L) quietSince = System.currentTimeMillis()
+                else if (System.currentTimeMillis() - quietSince > DiscordLink.LET_GO_MS) { close(); quietSince = 0L }
+            }
             // Sent again every half minute while playing even if nothing changed: a Discord that restarted (or a lost
             // connection) is found and shown the song again, not only at the next song
             val stale = want != null && System.currentTimeMillis() - last > 30_000
@@ -281,7 +240,7 @@ object Discord {
             if (System.currentTimeMillis() - last < 4000) continue   // Discord takes 5 updates in 20 s
             last = System.currentTimeMillis()
             try {
-                if (pipe == null && sock == null) { if (want == null) { sentKey = key; continue }; connect() }
+                if (!DiscordLink.isOpen) { if (want == null) { sentKey = key; continue }; DiscordLink.open(appId) }
                 val type = typeOf(shownKind)
                 try {
                     val answer = setActivity(want)
@@ -289,12 +248,12 @@ object Discord {
                     if (want != null && shownKind != LISTEN && !kindTaken(type, answer)) {
                         fallBack("it kept another kind"); setActivity(wanted(plain).first)
                     }
-                } catch (e: Refused) {
+                } catch (e: DiscordRefused) {
                     if (want == null) throw e
                     if (shownKind != LISTEN) {
                         // Refused this kind: Listening to (what every Discord takes), then the basic one if need be
                         fallBack(e.message ?: "refused")
-                        try { setActivity(wanted(plain).first) } catch (e2: Refused) {
+                        try { setActivity(wanted(plain).first) } catch (e2: DiscordRefused) {
                             if (plain) throw e2
                             log(e2); plain = true; setActivity(wanted(true).first)
                         }
@@ -310,7 +269,7 @@ object Discord {
                 close()
                 status = (e.message ?: "Discord isn't open").take(80)
                 log(e)
-                Thread.sleep(if (e is Refused) 60_000 else 15_000)
+                try { Thread.sleep(if (e is DiscordRefused) 60_000 else 15_000) } catch (_: InterruptedException) {}
             }
         }
     }

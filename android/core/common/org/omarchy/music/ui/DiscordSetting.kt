@@ -37,7 +37,7 @@ fun DiscordAppId() {
     if (Discord.on) Text(when (Discord.status) {
         "" -> "Looking for Discord…"
         "on" -> "Connected to Discord: your song shows on your profile while it plays"
-        else -> "Not showing on Discord: ${Discord.status}" + if (Discord.status.startsWith("Discord isn't open"))
+        else -> "Not showing on Discord: ${Discord.status}" + if (onPhone) " (see How to set it up, above)" else if (Discord.status.startsWith("Discord isn't open"))
             " (open the Discord app on this PC; in Discord, Settings › Activity Privacy › Share your detected activities must be on)" else ""
     }, style = T.sub.copy(color = if (Discord.status == "on") C.accent else C.muted), modifier = Modifier.padding(vertical = 2.dp))
     if (!open) return
