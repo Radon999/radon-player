@@ -227,8 +227,9 @@ fun soloName(names: Map<String, Int>, solo: Set<String> = emptySet()): String {
 
 /** The artists in a credit, for lists of artists: a credit of one ("Tyler, The Creator") whole; "A & B feat. C" as
  *  A, B and C. The desktop's own_artists. */
-fun ownArtists(credit: String?): List<String> {
-    val c = credit?.trim().orEmpty()
+fun ownArtists(credit: String?): List<String> = WholeArtists.split(credit?.trim().orEmpty()) { ownArtistsOf(it) }
+
+private fun ownArtistsOf(c: String): List<String> {
     if (c.isEmpty()) return emptyList()
     // "and" is never split: it's in band names ("Of Monsters and Men", "Fitz and The Tantrums", "Esquivel and His
     // Orchestra"), and two artists are credited with "&", "x" or a comma
@@ -260,8 +261,9 @@ private fun plainKey(n: String) = norm(n).replace(NOT_LETTERS, "")
 
 /** The artists of a credit joined by "&", "x" or commas; a band's own name stays whole ("Of Monsters and Men",
  *  "Lil Nas X", "Tyler, The Creator"). */
-fun duoParts(credit: String?): List<String> {
-    val c = credit?.trim().orEmpty()
+fun duoParts(credit: String?): List<String> = WholeArtists.split(credit?.trim().orEmpty()) { duoPartsOf(it) }
+
+private fun duoPartsOf(c: String): List<String> {
     if (c.isEmpty()) return emptyList()
     if (!PAIR_SEP.containsMatchIn(c) || (c.count { it == ',' } == 1 && !Regex(" & | x |;").containsMatchIn(c))) return listOf(c)
     return c.split(PAIR_SEP).map { it.trim() }.filter { it.isNotEmpty() }
@@ -450,10 +452,13 @@ fun songPickKey(title: String, artist: String): String = statsKey(title, artist)
 /** A song across Last.fm, Spotify, Apple Music and here: its name and lead artist, tidied
  *  (feat., & and x credits, remaster notes left out). The desktop's stats_key. */
 fun statsKey(title: String, artist: String): Pair<String, String> = STATS_KEYS.of(title to artist) {
-    norm(cleanTitle(title)) to norm(artist.lowercase().split(CREDIT_SPLIT)[0])
+    norm(cleanTitle(title)) to norm(WholeArtists.split(artist.lowercase()) { it.split(CREDIT_SPLIT) }[0])
         .let { n -> n.replace(NOT_LETTERS, "").ifEmpty { n } }   // K.Flay = kflay
 }
 private val STATS_KEYS = Memo<Pair<String, String>, Pair<String, String>>(200_000)
+
+/** The keys kept of artists' names are worked out again (the names that stay whole changed). */
+internal fun forgetNameKeys() = STATS_KEYS.clear()
 
 /** A service's songs for a search, the best fits first: the song named just what you typed, then ones whose name and
  *  artist hold all your words, then the rest, each in the service's own order. */

@@ -21,6 +21,7 @@ internal class Memo<K : Any, V : Any>(private val cap: Int) {
         if (kept.size > cap) kept.clear()
         return make().also { kept[k] = it }
     }
+    fun clear() = kept.clear()
 }
 private val NORMS = Memo<String, String>(200_000)
 private val CLEAN_TITLES = Memo<String, String>(100_000)
@@ -129,7 +130,7 @@ fun artistNames(names: Iterable<String>): Set<String> {
     val out = linkedSetOf<String>()
     for (n0 in names) {
         val n = Regex("\\s*-\\s*topic$|vevo$").replace(n0.lowercase().trim(), "")
-        for (part in n.split(Regex(",|&|\\bx\\b|\\band\\b|\\bfeat\\b\\.?|\\bft\\b\\.?"))) {
+        for (part in WholeArtists.split(n) { it.split(Regex(",|&|\\bx\\b|\\band\\b|\\bfeat\\b\\.?|\\bft\\b\\.?")) }) {
             val p = squash(NON_WORD.replace(part, " "))
             if (p.isNotEmpty()) out += p
         }
@@ -141,7 +142,8 @@ fun artistNames(names: Iterable<String>): Set<String> {
  *  duo's name, so it is offered whole and as each of them. */
 fun splitArtists(text: String?): List<String> {
     val out = linkedSetOf<String>()
-    for (part0 in (text ?: "").split(Regex("(?i),\\s*|\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+"))) {
+    // (a name that stays whole, "Tyler, The Creator", is never cut: WholeArtists)
+    for (part0 in WholeArtists.split(text ?: "") { it.split(SPLIT_ARTISTS) }) {
         val part = part0.trim()
         if (part.isEmpty() || part.lowercase() == "unknown artist") continue
         out += part
@@ -157,6 +159,8 @@ fun creditNames(credit: String?, artist: String): Boolean {
     if (n.isEmpty()) return false
     return norm(credit.orEmpty()) == n || splitArtists(credit).any { norm(it) == n } || ownArtists(credit).any { norm(it) == n }
 }
+
+private val SPLIT_ARTISTS = Regex("(?i),\\s*|\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+")
 
 fun hasWord(text: String, word: String) = Regex("\\b${Regex.escape(word)}\\b").containsMatchIn(text)
 

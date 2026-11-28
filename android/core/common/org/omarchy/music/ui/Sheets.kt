@@ -471,6 +471,7 @@ private fun AccountsSheet(ui: Ui) {
                     "so your top artists aren't split up. " +
                     if (undecided > 0) "$undecided pairs aren't clear: pick whose plays each one's are" else "Choose… lets you change whose plays a pair's are",
                     undecided == 0) { Pill("Choose…", quiet = undecided == 0) { ui.jointArtists = true } }
+                WholeArtistsLine()
             }
                 }
                 SubGroup("Never show", ui) {
@@ -1146,6 +1147,35 @@ private fun StartupLine() {
         "without opening its window, ready for your keyboard's media keys and the phone remote", on) {
         Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
             else Music.toast("Couldn't: only the installed app can start with $sys") }, colors = swColors())
+    }
+}
+
+/** Names that stay whole: artists with a comma or "&" in their own name, never taken for two artists. */
+@Composable
+private fun WholeArtistsLine() {
+    val W = org.omarchy.music.WholeArtists
+    var yours by remember { mutableStateOf(org.omarchy.music.Prefs.text(W.PREF)) }
+    var edit by remember { mutableStateOf<String?>(null) }
+    val n = W.parse(yours).size
+    Line("Names that stay whole", "An artist written “A, B” is taken for two artists. That's wrong for a name with a comma or “&” of its own: " +
+        "${W.BUILT_IN.take(3).joinToString("; ")} and a few more are known already" +
+        (if (n > 0) ", and you added $n" else ". Add any the app splits wrongly"), true) {
+        Pill("Edit…", quiet = true) { edit = yours }
+    }
+    edit?.let { text ->
+        AlertDialog(onDismissRequest = { edit = null }, containerColor = C.light,
+            title = { Text("Names that stay whole", style = T.head) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("One artist a line, written as on their songs. Known already: ${W.BUILT_IN.joinToString("; ")}", style = T.sub)
+                Field(text, "Tyler, The Creator", multiLine = true) { edit = it }
+            } },
+            confirmButton = { TextButton({
+                val now = W.parse(text).joinToString("\n")
+                org.omarchy.music.Prefs.setText(W.PREF, now); yours = now; W.set(W.parse(now)); edit = null
+                org.omarchy.music.Stats.refresh(force = true); Music.musicVersion++
+                Music.toast("Saved: your artists and stats are counted again")
+            }) { Text("Save", color = C.accent) } },
+            dismissButton = { TextButton({ edit = null }) { Text("Cancel", color = C.muted) } })
     }
 }
 
