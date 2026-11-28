@@ -27,6 +27,14 @@ object Outputs {
             null, null, null)?.use { c -> c.moveToFirst() && c.getInt(0) == 2 } ?: false
     }.getOrDefault(false)
 
+    /** Where Android sends music now (Android 13 on; null before, or when it can't say). */
+    private fun routedTo(am: android.media.AudioManager): android.media.AudioDeviceInfo? {
+        if (android.os.Build.VERSION.SDK_INT < 33) return null
+        val media = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        return runCatching { am.getAudioDevicesForAttributes(media) }.getOrNull()?.firstOrNull()
+    }
+
     fun now(ctx: android.content.Context): Out {
         val am = ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
         val outs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
@@ -35,8 +43,13 @@ object Outputs {
         BtRoute.routed?.let { return it }
         // Android Auto (the truck's screen, over USB or wireless after Bluetooth connects): first, as it carries the sound
         if (carProjecting) return Out("car:Chevrolet", "Chevrolet Colorado · Android Auto", "car")
-        outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
-            it.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { d ->
+        // Two Bluetooth outputs connected at once (your headphones and the car): the one the music really goes to, as
+        // Android says (Android 13 on). It was the first in Android's list, whichever played: with the headphones still
+        // connected the car played with the headphones' EQ, until they dropped out of range down the road and the car's
+        // EQ came in, and its volume with it.
+        val bts = outs.filter { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
+            it.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER }
+        ((if (bts.size > 1) routedTo(am)?.let { r -> bts.firstOrNull { it.id == r.id } } else null) ?: bts.firstOrNull())?.let { d ->
             val n = name(d) ?: "Bluetooth"
             val car = IgnoreBt.isCar(n)   // what you said of it, else its name   // (whole words: "audi" was found in Audio-Technica, "kia" in Nokia, "car" in Oscar's Buds)
             return Out("bt:$n", n, if (car) "car" else "bluetooth")

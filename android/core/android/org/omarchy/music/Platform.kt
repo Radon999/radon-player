@@ -133,6 +133,18 @@ fun watchOutputs(ctx: Ctx, changed0: () -> Unit) {
             override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>) { Outputs.carProjecting = Outputs.projecting(ctx); changed() }
             override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) { Outputs.carProjecting = Outputs.projecting(ctx); changed() }
         }, android.os.Handler(android.os.Looper.getMainLooper()))
+    // The music moving between two outputs that both stay connected (headphones to the car, Ignore Bluetooth devices
+    // turned off, Android switching by itself) adds and removes nothing, so Android says nothing: looked at every few
+    // seconds while music plays, so the output's own EQ (its default preset) comes in at once, not at the next change
+    // of devices, minutes later
+    val h = android.os.Handler(android.os.Looper.getMainLooper())
+    h.postDelayed(object : Runnable {
+        override fun run() {
+            val playing = runCatching { !Music.paused }.getOrDefault(false)
+            if (playing) runCatching { if (Outputs.now(ctx).key != Music.outputNow.key) changed() }
+            h.postDelayed(this, if (playing) 2500L else 15_000L)
+        }
+    }, 2500L)
 }
 
 private val HEADPHONE_TYPES = setOf(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_BLE_HEADSET,
