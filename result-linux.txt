@@ -1,5 +1,5 @@
-commit 1c13a86c7b46be80300e7cb6f5710096da27402c · run 46113830355 · Sat Nov 28 06:02:19 UTC 2026
-SHARED TESTS: 160 suites, 790 tests, 0 failed
+commit e205495592f3f55cfad5b6d2bdda5f1e7b4f51dd · run 46115167085 · Sat Nov 28 06:22:18 UTC 2026
+SHARED TESTS: 163 suites, 800 tests, 0 failed
 APP TESTS: 19 suites, 53 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
@@ -22,29 +22,29 @@ LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 > Task :desktop:test FAILED
-
-FAILURE: Build failed with an exception.
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
 --
 * What went wrong:
 Execution failed for task ':desktop:test'.
-> Process 'Gradle Test Executor 3' finished with non-zero exit value 134
+> Process 'Gradle Test Executor 2' finished with non-zero exit value 134
 --
-BUILD FAILED in 5m 1s
+BUILD FAILED in 5m 20s
 59 actionable tasks: 59 executed
 --- the end of the log
-# If you would like to submit a bug report, please visit:
-#   https://github.com/adoptium/adoptium-support/issues
-# The crash happened outside the Java Virtual Machine in native code.
 # See problematic frame for where to report the bug.
 #
 
 > Task :desktop:test FAILED
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
 Execution failed for task ':desktop:test'.
-> Process 'Gradle Test Executor 3' finished with non-zero exit value 134
+> Process 'Gradle Test Executor 2' finished with non-zero exit value 134
   This problem might be caused by incorrect test process configuration.
   For more on test execution, please refer to https://docs.gradle.org/8.7/userguide/java_testing.html#sec:test_execution in the Gradle documentation.
 
@@ -60,5 +60,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 5m 1s
+BUILD FAILED in 5m 20s
 59 actionable tasks: 59 executed
