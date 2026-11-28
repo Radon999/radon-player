@@ -643,6 +643,16 @@ private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -
     }
 }
 
+/** A widget's list, filling the rest of it, with ↑ Top and ↓ Back. */
+@Composable
+private fun ColumnScope.WList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    Box(Modifier.weight(1f)) {
+        LazyColumn(Modifier.fillMaxSize(), state = state, content = content)
+        WToTop(state)
+    }
+}
+
 /** ↑ Top: back to the top of a widget's list, once it's scrolled down from there; ↓ Back: then back to where you were
  *  (kept until you scroll there yourself). As Now playing's in the app. */
 @Composable
@@ -745,7 +755,7 @@ private fun ColumnScope.NowAndPlaylists() {
     val lists = yourPlaylists()
     WHeader("Your playlists") { Instance.act(listOf("show", "playlists")) }
     if (lists.isEmpty()) Text("No playlists yet: make one in the app", style = wSub)
-    LazyColumn(Modifier.weight(1f)) {
+    WList {
         items(lists, key = { it.id }) { p ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val (art, count) = listLook(p)
@@ -817,7 +827,7 @@ private fun ColumnScope.PlaylistChoice(lists: List<Playlist>, done: () -> Unit =
     val place = DesktopWidgets.place("playlist")
     if (lists.isEmpty()) { Text("No playlists yet: make one in the app", style = wSub); return }
     Text("Choose the playlist:", style = wSub, modifier = Modifier.padding(bottom = 4.dp))
-    LazyColumn(Modifier.weight(1f)) {
+    WList {
         items(lists, key = { it.id }) { p ->
             val (art, count) = listLook(p)
             WRow(art, (if (p.id == place.choice) "✓ " else "") + p.name, count) {
@@ -832,7 +842,7 @@ private fun ColumnScope.PlaylistChoice(lists: List<Playlist>, done: () -> Unit =
 private fun ColumnScope.PinnedWidget() {
     WHeader("Pinned") { Instance.act(listOf("show", "pinned")) }
     if (Music.pins.isEmpty()) Text("Nothing pinned yet: Pin an artist, an album or a playlist on its page", style = wSub)
-    LazyColumn(Modifier.weight(1f)) {
+    WList {
         items(Music.pins.toList(), key = { it.key }) { p ->
             WRow(pinArt(p), p.title, listOf(PIN_WORDS[p.kind] ?: "", p.sub).filter { it.isNotEmpty() }.joinToString(" · ")) {
                 Instance.inWindow { ui -> ui.sheet = null; openPin(ui, p) }

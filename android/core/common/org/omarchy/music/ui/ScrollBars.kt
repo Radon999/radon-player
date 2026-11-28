@@ -28,13 +28,21 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.verticalScroll as composeVerticalScroll
 
 // The PC's scroll bars: every list and long screen that scrolls has one on its right edge, to drag like File
 // Explorer's (or click above or below it to move a screen at a time). The scroll wheel works as before. The phone
 // scrolls by touch and has none. These stand in for Compose's own LazyColumn and verticalScroll in this package.
 
-/** A list, as Compose's LazyColumn, with a scroll bar on the PC. */
+/** A list, as Compose's LazyColumn, with a scroll bar on the PC, and ↑ Top / ↓ Back (see [ListJumps]) on every
+ *  list of the app, the phone's and the PC's. jumps: false leaves them off (a list with its own). */
 @Composable
 fun LazyColumn(
     modifier: Modifier = Modifier,
@@ -45,10 +53,52 @@ fun LazyColumn(
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     flingBehavior: FlingBehavior = ScrollableDefaults.flingBehavior(),
     userScrollEnabled: Boolean = true,
+    jumps: Boolean = !reverseLayout && userScrollEnabled,
     content: LazyListScope.() -> Unit,
-) = androidx.compose.foundation.lazy.LazyColumn(modifier = modifier.scrollBar(state), state = state, contentPadding = contentPadding,
-    reverseLayout = reverseLayout, verticalArrangement = verticalArrangement, horizontalAlignment = horizontalAlignment,
-    flingBehavior = flingBehavior, userScrollEnabled = userScrollEnabled, content = content)
+) {
+    if (!jumps) {
+        androidx.compose.foundation.lazy.LazyColumn(modifier = modifier.scrollBar(state), state = state, contentPadding = contentPadding,
+            reverseLayout = reverseLayout, verticalArrangement = verticalArrangement, horizontalAlignment = horizontalAlignment,
+            flingBehavior = flingBehavior, userScrollEnabled = userScrollEnabled, content = content)
+        return
+    }
+    // The list fills the place given to it (the box passes its size on), and the buttons sit over its bottom right
+    androidx.compose.foundation.layout.Box(modifier, propagateMinConstraints = true) {
+        androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.scrollBar(state), state = state, contentPadding = contentPadding,
+            reverseLayout = reverseLayout, verticalArrangement = verticalArrangement, horizontalAlignment = horizontalAlignment,
+            flingBehavior = flingBehavior, userScrollEnabled = userScrollEnabled, content = content)
+        ListJumps(state)
+    }
+}
+
+/** ↑ Top: back to the top of a list, once it's scrolled down from there. ↓ Back: then straight back to where you were
+ *  (sort the songs at the top of a queue, then carry on down it where you left off); it stays until you scroll back
+ *  down there yourself, or use it. */
+@Composable
+fun androidx.compose.foundation.layout.BoxScope.ListJumps(state: LazyListState) {
+    val down by remember(state) { androidx.compose.runtime.derivedStateOf { state.firstVisibleItemIndex > 0 } }
+    var was by remember(state) { mutableStateOf<Pair<Int, Int>?>(null) }
+    val above by remember(state) { androidx.compose.runtime.derivedStateOf { was?.let { state.firstVisibleItemIndex < it.first } ?: false } }
+    androidx.compose.runtime.LaunchedEffect(above) { if (!above && was != null && state.firstVisibleItemIndex >= was!!.first) was = null }
+    if (!down && !above) return
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    @Composable fun pill(ico: Ico, text: String, desc: String, go: () -> Unit) =
+        androidx.compose.foundation.layout.Row(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)).clickable(onClick = go)
+            .semantics { contentDescription = desc }.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(ico, androidx.compose.ui.graphics.Color.White, 15.dp)
+            androidx.compose.material3.Text(" $text", style = T.sub.copy(color = androidx.compose.ui.graphics.Color.White,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold))
+        }
+    androidx.compose.foundation.layout.Column(Modifier.align(Alignment.BottomEnd).padding(end = if (onPhone) 10.dp else 18.dp, bottom = 10.dp),
+        horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (above) was?.let { w -> pill(Ico.DOWN, "Back", "Back to where you were") { scope.launch { state.animateScrollToItem(w.first, w.second); was = null } } }
+        if (down) pill(Ico.UP, "Top", "Back to the top") {
+            was = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
+            scope.launch { state.animateScrollToItem(0) }
+        }
+    }
+}
 
 /** Which screen is in front (a tab and what's open in it, or a page and how deep it is): what a screen's list keeps
  *  its place under. Main says; "" where nothing is kept. */

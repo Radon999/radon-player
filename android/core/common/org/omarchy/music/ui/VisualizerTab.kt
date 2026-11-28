@@ -163,6 +163,12 @@ object Vis {
 
     /** The style; an old colour preset ("red"…) is Bars in that colour. */
     fun style(): String = Music.visPreset.let { p -> if (VIS_STYLES.any { it.first == p }) p else "bars" }
+
+    /** The Visualizer tab's "Same as Now playing": it draws Now playing's visualizer (its Dual bottom style too, and
+     *  the slim bars), changing as soon as that's changed. Picking a style of its own turns it off. */
+    const val SAME_AS_NOW = "vis_same_as_now"
+    fun sameAsNow(): Boolean = Prefs.on(SAME_AS_NOW) && nowStyle() != "off"
+    fun setSameAsNow(on: Boolean) = Prefs.set(SAME_AS_NOW, on)
     fun color(): String = if (CoverScene.now != null) "cover" else Prefs.text(COLOR).ifEmpty { Music.visPreset.takeIf { Looks.NEON.containsKey(it) } ?: "auto" }
 
     /** Settings › Personalization › Colours: a colour you set for one visualizer ("style=colour;…", a Dual one's bottom
@@ -1835,7 +1841,10 @@ fun VisualizerTab() {
                 .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Right-click (or hold) one: ★ Favourite (to the front), or Delete one you made
-                Favs.sorted(Favs.VIS, VIS_STYLES).forEach { (k, label) -> androidx.compose.runtime.key(k) { MenuChip(label, style == k, { Favs.menu(Favs.VIS, k, label) }) { Music.chooseVisPreset(k) } } }
+                // Now playing's visualizer, whichever it is (and its Dual bottom style), here full screen
+                val same = Prefs.on(Vis.SAME_AS_NOW)
+                Chip("Same as Now playing", same) { Vis.setSameAsNow(!same) }
+                Favs.sorted(Favs.VIS, VIS_STYLES).forEach { (k, label) -> androidx.compose.runtime.key(k) { MenuChip(label, !same && style == k, { Favs.menu(Favs.VIS, k, label) }) { Vis.setSameAsNow(false); Music.chooseVisPreset(k) } } }
                 // Your own style or colour blend (and the one picked, if it's yours, to change it)
                 Chip(if (style.startsWith("myvis-")) "✎ Change yours" else "+ Make your own", false) {
                     Ui.current?.let { it.makerEdit = style.takeIf { s -> s.startsWith("myvis-") }; it.sheet = "vismaker" }
@@ -1851,6 +1860,22 @@ fun VisualizerTab() {
         val fg = C.fg
         Canvas(Modifier.weight(1f).fillMaxWidth().padding(16.dp)) {
             if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
+            if (Vis.sameAsNow()) {
+                // As Now playing draws it: its style over the whole area, Dual's bottom style along the bottom under it
+                val main = Vis.nowStyle(); val second = Vis.nowSecond()
+                fun androidx.compose.ui.graphics.drawscope.DrawScope.one(st: String, part: Int) {
+                    if (st == "slim") { drawSlim(s.levels, VisPalette.of("bars", colorKey, accent, s.phase).main, 2.6f); return }
+                    MyVis.drawingPart(part) { drawVis(st, s, VisPalette.of(st, colorKey, accent, s.phase), fg, backdrop = false) }
+                }
+                clipRect {
+                    one(main, if (second != null) MyVis.PART_MIDDLE else MyVis.PART_ALL)
+                    second?.let { b ->
+                        val h = size.height * 0.4f
+                        translate(top = size.height - h) { withSize(size.width, h) { one(b, MyVis.PART_BOTTOM) } }
+                    }
+                }
+                return@Canvas
+            }
             val pal = VisPalette.of(style, colorKey, accent, s.phase)
             clipRect { drawVis(style, s, pal, fg, backdrop = false) }
         }
