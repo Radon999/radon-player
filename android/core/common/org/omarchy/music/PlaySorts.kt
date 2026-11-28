@@ -20,7 +20,17 @@ object PlaySorts {
     }
 
     /** song key -> how often you played it: the stats (Last.fm and Spotify too), else the plays here. */
-    fun counts(): Map<Pair<String, String>, Int> = merged(
+    fun counts(): Map<Pair<String, String>, Int> {
+        // (made once and kept until the stats, the plays here or the songs' albums change: every list sorted by plays,
+        // and every row's plays, asked for it afresh)
+        val mark = listOf(System.identityHashCode(Stats.songs), Music.plays.items.size, Music.plays.items.values.sumOf { it.plays },
+            System.identityHashCode(PlaysApart.split))
+        countsMade?.takeIf { it.first == mark }?.let { return it.second }
+        return countsNow().also { countsMade = mark to it }
+    }
+    @Volatile private var countsMade: Pair<List<Int>, Map<Pair<String, String>, Int>>? = null
+
+    private fun countsNow(): Map<Pair<String, String>, Int> = merged(
         Music.plays.items.values.map { PlaysApart.playKey(it.track) to it.plays },
         // (two different songs of one name: each its own count, by its album: PlaysApart)
         Stats.songs.map { s -> PlaysApart.key(Stats.statsKey(s.title, s.artist), s.title, s.artist, s.album) to s.plays })
