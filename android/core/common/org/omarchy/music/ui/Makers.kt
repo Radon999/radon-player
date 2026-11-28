@@ -1265,6 +1265,23 @@ object MyPresets {
         if (of(key) != null) apply(key)
     }
 
+    /** Everything a preset holds, in words: what saving one now would keep, and so what putting it on changes. */
+    fun holds(p: Preset): String {
+        val lay = UiLayouts.all().firstOrNull { it.key == p.layout }?.name ?: p.layout
+        val n = LookFx.keys(p.fx.split(';').map { it.trim() }.filter { it.isNotEmpty() }.toSet()).size
+        val fx = if (p.own) "the look's own effects" else if (n == 0) "no effects" else "$n effect${if (n != 1) "s" else ""}"
+        val look = Looks.ALL.firstOrNull { it.first == p.look }?.second ?: p.look
+        fun vis(k: String) = when {
+            k.isBlank() -> "none"
+            Around.isAround(k) -> "around the cover (${Around.name(k)})"
+            else -> (Vis.MIDDLE_STYLES + Vis.BOTTOM_STYLES).firstOrNull { it.first == k }?.second ?: k
+        }
+        return listOfNotNull("$look look", "${Themes.ALL[p.theme]?.name ?: p.theme} theme", "$lay layout", fx,
+            "Now playing's visualizer: ${vis(p.npVis)}", if (p.dual) "a second one at the bottom: ${vis(p.npBottom)}" else null,
+            if (p.visColor.isBlank()) "the visualizer's own colour" else "your visualizer colour",
+            "your Wrapped and lyrics card styles").joinToString(" · ")
+    }
+
     /** One preset's short summary for its menu. */
     fun describe(key: String): String {
         val p = of(key) ?: return ""

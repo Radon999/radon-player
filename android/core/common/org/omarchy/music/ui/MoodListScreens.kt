@@ -115,7 +115,7 @@ private fun MoodListRow(mood: String, sub: String, checked: Boolean?, onLongClic
 private fun LazyListScope.moodListOpen(ui: Ui, mood: String) {
     item { BackRow(mood) { ui.openMine = null } }
     val songs = MoodLists.songs(mood)
-    val sorted = Music.sortedPlaylist(songs)
+    val sorted = Music.sortedPlaylist(songs, "mood:$mood")
     item {
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("songs", name = "$mood mood list", songs = sorted)) }, extra = listOfNotNull(
             (if (MoodLists.busy) "Refreshing…" else "Refresh") to { MoodLists.refresh(listOf(mood)) },
@@ -127,5 +127,5 @@ private fun LazyListScope.moodListOpen(ui: Ui, mood: String) {
     if (sorted.isEmpty()) item {
         Empty(if (MoodLists.busy) "Making it…" else "No songs in it yet",
             "Songs get their moods in the Moods tab (Scan moods). Once some are ${Moods.adjective(mood)}, tap Refresh.")
-    } else { item { PlaylistSortChips() }; tracks(sorted, ui, "mood") }
+    } else { item { PlaylistSortChips("mood:$mood") }; tracks(sorted, ui, "mood") }
 }

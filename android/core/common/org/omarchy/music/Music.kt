@@ -870,14 +870,15 @@ object Music {
 
     @JvmName("chooseLyricsMode")
     fun setLyricsMode(mode: String) { lyricsMode = mode; saveState() }
-    fun pickPlaylistSort(sort: String) { playlistSort = sort; saveState() }
+    fun pickPlaylistSort(sort: String, id: String? = null) = PlaySorts.pickPlaylistSort(sort, id)
+    fun playlistSortOf(id: String?) = PlaySorts.playlistSortOf(id)
 
     // Sorting by how you listen (each tab's sort, play counts, Smart shuffle's weights) is PlaySorts' own: these hand on.
     fun sortOf(tab: String, default: String, allowed: List<String>) = PlaySorts.of(tab, default, allowed)
     fun setSort(tab: String, sort: String) = PlaySorts.set(tab, sort)
     fun sortData(sort: String): SortData = PlaySorts.data(sort)
     fun playCounts(): Map<Pair<String, String>, Int> = PlaySorts.counts()
-    fun sortedPlaylist(tracks: List<Track>) = PlaySorts.playlist(tracks)
+    fun sortedPlaylist(tracks: List<Track>, id: String? = null) = PlaySorts.playlist(tracks, id)
 }
 
 /** Something pinned: an artist, an album, a playlist (yours or a service's), a genre, a folder of songs,

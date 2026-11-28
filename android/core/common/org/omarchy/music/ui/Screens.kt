@@ -265,14 +265,14 @@ fun LibraryTab(ui: Ui) {
                 folderView(ui, Music.playlistFolders.get(ui.openFolder!!)!!)
             open != null -> {
                 item { BackRow(open.first.title) { ui.openList = null } }
-                val tracks = open.second?.let { Music.sortedPlaylist(it) }
+                val tracks = open.second?.let { Music.sortedPlaylist(it, open.first.id) }
                 if (tracks == null) item { Section("LOADING…") }
                 else {
                     item { ListActions(tracks, extra = if (key == org.omarchy.music.SoundCloud.KEY) emptyList()
                         else listOf("Import to my playlists" to { Music.importServicePlaylist(key, open.first) }),
                         onDj = { ui.djFrom(Dj.From("songs", name = open.first.title, songs = tracks)) },
                 pin = org.omarchy.music.Pin("service", open.first.id, open.first.title, open.first.sub, open.first.thumb, key)) }
-                    if (tracks.isNotEmpty()) item { PlaylistSortChips() }
+                    if (tracks.isNotEmpty()) item { PlaylistSortChips(open.first.id) }
                     tracks(tracks, ui, "list")
                 }
             }
@@ -901,13 +901,15 @@ internal val PLAYLISTS_SORTS = listOf("order", "name", "name-desc", "created", "
 private val ARTIST_SORTS = listOf("plays", "plays-least", "name", "name-desc", "played", "played-old", "added", "added-old",
     "songs", "songs-least", "length", "length-short", "random")
 
-/** Chips to sort a playlist's songs by (PLAYLIST_SORTS), the same for every playlist. */
+/** Chips to sort a playlist's songs by (PLAYLIST_SORTS): kept for the playlist they are picked in (id); one never
+ *  sorted follows the last pick anywhere. */
 @Composable
-internal fun PlaylistSortChips() {
+internal fun PlaylistSortChips(id: String? = null) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("SORT", style = T.section, modifier = Modifier.padding(end = 2.dp))
-        PLAYLIST_SORTS.forEach { (k, l) -> Chip(l, Music.playlistSort == k) { Music.pickPlaylistSort(k) } }
+        val now = Music.playlistSortOf(id)
+        PLAYLIST_SORTS.forEach { (k, l) -> Chip(l, now == k) { Music.pickPlaylistSort(k, id) } }
     }
 }
 
@@ -1023,11 +1025,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
     // Find duplicates, open: its songs in it more than once, in place of the playlist's songs until Back
     Music.playlistDupes?.takeIf { it.id == open.id }?.let { playlistDupesView(ui, it); return }
     item { BackRow(open.shown) { ui.openMine = null } }
-    val sorted = Music.sortedPlaylist(open.tracks)
+    val sorted = Music.sortedPlaylist(open.tracks, open.id)
     item {
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("playlist", id = open.id)) }, extra = listOfNotNull(
             // Its own order (the Order sort), put the way you want: drag the songs
-            ("Rearrange songs" to { Music.pickPlaylistSort("order"); ui.rearrange = RearrangeWhat.Songs(open.id) }).takeIf { open.tracks.size > 1 },
+            ("Rearrange songs" to { Music.pickPlaylistSort("order", open.id); ui.rearrange = RearrangeWhat.Songs(open.id) }).takeIf { open.tracks.size > 1 },
             // Songs in it more than once (the same song twice, or two copies of it): Keep or Remove each
             ("Find duplicates" to { ui.dupeRemove.keys.removeAll { it.startsWith("pl:") }; Music.findPlaylistDupes(open.id) }).takeIf { open.tracks.size > 1 },
             "Rename" to { ui.askName = Triple("Rename playlist", open.name) { n -> Music.renamePlaylist(open.id, n) } },
@@ -1042,7 +1044,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.minePlaylist(ui: Ui, 
         ), pin = org.omarchy.music.Pin("mine", open.id, open.name))
     }
     if (sorted.isEmpty()) item { Empty("No songs in it yet", "${LONG_PRESS.cap()} a song anywhere and pick Add to playlist.") }
-    else { item { PlaylistSortChips() }; tracks(sorted, ui, "mine", playlistId = open.id) }
+    else { item { PlaylistSortChips(open.id) }; tracks(sorted, ui, "mine", playlistId = open.id) }
 }
 
 /** In the DJ's queue only (the DJ on and its song playing): what it said last, the set's category (this song's) and the

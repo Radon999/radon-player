@@ -155,7 +155,7 @@ private fun LazyListScope.smartOpen(ui: Ui, open: Playlist) {
     item { BackRow(open.shown) { ui.openMine = null } }
     SmartLists.version
     val songs = SmartLists.songs(open)
-    val sorted = Music.sortedPlaylist(songs.orEmpty())
+    val sorted = Music.sortedPlaylist(songs.orEmpty(), open.id)
     item {
         ListActions(sorted, onDj = { ui.djFrom(Dj.From("songs", name = open.name, songs = sorted)) }, extra = listOfNotNull(
             "Edit" to { SmartEdit.start(open) },
@@ -170,7 +170,7 @@ private fun LazyListScope.smartOpen(ui: Ui, open: Playlist) {
     when {
         songs == null -> item { Section("FINDING ITS SONGS…") }
         sorted.isEmpty() -> item { Empty("No songs fit yet", "None of your songs fits its rules now. Edit them, or wait: it fills itself as your music changes.") }
-        else -> { item { PlaylistSortChips() }; tracks(sorted, ui, "smart") }
+        else -> { item { PlaylistSortChips(open.id) }; tracks(sorted, ui, "smart") }
     }
 }
 

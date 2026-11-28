@@ -192,7 +192,7 @@ object WidgetStart {
         }
         val (id, shuffled) = PhoneWidgetRules.playlistOf(what) ?: return false
         val pl = Music.lists.get(id) ?: return false
-        val songs = Music.sortedPlaylist(pl.tracks)   // in the order the playlist shows them (its sort), as its Play and Shuffle
+        val songs = Music.sortedPlaylist(pl.tracks, pl.id)   // in the order the playlist shows them (its sort), as its Play and Shuffle
         if (songs.isEmpty()) return false
         Music.listName = pl.name   // the new queue takes the playlist's name, as when it's played in the app
         Music.playList(songs, shuffled = shuffled)

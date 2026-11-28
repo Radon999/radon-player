@@ -3719,6 +3719,9 @@ fun PresetLines(ui: Ui) {
     }
     if (editing != null) Text("Editing “${editing.name}”: change anything on this tab, then Save changes", style = T.sub,
         modifier = Modifier.padding(bottom = 8.dp))
+    // What a preset saved now would hold (and so what putting it on later changes)
+    Text("Saved now, a preset holds: " + remember(MyPresets.applied, Music.look, UiLayouts.current.key) { runCatching { MyPresets.holds(MyPresets.now("")) }.getOrDefault("") },
+        style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
 }
 
 /** What's new (WhatsNewRules): once after each update, a card naming what it brought, with the way to the Changelog. */

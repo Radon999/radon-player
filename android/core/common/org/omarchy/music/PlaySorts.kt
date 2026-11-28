@@ -50,8 +50,22 @@ object PlaySorts {
     }
 
     /** A playlist's songs as the sort chips say. */
-    fun playlist(tracks: List<Track>): List<Track> =
-        sortSongsAsNow(tracks, Music.playlistSort, if (Music.playlistSort == "plays") counts() else emptyMap()) { asNow(it) }
+    fun playlist(tracks: List<Track>, id: String? = null): List<Track> {
+        val sort = playlistSortOf(id)
+        return sortSongsAsNow(tracks, sort, if (sort == "plays") counts() else emptyMap()) { asNow(it) }
+    }
+
+    // A sort of its own for each playlist (PlaylistSortRules): the one picked in it; else the last one picked anywhere
+    private var own: Map<String, String>? = null
+    private fun ownSorts() = own ?: PlaylistSortRules.parse(Prefs.text(PlaylistSortRules.PREF)).also { own = it }
+    private val picks = androidx.compose.runtime.mutableStateOf(0)   // (read where a sort is shown: a pick redraws it)
+    /** The sorts kept came anew (a sync, a backup put back). */
+    fun forgetPlaylistSorts() { own = null; picks.value++ }
+    fun playlistSortOf(id: String?): String { picks.value; return PlaylistSortRules.of(id, ownSorts(), Music.playlistSort) }
+    fun pickPlaylistSort(sort: String, id: String?) {
+        if (id != null) { own = PlaylistSortRules.picked(ownSorts(), id, sort); Prefs.setText(PlaylistSortRules.PREF, PlaylistSortRules.write(own!!)) }
+        Music.playlistSort = sort; Music.saveState(); picks.value++
+    }
 
     private var nowVer = -1
     private var nowById: Map<String, Track> = emptyMap()

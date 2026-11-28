@@ -658,6 +658,7 @@ object Sync {
         // The Never show picks and the scans' choices that came across, used straight away (not only after a restart)
         ScanIgnore.reload()
         runCatching { WholeArtists.set(WholeArtists.parse(Prefs.text(WholeArtists.PREF))) }
+        runCatching { PlaySorts.forgetPlaylistSorts() }
         runCatching { MusicTools.init() }
         Music.applySound()
     }
