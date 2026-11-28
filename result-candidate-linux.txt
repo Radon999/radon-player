@@ -1,26 +1,17 @@
-commit 11b0d28abe2aed010117c379250ce77da674277c · run 46107036932 · Sat Nov 28 04:23:48 UTC 2026
-LINUX INSTALL-OVER: not made
-DOWNLOAD: 
+commit 89e760ed101ece82f1bd04d81cbcc794892d9543 · run 46112456944 · Sat Nov 28 05:35:40 UTC 2026
+LINUX INSTALL-OVER: made, radon-player_5.2.12_amd64.deb, 92M, needs: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/46112456944/artifacts/15250042842
 --- errors
-* What went wrong:
-A problem occurred configuring root project 'OmarchyMusic'.
-> Could not resolve all artifacts for configuration ':classpath'.
-   > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.22.
-     Required by:
-         project :
-      > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.22.
---
-BUILD FAILED in 3m 24s
 --- the end of the log
-            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
-      > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
-         > Could not get resource 'https://plugins.gradle.org/m2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
-            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
+> Task :desktop:jar
+> Task :desktop:packageDeb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_5.2.12_amd64.deb
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
-BUILD FAILED in 3m 24s
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 3m 54s
+15 actionable tasks: 15 executed
