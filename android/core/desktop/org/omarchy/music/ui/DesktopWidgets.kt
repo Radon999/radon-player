@@ -504,7 +504,7 @@ private fun WHeader(text: String, open: (() -> Unit)? = null) {
  *  onRight: a right-click (the song's options); picked: lit, as picked songs are in the app. */
 @Composable
 private fun WRow(art: Any?, title: String, sub: String, lead: String = "", parts: List<Pair<String, (() -> Unit)?>>? = null,
-                 picked: Boolean = false, onRight: (() -> Unit)? = null, onClick: () -> Unit) {
+                 picked: Boolean = false, onRight: (() -> Unit)? = null, end: String = "", onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (picked) W.copy(alpha = 0.2f) else Color.Transparent)
         .then(if (onRight != null) Modifier.rightClick(onRight) else Modifier)
         .clickable(onClick = onClick).padding(vertical = 4.dp, horizontal = 2.dp),
@@ -523,6 +523,8 @@ private fun WRow(art: Any?, title: String, sub: String, lead: String = "", parts
                 }
             } else if (sub.isNotEmpty()) Text(sub, style = wSub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        // On its right (Most played: its plays, as the phone's widget has them)
+        if (end.isNotEmpty()) Text(end, style = wSub.copy(fontSize = 12.sp), maxLines = 1, modifier = Modifier.padding(start = 8.dp, end = 4.dp))
     }
 }
 
@@ -604,7 +606,7 @@ private fun SongMenu(menu: Pair<Track?, List<Track>>?, place: RowPlace, picks: W
  *  right-click gives the song's options, and its artist and album are links. A bar says how many are picked. */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -> String = { "" }, queueAt: ((Int) -> Int)? = null,
+private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -> String = { "" }, end: (Int) -> String = { "" }, queueAt: ((Int) -> Int)? = null,
                                  art: @Composable (Track) -> Any? = { songArt(it) }, play: (Int) -> Unit) {
     val picks = remember(kind) { WPicks() }
     var menu by remember { mutableStateOf<Pair<Track?, List<Track>>?>(null) }
@@ -623,7 +625,7 @@ private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -
         items(songs.size, key = { i -> "$i:${songs[i].id}" }) { i ->
             val s = songs[i]
             Box {
-                WRow(art(s), s.title, s.artist, lead = lead(i), parts = songParts(s), picked = i in picks.at,
+                WRow(art(s), s.title, s.artist, lead = lead(i), parts = songParts(s), picked = i in picks.at, end = end(i),
                     onRight = {
                         menuAt = i
                         menu = if (i in picks.at && picks.at.size > 1) null to picks.at.sorted().mapNotNull { songs.getOrNull(it) } else s to listOf(s)
@@ -882,7 +884,8 @@ private fun ColumnScope.TopWidget() {
         songs == null -> Text("Adding up your plays…", style = wSub)
         songs.isEmpty() -> Text("No plays yet for this time", style = wSub)
     }
-    SongList(songs.orEmpty(), "top", lead = { "${it + 1}" }) { i -> Music.playFrom(songs.orEmpty(), i, radio = false) }
+    SongList(songs.orEmpty(), "top", lead = { "${it + 1}" },
+        end = { i -> songs.orEmpty().getOrNull(i)?.plays?.takeIf { it > 0 }?.let { n -> "%,d".format(n) } ?: "" }) { i -> Music.playFrom(songs.orEmpty(), i, radio = false) }
 }
 
 /** (7) Wrapped: opened in the app for this week, this month, this year or every year. */

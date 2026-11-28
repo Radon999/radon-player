@@ -220,6 +220,13 @@ object HomeWidgets {
         for (u in each) runCatching { u(ctx) }
     }
 
+    /** Whether one of the app's own screens is in front (not just the music's service running): Android's word for it. */
+    private fun appInFront(ctx: Context): Boolean = runCatching {
+        val me = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(me)
+        me.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+    }.getOrDefault(true)
+
     private var jobs = emptyList<Job>()
     private var screenWatch: BroadcastReceiver? = null
 
@@ -282,7 +289,20 @@ object HomeWidgets {
                     if (on) runCatching { ReleasesWidget.newDay(svc); TopWidget.update(svc) }
                 }
             },
-            Music.scope.launch { AppVisible.flow.collect { appShown = it } },
+            Music.scope.launch { AppVisible.flow.collect { appShown = it && appInFront(svc) } },
+            // …and checked against how things really are every few seconds: Android's notices aren't to be counted on.
+            // The music started from a widget, the lock screen or headphones (the app never opened): "the app in
+            // front" had stayed on, and the Visualizer widget never moved; an unlock missed: "locked" stayed on, and the
+            // Lyrics widget kept "Nothing playing" and its visualizer stood still
+            Music.scope.launch {
+                while (true) {
+                    delay(4000)
+                    val screen = runCatching { pm.isInteractive && !km.isKeyguardLocked }.getOrDefault(unlocked)
+                    if (screen != unlocked) unlocked = screen
+                    val front = AppVisible.on && appInFront(svc)
+                    if (front != appShown) appShown = front
+                }
+            },
             // The volume rows follow the volume keys (and anything else that changes the media volume)
             Music.scope.launch {
                 val changes = kotlinx.coroutines.flow.callbackFlow {
