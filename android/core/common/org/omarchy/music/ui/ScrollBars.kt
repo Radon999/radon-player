@@ -144,7 +144,9 @@ fun PlaceColumn(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit
                 placeScroll[place] = state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
             }
         }
-        val rows = state.layoutInfo.totalItemsCount
+        // (how many rows there are, not everything about the list's layout: read whole, it redrew the screen's list at
+        // every frame of a scroll)
+        val rows by remember(state) { androidx.compose.runtime.derivedStateOf { state.layoutInfo.totalItemsCount } }
         androidx.compose.runtime.LaunchedEffect(place, rows) {
             if (returned || wasAt == null) return@LaunchedEffect
             if (state.isScrollInProgress || state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > 0) { returned = true; return@LaunchedEffect }

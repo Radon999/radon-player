@@ -10,11 +10,30 @@ private val SPACES = Regex("\\s+")
 
 private fun squash(s: String) = s.split(SPACES).filter { it.isNotEmpty() }.joinToString(" ")
 
+/** What a name comes to, worked out once and kept: the same titles, artists and albums are asked about over and over
+ *  (every comparison of a sort, every row of a list, every play added up), and each answer takes a few regexes. Sorting
+ *  a 3,000-song playlist by title worked the same names out a few hundred thousand times, on the screen's own thread.
+ *  Emptied when it gets big (the names in use come straight back). */
+internal class Memo<K : Any, V : Any>(private val cap: Int) {
+    private val kept = java.util.concurrent.ConcurrentHashMap<K, V>()
+    fun of(k: K, make: () -> V): V {
+        kept[k]?.let { return it }
+        if (kept.size > cap) kept.clear()
+        return make().also { kept[k] = it }
+    }
+}
+private val NORMS = Memo<String, String>(200_000)
+private val CLEAN_TITLES = Memo<String, String>(100_000)
+private val ALBUM_BASES = Memo<String, String>(50_000)
+
 /** Lowercase letters and digits only, accents dropped: for comparing names across services. */
 fun norm(s: String?): String {
     val text = s ?: ""
-    val ascii = Normalizer.normalize(text, Normalizer.Form.NFKD).filter { it.code < 128 }.ifEmpty { text }
-    return squash(NON_WORD.replace(ascii.lowercase(), " "))
+    if (text.isEmpty()) return ""
+    return NORMS.of(text) {
+        val ascii = Normalizer.normalize(text, Normalizer.Form.NFKD).filter { it.code < 128 }.ifEmpty { text }
+        squash(NON_WORD.replace(ascii.lowercase(), " "))
+    }
 }
 
 /** Text as searches compare it: [norm] (no commas, dots or other symbols, any case or accent), with an apostrophe
@@ -44,14 +63,14 @@ private val FEAT_TAIL = Regex("\\b(feat|ft)\\b\\.?\\s.*$")
 private val FEATURING = Regex("\\b(?:feat|ft|with)\\b\\.?\\s*([^)\\]]+)", RegexOption.IGNORE_CASE)
 
 /** A title without what YouTube adds: (Official Video), feat. credits, remaster notes, punctuation. */
-fun cleanTitle(s: String): String {
+fun cleanTitle(s: String): String = if (s.isEmpty()) "" else CLEAN_TITLES.of(s) {
     var t = Censored.plain(s.lowercase())   // "F**k" is "Fuck": a censored copy is the same song
     t = NOISE_BRACKETS.replace(t, " ")
     t = NOISE_DASH.replace(t, " ")
     t = VERSION_DASH.replace(t, " ")
     t = VERSION_BRACKETS.replace(t, " ")
     t = FEAT_TAIL.replace(t, " ")
-    return squash(NON_WORD.replace(t, " "))
+    squash(NON_WORD.replace(t, " "))
 }
 
 /** A release's name (or anything typed) as a cover search should send it: its kind left off ("Lone Survivor - EP",
@@ -76,7 +95,8 @@ fun bareTitle(s: String) = cleanTitle(Regex("[(\\[][^)\\]]*[)\\]]|\\s[-–]\\s.*
 
 /** An album's name for telling albums apart: its edition left out ("Nectar (Deluxe Edition)", "Nectar - EP" are Nectar),
  *  but not the rest of it ("Mercury - Act 1", "Mercury - Act 2" and "Loom - Sessions" are each their own album). */
-fun albumBase(s: String): String {
+fun albumBase(s: String): String = if (s.isEmpty()) "" else ALBUM_BASES.of(s) { albumBaseNow(s) }
+private fun albumBaseNow(s: String): String {
     var t = s.lowercase()
     t = ALBUM_EDITION_BRACKETS.replace(t, " ")
     t = ALBUM_EDITION_DASH.replace(t, " ")

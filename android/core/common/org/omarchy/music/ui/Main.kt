@@ -659,13 +659,17 @@ private fun SearchField(ui: Ui) {
 
 // ───────────────────────────── What's playing ─────────────────────────────
 
-class Now(val t: Track?, val paused: Boolean, val pos: Double, val dur: Double, val remote: Boolean)
+/** What's playing. pos and dur are read where they're used (the seek bar, the mini player's line), not as it's made:
+ *  the place in the song moves twice a second, and read up here it redrew all of Now playing each time. */
+class Now(val t: Track?, val paused: Boolean, val remote: Boolean) {
+    val pos: Double get() = if (remote) Remote.status.position else Music.position
+    val dur: Double get() = if (remote) Remote.status.duration else Music.duration
+}
 
 @Composable
 fun now(): Now {
     val remote = Remote.active
-    return Now(if (remote) Remote.status.track else Music.current(), if (remote) Remote.status.paused else Music.paused,
-        if (remote) Remote.status.position else Music.position, if (remote) Remote.status.duration else Music.duration, remote)
+    return Now(if (remote) Remote.status.track else Music.current(), if (remote) Remote.status.paused else Music.paused, remote)
 }
 
 /** The mini player on a list: the song, previous, play/pause, next; a tap goes back to the player. The layout picks how it

@@ -361,7 +361,7 @@ fun TrackRow(t: Track, place: RowPlace, ui: Ui, extra: String = "", onPlay: () -
             else if (place.kind == "theirs") Badge(org.omarchy.music.SongCopy.badge, true)
             else if (!remoteQueue) { val here = onThisDevice(own); Badge(if (here) "Local" else STREAMING, here) }
             if (saved != null) Icon(Ico.DOWNLOAD, C.accent, 16.dp, Modifier.padding(start = 4.dp))
-            else if (Music.dl.busy(t.id) || Music.downloads.any { it.id == t.id }) Text("…", style = T.time)
+            else if (Music.dl.busy(t.id) || t.id in downloadingIds()) Text("…", style = T.time)
             if (!ui.selecting) Box(Modifier.clip(R.pill).clickable { menu = true }.padding(6.dp)) { Icon(Ico.MORE, C.muted, 18.dp) }
         }
         if (C.apple && !playing && !checked && Themes.rowLines) RowLine(
@@ -402,6 +402,15 @@ object ShownPlays {
 
 /** The mark of a song that isn't on this device, in every list: it plays as a stream until you download it. */
 const val STREAMING = "Streaming"
+
+/** The songs waiting to download, by id: made once each time the list of them changes (each row walked it). */
+private var downloadingFor: Any? = null
+private var downloadingSet: Set<String> = emptySet()
+internal fun downloadingIds(): Set<String> {
+    val d = Music.downloads
+    if (d !== downloadingFor) { downloadingSet = d.mapTo(HashSet()) { it.id }; downloadingFor = d }
+    return downloadingSet
+}
 
 /** Whether a song (as [Music.localOf] gives it) is on this device, a file of yours or a download; if not it plays as a stream. */
 fun onThisDevice(own: Track): Boolean = own.isFile || Music.lib.has(own.id)

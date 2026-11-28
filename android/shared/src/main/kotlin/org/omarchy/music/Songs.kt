@@ -449,9 +449,11 @@ fun songPickKey(title: String, artist: String): String = statsKey(title, artist)
 
 /** A song across Last.fm, Spotify, Apple Music and here: its name and lead artist, tidied
  *  (feat., & and x credits, remaster notes left out). The desktop's stats_key. */
-fun statsKey(title: String, artist: String): Pair<String, String> =
+fun statsKey(title: String, artist: String): Pair<String, String> = STATS_KEYS.of(title to artist) {
     norm(cleanTitle(title)) to norm(artist.lowercase().split(CREDIT_SPLIT)[0])
         .let { n -> n.replace(NOT_LETTERS, "").ifEmpty { n } }   // K.Flay = kflay
+}
+private val STATS_KEYS = Memo<Pair<String, String>, Pair<String, String>>(200_000)
 
 /** A service's songs for a search, the best fits first: the song named just what you typed, then ones whose name and
  *  artist hold all your words, then the rest, each in the service's own order. */

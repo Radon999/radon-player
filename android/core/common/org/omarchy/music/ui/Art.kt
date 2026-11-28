@@ -13,9 +13,19 @@ import kotlin.math.roundToInt
  *  folder's cover.jpg); fallback (a picture's path or address) when it has none. */
 data class FileArt(val uri: String, val fallback: String = "")
 
+/** Whether a kept cover's file is there, asked of the disk at most every half minute a file (it was asked for every row
+ *  drawn, on the screen's own thread). */
+private fun thereLately(path: String): Boolean {
+    val now = System.currentTimeMillis()
+    coverThere[path]?.let { (at, there) -> if (now - at < 30_000) return there }
+    if (coverThere.size > 20_000) coverThere.clear()
+    return File(path).exists().also { coverThere[path] = now to it }
+}
+private val coverThere = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Boolean>>()
+
 /** What to draw for a song's art: the saved cover, the service's picture, or the file's own. */
 fun artModel(t: Track, px: Int = 226): Any? {
-    Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && File(it).exists() }?.let { return File(it) }
+    Music.lib.items[t.id]?.art?.takeIf { it.isNotEmpty() && thereLately(it) }?.let { return File(it) }
     fun pic(it: String): Any = if (it.startsWith("/") || (it.length > 2 && it[1] == ':')) File(it) else it
     val name = t.album.ifEmpty { t.title }
     org.omarchy.music.Pictures.cover(t.artist, name).takeIf { it.isNotEmpty() }?.let { return pic(it) }   // one you picked

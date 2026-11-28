@@ -270,7 +270,8 @@ object Pictures {
 
     /** An album's key for a cover you picked: its lead artist ("Quinn XCII & Jeremy Zucker" as Quinn XCII, so the
      *  album's songs with someone featured get it too) and its name without its edition (albumBase). */
-    private fun lead(artist: String) = norm(artist.split(Regex(",| & | x | feat\\.? | ft\\.? | featuring | with ", RegexOption.IGNORE_CASE))[0])
+    private fun lead(artist: String) = norm(artist.split(LEAD_SPLIT)[0])
+    private val LEAD_SPLIT = Regex(",| & | x | feat\\.? | ft\\.? | featuring | with ", RegexOption.IGNORE_CASE)   // (once: it was made for every row drawn)
     private fun coverKey(artist: String, album: String) = "${lead(artist)}||${albumBase(album)}"
     /** The key covers were picked under before 3.0.0: everything after " - " and in brackets left out, so "Mercury - Act 1"
      *  and "Mercury - Act 2" (and any album called Mercury) shared one. */
