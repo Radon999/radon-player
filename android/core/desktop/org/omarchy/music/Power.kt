@@ -7,11 +7,15 @@ import java.io.File
 object Power {
     private val windows = System.getProperty("os.name").lowercase().contains("win")
 
+    private interface K32 : com.sun.jna.Library { fun GetSystemPowerStatus(status: com.sun.jna.Pointer): Boolean }
+    private val k32: K32 by lazy { com.sun.jna.Native.load("kernel32", K32::class.java) }
+
     fun pluggedIn(): Boolean = runCatching {
         if (windows) {
-            val st = com.sun.jna.platform.win32.WinBase.SYSTEM_POWER_STATUS()
-            if (!com.sun.jna.platform.win32.Kernel32.INSTANCE.GetSystemPowerStatus(st)) return true
-            st.ACLineStatus.toInt() != 0   // 0: on battery; 1: mains; 255: not known
+            // GetSystemPowerStatus fills 12 bytes; the first: 0 on battery, 1 on the mains, 255 not known
+            val st = com.sun.jna.Memory(12)
+            if (!k32.GetSystemPowerStatus(st)) return true
+            st.getByte(0).toInt() != 0
         } else {
             // Linux: a battery that says it is running down
             File("/sys/class/power_supply").listFiles().orEmpty()
