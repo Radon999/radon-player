@@ -33,6 +33,8 @@ class ReleasesWidget : AppWidgetProvider() {
             NEW_DAY -> { Music.init(ctx); update(ctx, rows = true) }
             // A tap on its name: the next period (this week, this month, this year, everything found)
             CYCLE -> { Music.init(ctx); val k = PERIODS.keys.toList(); Prefs.setText(PERIOD_KEY, k[(k.indexOf(period()) + 1) % k.size]); update(ctx, rows = true) }
+            // ★ Favorites: only your favorite artists' releases (with the period picked), or everyone's again
+            FAV -> { Music.init(ctx); Prefs.set(FAV_KEY, !Prefs.on(FAV_KEY)); update(ctx, rows = true) }
         }
     }
 
@@ -43,6 +45,9 @@ class ReleasesWidget : AppWidgetProvider() {
         private const val CYCLE = "org.omarchy.music.releaseswidget.period"
         /** The widget's own period (a tap on its name changes it): how far back what it shows goes. */
         private const val PERIOD_KEY = "widget_releases_period"
+        private const val FAV = "org.omarchy.music.releaseswidget.fav"
+        /** Only your favorite artists' (the widget's ★ Favorites): this phone's own choice. */
+        private const val FAV_KEY = "widget_releases_fav"
         private val PERIODS = linkedMapOf("week" to "This week", "month" to "This month", "year" to "This year", "all" to "Everything found")
         private fun period(): String = Prefs.text(PERIOD_KEY).takeIf { it in PERIODS } ?: "all"
         private val KINDS = mapOf("single" to "Single", "ep" to "EP")
@@ -61,7 +66,9 @@ class ReleasesWidget : AppWidgetProvider() {
             val days = NewReleases.RANGES[period()]
             val since = days?.let { java.time.LocalDate.now().minusDays(it).toString() }
             // (Hide Deezer-only, as the app's New releases has it: only the ones you can play)
-            return PhoneWidgetRules.newest(all().filter { (since == null || it.date.take(10) >= since) && NewReleases.shown(it) }, { NewReleases.key(it) }, { it.date }, SHOWN)
+            val favs = Prefs.on(FAV_KEY)
+            return PhoneWidgetRules.newest(all().filter { (since == null || it.date.take(10) >= since) && NewReleases.shown(it) &&
+                (!favs || NewReleases.isFavorite(it.artist)) }, { NewReleases.key(it) }, { it.date }, SHOWN)
         }
 
         /** A release by its key (NewReleases.key). */
@@ -92,6 +99,8 @@ class ReleasesWidget : AppWidgetProvider() {
             // Its name says the period, and a tap on it goes round them
             v.setTextViewText(R.id.w_t1, "New releases · ${PERIODS[period()]}  ▾")
             v.setOnClickPendingIntent(R.id.w_t1, HomeWidgets.tap(ctx, ReleasesWidget::class.java, CYCLE, 7471))
+            v.setTextViewText(R.id.wr_fav, if (Prefs.on(FAV_KEY)) "★ Favorites" else "☆ Favorites")
+            v.setOnClickPendingIntent(R.id.wr_fav, HomeWidgets.tap(ctx, ReleasesWidget::class.java, FAV, 7472))
             v.setOnClickPendingIntent(R.id.wr_empty, HomeWidgets.open(ctx, "newreleases", 7470))
             @Suppress("DEPRECATION") v.setRemoteAdapter(R.id.wr_list, Intent(ctx, ReleasesWidgetRows::class.java))
             v.setPendingIntentTemplate(R.id.wr_list, PendingIntent.getBroadcast(ctx, 0, Intent(ctx, ReleasesWidget::class.java).setAction(PLAY),

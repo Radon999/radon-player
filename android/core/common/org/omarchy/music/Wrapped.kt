@@ -854,16 +854,6 @@ object Wrapped {
             newArtists = artistPlays.entries.sortedByDescending { it.value }.take(TOP + SPARE).map { artistName.getValue(it.key) to it.value })
     }
 
-    /** Searched this many times within a week, a song counts as one you search often (Most searched). */
-    const val SEARCHED_OFTEN = 4
-
-    /** Whether these times (seconds) hold SEARCHED_OFTEN within any seven days. */
-    internal fun searchedOften(times: List<Long>): Boolean {
-        val t = times.sorted()
-        for (i in t.indices) { val j = i + SEARCHED_OFTEN - 1; if (j < t.size && t[j] - t[i] <= 7 * 86400L) return true }
-        return false
-    }
-
     /** What the listening diary says about a period's entries (since: when the diary began). */
     internal fun logStats(es: List<ListenLog.Entry>, since: Long): LogStats {
         if (es.isEmpty()) return LogStats(since = since)
@@ -875,9 +865,9 @@ object Wrapped {
         val devices = es.groupBy { it.out.ifEmpty { "Unknown output" } }.map { (k, l) ->
             Device(k, l.groupingBy { it.outKind }.eachCount().maxByOrNull { it.value }?.key ?: "", l.sumOf { it.secs }, l.size)
         }.sortedByDescending { it.secs }
-        // Most searched: only songs you seek out often, started from search at least SEARCHED_OFTEN times within a week
-        val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.values
-            .filter { l -> searchedOften(l.map { it.t }) }.map { l ->
+        // Most searched: every play of a song you took from search, tapped there or put in the queue (or Play next) from
+        // it, however it got into the queue (it had to be 4 times in a week to count, so it mostly showed nothing)
+        val searched = es.filter { it.search }.groupBy { Stats.statsKey(it.title, it.artist) }.values.map { l ->
             val e = l.first(); Song(e.title, e.artist, l.size, "", e.t)   // pictures: load's last step
         }.sortedByDescending { it.plays }.take(TOP + SPARE)
         // Shuffled or in order: listening from your playlists, albums and other lists (not the DJ, a radio or a search)

@@ -995,12 +995,13 @@ private fun ColumnScope.ReleasesWidget() {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf("week" to "Week", "month" to "Month", "year" to "Year").forEach { (k, l) -> WChip(l, range == k) { choose(r = k) } }
         Spacer(Modifier.width(6.dp))
-        listOf("all" to "All", "album" to "Albums", "ep" to "EPs", "single" to "Singles").forEach { (k, l) -> WChip(l, kind == k) { choose(k = k) } }
-        Spacer(Modifier.width(6.dp))
         // Only what you can play, or the Deezer-only ones too (the same switch as the app's New releases)
         WChip("Hide Deezer-only", hideDeezer) { nr.setHideDeezer(!hideDeezer) }
-        Spacer(Modifier.width(6.dp))
-        // Only your favorite artists (as the app's New releases' Favorites)
+    }
+    // Which kind, and ★ Favorites beside them (only your favorite artists', as the app's New releases' Favorites): it
+    // goes with the kind and the week, month or year picked
+    Row(Modifier.padding(top = 4.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("all" to "All", "album" to "Albums", "ep" to "EPs", "single" to "Singles").forEach { (k, l) -> WChip(l, kind == k) { choose(k = k) } }
         WChip("★ Favorites", favOnly) { choose(f = !favOnly) }
     }
     // The app last looked back less far than asked: said, as what's shown can't go further back than that

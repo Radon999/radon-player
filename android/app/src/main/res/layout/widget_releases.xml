@@ -15,6 +15,10 @@
         <TextView android:id="@+id/w_t1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:layout_marginStart="8dp" android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFFFF"
             android:maxLines="1" android:text="New releases" />
+        <!-- ★: only your favorite artists' (a tap turns it on or off), with the period picked -->
+        <TextView android:id="@+id/wr_fav" android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:gravity="center" android:paddingStart="10dp" android:paddingEnd="6dp"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:text="☆ Favorites" />
         <TextView android:id="@+id/w_t2" android:layout_width="wrap_content" android:layout_height="match_parent"
             android:gravity="center" android:paddingStart="10dp" android:paddingEnd="4dp"
             android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:text="⤢  Open" />

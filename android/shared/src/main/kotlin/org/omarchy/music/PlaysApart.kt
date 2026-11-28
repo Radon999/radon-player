@@ -1,43 +1,30 @@
 package org.omarchy.music
 
-/** Two different songs with the same name by the same artist (Imagine Dragons' "Yesterday" on Evolve, and the other
- *  "Yesterday" from the It's Time EP sessions): their plays counted apart, by the album each play was on.
+/** A song's plays counted by its album too (the owner's wish: the album is always part of it): Imagine Dragons'
+ *  "Yesterday" on Evolve, and the other "Yesterday" from the It's Time EP sessions, each with its own plays.
  *
- *  A song's plays are counted by its name and lead artist ([statsKey]), so a single's, an album's and a remaster's add
- *  up to one song, as they should. That also put two different songs of one name together, both showing the plays
- *  of the two. Your own copies tell them apart: the same name and artist on different albums, at clearly different
- *  lengths (more than [SAME_SECONDS] apart: the same recording on two albums is within a second or two), are
- *  different songs. Each one is then a "version": the albums of one length together. A play on one of a version's
- *  albums is that version's; a play with no album, or on an album you haven't got, is the one played the most's
- *  (the main one, which keeps the song's own key, so everything else finds it as before).
- *  A single named after the song is left out of the telling apart (its length can be an edit's). */
+ *  A song's plays are counted by its name and lead artist ([statsKey]), which put two different songs of one name
+ *  together. Now, where your copies have one name and artist on more than one album, each album is a "version" with
+ *  its own plays, a play counted for the album it was on. What stays one: an album's editions (Deluxe, Remastered…:
+ *  [albumBase]), and a single named after the song (it goes with the song). A play with no album, or on an album you
+ *  haven't got, is the one played the most's (the main one, which keeps the song's own key, so everything else finds
+ *  it as before). "Plays on singles and albums" (Settings) still puts a single's or an EP's plays on the album you pick. */
 object PlaysApart {
-    const val SAME_SECONDS = 4.0
-
     /** The songs told apart: statsKey -> its versions (each the album keys of one length), the main one first.
      *  Set by the stats as they're added up (and read back with them). */
     @Volatile var split: Map<Pair<String, String>, List<List<String>>> = emptyMap()
 
     fun albumKey(album: String): String = norm(albumBase(album)).ifEmpty { norm(album) }
 
-    /** From your songs: each name and artist that's more than one song, with its versions (in no order yet). */
+    /** From your songs: each name and artist on more than one album of yours, with its versions (in no order yet). */
     fun distinct(songs: List<Track>): Map<Pair<String, String>, List<List<String>>> {
         val out = HashMap<Pair<String, String>, List<List<String>>>()
         for ((key, same) in songs.filter { it.album.isNotBlank() && it.title.isNotBlank() }.groupBy { statsKey(it.title, it.artist) }) {
             if (same.size < 2) continue
-            // album key -> its length (the longest copy's: a file and its download can differ a little)
-            val lengths = same.groupBy { albumKey(it.album) }.mapValues { (_, ts) -> ts.maxOf { it.duration } }
-                .filter { (a, d) -> a.isNotEmpty() && d > 0 }
             val single = norm(cleanTitle(same[0].title))
-            val albums = lengths.filterKeys { it != single }
+            val albums = same.map { albumKey(it.album) }.filter { it.isNotEmpty() && it != single }.distinct().sorted()
             if (albums.size < 2) continue
-            // Albums of one length (within SAME_SECONDS of each other) are one song
-            val versions = ArrayList<MutableList<Pair<String, Double>>>()
-            for ((a, d) in albums.entries.sortedBy { it.value }) {
-                val v = versions.lastOrNull()
-                if (v != null && d - v.last().second <= SAME_SECONDS) v += a to d else versions += mutableListOf(a to d)
-            }
-            if (versions.size >= 2) out[key] = versions.map { v -> v.map { it.first }.sorted() }
+            out[key] = albums.map { listOf(it) }   // each album its own (a list: one version can hold more one day)
         }
         return out
     }

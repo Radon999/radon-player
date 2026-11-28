@@ -40,12 +40,13 @@ object ListenLog {
     // song tapped there does. (Many people never tap a search result: it would end the queue they are listening to.)
     // A song counts for the place you took it from. Put in the queue (or Play next) from a playlist, an album, an
     // artist's page or search results, it is that place's when it plays, whatever queue it joined (the DJ's too).
-    private val queuedFrom = HashMap<String, String>()   // a song (its id, and its key): the list it was queued from
+    // Queued twice (from search twice, say): each time counts when it plays, the places in the order they were queued.
+    private val queuedFrom = HashMap<String, ArrayDeque<String>>()   // a song (its key): the lists it was queued from
     fun queued(tracks: List<Track>, listName: String) {
         if (listName.isBlank()) return
         synchronized(queuedFrom) {
             if (queuedFrom.size > 2000) queuedFrom.clear()
-            for (t in tracks) { queuedFrom[t.id] = listName; queuedFrom[songKey(t).toString()] = listName }
+            for (t in tracks) queuedFrom.getOrPut(songKey(t).toString()) { ArrayDeque() }.addLast(listName)
         }
     }
 
@@ -70,7 +71,7 @@ object ListenLog {
         close()
         // (you put it in the queue from somewhere: that place, whatever is playing around it)
         val key = songKey(t).toString()
-        val took = synchronized(queuedFrom) { (queuedFrom.remove(key) ?: queuedFrom[t.id]).also { queuedFrom.remove(t.id) } }
+        val took = synchronized(queuedFrom) { queuedFrom[key]?.let { q -> q.removeFirstOrNull().also { if (q.isEmpty()) queuedFrom.remove(key) } } }
         val radio = synchronized(byRadio) { byRadio.remove(key) or byRadio.remove(t.id) }
         val from = took ?: Music.queueName.ifEmpty { "Up next" }
         var kind = "other"; var list = ""

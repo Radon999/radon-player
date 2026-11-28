@@ -1392,11 +1392,11 @@ private fun diarySlides(d: Wrapped.Data): List<Slide> {
         Text("MOST SEARCHED", style = W.kicker)
         if (empty) DiaryEmpty("Your most searched songs")
         else if (log.searched.isEmpty()) {
-            Text("Nothing searched often yet", style = W.big)
-            Text("The songs you search frequently and seek out show up here.", style = W.sub)
+            Text("Nothing from search yet", style = W.big)
+            Text("Songs you play from search, or put in the queue from it, show up here.", style = W.sub)
         } else {
             val s = log.searched[0]
-            Text("The songs you search frequently and seek out", style = W.sub)
+            Text("The songs you went looking for: played from search, or put in the queue from it", style = W.sub)
             Pic(s.pic, 150.dp)
             Text(s.title, style = W.big)
             Text("${s.artist} · started from search ${s.plays} time${if (s.plays != 1) "s" else ""}", style = W.sub)

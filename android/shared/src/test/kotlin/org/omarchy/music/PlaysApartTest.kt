@@ -9,8 +9,9 @@ class PlaysApartTest {
     private fun song(album: String, secs: Double, title: String = "Yesterday") =
         Track("$album-$title", title = title, artist = "Imagine Dragons", album = album, duration = secs)
 
-    @Test fun twoSongsOfOneNameAreToldApartByLength() {
-        val split = PlaysApart.distinct(listOf(song("Evolve", 205.0), song("It's Time EP Sessions", 251.0)))
+    @Test fun eachAlbumIsCountedByItself() {
+        // the same length or not: the album is always part of it
+        val split = PlaysApart.distinct(listOf(song("Evolve", 205.0), song("It's Time EP Sessions", 205.0)))
         val versions = split[statsKey("Yesterday", "Imagine Dragons")]
         assertEquals("two songs", 2, versions?.size)
         assertEquals("evolve", PlaysApart.versionOf("Evolve (Deluxe)", versions!!))
@@ -18,11 +19,12 @@ class PlaysApartTest {
         assertNull("no album: not known", PlaysApart.versionOf("", versions))
     }
 
-    @Test fun oneRecordingOnTwoAlbumsStaysOneSong() {
-        // a remaster, a compilation, a single named after the song: the same song, its plays added up as before
+    @Test fun editionsAndTheSongsOwnSingleStayOne() {
         val same = listOf(song("Night Visions", 187.0, "Radioactive"), song("Night Visions (Deluxe)", 187.0, "Radioactive"),
-            song("Greatest Hits", 188.5, "Radioactive"), song("Radioactive", 170.0, "Radioactive"))
+            song("Radioactive", 170.0, "Radioactive"))
         assertTrue(PlaysApart.distinct(same).isEmpty())
+        // on a compilation too: that's another album, counted by itself
+        assertEquals(2, PlaysApart.distinct(same + song("Greatest Hits", 188.0, "Radioactive")).values.single().size)
     }
 
     @Test fun theMainOneKeepsItsKeyAndTheOtherIsMarked() {
