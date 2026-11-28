@@ -94,6 +94,10 @@ fun App() {
         org.omarchy.music.Backup.tick(); org.omarchy.music.NewReleases.tick(); org.omarchy.music.WakeUp.tick(); MyPresets.todTick(); MyPresets.shuffleTick(); org.omarchy.music.RepeatLoops.tick()
         org.omarchy.music.AppVisible.nap(30_000, if (org.omarchy.music.Prefs.on(org.omarchy.music.WakeUp.ON)) 30_000 else 5 * 60_000)
     } }
+    // Record slow frames (Settings › Problems), while it's on: each frame timed, with the screen on show
+    FrameWatch.Watch { ui.sheet?.let { "the $it sheet" } ?: when (ui.pages.lastOrNull()) {
+        is Ui.Page.Artist -> "an artist's page"; is Ui.Page.AlbumPage -> "an album's page"; is Ui.Page.Songs -> "a list of songs"
+        else -> titleOf(ui, null) } }
     LaunchedEffect(Unit) { for (t in Music.toasts) {
         if (System.currentTimeMillis() - Music.toastAt > 6_000) continue   // made while the app was away: not shown late
         snack.currentSnackbarData?.dismiss(); snack.showSnackbar(t) } }

@@ -258,6 +258,7 @@ private fun AccountsSheet(ui: Ui) {
                     Pill("Clear", quiet = true) { ui.confirm = "Clear the crash reports?" to { org.omarchy.music.Crashes.clear() } }
                 }
             }
+            SlowFramesLine()
             if (onPhone) NotificationsLine(activity)
             BatterySaverLine()
             if (org.omarchy.music.Startup.supported) StartupLine()
@@ -1145,6 +1146,23 @@ private fun StartupLine() {
         "without opening its window, ready for your keyboard's media keys and the phone remote", on) {
         Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
             else Music.toast("Couldn't: only the installed app can start with $sys") }, colors = swColors())
+    }
+}
+
+/** Record slow frames: for lag you can feel but not show. Turn it on, do what stutters, turn it off, Copy. */
+@Composable
+private fun SlowFramesLine() {
+    val R = org.omarchy.music.FrameLogRules
+    val log = FrameWatch.log
+    Line("Record slow frames", if (FrameWatch.on) "Recording: ${R.line(log)}. Do what feels laggy, then turn this off and Copy"
+        else if (log.frames > 0) "Recorded: ${R.line(log)}"
+        else "When something stutters: turn this on, do what feels laggy, turn it off and Copy. It notes every frame that took too long and the screen it was on. " +
+            "It stops by itself after ten minutes (it costs a little battery while it runs)", FrameWatch.on) {
+        if (!FrameWatch.on && log.frames > 0) {
+            Pill("Copy", quiet = true) { copyText("Radon Player slow frames", R.report(log, org.omarchy.music.appVersion, DEVICE)); Music.toast("Copied the slow frames") }
+            Pill("Clear", quiet = true) { FrameWatch.clear() }
+        }
+        Switch(FrameWatch.on, { FrameWatch.on = it }, colors = swColors())
     }
 }
 
