@@ -1618,6 +1618,7 @@ private fun PlaybackLines(ui: Ui) {
     IgnoreBtLines(ui)
     NewestBtLine()
     if (onPhone) CarFirstLine()
+    if (onPhone) CarMarkLine()
     // Wake-up timer: at a time you set, a playlist starts playing (while the app is running)
     val W = org.omarchy.music.WakeUp; val PR = org.omarchy.music.Prefs
     var wakeOn by remember { mutableStateOf(PR.on(W.ON)) }
@@ -2067,6 +2068,20 @@ private fun IgnoreBtLines(ui: Ui) {
         style = T.sub, modifier = Modifier.padding(bottom = 8.dp))
 }
 
+/** Is this a car? (the phone, while a Bluetooth output plays): you say whether it is, where its name misleads the app
+ *  (earbuds named like a car, a car named like nothing). A car has the car's EQ and counts for Car always wins. */
+@Composable
+private fun CarMarkLine() {
+    val out = Music.outputNow
+    if (!out.key.startsWith("bt:")) return
+    val name = out.key.removePrefix("bt:")
+    var car by remember(name, out.kind) { mutableStateOf(org.omarchy.music.IgnoreBt.isCar(name)) }
+    Line("Is “$name” a car?", if (car) "Yes: it uses the car's EQ and counts as your car. Turn this off if it's headphones or a speaker"
+        else "No: it's treated as headphones or a speaker. Turn this on if it's your car, so it gets the car's EQ", car) {
+        Switch(car, { car = it; org.omarchy.music.IgnoreBt.markCar(name, it) }, colors = swColors())
+    }
+}
+
 /** Car always wins (the phone): a failsafe beside Newest Bluetooth device wins. */
 @Composable
 private fun CarFirstLine() {
@@ -2149,6 +2164,10 @@ fun TransitionSwitches() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SoundQuality(ui: Ui) {
+    Line("Reset sound to defaults", "The playing output's equalizer back to flat, and crossfeed, mono, Detail, loudness compensation, " +
+        "balance and tilt back to off. Your saved presets and other outputs' EQs are kept", false) {
+        Pill("Reset…", quiet = true) { ui.confirm = org.omarchy.music.SoundReset.ASK to { org.omarchy.music.SoundReset.now() } }
+    }
     Line("Bit-perfect", Music.dacNote.ifEmpty {
         if (onPhone) "Sends each song to your USB DAC (an external sound card) exactly as it is, at its own " +
             "sample rate, for the purest sound. Nothing changes it: no EQ, no song volume, no speed. On phones whose Android " +

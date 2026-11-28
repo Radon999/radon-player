@@ -79,5 +79,7 @@ object Prefs {
     const val IGNORE_BT_AUTO_STOPPED = "ignore_bt_auto_stopped"   // Android Auto stopped by it
     const val NEWEST_BT = "newest_bt"            // Newest Bluetooth device wins: the last one to connect has the music
     const val CAR_FIRST = "car_first"            // Car always wins (the phone): the car has the music whenever it's connected
+    const val CAR_YES = "car_marked_yes"         // Bluetooth outputs you said are a car (names, one per line)
+    const val CAR_NO = "car_marked_no"           // …and ones you said are not
     const val CAR_NAMES = "car_bt_names"         // the car's Bluetooth names, learnt when Android Auto starts (one per line)
 }

@@ -44,6 +44,17 @@ object IgnoreBt {
     fun setCarFirst(v: Boolean) { Prefs.set(Prefs.CAR_FIRST, v); apply() }
     /** The car's Bluetooth names: learnt when Android Auto starts with it, and any name that's plainly a car's. */
     fun carNames(): List<String> = BtIgnoreRules.parse(Prefs.text(Prefs.CAR_NAMES))
+    /** Whether a Bluetooth output is a car: what you said of it (Settings › Is this a car?), else one learnt beside
+     *  Android Auto, else its name. */
+    fun isCar(name: String): Boolean =
+        EqRules.isCar(name, BtIgnoreRules.parse(Prefs.text(Prefs.CAR_YES)) + carNames(), BtIgnoreRules.parse(Prefs.text(Prefs.CAR_NO)))
+    /** You said it: this output is a car, or is not. */
+    fun markCar(name: String, car: Boolean) {
+        val yes = BtIgnoreRules.parse(Prefs.text(Prefs.CAR_YES)) - name; val no = BtIgnoreRules.parse(Prefs.text(Prefs.CAR_NO)) - name
+        Prefs.setText(Prefs.CAR_YES, BtIgnoreRules.join((if (car) yes + name else yes).takeLast(20)))
+        Prefs.setText(Prefs.CAR_NO, BtIgnoreRules.join((if (car) no else no + name).takeLast(20)))
+        runCatching { Music.outputChanged() }
+    }
     fun learnCar(name: String) {
         val l = carNames()
         if (name !in l) Prefs.setText(Prefs.CAR_NAMES, BtIgnoreRules.join((l + name).takeLast(5)))

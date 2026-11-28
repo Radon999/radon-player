@@ -38,7 +38,7 @@ object Outputs {
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
             it.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { d ->
             val n = name(d) ?: "Bluetooth"
-            val car = EqRules.carName(n)   // (whole words: "audi" was found in Audio-Technica, "kia" in Nokia, "car" in Oscar's Buds)
+            val car = IgnoreBt.isCar(n)   // what you said of it, else its name   // (whole words: "audi" was found in Audio-Technica, "kia" in Nokia, "car" in Oscar's Buds)
             return Out("bt:$n", n, if (car) "car" else "bluetooth")
         }
         outs.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET || it.type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE }?.let { d ->

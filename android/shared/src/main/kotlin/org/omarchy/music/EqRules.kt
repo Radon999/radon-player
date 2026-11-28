@@ -8,6 +8,10 @@ object EqRules {
     /** Whether a Bluetooth device's name is a car's: a car word or make as a word of its own ("Ford SYNC", "My Car",
      *  "Audi MMI"), never inside another word ("Audio-Technica", "Nokia", "Oscar's Buds"). */
     fun carName(name: String): Boolean = CAR.containsMatchIn(name)
+
+    /** Whether a Bluetooth output is a car: what you said of it first (marked a car, or not a car), else its name. */
+    fun isCar(name: String, markedCar: Collection<String>, markedNot: Collection<String>): Boolean =
+        name !in markedNot && (name in markedCar || carName(name))
     private val CAR = Regex("(?i)(?<![\\p{L}])(car|carkit|car ?play|auto|android ?auto|sync|uconnect|vw|toyota|ford|honda|bmw|audi|mazda|kia|hyundai|chevy|chevrolet|colorado|silverado|gmc|mylink|nissan|tesla|subaru|jeep|dodge|mercedes|lexus)(?![\\p{L}])")
 
     /** A sample rate said in kHz: "44.1", "96" (it was printed as 44.1000). */

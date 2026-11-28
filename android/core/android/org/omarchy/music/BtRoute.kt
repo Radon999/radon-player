@@ -33,7 +33,6 @@ object BtRoute {
     private val gone = HashMap<String, Pair<Long, Long>>()   // devices that just went: (when they came, when they went)
     private const val BLIP_MS = 90_000L                        // back within this long: the same connection
     /** A Bluetooth name that's plainly a car's (as Outputs names them). */
-    private val CAR = Regex("(?i)car|auto|sync|uconnect|vw|toyota|ford|honda|bmw|audi|mazda|kia|hyundai|chevy|chevrolet|colorado|silverado|gmc|mylink|nissan|tesla|subaru|jeep|dodge|mercedes|lexus")
 
     /** Where the music's kept now, as Outputs names it (for the EQ): null while it isn't. */
     @Volatile var routed: Outputs.Out? = null
@@ -172,7 +171,7 @@ object BtRoute {
         val auto = Outputs.carProjecting
         IgnoreBt.saw(bt + calls + (if (auto) listOf(AUTO) else emptyList()))
         val ignored = IgnoreBt.ignored().toSet()
-        val isCar = { n: String -> n in IgnoreBt.carNames() || CAR.containsMatchIn(n) }
+        val isCar = { n: String -> IgnoreBt.isCar(n) }   // (whole words, and what you marked: "audi" was found in Audio-Technica here too)
         // Android Auto on with the car ignored: its Bluetooth still connected or not (wireless Android Auto outlives it by
         // most of a minute, and the music went to it then: silent in the earbuds until it ended, the owner's long cut)
         val carIgnored = BtIgnoreRules.autoIgnored(auto, IgnoreBt.on, ignored, bt + calls, isCar)
@@ -225,7 +224,7 @@ object BtRoute {
             val known = IgnoreBt.carNames().toSet()
             val ign = if (IgnoreBt.on) ignored else emptySet()
             val car = outs.firstOrNull { it.type in BT && key(it) !in ign &&
-                (key(it) == carBt || key(it) in known || CAR.containsMatchIn(key(it) ?: "")) }
+                (key(it) == carBt || key(it) in known || IgnoreBt.isCar(key(it) ?: "")) }
             if (car != null || (auto && !carIgnored)) {
                 use(car)          // the car's Bluetooth; with only Android Auto, where Android puts it (the car)
                 hide(false)

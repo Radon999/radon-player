@@ -35,4 +35,11 @@ class EqRulesTest {
         org.junit.Assert.assertEquals("44.1", EqRules.khz(44100)); org.junit.Assert.assertEquals("96", EqRules.khz(96000))
         org.junit.Assert.assertEquals("88.2", EqRules.khz(88200))
     }
+
+    @Test fun whatYouSaidOfAnOutputComesBeforeItsName() {
+        assertTrue("by its name", EqRules.isCar("Toyota Touch", emptyList(), emptyList()))
+        assertFalse("earbuds named like a car, marked not one", EqRules.isCar("Ford Buds", emptyList(), listOf("Ford Buds")))
+        assertTrue("a car named like nothing, marked one", EqRules.isCar("MY-BT 5", listOf("MY-BT 5"), emptyList()))
+        assertFalse(EqRules.isCar("WH-1000XM5", emptyList(), emptyList()))
+    }
 }
