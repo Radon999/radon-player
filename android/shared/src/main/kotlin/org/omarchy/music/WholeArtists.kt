@@ -1,6 +1,6 @@
 package org.omarchy.music
 
-/** Artist names that stay whole (Settings › Statistics › Names that stay whole): a credit is split into its artists at
+/** Artist names that stay whole (Settings › Scanner › Last.fm & your stats › Names that stay whole): a credit is split into its artists at
  *  commas, "&" and "feat.", which is right for "Post Malone, Swae Lee" and wrong for "Tyler, The Creator" or "Earth,
  *  Wind & Fire". The names here are never split: the well-known ones the app comes with, and the ones you add. */
 object WholeArtists {
