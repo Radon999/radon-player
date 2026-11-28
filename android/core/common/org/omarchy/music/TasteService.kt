@@ -26,7 +26,13 @@ object TasteService {
                 val artistAll: Map<String, Int> = emptyMap(), val artistMonth: Map<String, Int> = emptyMap(),
                 val hours: IntArray = IntArray(24), val total: Int = 0, val yearTop: Map<Int, Pair<Heard, Int>> = emptyMap(),
                 val since: Long = 0, val moodMonth: Map<String, Int> = emptyMap(), val yearPlays: Map<Int, Int> = emptyMap(),
-                val artistFirst: Map<String, Long> = emptyMap(), val monthPlays: Int = 0)
+                val artistFirst: Map<String, Long> = emptyMap(), val monthPlays: Int = 0,
+                /** This calendar month: each artist's plays, each mood's, and the song played most (as named, its plays). */
+                val calArtist: Map<String, Int> = emptyMap(), val calMood: Map<String, Int> = emptyMap(), val calTop: Pair<Heard, Int>? = null)
+
+    /** When the picture was last made (seconds): a play counted here since then isn't in its numbers yet. */
+    @Volatile var builtAt = 0L
+        private set
 
     private val kept = KeptFresh(600.0, 1800.0, inBackground = { work -> kotlin.concurrent.thread(isDaemon = true, name = "dj-taste") { work() } }) { build() }
 
@@ -50,7 +56,10 @@ object TasteService {
         val out = ArrayList<Heard>()
         if (LastFm.connected) runCatching { Wrapped.allScrobbles(Music.ctx).forEach { out += Heard(it.t, it.artist, it.title) } }
         for (p in SpotifyHistory.plays + OtherPlays.all + AppleHistory.timed()) out += Heard(p.t, p.artist, p.title)
-        if (out.isEmpty()) out += herePlays()
+        // Last.fm connected: it is the account of everything you play (the plays here are in it). Not connected: the
+        // app's own account of your plays, with your imports. (They were left out whenever there was an import at all,
+        // so with an import and no Last.fm nothing played in the app ever counted for the DJ.)
+        if (!LastFm.connected || out.isEmpty()) out += herePlays()
         return out
     }
 
@@ -88,8 +97,8 @@ object TasteService {
         // All time, an artist's and a song's plays are Most played's (Stats): Last.fm and your Spotify, Apple Music,
         // Deezer, YouTube Music and Tidal imports (with or without a time), an artist's under one name. The plays here
         // only count when there's nothing from those at all.
-        val anyOutside = Stats.artists.any { it.plays > it.here }
-        fun outside(all: Int, here: Int) = TasteRules.outside(all, here, anyOutside)
+        val lastFm = LastFm.connected
+        fun outside(all: Int, here: Int) = TasteRules.outside(all, here, lastFm)
         if (Stats.artists.isNotEmpty()) { artistAll.clear(); Stats.artists.forEach { val n = outside(it.plays, it.here); if (n > 0) artistAll.merge(it.name, n, Int::plus) } }
         val statSongs = HashMap<Pair<String, String>, Int>()
         Stats.songs.forEach { statSongs.merge(Stats.statsKey(it.title, it.artist), outside(it.plays, it.here), Int::plus) }
@@ -98,8 +107,10 @@ object TasteService {
         // before Last.fm has it, isn't picked again straight away
         for (p in herePlays()) { val k = Stats.statsKey(p.title, p.artist); if (p.t > (last[k] ?: 0L)) last[k] = p.t }
         val yearTop = years.mapNotNull { (y, c) -> c.maxByOrNull { it.value }?.let { (k, n) -> y to (names.getValue(k) to n) } }.toMap()
+        val calTop = c.calSongs.maxByOrNull { it.value }?.let { (k, n) -> names[k]?.let { it to n } }
         val facts = Facts(count, first, artistAll, artistMonth, hours, total, yearTop, if (since == Long.MAX_VALUE) 0 else since, moodMonth,
-            years.mapValues { it.value.values.sum() }, artistFirst, monthPlays)
+            years.mapValues { it.value.values.sum() }, artistFirst, monthPlays, c.calArtist, c.calMood, calTop)
+        builtAt = nowS
         fun songs(c: Map<Pair<String, String>, Int>, n: Int) = c.entries.sortedByDescending { it.value }.take(n)
             .map { (k, v) -> val p = names.getValue(k); Music.fmSong(p.title, p.artist, "", mine).copy(plays = v) }
         // Every song: all you've played, most played first, then every song of yours you haven't played yet

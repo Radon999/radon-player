@@ -28,6 +28,11 @@ class TasteCounts {
     val artistAll = HashMap<String, Int>()
     val artistMonth = HashMap<String, Int>()
     val artistFirst = HashMap<String, Long>()
+    /** This calendar month (from its first day): each artist's plays, each mood's, each song's. What the DJ means by
+     *  "this month" (the last 30 days are only for what it picks, never for what it says). */
+    val calArtist = HashMap<String, Int>()
+    val calMood = HashMap<String, Int>()
+    val calSongs = HashMap<Pair<String, String>, Int>()
     /** Plays at each hour of the day. */
     val hours = IntArray(24)
     var total = 0
@@ -82,19 +87,26 @@ object TasteRules {
             // (the last seven days of the calendar: seven times 24 hours touch eight of them, and the DJ said "8 of the last seven days")
             if (d.toEpochDay() > today.toEpochDay() - 7) c.days.getOrPut(k) { HashSet() } += d.toEpochDay()
             if (lead.isNotEmpty()) c.artistFirst[lead] = minOf(c.artistFirst[lead] ?: Long.MAX_VALUE, p.t)
-            if (d.year == today.year && d.month == today.month) c.monthPlays++
+            val thisMonth = d.year == today.year && d.month == today.month
+            if (thisMonth) { c.monthPlays++; c.calSongs.merge(k, 1, Int::plus); if (lead.isNotEmpty()) c.calArtist.merge(lead, 1, Int::plus) }
             // A song with no mood is asked about once too (before: at every one of its plays)
             val mood = if (moods.containsKey(k)) moods[k] else moodOf(k).also { moods[k] = it }
             if (mood != null) {
                 c.moodPlays += MoodPlay(p.t, mood, "${k.first}\t${k.second}")
                 if (age < 30 * DAY) c.moodMonth.merge(mood, 1, Int::plus)
+                if (thisMonth) c.calMood.merge(mood, 1, Int::plus)
                 if (age < 365 * DAY && aroundHour(at.hour, hour)) c.moodHour.merge(mood, 1, Int::plus)
             }
         }
         return c
     }
 
-    /** Most played's count as the DJ takes it: when there are plays from outside the app at all (Last.fm, an
-     *  import), only those (the plays here taken off); with none, the plays here are all there is. */
-    fun outside(all: Int, here: Int, anyOutside: Boolean): Int = if (anyOutside) all - here else all
+    /** Most played's count as the DJ takes it. With Last.fm connected it is what counts every play (the plays here are
+     *  scrobbled to it, so the ones kept here are taken off, never counted twice). Without Last.fm the plays here are
+     *  the app's own account of what you played since your imports: they count, as they do in Most played. */
+    fun outside(all: Int, here: Int, lastFm: Boolean): Int = if (lastFm) all - here else all
+
+    /** The first second of the calendar month that day is in, and of the month before. */
+    fun monthStarts(today: LocalDate, zone: ZoneId): Pair<Long, Long> =
+        today.withDayOfMonth(1).atStartOfDay(zone).toEpochSecond() to today.withDayOfMonth(1).minusMonths(1).atStartOfDay(zone).toEpochSecond()
 }

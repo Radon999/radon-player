@@ -106,7 +106,24 @@ class DjSmallRulesTest {
     }
 
     @Test fun theDjCountsOutsidePlaysWhenThereAreAny() {
-        assertEquals(40, TasteRules.outside(all = 50, here = 10, anyOutside = true))
-        assertEquals(50, TasteRules.outside(all = 50, here = 10, anyOutside = false))
+        assertEquals(40, TasteRules.outside(all = 50, here = 10, lastFm = true))
+        assertEquals(50, TasteRules.outside(all = 50, here = 10, lastFm = false))
+    }
+
+    @Test fun aMonthIsTheCalendarMonth() {
+        val zone = java.time.ZoneId.of("UTC")
+        val today = java.time.LocalDate.of(2026, 12, 2)
+        val (thisMonth, lastMonth) = TasteRules.monthStarts(today, zone)
+        assertEquals(java.time.LocalDate.of(2026, 12, 1).atStartOfDay(zone).toEpochSecond(), thisMonth)
+        assertEquals(java.time.LocalDate.of(2026, 11, 1).atStartOfDay(zone).toEpochSecond(), lastMonth)
+        // 2 December: a play on 20 November is in the last thirty days, and not in this month
+        val nov = java.time.LocalDate.of(2026, 11, 20).atTime(12, 0).atZone(zone).toEpochSecond()
+        val dec = java.time.LocalDate.of(2026, 12, 1).atTime(12, 0).atZone(zone).toEpochSecond()
+        val now = today.atTime(18, 0).atZone(zone).toEpochSecond()
+        val c = TasteRules.count(listOf(Heard(nov, "A Band", "Old"), Heard(nov, "A Band", "Old"), Heard(dec, "A Band", "New")), now, 18, today, zone) { null }
+        assertEquals("the last thirty days, for what it picks", 3, c.artistMonth["A Band"])
+        assertEquals("this month, for what it says", 1, c.calArtist["A Band"])
+        assertEquals(1, c.monthPlays)
+        assertEquals(mapOf(statsKey("New", "A Band") to 1), c.calSongs)
     }
 }

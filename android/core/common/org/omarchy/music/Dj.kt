@@ -477,16 +477,43 @@ object Dj {
     private fun saidPlays(taste: Taste, t: Track): Int {
         val k = Stats.statsKey(t.title, t.artist)
         val all = taste.facts.count[k] ?: 0
-        if ((PlaysApart.split[k]?.size ?: 0) < 2) return all
-        return runCatching { PlaySorts.counts()[PlaysApart.playKey(t)] }.getOrNull() ?: all
+        val counted = if ((PlaysApart.split[k]?.size ?: 0) < 2) all else runCatching { PlaySorts.counts()[PlaysApart.playKey(t)] }.getOrNull() ?: all
+        return counted + playedSince(t)
     }
+
+    /** The song's plays here since the DJ's numbers were last added up (they are, every ten minutes to half an hour): on
+     *  top of them, so "your 100th play" is said at the hundredth, not missed because the 99th wasn't counted yet. */
+    private fun playedSince(t: Track): Int = runCatching {
+        val since = TasteService.builtAt
+        if (since <= 0) return 0
+        val key = PlaysApart.playKey(t)
+        Music.plays.items.values.filter { PlaysApart.playKey(it.track) == key }.sumOf { e -> e.at.count { it > since } }
+    }.getOrDefault(0)
+
+    /** Everything you've played, most played first, without what you hid from the stats: the list Most played shows, so
+     *  "number four" is the fourth on your screen. */
+    private var shownFor: Pair<Any, Int>? = null
+    private var shownList: List<Track> = emptyList()
+    private fun shown(taste: Taste): List<Track> {
+        if (!StatHides.any) return taste.all
+        val stamp = taste.all as Any to StatHides.version
+        if (shownFor?.first !== stamp.first || shownFor?.second != stamp.second) {
+            shownList = taste.all.filter { !StatHides.play(it.title, it.artist, it.album) }
+            shownFor = stamp
+        }
+        return shownList
+    }
+    /** Artists' plays without the ones you hid from the stats. */
+    private fun shownArtists(m: Map<String, Int>): Map<String, Int> = if (!StatHides.any) m else m.filterKeys { !StatHides.artist(it) }
 
     /** Where the song stands among everything you've played (0: first), or -1: the song itself (its copy), else the one
      *  of its name when there is only one of that name. */
     private fun rankOf(taste: Taste, t: Track): Int {
-        taste.all.indexOfFirst { it.id == t.id }.takeIf { it >= 0 }?.let { return it }
+        if (StatHides.any && StatHides.play(t.title, t.artist, t.album)) return -1   // hidden from the stats: no place said
+        val all = shown(taste)
+        all.indexOfFirst { it.id == t.id }.takeIf { it >= 0 }?.let { return it }
         if ((PlaysApart.split[Stats.statsKey(t.title, t.artist)]?.size ?: 0) >= 2) return -1
-        return taste.all.indexOfFirst { songKey(it) == songKey(t) }
+        return all.indexOfFirst { songKey(it) == songKey(t) }
     }
 
     private fun daysText(d: Int) = if (d == 1) "a day" else "$d days"
@@ -920,7 +947,7 @@ object Dj {
         val rows = runCatching { Music.songStats.rows() }.getOrDefault(emptyList())
         val heard = rows.associate { songKey(it.first) to (it.second to it.third) }
         val allRank = taste.all.withIndex().associate { songKey(it.value) to it.index }
-        val artistRank = FactRules.artistRanks(f.artistAll)
+        val artistRank = FactRules.artistRanks(shownArtists(f.artistAll))
         // A milestone coming up (a song's 100th play…) is always told
         for (s in next.take(4)) {
             val n = saidPlays(taste, s) + 1
@@ -935,7 +962,7 @@ object Dj {
                 }
             }
         }
-        val topMood = FactRules.topMood(f.moodMonth)
+        val topMood = FactRules.topMood(f.calMood)   // (this month: the calendar month, as everything the DJ calls a month)
         val streakDays = taste.streak.associate { songKey(it.first) to it.second }
         val yearAgo = taste.dayAgo[1].orEmpty().map { songKey(it) }.toSet()
         // The songs coming up
@@ -949,8 +976,10 @@ object Dj {
                 out["mood-next:$id"] = say("v-mood-next", "${q(s)} is ${withArticle(Moods.adjective(topMood))} one, the mood you've played most this month.", "The mood you've played most this month is ${Moods.adjective(topMood)}, and ${q(s)} fits it.")
             WholeArtists.lead(s.artist).takeIf { it.isNotEmpty() }?.let { a ->
                 f.artistFirst[a]?.let { t ->
-                    val m = f.artistMonth[a] ?: 0
-                    when (FactRules.artistSince(nowS, t, m)) {
+                    val m = f.calArtist[a] ?: 0
+                    val monthStart = TasteRules.monthStarts(java.time.LocalDate.now(), java.time.ZoneId.systemDefault()).first
+                    // ("found this month": first played in this calendar month, and this month's plays)
+                    when (FactRules.artistSince(nowS, t, m).takeIf { it != "new" || t >= monthStart }) {
                         "since" -> out["artist-since:$a"] = say("v-artist-since", "You've been listening to $a since ${month(t)}.", "$a has been with you since ${month(t)}.", "Your first play of $a was back in ${month(t)}.")
                         "new" -> out["artist-new:$a"] = say("v-artist-new", "You only found $a this month, and you've played them ${num(m)} times already.", "$a is new to you this month. ${num(m)} plays so far.", "${num(m)} plays of $a already, and you only found them this month.")
                         else -> {}
@@ -988,7 +1017,7 @@ object Dj {
             }
         }
         // Your moods
-        FactRules.moodShare(f.moodMonth)?.let { (m, percent) ->
+        FactRules.moodShare(f.calMood)?.let { (m, percent) ->
             out["mood-month"] = say("v-mood-month", "Lately it's been mostly ${Moods.adjective(m)} songs, $percent percent of what you played from your collection this month.", "$percent percent of what you played from your collection this month was ${Moods.adjective(m)}.")
         }
         taste.moodHour.maxByOrNull { it.value }?.takeIf { it.value >= 10 }?.let { (m, _) ->
@@ -996,22 +1025,23 @@ object Dj {
         }
         moodFacts(taste, nowS, out)
         // Your artists and songs
-        val byMonth = f.artistMonth.entries.sortedByDescending { it.value }
+        val byMonth = shownArtists(f.calArtist).entries.sortedByDescending { it.value }
         byMonth.getOrNull(0)?.takeIf { it.value >= 10 }?.let { (a, n) -> out["top-artist-month"] = say("v-top-artist-month", "Your most played artist this month is $a, with ${num(n)} plays.", "$a leads your month so far. ${num(n)} plays.", "Nobody has had more plays from you this month than $a. ${num(n)} of them.") }
         byMonth.getOrNull(1)?.takeIf { it.value >= 8 }?.let { (b, n) ->
             out["second-artist-month"] = say("v-second-artist-month", "Second most played this month: $b, with ${num(n)} plays, just behind ${byMonth[0].key}.", "$b is second for you this month with ${num(n)} plays, right behind ${byMonth[0].key}.")
         }
-        f.artistAll.maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { (a, n) -> out["top-artist-all"] = say("v-top-artist-all", "All time, you've played $a ${num(n)} times. More than anyone else.", "$a is your most played artist of all. ${num(n)} plays.", "${num(n)} plays of $a over the years. That's your highest for any artist.") }
+        shownArtists(f.artistAll).maxByOrNull { it.value }?.takeIf { it.value >= 50 }?.let { (a, n) -> out["top-artist-all"] = say("v-top-artist-all", "All time, you've played $a ${num(n)} times. More than anyone else.", "$a is your most played artist of all. ${num(n)} plays.", "${num(n)} plays of $a over the years. That's your highest for any artist.") }
         if (f.artistAll.size >= 50) out["artists-count"] = say("v-artists-count", "You've listened to ${num(f.artistAll.size)} different artists.", "${num(f.artistAll.size)} different artists have had a play from you.")
         if (f.count.size >= 200) out["songs-count"] = say("v-songs-count", "You've played ${num(f.count.size)} different songs. That's a deep collection.", "${num(f.count.size)} different songs have come through your rotation.")
-        taste.recent.firstOrNull()?.takeIf { it.plays >= 5 }?.let { s ->
+        f.calTop?.takeIf { it.second >= 5 && !StatHides.play(it.first.title, it.first.artist, "") }
+            ?.let { (h, n) -> Track("", title = h.title, artist = h.artist, plays = n) }?.let { s ->
             out["top-song-month"] = say("v-top-song-month", "Your most played song this month is ${q(s)} by ${by(s)}, with ${num(s.plays)} plays.", "${q(s)} by ${by(s)} is your song of the month so far. ${num(s.plays)} plays.", "This month's most played is ${q(s)} by ${by(s)}, ${num(s.plays)} times.")
         }
         // Your genre lately, as your own files name it
         val genres = HashMap<String, Int>()
         for (t in taste.recent) for (g in countedGenres(genreOf(t))) genres.merge(g.lowercase(), maxOf(1, t.plays), Int::plus)
         genres.maxByOrNull { it.value }?.takeIf { it.value >= 15 }?.let { (g, _) ->
-            out["top-genre-month"] = say("v-top-genre-month", "Your top genre lately is $g. More of it than anything else this month.", "It's been a $g month for you. More of that than anything else.")
+            out["top-genre-month"] = say("v-top-genre-month", "Your top genre lately is $g. More of it than anything else these last few weeks.", "It's been a $g stretch for you lately. More of that than anything else.")
         }
         // When you listen
         FactRules.peakHour(f.hours)?.let { out["peak-hour"] = say("v-peak-hour", "You do most of your listening around ${hourName(it)}.", "Your busiest hour for music is around ${hourName(it)}.") }
@@ -1020,8 +1050,9 @@ object Dj {
         if (f.monthPlays >= 100) out["month-plays"] = say("fact-month-plays",
             "You've played ${num(f.monthPlays)} songs so far this month.",
             "${num(f.monthPlays)} plays this month, and it's not over.")
-        f.artistFirst.entries.filter { nowS - it.value < 30 * 86_400L && (f.artistMonth[it.key] ?: 0) >= 15 }.maxByOrNull { f.artistMonth[it.key] ?: 0 }?.let { (a, _) ->
-            out["new-artist-month"] = say("v-new-artist-month", "Your discovery of the month is $a. ${num(f.artistMonth[a] ?: 0)} plays since you found them.", "$a is this month's find. ${num(f.artistMonth[a] ?: 0)} plays already.")
+        val calStart = TasteRules.monthStarts(java.time.LocalDate.now(), java.time.ZoneId.systemDefault()).first
+        f.artistFirst.entries.filter { it.value >= calStart && (f.calArtist[it.key] ?: 0) >= 15 && !StatHides.artist(it.key) }.maxByOrNull { f.calArtist[it.key] ?: 0 }?.let { (a, _) ->
+            out["new-artist-month"] = say("v-new-artist-month", "Your discovery of the month is $a. ${num(f.calArtist[a] ?: 0)} plays since you found them.", "$a is this month's find. ${num(f.calArtist[a] ?: 0)} plays already.")
         }
         if (f.total >= 1000) out["total-plays"] = say("v-total-plays", "That's ${num(f.total)} plays, all told.", "All together, you're at ${num(f.total)} plays.")
         FactRules.yearsBack(nowS, f.since)?.let { years -> out["since"] = say("v-since", "Your listening goes back to ${month(f.since)}, over ${num(years)} years of music.", "Over ${num(years)} years of your music are on record, back to ${month(f.since)}.") }
@@ -1122,8 +1153,10 @@ object Dj {
         if (plays.size < 20) return
         val day = 86_400L
         val week = MoodTally.counts(plays, nowS - 7 * day, nowS + 1)
-        val month = MoodTally.counts(plays, nowS - 30 * day, nowS + 1)
-        val before = MoodTally.counts(plays, nowS - 60 * day, nowS - 30 * day)
+        // This month and last: calendar months (not the last thirty days and the thirty before)
+        val (monthStart, lastStart) = TasteRules.monthStarts(java.time.LocalDate.now(), java.time.ZoneId.systemDefault())
+        val month = MoodTally.counts(plays, monthStart, nowS + 1)
+        val before = MoodTally.counts(plays, lastStart, monthStart)
         val all = MoodTally.counts(plays, Long.MIN_VALUE, Long.MAX_VALUE)
         fun adj(m: String) = Moods.adjective(m)
         MoodTally.top(week, minPlays = 15)?.let { (m, n) ->
