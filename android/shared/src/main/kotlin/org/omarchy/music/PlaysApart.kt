@@ -13,11 +13,22 @@ object PlaysApart {
     /** Each song's albums: statsKey -> its albums (each a list, of one), the one played most first. Set by the stats
      *  as they're added up (and read back with them). */
     @Volatile var split: Map<Pair<String, String>, List<List<String>>> = emptyMap()
+        set(v) { field = v; keys.clear() }   // (each song's key worked out again, by the new albums)
+
+    // Worked out once each and kept (a list's every row, and every comparison of a sort by plays, asks): each takes a few
+    // regexes, and asked afresh every time they made long lists and playlists slow to open
+    private val albumKeys = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val keys = java.util.concurrent.ConcurrentHashMap<Triple<String, String, String>, Pair<String, String>>()
 
     /** Words an album's name can have or leave out and stay the same album ("It's Time EP Sessions", "It's Time Sessions"). */
     private val FILLER = setOf("ep", "lp", "the", "a", "album", "record")
 
-    fun albumKey(album: String): String = norm(albumBase(album)).ifEmpty { norm(album) }
+    fun albumKey(album: String): String {
+        if (album.isEmpty()) return ""
+        albumKeys[album]?.let { return it }
+        if (albumKeys.size > 50_000) albumKeys.clear()
+        return (norm(albumBase(album)).ifEmpty { norm(album) }).also { albumKeys[album] = it }
+    }
 
     /** Which of a song's albums album is: the same album (its editions as one), else one written a little another way
      *  (one name holding the other, mostly the same: "It's Time EP Sessions" and "It's Time Sessions"; never "Night
@@ -54,5 +65,10 @@ object PlaysApart {
     /** A song's key in the play counts (Music.playCounts): [statsKey], as the stats count it (the lead artist, whatever
      *  else is credited: "Quinn XCII & Jeremy Zucker" is Quinn XCII's), told apart where it's another song of that
      *  name. (It was [songKey], which splits only at commas: your file's "A & B" missed the plays counted under A.) */
-    fun playKey(t: Track): Pair<String, String> = key(statsKey(t.title, t.artist), t.title, t.artist, t.album)
+    fun playKey(t: Track): Pair<String, String> {
+        val k = Triple(t.title, t.artist, t.album)
+        keys[k]?.let { return it }
+        if (keys.size > 100_000) keys.clear()
+        return key(statsKey(t.title, t.artist), t.title, t.artist, t.album).also { keys[k] = it }
+    }
 }

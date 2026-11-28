@@ -67,7 +67,7 @@ fun sortSongs(tracks: List<Track>, sort: String, plays: Map<Pair<String, String>
         "title" -> tracks.sortedWith(compareBy<Track>({ norm(it.title) }, { lead(it) }))
         "artist" -> tracks.sortedWith(compareBy<Track>({ lead(it) }, { norm(it.album).ifEmpty { "~" } }).then(tie))
         "album" -> tracks.sortedWith(compareBy<Track>({ norm(it.album).ifEmpty { "~" } }, { lead(it) }).then(tie))
-        "plays" -> tracks.sortedByDescending { plays[PlaysApart.playKey(it)] ?: 0 }
+        "plays" -> { val n = tracks.associateWith { plays[PlaysApart.playKey(it)] ?: 0 }; tracks.sortedByDescending { n[it] ?: 0 } }   // (each once, not at each comparison)
         "length" -> tracks.sortedByDescending { it.duration }
         else -> tracks
     }
