@@ -19,7 +19,7 @@ object SmartLists {
     private var again = false
 
     /** What a live playlist's songs depend on: your music (plays and favorites too), moods, formats. */
-    private fun stamp(): Any = Triple(Music.musicVersion, Moods.version, FlacDepths.version)
+    private fun stamp(): Any = listOf(Music.musicVersion, Moods.version, FlacDepths.version, (now() / 21_600).toLong())   // (and the time, four times a day: "added this week" moves on with nothing else changing)
 
     /** A smart playlist's songs as last worked out (null: not yet). */
     fun songs(pl: Playlist): List<Track>? = if (pl.smart?.live == false) pl.tracks else results[pl.id]

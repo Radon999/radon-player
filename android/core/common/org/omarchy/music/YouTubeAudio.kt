@@ -91,6 +91,10 @@ object YouTubeAudio {
         val lead = t.artist.split(",")[0].trim()
         return ytm.search("$lead ${bareTitle(t.title)}").filter { c ->
             t.duration <= 0 || c.duration <= 0 || kotlin.math.abs(c.duration - t.duration) <= 6
+        }.filter { c ->
+            // The same version: a live take, remix or sped-up one only for a song that is one (a length that isn't known
+            // can't tell them apart)
+            CopyRules.versionWords(c.title) == CopyRules.versionWords(t.title)
         }.map { c ->
             val title = similar(cleanTitle(t.title), cleanTitle(c.title))
             val artist = artistNames(listOf(lead)).flatMap { x -> artistNames(c.artist.split(",")).map { y -> similar(x, y) } }.maxOrNull() ?: 0.0

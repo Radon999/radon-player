@@ -206,8 +206,9 @@ fun runSearch(ui: Ui, quiet: Boolean = false) {
         return
     }
     val src = Music.sources[key]
-    if (src == null) { if (!quiet) Music.toast("Still connecting to ${SOURCES[key]}…"); return }
-    if (!src.signedIn && key in setOf("tidal", "spotify", "apple", "deezer")) { if (!quiet) Music.toast("Connect ${SOURCES[key]} in Settings first"); return }
+    // (a search given up here ends the one before it too: its answer is no longer wanted, so "Searching…" must not stay)
+    if (src == null) { ui.searching = false; if (!quiet) Music.toast("Still connecting to ${SOURCES[key]}…"); return }
+    if (!src.signedIn && key in setOf("tidal", "spotify", "apple", "deezer")) { ui.searching = false; if (!quiet) Music.toast("Connect ${SOURCES[key]} in Settings first"); return }
     ui.foundIn = key
     // Searched a moment ago (typing on, then back): at once
     val cacheKey = "$key|${q.lowercase()}"

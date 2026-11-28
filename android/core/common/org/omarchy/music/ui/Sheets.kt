@@ -3499,7 +3499,7 @@ private fun SyncedRow(name: String, sub: String, on: Boolean, set: (Boolean) -> 
 @Composable
 private fun PresetShuffleLines() {
     // Presets by time of day: one for the morning, the day, the evening and the night
-    var byTime by remember { mutableStateOf(MyPresets.todOn()) }
+    var byTime by remember(MyPresets.applied) { mutableStateOf(MyPresets.todOn()) }   // (turned off by Preset Shuffle: shown so)
     val applied = MyPresets.applied
     Line("Presets by time of day", "On: a Personalization preset of your choosing is put on by itself when each part of the day begins (and when the " +
         "app opens in it): a bright one for the morning, a dark one for the night. A part you leave on “No change” keeps whatever is on. If you change " +
@@ -3514,7 +3514,7 @@ private fun PresetShuffleLines() {
                 preview = { k -> if (k.isNotEmpty()) PresetPreview(k) }) { picked = it; MyPresets.setTodPreset(part, it) }
         }
     }
-    var on by remember { mutableStateOf(MyPresets.shuffleOn()) }
+    var on by remember(MyPresets.applied) { mutableStateOf(MyPresets.shuffleOn()) }
     var every by remember { mutableStateOf(MyPresets.shuffleMinutes()) }
     val favs = MyPresets.shufflePool().size
     Line("Personalization Preset Shuffle", "On: puts on a different Personalization preset every few minutes. It only " +

@@ -99,10 +99,9 @@ object YourMusic {
 
     /** Your songs by the artist called name: saved, in your folders or playlists, or played. */
     fun songsBy(name: String): List<Track> {
-        val want = norm(name)
         val seen = HashSet<Pair<String, String>>()
         return (songs() + Music.lists.items.flatMap { it.tracks } + Music.plays.recent(2000)).filter { t ->
-            want in splitArtists(t.artist).map { norm(it) } && seen.add(songKey(t))
+            creditNames(t.artist, name) && seen.add(songKey(t))
         }
     }
 

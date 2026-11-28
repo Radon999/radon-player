@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.asSkiaBitmap
@@ -41,6 +42,8 @@ private object Images {
     private val failed = HashSet<Pair<Any, Int>>()
 
     fun cached(model: Any, px: Int): ImageBitmap? = synchronized(cache) { cache[model to px] }
+    fun anyCached(model: Any): ImageBitmap? = synchronized(cache) { SIZES.firstNotNullOfOrNull { cache[model to it] } }
+    private val SIZES = listOf(192, 400, 600)
 
     suspend fun load(model: Any?, px: Int): ImageBitmap? {
         model ?: return null
@@ -109,11 +112,16 @@ private object Images {
 @Composable
 fun AsyncImage(model: Any?, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit,
                alpha: Float = 1f) {
-    val px = (model as? Sized)?.px ?: 600
+    // As big as it is drawn: a list's small cover was read at 600 across like Now playing's, a dozen times the memory
+    // and a slower scroll. Its size on the screen is known after the first layout (none of its own: 600, as before).
+    var side by remember { mutableStateOf(-1) }
+    val px = (model as? Sized)?.px ?: when { side < 0 -> 0; side == 0 -> 600; side <= 128 -> 192; side <= 300 -> 400; else -> 600 }
     val inner = (model as? Sized)?.model ?: model
-    var img by remember(inner, px) { mutableStateOf(inner?.let { Images.cached(it, px) }) }
-    LaunchedEffect(inner, px) { if (img == null) img = Images.load(inner, px) }
+    // (before its size is known: whichever size of it is already here, so a row scrolled back never blinks)
+    var img by remember(inner) { mutableStateOf(inner?.let { m -> if (px > 0) Images.cached(m, px) else Images.anyCached(m) }) }
+    LaunchedEffect(inner, px) { if (px > 0) Images.load(inner, px)?.let { img = it } }
     val i = img
+    @Suppress("NAME_SHADOWING") val modifier = modifier.onSizeChanged { s -> val m = maxOf(s.width, s.height); if (side != m) side = m }
     // High filtering, as the phone's pictures: a small cover drawn big (Now playing's blurred backdrop) is smooth, not blocky
     if (i != null) Image(i, contentDescription, modifier, contentScale = contentScale, alpha = alpha,
         filterQuality = androidx.compose.ui.graphics.FilterQuality.High)

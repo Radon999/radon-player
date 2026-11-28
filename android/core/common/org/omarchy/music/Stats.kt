@@ -392,7 +392,7 @@ object Stats {
     /** Artist name's songs (theirs or with them), most played first. */
     fun artistSongs(name: String): List<Song> {
         val n = norm(name)
-        return songs.filter { s -> s.artist.split(Regex(",|&| x | feat\\.? | ft\\.? ")).any { norm(it) == n } }
+        return songs.filter { s -> creditNames(s.artist, name) || s.artist.split(Regex("&| x ")).any { norm(it) == n } }
     }
 
     fun artist(name: String): ArtistPlays? = norm(name).let { n -> artists.firstOrNull { norm(it.name) == n } }

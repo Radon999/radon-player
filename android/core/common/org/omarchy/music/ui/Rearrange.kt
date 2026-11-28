@@ -88,7 +88,7 @@ fun RearrangeScreen(ui: Ui, what: RearrangeWhat) {
                 if (now.size == pl.tracks.size && now != pl.tracks) {
                     Music.lists.replaceTracks(pl.id, now)
                     Music.musicVersion++
-                }
+                } else if (now.size != pl.tracks.size) Music.toast("The playlist changed meanwhile (a sync, or a song added): nothing was moved")
             }
             RearrangeWhat.Playlists -> {
                 // Those in folders keep their places, after these

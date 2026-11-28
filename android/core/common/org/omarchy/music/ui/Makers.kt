@@ -1141,7 +1141,8 @@ object MyPresets {
     /** What's picked on the tab now, as a preset (not saved). */
     fun now(name: String, key: String = "") = Preset(key, name, Music.look,
         Prefs.text(Themes.PREF, Themes.STANDARD).takeIf { Themes.known(it) } ?: Themes.STANDARD,
-        UiLayouts.current.key, LookFx.ownOn(), Prefs.text(LookFx.PICK), Music.npFallback, Vis.nowStyle(),
+        // (the visualizer around the cover is the middle one when it is on: a preset saved with it kept the one under it instead)
+        UiLayouts.current.key, LookFx.ownOn(), Prefs.text(LookFx.PICK), Music.npFallback, Around.style().ifEmpty { Vis.nowStyle() },
         Vis.nowDual(), Vis.nowBottom(), Music.wrappedStyle, LyricsCards.picked(), Prefs.text(Vis.COLOR))
 
     /** The tab's choices saved under name (over the one with key, when it's given). */
@@ -1196,7 +1197,8 @@ object MyPresets {
         }
         if ("wrapped" !in skip && p.wrapped.isNotBlank() && WS.STYLES.any { it.first == p.wrapped }) Music.chooseWrappedStyle(p.wrapped)
         if ("card" !in skip && p.card.isNotBlank()) LyricsCards.pick(p.card)
-        if ("viscolor" !in skip && p.visColor.isNotBlank() && !cover) Prefs.setText(Vis.COLOR, p.visColor)
+        // (one of yours saved with the visualizer's own colour puts that back; a ready-made one with none leaves yours)
+        if ("viscolor" !in skip && (p.visColor.isNotBlank() || p.mine) && !cover) Prefs.setText(Vis.COLOR, p.visColor)
         if ("nowplaying" !in skip) Music.chooseNpFallback(p.npFallback)
         if ("look" !in skip && Looks.known(p.look)) Music.chooseLook(p.look) else Music.applyLook()
         if ("layout" !in skip && UiLayouts.all().any { it.key == p.layout }) UiLayouts.choose(p.layout)
@@ -1220,7 +1222,11 @@ object MyPresets {
     fun shuffleOn() = Prefs.on(SHUFFLE)
     fun shuffleMinutes() = Prefs.text(SHUFFLE_MIN, "15").toIntOrNull()?.takeIf { it in SHUFFLE_TIMES } ?: 15
     fun setShuffleMinutes(m: Int) { Prefs.setText(SHUFFLE_MIN, m.toString()) }
-    fun setShuffle(on: Boolean) { Prefs.set(SHUFFLE, on); if (on) shuffleNext() }
+    // (Preset Shuffle and Presets by time of day both put presets on: one at a time, or they undid each other)
+    fun setShuffle(on: Boolean) {
+        if (on && todOn()) { Prefs.set(TOD, false); applied++; Music.toast("Presets by time of day turned off: Preset Shuffle takes over") }
+        Prefs.set(SHUFFLE, on); if (on) shuffleNext()
+    }
     /** The ones it goes through: your favourite presets only. */
     fun shufflePool(): List<Preset> { val f = Favs.of(Favs.PRESETS); return all().filter { it.key in f } }
     /** Puts on the next one: any favourite but the one it put on last. */
@@ -1245,7 +1251,10 @@ object MyPresets {
     fun todOn() = Prefs.on(TOD)
     fun todPreset(part: String): String = Prefs.text("preset_time_$part")
     fun setTodPreset(part: String, key: String) { Prefs.setText("preset_time_$part", key); Prefs.setText(TOD_LAST, ""); todTick() }
-    fun setTod(on: Boolean) { Prefs.set(TOD, on); Prefs.setText(TOD_LAST, ""); todTick() }
+    fun setTod(on: Boolean) {
+        if (on && shuffleOn()) { Prefs.set(SHUFFLE, false); applied++; Music.toast("Preset Shuffle turned off: Presets by time of day takes over") }
+        Prefs.set(TOD, on); Prefs.setText(TOD_LAST, ""); todTick()
+    }
     /** Called every so often while the app is open: this part of the day's preset put on when the part begins. */
     fun todTick() {
         if (editing != null) return

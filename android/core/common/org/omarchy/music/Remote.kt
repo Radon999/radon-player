@@ -67,7 +67,9 @@ object Remote {
                 // on the screen, every 2 minutes away from it, see Sync.tick): every 3 seconds on the screen; away from it,
                 // every 30 seconds when paired and a minute when not (nothing to do then), cut short the moment the app is
                 // back on the screen.
-                if (active) delay(1000) else AppVisible.nap(3000, if (paired) 30_000 else 60_000)
+                // (as the remote with the app off the screen: every 5 seconds, for the battery; the
+                // notification still follows the PC's song)
+                if (active) AppVisible.nap(1000, 5000) else AppVisible.nap(3000, if (paired) 30_000 else 60_000)
             }
         }
         discover(ctx)
@@ -135,9 +137,12 @@ object Remote {
     private fun parse(e: JsonElement?): List<Track> =
         e?.let { runCatching { JSON.decodeFromJsonElement(ListSerializer(Track.serializer()), it) }.getOrNull() } ?: emptyList()
 
+    private var asking = false
     fun refresh() {
-        if (!paired) return
+        if (!paired || asking) return   // (one question at a time: unanswered ones piled up when the PC was slow or gone)
+        asking = true
         Music.bg({ httpJson("http://$host/status?qv=$qv", headers()) }) { s, err ->
+            asking = false
             reachable = err == null
             if (err is HttpError && err.code == 401) { forget(); Music.toast("The desktop forgot this phone: pair again"); return@bg }
             if (s == null) return@bg

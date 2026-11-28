@@ -80,7 +80,7 @@ fun PresetEditDialog(ui: Ui, keys: List<String>) {
     var middle by remember(keys) { mutableStateOf(was?.middle ?: "") }
     var bottom by remember(keys) { mutableStateOf(was?.bottom ?: "") }
     val names = LookFx.MENU.toMap()
-    val asIs = if (one != null) "As it came" else "As each one came"
+    val asIs = if (one != null) "As it came" else "Leave each as it is"
     AlertDialog(onDismissRequest = { ui.presetEdit = null }, containerColor = C.light,
         title = { Text(if (one != null) "Edit “${one.name}”" else "Edit ${presets.size} presets", style = T.head) },
         text = {
@@ -114,7 +114,10 @@ fun PresetEditDialog(ui: Ui, keys: List<String>) {
                 TextButton({
                     PresetEdits.set(presets.map { p ->
                         val has = p.fx.split(';').map { LookFx.keyOf(it.trim()) }.toSet()
-                        Edit(p.key, off.filter { it in has }.toSet(), add.filter { it !in has }.toSet(), middle.ifEmpty { null }, bottom.ifEmpty { null }) })
+                        // Several at once: added to what each was already changed to (before, each one's earlier changes were wiped)
+                        val old = if (one == null) PresetEdits.of(p.key) else null
+                        Edit(p.key, (old?.fxOff.orEmpty() + off).filter { it in has }.toSet(), (old?.fxAdd.orEmpty() + add).filter { it !in has }.toSet(),
+                            middle.ifEmpty { old?.middle }, bottom.ifEmpty { old?.bottom }) })
                     ui.presetEdit = null
                     Music.toast(if (one != null) "Saved: put “${one.name}” on to see it" else "Saved for ${presets.size} presets")
                 }) { Text("Save", color = C.accent) }

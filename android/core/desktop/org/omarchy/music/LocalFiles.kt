@@ -12,6 +12,7 @@ import java.util.logging.Logger
  *  or "Music/…" for one in your home folder. */
 class LocalFiles(private val ctx: Ctx) {
     private val index = File(ctx.cacheDir, "local.json")
+    private val reread = File(ctx.cacheDir, "local.artists")
     private val ser = MapSerializer(String.serializer(), Seen.serializer())
 
     @Serializable
@@ -41,6 +42,8 @@ class LocalFiles(private val ctx: Ctx) {
     fun scan(folders: List<String>, saved: Set<String>): Boolean {
         val seen = readText(index)?.let { runCatching { JSON.decodeFromString(ser, it) }.getOrNull() } ?: emptyMap()
         val first = seen.isEmpty()
+        // Files read before every artist was kept are read once more (their dates added stay).
+        val again = !reread.exists()
         val keep = HashMap<String, Seen>()
         val out = ArrayList<Track>()
         val where = HashMap<String, String>()
@@ -51,7 +54,7 @@ class LocalFiles(private val ctx: Ctx) {
                 if (path in saved) return@forEach
                 val mod = f.lastModified()
                 val old = seen[path]
-                val s = if (old != null && old.modified == mod) old else read(f, mod, old?.added ?: if (first) mod / 1000.0 else now())
+                val s = if (old != null && old.modified == mod && !again) old else read(f, mod, old?.added ?: if (first) mod / 1000.0 else now())
                 keep[path] = s
                 where[path] = shown(f.parentFile)
                 if (s.genre.isNotEmpty()) genre[path] = s.genre
@@ -60,9 +63,11 @@ class LocalFiles(private val ctx: Ctx) {
             }
         }
         out.sortBy { norm(it.title) }
-        val changed = out.map { it.file } != files.map { it.file }
+        // A file whose tags were edited elsewhere counts as a change too (the lists showed the old words until a restart).
+        val changed = out.map { listOf(it.file, it.title, it.artist, it.album) } != files.map { listOf(it.file, it.title, it.artist, it.album) }
         files = out; paths = where; genres = genre; allPaths = where
         if (keep != seen) writeAtomic(index, JSON.encodeToString(ser, keep))
+        if (again) runCatching { reread.createNewFile() }
         scanned = now()
         return changed
     }
@@ -86,12 +91,17 @@ class LocalFiles(private val ctx: Ctx) {
             val t = a.tag
             fun tag(k: org.jaudiotagger.tag.FieldKey) = runCatching { t?.getFirst(k) }.getOrNull().orEmpty().trim()
             Seen(mod, added, tag(org.jaudiotagger.tag.FieldKey.TITLE).ifEmpty { nameTitle },
-                tag(org.jaudiotagger.tag.FieldKey.ARTIST).ifEmpty { nameArtist.ifEmpty { "Unknown artist" } },
+                artists(t).ifEmpty { nameArtist.ifEmpty { "Unknown artist" } },
                 tag(org.jaudiotagger.tag.FieldKey.ALBUM), (a.audioHeader?.trackLength ?: 0).toDouble(), tag(org.jaudiotagger.tag.FieldKey.GENRE))
         } catch (e: Exception) {
             Seen(mod, added, nameTitle, nameArtist.ifEmpty { "Unknown artist" })
         }
     }
+
+    /** Every artist a file names ("Post Malone, Swae Lee"): a FLAC keeps one tag an artist, and the first alone lost the rest. */
+    private fun artists(t: org.jaudiotagger.tag.Tag?): String =
+        runCatching { t?.getAll(org.jaudiotagger.tag.FieldKey.ARTIST) }.getOrNull().orEmpty()
+            .map { it.trim() }.filter { it.isNotEmpty() }.distinct().joinToString(", ")
 
     fun everywhere(): Map<String, Track> = files.associateBy { (paths[it.file] ?: "") + File(it.file ?: "").name }
 

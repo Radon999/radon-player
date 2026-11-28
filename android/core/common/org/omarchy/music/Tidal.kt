@@ -1,5 +1,6 @@
 package org.omarchy.music
 
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import java.io.File
@@ -22,8 +23,10 @@ class Tidal(ctx: Ctx) : Source {
     private val file = File(ctx.filesDir, "tidal.json")
     @Volatile private var quietUntil = 0L   // after a "too many requests": no calls before this
     @Volatile private var s: Session? = readText(file)?.let { runCatching { JSON.decodeFromString(Session.serializer(), it) }.getOrNull() }
-    val connected get() = s != null
+    val connected get() = s != null && !lapsed   // (a sign-in Tidal no longer takes: Settings offers Connect again)
     override val signedIn get() = connected
+    @Volatile private var lapsed = false
+    private val LAPSED = "Tidal's sign-in has run out: connect Tidal again in Settings"
 
     private fun save() {
         val cur = s
@@ -57,6 +60,7 @@ class Tidal(ctx: Ctx) : Source {
         s = Session(access, tok["refresh_token"].str ?: "", tok["token_type"].str ?: "Bearer",
             now() + (tok["expires_in"].dbl ?: 3600.0), info["sessionId"].str ?: "", info["countryCode"].str ?: "US",
             info["userId"].long ?: 0)
+        lapsed = false
         save()
     }
 
@@ -68,9 +72,19 @@ class Tidal(ctx: Ctx) : Source {
     @Synchronized
     private fun refresh() {
         val cur = s ?: return
-        val tok = httpJson("https://auth.tidal.com/v1/oauth2/token", body = form(
-            "grant_type" to "refresh_token", "refresh_token" to cur.refresh, "client_id" to Keys.tidalId,
-            "client_secret" to Keys.tidalSecret))
+        if (lapsed) error(LAPSED)
+        val tok = try {
+            httpJson("https://auth.tidal.com/v1/oauth2/token", body = form(
+                "grant_type" to "refresh_token", "refresh_token" to cur.refresh, "client_id" to Keys.tidalId,
+                "client_secret" to Keys.tidalSecret))
+        } catch (e: HttpError) {
+            // Tidal no longer takes this sign-in (months unused, or signed out elsewhere): said once, and searches go to
+            // YouTube Music until you connect again. Before, every search and download just failed with no reason given.
+            if (e.code != 400 && e.code != 401) throw e
+            lapsed = true
+            runCatching { Music.scope.launch { Music.toast(LAPSED) } }
+            error(LAPSED)
+        }
         s = cur.copy(access = tok["access_token"].str ?: return, expiry = now() + (tok["expires_in"].dbl ?: 3600.0))
         save()
     }

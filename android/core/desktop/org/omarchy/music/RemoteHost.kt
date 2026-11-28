@@ -34,6 +34,7 @@ object RemoteHost {
     var phones by mutableStateOf(mapOf<String, String>())
         private set
     private var misses = 0
+    private var restUntil = 0L
     private var server: HttpServer? = null
     private var mdns: javax.jmdns.JmDNS? = null
     private lateinit var file: File
@@ -165,7 +166,9 @@ object RemoteHost {
             val tok = tokenOf(ex) ?: return answer(ex, 401, err("pair this phone first"))
             return SongFiles.receive(ex, q, phones[tok] ?: "your phone")
         }
-        val raw = ex.requestBody.use { it.readNBytes(8_000_000) }
+        // Only a paired phone's words are read at length (pairing itself: a code and a name)
+        if (path != "/pair" && !phone(ex)) return answer(ex, 401, err("pair this phone first"))
+        val raw = ex.requestBody.use { it.readNBytes(if (path == "/pair") 4_000 else 8_000_000) }
         val body = runCatching { JSON.parseToJsonElement(String(raw).ifBlank { "{}" }) as JsonObject }.getOrElse {
             return answer(ex, 400, err("that isn't JSON"))
         }
@@ -199,8 +202,9 @@ object RemoteHost {
     }
 
     private fun pair(c: String, name: String): Pair<Int, JsonObject> {
+        if (System.currentTimeMillis() < restUntil) return 429 to err("too many wrong codes: wait a minute, then use the new code the desktop shows")
         if (code.isEmpty() || c != code) {
-            if (++misses >= 5) newCode()   // guessing: a new code
+            if (++misses >= 5) { newCode(); restUntil = System.currentTimeMillis() + 60_000 }   // guessing: a new code, and a minute's rest
             return 403 to err("that isn't the code the desktop shows")
         }
         val tok = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(24).also { java.security.SecureRandom().nextBytes(it) })

@@ -710,7 +710,7 @@ object Moods {
             }
             // 2. The words
             if (wordsNeeded(e)) {
-                val (text, instrumental) = runCatching { LyricsScan.wordsFor(t) }.getOrDefault(null to false)
+                val (text, instrumental) = runCatching { LyricsScan.wordsFor(t) }.getOrDefault(null to false); val offline = text == null && LyricsScan.wordsUnreached.get()   // (no site answered: not "tried and none")
                 val rd: LyricsReading? = when {
                     instrumental -> LyricsReading(instrumental = true, confidence = 1.0, by = "words")
                     text == null -> null
@@ -727,7 +727,7 @@ object Moods {
                 }
                 e = synchronized(lock) { known[p] } ?: e
                 e = if (rd != null) e.copy(lyr = rd.tag(), lyrInFile = false, lyrTried = 0.0)
-                    else if (e.lyr.isEmpty()) e.copy(lyrTried = now()) else e
+                    else if (e.lyr.isEmpty() && !offline) e.copy(lyrTried = now()) else e
                 synchronized(lock) { known[p] = e }
             }
             // 3. Both done: the moods (and the words' reading) into the file, the scan's own from now on
@@ -1066,7 +1066,7 @@ object Moods {
             if (wordsStop) break
             val (p, t, m) = x
             Music.scope.launch { wordsNow = "${t.title} · ${t.artist.split(",")[0].trim()}" }
-            val (text, instrumental) = runCatching { LyricsScan.wordsFor(t) }.getOrDefault(null to false)
+            val (text, instrumental) = runCatching { LyricsScan.wordsFor(t) }.getOrDefault(null to false); val offline = text == null && LyricsScan.wordsUnreached.get()   // (no site answered: not "tried and none")
             val reading: LyricsReading? = when {
                 instrumental -> LyricsReading(instrumental = true, confidence = 1.0, by = "words")
                 text == null -> null
@@ -1087,7 +1087,7 @@ object Moods {
                 // Being read again, but its words can't be found now: the old reading stays.
             } else if (reading == null) {
                 none++
-                synchronized(lock) { known[p] = e.copy(lyrTried = now()) }
+                if (!offline) synchronized(lock) { known[p] = e.copy(lyrTried = now()) }
             } else {
                 read++
                 val got = e.copy(lyr = reading.tag(), lyrInFile = false, lyrTried = 0.0)

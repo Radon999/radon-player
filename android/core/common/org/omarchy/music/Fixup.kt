@@ -73,7 +73,7 @@ val VARIOUS = setOf("various artists", "various", "va", "verschiedene interprete
 /** Of a cover's picture hash's 64 bits: this many or fewer different, the same cover. */
 const val COVER_ALIKE = 10
 
-private val FIXUP_FEAT = Regex("\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE)
+private val FIXUP_FEAT = Regex("\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+", RegexOption.IGNORE_CASE)
 private val FIXUP_JOINED = Regex(" & | x | X | and ")
 private val FIXUP_NONWORD = Regex("[\\W_]+")
 private val FIXUP_SINGLE_WORD = Regex("\\bsingles?\\b", RegexOption.IGNORE_CASE)
@@ -112,7 +112,7 @@ fun albumPart(album: String?): Pair<String, Int> {
 
 /** Each artist in a credit: "A & B feat. C" -> [A, B, C]. */
 fun creditNames(credit: String?): List<String> =
-    (credit ?: "").split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+| & | x | X | and ", RegexOption.IGNORE_CASE))
+    (credit ?: "").split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+| & | x | X | and ", RegexOption.IGNORE_CASE))
         .map { it.trim() }.filter { it.isNotEmpty() }
 
 /** The artists who are credited on their own somewhere (keyed as soloKey keys them): "Quinn XCII" is, so "Quinn XCII &
@@ -122,7 +122,7 @@ fun fixupSoloArtists(songs: List<FixupSong>): Set<String> {
     for (t in songs) {
         for (credit in listOf(t.albumartist, t.artist)) {
             val parts = ArrayList<String>()
-            for (piece in credit.split(Regex(";|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE))) {
+            for (piece in credit.split(Regex(";|\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+", RegexOption.IGNORE_CASE))) {
                 val oneComma = piece.count { it == ',' } == 1 && !FIXUP_JOINED.containsMatchIn(piece)
                 if (oneComma) parts += piece else parts += piece.split(",")   // "Tyler, The Creator" whole
             }
@@ -152,7 +152,7 @@ fun creditCounts(songs: List<FixupSong>): Map<String, Int> {
 /** {artist key: how they're spelt on the songs credited to them alone, the most common}: K.Flay and KFlay are one. */
 fun soloSpellings(songs: List<FixupSong>): Map<String, String> {
     val seen = LinkedHashMap<String, LinkedHashMap<String, Int>>()
-    val featured = Regex("\\s(?:feat\\.?|ft\\.?|featuring|with)\\s", RegexOption.IGNORE_CASE)
+    val featured = Regex("\\s(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s", RegexOption.IGNORE_CASE)
     for (t in songs) {
         for (credit in listOf(t.albumartist, t.artist)) {
             if (credit.isNotEmpty() && duoParts(credit).size == 1 && !featured.containsMatchIn(credit))

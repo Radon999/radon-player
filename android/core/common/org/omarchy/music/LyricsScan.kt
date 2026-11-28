@@ -170,10 +170,14 @@ object LyricsScan {
         Music.ctx.openIn(path)?.buffered()?.use { MoodTag.readTags(it, setOf(MoodTag.LYRICS)) }?.get(MoodTag.LYRICS)
     }.getOrNull()
 
+    /** Whether the [wordsFor] just made on this thread had no words only because no site answered. */
+    val wordsUnreached: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
+
     /** (blocking) A song's words for reading its mood: (the words, or null; whether it's an instrumental). */
     fun wordsFor(t: Track): Pair<String?, Boolean> {
         if (stateOf(t) == INSTRUMENTAL) return null to true
         val g = runCatching { Lyrics.get(Music.ctx, t) }.getOrNull()
+        wordsUnreached.set(g == null && Lyrics.unreachedJustNow())
         val w = g?.let { LyricsTags.words(it) }
         return w to (w == null && g?.instrumental == true)
     }
@@ -236,7 +240,9 @@ object LyricsScan {
                 save()
                 Music.scope.launch {
                     progress = null; nowSong = ""; version++
-                    Music.toast(if (found + none == 0) "Every song has its lyrics already" else
+                    Music.toast(if (cutOff) "No connection: the lyrics scan stopped. The songs not looked up wait for next time" +
+                            (if (found > 0) " (%,d found)".format(found) else "")
+                        else if (found + none == 0) (if (stopAsked) "Lyrics scan stopped" else "Every song has its lyrics already") else
                         "Lyrics found for %,d song%s".format(found, if (found != 1) "s" else "") +
                             if (none > 0) ". %,d with none found: Settings › Scanner › Lyrics › Show…".format(none) else "")
                     recount()
@@ -245,6 +251,7 @@ object LyricsScan {
         }, "lyrics-scan").apply { isDaemon = true; priority = Thread.MIN_PRIORITY; this.start() }
     }
 
+    @Volatile private var cutOff = false
     /** (found, none found). */
     private fun work(): Pair<Int, Int> {
         load()
@@ -262,16 +269,21 @@ object LyricsScan {
         }
         val playing = runCatching { Music.current()?.let { pathOf(it) } }.getOrNull()
         Music.scope.launch { progress = 0 to all.size }
-        var found = 0; var none = 0
+        var found = 0; var none = 0; var unreached = 0
+        cutOff = false
         for ((i, x) in all.withIndex()) {
             if (stopAsked) break
             val (t, path) = x
             if (i % 5 == 0) Music.scope.launch { progress = i to all.size }
             val st = stateOf(t)
             if (st == LEFT || st == INSTRUMENTAL) continue
-            if (inFile(path) != null) { if (st != FILE) set(t, FILE); continue }   // in its file already
+            if (!inFile(path).isNullOrBlank()) { if (st != FILE) set(t, FILE); continue }   // in its file already
             Music.scope.launch { nowSong = "${t.title} · ${t.artist.split(",")[0].trim()}" }
             val got = kept(Music.ctx, t) ?: runCatching { Lyrics.get(Music.ctx, t) }.getOrNull()
+            // No site answered (offline): the song is left to look up another time, not written down as having none.
+            // Three in a row: the scan stops there.
+            if (got == null && Lyrics.unreachedJustNow()) { if (++unreached >= 3) { cutOff = true; break }; continue }
+            unreached = 0
             if (place(t, path, got, playing)) found++ else if (stateOf(t) == NONE) none++
             if ((i + 1) % 25 == 0) save()
             Thread.sleep(if (Music.paused) 50 else 200)   // gently: one site after another, a song at a time

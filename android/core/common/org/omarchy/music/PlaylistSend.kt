@@ -128,7 +128,8 @@ object PlaylistSend {
 
     /** For GET /playlist/outbox: the playlists waiting for the phone, handed over. */
     fun handOver(): JsonObject {
-        val all = synchronized(outbox) { outbox.toList().also { outbox.clear() } }
+        // (kept until the phone says what it did with each: emptied here, one the phone never got was lost)
+        val all = synchronized(outbox) { outbox.toList() }
         return buildJsonObject { put("parcels", JsonArray(all.map { JSON.encodeToJsonElement(Parcel.serializer(), it) })) }
     }
 
@@ -142,6 +143,7 @@ object PlaylistSend {
     /** For POST /playlist/taken: what the phone did with a playlist this PC sent it. */
     fun told(body: JsonObject) {
         val r = runCatching { JSON.decodeFromJsonElement(Result.serializer(), body) }.getOrNull() ?: return
+        synchronized(outbox) { if (outbox.isNotEmpty()) outbox.removeAt(0) }   // (taken in the order they were handed over)
         Music.scope.launch { note(PlaylistSendRules.said(true, r.name, other, other, r.added, r.had, r.missing), r.missing) }
     }
 

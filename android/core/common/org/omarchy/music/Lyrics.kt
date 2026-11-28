@@ -235,8 +235,14 @@ object Lyrics {
         return fromFile(m) ?: fromOtherFile(ctx, m)
     }
 
+    private val UNREACHED = ThreadLocal.withInitial { false }
+    /** Whether the [get] just made on this thread found nothing because no site answered (offline), not because nobody
+     *  has the lyrics: a scan must not write such a song down as having none. */
+    fun unreachedJustNow(): Boolean = UNREACHED.get()
+
     /** The lyrics of track, or null if nobody has them. It blocks. */
     fun get(ctx: Ctx, t: Track, refresh: Boolean = false): Got? {
+        UNREACHED.set(false)
         val m = songMeta(ctx, Music.lib, t)
         if (!refresh) {
             // Waiting for the song to finish playing to go into its file: they're the song's lyrics now (none: removed)
@@ -260,6 +266,7 @@ object Lyrics {
         }
         val (got, reached) = fetch(m)
         if (reached) writeAtomic(file, JSON.encodeToString(Got.serializer(), got.copy(time = now())))   // offline: don't remember "no lyrics"
+        UNREACHED.set(!reached)
         LyricsScan.keepStreamed(t, got)   // a streamed song's kept in the app, offline and over a restart (not the cache)
         return got.takeIf { it.has }
     }

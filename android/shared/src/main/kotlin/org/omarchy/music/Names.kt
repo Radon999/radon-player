@@ -25,6 +25,7 @@ internal class Memo<K : Any, V : Any>(private val cap: Int) {
 private val NORMS = Memo<String, String>(200_000)
 private val CLEAN_TITLES = Memo<String, String>(100_000)
 private val ALBUM_BASES = Memo<String, String>(50_000)
+private val SEARCH_TEXTS = Memo<String, Pair<String, String>>(100_000)
 
 /** Lowercase letters and digits only, accents dropped: for comparing names across services. */
 fun norm(s: String?): String {
@@ -46,7 +47,8 @@ fun searchWords(q: String): List<String> = searchNorm(q).split(" ").filter { it.
 
 /** Whether every word of a search is in text, with or without the spaces symbols left ("heysoul" finds "Hey, Soul"). */
 fun searchHit(words: List<String>, text: String): Boolean {
-    val t = searchNorm(text); val tight = t.replace(" ", "")
+    // (a row's text is tidied once and kept: it was tidied again for every row at every letter typed)
+    val (t, tight) = SEARCH_TEXTS.of(text) { searchNorm(text).let { it to it.replace(" ", "") } }
     return words.all { it in t || it in tight }
 }
 
@@ -139,13 +141,21 @@ fun artistNames(names: Iterable<String>): Set<String> {
  *  duo's name, so it is offered whole and as each of them. */
 fun splitArtists(text: String?): List<String> {
     val out = linkedSetOf<String>()
-    for (part0 in (text ?: "").split(Regex("(?i),\\s*|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+"))) {
+    for (part0 in (text ?: "").split(Regex("(?i),\\s*|\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+"))) {
         val part = part0.trim()
         if (part.isEmpty() || part.lowercase() == "unknown artist") continue
         out += part
         if (" & " in part) part.split(" & ").map { it.trim() }.filter { it.isNotEmpty() }.forEach { out += it }
     }
     return out.toList()
+}
+
+/** Whether a credit names the artist: the whole credit ("Tyler, The Creator", "Earth, Wind & Fire"), or one of
+ *  its artists by either way of telling them apart. */
+fun creditNames(credit: String?, artist: String): Boolean {
+    val n = norm(artist)
+    if (n.isEmpty()) return false
+    return norm(credit.orEmpty()) == n || splitArtists(credit).any { norm(it) == n } || ownArtists(credit).any { norm(it) == n }
 }
 
 fun hasWord(text: String, word: String) = Regex("\\b${Regex.escape(word)}\\b").containsMatchIn(text)

@@ -144,10 +144,15 @@ object LyricsAutoSync {
     /** (blocking) One song with words: looked up once more, else listened to and timed. What happened ([TIMED],
      *  [FOUND], [FAILED], or "" when Stop came in the middle of it: left waiting). */
     private fun timeOne(t: Track): String {
-        val words = LyricsScan.here(t)?.let { LyricsTags.words(it) } ?: return FAILED.also { set(t, it, "no words to time") }
+        val have = LyricsScan.here(t)
+        val words = have?.let { LyricsTags.words(it) } ?: return FAILED.also { set(t, it, "no words to time") }
+        // Words you typed or changed stay yours: somebody else's timed lyrics are taken only when they say the same,
+        // else your own words are timed by listening (before, the site's wording replaced what you wrote).
+        fun bare(x: String) = x.lowercase().filter { it.isLetterOrDigit() }
+        val yours = have?.plain_from == "you" || have?.synced_from == "you"
         // Timed lyrics somebody has (a released song): exact, and quick
         val online = runCatching { Lyrics.timed(Music.ctx, t) }.getOrNull()?.takeIf { Lyrics.parseLrc(it).isNotEmpty() }
-        if (online != null) {
+        if (online != null && (!yours || bare(Lyrics.parseLrc(online).joinToString("") { it.second }) == bare(words))) {
             return if (LyricsScan.placeTimed(t, words, online, "LRCLIB or Musixmatch")) FOUND.also { set(t, it) }
                 else FAILED.also { set(t, it, "couldn't be saved") }
         }

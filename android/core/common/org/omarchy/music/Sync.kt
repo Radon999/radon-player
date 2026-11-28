@@ -516,7 +516,8 @@ object Sync {
         // The scans' choices that name files and folders: written from your music folder on, for the other device to
         // put under its own (SyncPaths)
         val roots = musicRoots()
-        return JsonObject(all.mapValues { (k, v) ->
+        // (each device's own choices never go: sent but never taken, they made every sync say something changed)
+        return JsonObject(all.filterKeys { it !in PERSONAL }.mapValues { (k, v) ->
             if (k in SyncPaths.PREFS && v is JsonPrimitive && v.isString) JsonPrimitive(SyncPaths.outLines(v.content, roots)) else v })
     }
 

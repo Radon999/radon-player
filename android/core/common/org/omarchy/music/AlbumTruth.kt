@@ -27,7 +27,7 @@ object AlbumTruth {
         return when (kind) { "single" -> "$base - Single"; "ep" -> "$base - EP"; else -> base }
     }
 
-    private fun lead(a: String) = a.split(Regex(",|;| feat\\.? | ft\\.? | featuring | with | & ", RegexOption.IGNORE_CASE)).first().trim()
+    private fun lead(a: String) = a.split(Regex(",|;| feat\\.? | ft\\.? | featuring |(?-i: with )| & ", RegexOption.IGNORE_CASE)).first().trim()
 
     private fun deezer(url: String) = runCatching { Pictures.deezerPace(); httpJson(url) }.getOrNull()
 

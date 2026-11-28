@@ -232,10 +232,10 @@ fun ownArtists(credit: String?): List<String> {
     if (c.isEmpty()) return emptyList()
     // "and" is never split: it's in band names ("Of Monsters and Men", "Fitz and The Tantrums", "Esquivel and His
     // Orchestra"), and two artists are credited with "&", "x" or a comma
-    val many = Regex(" & | x |;|\\s(?:feat\\.?|ft\\.?|featuring|with)\\s", RegexOption.IGNORE_CASE)
+    val many = Regex(" & | x |;|\\s(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s", RegexOption.IGNORE_CASE)
     if (!many.containsMatchIn(c)) return listOf(c)
     val out = ArrayList<String>()
-    for (part in c.split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE))) {
+    for (part in c.split(Regex(",|;|\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+", RegexOption.IGNORE_CASE))) {
         val p = part.trim()
         if (p.isEmpty()) continue
         val pieces = p.split(Regex(" & | x (?![&+])"))   // ("Lil Nas X & Jack Harlow": the X is the name's)
@@ -254,7 +254,7 @@ fun bandTail(s: String): Boolean {
 }
 
 // ---- Whose plays a joint credit's are (the desktop's artist_resolver) ----
-private val FEAT_SPLIT = Regex("\\s+(?:feat\\.?|ft\\.?|featuring|with)\\s+", RegexOption.IGNORE_CASE)
+private val FEAT_SPLIT = Regex("\\s+(?:feat\\.?|ft\\.?|featuring|(?-i:with))\\s+", RegexOption.IGNORE_CASE)
 private val PAIR_SEP = Regex(" & | x |,|;")
 private fun plainKey(n: String) = norm(n).replace(NOT_LETTERS, "")
 
