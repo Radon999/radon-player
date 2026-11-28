@@ -43,6 +43,18 @@ class NamesTest {
         assertTrue(albumBase("÷ (Deluxe)") != albumBase("= (Tour Edition)"))
         assertEquals("mercury act 1", albumBase("Mercury - Act 1"))
         assertEquals(albumBase("South"), albumBase("South - EP"))
+        // Every edition of an album is the one album, however it's written: a new edition keeps the old one's plays
+        for (e in listOf("Night Visions (Deluxe)", "Night Visions (Deluxe Edition)", "Night Visions [Expanded Edition]",
+                "Night Visions (10th Anniversary Edition)", "Night Visions - Anniversary Edition", "Night Visions: 10th Anniversary Edition",
+                "Night Visions Deluxe Edition", "Night Visions Deluxe", "Night Visions Super Deluxe", "Night Visions (Remastered)",
+                "Night Visions Expanded Edition", "Night Visions: Deluxe"))
+            assertEquals(e, albumBase("Night Visions"), albumBase(e))
+        assertTrue("a live album isn't an edition", albumBase("Night Visions Live") != albumBase("Night Visions"))
+        assertEquals("an album called Deluxe stays itself", "deluxe", albumBase("Deluxe"))
+        // and the top albums' edition: the album, and the edition's name to show
+        assertEquals("Night Visions" to "Deluxe Edition", albumEdition("Night Visions Deluxe Edition"))
+        assertEquals("Night Visions" to "Remastered", albumEdition("Night Visions (Remastered)"))
+        assertEquals("Night Visions" to "10th Anniversary Edition", albumEdition("Night Visions: 10th Anniversary Edition"))
         assertEquals(null, movieName("Stay Awake "))   // a space at the end isn't a soundtrack note
         assertEquals(null, movieName("is your bedroom ceiling bored "))
         assertEquals("Lose Yourself", movieName("Lose Yourself (From '8 Mile') "))

@@ -80,12 +80,21 @@ fun albumBase(s: String): String {
     var t = s.lowercase()
     t = ALBUM_EDITION_BRACKETS.replace(t, " ")
     t = ALBUM_EDITION_DASH.replace(t, " ")
+    // …after a colon ("Night Visions: 10th Anniversary Edition"), or just at its end ("Night Visions Deluxe Edition",
+    // "Night Visions Expanded"): every edition of an album is the one album, so a new edition keeps the plays of the old
+    t = ALBUM_EDITION_COLON.replace(t, " ")
+    t = ALBUM_EDITION_END.replace(t, "")
     // A name of only signs ("÷ (Deluxe)", "= (Tour Edition)", "+"): the signs themselves, so it stays one album.
     return norm(cleanTitle(t)).ifEmpty { t.trim().replace(Regex("\\s+"), " ") }
 }
 private val ALBUM_EDITION_WORDS = "deluxe|edition|expanded|remaster(ed)?|anniversary|bonus|explicit|clean|version|extended|complete|special|collector'?s?|super|reissue"
 private val ALBUM_EDITION_BRACKETS = Regex("[(\\[][^)\\]]*\\b($ALBUM_EDITION_WORDS)\\b[^)\\]]*[)\\]]")
 private val ALBUM_EDITION_DASH = Regex("\\s[-–]\\s(ep|single|[^-–]*\\b($ALBUM_EDITION_WORDS)\\b[^-–]*)\\s*$")
+private val ALBUM_EDITION_COLON = Regex(":\\s[^:]*\\b($ALBUM_EDITION_WORDS)\\b[^:]*$")
+// (only after another word: an album called "Deluxe" stays itself)
+private val ALBUM_EDITION_END_ANY by lazy { Regex(ALBUM_EDITION_END.pattern, RegexOption.IGNORE_CASE) }
+private val ALBUM_EDITION_END = Regex("(?<=\\S)\\s+((\\d+(st|nd|rd|th)|\\d+\\s?year|super|tour|platinum|gold|expanded|special|complete|collector'?s?)\\s+)*" +
+    "(deluxe|expanded|anniversary|remaster(ed)?|special|complete|platinum|collector'?s?|reissue)(\\s+(edition|version|reissue|remaster(ed)?))?\\s*$")
 
 /** Artists credited in a title: "Song (feat. A & B)" -> {a, b}. */
 fun featured(title: String): Set<String> {
@@ -160,13 +169,16 @@ fun similar(a: String, b: String): Double {
 }
 
 private val EDITION_END = Regex("\\s*(?:[(\\[]\\s*([^)\\]]{1,60}?)\\s*[)\\]]|\\s[-–:]\\s*([^-–:()\\[\\]]{1,60}?))\\s*$")
-private val EDITION_WORDS = Regex("^(?:the\\s+)?(?:[\\w']+\\s+){0,2}(?:deluxe|extended|anniversary|edition|expanded)(?:\\s+[\\w']+){0,2}$", RegexOption.IGNORE_CASE)   // "Full Moon Edition": any edition
+private val EDITION_WORDS = Regex("^(?:the\\s+)?(?:[\\w']+\\s+){0,2}(?:deluxe|extended|anniversary|edition|expanded|remaster(?:ed)?|reissue)(?:\\s+[\\w']+){0,2}$", RegexOption.IGNORE_CASE)   // "Full Moon Edition": any edition
 private val SESSIONS = Regex("\\bsessions?\\b", RegexOption.IGNORE_CASE)
 
 /** (the album's name without its edition, the edition) — ("Persona", "Extended") — or (album, ""). */
 fun albumEdition(album: String): Pair<String, String> {
     val a = album.trim()
-    val m = EDITION_END.find(a) ?: return a to ""
+    // (one at its very end, no brackets or dash: "Night Visions Deluxe Edition" is Night Visions, "Deluxe Edition")
+    val m = EDITION_END.find(a) ?: return ALBUM_EDITION_END_ANY.find(a)?.let { e ->
+        val base = a.substring(0, e.range.first).trim().trimEnd(':', '-', '–').trim()
+        if (base.isNotEmpty()) base to e.value.trim() else null } ?: (a to "")
     val inner = (m.groupValues[1].ifEmpty { m.groupValues[2] }).trim()
     val base = a.substring(0, m.range.first).trim()
     return if (EDITION_WORDS.matches(inner) && !SESSIONS.containsMatchIn(inner) && base.isNotEmpty()) base to inner else a to ""
