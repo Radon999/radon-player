@@ -1117,16 +1117,21 @@ private fun habitSlides(p: Wrapped.Period): List<Slide> {
              else "You know when to move on.", style = W.sub)
         Stats(listOf(n(h.skips) to "skips", n(h.full) to "songs heard out", n(h.neverCount) to "never skipped", n(h.favsTotal) to "favorites"))
     }
-    if (h.never.isNotEmpty()) out += Slide(6) {
-        val (t, f) = h.never[0]
+    // Least skipped (it was Never skipped: few songs, as some aren't right for the mood now and then): the ones you hardly
+    // ever skip, the never-skipped first, then the ones skipped only now and then
+    if (h.least.isNotEmpty()) out += Slide(6) {
+        val (t, sk, f) = h.least[0]
         // (songs that aren't yours came with no picture: looked up as Most played's are, each shown as it is found)
-        LaunchedEffect(Unit) { TopArt.lookUp { h.never.map { it.first } } }
+        LaunchedEffect(Unit) { TopArt.lookUp { h.least.map { it.first } } }
         val found = TopArt.tick
-        Text("NEVER SKIPPED", style = W.kicker)
-        // (a top 15 now: the first one's line is one short line, so the whole list fits)
-        Text("“${t.title}” by ${t.artist}: heard to the end $f times, not skipped once", style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Ranked(h.never.map { Triple(it.first.title, it.first.artist, it.second) }, h.never.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true, hide = "song")
-        Text("Times heard to the end", style = W.small)
+        Text("LEAST SKIPPED", style = W.kicker)
+        // (a top 15: the first one's line is one short line, so the whole list fits)
+        Text("“${t.title}” by ${t.artist}: heard to the end $f times, " + if (sk == 0) "not skipped once" else "skipped only ${if (sk == 1) "once" else "$sk times"}",
+            style = W.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // each one's share heard to the end (100: never skipped), its bar the same
+        Ranked(h.least.map { (s, k, f) -> Triple(s.title, s.artist, Math.round((1 - org.omarchy.music.SongStats.rate(k, f)) * 100).toInt()) },
+            h.least.map { if (found >= 0) trackPic(TopArt.withCover(it.first)) else null }, meter = true, hide = "song")
+        Text("% of plays heard to the end (100: never skipped)", style = W.small)
     }
     if (h.mostSkipped.isNotEmpty()) out += Slide(4) {
         val (t, k) = h.mostSkipped[0]

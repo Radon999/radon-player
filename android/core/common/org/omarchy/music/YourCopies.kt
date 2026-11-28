@@ -196,10 +196,27 @@ object YourCopies {
 
     /** Of your copies of a song, the one on the album asked for, then the best file (FLAC first). */
     private fun bestCopy(copies: List<Track>, album: String): Track {
-        val want = norm(cleanTitle(album))
+        if (copies.size == 1) return copies[0]
         val rank = mapOf("flac" to 0, "wav" to 1, "alac" to 1, "m4a" to 2, "aac" to 2, "ogg" to 3, "opus" to 3, "mp3" to 4)
-        return copies.minWith(compareBy<Track>({ !(want.isNotEmpty() && norm(cleanTitle(it.album)) == want) },
-            { rank[lib.items[it.id]?.format ?: it.file?.substringAfterLast('.')?.lowercase()] ?: 5 }))
+        // The copy on the album asked for: its editions as one, and "It's Time (EP Sessions)" fitting "It's Time Sessions"
+        // (it was the very same name only: else the best file of any album, so the other song of one name, Evolve's
+        // "Yesterday", took the place of the sessions' one in your lists, with its plays)
+        val want = PlaysApart.albumKey(album)
+        val c = copies[0]
+        val versions = PlaysApart.split[Stats.statsKey(c.title, c.artist)]
+        // the album named as one of the versions counted (PlaysApart), else no album: the main one (played most)
+        val aim = (if (versions != null) PlaysApart.versionOf(album, versions) else null) ?: if (want.isEmpty()) versions?.get(0)?.get(0) else null
+        fun fit(t: Track): Int {
+            val a = PlaysApart.albumKey(t.album)
+            return when {
+                a.isEmpty() -> 3
+                aim != null && versions?.firstOrNull { it[0] == aim }?.contains(a) == true -> 0
+                want.isNotEmpty() && a == want -> 0
+                want.length >= 4 && a.length >= 4 && (a.contains(want) || want.contains(a)) -> 1
+                else -> 2
+            }
+        }
+        return copies.minWith(compareBy<Track>({ fit(it) }, { rank[lib.items[it.id]?.format ?: it.file?.substringAfterLast('.')?.lowercase()] ?: 5 }))
     }
 
     /** A song Last.fm (or Spotify, or Apple Music) named: your file of it when you have one (the same song name

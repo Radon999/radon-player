@@ -244,8 +244,10 @@ class SongStats(private val file: File) {
         if (sk + fu > 0) Triple(t, sk, fu) else null   // only what you did since then (this week, month, year)
     }
 
+    /** least: Least skipped, (song, skips, heard out): the ones you hardly ever skip, never-skipped first. */
     data class Habits(val skips: Int, val full: Int, val never: List<Pair<Track, Int>>, val neverCount: Int,
-                      val mostSkipped: List<Pair<Track, Int>>, val favsAdded: List<Track>, val favsTotal: Int)
+                      val mostSkipped: List<Pair<Track, Int>>, val favsAdded: List<Track>, val favsTotal: Int,
+                      val least: List<Triple<Track, Int, Int>> = emptyList())
 
     /** For Wrapped: how you took songs between start and end (seconds). hidden: songs left out (hidden from stats), so
      *  the next ones take their places in the lists. */
@@ -257,13 +259,19 @@ class SongStats(private val file: File) {
             if (sk + fu > 0) Triple(t, sk, fu) else null
         }
         val never = rows.filter { it.second == 0 && it.third >= 2 }.sortedByDescending { it.third }
+        // Least skipped: heard to the end LEAST_HEARD times or more, by how seldom you skip it (the never-skipped first),
+        // then the ones heard out most. Never skipped alone left out the songs that are nearly always right
+        val least = rows.filter { it.third >= LEAST_HEARD }
+            .sortedWith(compareBy<Triple<Track, Int, Int>> { rate(it.second, it.third) }.thenByDescending { it.third }.thenBy { it.second })
         val most = rows.filter { it.second > 0 }.sortedWith(compareByDescending<Triple<Track, Int, Int>> { it.second }.thenBy { it.third })
         return Habits(rows.sumOf { it.second }, rows.sumOf { it.third }, never.take(15).map { it.first to it.third }, never.size,
-            most.take(15).map { it.first to it.second }, favorites?.addedBetween(start, end) ?: emptyList(), favorites?.size ?: 0)
+            most.take(15).map { it.first to it.second }, favorites?.addedBetween(start, end) ?: emptyList(), favorites?.size ?: 0,
+            least.take(15))
     }
 
     companion object {
         const val SKIP_LEFT = 15   // seconds left: more than this, and going on was a skip
+        const val LEAST_HEARD = 3  // heard to the end this many times, a song can be one of your least skipped
         fun rate(skips: Int, full: Int) = if (skips + full > 0) skips.toDouble() / (skips + full) else 0.0
     }
 }
