@@ -670,7 +670,6 @@ object Music {
     fun shownQueue() = if (Remote.active) Remote.status.queue else queue
     fun shownIndex() = if (Remote.active) Remote.status.index else index
     fun shownTrack() = if (Remote.active) Remote.status.track else current()
-    fun shownRadio() = if (Remote.active) Remote.status.radio else isRadio()
     fun livePosition(): Double = if (Remote.active) Remote.livePosition() else player?.let { it.positionMs / 1000.0 } ?: position
 
     /** Play tracks[i], then the rest of tracks; the songs you queued come first. */

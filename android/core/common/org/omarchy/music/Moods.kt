@@ -323,11 +323,11 @@ object Moods {
     /** How far the scans have got: songs with a mood that's read (heard, or yours, or in the file, or from a backup),
      *  songs heard whole (Full scan), and how many songs there are; songs whose file has a MOOD tag; songs whose files
      *  haven't been looked at yet; songs whose words have been read (and of them, in the file), and songs with no words
-     *  found (instrumentals count as read); songs whose words were read by the older word reader (read again next time),
-     *  and songs whose words were read on this device (not by the AI). */
+     *  found (instrumentals count as read); and songs whose words were read on
+     *  this device (not by the AI). */
     data class Counts(val done: Int, val full: Int, val total: Int, val inFiles: Int = 0, val unlooked: Int = 0,
                       val words: Int = 0, val wordsInFiles: Int = 0, val noWords: Int = 0,
-                      val wordsOld: Int = 0, val wordsOnDevice: Int = 0)
+                      val wordsOnDevice: Int = 0)
 
     fun counts(): Counts {
         load()
@@ -341,7 +341,6 @@ object Moods {
                 paths.count { known[it]?.lyr?.isNotEmpty() == true },
                 paths.count { known[it]?.lyrInFile == true },
                 paths.count { known[it]?.let { e -> e.lyr.isEmpty() && e.lyrTried > 0 } == true },
-                paths.count { known[it]?.lyr?.let { l -> LyricsReading.parse(l)?.outdated } == true },
                 paths.count { known[it]?.lyr?.let { l -> LyricsReading.parse(l)?.let { r -> !r.instrumental && r.by != "ai" } } == true })
         }
     }

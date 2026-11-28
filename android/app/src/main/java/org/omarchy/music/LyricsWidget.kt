@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.RelativeSizeSpan

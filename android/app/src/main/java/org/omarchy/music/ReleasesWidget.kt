@@ -7,7 +7,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
