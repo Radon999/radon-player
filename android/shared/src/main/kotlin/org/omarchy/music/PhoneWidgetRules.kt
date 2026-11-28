@@ -92,9 +92,10 @@ object PhoneWidgetRules {
 
     // ---- the Visualizer widget ----
 
-    /** About 24 frames a second: as smooth as film (8 a second, as it was, looked choppy). It only runs on the home
-     *  screen while music plays, and rests after [VIZ_RUN_MS]. */
-    const val VIZ_FRAME_MS = 42L
+    /** About 30 frames a second: as smooth as video (8 a second, as it was, looked choppy), and as near the app's own
+     *  rate as a home screen widget gets: each frame is a picture handed to the home screen, which drops or delays
+     *  them past this. It only runs on the home screen while music plays, and rests after [VIZ_RUN_MS]. */
+    const val VIZ_FRAME_MS = 33L
     const val VIZ_BARS = 24
     /** The longest the bars move at a time (ms): Android can't tell an app whether the home screen itself is showing
      *  (another app may be in front with the phone unlocked), so after this they rest until the screen, the music or the

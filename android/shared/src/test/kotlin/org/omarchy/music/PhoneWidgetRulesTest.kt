@@ -93,7 +93,7 @@ class PhoneWidgetRulesTest {
         assertTrue("screen off", !R.vizLive(true, false, false, true))
         assertTrue("the app in front", !R.vizLive(true, true, true, true))
         assertTrue("paused", !R.vizLive(true, true, false, false))
-        assertTrue("about 24 frames a second: smooth, and no more than that", 1000 / R.VIZ_FRAME_MS in 20..25)
+        assertTrue("about 30 frames a second: smooth, and no more than a home screen takes", 1000 / R.VIZ_FRAME_MS in 24..31)
     }
 
     @Test fun eachBarIsTheLoudestOfItsBands() {
