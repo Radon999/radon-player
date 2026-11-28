@@ -1074,37 +1074,6 @@ fun QueueUndo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun QueueTab(ui: Ui) {
-    val q = Music.shownQueue()
-    val idx = Music.shownIndex()
-    PlaceColumn(Modifier.fillMaxSize()) {
-        if (!Remote.active) item { QueueHeader(ui) }
-        if (Music.queueUndoLabel.isNotEmpty() || Remote.active) item("undo") { QueueUndo() }
-        if (q.isEmpty() || idx < 0) { item { Empty("Nothing queued", if (Remote.active) "Nothing is playing on the desktop. Play a song here and it plays there." else "Play a song, or $LONG_PRESS one and pick Add to the queue.") }; return@PlaceColumn }
-        if (djQueueOn()) item("djnote") { DjQueueNote(modifier = Modifier.padding(horizontal = 12.dp)) }
-        item { Section("NOW PLAYING") }
-        item { TrackRow(q[idx], RowPlace(q, idx, "queue", queueIndex = idx), ui, djKindOf(q[idx])) { } }
-        val rest = (idx + 1 until q.size).toList()
-        val mine = rest.filter { q[it].queued }
-        val next = rest.filter { !q[it].queued }
-        if (mine.isNotEmpty()) {
-            item { Section("QUEUED BY YOU") }
-            items(mine.size, key = { "q${mine[it]}" }) { j ->
-                val i = mine[j]
-                TrackRow(q[i], RowPlace(q, i, "queue", queueIndex = i), ui) { Music.playIndex(i) }
-            }
-        }
-        if (next.isNotEmpty()) {
-            item { Section(if (Music.shownRadio()) "UP NEXT · RADIO" else if (Music.shownDj().on) "UP NEXT · DJ" else "UP NEXT") }
-            items(next.size, key = { "n${next[it]}" }) { j ->
-                val i = next[j]
-                TrackRow(q[i], RowPlace(q, i, "queue", queueIndex = i), ui, if (djQueueOn()) djKindOf(q[i]) else "") { Music.playIndex(i) }
-            }
-        }
-    }
-}
-
-@Composable
 fun PageScreen(ui: Ui, page: Ui.Page) {
     when (page) {
         is Ui.Page.Artist -> ArtistPage(ui, page)

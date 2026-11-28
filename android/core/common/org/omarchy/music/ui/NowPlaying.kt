@@ -825,7 +825,8 @@ private fun QueuePane(ui: Ui, n: Now) {
         LazyColumn(Modifier.fillMaxSize(), state = list) {
             // The DJ's queue: what it said, the category and its stat, as on the DJ tab
             if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
-            if (!n.remote && Music.queueUndoLabel.isNotEmpty()) item("undo") { QueueUndo() }
+            // Undo (the PC's queue too, from the phone that's its remote: as Up next & queues had it)
+            if (Music.queueUndoLabel.isNotEmpty() || n.remote) item("undo") { QueueUndo() }
             if (queued.isNotEmpty()) {
                 item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
                 itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
@@ -840,7 +841,17 @@ private fun QueuePane(ui: Ui, n: Now) {
             }
             itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             if (!n.remote && Music.queues.isNotEmpty()) {
-                item("yh") { QHead("Your queues", null, "Remove all others") { ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } } }
+                item("yh") { QHead("Your queues", "${Music.queues.size + 1} queues: tap one to switch", "Remove all others") { ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } } }
+                // Every queue, the one playing first (as Up next & queues showed them)
+                item("ycur") {
+                    Row(Modifier.fillMaxWidth().clip(R.card).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Ico.PLAY, WHITE, 20.dp)
+                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(Music.queueName.ifEmpty { "Queue" }, style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Playing now · ${Music.index + 1} of ${Music.queue.size}", style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1)
+                        }
+                    }
+                }
                 itemsIndexed(Music.queues, key = { _, s -> "s" + s.id }) { _, s ->
                     Row(Modifier.fillMaxWidth().clip(R.card).clickable { Music.switchQueue(s.id) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {

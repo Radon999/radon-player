@@ -249,7 +249,7 @@ fun App() {
                         "flac24" -> FlacTab(ui, 24)
                         "flac32" -> FlacTab(ui, 32)
                         "type-flac", "type-mp3", "type-m4a", "type-wav", "type-ogg", "type-other" -> FileTypeTab(ui, ui.tab)
-                        "queue" -> QueueTab(ui)
+                        "queue" -> LaunchedEffect(Unit) { goTo(ui, "queue") }   // (a place kept from before 5.2.10)
                         "lyrics" -> LyricsTab(ui)
                         "visualizer" -> VisualizerTab()
                     }
@@ -336,6 +336,8 @@ internal fun Stars() {
 }
 
 fun goTo(ui: Ui, tab: String, view: String? = null) {
+    // Up next & queues is Now playing's queue now (5.2.10): a link, shortcut or button to it opens that
+    if (tab == "queue") { goTo(ui, "player"); ui.pane = "queue"; return }
     // To Now playing from somewhere: that place is kept, for Back to return to. To any other tab: there's nowhere to go back to.
     if (tab == "player" && ui.tab != "player") ui.rememberPlace() else if (tab != "player") ui.cameFrom = null
     ui.pages.clear(); ui.openMine = null; ui.openList = null; ui.openFolder = null   // what you've picked stays picked
@@ -352,7 +354,7 @@ private class Entry(val label: String, val ico: Ico, val tab: String, val view: 
 /** The menu: a few on their own at the top, then three sections that fold open, then Settings and the
  *  Equalizer (the same as the desktop's; it has a mini player there too). */
 private fun topEntries(): List<Entry> = listOf(Entry("Pinned", Ico.PIN, "music", "pinned"), Entry("Now playing", Ico.PLAY, "player"),
-    Entry("Search", Ico.SEARCH, "search"), Entry("Up next & queues", Ico.QUEUE, "queue"))
+    Entry("Search", Ico.SEARCH, "search"))   // (Up next & queues went in 5.2.10: Now playing's queue has all of it)
 
 private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
     Triple("music", "Music", buildList {
@@ -365,6 +367,7 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         add(Entry("Smart playlists", Ico.SPARKLE, "music", "smartlists"))
         add(Entry("Downloads", Ico.DOWNLOAD, "downloads"))
         add(Entry("Recently played", Ico.CLOCK, "music", "recent"))
+        add(Entry("DJ", Ico.DISC, "music", "dj"))
     }),
     // Your songs by what they are
     Triple("categories", "Categories", listOf(Entry("Genres", Ico.GENRE, "genres"), Entry("Moods", Ico.MOOD, "moods"))),
@@ -386,9 +389,9 @@ private fun sections(): List<Triple<String, String, List<Entry>>> = listOf(
         Entry("Skips", Ico.SKIP, "music", "skips"), Entry("Favorites", Ico.STAR, "music", "favorites"),
         Entry("Not favorited", Ico.STAR_LINE, "music", "unfavorited"), Entry("On repeat", Ico.REPEAT, "music", "repeat"),
         Entry("Repeats", Ico.REPEAT_ONE, "music", "repeats"), Entry("Unplayed and neglected", Ico.CLOCK, "music", "neglected"),
-        Entry("Milestones", Ico.SPARKLE, "music", "milestones"), Entry("Taste", Ico.HEART, "music", "taste"))),
-    Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"), Entry("Wrapped", Ico.SPARKLE, "wrapped"),
-        Entry("DJ", Ico.DISC, "music", "dj"),
+        Entry("Milestones", Ico.SPARKLE, "music", "milestones"), Entry("Taste", Ico.HEART, "music", "taste"),
+        Entry("Wrapped", Ico.SPARKLE, "wrapped"))),
+    Triple("utilities", "Utilities", listOf(Entry("Visualizer", Ico.VIS, "visualizer"),
         // New releases beside whose releases it looks for; your folders and unreleased songs (moved here from Music)
         Entry("New releases", Ico.SPARKLE, "music", "newreleases"), Entry("Followed artists", Ico.PERSON, "music", "followed"),
         Entry("Folders", Ico.FOLDER, "folders"), Entry("Unreleased", Ico.FOLDER, "unreleased"),
@@ -600,7 +603,7 @@ private fun titleOf(ui: Ui, page: Ui.Page?): String = when (page) {
         "flac24" -> "24-bit FLACs"
         "flac32" -> "32-bit FLACs"
         "type-flac", "type-mp3", "type-m4a", "type-wav", "type-ogg", "type-other" -> org.omarchy.music.FlacDepths.typeName(ui.tab)
-        "queue" -> "Up next"
+        "queue" -> "Now playing"
         "lyrics" -> "Lyrics"
         "visualizer" -> "Visualizer"
         // (Other device's songs is opened from Settings › Remote & sync, not from the menu)

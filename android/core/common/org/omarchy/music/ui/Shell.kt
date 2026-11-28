@@ -141,7 +141,8 @@ object UiLayouts {
         Slot("favorites", "Favorites", Ico.STAR, { it.tab == "music" && it.musicView == "favorites" }) { goTo(it, "music", "favorites") },
         Slot("top", "Most played", Ico.CHART, { it.tab == "music" && it.musicView == "top" }) { goTo(it, "music", "top") },
         Slot("recent", "Recent", Ico.CLOCK, { it.tab == "music" && it.musicView == "recent" }) { goTo(it, "music", "recent") },
-        Slot("queue", "Up next", Ico.QUEUE, { it.tab == "queue" }) { goTo(it, "queue") },
+        // (a bar's Queue button: Now playing's queue, since Up next & queues went in 5.2.10)
+        Slot("queue", "Queue", Ico.QUEUE, { it.tab == "player" && it.pane == "queue" }) { goTo(it, "queue") },
         Slot("dj", "DJ", Ico.DISC, { it.tab == "music" && it.musicView == "dj" }) { goTo(it, "music", "dj") },
         Slot("visualizer", "Visualizer", Ico.VIS, { it.tab == "visualizer" }) { goTo(it, "visualizer") },
         Slot("wrapped", "Wrapped", Ico.SPARKLE, { false }) { it.drawer = false; it.sheet = "wrapped" },
