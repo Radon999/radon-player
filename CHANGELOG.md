@@ -6,6 +6,7 @@ in this repository, so `git log` shows where every feature came from.
 
 ## 5.3.2: Show on Discord, on the phone (Android, Windows and Linux)
 - **Show on Discord on the phone (Settings › Remote & sync):** the song you're playing on your Discord profile, as on the PC (“Listening to Radon Player”, with your plays of it), wherever you are and with no computer. It works through the Discord app on the phone: install or update Discord, sign in, turn on sharing your activity in Discord's Activity Privacy, then turn the switch on here. The steps are under the switch. Radon Player never asks for your Discord sign-in. Off until you turn it on. It uses a service inside the Discord app that Discord doesn't publish for other apps, so a Discord update could stop it until Radon Player is updated.
+- **The DJ doesn't repeat songs after Switch it up:** a set it was picking ahead while you switched could share songs with the new one; it's now picked again against what's coming.
 
 ## 5.3.1: A switch for syncing album covers, and the phone's Visualizer widget taken out (Android, Windows and Linux)
 - **↓ Back works again after ↑ Top (every list, the phone and the PC):** tapping ↓ Back did nothing: the moment it was tapped both buttons went away, and they took the scroll they had just started with them.
