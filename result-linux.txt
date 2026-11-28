@@ -1,4 +1,4 @@
-commit 8e7609f8da54cfb8be4fccbc6de940095450782d · run 46082566005 · Fri Nov 27 23:41:29 UTC 2026
+commit 16ee5ebced957a072aeb1a60fd22f32afa0b4414 · run 46084716289 · Sat Nov 28 00:02:48 UTC 2026
 SHARED TESTS: 157 suites, 785 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
@@ -21,8 +21,8 @@ LINUX SCREENS: Settings' 10 sections pictured on one sheet (linux-settings.jpg)
 LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
-org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
-    java.lang.AssertionError: each looks different expected:<14> but was:<12>
+org.omarchy.music.DjFlowTest > stoppingTheDjLeavesTheMusicAsItIs FAILED
+    java.lang.AssertionError: expected:<[file-library-28, file-library-56, file-library-11, file-library-50, file-library-16, file-library-51]> but was:<[file-library-28, file-library-56, file-library-11, file-library-50, file-library-16, file-library-51, file-library-21, file-library-32, file-library-38, file-library-65, file-library-26, file-library-31]>
         at org.junit.Assert.fail(Assert.java:89)
 --
 > Task :desktop:test FAILED
@@ -33,7 +33,7 @@ org.omarchy.music.DesktopShortcutsTest > eachShortcutHasAPictureOfItsOwn FAILED
 Execution failed for task ':desktop:test'.
 > Process 'Gradle Test Executor 3' finished with non-zero exit value 134
 --
-BUILD FAILED in 5m 54s
+BUILD FAILED in 5m 24s
 59 actionable tasks: 59 executed
 --- the end of the log
 # The crash happened outside the Java Virtual Machine in native code.
@@ -64,5 +64,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 5m 54s
+BUILD FAILED in 5m 24s
 59 actionable tasks: 59 executed
