@@ -1,11 +1,11 @@
-commit 89e760ed101ece82f1bd04d81cbcc794892d9543 · run 46112456944 · Sat Nov 28 05:35:40 UTC 2026
-LINUX INSTALL-OVER: made, radon-player_5.2.12_amd64.deb, 92M, needs: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
-DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/46112456944/artifacts/15250042842
+commit 4e8491cf806491ab643ec2a5371b3e5500445656 · run 46113136627 · Sat Nov 28 05:44:21 UTC 2026
+LINUX INSTALL-OVER: made, radon-player_5.2.2_amd64.deb, 92M, needs: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
+DOWNLOAD: https://github.com/Radon999/radon-player/actions/runs/46113136627/artifacts/15250687502
 --- errors
 --- the end of the log
 > Task :desktop:jar
 > Task :desktop:packageDeb
-The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_5.2.12_amd64.deb
+The distribution is written to /home/runner/work/radon-player/radon-player/android/desktop/build/compose/binaries/main/deb/radon-player_5.2.2_amd64.deb
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -13,5 +13,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 54s
+BUILD SUCCESSFUL in 3m 34s
 15 actionable tasks: 15 executed
