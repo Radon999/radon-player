@@ -132,17 +132,27 @@ object NewReleases {
      *  by the name alone, are worked out again). */
     private fun artistId(name: String, mine: Set<String>): Long {
         val k = "2|" + norm(name)
-        ids[k]?.let { return it }
+        // (a kept "none is yours" from before 5.3 is looked at again: it could have come from one failed request, and
+        // then that artist's releases never showed again)
+        ids[k]?.takeIf { it != 0L }?.let { return it }
+        if (k in noneNow) return 0L
         val got = deezer("https://api.deezer.com/search/artist?q=${enc(name)}&limit=10")
         val same = got["data"].list.filter { bare(it["name"].str).let { b -> b.isNotEmpty() && b == bare(name) } }.take(4)
         val notMine = notMineIds()
         if (same.isEmpty()) return 0L   // not on Deezer (yet): looked for again next time
+        var unsure = false   // one's titles couldn't be read (the connection, Deezer's limit): nothing is concluded from that
         val candidates = same.map { a ->
             val id = a["id"].long ?: 0L
-            id to (if (mine.isEmpty() || same.size == 1 && mine.size < ArtistMatchRules.ENOUGH) emptySet() else titlesOf(id))
+            id to (if (mine.isEmpty() || same.size == 1 && mine.size < ArtistMatchRules.ENOUGH) emptySet()
+                else titlesOf(id) ?: emptySet<String>().also { unsure = true })
         }.filter { it.first != 0L && it.first !in notMine }   // (never one you said isn't yours)
-        return ArtistMatchRules.pick(candidates, mine).also { ids[k] = it }
+        val pick = ArtistMatchRules.pick(candidates, mine)
+        // Kept for good only when one is yours. "None is yours" is for this run only (asked again at the next start: your
+        // titles may not have been in what Deezer answered), and not even that when a request failed
+        if (pick != 0L) ids[k] = pick else { ids.remove(k); if (!unsure) noneNow += k }
+        return pick
     }
+    private val noneNow = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     /** Not my artist: the Deezer artists you said aren't the one of that name you follow (one with your name, but someone
      *  else), by id. Their releases are never shown and they're never picked for the name again; the name itself stays
@@ -167,15 +177,16 @@ object NewReleases {
         Music.toast("Hidden: that ${r.artist} isn't yours. Yours stays followed")
     }
 
-    /** (blocking) An artist's release and song titles on Deezer, made plain (as [plain]). */
-    private fun titlesOf(id: Long): Set<String> {
+    /** (blocking) An artist's release and song titles on Deezer, made plain (as [plain]); null when either couldn't be
+     *  read (an empty answer said "none of these is yours" for good). */
+    private fun titlesOf(id: Long): Set<String>? {
         val out = HashSet<String>()
-        runCatching { deezer("https://api.deezer.com/artist/$id/albums?limit=100")["data"].list.forEach { a -> a["title"].str?.let { out += plain(it) } } }
+        val a = runCatching { deezer("https://api.deezer.com/artist/$id/albums?limit=100")["data"].list.forEach { a -> a["title"].str?.let { out += plain(it) } } }
         Thread.sleep(120)
-        runCatching { deezer("https://api.deezer.com/artist/$id/top?limit=50")["data"].list.forEach { t ->
+        val b = runCatching { deezer("https://api.deezer.com/artist/$id/top?limit=50")["data"].list.forEach { t ->
             t["title"].str?.let { out += plain(it) }; t["album"]["title"].str?.let { out += plain(it) } } }
         Thread.sleep(120)
-        return out
+        return if (a.isFailure || b.isFailure) null else out
     }
 
     /** A title made plain, to tell the same release or song written two ways ("Warm (Deluxe)" = "warm"). */
@@ -264,13 +275,16 @@ object NewReleases {
             // halfway (or the daily one) has found theirs
             val names = byTaste(songsOf)
             val out = ArrayList<Release>()
+            val failed = HashSet<String>()   // the artists that couldn't be asked about (no connection, Deezer's limit)
+            var asked = 0
             for ((i, name) in names.withIndex()) {
                 if (stop) break
                 val line = "Looking at $name · ${i + 1} of ${names.size}"
                 Music.scope.launch(kotlinx.coroutines.Dispatchers.Main) { status = line }
-                val aid = runCatching { artistId(name, titles[FollowRules.key(name)].orEmpty()) }.getOrDefault(0L)
+                asked++
+                val aid = runCatching { artistId(name, titles[FollowRules.key(name)].orEmpty()) }.getOrElse { failed += FollowRules.key(name); 0L }
                 if (aid == 0L || aid in notMineIds()) continue
-                val got = runCatching { deezer("https://api.deezer.com/artist/$aid/albums?limit=100") }.getOrNull() ?: continue
+                val got = runCatching { deezer("https://api.deezer.com/artist/$aid/albums?limit=100") }.getOrNull() ?: run { failed += FollowRules.key(name); null } ?: continue
                 for (al in got["data"].list) {
                     val date = al["release_date"].str ?: ""
                     if (date >= since) out += Release(al["title"].str ?: "", name, date, kindOf(al["record_type"].str),
@@ -278,13 +292,29 @@ object NewReleases {
                 }
                 Thread.sleep(120)   // Deezer takes 50 asks every 5 seconds
             }
-            out.sortedByDescending { it.date }
-        }) { res, err ->
+            // Nobody could be asked (no connection): not a look at all, and what was found before stays
+            if (NewReleaseRules.lookFailed(asked, failed.size)) error("the connection (Deezer couldn't be reached)")
+            Triple(out.sortedByDescending { it.date }, failed as Set<String>, since)
+        }) { got, err ->
             status = null
-            if (res == null) { if (!quiet) Music.toast("Couldn't look: ${err?.message?.take(100)}"); return@bg }
-            found = res; scanned = now(); range = period
+            if (got == null) {
+                if (!quiet) Music.toast("Couldn't look: ${err?.message?.take(100)}")
+                else Prefs.setText(AUTO_AT, (System.currentTimeMillis() / 1000 - 86_400L + 3600).toString())   // the daily look: again in an hour
+                return@bg
+            }
+            val (res, failedNow, sinceNow) = got
+            // What stays of the list from before: the releases of the artists who couldn't be asked this time, and, after
+            // the daily look (a week back), the older ones of the month or year you last looked at: it had replaced them
+            val wider = quiet && (RANGES[range] ?: 0) > (RANGES[period] ?: 0)
+            val kept = NewReleaseRules.keptFromBefore(found.map { Triple(key(it), FollowRules.key(it.artist), it.date) }, res.map { key(it) }.toSet(),
+                failedNow, sinceNow, if (wider) LocalDate.now().minusDays(RANGES[range] ?: 30).toString() else null)
+            found = (res + found.filter { key(it) in kept }).distinctBy { key(it) }.sortedByDescending { it.date }
+            scanned = now(); if (!wider) range = period
             Music.bg({ save() })
-            if (quiet) announce(res) else Music.toast("${res.size} new release${if (res.size != 1) "s" else ""}")
+            // (a look you made yourself: you've seen these, so the daily look doesn't put them under the bell as new)
+            if (!quiet) Prefs.setText(SEEN, (res.map { key(it) } + Prefs.text(SEEN).split('\n').filter { it.isNotBlank() }).distinct().take(600).joinToString("\n"))
+            if (quiet) announce(res) else Music.toast("${res.size} new release${if (res.size != 1) "s" else ""}" +
+                if (failedNow.isNotEmpty()) " (${failedNow.size} artist${if (failedNow.size != 1) "s" else ""} couldn't be asked: theirs are as before)" else "")
         }
     }
 

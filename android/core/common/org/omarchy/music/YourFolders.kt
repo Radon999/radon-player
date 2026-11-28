@@ -129,6 +129,8 @@ object YourFolders {
      *  device's files (a synced playlist's, a backup's) are left to [adoptFiles]; and when many of this device's files
      *  are gone at once ([MusicFolderRules.tooManyGone]: a card out, a drive not plugged in) only the copies are linked. */
     private var goneBusy = false
+    /** The song files noted missing, with since when (this device's own: "sync_" stays here). */
+    private const val GONE_WATCH = "sync_gone_watch"
     private fun tidyGone() {
         if (goneBusy || local.files.isEmpty()) return   // your folders not read (no permission yet): nothing is called gone
         val android = platformName == "android"
@@ -141,14 +143,25 @@ object YourFolders {
         val src = sources[MusicFolderRules.streamFrom(Music.searchIn, sources["tidal"]?.signedIn == true)] ?: sources["ytm"]
         goneBusy = true
         Music.bg({
-            val gone = songs.filter { !fileHere(it) }
+            // (only where its folder, drive or card is there at all: an unplugged drive's songs aren't "gone")
+            val roots = HashMap<String, Boolean>()
+            fun connected(t: Track): Boolean {
+                val root = t.file?.let { MusicFolderRules.rootOf(it, Music.folders) } ?: return true
+                return roots.getOrPut(root) { runCatching { java.io.File(root).let { it.isDirectory && (it.list()?.isNotEmpty() == true) } }.getOrDefault(true) }
+            }
+            val gone = songs.filter { !fileHere(it) && connected(it) }
             val find = copyFinder()
             val moved = HashMap<String, Track>()
             val left = ArrayList<Track>()
             for (t in gone) find(t)?.takeIf { it.file != t.file && fileHere(it) }?.let { moved[t.id] = it } ?: left.add(t)
             val streams = HashMap<String, Track>()
             val nowhere = ArrayList<Track>()
-            if (left.isNotEmpty() && src != null && !MusicFolderRules.tooManyGone(left.size, songs.size)) for (t in left) {
+            // …and only once it has been missing for a couple of days, over a few reads of your folders (a card out for
+            // the day, a drive not on yet: nothing is made a stream or taken out of a playlist for that)
+            val (note, ripeIds) = MusicFolderRules.goneWatch(left.map { it.id }, Prefs.text(GONE_WATCH).lines().filter { it.isNotBlank() }, now().toLong())
+            Prefs.setText(GONE_WATCH, note.joinToString("\n"))
+            val ripe = left.filter { it.id in ripeIds }
+            if (ripe.isNotEmpty() && src != null && !MusicFolderRules.tooManyGone(left.size, songs.size)) for (t in ripe) {
                 if (noArtistNamed(t.artist)) { nowhere += t; continue }   // a file with no tags can't be looked for
                 // null: can't tell now (no connection): it stays, to be looked for at the next read of your folders
                 val found = runCatching { Music.matchSong(src, t.artist, withoutTrackNumber(t.title), t.duration.toInt()) }.getOrNull() ?: continue

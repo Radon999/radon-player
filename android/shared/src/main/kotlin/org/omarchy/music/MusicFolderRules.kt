@@ -5,7 +5,46 @@ package org.omarchy.music
 object MusicFolderRules {
     /** Your folders become list: each once, in order; one inside another is dropped, since the outer one has its songs. */
     fun clean(list: List<String>): List<String> =
-        list.distinct().filter { f -> list.none { it != f && f.startsWith(it) } }.sorted()
+        list.distinct().filter { f -> list.none { it != f && inside(f, it) } }.sorted()
+
+    /** Whether folder f is inside folder outer: under it, not merely beginning like it ("D:/Music FLAC" is not inside
+     *  "D:/Music": it was taken to be, and dropped without a word when added). */
+    fun inside(f: String, outer: String): Boolean {
+        val a = f.replace('\\', '/').trimEnd('/'); val b = outer.replace('\\', '/').trimEnd('/')
+        return a.startsWith("$b/")
+    }
+
+    /** The folder whose being there says a song file's place is connected: the one of your music folders it is in,
+     *  else its drive (C:/), its memory card on the phone (/storage/1234-ABCD) or its mounted drive on Linux
+     *  (/media/you/Drive, /run/media/you/Drive, /mnt/Drive); null when there's none to ask (then it counts as there). */
+    fun rootOf(file: String, folders: List<String>): String? {
+        val p = file.replace('\\', '/').removePrefix("file://")
+        if (p.startsWith("content:")) return null
+        folders.map { it.replace('\\', '/').trimEnd('/') }.filter { it.startsWith("/") || DRIVE.containsMatchIn(it) }
+            .firstOrNull { p.startsWith("$it/") }?.let { return it }
+        DRIVE.find(p)?.let { return it.value }
+        for (r in MOUNTS) r.find(p)?.let { return it.value }
+        return null
+    }
+    private val MOUNTS = listOf(Regex("^/storage/[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}"), Regex("^/run/media/[^/]+/[^/]+"), Regex("^/media/[^/]+/[^/]+"), Regex("^/mnt/[^/]+"))
+
+    /** A song file that isn't found is only made a stream or taken out of your lists once it has been missing this
+     *  long, over this many reads of your folders: a drive or a card that's out for the day costs nothing. */
+    const val GONE_FOR_S = 2 * 86_400L
+    const val GONE_CHECKS = 3
+
+    /** The files missing now, against the ones noted missing before ("id|first seen missing|times seen"): the note
+     *  to keep (only what is still missing), and the ids missing long enough to act on. */
+    fun goneWatch(missing: List<String>, noted: List<String>, now: Long): Pair<List<String>, Set<String>> {
+        val was = noted.mapNotNull { l -> l.split('|').takeIf { it.size == 3 }?.let { it[0] to ((it[1].toLongOrNull() ?: now) to (it[2].toIntOrNull() ?: 0)) } }.toMap()
+        val keep = ArrayList<String>(); val ripe = HashSet<String>()
+        for (id in missing.distinct().take(5000)) {
+            val (first, n) = was[id] ?: (now to 0)
+            keep += "$id|$first|${n + 1}"
+            if (now - first >= GONE_FOR_S && n + 1 >= GONE_CHECKS) ripe += id
+        }
+        return keep to ripe
+    }
 
     /** The id of a song that is a file of yours at this address (the PC's files are named by where they are). */
     fun fileId(file: String): String = "f" + file.hashCode().toUInt().toString(16)

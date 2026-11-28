@@ -2,6 +2,21 @@ package org.omarchy.music
 
 /** New releases found by themselves, and the wake-up timer: what is said, and when. */
 object NewReleaseRules {
+    /** A look that reached nobody (no connection): asked artists, and how many of them couldn't be asked. Half or more
+     *  failing, of at least three asked, is no look at all: nothing found before is touched, and the daily look tries
+     *  again soon. (It had counted as a look that found nothing, and emptied the list.) */
+    fun lookFailed(asked: Int, failed: Int): Boolean = asked > 0 && failed > 0 && (failed == asked || (asked >= 3 && failed * 2 >= asked))
+
+    /** After a look: which of the releases found before stay (their keys). before: (key, artist key, date). Those the
+     *  look found again are its own. Kept: the releases of the artists that couldn't be asked this time (failed), back
+     *  to since; and, when the look went less far back than the list does (the daily week against a month or a year:
+     *  widerSince, the list's own reach), the ones from before the look's reach. */
+    fun keptFromBefore(before: List<Triple<String, String, String>>, foundNow: Set<String>, failed: Set<String>,
+                       since: String, widerSince: String?): Set<String> =
+        before.filter { (k, artist, date) ->
+            k !in foundNow && ((artist in failed && date >= (widerSince ?: since)) || (widerSince != null && date < since && date >= widerSince))
+        }.mapTo(HashSet()) { it.first }
+
     /** Where a new release plays from, said (where: "tidal", "ytm", "none", or null before it's looked up). */
     fun whereLabel(where: String?): String = when (where) {
         "tidal" -> "Tidal"
