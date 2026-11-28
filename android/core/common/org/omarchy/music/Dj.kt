@@ -518,6 +518,21 @@ object Dj {
 
     private fun daysText(d: Int) = if (d == 1) "a day" else "$d days"
 
+    /** When you first played a song, and how often since, for "you found it N days ago, played M times since" and "you
+     *  first played it back in…": (the first play, the plays from then on), or null when it can't be said. The first
+     *  play is told from the plays that have a time. A song with more plays than those has older ones with no date (an
+     *  import's totals): it wasn't found then, so nothing is said of when (before: "found 5 days ago, played 300 times
+     *  since", the 300 being every play it ever had). The plays since are the dated ones, on its own album where two
+     *  songs share its name, with the plays here not added up yet. */
+    private fun firstAndSince(taste: Taste, t: Track): Pair<Long, Int>? {
+        val f = taste.facts
+        val k = Stats.statsKey(t.title, t.artist)
+        val first = f.first[k] ?: return null
+        val dated = f.timed[k] ?: return null
+        if ((f.count[k] ?: 0) > dated) return null
+        return first to minOf(dated + playedSince(t), saidPlays(taste, t))
+    }
+
     /** The songs you've ever played in the app (one of those is never said to be new to you, even with no Last.fm). */
     private fun playedHere(): Set<Pair<String, String>> = runCatching {
         Music.plays.items.values.filter { it.plays > 0 }.mapTo(HashSet()) { Stats.statsKey(it.track.title, it.track.artist) }
@@ -991,7 +1006,7 @@ object Dj {
                 if (unit == "hours") out["hours:$id"] = say("v-hours", "You've spent about ${hoursText(amount)} hours with ${q(s)}. That's ${num(n)} plays.", "${num(n)} plays of ${q(s)} comes to about ${hoursText(amount)} hours.", "About ${hoursText(amount)} hours of your listening is ${q(s)} alone. ${num(n)} plays.")
                 else out["minutes:$id"] = say("v-minutes", "You've played ${q(s)} ${num(n)} times, about ${amount.toInt()} minutes of it.", "${num(n)} plays of ${q(s)}, about ${amount.toInt()} minutes in all.")
             }
-            f.first[k]?.let { t ->
+            firstAndSince(taste, s)?.let { (t, n) ->   // (n here: the plays since that first one)
                 val days = ((nowS - t) / 86_400L).toInt()
                 when (FactRules.firstPlay(nowS, t, n)) {
                     "first" -> out["first:$id"] = say("v-first", "You first played ${q(s)} back in ${month(t)}.", "${q(s)} goes back to ${month(t)} for you.", "Your first play of ${q(s)} was in ${month(t)}.")
@@ -1660,7 +1675,7 @@ object Dj {
         Music.songStats.rows().firstOrNull { songKey(it.first) == songKey(t) }?.let { (_, sk, full) ->
             if (KindRules.neverSkipped(sk, full)) out["c-never:$id"] = say("v-c-never", "You've never skipped this one. ${num(full)} times, start to finish.", "${num(full)} plays of this one, and never a skip.")
         }
-        f.first[k]?.let { first ->
+        firstAndSince(taste, t)?.let { (first, n) ->   // (n here: the plays since that first one)
             val days = ((now().toLong() - first) / 86_400L).toInt()
             if (KindRules.newObsession(days, n)) out["c-crush:$id"] = say("v-c-crush", "You found this one ${daysText(days)} ago, and you've played it ${num(n)} times already.", "This one is ${daysText(days)} old for you, and already at ${num(n)} plays.")
             if (KindRules.oldFriend(days)) out["c-old:$id"] = say("v-c-old", "You first played this one back in ${month(first)}.", "This one goes back to ${month(first)} for you.")

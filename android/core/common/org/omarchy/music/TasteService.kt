@@ -28,7 +28,10 @@ object TasteService {
                 val since: Long = 0, val moodMonth: Map<String, Int> = emptyMap(), val yearPlays: Map<Int, Int> = emptyMap(),
                 val artistFirst: Map<String, Long> = emptyMap(), val monthPlays: Int = 0,
                 /** This calendar month: each artist's plays, each mood's, and the song played most (as named, its plays). */
-                val calArtist: Map<String, Int> = emptyMap(), val calMood: Map<String, Int> = emptyMap(), val calTop: Pair<Heard, Int>? = null)
+                val calArtist: Map<String, Int> = emptyMap(), val calMood: Map<String, Int> = emptyMap(), val calTop: Pair<Heard, Int>? = null,
+                /** Each song's plays that have a time (the ones [first] is told from). A song with more plays in [count]
+                 *  than here has older plays with no date (an import's totals): when it was first played isn't known. */
+                val timed: Map<Pair<String, String>, Int> = emptyMap())
 
     /** When the picture was last made (seconds): a play counted here since then isn't in its numbers yet. */
     @Volatile var builtAt = 0L
@@ -100,6 +103,7 @@ object TasteService {
         val lastFm = LastFm.connected
         fun outside(all: Int, here: Int) = TasteRules.outside(all, here, lastFm)
         if (Stats.artists.isNotEmpty()) { artistAll.clear(); Stats.artists.forEach { val n = outside(it.plays, it.here); if (n > 0) artistAll.merge(it.name, n, Int::plus) } }
+        val timed = HashMap(count)   // (before Most played's totals come in: the plays with a time)
         val statSongs = HashMap<Pair<String, String>, Int>()
         Stats.songs.forEach { statSongs.merge(Stats.statsKey(it.title, it.artist), outside(it.plays, it.here), Int::plus) }
         statSongs.forEach { (k, n) -> if (n > (count[k] ?: 0)) count[k] = n }
@@ -109,7 +113,7 @@ object TasteService {
         val yearTop = years.mapNotNull { (y, c) -> c.maxByOrNull { it.value }?.let { (k, n) -> y to (names.getValue(k) to n) } }.toMap()
         val calTop = c.calSongs.maxByOrNull { it.value }?.let { (k, n) -> names[k]?.let { it to n } }
         val facts = Facts(count, first, artistAll, artistMonth, hours, total, yearTop, if (since == Long.MAX_VALUE) 0 else since, moodMonth,
-            years.mapValues { it.value.values.sum() }, artistFirst, monthPlays, c.calArtist, c.calMood, calTop)
+            years.mapValues { it.value.values.sum() }, artistFirst, monthPlays, c.calArtist, c.calMood, calTop, timed)
         builtAt = nowS
         fun songs(c: Map<Pair<String, String>, Int>, n: Int) = c.entries.sortedByDescending { it.value }.take(n)
             .map { (k, v) -> val p = names.getValue(k); Music.fmSong(p.title, p.artist, "", mine).copy(plays = v) }
