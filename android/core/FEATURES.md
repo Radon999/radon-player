@@ -28,7 +28,7 @@ Almost everything here is a choice: where something can be switched off or chang
 ### The queue
 
 - **Yours first:** what you add comes first, then the rest of what you started. Drag to reorder.
-- **More than one queue:** switch **Queues** on (Settings › Your music) and every album, playlist and folder keeps its own queue where you left it; **Q** on Now playing lists them to jump between, and Now playing's queue shows them all under **Your queues**, at its top (the one playing first). Off, there's one queue. (Up next & queues went in 5.2.10: Now playing's queue does all it did.)
+- **More than one queue:** switch **Queues** on (Settings › Your music) and every album, playlist and folder keeps its own queue where you left it; **Q** on Now playing lists them to jump between, and Now playing's queue shows them all under **Your queues**, at its top (the one playing first), a dropdown that folds to one line. Off, there's one queue. (Up next & queues went in 5.2.10: Now playing's queue does all it did.)
 - **Undo** at its top takes back a clear, a shuffle, a move, a removal or an addition, up to ten steps, without stopping the song.
 - **Add twice, or not:** Play next and Add to queue put a song in again if it's already waiting; **Move, don't duplicate** (Settings › Playback) moves it instead.
 

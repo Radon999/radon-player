@@ -817,10 +817,16 @@ private fun QueuePane(ui: Ui, n: Now) {
         val list = rememberLazyListState()
         // (↑ Top and ↓ Back come with the list: every list has them)
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
-            if (!n.remote && Music.queues.isNotEmpty()) {
-                // First, above the songs: there are far fewer queues than songs, and switching shouldn't need a scroll
-                // to the very bottom (they had been after the last song)
-                item("yh") { QHead("Your queues", "${Music.queues.size + 1} queues: tap one to switch", "Remove all others") { ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } } }
+            // First, above the songs: there are far fewer queues than songs, and switching shouldn't need a scroll to the very
+            // bottom (they had been after the last song). A dropdown: folded to its one line until you open it (kept)
+            val queuesOpen = org.omarchy.music.Prefs.on(QUEUES_OPEN)
+            if (!n.remote && Music.queues.isNotEmpty()) item("yh") {
+                QHead("Your queues · ${Music.queues.size + 1}  " + if (queuesOpen) "▾" else "▸",
+                    if (queuesOpen) "Tap one to switch" else "Tap to see them and switch",
+                    if (queuesOpen) "Remove all others" else null, onTitle = { org.omarchy.music.Prefs.set(QUEUES_OPEN, !queuesOpen) }) {
+                    ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } }
+            }
+            if (!n.remote && Music.queues.isNotEmpty() && queuesOpen) {
                 // Every queue, the one playing first (as Up next & queues showed them)
                 item("ycur") {
                     Row(Modifier.fillMaxWidth().clip(R.card).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -871,9 +877,13 @@ private fun QueuePane(ui: Ui, n: Now) {
     }
 }
 
+/** Now playing's Your queues open (its dropdown), or folded to its line: this device's own. */
+private const val QUEUES_OPEN = "np_queues_open"
+
 @Composable
-private fun QHead(title: String, sub: String?, action: String?, onAction: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun QHead(title: String, sub: String?, action: String?, onTitle: (() -> Unit)? = null, onAction: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp).then(if (onTitle != null) Modifier.clip(R.small).clickable(onClick = onTitle) else Modifier),
+        verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = T.title.copy(shadow = LIFT, color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
             if (sub != null) Text(sub, style = T.sub.copy(shadow = LIFT, color = SOFT))
