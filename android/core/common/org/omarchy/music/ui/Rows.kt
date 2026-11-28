@@ -385,10 +385,10 @@ object ShownPlays {
             busy = true; forVersion = v; forStats = s
             Music.bg({ Music.playCounts() }) { m, _ -> busy = false; if (m != null) map = m }
         }
-        return map[org.omarchy.music.songKey(t)] ?: 0
+        return map[org.omarchy.music.PlaysApart.playKey(t)] ?: 0
     }
     /** A list's plays (a playlist's, a genre's, a folder's…): its songs' added up, each song once. */
-    fun ofAll(songs: List<Track>): Int = songs.distinctBy { org.omarchy.music.songKey(it) }.sumOf { of(it) }
+    fun ofAll(songs: List<Track>): Int = songs.distinctBy { org.omarchy.music.PlaysApart.playKey(it) }.sumOf { of(it) }
     /** "1,204 plays", or "" when none of it has been played. */
     fun allText(songs: List<Track>): String = ofAll(songs).let { n -> if (n <= 0) "" else "%,d play%s".format(n, if (n != 1) "s" else "") }
     /** "24 songs · 1,204 plays" (the plays left off when there are none). */

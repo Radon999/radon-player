@@ -55,7 +55,7 @@ fun AlbumsTab(ui: Ui, kind: String = "albums") {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Music.playCounts() }.getOrDefault(emptyMap()) }
     }
     fun playsOf(songs: List<Track>): String = if (playCounts.isEmpty()) "" else
-        songs.sumOf { playCounts[org.omarchy.music.songKey(it)] ?: 0 }.let { n -> "%,d play%s".format(n, if (n != 1) "s" else "") }
+        songs.sumOf { playCounts[org.omarchy.music.PlaysApart.playKey(it)] ?: 0 }.let { n -> "%,d play%s".format(n, if (n != 1) "s" else "") }
     // (an album's lead artist, as its page names it)
     fun leadOf(songs: List<Track>) = songs.firstOrNull()?.artist?.let { org.omarchy.music.splitArtists(it).firstOrNull() ?: it } ?: ""
     fun withPlays(al: Album, songs: List<Track>) = (listOf(al.sub, playsOf(songs)) +
@@ -676,24 +676,6 @@ fun SongsPage(ui: Ui, page: Ui.Page.Songs) {
         }
         if (periodPlays) tracks(songs, ui, page.kind) { t -> "%,d play%s".format(t.plays, if (t.plays != 1) "s" else "") }
         else tracks(songs, ui, page.kind)
-    }
-}
-
-/** Above Up next: which queue this is, and the way to your others. */
-@Composable
-fun QueueHeader(ui: Ui) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(R.card).background(C.light.copy(alpha = 0.7f))
-        .clickable { ui.showQueues = true }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Ico.QUEUE, C.accent, 20.dp)
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(Music.queueName.ifEmpty { "Queue" }, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (Music.queues.isEmpty()) "Your only queue" else "${Music.queues.size + 1} queues · $TAP to switch",
-                style = T.sub)
-        }
-        if (org.omarchy.music.Prefs.on(org.omarchy.music.Prefs.MONO) || org.omarchy.music.AutoMono.active)
-            Text("MONO", style = T.tab.copy(color = MONO_RED), modifier = Modifier.padding(end = 8.dp).clip(R.pill)
-                .background(MONO_RED.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 2.dp))
-        Icon(Ico.DOWN, C.muted, 16.dp)
     }
 }
 

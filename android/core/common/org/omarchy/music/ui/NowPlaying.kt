@@ -39,9 +39,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -207,18 +204,16 @@ private fun NowPlayingScreen(ui: Ui, lock: (() -> Unit)?) {
     // Looked at again when you come back to the app or answer the questions asked at the start (Music.resumed), so the
     // visualizer here works as soon as it is allowed, without a visit to the Visualizer tab
     var micOk by remember(Music.resumed) { mutableStateOf(hasPermission(Perm.MIC)) }
-    val askMic = rememberPermission { micOk = it }
     // (It is asked for as the app starts now, with the rest: StartupPermissions. Asking here too put two questions at once.)
     // Settings › Look: the background (the cover's colours and the cover blurred, or plain black) and the visualizer behind.
     val cover = coverLook   // the Now playing look: the cover's colours here as on every screen (words and buttons white)
     val visStyle = Vis.nowStyle()
-    val visPane = ui.pane == "nowvis"   // the visualizer's settings in the cover's place: it runs there for the previews
     val aroundOn = Around.on()   // Around the cover: the middle visualizers aren't drawn, the ones along the bottom are
-    val vis = if ((micOk || Remote.active) && (visStyle != "off" || visPane || aroundOn)) rememberVis(on = true) else null
+    val vis = if ((micOk || Remote.active) && (visStyle != "off" || aroundOn)) rememberVis(on = true) else null
     val visCol = if (cover) cols.bars else VIS_LOOK   // the look's own visualizer colour (not the words' and buttons'), or the cover's
-    val strength = nowStrength
+    val strength = Vis.nowStrength()
     // The styles around a middle (Ring, Pulse…) go over the big cover while it shows, else they'd hide behind it.
-    val coverShown = ui.pane != "queue" && ui.pane != "lyrics" && !visPane
+    val coverShown = ui.pane != "queue" && ui.pane != "lyrics"
     val onCover = vis != null && visStyle != "off" && coverShown && visStyle in Vis.OVER_COVER && !aroundOn
     // Yours with Full screen on: the whole screen, exactly as the Visualizer tab draws it, over the cover
     val fullOver = vis != null && coverShown && Vis.full(visStyle) && !(aroundOn && visStyle in Vis.CENTRED)
@@ -235,13 +230,13 @@ private fun NowPlayingScreen(ui: Ui, lock: (() -> Unit)?) {
         if (lock != null && C.stars) Stars()   // the look's stars on the lock screen too, as in the window
         if (lock != null) LookEffects(LookFx.behind(C.fx))
         // (a Dual one over the cover: its bottom style still along the bottom here)
-        if (vis != null && visStyle != "off" && !middleOff && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle)) && (!visPane || strengthPeek)) NowVis(   // not behind the visualizer settings (it hid the choices)
+        if (vis != null && visStyle != "off" && !middleOff && (!onCover || Vis.dual(visStyle)) && (!fullOver || Vis.dual(visStyle))) NowVis(
             // A Dual one's bottom style (Full screen or not) stands right on the bottom edge, as a bottom style always does
             visStyle, vis, visCol, strength, Modifier.align(Alignment.BottomCenter),
             bottomOnly = onCover || (fullOver && Vis.dual(visStyle)) || (aroundOn && Vis.dual(visStyle)))
         // Dual (picked on this screen): the bottom style along the bottom too, under the one in the middle
         val second = Vis.nowSecond()
-        if (vis != null && second != null && (!visPane || strengthPeek)) NowVis(second, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
+        if (vis != null && second != null) NowVis(second, vis, visCol, strength, Modifier.align(Alignment.BottomCenter))
         val lay = if (lock != null) UiLayouts.BUILT_IN.first() else UiLayouts.current
         // What takes the middle: the queue, the lyrics, Personalization, the visualizer's settings, or the cover and song
         // (arranged as the layout says).
@@ -268,8 +263,6 @@ private fun NowPlayingScreen(ui: Ui, lock: (() -> Unit)?) {
                             }
                         }
                     }
-                    "nowvis" -> NowVisPane(ui, vis, visCol, micOk, { askMic.launch(Perm.MIC) },
-                        if (lock == null) ({ ui.pane = "art"; goTo(ui, "visualizer") }) else null)   // the lock screen has no Visualizer tab
                     else -> Column(Modifier.fillMaxSize()) {
                         // Yours with Full screen on, made from a style around a middle: drawn from the cover itself, at the
                         // screen's size, so it always comes out of the cover's exact centre (as the built-in ones do)
@@ -303,8 +296,10 @@ private fun NowPlayingScreen(ui: Ui, lock: (() -> Unit)?) {
             } }
         val controls: @Composable () -> Unit = {
             Seek(n)
-            Transport(n, ui.pane != "queue" && ui.pane != "lyrics", volumeShown, { volumeShown = !volumeShown }, visPane) {
-                ui.pane = if (visPane) "art" else "nowvis"
+            // The visualizer button: the Visualizer tab (Now playing's own visualizer is set in Settings › Personalization;
+            // the lock screen has no Visualizer tab, so there it does nothing)
+            Transport(n, ui.pane != "queue" && ui.pane != "lyrics", volumeShown, { volumeShown = !volumeShown }) {
+                if (lock == null) { ui.pane = "art"; goTo(ui, "visualizer") }
             }
             if (volumeShown) VolumeLine()
         }
@@ -697,10 +692,10 @@ private fun QualityMark() {
 }
 
 /** Previous, play/pause, next together in the middle, plain and white; the volume at the far left (it shows or hides the
- *  volume bar) and the visualizer's settings at the far right (they open in the cover's place; visOpen: they show).
+ *  volume bar) and the visualizer at the far right (the Visualizer tab).
  *  modes (the big cover showing): Shuffle left of Previous and Repeat right of Next too, all a little smaller so they fit a phone. */
 @Composable
-private fun Transport(n: Now, modes: Boolean, volumeShown: Boolean, onVolume: () -> Unit, visOpen: Boolean, onVisualizer: () -> Unit) {
+private fun Transport(n: Now, modes: Boolean, volumeShown: Boolean, onVolume: () -> Unit, onVisualizer: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = if (modes) 6.dp else 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(Ico.SPEAKER, if (volumeShown) WHITE else SOFT, 24.dp, 12.dp, desc = if (volumeShown) "Hide the volume" else "Volume") { onVolume() }
         if (modes) BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -726,8 +721,7 @@ private fun Transport(n: Now, modes: Boolean, volumeShown: Boolean, onVolume: ()
                 IconButton(Ico.NEXT, WHITE, 34.dp * k, 10.dp * k) { Music.next() }
             }
         }
-        IconButton(Ico.VIS, if (visOpen) WHITE else SOFT, 24.dp, 12.dp,
-            desc = if (visOpen) "Close the visualizer settings" else "Visualizer settings") { onVisualizer() }
+        IconButton(Ico.VIS, SOFT, 24.dp, 12.dp, desc = "Open the Visualizer") { onVisualizer() }
     }
 }
 
@@ -821,8 +815,8 @@ private fun QueuePane(ui: Ui, n: Now) {
         val queued = (start until q.size).filter { q[it].queued }
         val rest = (start until q.size).filter { !q[it].queued }
         val list = rememberLazyListState()
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-        LazyColumn(Modifier.fillMaxSize(), state = list) {
+        // (↑ Top and ↓ Back come with the list: every list has them)
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
             // The DJ's queue: what it said, the category and its stat, as on the DJ tab
             if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
             // Undo (the PC's queue too, from the phone that's its remote: as Up next & queues had it)
@@ -871,7 +865,6 @@ private fun QueuePane(ui: Ui, n: Now) {
                 }
             }
             item("end") { Spacer(Modifier.height(12.dp)) }
-        }
         }
     }
 }
@@ -942,148 +935,6 @@ private fun QueueSong(t: Track, j: Int, ui: Ui, remote: Boolean) {
             }, contentAlignment = Alignment.Center) { Icon(Ico.GRIP, WHITE.copy(alpha = 0.4f), 20.dp) }
         }
         TrackMenu(t, RowPlace(Music.shownQueue(), j, kind = "queue", queueIndex = j), ui, menu) { menu = false }
-    }
-}
-
-// ───────────────────────────── The visualizer's settings, in the cover's place ─────────────────────────────
-
-/** The strength while its bar is dragged (saved once let go, the PC writes its settings file on each change); null: not dragged. */
-private var strengthDrag by mutableStateOf<Float?>(null)
-/** Now playing visualizer's strength now: the one being dragged, else the saved one. */
-private val nowStrength: Float get() = strengthDrag ?: Vis.nowStrength()
-/** Moving the strength bar: the styles hide so only the visualizer shows, back a second after the bar last moved. */
-private var strengthPeek by mutableStateOf(false)
-private var strengthMoves by mutableStateOf(0)
-
-/** Now playing's visualizer, changed right here: every style with a small live preview, its colour, its strength. Saved to
- *  the same settings as Settings › Look › Now playing visualizer, and it shows straight away behind or over the cover.
- *  s: the music's levels (null: not allowed yet; askMic asks). openFull: to the big Visualizer tab (null: on the lock screen). */
-@Composable
-private fun NowVisPane(ui: Ui, s: VisState?, col: Color, micOk: Boolean, askMic: () -> Unit, openFull: (() -> Unit)?) {
-    val style = Vis.nowStyle()
-    val colorKey = Vis.color()
-    val levels = s ?: remember { VisState() }
-    // A second after the strength bar last moved, the styles come back
-    LaunchedEffect(strengthMoves) { if (strengthPeek) { kotlinx.coroutines.delay(1000); strengthPeek = false } }
-    DisposableEffect(Unit) { onDispose { strengthPeek = false } }
-    val hide = Modifier.graphicsLayer(alpha = if (strengthPeek) 0f else 1f)   // hidden but kept in place (the bar mustn't move)
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Visualizer", style = T.title.copy(shadow = LIFT, color = WHITE, fontSize = 16.sp, fontWeight = FontWeight.Bold))
-                Text("What moves with the music on this screen", style = T.sub.copy(shadow = LIFT, color = SOFT), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Glass(Ico.CLOSE, "Close") { ui.pane = "art" }
-        }
-        if (!micOk) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(10.dp)).background(GLASS)
-            .clickable { askMic() }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("It needs to hear the music the app plays. Tap to allow it", style = T.sub.copy(shadow = LIFT, color = WHITE), modifier = Modifier.weight(1f))
-        }
-        var dual by remember { mutableStateOf(Vis.nowDual()) }
-        val bottom = if (dual) Vis.nowBottom() else ""
-        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                Text("Dual", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
-                Text(if (dual) "One in the middle and one along the bottom, both at once" else "Two at once: one in the middle, one along the bottom",
-                    style = T.sub.copy(shadow = LIFT, color = SOFT))
-            }
-            androidx.compose.material3.Switch(dual, { dual = it; Vis.setNowDual(it) }, colors = swColors())
-        }
-        val rows = (if (dual) Vis.MIDDLE_STYLES else NP_VIS_STYLES).chunked(3)
-        val bottomRows = if (dual) Vis.BOTTOM_STYLES.chunked(3) else emptyList()
-        LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-            if (dual) item("mid") { Text("In the middle", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium),
-                modifier = Modifier.padding(bottom = 6.dp).then(hide)) }
-            itemsIndexed(rows, key = { i, _ -> "r$i" }) { _, row ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { (k, label) -> VisTile(k, label, k == style, levels, col, colorKey, Modifier.weight(1f)) }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-            if (dual) item("bot") { Text("Along the bottom", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium),
-                modifier = Modifier.padding(top = 6.dp, bottom = 6.dp).then(hide)) }
-            itemsIndexed(bottomRows, key = { i, _ -> "b$i" }) { _, row ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).then(hide), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { (k, label) -> VisTile(k, label, k == bottom, levels, col, colorKey, Modifier.weight(1f), Vis.NOW_BOTTOM) }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-            item("color") {
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 6.dp).then(hide), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                        Text("Colour", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
-                        Text(if (style == "slim" || style == "off") "For the Visualizer's styles; the slim bars take the cover's colour"
-                            else if (coverLook) "Look's colour is the cover's colour here" else "Look's colour is your look's own colour", style = T.sub.copy(shadow = LIFT, color = SOFT))
-                    }
-                    VisColorPick(colorKey, col)
-                }
-            }
-            item("strength") {
-                Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                    Text("Strength", style = T.title.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium))
-                    // The bar's 0 … 1 is a strength of 0.1 … 1 (never quite invisible: Off is for that).
-                    SlimBar((nowStrength - 0.1f) / 0.9f, onMove = { strengthDrag = 0.1f + 0.9f * it; strengthPeek = true; strengthMoves++ },
-                        onDone = { Prefs.setNum(Vis.NOW_STRENGTH, 0.1f + 0.9f * it); strengthDrag = null })
-                }
-            }
-            if (openFull != null) item("full") {
-                Text("Open the full Visualizer ›", style = T.body.copy(shadow = LIFT, color = SOFT, fontWeight = FontWeight.Medium),
-                    modifier = Modifier.padding(top = 10.dp, bottom = 14.dp).clip(R.small).clickable { openFull() }
-                        .padding(horizontal = 6.dp, vertical = 4.dp))
-            } else item("end") { Spacer(Modifier.height(12.dp)) }
-        }
-    }
-}
-
-/** A style to pick: its small live preview (Off: a ✕) and its name; the one picked is lit. */
-@Composable
-private fun VisTile(key: String, label: String, on: Boolean, s: VisState, col: Color, colorKey: String, modifier: Modifier, pref: String = Vis.NOW) {
-    val shape = RoundedCornerShape(10.dp)
-    val fg = WHITE
-    Column(modifier.clip(shape).background(if (on) WHITE.copy(alpha = 0.22f) else GLASS)
-        .border(1.dp, if (on) WHITE.copy(alpha = 0.75f) else Color.Transparent, shape)
-        .clickable { Prefs.setText(pref, key) }.semantics { contentDescription = label }.padding(6.dp)) {
-        Box(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center) {
-            if (key == "off") Icon(Ico.CLOSE, SOFT, 18.dp)
-            else Canvas(Modifier.fillMaxSize()) {
-                if (s.frame < 0) return@Canvas   // read, so it's drawn again each frame
-                clipRect {
-                    if (key == "slim") drawSlim(s.levels, col, 2.5f)
-                    else drawVis(key, s, VisPalette.of(key, colorKey, col, s.phase), fg, backdrop = true)
-                }
-            }
-        }
-        Text(label, style = T.sub.copy(color = if (on) WHITE else SOFT, fontSize = 12.sp,
-            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-    }
-}
-
-/** The Visualizer's colour (the same setting as the Visualizer tab's), as a glass pill and its menu. col: Look's colour here. */
-@Composable
-private fun VisColorPick(current: String, col: Color) {
-    Box {
-        var open by remember { mutableStateOf(false) }
-        val name = VIS_COLORS.firstOrNull { it.first == current }?.second ?: VIS_COLORS.first().second
-        Row(Modifier.clip(R.pill).background(GLASS).clickable { open = true }.semantics { contentDescription = "Colour: $name" }
-            .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            val (bg, dot) = visSwatch(current, col)
-            VisColorDot(bg, dot)
-            Text("$name ▾", style = T.body.copy(shadow = LIFT, color = WHITE, fontWeight = FontWeight.Medium), maxLines = 1,
-                modifier = Modifier.padding(start = 6.dp))
-        }
-        DropdownMenu(open, { open = false }, containerColor = C.light) {
-            VIS_COLORS.forEach { (k, label) ->
-                DropdownMenuItem(text = {
-                    Text(label, style = T.body.copy(color = if (k == current) C.accent else C.fg,
-                        fontWeight = if (k == current) FontWeight.SemiBold else FontWeight.Normal))
-                }, onClick = { open = false; Prefs.setText(Vis.COLOR, k) }, leadingIcon = {
-                    val (bg, dot) = visSwatch(k, col)
-                    VisColorDot(bg, dot)
-                })
-            }
-        }
     }
 }
 
@@ -1224,7 +1075,7 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
     val aroundStyle = Around.style()
     val vis = if (visStyle != "off" || aroundStyle.isNotEmpty()) rememberVis(on = true) else null
     val visCol = if (cover) cols.bars else VIS_LOOK
-    val strength = nowStrength
+    val strength = Vis.nowStrength()
     // With Around the cover on, a middle one isn't drawn (a Dual one of yours: its bottom style still is)
     val round = (visStyle in Vis.CENTRED || Vis.full(visStyle)) && aroundStyle.isEmpty()
     val lay = UiLayouts.current
@@ -1286,7 +1137,7 @@ fun MiniNowPlaying(ui: Ui, back: () -> Unit) {
                 }
             }
             Seek(n)
-            Transport(n, pane == "art", volumeShown, { volumeShown = !volumeShown }, false) { back(); ui.pane = "nowvis" }
+            Transport(n, pane == "art", volumeShown, { volumeShown = !volumeShown }) { back(); ui.pane = "art"; goTo(ui, "visualizer") }
             if (volumeShown) VolumeLine()
             // Now playing's pill: the lyrics, the output and equalizer, and the queue (in the cover's place here)
             Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {

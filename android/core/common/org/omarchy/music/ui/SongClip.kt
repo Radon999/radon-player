@@ -139,7 +139,7 @@ internal fun cardArtist(t: Track): String {
     if (!Prefs.on(ClipRules.CARD_PLAYS, true)) return t.artist
     val now = System.currentTimeMillis()
     val counts = cardPlays?.takeIf { now - cardPlaysAt < 5_000 } ?: runCatching { Music.playCounts() }.getOrDefault(emptyMap()).also { cardPlays = it; cardPlaysAt = now }
-    val said = org.omarchy.music.RepeatLoopRules.plays(counts[org.omarchy.music.songKey(t)] ?: t.plays)
+    val said = org.omarchy.music.RepeatLoopRules.plays(counts[org.omarchy.music.PlaysApart.playKey(t)] ?: t.plays)
     return if (said.isEmpty()) t.artist else t.artist + "  ·  " + said
 }
 @Volatile private var cardPlays: Map<Pair<String, String>, Int>? = null

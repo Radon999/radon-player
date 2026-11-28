@@ -62,7 +62,7 @@ object SmartLists {
                 format = if ("format" in need) FlacDepths.badge(t.file ?: Music.lib.items[t.id]?.file) else null,
                 downloaded = Music.lib.has(t.id), myFile = t.isFile && !Music.lib.has(t.id),
                 favorite = "favorite" in need && Music.favorites.has(t),
-                plays = counts[songKey(t)] ?: 0,
+                plays = counts[PlaysApart.playKey(t)] ?: 0,
                 lastPlayed = maxOf(heard[Stats.statsKey(t.title, t.artist)] ?: 0L, here[songKey(t)] ?: 0L),
                 added = t.added, skips = skips, heardOut = full, length = t.duration,
                 folder = if ("folder" in need) Music.folderOf(t) else "",

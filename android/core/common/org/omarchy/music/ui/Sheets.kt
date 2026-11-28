@@ -1856,7 +1856,7 @@ private fun WidgetLines() {
 
 @Composable
 private fun NowPlayingLookLines() {
-    // Dual: a style in the middle and one along the bottom at once (also on Now playing's visualizer button). With it on,
+    // Dual: a style in the middle and one along the bottom at once. With it on,
     // its two pickers take the place of Now playing visualizer's one
     var dual by remember { mutableStateOf(Vis.nowDual()) }
     var around by remember { mutableStateOf(Around.style()) }
@@ -1873,7 +1873,7 @@ private fun NowPlayingLookLines() {
     }
     if (!dual) Line("Now playing visualizer", "What moves with the music on Now playing: the slim bars, nothing, or any of the " +
         "Visualizer's styles. Round ones (Circle, Ring, Particles, Pulse, Starfield, Sunburst, Galaxy, Flower, Vinyl, XY scope, Kaleidoscope, Tunnel) play in the middle of the cover, bright, the rest along the bottom. It takes the " +
-        "colour picked in the Visualizer (Look's colour is the cover's here). The button at the far right of Now playing's controls changes it there", false) {
+        "colour picked in the Visualizer (Look's colour is the cover's here). (Now playing's visualizer button opens the Visualizer tab)", false) {
         var now by remember { mutableStateOf(Vis.nowStyle()) }
         ChoicePill(Favs.sorted(Favs.VIS, NP_VIS_STYLES), now, group = { MenuGroups.vis(it) }, preview = { VisPages(it) },
             kind = Favs.VIS, menu = { k, l -> if (k == "slim" || k == "off") emptyList() else Favs.menu(Favs.VIS, k, l) }) { org.omarchy.music.Prefs.setText(Vis.NOW, it); now = it }
@@ -1897,6 +1897,18 @@ private fun NowPlayingLookLines() {
     if (dual) Line("Along the bottom", "Dual's style along the bottom of Now playing", false) {
         var bottom by remember { mutableStateOf(Vis.nowBottom()) }
         ChoicePill(Vis.BOTTOM_STYLES, bottom, group = { MenuGroups.vis(it) }, preview = { NowVisPreview(it) }) { org.omarchy.music.Prefs.setText(Vis.NOW_BOTTOM, it); bottom = it }
+    }
+    // How strongly it shows (was on Now playing's visualizer button, which opens the Visualizer tab now): 10% … 100%
+    run {
+        val pct = Math.round(Vis.nowStrength() * 100)
+        Line("Visualizer strength", "How strongly Now playing's visualizer shows, from faint to full. 50% is the usual", pct != 50) {}
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Slider(pct.toFloat(), { org.omarchy.music.Prefs.setNum(Vis.NOW_STRENGTH, Math.round(it / 5f) * 5f / 100f) }, valueRange = 10f..100f, steps = 17,
+                colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.fg.copy(alpha = 0.1f)),
+                modifier = Modifier.weight(1f))
+            Text("$pct%", style = T.time, modifier = Modifier.width(52.dp).padding(start = 8.dp))
+            if (pct != 50) Pill("50%", quiet = true) { org.omarchy.music.Prefs.setNum(Vis.NOW_STRENGTH, 0.5f) }
+        }
     }
     // Wrapped's look and the lyrics card's style, here too (they stay in Wrapped and the Lyrics card), so a preset keeps them
     Line("Wrapped style", "How Wrapped's slides look (the same as Style in Wrapped): the ready-made ones, Your look, and yours", false) {

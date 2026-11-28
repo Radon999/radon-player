@@ -66,11 +66,6 @@ object PhoneWidgetRules {
         else -> "switch"
     }
 
-    /** How many rows of rowDp fit in a widget heightDp tall once fixedDp (its head and edges) are taken, at most max:
-     *  a row that would be cut in half is left out. */
-    fun rowsThatFit(heightDp: Int, fixedDp: Int, rowDp: Int, max: Int): Int =
-        if (rowDp <= 0) max else ((heightDp - fixedDp) / rowDp).coerceIn(0, max)
-
     // ---- the New releases widget ----
 
     /** The newest n releases of all the app found (its own daily look's and the screen's Refresh…), each once (key: the

@@ -89,7 +89,7 @@ object Neglected {
         val last = HashMap(lastNow())
         runCatching { TasteService.lastHeard() }.getOrNull()?.forEach { (k, t) -> if (t > (last[k] ?: 0L)) last[k] = t }
         val seen = HashSet<Pair<String, String>>()
-        return Music.mySongs().filter { seen.add(songKey(it)) }.map { Row(it, counts[songKey(it)] ?: it.plays, last[key(it)] ?: 0L) }
+        return Music.mySongs().filter { seen.add(PlaysApart.playKey(it)) }.map { Row(it, counts[PlaysApart.playKey(it)] ?: it.plays, last[key(it)] ?: 0L) }
     }
 
     /** The chip's songs: never played (in name order), or not played for its time (the longest ago first). */

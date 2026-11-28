@@ -104,7 +104,7 @@ object Discord {
     private fun plays(t: Track): Int {
         val now = System.currentTimeMillis()
         if (playsOf.first != t.id || now - playsOf.third > 30_000)
-            playsOf = Triple(t.id, runCatching { PlaySorts.counts()[songKey(t)] ?: 0 }.getOrDefault(0), now)
+            playsOf = Triple(t.id, runCatching { PlaySorts.counts()[PlaysApart.playKey(t)] ?: 0 }.getOrDefault(0), now)
         return playsOf.second
     }
 

@@ -16,13 +16,14 @@ object PlaySorts {
         if (!sortNeedsPlays(sort)) return SortData.NONE
         val counts = runCatching { counts() }.getOrDefault(emptyMap())
         val last = if (sort.startsWith("played")) runCatching { TasteService.lastHeard() }.getOrDefault(emptyMap()) else emptyMap()
-        return SortData(plays = { counts[songKey(it)] ?: it.plays }, last = { last[Stats.statsKey(it.title, it.artist)] ?: 0L })
+        return SortData(plays = { counts[PlaysApart.playKey(it)] ?: it.plays }, last = { last[Stats.statsKey(it.title, it.artist)] ?: 0L })
     }
 
     /** song key -> how often you played it: the stats (Last.fm and Spotify too), else the plays here. */
     fun counts(): Map<Pair<String, String>, Int> = merged(
-        Music.plays.items.values.map { songKey(it.track) to it.plays },
-        Stats.songs.map { s -> songKey(Track("", title = s.title, artist = s.artist)) to s.plays })
+        Music.plays.items.values.map { PlaysApart.playKey(it.track) to it.plays },
+        // (two different songs of one name: each its own count, by its album: PlaysApart)
+        Stats.songs.map { s -> PlaysApart.key(songKey(Track("", title = s.title, artist = s.artist)), s.title, s.artist, s.album) to s.plays })
 
     /** The plays here and the stats' as one count per song: where both know a song, the higher of the two (the
      *  stats hold the plays here too, so they are not added up). */
@@ -58,7 +59,7 @@ object PlaySorts {
     fun shuffleWeight(): ((Track) -> Double)? {
         if (Neglected.mode() != RestedRules.SMART) return null
         val plays = HashMap<Pair<String, String>, Int>()
-        for (st in Stats.songs.take(20000)) plays[Stats.statsKey(st.title, st.artist)] = st.plays
+        for (st in Stats.songs.take(20000)) plays.putIfAbsent(Stats.statsKey(st.title, st.artist), st.plays)   // (most played first: a name's main song)
         val last = HashMap<Pair<String, String>, Double>()
         for (e in Music.plays.items.values) { val k = Stats.statsKey(e.track.title, e.track.artist); last[k] = maxOf(last[k] ?: 0.0, e.last) }
         // …and when you last heard it anywhere (Last.fm, your imports), from what TasteService has now: never waited for
