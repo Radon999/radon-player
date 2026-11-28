@@ -25,6 +25,7 @@ object Harness {
         Stats.init(c)
         Pictures.init(c)
         Dj.withNew = false   // only the songs given: no kind of set goes looking on a service (no network in a test)
+        DjDirector.warmAhead = false   // no first set made ahead behind a test's back (it swaps the songs the DJ plays from)
         c
     }
 

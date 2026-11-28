@@ -277,7 +277,7 @@ object UsbDirect {
     private fun begin0(rate: Int, channels: Int, srcBits: Int): Format? = synchronized(this) { runCatching {
         val dc = open() ?: return null
         val fit = dc.alts.filter { it.channels == channels && supports(dc, it, rate) }
-        if (fit.isEmpty()) { note = "Not bit-perfect for this song: ${dc.dev.productName} doesn't take ${"%g".format(rate / 1000.0)} kHz${if (channels != 2) ", $channels channels" else ""}"; endStream(); return null }
+        if (fit.isEmpty()) { note = "Not bit-perfect for this song: ${dc.dev.productName} doesn't take ${EqRules.khz(rate.toInt())} kHz${if (channels != 2) ", $channels channels" else ""}"; endStream(); return null }
         // The deepest setting: 16-bit music is just as untouched in it, and the app's volume (below full) keeps every bit
         val a = fit.maxBy { it.bits * 10 + it.subslot }
         if (dc.altNow == a && dc.rateNow == rate && stream != 0L && UsbNative.error(stream) == 0) return Format(rate, channels, a.subslot, a.bits)
@@ -359,7 +359,7 @@ object UsbDirect {
         val pktsPerSec = if (dc.hs) 8000 / (1 shl (a.interval.coerceIn(1, 4) - 1)) else 1000
         val fbScale = if (dc.hs) 1 shl (a.interval.coerceIn(1, 4) - 1) else 1
         val frameBytes = a.subslot * channels
-        if (rate.toLong() * frameBytes / pktsPerSec + frameBytes > a.maxPacket) { note = "${dc.dev.productName}'s packets are too small for ${"%g".format(rate / 1000.0)} kHz"; return null }
+        if (rate.toLong() * frameBytes / pktsPerSec + frameBytes > a.maxPacket) { note = "${dc.dev.productName}'s packets are too small for ${EqRules.khz(rate.toInt())} kHz"; return null }
         applyVolume()
         stream = UsbNative.start(c.fileDescriptor, a.ep, a.maxPacket, pktsPerSec, if (a.adaptive) 0 else a.fbEp, a.fbMax, fbScale, frameBytes, rate, STREAM_BUFFER_MS)
         if (stream == 0L) { note = "Couldn't start streaming to ${dc.dev.productName}"; return null }

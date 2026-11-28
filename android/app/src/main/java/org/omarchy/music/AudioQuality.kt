@@ -42,12 +42,12 @@ object AudioQuality {
         val pick = atRate.firstOrNull { it.format.encoding == android.media.AudioFormat.ENCODING_PCM_FLOAT }
             ?: atRate.maxByOrNull { encBits(it.format.encoding) }
         if (pick == null) {
-            val rates = all.map { it.format.sampleRate }.distinct().sorted().joinToString { "%g kHz".format(it / 1000.0) }
+            val rates = all.map { it.format.sampleRate }.distinct().sorted().joinToString { EqRules.khz(it) + " kHz" }
             runCatching { am.clearPreferredMixerAttributes(media, dac) }
-            return "Not bit-perfect for this song: ${dac.productName} takes $rates, the song is ${"%g".format(rate / 1000.0)} kHz"
+            return "Not bit-perfect for this song: ${dac.productName} takes $rates, the song is ${EqRules.khz(rate.toInt())} kHz"
         }
         val ok = runCatching { am.setPreferredMixerAttributes(media, dac, pick) }.getOrDefault(false)
-        return if (ok) "Bit-perfect: ${if (bits > 0) "$bits-bit/" else ""}${"%g".format(rate / 1000.0)} kHz straight to ${dac.productName}"
+        return if (ok) "Bit-perfect: ${if (bits > 0) "$bits-bit/" else ""}${EqRules.khz(rate.toInt())} kHz straight to ${dac.productName}"
             else "${dac.productName} turned bit-perfect down for this song"
     }
 

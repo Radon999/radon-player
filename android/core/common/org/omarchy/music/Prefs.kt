@@ -11,8 +11,9 @@ object Prefs {
     fun init(ctx: Ctx) {
         if (store != null) return
         store = PrefsStore(ctx, "radon-2").also { values.putAll(it.load()) }
-        // Loudness compensation is off for a new install now; one that had it on from the start (never switched) keeps it
-        if (values.isNotEmpty() && values[LOUDNESS] == null) set(LOUDNESS, true)
+        // (Loudness compensation starts off. Until 5.3 a line here switched it on for anyone who had settings but had never
+        // set it, to keep it for those who'd had it from the start: it also caught every new install at its second
+        // start. Everyone who had it from the start has had it written down long since.)
     }
 
     /** Switches on from the start (until you turn them off), so a new install sounds its best without a look at

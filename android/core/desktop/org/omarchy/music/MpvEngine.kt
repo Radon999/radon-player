@@ -121,7 +121,10 @@ class MpvEngine(private val main: Boolean = true) : Engine {
                     "eof-reached" -> eof = (d as? JsonPrimitive)?.booleanOrNull ?: false
                     "path" -> path = (d as? JsonPrimitive)?.takeIf { it.isString }?.content
                     "audio-params" -> (d as? JsonObject)?.let { a ->
+                        val rateWas = rate
                         rate = a["samplerate"]?.jsonPrimitive?.intOrNull ?: 0
+                        // (a song at another sample rate: the EQ's bands that fit under half of it, worked out again)
+                        if (rate != rateWas && (rate in 1..44_000 || rateWas in 1..44_000)) runCatching { applyGraph(graph()) }
                         val fmt = a["format"]?.jsonPrimitive?.content ?: ""
                         // The file's own depth, not what mpv decoded it into (a 24-bit FLAC comes out as 32-bit numbers,
                         // and was shown as "32-bit"; MP3 and AAC come out as floating point, which is no depth at all)
@@ -281,7 +284,11 @@ class MpvEngine(private val main: Boolean = true) : Engine {
         if (s.on) {
             val fs = Eq.filters(s)
             parts += "volume=volume=${"%.2f".format(java.util.Locale.US, Eq.preamp(fs) + gain)}dB:precision=double"
-            for (f in fs) if (f.gain != 0.0) parts += when (f.kind) {
+            // (a band at or above half the song's sample rate is no filter at all: a 16 kHz band on a 22 kHz file made
+            // ffmpeg refuse the whole chain. The phone keeps them under it, EqRules.safeHz; here the ones that can't be
+            // are left out for that song)
+            val top = rate.let { if (it > 0) it * 0.45 else Double.MAX_VALUE }
+            for (f in fs) if (f.gain != 0.0 && f.hz < top) parts += when (f.kind) {
                 "ls" -> "lowshelf=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"
                 "hs" -> "highshelf=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"
                 else -> "equalizer=f=${f.hz}:t=q:w=${f.q}:g=${f.gain}"

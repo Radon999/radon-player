@@ -227,7 +227,14 @@ object Instance {
         }
         val words = args.filter { !it.startsWith("--") }
         val files = words.mapNotNull { a -> Music.local.trackOf(a.removePrefix("file://")) }
-        if (files.isNotEmpty()) { Music.playList(files); show(); return }
+        if (files.isNotEmpty()) {
+            // "queue FILE" and "next FILE" add them, as the help says (they played at once, in place of the queue)
+            when (words.firstOrNull()?.lowercase()) {
+                "queue", "add" -> { Music.enqueue(files, "queue"); return }
+                "next" -> { Music.enqueue(files, "next"); return }
+            }
+            Music.playList(files); show(); return
+        }
         val verb = words.firstOrNull()?.lowercase()
         val rest = words.drop(1).joinToString(" ").trim()
         when (verb) {

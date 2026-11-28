@@ -148,6 +148,11 @@ object DjDirector {
     }
 
     private fun djBegin(res: Dj.Built, src: Dj.From?) {
+        Prefs.setText(DJ_USED, (System.currentTimeMillis() / 1000).toString())
+        // A new run of the DJ, its sets numbered from one again: what it said in the middle of the last run's sets is
+        // forgotten (kept, set 1, 2, 3… of every later run never got a remark: on the phone, where the app lives for
+        // days, the early sets of each session went silent)
+        djCommented.clear(); djComments.clear()
         dj = Dj.State(from = src)
         playFrom(djTag(res), 0, radio = false)
         dj = dj.copy(on = true)
@@ -191,7 +196,17 @@ object DjDirector {
     private const val FIRST_FRESH = 30 * 60.0   // a first set made ahead is good for half an hour
 
     /** Make the first set ahead (when the DJ is off and there's none fresh): from where it played from last. */
+    /** Whether the first set is made ahead at all: off in the tests but the one about it (made ahead three seconds after
+     *  any stop, it put your whole library in place of the songs another test had given the DJ: a mood set then found
+     *  none of its songs, and that test failed now and then). */
+    @Volatile var warmAhead = true
+    /** When the DJ was last started (this device's own): the first set is only made ahead, every ten minutes the app is
+     *  open, for someone who uses the DJ. It was made (radio look-ups, the voice's line and all) for everyone. */
+    private const val DJ_USED = "sync_dj_used_at"
+    private fun usedLately() = (System.currentTimeMillis() / 1000 - (Prefs.text(DJ_USED).toLongOrNull() ?: 0L)) < 21 * 86_400L
+
     fun djWarm() {
+        if (!warmAhead || !usedLately()) return
         if (dj.on || Remote.active || djBusy != null || djWarming) return
         if (djFirst?.let { now() - it.at < FIRST_FRESH - 120 && it.withNew == djNew } == true) return
         val src = DJ_LIBRARY

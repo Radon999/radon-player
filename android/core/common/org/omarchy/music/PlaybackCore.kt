@@ -918,7 +918,7 @@ object PlaybackCore {
      *  when it doesn't are [CrossfadeRules]'; this is the doing of it. */
     private fun maybeCrossfade(p: Engine) {
         val t = current()
-        if (t == null || CrossfadeRules.unavailable(Prefs.on(Prefs.CROSSFADE), Music.bitPerfect, repeat == "one", Remote.active, Music.cast != null, streaming, djSide.musicDucked)) {
+        if (t == null || CrossfadeRules.unavailable(Prefs.on(Prefs.CROSSFADE), Music.bitPerfectNow(), repeat == "one", Remote.active, Music.cast != null, streaming, djSide.musicDucked)) {
             if (tail != null && tailFor != fadingId) dropTail()
             return
         }

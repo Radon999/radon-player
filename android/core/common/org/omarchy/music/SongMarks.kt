@@ -59,7 +59,7 @@ object SongMarks {
     internal fun gainOf(t: Track) = Math.pow(10.0, gainNow(t) / 20)
 
     /** The speed and pitch t plays at: its own (Speed...), or as it is in bit-perfect. */
-    internal fun playback(t: Track): Pair<Float, Float> = if (Music.bitPerfect) 1f to 1f else Music.speeds.get(t).let { s ->
+    internal fun playback(t: Track): Pair<Float, Float> = if (Music.bitPerfectNow()) 1f to 1f else Music.speeds.get(t).let { s ->
         s.speed.toFloat() to (if (s.pitch) s.speed.toFloat() else 1f)
     }
 

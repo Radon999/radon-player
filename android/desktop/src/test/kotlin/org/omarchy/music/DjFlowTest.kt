@@ -119,6 +119,7 @@ class DjFlowTest {
         val morning = java.time.LocalDateTime.of(2026, 11, 11, 9, 0)
         Dj.clock = { morning }
         try {
+            DjDirector.warmAhead = true   // (this test is about the set made ahead)
             startDj()
             Harness.ui { Music.djStop() }   // three seconds later the next first set is made ahead
             Thread.sleep(5000)
@@ -131,7 +132,7 @@ class DjFlowTest {
                 Regex("morning|rise and shine", RegexOption.IGNORE_CASE).containsMatchIn(line))
             assertTrue("it greets with the afternoon: $line", line.contains("afternoon", ignoreCase = true))
             assertTrue("and still introduces its set: $line", line.length > 60)
-        } finally { Dj.clock = { java.time.LocalDateTime.now() } }
+        } finally { Dj.clock = { java.time.LocalDateTime.now() }; DjDirector.warmAhead = false }
     }
 
     /** A set that plays has had its kind's turn: starting the DJ writes its first set's kind to the history. */

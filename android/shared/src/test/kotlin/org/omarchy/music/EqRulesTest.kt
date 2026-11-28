@@ -23,4 +23,16 @@ class EqRulesTest {
         assertEquals(50.0, EqRules.safeQ(900.0), 0.0)
         assertEquals(0.71, EqRules.safeQ(Double.NaN), 0.0)
     }
+
+    @Test fun aCarIsACarWordOfItsOwn() {
+        for (n in listOf("Ford SYNC", "My Car", "Audi MMI 1234", "Toyota Camry", "CAR-BT", "Android Auto", "VW Radio"))
+            org.junit.Assert.assertTrue(n, EqRules.carName(n))
+        for (n in listOf("Audio-Technica ATH-M50xBT", "Nokia Earbuds", "Oscar's Buds", "JBL Audio", "Scarlett", "Fordham Speaker", "Automatic Pods"))
+            org.junit.Assert.assertFalse(n, EqRules.carName(n))
+    }
+
+    @Test fun sampleRatesSaidPlainly() {
+        org.junit.Assert.assertEquals("44.1", EqRules.khz(44100)); org.junit.Assert.assertEquals("96", EqRules.khz(96000))
+        org.junit.Assert.assertEquals("88.2", EqRules.khz(88200))
+    }
 }

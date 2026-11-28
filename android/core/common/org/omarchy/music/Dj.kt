@@ -1818,7 +1818,7 @@ object Dj {
         life.planned(id)
         try {
         for (k in tries) {
-            val sc = scope
+            val sc = sc0   // (the songs it plays from, as they were when the set was begun: read again at each kind, a change half-way mixed two)
             val built = if (k.startsWith("mood:")) setMoodMix(taste, sc?.second, k.removePrefix("mood:"))   // the mood's songs, known and new
             else if (sc != null && k in FROM_KINDS) fromSet(k, taste, coming)
             else if (sc != null) {

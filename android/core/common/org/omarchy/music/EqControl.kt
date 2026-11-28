@@ -128,11 +128,20 @@ object EqControl {
     /** The playing song's own EQ on this output (Custom EQ…), if it has one: then it's what's heard. */
     fun songEqNow(t: Track? = Music.current()): OutputEq? = t?.let { if (Music.songEqsReady) Music.songEqs.get(it, Music.outputNow.key) else null }
 
+    /** The EQ that's heard: the one of the output that is playing. With another output's EQ open in the Equalizer to be
+     *  set up (the car's, from the sofa), that is the playing output's own, as kept: the sheet says "these settings
+     *  switch in when the sound goes here", and the sound changed on the earbuds as the car's bands were dragged. */
+    fun heardEq(e: EqSettings, playing: String): EqSettings {
+        if (playing.isEmpty() || e.output.isEmpty() || e.output == playing) return e
+        val kept = e.outputs[playing] ?: return e
+        return e.withOutput(playing, kept)
+    }
+
     /** What the EQ plays, given to the player's processing ([played]). */
     fun apply() {
         val s = songEqNow()
         Music.songEqActive = s != null
-        Music.eqProcessor.update(played(Music.eq, s, dualVolume(), Music.eqProcessor.songGain != 1.0))
+        Music.eqProcessor.update(played(heardEq(Music.eq, Music.outputNow.key), s, dualVolume(), Music.eqProcessor.songGain != 1.0))
     }
 
     /** Dual volume (Equalizer): on, the Boost and a song's own volume go together; off, a song with its own volume
