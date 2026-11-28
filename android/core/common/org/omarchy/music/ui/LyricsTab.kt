@@ -56,11 +56,16 @@ fun LyricsTab(ui: Ui) {
     var got by remember { mutableStateOf<Lyrics.Got?>(null) }
     var state by remember { mutableStateOf("") }   // "", "loading", "none", or an error
     var refresh by remember { mutableStateOf(0) }
+    // Only Try again looks on the web afresh. Read again after you save an edit (or time them again, or remove them), the
+    // lyrics are what's kept: yours, the file's. (Any of those sent this song, and every song after it until the tab was
+    // left, to the web: your edit looked lost, and songs with lyrics in their files showed none offline.)
+    var fromWeb by remember { mutableStateOf(false) }
     LaunchedEffect(t?.id, refresh) {
         got = null
         if (t == null) return@LaunchedEffect
         state = "loading"
-        val again = refresh > 0
+        val again = fromWeb
+        fromWeb = false
         Music.bg({ Lyrics.get(Music.ctx, t, again) }) { g, err ->
             if (Music.shownTrack()?.id != t.id) return@bg
             got = g
@@ -82,7 +87,7 @@ fun LyricsTab(ui: Ui) {
         state.isNotEmpty() || got == null -> {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Empty("Couldn't get the lyrics", state)
-                Pill("Try again") { refresh++ }
+                Pill("Try again") { fromWeb = true; refresh++ }
             }
             return
         }

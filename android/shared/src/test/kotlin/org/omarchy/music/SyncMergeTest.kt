@@ -26,6 +26,22 @@ class SyncMergeTest {
         assertTrue(SyncRules.prefSyncs("new_releases_favorites"))
     }
 
+    @Test fun aSyncWhoseAnswerNeverArrivedLosesNothing() {
+        assertTrue(SyncRules.answerLost("\"100\"", "200")); assertFalse(SyncRules.answerLost("200", "200"))
+        assertFalse("an older phone app: taken at its word", SyncRules.answerLost(null, "200"))
+        assertFalse("the PC gave no answer yet", SyncRules.answerLost("", null))
+        assertTrue("the phone never got one, the PC gave one", SyncRules.answerLost("\"\"", "200"))
+        // Last agreed: favorites A. Then the phone added B, the PC added C. They synced, the PC took A B C, and the
+        // answer was lost: the phone still has A B. Next sync against what the phone sent then (A B), not against A B C
+        val phoneThen = files("favorites.json" to """{"a":{"title":"A"},"b":{"title":"B"}}""")
+        val pc = files("favorites.json" to """{"a":{"title":"A"},"b":{"title":"B"},"c":{"title":"C"}}""")
+        val m = merge(phoneThen, pc, phoneThen, preferLocal = true)["favorites.json"] as JsonObject
+        assertEquals("the PC's own addition stays", setOf("a", "b", "c"), m.keys)
+        // (against A B C, as it was, C read as "deleted on the phone")
+        val wrong = merge(pc, pc, phoneThen, preferLocal = true)["favorites.json"] as JsonObject
+        assertEquals(setOf("a", "b"), wrong.keys)
+    }
+
     @Test fun allowAndDenyLists() {
         // the device's own settings never go across; the app's do
         assertFalse(SyncRules.prefSyncs("auto_mono_device")); assertFalse(SyncRules.prefSyncs("pc_volume"))

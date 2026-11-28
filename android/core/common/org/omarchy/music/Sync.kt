@@ -44,6 +44,9 @@ object Sync {
     private const val LAST_WITH = "sync_with"  // with which device
     private const val SUMMARY = "sync_summary" // what it did, in words
     private const val FRESH = "sync_fresh"     // the last sync was undone here: the next one is as a first one
+    /** (the phone) The PC's last answer that was put in place here (its "made"): sent with the next sync, so the PC
+     *  knows whether its answer ever arrived ([SyncRules.answerLost]). This device's own ("sync_"). */
+    private const val GOT = "sync_got"
     private const val HEAD = "sync.json"       // the zip's first entry: who sent it, how
     private const val WAIT = 5 * 60L           // seconds the PC's Sync now waits for the phone
     private const val MAX_ENTRY = 64L shl 20   // bytes one file in a sync may be
@@ -130,6 +133,7 @@ object Sync {
         busy = if (round > 0) "Syncing covers with $with (part ${round + 1})…" else "Syncing with $with…"
         // Tags match: covers left over that didn't fit in this sync (either way): it goes on by itself, round after round
         var moreCovers = false
+        var answer = ""   // the PC's answer (its "made"), noted once it's in place here
         val songs = songsOn
         // The screen's state, read on its thread. Should it fail, the sync is let go and says why (before, the phone's
         // syncing stayed held and every Sync now after it waited for nothing)
@@ -142,9 +146,10 @@ object Sync {
             val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
             val moods = runCatching { Moods.backup() }.getOrNull()
             val diary = runCatching { ListenLog.syncText() }.getOrDefault("")
-            val (_, theirs) = post(host, headers, head(if (fromPc) "pc" else "phone", songs, auto),
+            val (back, theirs) = post(host, headers, head(if (fromPc) "pc" else "phone", songs, auto),
                 mine + listOfNotNull(moods?.let { SyncRules.MOODS to it }) + (DIARY to diary) + (DOWNLOADS to DownloadSync.mine()) +
                     (SONGS_HERE to runCatching { LibraryMatch.mine() }.getOrDefault("")) + (TAGS to TagSync.outgoing()) + (TagMatch.FILE to runCatching { TagMatch.outgoing(null) }.getOrDefault("")))
+            answer = back["made"]?.toString().orEmpty()
             // The PC's result, on top of what was sent: anything changed here meanwhile (a play counted) stays too.
             val sent = parse(mine)
             val here = parse(files(songs)) + mapOf(SyncRules.STATE to st, SyncRules.SWITCHES to sw)
@@ -162,7 +167,8 @@ object Sync {
         }) { d, err ->
             running.set(false); busy = null
             if (d == null) { if (!auto) Music.toast(failed(err)); return@bg }
-            runCatching { putInPlace(d.files, d.changed) }.onFailure { Crashes.caught(it, "Sync"); Music.toast("Synced, but couldn't put everything in place: ${it.message?.take(80)}") }
+            runCatching { putInPlace(d.files, d.changed); if (answer.isNotEmpty()) Prefs.setText(GOT, answer) }
+                .onFailure { Crashes.caught(it, "Sync"); Music.toast("Synced, but couldn't put everything in place: ${it.message?.take(80)}") }
             d.moods?.let { runCatching { Moods.restoreLater(it, fromSync = true); Moods.auto() } }
             val got = d.downloads?.let { runCatching { DownloadSync.take(it, with) }.getOrDefault(0) } ?: 0
             if (d.tagged > 0) Music.rescan()   // your songs read again with their new tags
@@ -234,9 +240,11 @@ object Sync {
         if (!Remote.paired || !begin()) return
         val with = Remote.name.ifEmpty { "the PC" }
         val host = Remote.host; val headers = Remote.headers()
+        var answer = ""
         Music.bg({
             val mine = playlistFiles()
-            val (_, theirs) = post(host, headers, head("phone", false, auto = true, only = true), mine)
+            val (back, theirs) = post(host, headers, head("phone", false, auto = true, only = true), mine)
+            answer = back["made"]?.toString().orEmpty()
             val sent = parse(mine); val here = parse(playlistFiles())
             val result = SyncMerge.mergeAll(sent, here, parse(theirs.filterKeys { it == "playlists.json" || it == "favorites.json" }), preferLocal = false)
             result.mapValues { it.value.toString() } to result.filter { (n, v) -> here[n] != v }.keys
@@ -245,7 +253,8 @@ object Sync {
             if (d == null) return@bg   // (the PC couldn't be reached after all: tried again when it can)
             val before = playlistsAt()
             // (nothing differs: nothing is written or read again, so the check every 20 seconds costs next to nothing)
-            if (d.second.isNotEmpty()) runCatching { putInPlace(d.first, d.second) }.onFailure { Crashes.caught(it, "Auto playlist sync") }
+            val put = if (d.second.isNotEmpty()) runCatching { putInPlace(d.first, d.second) }.onFailure { Crashes.caught(it, "Auto playlist sync") }.isSuccess else true
+            if (put && answer.isNotEmpty()) Prefs.setText(GOT, answer)
             markSynced()
             seenMine = playlistsAt(); autoAt = secs()
             if (seenMine != before) Music.toast("Playlists and favorites synced with $with")
@@ -360,8 +369,17 @@ object Sync {
             val local = parse(mine)
             val remote = parse(theirs).filterKeys { songs || it !in SyncRules.SONG_FILES }
             val baseFile = File(dir, "sync-base-${sha1(peer).take(12)}.zip")
+            // The answer to the last sync never reached the phone (it left the Wi-Fi, was closed): what the two agreed on
+            // then was never agreed. The phone still is as it was, so that is what's compared against: what it sent
+            // then. (The PC's own additions since had looked "deleted on the phone", and were taken away; its plays
+            // went back down.)
+            val lostFile = File(dir, "sync-base-${sha1(peer).take(12)}.unconfirmed.zip")
+            val idFile = File(dir, "sync-base-${sha1(peer).take(12)}.id")
+            val lost = SyncRules.answerLost(asked["got"]?.toString(), readText(idFile)) && lostFile.isFile
+            if (lost) logWarn("Sync: the last answer never reached $peerName: going by what it sent then")
+            val baseFrom = if (lost) lostFile else baseFile
             // (fresh: the phone undid a sync, so this isn't a time to take what it lacks for deleted)
-            val base = if (baseFile.isFile && asked["fresh"].bool != true) runCatching { parse(FileInputStream(baseFile).use { readZip(it) }.second) }.getOrNull() else null
+            val base = if (baseFrom.isFile && asked["fresh"].bool != true) runCatching { parse(FileInputStream(baseFrom).use { readZip(it) }.second) }.getOrNull() else null
             val merged = SyncMerge.mergeAll(base, local, remote, preferLocal = asked["prefer"].str == "pc")
             val sum = SyncMerge.summary(merged, local); val summary = sum.text()
             changesFound = runCatching { SyncChangesRules.lines(local, merged) }.getOrDefault(emptyList())
@@ -382,13 +400,16 @@ object Sync {
             val back = head("pc", songs)
             if (only) {
                 // What the two agreed on for the playlists, into what they agreed on for the rest at the last Sync now
-                val rest = if (baseFile.isFile) runCatching { FileInputStream(baseFile).use { readZip(it) }.second }.getOrDefault(emptyMap()) else emptyMap()
+                val rest = if (baseFrom.isFile) runCatching { FileInputStream(baseFrom).use { readZip(it) }.second }.getOrDefault(emptyMap()) else emptyMap()
                 writeZipFile(baseFile, back, rest + out)
+                runCatching { writeZipFile(lostFile, back, rest + remote.mapValues { it.value.toString() }); writeAtomic(idFile, back["made"].toString()) }
                 val changed = playlistsAt() != before
                 onMain { autoAt = secs(); if (changed) Music.toast("Playlists and favorites synced with $peerName") }
                 return { os -> writeZip(os, back, out) }
             }
             writeZipFile(baseFile, back, out)   // what these two agreed on: next time, what's gone from one side is deleted
+            // …and what the phone had, should this answer never reach it (see above)
+            runCatching { writeZipFile(lostFile, back, remote.mapValues { it.value.toString() }); writeAtomic(idFile, back["made"].toString()) }
             onMain { finished(summary + (if (tagged > 0) " · tags changed on $tagged song${if (tagged != 1) "s" else ""}" else ""), peerName,
                 quiet = asked["auto"].bool == true && sum.changed == 0 && tagged == 0) }
             val reply = out + listOfNotNull(myMoods?.let { SyncRules.MOODS to it }) + (DIARY to runCatching { ListenLog.syncText() }.getOrDefault("")) +
@@ -447,6 +468,7 @@ object Sync {
         put("app", "radon-player"); put("v", 1); put("platform", platformName); put("device", deviceName); put("auto", auto)
         if (only) put("only", "playlists")   // Auto playlist sync: the synced playlists and nothing else
         put("prefer", prefer); put("songs", songs); put("made", secs()); put("fresh", Prefs.on(FRESH))
+        put("got", Prefs.text(GOT))   // (the phone: the PC's last answer it put in place)
     }
 
     /** (blocking) The data files that sync, as they are now. */

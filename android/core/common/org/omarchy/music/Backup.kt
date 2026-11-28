@@ -11,7 +11,11 @@ import java.util.zip.ZipOutputStream
  *  other device play from the same song of yours here (else the service's). */
 object Backup {
     private val FILES = listOf("state.json", "playlists.json", "playlist-folders.json", "favorites.json", "plays.json", "skips.json", "taste.json",
-        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "song-eq.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "youtube-history.json", "tidal-history.json", "new-releases.json")
+        "song-speeds.json", "song-volume.json", "song-volume-outputs.json", "song-eq.json", "spotify-history.json", "apple-history.json", "deezer-history.json", "youtube-history.json", "tidal-history.json", "new-releases.json",
+        // (left out until 5.3: after a reinstall and a restore, Wrapped's listening diary, your mood lists and the Repeats were empty)
+        "listen-log.jsonl", "mood-lists.json", "repeats.json")
+    /** The pictures you gave your playlists: each file of this folder, under its name. */
+    private const val COVERS = "playlist-covers"
     /** Kept to the kind of device they were made on: the volumes and EQs you gave songs fit the headphones you use with
      *  it, so a phone's go only to a phone and a PC's only to a PC. */
     private val OWN_DEVICE = setOf("song-volume.json", "song-volume-outputs.json", "song-eq.json")
@@ -68,6 +72,9 @@ object Backup {
                     if (!f.isFile) continue
                     z.putNextEntry(ZipEntry(name)); f.inputStream().use { it.copyTo(z) }; z.closeEntry(); n++
                 }
+                File(ctx.filesDir, COVERS).listFiles()?.filter { it.isFile }?.forEach { f ->
+                    runCatching { z.putNextEntry(ZipEntry("$COVERS/${f.name}")); f.inputStream().use { it.copyTo(z) }; z.closeEntry() }
+                }
                 z.putNextEntry(ZipEntry("switches.json")); z.write(BackupMerge.switchesToSave(Prefs.all()).toByteArray()); z.closeEntry()
                 // Moods: by song (title, artist, length), not by file, so they come back on any device without a scan
                 runCatching { Moods.backup() }.getOrNull()?.let { z.putNextEntry(ZipEntry(MOODS)); z.write(it.toByteArray()); z.closeEntry() }
@@ -84,6 +91,8 @@ object Backup {
                 while (true) {
                     val e = z.nextEntry ?: break
                     if (e.name == "radon-backup.json" || e.name in FILES || e.name == "switches.xml" || e.name == "switches.json" || e.name == MOODS) got[e.name] = z.readBytes()
+                    // a playlist's picture: a plain file name, nothing that leads out of its folder
+                    else if (e.name.startsWith("$COVERS/") && BackupMerge.plainName(e.name.removePrefix("$COVERS/"))) got[e.name] = z.readBytes()
                 }
             }
         }
@@ -99,6 +108,8 @@ object Backup {
             var data = got[name]?.decodeToString() ?: continue
             val f = File(ctx.filesDir, name)
             if (cross && name == "state.json") data = BackupMerge.mergeState(data, readText(f))
+            // The listening diary: the backup's stretches beside the ones here, each once (not in their place)
+            if (name == "listen-log.jsonl" && f.isFile) data = runCatching { SyncMerge.mergeDiary(readText(f).orEmpty(), data) }.getOrDefault(data)
             if (f.exists()) f.copyTo(File(ctx.filesDir, "$name.before-restore"), overwrite = true)
             writeAtomic(f, data)
             done += name
@@ -111,6 +122,13 @@ object Backup {
             org.omarchy.music.ui.MadeSync.afterRestore(made)
         }
         else if (!cross) got["switches.xml"]?.let { prefsFile(ctx, PREFS).apply { parentFile?.mkdirs() }.writeBytes(it) }   // an older backup
+        got.filterKeys { it.startsWith("$COVERS/") }.forEach { (name, bytes) ->
+            runCatching { File(ctx.filesDir, COVERS).apply { mkdirs() }.let { File(it, name.removePrefix("$COVERS/")).writeBytes(bytes) } }
+        }
+        // The next sync is as a first one. What this device and the other last agreed on is from after this backup: gone by
+        // that, everything both gained since looked deleted here, and was taken off the other device as well.
+        runCatching { ctx.filesDir.listFiles { f -> f.name.startsWith("sync-base-") }?.forEach { it.delete() } }
+        Prefs.set("sync_fresh", true)
         if (cross) Prefs.set("adopt_files", true)   // the other device's song files: this one's copies found once it has read its folders
         // Moods: given to the matching songs here once the app has read your music again (see Moods.auto)
         got[MOODS]?.let { Moods.restoreLater(it.decodeToString()); done += MOODS }

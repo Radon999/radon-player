@@ -17,6 +17,14 @@ object SyncRules {
     val SONG_FILES = listOf("song-volume.json", "song-volume-outputs.json", "song-eq.json")
 
     const val STATE = "state.json"         // the app's own settings out of state.json: only STATE_KEYS
+    /** (the PC) Whether its answer to the last sync never reached the phone: the phone says which answer it last put in
+     *  place (got: as it sends it, null from a phone app from before this was kept, which is taken at its word), and
+     *  it isn't the one the PC last gave (last: null when it gave none). */
+    fun answerLost(got: String?, last: String?): Boolean {
+        val l = last?.trim().orEmpty()
+        return got != null && l.isNotEmpty() && got.trim().trim('"') != l.trim('"')
+    }
+
     const val SWITCHES = "switches.json"   // the switches (Prefs): all but the device's own ([prefSyncs])
     /** Switches that are lists, a line each, merged line by line ([Rule.Lines]): the artists you follow, the ones offered
      *  for following already, your favorite artists for New releases, and "Not my artist"s. */

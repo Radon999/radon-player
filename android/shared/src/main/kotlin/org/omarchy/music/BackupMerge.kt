@@ -6,6 +6,9 @@ import kotlinx.serialization.json.JsonPrimitive
 /** A backup made on the other device (the phone's on the PC, or the PC's on the phone): what of it comes across,
  *  and what stays this device's own. */
 object BackupMerge {
+    /** A file's own name and nothing else (no folder, nothing leading up and out): what a backup's pictures may be called. */
+    fun plainName(name: String): Boolean = name.isNotBlank() && name.length <= 200 && '/' !in name && '\\' !in name && name != "." && name != ".." && '\u0000' !in name
+
     /** state.json's settings that belong to the device: where its music is, where downloads go, its audio output. */
     val DEVICE_STATE = listOf("folders", "download_dir", "bit_perfect", "mic_asked")
 
@@ -13,7 +16,7 @@ object BackupMerge {
     val DEVICE_SWITCHES = setOf("auto_mono_device", "pc_volume", "tray_hint_shown", "notif_asked", "notif_hinted",
         "phone_remote", "discord", "close_after", "adopt_files",
         "ignore_bt_shizuku", "ignore_bt_media_off", "ignore_bt_auto", "ignore_bt_auto_stopped",   // left from no stutter at all (Shizuku, gone in 5.0.1): the phone's own, read once by BtLeftOff
-        "ui_size", "hide_hint_shown")   // Size of everything is each screen's own: a backup put on the other device leaves it at its own (100% until you change it)
+        "ui_size", "np_size", "np_vis_size", "np_cover_size", "hide_hint_shown")   // Size of everything is each screen's own: a backup put on the other device leaves it at its own (100% until you change it)
 
     fun isSignIn(key: String) = key.endsWith("_cookie") || key.endsWith("_token") || key.endsWith("_password")
 
