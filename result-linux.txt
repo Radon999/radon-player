@@ -1,5 +1,5 @@
-commit 7c8d4fc2239c5b6fa3ddcc8752b5df42064735f5 · run 46107735075 · Sat Nov 28 04:41:48 UTC 2026
-SHARED TESTS: 160 suites, 789 tests, 0 failed
+commit 338a943b99575972c25cf5278ead9abcbd3b7153 · run 46109196515 · Sat Nov 28 05:01:23 UTC 2026
+SHARED TESTS: 160 suites, 790 tests, 0 failed
 APP TESTS: 19 suites, 53 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
 THE DJ'S VOICE (Pocket TTS, made for real): 
@@ -29,7 +29,7 @@ FAILURE: Build failed with an exception.
 Execution failed for task ':desktop:test'.
 > Process 'Gradle Test Executor 3' finished with non-zero exit value 134
 --
-BUILD FAILED in 5m 26s
+BUILD FAILED in 5m 57s
 59 actionable tasks: 59 executed
 --- the end of the log
 # If you would like to submit a bug report, please visit:
@@ -60,5 +60,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 5m 26s
+BUILD FAILED in 5m 57s
 59 actionable tasks: 59 executed
