@@ -785,7 +785,7 @@ object Moods {
     val busy get() = running
 
     private fun start(auto: Boolean, full: Boolean) {
-        if (running) return
+        if (running || BatterySaver.holdsScan("the mood scan", quiet = auto)) return
         val list = runCatching { Music.mySongs() }.getOrDefault(emptyList()).mapNotNull { t -> pathOf(t)?.let { it to t } }.distinctBy { it.first }
         if (list.isEmpty()) return
         running = true; stopAsked = false
@@ -1006,7 +1006,7 @@ object Moods {
      *  by the AI the songs read on the device (Read again with AI); a song the AI has read is never read again. */
     fun readWords(again: Boolean = false) {
         if (prevented) return
-        if (wordsRunning) return
+        if (wordsRunning || BatterySaver.holdsScan("reading your songs' words")) return
         wordsRunning = true; wordsStop = false
         wordsReading = 0 to 0; wordsNow = ""
         Thread({

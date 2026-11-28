@@ -98,7 +98,7 @@ object LyricsAutoSync {
     /** Do every song waiting for [job] ([TIMING] or [WORDS]; see the object's note); [again]: the ones it couldn't
      *  before too. */
     fun start(job: String, again: Boolean = false) {
-        if (running) return
+        if (running || BatterySaver.holdsScan("listening to your songs")) return
         running = true; stopAsked = false
         progress = 0 to 0; nowSong = ""; doing = ""; kind = job
         Thread({

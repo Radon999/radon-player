@@ -229,7 +229,7 @@ object LyricsScan {
 
     /** Find the lyrics of every song that hasn't got them yet (see the object's note); Stop keeps what's done. */
     fun start() {
-        if (running) return
+        if (running || BatterySaver.holdsScan("the lyrics scan")) return
         running = true; stopAsked = false
         progress = 0 to 0; nowSong = ""
         Thread({

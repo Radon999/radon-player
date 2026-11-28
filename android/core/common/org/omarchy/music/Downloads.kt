@@ -1,6 +1,12 @@
 package org.omarchy.music
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import java.io.File
 
 /** Download: which of the songs asked for are new, the asking about copies you have already, and the songs waiting
  *  saved a batch at a time ([Downloader] does the saving). The songs waiting ([Music.downloads]) and the line shown
@@ -9,6 +15,61 @@ import kotlinx.coroutines.launch
 object Downloads {
     private fun toast(text: String) = Music.toast(text)
     private var running = false
+
+    // ---- kept over a restart: the songs still waiting, and the ones that didn't come ----
+    // Before, both lived only while the app ran: closing it in the middle of 200 downloads lost the rest without a
+    // word, and a song that failed was named once in a message and then forgotten.
+    @Serializable data class Failed(val track: Track, val why: String = "")
+    private val FAILED = ListSerializer(Failed.serializer())
+    private val WAITING = ListSerializer(Track.serializer())
+    private fun queueFile() = File(Music.ctx.filesDir, "download-queue.json")
+    private fun failedFile() = File(Music.ctx.filesDir, "download-failed.json")
+
+    /** The songs that didn't download, the newest first, each with why (Downloads › Didn't download). */
+    var failed by mutableStateOf(listOf<Failed>())
+        private set
+
+    private fun keepQueue() { val q = Music.downloads; Music.bg({ runCatching { writeAtomic(queueFile(), JSON.encodeToString(WAITING, q)) } }) }
+    private fun keepFailed(now: List<Pair<Track, String>>) {
+        failed = now.map { Failed(it.first, it.second) }
+        val f = failed
+        Music.bg({ runCatching { writeAtomic(failedFile(), JSON.encodeToString(FAILED, f)) } })
+    }
+
+    /** As the app starts: the list of the ones that didn't come, and the downloads left waiting last time carried on
+     *  (a little later, once the services are connected). */
+    fun restore() {
+        Music.bg({
+            val f = readText(failedFile())?.let { runCatching { JSON.decodeFromString(FAILED, it) }.getOrNull() }.orEmpty()
+            val q = readText(queueFile())?.let { runCatching { JSON.decodeFromString(WAITING, it) }.getOrNull() }.orEmpty()
+            f to q
+        }) { got, _ ->
+            val (f, q) = got ?: return@bg
+            failed = f.filter { !Music.lib.has(it.track.id) }
+            val left = newOf(q, { Music.lib.has(it) }, Music.downloads.map { it.id }.toSet())
+            if (left.isEmpty()) { if (q.isNotEmpty()) keepQueue(); return@bg }
+            Music.scope.launch {
+                kotlinx.coroutines.delay(15_000)
+                val now = newOf(left, { Music.lib.has(it) }, Music.downloads.map { it.id }.toSet())
+                if (now.isEmpty()) return@launch
+                Music.downloads = Music.downloads + now
+                toast(DownloadQueueRules.carryOn(now.size))
+                Music.savedVersion++
+                if (!running) next()
+            }
+        }
+    }
+
+    /** Try again: these of the ones that didn't come (all of them when none are named). */
+    fun retry(tracks: List<Track>? = null) {
+        val again = tracks ?: failed.map { it.track }
+        if (again.isEmpty()) return
+        val ids = again.map { it.id }.toSet()
+        keepFailed(failed.filter { it.track.id !in ids }.map { it.track to it.why })
+        start(again, checked = true)
+    }
+
+    fun clearFailed() = keepFailed(emptyList())
 
     /** The songs of tracks to download: not your own files, not downloaded or waiting already (has), not
      *  SoundCloud's (they only stream). */
@@ -60,6 +121,7 @@ object Downloads {
             }
         }
         Music.downloads = Music.downloads + new
+        keepQueue()
         toast("Downloading ${new.size} song${if (new.size != 1) "s" else ""} ${qualityNote()}" + if (Remote.active) " to this phone" else "")
         Music.savedVersion++
         if (!running) next()
@@ -82,7 +144,12 @@ object Downloads {
         Music.downloadNote = "Downloading · 0 of ${batch.size}"
         Music.bg({ Music.dl.sync(batch, force = true, workers = Downloader.SONGS_AT_ONCE) { n -> Music.scope.launch { Music.savedVersion++; Music.downloadNote = "Downloading · $n of ${batch.size}" } } }) { out, err ->
             Music.downloads = Music.downloads.filter { d -> batch.none { it.id == d.id } }
-            toast(out?.summary() ?: "Couldn't download: ${err?.message?.take(90)}")
+            keepQueue()
+            // The ones that didn't come are kept, each with why (the whole batch when it couldn't even begin)
+            val bad = if (out != null) out.failed.map { it.first to DownloadQueueRules.why(it.second) } + out.missing.map { it to DownloadQueueRules.NOT_FOUND }
+                else batch.filter { !Music.lib.has(it.id) }.map { it to DownloadQueueRules.why(err?.message) }
+            keepFailed(DownloadQueueRules.failedNow(failed.map { it.track to it.why }, bad, { Music.lib.has(it.id) }) { it.id })
+            toast((out?.summary() ?: "Couldn't download: ${err?.message?.take(90)}") + if (bad.isNotEmpty()) ". They're kept in Downloads to try again" else "")
             next()
         }
     }

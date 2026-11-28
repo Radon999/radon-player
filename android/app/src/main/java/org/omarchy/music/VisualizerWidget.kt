@@ -204,6 +204,7 @@ class VisualizerWidget : AppWidgetProvider() {
             val quiet = FloatArray(org.omarchy.music.Spectrum.BANDS)
             var heardAt = SystemClock.uptimeMillis()
             var phase = 0f
+            var frameMs = PhoneWidgetRules.VIZ_FRAME_MS
             try {
                 while (true) {
                     val start = SystemClock.uptimeMillis()
@@ -214,6 +215,8 @@ class VisualizerWidget : AppWidgetProvider() {
                         if (bmp == null || bmp.width != w || bmp.height != h) bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                         val session = withContext(Dispatchers.Main) { sessionNow() }
                         cap.follow(session, heard(ctx))
+                        // Battery saver (the app's, or the phone's own): half as many frames a second
+                        frameMs = BatterySaverRules.vizFrameMs(runCatching { BatterySaver.on() }.getOrDefault(false))
                     }
                     val bands = cap.bands()
                     val now = bands?.takeIf { b -> b.any { it > 0.02f } }
@@ -235,7 +238,7 @@ class VisualizerWidget : AppWidgetProvider() {
                         v.setImageViewBitmap(R.id.wv_bars, b)
                         runCatching { mgr.partiallyUpdateAppWidget(ids, v) }
                     }
-                    delay(if (slow) 1500L else (PhoneWidgetRules.VIZ_FRAME_MS - (SystemClock.uptimeMillis() - start)).coerceAtLeast(8L))
+                    delay(if (slow) 1500L else (frameMs - (SystemClock.uptimeMillis() - start)).coerceAtLeast(8L))
                 }
             } finally {
                 cap.close()

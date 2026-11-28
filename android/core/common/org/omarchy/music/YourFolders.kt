@@ -18,15 +18,31 @@ object YourFolders {
     private var rescanAgain = false
 
     /** Read your folders again; then everything that follows from new or changed songs. */
-    fun rescan() {
+    private var sayNext = false
+    private var before: Map<String, String>? = null
+    private fun words(ts: List<Track>) = ts.mapNotNull { t -> t.file?.let { it to "${t.title}|${t.artist}|${t.album}" } }.toMap()
+    /** The chosen folders that aren't there now (a drive unplugged): the PC's; the phone's are always its own storage. */
+    private fun notConnected(): List<String> = if (platformName == "android") emptyList() else Music.folders.filter { f ->
+        runCatching { (File(f).takeIf { it.isAbsolute } ?: File(System.getProperty("user.home"), f)).let { !it.isDirectory } }.getOrDefault(false) }
+
+    /** say: you asked (Refresh), so what it found is said when it's done: how many new, changed, gone. */
+    fun rescan(say: Boolean = false) {
+        if (say) sayNext = true
         if (local.scanning) { rescanAgain = true; return }   // the folders changed mid-scan: read again after
         local.scanning = true
+        if (sayNext && before == null) before = words(local.files)   // (as it was when you asked, whatever reads follow)
         Music.bg({ local.scan(Music.folders, lib.items.values.mapNotNullTo(HashSet()) { LocalFiles.mediaId(it.file) }) }) { changed, err ->
             local.scanning = false
             if (rescanAgain) { rescanAgain = false; rescan() }
             if (err is SecurityException) Unit   // no permission yet: the Music tab asks
             else if (err != null) toast("Couldn't read your music: ${err.message?.take(80)}")
             if (changed == true) Music.musicVersion++
+            val was = before
+            if (was != null && !local.scanning) {
+                sayNext = false; before = null
+                val off = runCatching { notConnected() }.getOrDefault(emptyList())
+                if (err == null) toast(ScanSummaryRules.text(ScanSummaryRules.found(was, words(local.files)), local.files.size, off))
+            }
             adoptFiles()
             tidyGone()   // songs you moved: your playlists follow them; songs gone for good: out of them
             YourPlaylists.localFirst()   // streaming songs in your playlists that you have: your own files in their place

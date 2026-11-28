@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -996,6 +997,36 @@ fun FileTypeTab(ui: Ui, key: String) {
     }
 }
 
+/** In Downloads: how many songs are still waiting, and the ones that didn't download, each with why; Try again (all,
+ *  or one by a tap) and Clear. Both are kept when the app closes. */
+@Composable
+private fun DownloadsLeft() {
+    val waiting = Music.downloads.size
+    val failed = org.omarchy.music.Downloads.failed
+    if (waiting == 0 && failed.isEmpty()) return
+    var open by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) {
+        if (waiting > 0) Text(Music.downloadNote.ifEmpty { "$waiting waiting to download" } + " · kept if you close the app", style = T.sub)
+        if (failed.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${failed.size} didn't download", style = T.body, modifier = Modifier.weight(1f))
+                Pill(if (open) "Hide" else "Show", quiet = true) { open = !open }
+                Spacer(Modifier.width(6.dp))
+                Pill("Try again") { org.omarchy.music.Downloads.retry() }
+                Spacer(Modifier.width(6.dp))
+                Pill("Clear", quiet = true) { org.omarchy.music.Downloads.clearFailed() }
+            }
+            if (open) failed.take(60).forEach { f ->
+                Column(Modifier.fillMaxWidth().clickable { org.omarchy.music.Downloads.retry(listOf(f.track)) }.padding(vertical = 4.dp)) {
+                    Text("${f.track.title} · ${f.track.artist.split(",")[0].trim()}", style = T.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(f.why + " · $TAP to try again", style = T.sub, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (open && failed.size > 60) Text("…and ${failed.size - 60} more", style = T.sub)
+        }
+    }
+}
+
 /** Downloads (☰ menu): the songs you downloaded from a service (Tidal, or YouTube where Tidal hasn't them), the newest
  *  first, each with its quality; as a list or a grid. */
 @Composable
@@ -1005,6 +1036,7 @@ fun DownloadsTab(ui: Ui) {
         // Refresh is here too: with nothing showing is when a download that didn't show up needs reading again
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) { Pill("↻  Refresh", quiet = true) { Music.refreshDownloads() } }
+            DownloadsLeft()
             Empty("No downloads yet", "Songs you download from Tidal or YouTube show up here. If one you downloaded isn't here, $TAP Refresh.")
         }
         return
@@ -1023,6 +1055,7 @@ fun DownloadsTab(ui: Ui) {
                 Spacer(Modifier.width(8.dp))
                 Pill("↻  Refresh", quiet = true) { Music.refreshDownloads() }
             }
+            DownloadsLeft()
             // The ones that came from YouTube (Opus): got again from Tidal in FLAC
             val yt = remember(all) { Music.youtubeDownloads().size }
             if (yt > 0 || Music.flacing != null) Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

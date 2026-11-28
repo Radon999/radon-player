@@ -573,7 +573,7 @@ private fun AskForMusicFolder() {
 private fun refreshTab(kind: String) {
     val rules = org.omarchy.music.RefreshRules
     when (kind) {
-        rules.FILES -> { Music.toast(rules.text(kind)); Music.rescan() }
+        rules.FILES -> { Music.toast(rules.text(kind)); Music.rescan(say = true) }
         rules.STATS -> { Music.toast(rules.text(kind)); org.omarchy.music.Stats.refresh(force = true); Music.musicVersion++ }
         rules.DOWNLOADS -> Music.refreshDownloads()   // says what it found itself
         rules.SMART -> { Music.toast(rules.text(kind)); org.omarchy.music.SmartLists.refresh(); Music.musicVersion++ }

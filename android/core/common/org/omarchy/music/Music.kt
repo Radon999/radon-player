@@ -238,6 +238,7 @@ object Music {
         scope.launch { kotlinx.coroutines.delay(10_000); if (tidal.connected) Tagger.start() }
         if (tidal.connected) sources["tidal"] = tidal
         bg({ lib.prune() }) { _, _ -> savedVersion++ }
+        runCatching { Downloads.restore() }   // the downloads left waiting last time, and the ones that didn't come
         rescan()
         // Headphones coming and going: their correction comes with them (see outputChanged).
         watchOutputs(ctx) { outputChanged() }
@@ -427,7 +428,7 @@ object Music {
     fun importPlaylist(uri: String) = PlaylistImport.importPlaylist(uri)
 
     // ---- your music folders: YourFolders ----
-    fun rescan() = YourFolders.rescan()
+    fun rescan(say: Boolean = false) = YourFolders.rescan(say)
     fun rescanSoon() = YourFolders.rescanSoon()
     @JvmName("chooseFolders")
     fun setFolders(list: List<String>) = YourFolders.choose(list)

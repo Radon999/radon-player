@@ -259,6 +259,7 @@ private fun AccountsSheet(ui: Ui) {
                 }
             }
             if (onPhone) NotificationsLine(activity)
+            BatterySaverLine()
             if (org.omarchy.music.Startup.supported) StartupLine()
             // The PC: its desktop widgets and Make desktop shortcuts… (PlatformSheets; nothing on the phone)
             PcWidgetLines(ui) { name, state, ok, actions -> Line(name, state, ok, actions = actions) }
@@ -1144,6 +1145,20 @@ private fun StartupLine() {
         "without opening its window, ready for your keyboard's media keys and the phone remote", on) {
         Switch(on, { want -> if (org.omarchy.music.Startup.set(want)) on = org.omarchy.music.Startup.isOn()
             else Music.toast("Couldn't: only the installed app can start with $sys") }, colors = swColors())
+    }
+}
+
+/** Battery saver: the Visualizer widget at half its frames, and the scans that listen to or look up every song wait
+ *  until the device is plugged in. Each device's own. */
+@Composable
+private fun BatterySaverLine() {
+    var on by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.BatterySaverRules.PREF)) }
+    val sys = remember { runCatching { org.omarchy.music.Power.systemSaver() }.getOrDefault(false) }
+    Line("Battery saver", (if (onPhone) "The Visualizer widget draws 15 times a second for 30, and the lyrics, mood and listening scans wait until the phone is plugged in. " +
+            "It also comes on by itself while the phone's own battery saver is on" + (if (sys) " (as now)" else "")
+        else "The lyrics, mood and listening scans wait until a laptop is plugged in (a desktop PC always is). The phone's has more to save: its widget draws half as often too"),
+        on || sys) {
+        Switch(on, { on = it; org.omarchy.music.Prefs.set(org.omarchy.music.BatterySaverRules.PREF, it) }, colors = swColors())
     }
 }
 
@@ -2182,7 +2197,7 @@ private fun FolderPicker() {
     Spacer(Modifier.width(6.dp))
     // Read the folders again now (new files, ones moved or retagged elsewhere). It also happens by itself when the
     // app opens, when you change the folders, and when downloads finish.
-    Pill("Refresh", quiet = true) { if (Music.local.scanning) Music.toast("Already reading your music folders…") else { Music.toast("Reading your music folders again…"); Music.rescan() } }
+    Pill("Refresh", quiet = true) { if (Music.local.scanning) Music.toast("Already reading your music folders…") else { Music.toast("Reading your music folders again…"); Music.rescan(say = true) } }
     Spacer(Modifier.width(6.dp))
     Pill("Choose") { open = true }
     if (open) FolderBrowser { open = false }
