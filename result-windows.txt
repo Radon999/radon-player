@@ -1,8 +1,15 @@
-commit 02c396611587bb45d060a0755b2c71856084782b · run 46160667572 · Sat Nov 28 15:55:20 UTC 2026
+commit ec40fbc48c4162b8933aade12a3d3f11ef256afc · run 46162460984 · Sat Nov 28 16:12:53 UTC 2026
 PC TESTS ON WINDOWS: 50 suites, tests 198, failed 0
-THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.3 s of speech in 2.6 s (with loading the voice); then 4.5 s of speech in 1.7 s (2.6x real time)
+THE DJ'S VOICE ON WINDOWS: POCKET VOICE: first line 2.1 s of speech in 1.4 s (with loading the voice); then 4.6 s of speech in 1.0 s (4.6x real time)
 WINDOWS INSTALLER: Radon Player-5.3.2.msi, 98M
 --- errors
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
+> Task :ui-common:assembleDesktopMainResources
+> Task :ui-common:desktopProcessResources
+> Task :desktop:assembleMainResources
+> Task :desktop:writeBuildInfo
 --- the end of the log
 w: file:///D:/a/radon-player/radon-player/android/core/common/org/omarchy/music/ui/VisualizerTab.kt:1394:110 '@Deprecated(...) fun quadraticBezierTo(x1: Float, y1: Float, x2: Float, y2: Float): Unit' is deprecated. Use quadraticTo() for consistency with cubicTo().
 w: file:///D:/a/radon-player/radon-player/android/core/desktop/org/omarchy/music/Updater.kt:132:22 '@Deprecated(...) constructor(p0: String!): URL' is deprecated. Deprecated in Java.
@@ -27,5 +34,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 5m 37s
+BUILD SUCCESSFUL in 4m 34s
 21 actionable tasks: 21 executed
