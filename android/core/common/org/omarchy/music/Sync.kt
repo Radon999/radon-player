@@ -319,6 +319,7 @@ object Sync {
             if ((s["copyWanted"].long ?: 0L) > 0) SongCopy.sendWanted()   // song files the PC asked for (Other device's songs)
             val pcAt = s["playlistsAt"].long ?: 0L
             if (s["wanted"].bool == true) { justPaired = false; now(fromPc = true) }
+            else if (s["preview"].bool == true) previewNow(forPc = true)   // the PC's Preview: this phone's data, to look at
             // Just paired: the playlists as they are on both now are where Auto playlist sync starts from, so only a
             // change after this syncs by itself (nothing syncs on pairing)
             else if (justPaired) { justPaired = false; seenPc = pcAt; seenMine = playlistsAt(); connected() }
@@ -335,6 +336,48 @@ object Sync {
     /** (the PC) Sync now: the phone can't be called, so it's asked to sync next time it checks (within 20 seconds
      *  while the app is open on it). */
     fun ask() { wantedAt = secs() }
+
+    // ---- Preview: what a Sync now would change on each device, with nothing changed ----
+    /** What a sync would change here and on the other device (each a line a change), and who the other is. */
+    data class Preview(val here: List<String>, val there: List<String>, val with: String)
+    var preview by mutableStateOf<Preview?>(null)
+    var previewAskedAt by mutableStateOf(0L)   // the PC: when Preview asked the phone (0: not waiting)
+    val previewWaiting get() = previewAskedAt > 0 && secs() - previewAskedAt < SyncPreviewRules.WAIT
+    /** (the PC) Preview: the phone is asked to look (it brings its data; nothing is changed on either). */
+    fun askPreview() { previewAskedAt = secs() }
+    /** For GET /sync/wanted. */
+    fun previewWanted(): Boolean {
+        if (previewAskedAt > 0 && !previewWaiting) Music.scope.launch { previewAskedAt = 0L }
+        return previewWaiting
+    }
+
+    /** (the phone) Look at what a sync would change: its data goes to the PC, which merges and answers but keeps
+     *  nothing; nothing is put in place here either. forPc: the PC asked, and shows it. */
+    fun previewNow(forPc: Boolean = false) {
+        if (!Remote.paired) { if (!forPc) Music.toast("Pair with the PC first (Settings › Play on)"); return }
+        stuckFreed()
+        if (!begin()) { if (!forPc) Music.toast("A sync is going: look again when it's done"); return }
+        val with = Remote.name.ifEmpty { "the PC" }
+        if (!forPc) busy = "Looking at what a sync would change…"
+        val songs = songsOn
+        val (st, sw) = try { stateJson() to switchesJson() } catch (e: Throwable) {
+            running.set(false); busy = null; Crashes.caught(e, "Sync"); return
+        }
+        val host = Remote.host; val headers = Remote.headers()
+        Music.bg({
+            val mine = files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) }
+            val (back, theirs) = post(host, headers, head("phone", songs, preview = if (forPc) "pc" else "phone"), mine)
+            if (back["preview"].str == null) error("update the PC app first: it doesn't know Preview yet")
+            val here = parse(mine)
+            val result = SyncMerge.mergeAll(here, here, parse(theirs), preferLocal = false)
+            Preview(runCatching { SyncChangesRules.lines(here, result) }.getOrDefault(emptyList()),
+                (back["changes"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it.str }, with)
+        }) { p, err ->
+            running.set(false); busy = null
+            if (p == null) { if (!forPc) Music.toast(failed(err).replace("Couldn't sync", "Couldn't look")); return@bg }
+            if (!forPc) preview = p
+        }
+    }
     fun cancelAsk() { wantedAt = 0L }
     val waiting get() = wantedAt > 0 && secs() - wantedAt < WAIT
 
@@ -358,6 +401,28 @@ object Sync {
             // Auto playlist sync: the synced playlists alone are merged; everything else here is left exactly as it is
             // (and a Sync now that is waiting for the phone goes on waiting)
             val only = asked["only"].str == "playlists"
+            // Preview: merged and answered, and nothing kept, here or in what the two agreed on
+            val look = asked["preview"].str.orEmpty()
+            if (look.isNotEmpty()) {
+                val songs = asked["songs"].bool == true && songsOn
+                val (st, sw) = onMain { stateJson() to switchesJson() }
+                val local = parse(files(songs).apply { put(SyncRules.STATE, st.toString()); put(SyncRules.SWITCHES, sw.toString()) })
+                val remote = parse(theirs).filterKeys { songs || it !in SyncRules.SONG_FILES }
+                val baseFile = File(dir, "sync-base-${sha1(peer).take(12)}.zip")
+                val base = if (baseFile.isFile && asked["fresh"].bool != true) runCatching { parse(FileInputStream(baseFile).use { readZip(it) }.second) }.getOrNull() else null
+                val merged = SyncMerge.mergeAll(base, local, remote, preferLocal = look == "pc")
+                val mine = runCatching { SyncChangesRules.lines(local, merged) }.getOrDefault(emptyList())
+                if (look == "pc") {
+                    val phones = runCatching { SyncChangesRules.lines(remote, merged.filterKeys { it in remote }) }.getOrDefault(emptyList())
+                    onMain { previewAskedAt = 0L; preview = Preview(mine, phones, peerName) }
+                }
+                val back = buildJsonObject {
+                    put("app", "radon-player"); put("preview", look)
+                    put("changes", kotlinx.serialization.json.JsonArray(mine.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                }
+                val out = merged.mapValues { it.value.toString() }
+                return { os -> writeZip(os, back, out) }
+            }
             onMain { if (!only) { busy = "Syncing with $peerName…"; wantedAt = 0L } }
             val songs = asked["songs"].bool == true && songsOn && !only
             val (st, sw) = onMain { stateJson() to switchesJson() }
@@ -464,7 +529,8 @@ object Sync {
 
     // ---- this device's side ----
 
-    private fun head(prefer: String, songs: Boolean, auto: Boolean = false, only: Boolean = false) = buildJsonObject {
+    private fun head(prefer: String, songs: Boolean, auto: Boolean = false, only: Boolean = false, preview: String = "") = buildJsonObject {
+        if (preview.isNotEmpty()) put("preview", preview)   // only look: "phone" or "pc", whoever asked
         put("app", "radon-player"); put("v", 1); put("platform", platformName); put("device", deviceName); put("auto", auto)
         if (only) put("only", "playlists")   // Auto playlist sync: the synced playlists and nothing else
         put("prefer", prefer); put("songs", songs); put("made", secs()); put("fresh", Prefs.on(FRESH))

@@ -1250,8 +1250,23 @@ private fun SyncLines(ui: Ui) {
         when {
             s.busy != null -> Unit
             pc && s.waiting -> Pill("Cancel", quiet = true) { s.cancelAsk() }
-            else -> Pill("Sync now") { if (pc) s.ask() else s.now() }
+            pc && s.previewWaiting -> Text("Waiting for the phone…", style = T.sub)
+            else -> {
+                // Preview: what a sync would change on each device, shown before anything is changed
+                Pill("Preview", quiet = true) { if (pc) { s.askPreview(); Music.toast("Asking the phone: open Radon Player on it (on the same network)") } else s.previewNow() }
+                Spacer(Modifier.width(6.dp))
+                Pill("Sync now") { if (pc) s.ask() else s.now() }
+            }
         }
+    }
+    s.preview?.let { p ->
+        val R = org.omarchy.music.SyncPreviewRules
+        AlertDialog(onDismissRequest = { s.preview = null }, containerColor = C.light,
+            title = { Text(R.title(p.here, p.there), style = T.head) },
+            text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                Text(R.body(p.here, p.there, "this $DEVICE", p.with), style = T.sub) } },
+            confirmButton = { TextButton({ s.preview = null; if (pc) s.ask() else s.now() }) { Text("Sync now", color = C.accent) } },
+            dismissButton = { TextButton({ s.preview = null }) { Text("Close", color = C.muted) } })
     }
     // What the last sync changed here, a line each: which playlists gained or lost songs, favorites, the rest
     val changes = s.lastChanges

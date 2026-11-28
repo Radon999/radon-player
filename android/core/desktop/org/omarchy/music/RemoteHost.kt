@@ -144,7 +144,7 @@ object RemoteHost {
                 "/art" -> art(q["id"] ?: "")?.let { answer(ex, 200, it, "image/jpeg") } ?: answer(ex, 404, err("no picture"))
                 // Sync now, tapped here; and for Auto playlist sync: that this PC can sync the playlists alone, whether its
                 // switch is on (it counts on either device), and when its playlists last changed
-                "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()); put("playlistsOnly", true)
+                "/sync/wanted" -> answer(ex, 200, buildJsonObject { put("wanted", Sync.wanted()); put("preview", Sync.previewWanted()); put("playlistsOnly", true)
                     put("autoPlaylists", Prefs.on(SyncPlaylists.AUTO_SYNC)); put("playlistsAt", Sync.playlistsAt())
                     put("sent", PlaylistSend.waiting())   // (and playlists sent from here that wait for the phone)
                     put("copyWanted", SongCopy.wantedCount()) })   // (and song files asked of the phone: Other device's songs)
