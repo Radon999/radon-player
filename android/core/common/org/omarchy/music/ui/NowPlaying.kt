@@ -817,24 +817,9 @@ private fun QueuePane(ui: Ui, n: Now) {
         val list = rememberLazyListState()
         // (↑ Top and ↓ Back come with the list: every list has them)
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
-            // The DJ's queue: what it said, the category and its stat, as on the DJ tab
-            if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
-            // Undo (the PC's queue too, from the phone that's its remote: as Up next & queues had it)
-            if (Music.queueUndoLabel.isNotEmpty() || n.remote) item("undo") { QueueUndo() }
-            if (queued.isNotEmpty()) {
-                item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
-                itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
-            }
-            // The DJ playing: Switch it up (a new set now, in place of the rest of this one)
-            val djOn = Music.shownDj().on && (t?.dj ?: 0) > 0
-            item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music",
-                if (djOn) "↻  Switch it up" else null) { Music.djSwitch() } }
-            if (rest.isEmpty()) item("none") {
-                Text(if (Music.shownDj().on) "The DJ's next set comes next" else if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
-                    style = T.sub.copy(shadow = LIFT, color = SOFT), modifier = Modifier.padding(vertical = 10.dp))
-            }
-            itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             if (!n.remote && Music.queues.isNotEmpty()) {
+                // First, above the songs: there are far fewer queues than songs, and switching shouldn't need a scroll
+                // to the very bottom (they had been after the last song)
                 item("yh") { QHead("Your queues", "${Music.queues.size + 1} queues: tap one to switch", "Remove all others") { ui.confirm = "Delete all your other queues? Only the one playing stays." to { Music.removeOtherQueues() } } }
                 // Every queue, the one playing first (as Up next & queues showed them)
                 item("ycur") {
@@ -864,6 +849,23 @@ private fun QueuePane(ui: Ui, n: Now) {
                     }
                 }
             }
+            // The DJ's queue: what it said, the category and its stat, as on the DJ tab
+            if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
+            // Undo (the PC's queue too, from the phone that's its remote: as Up next & queues had it)
+            if (Music.queueUndoLabel.isNotEmpty() || n.remote) item("undo") { QueueUndo() }
+            if (queued.isNotEmpty()) {
+                item("qh") { QHead("Queue", null, "Clear") { ui.confirm = "Clear the songs you queued?" to { Music.clearQueued() } } }
+                itemsIndexed(queued, key = { _, j -> "q$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
+            }
+            // The DJ playing: Switch it up (a new set now, in place of the rest of this one)
+            val djOn = Music.shownDj().on && (t?.dj ?: 0) > 0
+            item("ch") { QHead("Continue Playing", if (Music.queueName.isNotEmpty()) "From ${Music.queueName}" else "From your music",
+                if (djOn) "↻  Switch it up" else null) { Music.djSwitch() } }
+            if (rest.isEmpty()) item("none") {
+                Text(if (Music.shownDj().on) "The DJ's next set comes next" else if (Music.autoplay) "Autoplay plays songs like this one next" else "Nothing after this song",
+                    style = T.sub.copy(shadow = LIFT, color = SOFT), modifier = Modifier.padding(vertical = 10.dp))
+            }
+            itemsIndexed(rest, key = { _, j -> "n$j-${q[j].id}" }) { _, j -> QueueSong(q[j], j, ui, n.remote) }
             item("end") { Spacer(Modifier.height(12.dp)) }
         }
     }
