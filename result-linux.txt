@@ -1,4 +1,4 @@
-commit 12d613529178dacd8e23d21671468a562866cf92 · run 46089185725 · Sat Nov 28 00:54:09 UTC 2026
+commit 02a34b4b2fbda687cddde597c5826703c0b1ff73 · run 46090298393 · Sat Nov 28 01:15:34 UTC 2026
 SHARED TESTS: 157 suites, 785 tests, 0 failed
 APP TESTS: 19 suites, 52 tests, 0 failed
 PC TESTS (the app's logic, started without a window): no results (it didn't get that far)
@@ -8,7 +8,7 @@ LINUX PACKAGE: radon-player_5.2.9_amd64.deb, 92M
 LINUX PACKAGE NEEDS: libasound2t64, libbrotli1, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgl1, libglvnd0, libglx0, libpng16-16t64, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g, mpv, ffmpeg
 LINUX MPV: mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
 LINUX START: the installed app started and was still running after 45 s
-LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:08 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
+LINUX PLAY: asked to play a 40 s tone. After 8 s: Playing: Linux test tone · Radon checks (0:07 of 0:40). After 14 s: Playing: Linux test tone · Radon checks (0:14 of 0:40)
 LINUX MEDIA KEYS: the app is on the bus as a media player: (true,) 
 LINUX MEDIA KEYS: it says it is: (<'Playing'>,) 
 LINUX MEDIA KEYS: the song it shows: (<{'mpris:trackid': <objectpath '/org/radonplayer/track/f368e577e'>, 'mpris:length': <int64 40000000>, 'xesam:title': <'Linux test tone'>, 'xesam:artist': <['Radon checks']>}>,) 
@@ -22,29 +22,29 @@ LINUX SCREENS: the 32 new presets pictured on one sheet (linux-presets.jpg)
 LINUX LINKS: Tidal's sign-in was asked for, and the desktop's opener was handed: https://login.tidal.com/authorize
 --- errors
 > Task :desktop:test FAILED
-> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
-> Task :app:processDebugUnitTestJavaRes
+
+FAILURE: Build failed with an exception.
 --
 * What went wrong:
 Execution failed for task ':desktop:test'.
-> Process 'Gradle Test Executor 2' finished with non-zero exit value 134
+> Process 'Gradle Test Executor 3' finished with non-zero exit value 134
 --
-BUILD FAILED in 6m 22s
+BUILD FAILED in 6m 19s
 59 actionable tasks: 59 executed
 --- the end of the log
+# If you would like to submit a bug report, please visit:
+#   https://github.com/adoptium/adoptium-support/issues
+# The crash happened outside the Java Virtual Machine in native code.
 # See problematic frame for where to report the bug.
 #
 
 > Task :desktop:test FAILED
-> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
-> Task :app:processDebugUnitTestJavaRes
-> Task :app:testDebugUnitTest
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
 Execution failed for task ':desktop:test'.
-> Process 'Gradle Test Executor 2' finished with non-zero exit value 134
+> Process 'Gradle Test Executor 3' finished with non-zero exit value 134
   This problem might be caused by incorrect test process configuration.
   For more on test execution, please refer to https://docs.gradle.org/8.7/userguide/java_testing.html#sec:test_execution in the Gradle documentation.
 
@@ -60,5 +60,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 6m 22s
+BUILD FAILED in 6m 19s
 59 actionable tasks: 59 executed
