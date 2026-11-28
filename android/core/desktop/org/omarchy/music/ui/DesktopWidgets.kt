@@ -9,6 +9,7 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -616,7 +617,9 @@ private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -
         WPill("Options", strong = true) { menuAt = picks.at.first(); menu = null to picks.at.sorted().mapNotNull { songs.getOrNull(it) } }
         WPill("Clear") { picks.at.clear() }
     }
-    LazyColumn(Modifier.weight(1f)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    Box(Modifier.weight(1f)) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState) {
         items(songs.size, key = { i -> "$i:${songs[i].id}" }) { i ->
             val s = songs[i]
             Box {
@@ -635,6 +638,22 @@ private fun ColumnScope.SongList(songs: List<Track>, kind: String, lead: (Int) -
                     SongMenu(menu, RowPlace(songs, i, kind, queueIndex = queueAt?.invoke(i) ?: -1), picks, { menu = null; menuAt = -1 }, queueAt)
             }
         }
+    }
+    WToTop(listState)
+    }
+}
+
+/** ↑ Top: back to the top of a widget's list, once it's scrolled down from there (as Now playing's in the app). */
+@Composable
+private fun BoxScope.WToTop(state: androidx.compose.foundation.lazy.LazyListState) {
+    val down by remember(state) { androidx.compose.runtime.derivedStateOf { state.firstVisibleItemIndex > 0 } }
+    if (!down) return
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Row(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 6.dp).clip(RoundedCornerShape(50))
+        .background(Color.Black.copy(alpha = 0.55f)).clickable { scope.launch { state.scrollToItem(0) } }
+        .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Ico.UP, W, 14.dp)
+        Text(" Top", style = T.tab.copy(color = W, fontWeight = FontWeight.SemiBold))
     }
 }
 
@@ -701,7 +720,7 @@ private fun listLook(p: Playlist): Pair<Any?, String> = remember(p.id, p.updated
 @Composable
 private fun ColumnScope.NowAndQueue() {
     NowPlayingTop()
-    val upNext = Music.queue.withIndex().drop(Music.index + 1).take(300)
+    val upNext = Music.queue.withIndex().drop(Music.index + 1)   // the whole queue (it had stopped at 300)
     WHeader("Up next")
     if (upNext.isEmpty()) Text("Nothing queued after this song", style = wSub)
     val songs = remember(upNext) { upNext.map { it.value } }
@@ -946,9 +965,8 @@ private fun ColumnScope.ReleasesWidget() {
     val favs = nr.favorites()
     val list = remember(nr.found, nr.told, range, kind, hideDeezer, favOnly, favs, org.omarchy.music.ReleaseLookup.version) {
         val since = today.minusDays(nr.RANGES[range] ?: 30L)
-        DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, 200)
+        DesktopWidgetRules.newest(nr.told + nr.found, { nr.key(it) }, { it.date }, Int.MAX_VALUE)   // every one (the widget had stopped at 60)
             .filter { r -> (kind == "all" || r.type == kind) && nr.shown(r) && (!favOnly || nr.isFavorite(r.artist)) && runCatching { !java.time.LocalDate.parse(r.date.take(10)).isBefore(since) }.getOrDefault(true) }
-            .take(60)
     }
     val kinds = mapOf("single" to "Single", "ep" to "EP", "album" to "Album")
     WHeader("New releases") { Instance.act(listOf("show", "new releases")) }
@@ -1014,7 +1032,9 @@ private fun ColumnScope.ReleasesWidget() {
         WPill("Options", strong = true) { options(picks.at.first()) }
         WPill("Clear") { picks.at.clear() }
     }
-    LazyColumn(Modifier.weight(1f)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    Box(Modifier.weight(1f)) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState) {
         items(list.size, key = { nr.key(list[it]) }) { i ->
             val r = list[i]
             org.omarchy.music.ReleaseLookup.version   // (read: the row says where it plays from as soon as that's known)
@@ -1051,6 +1071,8 @@ private fun ColumnScope.ReleasesWidget() {
                         "Hide ${r.artist} (unfollow)" to { org.omarchy.music.Follows.unfollow(listOf(r.artist)) }))
             }
         }
+    }
+    WToTop(listState)
     }
 }
 

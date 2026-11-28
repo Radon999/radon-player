@@ -39,7 +39,7 @@ class ReleasesWidget : AppWidgetProvider() {
     companion object {
         private const val PLAY = "org.omarchy.music.releaseswidget.play"
         private const val NEW_DAY = "org.omarchy.music.releaseswidget.newday"
-        private const val SHOWN = 15
+        private const val SHOWN = Int.MAX_VALUE   // every one in the period (it had stopped at 15)
         private const val CYCLE = "org.omarchy.music.releaseswidget.period"
         /** The widget's own period (a tap on its name changes it): how far back what it shows goes. */
         private const val PERIOD_KEY = "widget_releases_period"

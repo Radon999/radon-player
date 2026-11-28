@@ -21,6 +21,13 @@ class PlayerWidget : AppWidgetProvider() {
         super.onReceive(ctx, intent)
         val act = intent.action ?: return
         if (!act.startsWith(PREFIX)) return
+        // ↑: the queue back at its top (a home screen widget can't tell how far it's scrolled, so the button is always there)
+        if (act == TOP) {
+            val mgr = AppWidgetManager.getInstance(ctx)
+            val ids = mgr.getAppWidgetIds(android.content.ComponentName(ctx, PlayerWidget::class.java))
+            runCatching { mgr.partiallyUpdateAppWidget(ids, RemoteViews(ctx.packageName, R.layout.widget_player).apply { setScrollPosition(R.id.w_queue, 0) }) }
+            return
+        }
         Music.init(ctx)
         // Nothing loaded to play (the music's service gone, the app closed): Play, Next, Previous and a tap in the queue
         // start the music without opening the app, as the DJ widget does (WidgetStart); before, the first tap did nothing
@@ -57,6 +64,7 @@ class PlayerWidget : AppWidgetProvider() {
         const val SHUFFLE = PREFIX + "shuffle"; const val REPEAT = PREFIX + "repeat"
         const val SONG = PREFIX + "song"; const val QUEUE = PREFIX + "queue"; const val PLAY_AT = PREFIX + "at"
         const val VOL_DOWN = PREFIX + "voldown"; const val VOL_UP = PREFIX + "volup"
+        const val TOP = PREFIX + "top"
         private const val MODE = "widget_mode"
 
         internal fun pi(ctx: Context, action: String, code: Int) = PendingIntent.getBroadcast(ctx, code,
@@ -93,6 +101,7 @@ class PlayerWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.w_repeat, pi(ctx, REPEAT, 5))
             v.setOnClickPendingIntent(R.id.w_tab_song, pi(ctx, SONG, 6))
             v.setOnClickPendingIntent(R.id.w_tab_queue, pi(ctx, QUEUE, 7))
+            v.setOnClickPendingIntent(R.id.w_top, pi(ctx, TOP, 9))
             v.setOnClickPendingIntent(R.id.w_tab_open, open)
             v.setOnClickPendingIntent(R.id.w_cover, open)
             v.setFloat(R.id.w_tab_song, "setAlpha", if (mode == "song") 1f else 0.55f)
@@ -100,6 +109,7 @@ class PlayerWidget : AppWidgetProvider() {
             val queue = mode == "queue"
             v.setViewVisibility(R.id.w_big, if (queue) android.view.View.GONE else android.view.View.VISIBLE)
             v.setViewVisibility(R.id.w_queue, if (queue) android.view.View.VISIBLE else android.view.View.GONE)
+            v.setViewVisibility(R.id.w_top, if (queue && Music.shownQueue().size > Music.shownIndex() + 2) android.view.View.VISIBLE else android.view.View.GONE)
             v.setViewVisibility(R.id.w_empty, if (queue && Music.shownQueue().size <= Music.shownIndex() + 1) android.view.View.VISIBLE else android.view.View.GONE)
             v.setRemoteAdapter(R.id.w_queue, Intent(ctx, PlayerWidgetRows::class.java))
             v.setPendingIntentTemplate(R.id.w_queue, PendingIntent.getBroadcast(ctx, 8, Intent(ctx, PlayerWidget::class.java).setAction(PLAY_AT),
@@ -119,7 +129,7 @@ class PlayerWidgetRows : RemoteViewsService() {
         override fun onCreate() {}
         override fun onDataSetChanged() {
             Music.init(applicationContext)
-            rows = Music.shownQueue().withIndex().drop(Music.shownIndex() + 1).take(100).map { it.index to it.value }
+            rows = Music.shownQueue().withIndex().drop(Music.shownIndex() + 1).map { it.index to it.value }
         }
         override fun onDestroy() {}
         override fun getCount() = rows.size

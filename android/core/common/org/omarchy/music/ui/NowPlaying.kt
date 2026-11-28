@@ -39,6 +39,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -818,7 +821,8 @@ private fun QueuePane(ui: Ui, n: Now) {
         val queued = (start until q.size).filter { q[it].queued }
         val rest = (start until q.size).filter { !q[it].queued }
         val list = rememberLazyListState()
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), state = list) {
             // The DJ's queue: what it said, the category and its stat, as on the DJ tab
             if (!n.remote && djQueueOn()) item("dj") { DjQueueNote(WHITE, SOFT, WHITE) }
             if (!n.remote && Music.queueUndoLabel.isNotEmpty()) item("undo") { QueueUndo() }
@@ -856,6 +860,19 @@ private fun QueuePane(ui: Ui, n: Now) {
                 }
             }
             item("end") { Spacer(Modifier.height(12.dp)) }
+        }
+        // ↑ Top: back to the top of the queue, once it's scrolled down from there
+        val down by remember(list) { derivedStateOf { list.firstVisibleItemIndex > 0 } }
+        if (down) {
+            val scope = rememberCoroutineScope()
+            Row(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 10.dp).clip(RoundedCornerShape(50))
+                .background(Color.Black.copy(alpha = 0.5f)).clickable { scope.launch { list.animateScrollToItem(0) } }
+                .semantics { contentDescription = "Back to the top of the queue" }
+                .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Ico.UP, WHITE, 16.dp)
+                Text(" Top", style = T.body.copy(color = WHITE, fontWeight = FontWeight.SemiBold))
+            }
+        }
         }
     }
 }

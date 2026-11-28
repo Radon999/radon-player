@@ -43,6 +43,9 @@
             android:divider="@null" android:dividerHeight="0dp" />
         <TextView android:id="@+id/w_empty" android:layout_width="match_parent" android:layout_height="match_parent"
             android:gravity="center" android:textSize="13sp" android:textColor="#FFFFFFFF" android:alpha="0.7" android:text="Nothing up next" />
+        <ImageButton android:id="@+id/w_top" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="bottom|end"
+            android:layout_margin="4dp" android:background="@drawable/w_round" android:src="@drawable/w_up" android:padding="8dp"
+            android:scaleType="fitCenter" android:contentDescription="Back to the top of the queue" />
         <ImageView android:id="@+id/w_big" android:layout_width="match_parent" android:layout_height="match_parent"
             android:scaleType="fitCenter" android:visibility="gone" android:contentDescription="Cover" />
     </FrameLayout>
