@@ -49,10 +49,11 @@ class VisualizerWidget : AppWidgetProvider() {
 
     companion object {
         private const val BARS = PhoneWidgetRules.VIZ_BARS
-        /** The picture's largest size (pixels): drawn at the widget's own size up to this, so it's sharp without each
-         *  frame (in full colour) growing heavy on a big widget. */
-        private const val MAX_W = 360
-        private const val MAX_H = 200
+        /** The picture's most pixels: drawn at the widget's own size up to this many, so each frame (in full colour,
+         *  sent to the home screen several times a second) stays light enough to send. Always in the widget's own
+         *  shape: it was capped at 360 by 200 whatever the widget's shape, and a tall widget stretched it five times up
+         *  and twice across (fat bars, a circle an oval, blurred and faded). */
+        private const val MAX_PIXELS = 90_000   // (about 350 KB a frame: Android takes up to about 500 KB at a time)
 
         /** A Visualizer widget on the home screen (Compose state: [follow] waits on it). */
         var present by mutableStateOf(false)
@@ -106,8 +107,9 @@ class VisualizerWidget : AppWidgetProvider() {
         }
 
         /** The picture's size (pixels): the visualizer's place in the largest widget as it's sized now (its edges and
-         *  the song's line under it taken off), at the screen's own pixels, up to [MAX_W] by [MAX_H]; and its pixels to a
-         *  dp (the screen's density, less where the picture is made smaller), for the lines' widths in the drawing. */
+         *  the song's line under it taken off), at the screen's own pixels, or as many as [MAX_PIXELS] allows in the same
+         *  shape; and its pixels to a dp (the screen's density, less where the picture is made smaller), for the lines'
+         *  widths in the drawing. */
         private fun size(ctx: Context, ids: IntArray): Triple<Int, Int, Float> {
             val mgr = AppWidgetManager.getInstance(ctx)
             val portrait = ctx.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
@@ -119,9 +121,12 @@ class VisualizerWidget : AppWidgetProvider() {
             }
             if (wDp <= 0 || hDp <= 0) { wDp = 250; hDp = 110 }
             val d = ctx.resources.displayMetrics.density
-            val w = ((wDp - 24) * d).toInt().coerceIn(48, MAX_W)
-            val h = ((hDp - 24 - 46 - 32) * d).toInt().coerceIn(16, MAX_H)   // (the song's line, and the volume row under it)
-            return Triple(w, h, minOf(d, w / maxOf(1f, wDp - 24f), h / maxOf(1f, hDp - 102f)).coerceAtLeast(0.5f))
+            val placeW = (wDp - 24f).coerceAtLeast(24f); val placeH = (hDp - 24f - 46f - 32f).coerceAtLeast(12f)   // (the song's line, and the volume row under it)
+            // the screen's pixels, or fewer in the same shape (one scale both ways: never stretched one way more)
+            val scale = minOf(d, kotlin.math.sqrt(MAX_PIXELS / (placeW * placeH)))
+            val w = (placeW * scale).toInt().coerceAtLeast(48)
+            val h = (placeH * scale).toInt().coerceAtLeast(16)
+            return Triple(w, h, scale.coerceAtLeast(0.5f))
         }
 
         /** The levels at rest, or swaying slowly (phase moves them along): gentle, low. */
