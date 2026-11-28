@@ -3,6 +3,7 @@
 What's new in each update of Radon Player, the newest at the top, from 4.0 on. Everything the app does is in **Features**; what the versions before 4.0 changed is kept on GitHub (CHANGELOG.md).
 
 ## 5.3.1 · November 2026
+- **↓ Back works again after ↑ Top (every list, the phone and the PC):** tapping ↓ Back did nothing: the moment it was tapped both buttons went away, and they took the scroll they had just started with them.
 - **The phone's Visualizer widget is gone:** a home screen widget can't be redrawn fast enough to look good, so it was taken out. If you had one on your home screen, Android shows an empty or “can't load” box in its place: hold it and remove it. The Visualizer tab and Now playing's visualizer are as they were, and the PC keeps its Visualizer widget. Battery saver now only holds the scans back.
 - **Sync album covers (Settings › Remote & sync, the phone and the PC):** a switch right above Sync with phone / PC. Off, a sync leaves album covers alone and is done much sooner (comparing every cover took a while even when they already matched). Turn it on for the one sync where you've changed covers; the switch on the device where you tap Sync now is the one that counts. Covers you pick yourself (Cover…) still go across as before.
 - **Preview a sync says why it couldn't look:** the PC not open, the phone not answering, or an older PC app, in its own box with Try again (it ended without a word).

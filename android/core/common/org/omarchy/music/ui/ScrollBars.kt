@@ -92,8 +92,11 @@ fun androidx.compose.foundation.layout.BoxScope.ListJumps(state: LazyListState) 
             if (i < w.first) left.value = true else if (left.value) { wasState.value = null; left.value = false }
         }
     }
-    if (!down && !above) return
+    // (made before the buttons can go: ↓ Back clears where you were, and with the list at its top both buttons go at
+    // once. Made after this line, the scope went with them and took the scroll it had just started with it: ↓ Back did
+    // nothing)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    if (!down && !above) return
     @Composable fun pill(ico: Ico, text: String, desc: String, go: () -> Unit) =
         androidx.compose.foundation.layout.Row(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
             .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)).clickable(onClick = go)
