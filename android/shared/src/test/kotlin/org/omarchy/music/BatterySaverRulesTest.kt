@@ -12,11 +12,6 @@ class BatterySaverRulesTest {
         assertFalse(R.on(false, false)); assertTrue(R.on(true, false)); assertTrue(R.on(false, true))
     }
 
-    @Test fun theVisualizerWidgetDrawsHalfAsOftenWhileSaving() {
-        assertEquals(30, (1000 / R.vizFrameMs(false)).toInt())
-        assertEquals(15, (1000 / R.vizFrameMs(true)).toInt())
-    }
-
     @Test fun scansWaitOnlyOnBatteryAndOnlyWhileSaving() {
         assertTrue(R.holdsScans(saving = true, pluggedIn = false))
         assertFalse(R.holdsScans(saving = true, pluggedIn = true))

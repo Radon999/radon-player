@@ -1196,15 +1196,14 @@ private fun SlowFramesLine() {
     }
 }
 
-/** Battery saver: the Visualizer widget at half its frames, and the scans that listen to or look up every song wait
- *  until the device is plugged in. Each device's own. */
+/** Battery saver: the scans that listen to or look up every song wait until the device is plugged in. Each device's own. */
 @Composable
 private fun BatterySaverLine() {
     var on by remember { mutableStateOf(org.omarchy.music.Prefs.on(org.omarchy.music.BatterySaverRules.PREF)) }
     val sys = remember { runCatching { org.omarchy.music.Power.systemSaver() }.getOrDefault(false) }
-    Line("Battery saver", (if (onPhone) "The Visualizer widget draws 15 times a second for 30, and the lyrics, mood and listening scans wait until the phone is plugged in. " +
+    Line("Battery saver", (if (onPhone) "The lyrics, mood and listening scans wait until the phone is plugged in. " +
             "It also comes on by itself while the phone's own battery saver is on" + (if (sys) " (as now)" else "")
-        else "The lyrics, mood and listening scans wait until a laptop is plugged in (a desktop PC always is). The phone's has more to save: its widget draws half as often too"),
+        else "The lyrics, mood and listening scans wait until a laptop is plugged in (a desktop PC always is)"),
         on || sys) {
         Switch(on, { on = it; org.omarchy.music.Prefs.set(org.omarchy.music.BatterySaverRules.PREF, it) }, colors = swColors())
     }
@@ -1913,9 +1912,10 @@ private fun WidgetLines() {
     Line("Widgets in the app's look", "On: every one of your $widgets wears the app's look: the preset's when one is on, " +
         "else the look you picked (its background, writing and accent; the Now playing look in the cover's colours). Only " +
         "the look: no effects or moving backgrounds. Off: the colour of the cover playing, as always. Your phone and PC share " +
-        "this and the Visualizer widget's choices", look, note = if (look) WidgetLook.copying() else "") {
+        "this", look, note = if (look) WidgetLook.copying() else "") {
         Switch(look, { look = it; org.omarchy.music.Prefs.set(WidgetLook.LOOK, it) }, colors = swColors())
     }
+    if (onPhone) return   // (the Visualizer widget is the PC's: the phone has none)
     Line("Visualizer widget", "What the Visualizer widget shows. Same as Now playing (the first choice) follows Now playing's " +
         "visualizer, and its Dual bottom one, whenever you change it there; Now playing's Off shows the Visualizer tab's. " +
         "Or pick one for the widget alone", false) {

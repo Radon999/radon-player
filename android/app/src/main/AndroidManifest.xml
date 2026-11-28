@@ -127,10 +127,6 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_releases" />
         </receiver>
         <service android:name=".ReleasesWidgetRows" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
-        <receiver android:name=".VisualizerWidget" android:exported="false" android:label="Visualizer">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_visualizer" />
-        </receiver>
 
         <!-- The lock screen player (see LockScreen.kt). -->
         <activity

@@ -89,38 +89,4 @@ object PhoneWidgetRules {
             else -> day()
         }
     }
-
-    // ---- the Visualizer widget ----
-
-    /** About 30 frames a second: as smooth as video (8 a second, as it was, looked choppy), and as near the app's own
-     *  rate as a home screen widget gets: each frame is a picture handed to the home screen, which drops or delays
-     *  them past this. It only runs on the home screen while music plays, and rests after [VIZ_RUN_MS]. */
-    const val VIZ_FRAME_MS = 33L
-    const val VIZ_BARS = 24
-    /** The longest the bars move at a time (ms): Android can't tell an app whether the home screen itself is showing
-     *  (another app may be in front with the phone unlocked), so after this they rest until the screen, the music or the
-     *  song changes. */
-    const val VIZ_RUN_MS = 5 * 60_000L
-
-    /** The bars move only while all of these hold: a Visualizer widget on the home screen, the screen on and the phone
-     *  unlocked (screenOn), the app not in front (its own visualizer then), and music playing. Otherwise nothing is
-     *  captured or drawn at all. */
-    fun vizLive(present: Boolean, screenOn: Boolean, appShown: Boolean, playing: Boolean) = present && screenOn && !appShown && playing
-
-    /** n bars from the spectrum's bands (Spectrum.bands: low to high, 0..1): each bar the loudest of its share of them. */
-    fun bars(bands: FloatArray, n: Int): FloatArray {
-        if (n <= 0 || bands.isEmpty()) return FloatArray(maxOf(0, n))
-        return FloatArray(n) { i ->
-            val from = i * bands.size / n
-            val to = maxOf(from + 1, (i + 1) * bands.size / n).coerceAtMost(bands.size)
-            var m = 0f
-            for (k in from until to) m = maxOf(m, bands[k])
-            m.coerceIn(0f, 1f)
-        }
-    }
-
-    /** The bars shown next: a bar goes up at once with the music, and comes down gently (keep: how much of its height it
-     *  keeps each frame), so they don't flicker at a few frames a second. */
-    fun fall(shown: FloatArray, now: FloatArray, keep: Float = 0.7f): FloatArray =
-        FloatArray(now.size) { i -> maxOf(now[i], shown.getOrElse(i) { 0f } * keep) }
 }

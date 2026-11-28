@@ -4,6 +4,9 @@ Radon Player started as **Omarchy Music** (later called VarMusic), made by Xavie
 Radon999 forked it in 1.1.x and carries it on here as Radon Player. The full history of both is kept
 in this repository, so `git log` shows where every feature came from.
 
+## 5.3.1: The phone's Visualizer widget taken out (Android, Windows and Linux)
+- **The phone's Visualizer widget is gone:** a home screen widget can't be redrawn fast enough to look good, so it was taken out. If you had one on your home screen, Android shows an empty or “can't load” box in its place: hold it and remove it. The Visualizer tab and Now playing's visualizer are as they were, and the PC keeps its Visualizer widget. Battery saver now only holds the scans back.
+
 ## 5.3.0: The big check-up, and eleven new things (Android, Windows and Linux)
 - **Downloads carry on after a restart, and the ones that didn't come are kept (the phone and the PC):** songs still waiting to download when the app closes are picked up again the next time it opens. Songs that failed or couldn't be found are listed at the top of **Downloads**, each with why, with **Try again** (all, or one by a tap) and **Clear**. Before, both were forgotten the moment the app closed.
 - **Battery saver (Settings › General):** the phone's Visualizer widget draws 15 times a second for 30, and the lyrics, mood and listening scans wait until the device is plugged in. On the phone it also comes on by itself while Android's own battery saver is on. On the PC it only holds the scans back on a laptop running on its battery (a desktop PC is always plugged in, and the PC has no home-screen widget to slow).

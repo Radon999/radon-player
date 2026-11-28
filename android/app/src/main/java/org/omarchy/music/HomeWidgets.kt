@@ -30,8 +30,7 @@ import kotlinx.coroutines.launch
 
 /** What the home screen widgets share: their look (the playing song's cover colour, a little see-through, rounded, with
  *  white writing: the first widget's), the taps that open the app at a place (see ui.AppLinks), and keeping them all up
- *  to date while the music's service runs (the song, the queue, the DJ, your playlists and pins, the Lyrics widget's line,
- *  the Visualizer's bars). */
+ *  to date while the music's service runs (the song, the queue, the DJ, your playlists and pins, the Lyrics widget's line). */
 object HomeWidgets {
     /** MainActivity's extra: a place to open (ui.AppLinks says which). */
     const val OPEN = "org.omarchy.music.open"
@@ -89,22 +88,12 @@ object HomeWidgets {
         return c
     }
 
-    /** A light shade of the cover's own colour, for what's drawn on the background (the Visualizer widget's bars). */
-    fun accent(): Int {
-        copied()?.let { return it.accent.toArgb() }
-        val hsl = FloatArray(3)
-        ColorUtils.colorToHSL(colour, hsl)
-        hsl[1] = hsl[1].coerceIn(0.35f, 0.9f)
-        hsl[2] = 0.72f
-        return ColorUtils.HSLToColor(hsl)
-    }
-
     /** The rounded background in the cover's colour: every widget's layout has it as a picture behind everything
      *  (w_bg: the rounded shape, Android 12's own corners there), coloured and made a little see-through here. A picture,
      *  not the layout's own background, so Android 10 and 11 keep the rounded corners too. */
     fun paint(ctx: Context, v: RemoteViews) = paint(ctx, v, deep(ctx), ink())
 
-    /** The same, with the colours worked out already (the Visualizer's, off the main thread): the background, and the
+    /** The same, with the colours worked out already (off the main thread): the background, and the
      *  writing and icons in ink (white, or the look's writing). */
     fun paint(ctx: Context, v: RemoteViews, solid: Int, ink: Int) {
         v.setInt(R.id.w_bg, "setColorFilter", ColorUtils.setAlphaComponent(solid, 0xFF))
@@ -204,7 +193,7 @@ object HomeWidgets {
 
     // ---- keeping them up to date ----
     /** Whether the home screen can be seen at all: the screen on and the phone unlocked (followed while the music's
-     *  service runs), and the app itself not in front. The Lyrics and Visualizer widgets move only then (Compose state:
+     *  service runs), and the app itself not in front. The Lyrics widget moves only then (Compose state:
      *  they wait on it). */
     var unlocked by mutableStateOf(true)
     var appShown by mutableStateOf(false)
@@ -217,7 +206,7 @@ object HomeWidgets {
         if (player) runCatching { PlayerWidget.update(ctx) }
         val each = listOf<(Context) -> Unit>({ ListsWidget.update(it) }, { DjWidget.update(it) }, { PlaylistWidget.update(it) },
             { PinnedWidget.update(it) }, { TopWidget.update(it) }, { WrappedWidget.update(it) }, { LyricsWidget.update(it) },
-            { ReleasesWidget.update(it) }, { VisualizerWidget.update(it) })
+            { ReleasesWidget.update(it) })
         for (u in each) runCatching { u(ctx) }
     }
 
@@ -234,8 +223,8 @@ object HomeWidgets {
     private var screenWatch: BroadcastReceiver? = null
 
     /** (MusicService, as it starts) The widgets follow the music from now: the song, played or paused, the queue, the
-     *  DJ, the lyrics' mode; your playlists, pins and new releases as they change; the Lyrics widget's line and the
-     *  Visualizer widget's bars, while the home screen can be seen. */
+     *  DJ, the lyrics' mode; your playlists, pins and new releases as they change; and the Lyrics widget's line, while the
+     *  home screen can be seen. */
     fun follow(svc: Service) {
         stop(svc)
         val pm = svc.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
@@ -296,14 +285,14 @@ object HomeWidgets {
             Music.scope.launch { AppVisible.flow.collect { appShown = it && appInFront(svc) } },
             // …and checked against how things really are every few seconds: Android's notices aren't to be counted on.
             // The music started from a widget, the lock screen or headphones (the app never opened): "the app in
-            // front" had stayed on, and the Visualizer widget never moved; an unlock missed: "locked" stayed on, and the
+            // front" had stayed on; an unlock missed: "locked" stayed on, and the
             // Lyrics widget kept "Nothing playing" and its visualizer stood still
-            // Only while it can matter: a Lyrics or Visualizer widget is on the home screen (the others don't ask), and the
+            // Only while it can matter: a Lyrics widget is on the home screen (the others don't ask), and the
             // screen is on (off, the screen's own notice says so, and that one is reliable: nothing is asked until it's on
             // again)
             Music.scope.launch {
                 while (true) {
-                    snapshotFlow { LyricsWidget.present || VisualizerWidget.present }.first { it }
+                    snapshotFlow { LyricsWidget.present }.first { it }
                     if (!runCatching { pm.isInteractive }.getOrDefault(true)) {
                         if (unlocked) unlocked = false
                         screenOn.receive()   // (the screen's coming on: sent by the receiver above)
@@ -327,16 +316,14 @@ object HomeWidgets {
                 changes.collectLatest { delay(250); runCatching { updateAll(svc) } }
             },
             // Widgets in the app's look: drawn again as the look changes (a preset put on, another look picked, the
-            // switch itself), and as the Visualizer widget's choices change
+            // switch itself)
             Music.scope.launch {
-                snapshotFlow { listOf(org.omarchy.music.ui.WidgetLook.copyLook(), copied()?.let { listOf(it.bg, it.fg, it.accent, it.gradient) },
-                    Prefs.text(org.omarchy.music.ui.WidgetLook.VIS), Prefs.text(org.omarchy.music.ui.WidgetLook.VIS_COLOR)) }.drop(1).collectLatest {
+                snapshotFlow { listOf(org.omarchy.music.ui.WidgetLook.copyLook(), copied()?.let { listOf(it.bg, it.fg, it.accent, it.gradient) }) }.drop(1).collectLatest {
                     delay(300)
                     runCatching { updateAll(svc) }
                 }
             },
             Music.scope.launch { LyricsWidget.follow(svc) },
-            Music.scope.launch { VisualizerWidget.follow(svc) },
         )
     }
 

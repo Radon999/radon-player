@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Sizes: the smallest it can be made still shows all of it (its buttons and writing never cut off). -->
-<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="200dp" android:minHeight="110dp" android:targetCellWidth="4" android:targetCellHeight="2"
-    android:minResizeWidth="160dp" android:minResizeHeight="110dp" android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="0" android:initialLayout="@layout/widget_visualizer" android:previewLayout="@layout/widget_visualizer"
-    android:widgetCategory="home_screen" android:description="@string/widget_visualizer_description" />
