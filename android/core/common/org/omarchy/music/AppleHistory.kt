@@ -90,7 +90,14 @@ object AppleHistory {
         // (a day's count has the whole day as its "length": that isn't how long the song played, so it carries none.
         // Counted as a length, your Apple Music days made Wrapped's minutes and the listening times many times too big.)
         val ms = if (r.count > 1 || r.ms >= 86_400_000L) 0L else r.ms
-        List(r.count) { SpotifyHistory.Play(r.t, r.artist, r.title, r.album, ms) }
+        if (r.ms >= 86_400_000L) {
+            // A day's count ("Daily Tracks": the day only, kept as its midnight in UTC): on that day where you are, and
+            // spread over it. They had all been at UTC midnight: the evening before west of London (the wrong day for the
+            // busiest day, a streak, New Year's), and every one in a single hour (making you a Night owl)
+            val day = java.time.Instant.ofEpochSecond(r.t).atZone(ZoneOffset.UTC).toLocalDate()
+            val from = day.atStartOfDay(java.time.ZoneId.systemDefault()).toEpochSecond()
+            List(r.count) { i -> SpotifyHistory.Play(from + ((i + 0.5) * 86_400 / r.count).toLong(), r.artist, r.title, r.album, ms) }
+        } else List(r.count) { SpotifyHistory.Play(r.t, r.artist, r.title, r.album, ms) }
     }
 
     /** Add rows; one you have already (the same song at the same time) keeps the higher count. How many plays were new. */

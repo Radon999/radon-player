@@ -63,8 +63,11 @@ object RepeatFactsRules {
         }
         val hours = IntArray(24)
         for ((k, n) in s.hours) { val (m, h) = k.split("|").let { (it.getOrNull(0) ?: "") to (it.getOrNull(1)?.toIntOrNull() ?: -1) }
-            if (h in 0..23 && (from.isEmpty() || m >= from.take(7)) && (to.isEmpty() || m <= to.take(7))) hours[h] += n }
-        val best = counts.map { it.first }.filter { it.best >= 2 && (it.bestDay.isEmpty() || inside(it.bestDay, from, to)) }.maxByOrNull { it.best }
+            // (hours are kept by the month: a month counts when it begins before to, which is the day after the end; it had
+            // taken in the whole month after an October's or a year's too)
+            if (h in 0..23 && (from.isEmpty() || m >= from.take(7)) && (to.isEmpty() || "$m-01" < to)) hours[h] += n }
+        // (a run with no day kept, from before days were: only in all time, not in any period)
+        val best = counts.map { it.first }.filter { it.best >= 2 && (if (it.bestDay.isEmpty()) from.isEmpty() && to.isEmpty() else inside(it.bestDay, from, to)) }.maxByOrNull { it.best }
         val artists = counts.groupBy { lead(it.first.track.artist) }.map { (a, ls) -> a to ls.sumOf { it.second } }.sortedByDescending { it.second }
         val day = byDay.maxByOrNull { it.value }
         fun secs(t: Track) = t.duration.takeIf { it > 0 } ?: length(t).takeIf { it > 0 } ?: USUAL_SECONDS

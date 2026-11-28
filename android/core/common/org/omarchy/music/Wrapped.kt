@@ -121,6 +121,8 @@ object Wrapped {
             is Year -> LocalDate.of(year + 1, 1, 1); is Month -> month.plusMonths(1).atDay(1)
             is Week -> monday.plusDays(7); All -> LocalDate.now().plusDays(1)
         }
+        /** The one just before (the year, month or week before); none before All time. */
+        fun before(): Period? = when (this) { is Year -> Year(year - 1); is Month -> Month(month.minusMonths(1)); is Week -> Week(monday.minusDays(7)); All -> null }
         /** "2026", "October 2026", "Week of Oct 19–25", "All time". */
         val name: String get() = when (this) {
             is Year -> "$year"; is Month -> "${Wrapped.MONTH_NAMES[month.monthValue - 1]} ${month.year}"
@@ -215,6 +217,7 @@ object Wrapped {
         val notAlbums = (d.singles + d.eps).map { releaseKey(it.name, it.artist) }.toSet()
         val albumsOnly = d.albums.filter { a -> releaseKey(a.name, a.artist) !in notAlbums && !Regex("(?i)[-–(\\[]\\s*(single|ep)\\s*[)\\]]?\\s*$").containsMatchIn(a.name) }
         if (!StatHides.any) return d.copy(songs = d.songs.take(TOP), albums = albumsOnly.take(TOP), singles = d.singles.take(TOP),
+            milestones = d.milestones.take(MILESTONES_SHOWN),
             eps = d.eps.take(TOP), discovered = d.discovered.take(TOP), newArtists = d.newArtists.take(TOP),
             log = d.log.copy(searched = d.log.searched.take(TOP)), loops = loops)
         val top = artists.firstOrNull()?.first
@@ -226,8 +229,10 @@ object Wrapped {
             eps = d.eps.filter { !album(it.name, it.artist) }.take(TOP),
             discovered = d.discovered.filter { !song(it.title, it.artist) }.take(TOP),
             newArtists = d.newArtists.filter { !artist(it.first) }.take(TOP),
-            milestones = d.milestones.filter { if (it.what == "artist") !artist(it.name) else !song(it.name, it.artist) },
-            topArtistSong = if (top == d.artists.firstOrNull()?.first) d.topArtistSong else top?.let { d.artistSongs[it] },
+            milestones = d.milestones.filter { if (it.what == "artist") !artist(it.name) else !song(it.name, it.artist) }.take(MILESTONES_SHOWN),
+            // the top artist's most played song: not one you hid
+            topArtistSong = (if (top == d.artists.firstOrNull()?.first) d.topArtistSong else top?.let { d.artistSongs[it] })
+                ?.takeIf { top == null || !song(it.first, top) },
             dayRepeat = (if (d.dayRepeats.isEmpty()) listOfNotNull(d.dayRepeat) else d.dayRepeats).firstOrNull { !song(it.song.title, it.song.artist) },
             monthTops = if (d.monthArtists.isEmpty()) d.monthTops.filter { !artist(it.second) }
                 else d.monthArtists.mapIndexedNotNull { m, names -> names.firstOrNull { !artist(it) }?.let { m to it } },
@@ -262,6 +267,10 @@ object Wrapped {
     /** A release by its name and lead artist, as the top lists compare them ("Yesterday - Single" is "Yesterday"). */
     private fun releaseKey(name: String, artist: String) =
         norm(cleanTitle(bareRelease(name))) + "|" + norm(splitArtists(artist).firstOrNull()?.ifEmpty { null } ?: artist)
+
+    /** Wrapped's milestones: six shown, from a few more kept (so a hidden one's place is taken). */
+    const val MILESTONES_SHOWN = 6
+    private const val MILESTONES_KEPT = 30
 
     /** A repeated song's length: your copy's (a repeat found in your Last.fm history kept none). */
     private val loopLength: (Track) -> Double = { t -> runCatching { Music.mineOf(t).duration }.getOrDefault(0.0) }
@@ -420,8 +429,12 @@ object Wrapped {
         val timed = all.sumOf { it.ms } / 1000.0
         val rows = all.filter { it.ms == 0L }
         val known = HashMap<String, Double>()
+        // your songs' own lengths: your files' and the downloads', by the lead artist (it had been the downloads' only)
+        fun lead(a: String) = norm(a.split(",")[0])
+        for (e in runCatching { Music.mySongs() }.getOrDefault(emptyList())) if (e.duration > 0)
+            known.putIfAbsent("${lead(e.artist)}|${norm(cleanTitle(e.title))}", e.duration)
         for (e in Music.lib.items.values.toList()) if (e.duration > 0)
-            known["${norm(e.artist.split(",")[0])}|${norm(cleanTitle(e.title))}"] = e.duration
+            known.putIfAbsent("${lead(e.artist)}|${norm(cleanTitle(e.title))}", e.duration)
         val file = File(dir, "durations.json")
         val cache = readText(file)?.let { runCatching { JSON.decodeFromString(durSer, it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf()
         val plays = rows.groupingBy { it.artist to it.title }.eachCount()
@@ -429,7 +442,8 @@ object Wrapped {
         var asked = 0
         for ((k, _) in plays.entries.sortedByDescending { it.value }) {
             val key = "${norm(k.first)}|${norm(cleanTitle(k.second))}"
-            var sec = known[key] ?: cache[key]
+            // (the play's lead artist: a play of "A, B" is your file's of A)
+            var sec = known["${lead(k.first)}|${norm(cleanTitle(k.second))}"] ?: known[key] ?: cache[key]
             if (sec == null && asked < 80 && LastFm.key.isNotEmpty() && !lastFmDown) {   // Last.fm, for your most played; one request each
                 asked++
                 sec = runCatching { LastFm.duration(k.first, k.second) }.getOrDefault(0.0)
@@ -645,6 +659,8 @@ object Wrapped {
                 albums = LastFm.top("album", TOP + SPARE).map { AlbumPlays(it.name, it.artist, it.plays, it.image) },
                 minutes = Math.round(me.playcount * 3.5).toInt())   // about three and a half minutes a song
             rows = localRows(keptScrobbles(ctx).sortedBy { it.t }, local)   // what's kept here already, for the pages worked out from plays
+                // (less what you hid from your stats, as every other count here)
+                .let { rs -> if (StatHides.any) rs.filter { !StatHides.play(it.title, it.artist, it.album) } else rs }
             if (rows.isNotEmpty()) {
                 val y = yearStats(base, rows)
                 data = data.copy(hours = y.hours, weekdays = y.weekdays, streak = y.streak, days = y.days, busiest = y.busiest,
@@ -652,7 +668,9 @@ object Wrapped {
             }
         } else {
             rows = if (period == Period.All)
-                withSpotify(if (fm) years.reversed().flatMap { scrobbles(dir, Period.Year(it), progress) } else emptyList(), Long.MIN_VALUE, Long.MAX_VALUE)
+                // (every scrobble, as Most played counts them: from before the year you joined too, the ones imported
+                // into Last.fm; it had started at that year, and All time came out lower than Most played)
+                withSpotify(if (fm) allScrobbles(ctx, progress).sortedBy { it.t } else emptyList(), Long.MIN_VALUE, Long.MAX_VALUE)
             else withSpotify(if (fm) scrobbles(dir, period, progress) else emptyList(), epoch(period.start()), epoch(period.end()))
             if (rows.isEmpty() && undated.isEmpty()) return base.copy(empty = true)
             rows = localRows(rows, local)
@@ -670,10 +688,12 @@ object Wrapped {
                     counts.toList()
                 }
                 progress("Comparing with before…")
-                val length = naturalEnd - start   // as far into the period before as this one has gone
+                // The month (year, week) before itself, as far into it as this one has gone: it had looked back this one's
+                // length (February set beside Jan 4 – Feb 1, March beside Jan 29 – Mar 1)
                 // (the time before counted as this one is: Last.fm's plays and your imports', so like is set beside like.
                 // It was Last.fm's alone, beside a count that had the imports in it.)
-                val prevFrom = start - length; val prevTo = start - length + (end - start)
+                val before = period.before() ?: period
+                val prevFrom = epoch(before.start()); val prevTo = minOf(epoch(before.end()), prevFrom + (end - start))
                 val prevImported = imported().count { it.t in prevFrom until prevTo }
                 val prev = if (fm && !lastFmDown) runCatching { LastFm.count(prevFrom, prevTo) }.getOrNull()?.let { it + prevImported }
                     else if (!fm && prevImported > 0) prevImported else null
@@ -686,13 +706,14 @@ object Wrapped {
             }
             progress("Adding up your minutes…")
             data = data.copy(minutes = minutes(dir, rows + undated))
-            if (period == Period.All) allTimeMilestones = runCatching { milestonesOf(rows, undated) }.getOrNull()
+            if (period == Period.All) allTimeMilestones = runCatching { milestonesOf(rows, undated, MILESTONES_KEPT) }.getOrNull()
         }
         data = data.copy(milestones = runCatching {
             // All time: from the very plays this Wrapped counted, so a milestone is never behind the play counts shown
             // beside it (the owner's phone said 1,000 plays of an artist its own pages gave 12,325)
-            if (period == Period.All) allTimeMilestones.also { allTimeMilestones = null } ?: Stats.periodMilestones(0, Long.MAX_VALUE)
-            else Stats.periodMilestones(epoch(period.start()), epoch(period.end()))
+            // (more than the six shown: one you hid is left out when it's shown, and the next takes its place)
+            if (period == Period.All) allTimeMilestones.also { allTimeMilestones = null } ?: Stats.periodMilestones(0, Long.MAX_VALUE, MILESTONES_KEPT)
+            else Stats.periodMilestones(epoch(period.start()), epoch(period.end()), MILESTONES_KEPT)
         }.getOrDefault(emptyList()))
         progress("Finding your genres…")
         data = data.copy(genres = genres(dir, data.artists))
@@ -826,8 +847,12 @@ object Wrapped {
      *  your imports, the plays here) tells when you first played each. Only when that history goes back further. */
     private fun firsts(ctx: Ctx, d: Data, rows: List<Row>, start: Long): Data {
         val firstSong = HashMap<Pair<String, String>, Long>(); val firstArtist = HashMap<String, Long>()
-        fun see(t: Long, title: String, artist: String) {
+        // Under the names the period's plays have (your own copy's: a song a history has under someone else), so a song
+        // you played years ago under another name isn't "new to you"
+        val asYours = runCatching { YourCopies.renamer() }.getOrNull()
+        fun see(t: Long, title0: String, artist0: String) {
             if (t <= 0) return
+            val (title, artist) = asYours?.let { runCatching { it(title0, artist0) }.getOrNull() } ?: (title0 to artist0)
             val ks = Stats.statsKey(title, artist); val ka = ks.second.ifEmpty { artist.lowercase() }
             if (t < (firstSong[ks] ?: Long.MAX_VALUE)) firstSong[ks] = t
             if (t < (firstArtist[ka] ?: Long.MAX_VALUE)) firstArtist[ka] = t

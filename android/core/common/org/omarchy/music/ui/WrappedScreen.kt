@@ -913,7 +913,9 @@ private fun periodSlides(d: Wrapped.Data): List<Slide> {
             Pic(s.pic, 220.dp)
             Text(s.title, style = W.big)
             Text(s.artist, style = W.sub)
-            Text("${n(s.plays)} plays" + (s.first?.let { " · first played on ${day(it, "MMMM d")}" } ?: ""), style = W.small)
+            // (the first play in this time: the first ever only in All time, so it's said as what it is)
+            Text("${n(s.plays)} plays" + (s.first?.let { if (d.period == Wrapped.Period.All) " · first played on ${day(it, "MMMM d, yyyy")}"
+                else " · first this ${d.period.kind} on ${day(it, "MMMM d")}" } ?: ""), style = W.small)
         }
     }
     out += Slide(6) {
@@ -1019,8 +1021,12 @@ private fun allTime(d: Wrapped.Data): List<Slide> {
         Text("minutes", style = W.big)
         Text("That's around ${n(Math.round(d.minutes / 1440.0).toInt())} days of music.", style = W.sub)
         val years = (LocalDate.now().year - d.since + 1).coerceAtLeast(1)
+        // A day's and a year's: over the days since your first play, not whole calendar years (a history begun last
+        // December was two years, and halved both)
+        val days = d.first?.time?.takeIf { it > 0 }?.let { ((System.currentTimeMillis() / 1000 - it) / 86400.0).coerceAtLeast(1.0) } ?: (years * 365.0)
         Stats(listOf(n(d.scrobbles) to "scrobbles", "$years" to "years of history",
-            n(d.scrobbles / years) to "scrobbles a year", n(Math.round(d.minutes / (years * 365.0)).toInt()) to "minutes a day"))
+            n(Math.round(d.scrobbles / (days / 365.0).coerceAtLeast(1.0)).toInt()) to "scrobbles a year",
+            n(Math.round(d.minutes / days).toInt()) to "minutes a day"))
     }
     if (d.fileGenres.isNotEmpty()) out += genreSlide(d)
     else if (d.genres.isNotEmpty()) out += Slide(2) {
